@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This manifest is merged into :app, so :app declares nothing about the widget.
+  Everything the headline feature needs to exist on the home screen is here.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Alarms armed with AlarmManager do not survive a reboot, and the tick alarm
+      is the only thing keeping the countdown honest. Without this the widget
+      would freeze at whatever it said before the phone was switched off.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!--
+      Deliberately NOT requesting SCHEDULE_EXACT_ALARM / USE_EXACT_ALARM: Play
+      restricts them to alarm-clock and calendar apps, and a school diary is
+      neither. WidgetTickScheduler checks canScheduleExactAlarms() and degrades
+      to a one-minute window on API 31+, which is invisible for a lesson
+      countdown. If a distribution channel ever wants exactness, adding the
+      permission in :app upgrades this module automatically — no code change.
+    -->
+
+    <application>
+
+        <!--
+          exported=true is mandatory for an app-widget provider: the launcher is
+          a different process and has to be able to send APPWIDGET_UPDATE.
+        -->
+        <receiver
+            android:name="com.lumenpearson.lessons.widget.LessonsWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_provider_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <!-- Redraw when the system theme flips, so Material You colours follow. -->
+                <action android:name="android.intent.action.CONFIGURATION_CHANGED" />
+                <!-- :core:data fires this after every successful sync. -->
+                <action android:name="com.lumenpearson.lessons.action.DATA_SYNCED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lessons_widget_info" />
+        </receiver>
+
+        <!--
+          The tick receiver is internal plumbing: only our own alarms and a few
+          system broadcasts reach it, so it stays unexported. It is separate from
+          the provider above because GlanceAppWidgetReceiver already consumes
+          goAsync() for the actions it handles, and a BroadcastReceiver can only
+          hand out its PendingResult once.
+        -->
+        <receiver
+            android:name="com.lumenpearson.lessons.widget.tick.WidgetTickReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <!-- A manual clock or timezone change invalidates every armed alarm. -->
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>

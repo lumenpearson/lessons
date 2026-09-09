@@ -1,0 +1,135 @@
+package com.lumenpearson.lessons.core.model
+
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.ZoneId
+
+/** How a whole date deviates from the normal weekly rhythm. */
+enum class DayKind {
+    NORMAL,
+    HOLIDAY,
+    SHORTENED,
+    REMOTE,
+    ;
+
+    companion object {
+        fun fromWire(value: String): DayKind =
+            entries.firstOrNull { it.name.equals(value, ignoreCase = true) } ?: NORMAL
+    }
+}
+
+/** Anything on the day's timeline that is not a lesson. */
+enum class EventKind {
+    EVENT,
+    CANTEEN,
+    EXAM,
+    TRIP,
+    MEETING,
+    ;
+
+    companion object {
+        fun fromWire(value: String): EventKind =
+            entries.firstOrNull { it.name.equals(value, ignoreCase = true) } ?: EVENT
+    }
+}
+
+data class Lesson(
+    val index: Int,
+    val subject: String,
+    val startsAt: LocalTime,
+    val endsAt: LocalTime,
+    val room: String? = null,
+    val teacher: String? = null,
+    val colorHex: String? = null,
+    val isReplaced: Boolean = false,
+    val isCancelled: Boolean = false,
+    val note: String? = null,
+)
+
+data class SchoolEvent(
+    val title: String,
+    val kind: EventKind,
+    val startsAt: LocalTime,
+    val endsAt: LocalTime,
+    val location: String? = null,
+    val coversLesson: Boolean = false,
+)
+
+data class HomeworkItem(
+    val subject: String,
+    val text: String,
+    val attachmentUrl: String? = null,
+)
+
+data class SchoolDay(
+    val date: LocalDate,
+    val weekday: Int,
+    val kind: DayKind = DayKind.NORMAL,
+    val lessons: List<Lesson> = emptyList(),
+    val events: List<SchoolEvent> = emptyList(),
+    val homework: List<HomeworkItem> = emptyList(),
+    val note: String? = null,
+) {
+    /** Lessons that actually take place, in timeline order. */
+    val activeLessons: List<Lesson>
+        get() = lessons.filterNot { it.isCancelled }.sortedBy { it.startsAt }
+
+    val hasLessons: Boolean get() = activeLessons.isNotEmpty()
+
+    val firstLesson: Lesson? get() = activeLessons.firstOrNull()
+
+    val lastLesson: Lesson? get() = activeLessons.lastOrNull()
+}
+
+data class SchoolClassInfo(
+    val id: Long,
+    val name: String,
+    val school: String? = null,
+    val city: String? = null,
+    val timeZoneId: String = "Europe/Moscow",
+) {
+    /**
+     * The school's zone, falling back to the device's if the server sent
+     * something this Android build has no tzdata for.
+     *
+     * Russia spans eleven zones, so the school's zone and the phone's are
+     * routinely different - a parent in Moscow watching a school in Novosibirsk
+     * must see that school's bells, not their own clock's.
+     */
+    val zone: ZoneId
+        get() = runCatching { ZoneId.of(timeZoneId) }.getOrElse { ZoneId.systemDefault() }
+}
+
+/**
+ * The full offline snapshot. One of these is enough to render every screen and
+ * to run the widget for as long as [days] covers, with no network at all.
+ */
+data class Timetable(
+    val schoolClass: SchoolClassInfo,
+    val days: List<SchoolDay> = emptyList(),
+    val nextSchoolDay: SchoolDay? = null,
+    val syncedAtEpochMillis: Long = 0L,
+) {
+    fun day(date: LocalDate): SchoolDay? = days.firstOrNull { it.date == date }
+
+    /**
+     * "Now" as the school experiences it.
+     *
+     * Every caller that derives a [DayState] must go through this rather than
+     * `LocalDateTime.now()`: the schedule is stored as the school's wall time,
+     * so comparing it against the device's wall time is only correct by
+     * coincidence.
+     */
+    fun nowAtSchool(clock: java.time.Clock = java.time.Clock.systemUTC()): LocalDateTime =
+        LocalDateTime.ofInstant(clock.instant(), schoolClass.zone)
+
+    /**
+     * First day after [after] that has lessons. Falls back to [nextSchoolDay],
+     * which the server resolves beyond the cached window so long holidays still
+     * produce an answer.
+     */
+    fun schoolDayAfter(after: LocalDate): SchoolDay? =
+        days.filter { it.date > after && it.hasLessons }.minByOrNull { it.date }
+            ?: nextSchoolDay?.takeIf { it.date > after }
+}

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  An open diary with a bookmark, drawn inside the 72dp safe zone of the 108dp
+  adaptive canvas so no launcher mask can clip it.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Left page -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M26,32 L50,36 L50,78 L26,74 Z" />
+    <!-- Right page -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M82,32 L58,36 L58,78 L82,74 Z" />
+    <!-- Spine -->
+    <path
+        android:fillColor="#C9C7FF"
+        android:pathData="M50,36 L58,36 L58,78 L50,78 Z" />
+    <!-- Ruled lines, left -->
+    <path
+        android:fillColor="#8E90D8"
+        android:pathData="M32,45 L46,47 L46,50 L32,48 Z M32,54 L46,56 L46,59 L32,57 Z M32,63 L42,64.5 L42,67.5 L32,66 Z" />
+    <!-- Ruled lines, right -->
+    <path
+        android:fillColor="#8E90D8"
+        android:pathData="M62,47 L76,45 L76,48 L62,50 Z M62,56 L76,54 L76,57 L62,59 Z M62,64.5 L72,63 L72,66 L62,67.5 Z" />
+    <!-- Bookmark -->
+    <path
+        android:fillColor="#FFB86B"
+        android:pathData="M66,30 L74,29 L74,50 L70,45.5 L66,51 Z" />
+</vector>

@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Russian is the primary language of this app, so it lives in values/ and every
+    other locale is a translation of it. values-en/ carries the English fallback.
+-->
+<resources>
+
+    <string name="app_name">Дневник</string>
+
+    <!-- Навигация -->
+    <string name="nav_today">Сегодня</string>
+    <string name="nav_week">Неделя</string>
+    <string name="nav_homework">Задания</string>
+    <string name="nav_settings">Настройки</string>
+
+    <!-- Общие действия -->
+    <string name="action_save">Сохранить</string>
+    <string name="action_cancel">Отмена</string>
+
+    <!-- Подключение к классу -->
+    <string name="join_title">Подключиться к классу</string>
+    <string name="join_subtitle">Введите код, который дал классный руководитель</string>
+    <string name="join_code_label">Код класса</string>
+    <string name="join_code_hint">%1$d символов, буквы и цифры</string>
+    <string name="join_action">Подключиться</string>
+    <string name="join_error_invalid_code">В коде должно быть %1$d символов</string>
+    <string name="join_error_rejected">Не удалось подключиться: %1$s</string>
+    <string name="join_error_generic">Не удалось подключиться. Проверьте код и подключение к сети.</string>
+    <string name="join_server_current">Сервер: %1$s</string>
+    <string name="join_server_change">Изменить адрес сервера</string>
+
+    <!-- Диалог адреса сервера -->
+    <string name="server_dialog_title">Адрес сервера</string>
+    <string name="server_dialog_description">Меняйте только если школа использует свой сервер.</string>
+    <string name="server_dialog_label">Адрес</string>
+    <string name="server_dialog_placeholder">https://…</string>
+
+    <!-- Сегодня -->
+    <string name="today_title">Сегодня</string>
+    <string name="today_lessons_remaining">Оставшиеся уроки</string>
+    <string name="today_events">События</string>
+    <string name="today_homework_for">Домашнее задание на %1$s</string>
+    <string name="today_homework_more">Ещё %1$d — открыть все задания</string>
+    <string name="today_no_data_title">Расписания нет</string>
+    <string name="today_no_data_description">Потяните вниз, чтобы загрузить расписание.</string>
+    <string name="today_lessons_over_title">Уроки закончились</string>
+    <string name="today_lessons_over_description">На сегодня всё. Можно заняться домашним заданием.</string>
+    <string name="today_no_lessons_title">Уроков нет</string>
+    <string name="today_no_lessons_description">Сегодня занятий не запланировано.</string>
+
+    <!-- Виды событий -->
+    <string name="event_kind_event">Событие</string>
+    <string name="event_kind_canteen">Столовая</string>
+    <string name="event_kind_exam">Экзамен</string>
+    <string name="event_kind_trip">Экскурсия</string>
+    <string name="event_kind_meeting">Собрание</string>
+
+    <!-- Даты -->
+    <string name="day_today">Сегодня</string>
+    <string name="day_tomorrow">Завтра</string>
+    <string name="day_yesterday">Вчера</string>
+
+    <!-- Синхронизация -->
+    <string name="sync_never">Ещё не обновлялось</string>
+    <string name="sync_at_time">Обновлено в %1$s</string>
+    <string name="sync_at_date_time">Обновлено %1$s в %2$s</string>
+    <string name="interval_minutes">%1$d мин</string>
+    <string name="interval_hours">%1$d ч</string>
+    <string name="sync_error_unauthorised">Доступ к классу отозван. Подключитесь заново.</string>
+    <string name="sync_error_failed">Не удалось обновить: %1$s</string>
+    <string name="sync_error_generic">Не удалось обновить расписание</string>
+
+    <!-- Неделя -->
+    <string name="week_title">Неделя</string>
+    <string name="week_range">%1$s — %2$s</string>
+    <string name="week_previous">Предыдущая неделя</string>
+    <string name="week_next">Следующая неделя</string>
+    <string name="week_current">Текущая неделя</string>
+    <string name="week_no_data_title">Нет данных</string>
+    <string name="week_no_data_description">Расписание на этот день ещё не загружено.</string>
+    <string name="week_day_off_title">Уроков нет</string>
+    <string name="week_day_off_description">Выходной или свободный день.</string>
+
+    <!-- Уроки -->
+    <string name="lesson_cancelled">Отменён</string>
+    <string name="lesson_replaced">Замена</string>
+    <plurals name="lessons_count">
+        <item quantity="one">%1$d урок</item>
+        <item quantity="few">%1$d урока</item>
+        <item quantity="many">%1$d уроков</item>
+        <item quantity="other">%1$d урока</item>
+    </plurals>
+
+    <!-- Виды дней -->
+    <string name="day_kind_normal">Обычный день</string>
+    <string name="day_kind_holiday">Каникулы</string>
+    <string name="day_kind_shortened">Сокращённый день</string>
+    <string name="day_kind_remote">Дистанционно</string>
+
+    <!-- Домашние задания -->
+    <string name="homework_title">Задания</string>
+    <string name="homework_filter_upcoming">Только будущие</string>
+    <string name="homework_filter_all">Все</string>
+    <string name="homework_filter_all_with_count">Все (+%1$d)</string>
+    <string name="homework_empty_title">Заданий нет</string>
+    <string name="homework_empty_description">Когда учитель что-то задаст, задание появится здесь.</string>
+    <string name="homework_empty_filtered_description">Будущих заданий нет — нажмите «Все», чтобы посмотреть прошлые.</string>
+
+    <!-- Настройки -->
+    <string name="settings_title">Настройки</string>
+    <string name="settings_appearance">Оформление</string>
+    <string name="settings_dynamic_color">Цвета из обоев</string>
+    <string name="settings_dynamic_color_description">Палитра приложения подстраивается под обои.</string>
+    <string name="settings_dynamic_color_unavailable">Доступно на Android 12 и новее.</string>
+    <string name="settings_pitch_black">Чёрная тема</string>
+    <string name="settings_pitch_black_description">Полностью чёрный фон в тёмной теме — экономит заряд на OLED.</string>
+    <string name="settings_content">Содержимое</string>
+    <string name="settings_show_teacher">Показывать учителя</string>
+    <string name="settings_show_teacher_description">Имя учителя в строке урока.</string>
+    <string name="settings_widget_progress">Прогресс в виджете</string>
+    <string name="settings_widget_progress_description">Полоса, показывающая, сколько осталось до конца урока.</string>
+    <string name="settings_sync">Синхронизация</string>
+    <string name="settings_sync_interval">Как часто обновлять</string>
+    <string name="settings_server_url">Адрес сервера</string>
+    <string name="settings_server_url_default">По умолчанию</string>
+    <string name="settings_refresh_now">Обновить сейчас</string>
+    <string name="settings_class">Класс</string>
+    <string name="settings_class_unknown">Класс не выбран</string>
+    <string name="settings_class_no_school">Школа не указана</string>
+    <string name="settings_sign_out">Выйти</string>
+    <string name="settings_sign_out_title">Выйти из класса?</string>
+    <string name="settings_sign_out_message">Расписание класса «%1$s» будет удалено с устройства. Чтобы вернуться, понадобится код.</string>
+    <string name="settings_sign_out_message_generic">Расписание будет удалено с устройства. Чтобы вернуться, понадобится код.</string>
+    <string name="settings_about">О приложении</string>
+    <string name="about_version">Версия %1$s</string>
+    <string name="about_description">Школьный дневник с виджетом на главном экране. Работает офлайн: расписание, замены и домашние задания хранятся на устройстве.</string>
+
+</resources>

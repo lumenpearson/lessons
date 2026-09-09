@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Primary UI language of Lessons is Russian, so the unqualified values/ folder
+    is the Russian one and values-en/ is the translation. Every key is prefixed
+    with ds_ so that a name collision with :app or :widget is impossible.
+-->
+<resources>
+
+    <!-- DayState headline labels -->
+    <string name="ds_state_before_school">Скоро уроки</string>
+    <string name="ds_state_in_lesson">Идёт урок</string>
+    <string name="ds_state_break">Перемена</string>
+    <string name="ds_state_after_school">Уроки закончились</string>
+    <string name="ds_state_day_off">Выходной</string>
+    <string name="ds_state_holiday">Каникулы</string>
+    <string name="ds_state_remote_day">Дистанционный день</string>
+    <string name="ds_state_shortened_day">Сокращённый день</string>
+    <string name="ds_state_no_data">Нет расписания</string>
+
+    <!-- DayState secondary lines -->
+    <string name="ds_state_next_subject">Далее — %1$s</string>
+    <string name="ds_state_first_subject">Первый урок — %1$s</string>
+    <string name="ds_state_finished_at">Закончили в %1$s</string>
+    <string name="ds_state_day_off_detail">Уроков сегодня нет</string>
+    <string name="ds_state_no_data_detail">Расписание ещё не загружено</string>
+    <string name="ds_state_homework_ready">Домашнее задание уже готово</string>
+
+    <!-- Non-lesson events -->
+    <string name="ds_event_canteen">Столовая</string>
+    <string name="ds_event_exam">Контрольная работа</string>
+    <string name="ds_event_trip">Экскурсия</string>
+    <string name="ds_event_meeting">Собрание</string>
+    <string name="ds_event_generic">Мероприятие</string>
+
+    <!-- Countdown captions on the hero card -->
+    <string name="ds_countdown_until_start">до начала</string>
+    <string name="ds_countdown_until_end">до конца</string>
+    <string name="ds_countdown_progress">Пройдено %1$d%%</string>
+
+    <!-- Lesson row -->
+    <string name="ds_lesson_index">Урок %1$d</string>
+    <string name="ds_lesson_replaced">замена</string>
+    <string name="ds_lesson_cancelled">отменён</string>
+    <string name="ds_lesson_room">каб. %1$s</string>
+    <string name="ds_lesson_now">сейчас</string>
+
+    <!-- Homework -->
+    <string name="ds_homework_title">Домашнее задание</string>
+    <string name="ds_homework_attachment">Вложение</string>
+
+    <!-- Generic affordances -->
+    <string name="ds_action_back">Назад</string>
+    <string name="ds_action_more">Ещё</string>
+
+</resources>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The whole point of the product is "resizable to any size", so this provider is
+  as permissive as the platform allows:
+
+  * minWidth/minHeight 110x40dp is the TINY breakpoint — one 2x1 cell on a
+    typical launcher grid, the smallest thing that can still hold
+    "Перемена · 7 мин".
+  * minResizeWidth/Height repeat those numbers so the launcher lets the user drag
+    all the way back down after growing the widget.
+  * targetCellWidth/Height 4x2 (API 31+) is the size it lands at when dropped:
+    the MEDIUM breakpoint, which is the most useful default.
+  * maxResizeWidth/Height 640dp (API 31+) is past the width of any phone and most
+    of a tablet, i.e. effectively "no ceiling"; the launcher clamps to its grid.
+  * updatePeriodMillis="0" because we drive redraws ourselves from
+    WidgetTickScheduler. The platform floor is 30 minutes, which is useless for a
+    countdown, and its wakeups would fight our exact alarms.
+  * previewLayout only, no previewImage: a static bitmap goes stale every time
+    the layout changes, and pre-31 launchers fall back to the app icon, which
+    is a better placeholder than an empty rounded rectangle.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_provider_description"
+    android:initialLayout="@layout/widget_loading"
+    android:maxResizeHeight="640dp"
+    android:maxResizeWidth="640dp"
+    android:minHeight="40dp"
+    android:minResizeHeight="40dp"
+    android:minResizeWidth="110dp"
+    android:minWidth="110dp"
+    android:previewLayout="@layout/widget_preview"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellHeight="2"
+    android:targetCellWidth="4"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

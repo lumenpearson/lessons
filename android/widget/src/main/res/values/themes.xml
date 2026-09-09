@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The static layouts need *some* theme to resolve text appearance; the app
+      theme lives in :core:designsystem and is a Compose theme, not an XML one,
+      so the widget carries this three-line stub rather than depending on it.
+    -->
+    <style name="Theme.Lessons.Widget" parent="@android:style/Theme.DeviceDefault.DayNight" />
+</resources>

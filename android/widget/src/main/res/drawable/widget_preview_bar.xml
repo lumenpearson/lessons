@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fake progress bar for the picker preview: no state, just a filled sliver. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="3dp" />
+            <solid android:color="@color/widget_preview_track" />
+        </shape>
+    </item>
+    <item
+        android:right="90dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="3dp" />
+            <solid android:color="@color/widget_preview_accent" />
+        </shape>
+    </item>
+</layer-list>

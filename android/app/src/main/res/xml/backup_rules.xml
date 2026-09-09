@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Nothing here is worth restoring onto a new device.
+
+  The Room cache is a copy of the server's answer and is refetched on first
+  sync, and the device token is tied to a device that the user is replacing.
+  Restoring either would show a stale timetable to someone who then has no idea
+  why it is wrong. Re-entering the six-character class code is cheaper.
+-->
+<full-backup-content>
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="file" path="datastore" />
+</full-backup-content>
