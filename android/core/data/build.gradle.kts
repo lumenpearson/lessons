@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
 }
@@ -44,7 +43,8 @@ android {
 }
 
 kotlin {
-    jvmToolchain(21)
+    // No jvmToolchain() here: with AGP's built-in Kotlin the toolchain comes from
+    // the Android extension, and compileOptions above already pins 21.
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
     }
