@@ -28,7 +28,12 @@
 -keepclasseswithmembers class **$serializer {
     *** INSTANCE;
 }
--dontnotewarnings kotlinx.serialization.**
+# -dontnote, not the invented "-dontnotewarnings": R8 has -dontnote for
+# informational notes and -dontwarn for warnings, and there is no option
+# that spells both. Only notes are silenced here; a real warning about a
+# missing serialization class should stay visible rather than be blanket
+# suppressed, and gets its own targeted -dontwarn if one ever appears.
+-dontnote kotlinx.serialization.**
 
 # --- Retrofit / OkHttp --------------------------------------------------------
 -keep,allowobfuscation,allowshrinking interface retrofit2.Call
