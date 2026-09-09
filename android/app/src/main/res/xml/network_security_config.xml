@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext HTTP is permitted on purpose.
+
+  Since Android 9 the platform blocks http:// by default, which is the right
+  default for an app talking to one known service over the internet. This app
+  talks to a server the user hosts themselves, and the realistic deployment is
+  uvicorn or docker compose on a machine in the same building, reached by LAN
+  address. Demanding HTTPS there would mean a certificate for an IP address on a
+  private network - which public CAs do not issue - so the practical effect
+  would not be "encrypted", it would be "the app does not work".
+
+  The exposure is bounded by what actually crosses the wire: a six-character
+  class code and a read-only timetable token, carrying a school timetable and
+  homework. No credentials, no personal data, nothing that identifies a pupil.
+
+  A school that does terminate TLS simply enters an https:// address and this
+  configuration stops applying to it; nothing here downgrades a secure URL.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <!-- System CAs only. User-installed CAs stay untrusted, so adding a
+                 certificate to the device cannot silently intercept an https://
+                 server the school did set up properly. -->
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
