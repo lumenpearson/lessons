@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 from datetime import date, time, timedelta
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from app.db import init_db, session_scope
 from app.models import (
@@ -73,7 +73,13 @@ async def seed() -> None:
             await session.delete(existing)
             await session.flush()
 
-        klass = SchoolClass(name="9А", school="Демо-школа", join_code=DEMO_CODE)
+        klass = SchoolClass(
+            name="9А",
+            school="Демо-школа № 1",
+            city="Санкт-Петербург",
+            timezone="Europe/Moscow",
+            join_code=DEMO_CODE,
+        )
         session.add(klass)
         await session.flush()
 

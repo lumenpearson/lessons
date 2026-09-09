@@ -1,0 +1,23 @@
+package com.lumenpearson.lessons.core.data.repository
+
+import kotlinx.coroutines.flow.Flow
+
+/**
+ * User preferences, shared by the app, the widget and the sync worker.
+ *
+ * Always emits a value - defaults stand in for anything never written - so no
+ * consumer needs a null branch just to draw its first frame.
+ */
+interface SettingsRepository {
+
+    val settings: Flow<AppSettings>
+
+    /**
+     * Read-modify-write inside DataStore's own transaction.
+     *
+     * Takes a lambda rather than individual setters so that two writers - the
+     * settings screen and the widget's configuration activity - cannot clobber
+     * each other's field.
+     */
+    suspend fun update(transform: (AppSettings) -> AppSettings)
+}

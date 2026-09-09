@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Default locale is Russian: this is a Russian school diary and the widget is the
+  face of it. res/values-en/ carries the English copy for the same keys.
+-->
+<resources>
+
+    <!-- Widget identity, shown in the launcher's widget picker. -->
+    <string name="widget_provider_label">Lessons — расписание</string>
+    <string name="widget_provider_description">Текущий урок, перемена или событие, а после уроков — домашнее задание на следующий учебный день.</string>
+
+    <!-- State labels. Short on purpose: on the 2x1 size this shares one line with the countdown. -->
+    <string name="widget_state_before_school">До уроков</string>
+    <string name="widget_state_lesson">Урок</string>
+    <string name="widget_state_break">Перемена</string>
+    <string name="widget_state_canteen">Столовая</string>
+    <string name="widget_state_event">Событие</string>
+    <string name="widget_state_exam">Контрольная</string>
+    <string name="widget_state_trip">Экскурсия</string>
+    <string name="widget_state_meeting">Собрание</string>
+    <string name="widget_state_after_school">Уроки закончились</string>
+    <string name="widget_state_after_school_short">Уроков нет</string>
+    <string name="widget_state_day_off">Выходной</string>
+    <string name="widget_state_holiday">Каникулы</string>
+    <string name="widget_state_shortened">Сокращённый день</string>
+    <string name="widget_state_remote">Дистанционно</string>
+    <string name="widget_state_no_data">Нет расписания</string>
+
+    <!-- Countdown pieces. %1$d hours, %2$d minutes. -->
+    <string name="widget_countdown_hm">%1$d ч %2$d мин</string>
+    <string name="widget_countdown_h">%1$d ч</string>
+    <string name="widget_countdown_m">%1$d мин</string>
+    <string name="widget_countdown_now">меньше минуты</string>
+    <string name="widget_countdown_now_short">&lt; 1 мин</string>
+    <!-- %1$s is a formatted countdown, e.g. "12 мин". -->
+    <string name="widget_countdown_left">осталось %1$s</string>
+    <string name="widget_countdown_in">через %1$s</string>
+
+    <!-- Homework headers. %1$s is a day name produced by HomeworkDayLabel. -->
+    <string name="widget_homework_header_today">Домашнее задание на сегодня</string>
+    <string name="widget_homework_header_tomorrow">Домашнее задание на завтра</string>
+    <string name="widget_homework_header_day_after">Домашнее задание на послезавтра</string>
+    <string name="widget_homework_header_named">Домашнее задание на %1$s</string>
+    <string name="widget_homework_short_today">ДЗ на сегодня</string>
+    <string name="widget_homework_short_tomorrow">ДЗ на завтра</string>
+    <string name="widget_homework_short_day_after">ДЗ на послезавтра</string>
+    <string name="widget_homework_short_named">ДЗ на %1$s</string>
+    <string name="widget_homework_empty">Ничего не задано</string>
+    <string name="widget_homework_unknown_day">Следующий учебный день пока неизвестен</string>
+    <!-- "Математика: §12, № 3–5" -->
+    <string name="widget_homework_line">%1$s: %2$s</string>
+
+    <!-- Weekday names in the accusative case, because the header reads "на <день>". -->
+    <string name="widget_weekday_acc_1">понедельник</string>
+    <string name="widget_weekday_acc_2">вторник</string>
+    <string name="widget_weekday_acc_3">среду</string>
+    <string name="widget_weekday_acc_4">четверг</string>
+    <string name="widget_weekday_acc_5">пятницу</string>
+    <string name="widget_weekday_acc_6">субботу</string>
+    <string name="widget_weekday_acc_7">воскресенье</string>
+
+    <!-- Month names in the genitive case: "на 15 сентября". -->
+    <string name="widget_month_gen_1">января</string>
+    <string name="widget_month_gen_2">февраля</string>
+    <string name="widget_month_gen_3">марта</string>
+    <string name="widget_month_gen_4">апреля</string>
+    <string name="widget_month_gen_5">мая</string>
+    <string name="widget_month_gen_6">июня</string>
+    <string name="widget_month_gen_7">июля</string>
+    <string name="widget_month_gen_8">августа</string>
+    <string name="widget_month_gen_9">сентября</string>
+    <string name="widget_month_gen_10">октября</string>
+    <string name="widget_month_gen_11">ноября</string>
+    <string name="widget_month_gen_12">декабря</string>
+    <!-- %1$d day number, %2$s month in the genitive. -->
+    <string name="widget_date_day_month">%1$d %2$s</string>
+
+    <!-- Timeline / next-up block. -->
+    <string name="widget_next_up">Дальше</string>
+    <string name="widget_timeline_title">Осталось сегодня</string>
+    <string name="widget_room">каб. %1$s</string>
+    <string name="widget_lesson_cancelled">отменён</string>
+    <string name="widget_lesson_replaced">замена</string>
+    <string name="widget_nothing_left">Уроков больше нет</string>
+
+    <!-- Empty / unauthenticated. -->
+    <string name="widget_empty_title">Откройте приложение и введите код класса</string>
+    <string name="widget_empty_short">Введите код класса</string>
+
+    <plurals name="widget_subject_count">
+        <item quantity="one">%d предмет</item>
+        <item quantity="few">%d предмета</item>
+        <item quantity="many">%d предметов</item>
+        <item quantity="other">%d предмета</item>
+    </plurals>
+
+    <!-- Used only by res/layout/widget_preview.xml, the launcher picker preview. -->
+    <string name="widget_preview_subject">Алгебра</string>
+    <string name="widget_preview_countdown">осталось 12 мин</string>
+
+</resources>

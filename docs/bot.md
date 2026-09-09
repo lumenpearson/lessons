@@ -16,7 +16,9 @@ OWNER_IDS=123456789
 ```
 
 4. Start the server. Send `/start` to your bot; because your id is in
-   `OWNER_IDS`, it offers to create the first class.
+   `OWNER_IDS`, it offers to create the first class. Creating a class asks for
+   its name, its school and its **time zone** — one of the eleven Russian zones,
+   from Kaliningrad (МСК−1) to Kamchatka (МСК+9).
 
 ## Roles
 
@@ -88,6 +90,16 @@ Bells use the same idea:
 * **🎉 События** — столовая, мероприятие, контрольная, экскурсия, собрание, with
   a time range. Мероприятие and экскурсия default to `covers_lesson = true`;
   столовая does not, so lunch shows during the break without hiding a lesson.
+
+## Time zone
+
+The zone belongs to the class, because one deployment can serve schools ten
+hours apart. It is picked at creation and changed later in
+**⚙️ Класс → 🕒 Часовой пояс**.
+
+Changing it moves nothing: bells are stored as wall time, so 08:30 stays 08:30.
+What changes is which instant the app and the widget consider "now" for that
+class.
 
 ## Commands
 

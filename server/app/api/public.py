@@ -10,7 +10,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class
-from app.config import get_settings
 from app.db import get_session
 from app.models import DeviceToken, SchoolClass
 from app.schedule import ResolvedDay, ScheduleResolver
@@ -101,6 +100,7 @@ async def join(
         class_id=school_class.id,
         class_name=school_class.name,
         school=school_class.school,
+        timezone=school_class.timezone_name,
     )
 
 
@@ -116,8 +116,10 @@ async def bundle(
     The client computes the current lesson/break state locally from this
     payload, so the widget keeps ticking with no network.
     """
-    settings = get_settings()
-    today = start or datetime.now(settings.tz).date()
+    # The class's own zone, not the server's: a Kaliningrad class and a
+    # Vladivostok class hosted by the same instance are ten hours apart, and
+    # "today" has to mean the right day for each of them.
+    today = start or datetime.now(school_class.tz).date()
 
     resolver = ScheduleResolver(session, school_class)
     resolved = await resolver.resolve_range(today, days)
@@ -132,9 +134,10 @@ async def bundle(
             id=school_class.id,
             name=school_class.name,
             school=school_class.school,
-            timezone=settings.timezone,
+            city=school_class.city,
+            timezone=school_class.timezone_name,
         ),
-        generated_at=datetime.now(settings.tz).isoformat(),
+        generated_at=datetime.now(school_class.tz).isoformat(),
         days=[_to_day_out(day) for day in resolved],
         next_school_day=_to_day_out(following) if following else None,
     )

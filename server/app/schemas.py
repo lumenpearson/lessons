@@ -24,6 +24,7 @@ class JoinResponse(BaseModel):
     class_id: int
     class_name: str
     school: str | None = None
+    timezone: str
 
 
 class LessonOut(BaseModel):
@@ -68,6 +69,7 @@ class ClassOut(BaseModel):
     id: int
     name: str
     school: str | None = None
+    city: str | None = None
     timezone: str
 
 

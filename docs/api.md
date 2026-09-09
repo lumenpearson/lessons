@@ -21,7 +21,8 @@ Content-Type: application/json
   "token": "s6mZ...43-char-url-safe-string",
   "class_id": 1,
   "class_name": "9А",
-  "school": "Демо-школа"
+  "school": "Демо-школа",
+  "timezone": "Europe/Moscow"
 }
 ```
 
@@ -55,7 +56,7 @@ One request returns everything the app and the widget need.
 ```json
 {
   "api_version": 1,
-  "school_class": { "id": 1, "name": "9А", "school": "Демо-школа", "timezone": "Europe/Moscow" },
+  "school_class": { "id": 1, "name": "9А", "school": "Демо-школа", "city": "Санкт-Петербург", "timezone": "Europe/Moscow" },
   "generated_at": "2026-09-09T11:15:38.433+03:00",
   "days": [
     {
@@ -111,6 +112,10 @@ a Friday for a single day, and what makes it survive the winter holidays.
 
 * Times are local wall time (`HH:MM:SS`) in `school_class.timezone`. A bell rings
   at 08:30 regardless of daylight saving, so there is deliberately no UTC offset.
+* `school_class.timezone` belongs to the **class**, not to the deployment. Russia
+  spans eleven zones, so one server routinely hosts classes ten hours apart, and
+  `start` defaulting to "today" is resolved in the class's zone. Clients must
+  derive "now" from this field rather than from the device clock.
 * `kind` on a day is one of `normal`, `holiday`, `shortened`, `remote`.
 * `kind` on an event is one of `event`, `canteen`, `exam`, `trip`, `meeting`.
 * A cancelled lesson stays in the array with `is_cancelled: true` rather than

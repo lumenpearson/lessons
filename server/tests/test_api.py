@@ -162,3 +162,37 @@ async def test_a_revoked_token_stops_working(client, session, school_class):
 
     response = await client.get("/api/v1/bundle", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 401
+
+
+async def test_join_reports_the_class_timezone(client, session, school_class):
+    """The client needs the zone to compute "now" for a school it is not near."""
+    school_class.timezone = "Asia/Vladivostok"
+    school_class.city = "Владивосток"
+    await session.commit()
+
+    response = await client.post("/api/v1/join", json={"code": "TEST42"})
+    assert response.json()["timezone"] == "Asia/Vladivostok"
+
+
+async def test_bundle_uses_the_class_timezone_not_the_server_one(client, session, school_class):
+    school_class.timezone = "Asia/Kamchatka"
+    school_class.city = "Петропавловск-Камчатский"
+    await session.commit()
+
+    token = await _token(client)
+    body = (
+        await client.get("/api/v1/bundle", headers={"Authorization": f"Bearer {token}"})
+    ).json()
+
+    assert body["school_class"]["timezone"] == "Asia/Kamchatka"
+    assert body["school_class"]["city"] == "Петропавловск-Камчатский"
+    # generated_at must carry the class's offset, not the server's +03:00.
+    assert body["generated_at"].endswith("+12:00")
+
+
+async def test_a_class_without_a_timezone_falls_back_to_the_server_default(client, school_class):
+    token = await _token(client)
+    body = (
+        await client.get("/api/v1/bundle", headers={"Authorization": f"Bearer {token}"})
+    ).json()
+    assert body["school_class"]["timezone"] == "Europe/Moscow"

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English mirror of res/values/strings.xml (which is the Russian original). -->
+<resources>
+
+    <string name="widget_provider_label">Lessons — timetable</string>
+    <string name="widget_provider_description">The lesson you are in, the break you are on, and once school is over the homework for the next school day.</string>
+
+    <string name="widget_state_before_school">Before school</string>
+    <string name="widget_state_lesson">Lesson</string>
+    <string name="widget_state_break">Break</string>
+    <string name="widget_state_canteen">Canteen</string>
+    <string name="widget_state_event">Event</string>
+    <string name="widget_state_exam">Exam</string>
+    <string name="widget_state_trip">Trip</string>
+    <string name="widget_state_meeting">Assembly</string>
+    <string name="widget_state_after_school">School is over</string>
+    <string name="widget_state_after_school_short">Done for today</string>
+    <string name="widget_state_day_off">Day off</string>
+    <string name="widget_state_holiday">Holidays</string>
+    <string name="widget_state_shortened">Short day</string>
+    <string name="widget_state_remote">Remote</string>
+    <string name="widget_state_no_data">No timetable</string>
+
+    <string name="widget_countdown_hm">%1$d h %2$d min</string>
+    <string name="widget_countdown_h">%1$d h</string>
+    <string name="widget_countdown_m">%1$d min</string>
+    <string name="widget_countdown_now">less than a minute</string>
+    <string name="widget_countdown_now_short">&lt; 1 min</string>
+    <string name="widget_countdown_left">%1$s left</string>
+    <string name="widget_countdown_in">in %1$s</string>
+
+    <string name="widget_homework_header_today">Homework for today</string>
+    <string name="widget_homework_header_tomorrow">Homework for tomorrow</string>
+    <string name="widget_homework_header_day_after">Homework for the day after tomorrow</string>
+    <string name="widget_homework_header_named">Homework for %1$s</string>
+    <string name="widget_homework_short_today">HW for today</string>
+    <string name="widget_homework_short_tomorrow">HW for tomorrow</string>
+    <string name="widget_homework_short_day_after">HW for the day after</string>
+    <string name="widget_homework_short_named">HW for %1$s</string>
+    <string name="widget_homework_empty">Nothing set</string>
+    <string name="widget_homework_unknown_day">The next school day is not known yet</string>
+    <string name="widget_homework_line">%1$s: %2$s</string>
+
+    <string name="widget_weekday_acc_1">Monday</string>
+    <string name="widget_weekday_acc_2">Tuesday</string>
+    <string name="widget_weekday_acc_3">Wednesday</string>
+    <string name="widget_weekday_acc_4">Thursday</string>
+    <string name="widget_weekday_acc_5">Friday</string>
+    <string name="widget_weekday_acc_6">Saturday</string>
+    <string name="widget_weekday_acc_7">Sunday</string>
+
+    <string name="widget_month_gen_1">January</string>
+    <string name="widget_month_gen_2">February</string>
+    <string name="widget_month_gen_3">March</string>
+    <string name="widget_month_gen_4">April</string>
+    <string name="widget_month_gen_5">May</string>
+    <string name="widget_month_gen_6">June</string>
+    <string name="widget_month_gen_7">July</string>
+    <string name="widget_month_gen_8">August</string>
+    <string name="widget_month_gen_9">September</string>
+    <string name="widget_month_gen_10">October</string>
+    <string name="widget_month_gen_11">November</string>
+    <string name="widget_month_gen_12">December</string>
+    <string name="widget_date_day_month">%2$s %1$d</string>
+
+    <string name="widget_next_up">Next up</string>
+    <string name="widget_timeline_title">Left today</string>
+    <string name="widget_room">room %1$s</string>
+    <string name="widget_lesson_cancelled">cancelled</string>
+    <string name="widget_lesson_replaced">substitute</string>
+    <string name="widget_nothing_left">No lessons left</string>
+
+    <string name="widget_empty_title">Open the app and enter your class code</string>
+    <string name="widget_empty_short">Enter class code</string>
+
+    <plurals name="widget_subject_count">
+        <item quantity="one">%d subject</item>
+        <item quantity="other">%d subjects</item>
+    </plurals>
+
+    <!-- Used only by res/layout/widget_preview.xml, the launcher picker preview. -->
+    <string name="widget_preview_subject">Algebra</string>
+    <string name="widget_preview_countdown">12 min left</string>
+
+</resources>

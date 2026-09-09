@@ -8,6 +8,7 @@ from aiogram.fsm.state import State, StatesGroup
 class CreateClass(StatesGroup):
     name = State()
     school = State()
+    timezone = State()
 
 
 class AddHomework(StatesGroup):

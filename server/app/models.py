@@ -109,6 +109,10 @@ class SchoolClass(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
     school: Mapped[str | None] = mapped_column(String(200))
+    city: Mapped[str | None] = mapped_column(String(120))
+    # Russia spans eleven time zones, so this belongs to the class rather than
+    # to the deployment. Null means "use the server default".
+    timezone: Mapped[str | None] = mapped_column(String(64))
     join_code: Mapped[str] = mapped_column(String(16), unique=True, index=True, nullable=False)
     # use_alter breaks the classes <-> bell_schedules cycle so the metadata can
     # be created and dropped in a deterministic order on SQLite.
@@ -121,6 +125,20 @@ class SchoolClass(Base):
     bell_schedule: Mapped[BellSchedule | None] = relationship(
         foreign_keys=[bell_schedule_id], lazy="selectin"
     )
+
+    @property
+    def tz(self):
+        """The class's own zone, falling back to the server default."""
+        from app.config import get_settings
+        from app.timezones import resolve
+
+        return resolve(self.timezone, get_settings().timezone)
+
+    @property
+    def timezone_name(self) -> str:
+        from app.config import get_settings
+
+        return self.timezone or get_settings().timezone
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return f"<SchoolClass {self.id} {self.name!r}>"

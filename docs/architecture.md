@@ -61,6 +61,13 @@ Every time is stored as **naive local wall time** for the school. A bell rings a
 08:30 whether or not the clocks changed last night. Storing UTC would make that
 statement false twice a year for no benefit.
 
+Which wall clock, though, is a property of the **class**, not of the server.
+The project targets schools across Russia, which is eleven zones wide, so one
+deployment routinely holds a Kaliningrad class and a Kamchatka class ten hours
+apart. `SchoolClass.timezone` carries it, `app/timezones.py` is the list the bot
+offers, and every "what is today" decision on both sides goes through it —
+`school_class.tz` on the server, `Timetable.nowAtSchool()` on the client.
+
 ## The Android app
 
 Five Gradle modules, split along the lines that actually pay for themselves:
@@ -125,6 +132,8 @@ can swap wholesale.
 | `server/tests/test_schedule.py` | template expansion, замены, cancellations, holidays, shortened bells, week parity, next-school-day lookahead | pytest |
 | `server/tests/test_api.py` | join, bundle, auth failures, revoked tokens, parameter validation | pytest + httpx ASGI |
 | `server/tests/test_roles.py` | the permission ladder, phone normalisation, invite claiming | pytest |
+| `server/tests/test_bot_handlers.py` | timetable and bell parsing, homework upsert, замена parsing, role-grant guards | pytest |
+| `server/tests/test_timezones.py` | all eleven Russian zones, ordering, bad-input fallback | pytest |
 | `android/core/model/.../ScheduleEngineTest.kt` | every `DayState`, boundary conditions, event precedence, next-transition scheduling | JVM JUnit |
 
 The Android UI and the Glance widget have no automated coverage yet. See the

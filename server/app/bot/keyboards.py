@@ -62,6 +62,10 @@ class EventAction(CallbackData, prefix="ev"):
     value: str = ""
 
 
+class TimezonePick(CallbackData, prefix="tz"):
+    zone: str
+
+
 class ClassAction(CallbackData, prefix="cls"):
     action: str  # settings | rotate_code | rename | create | switch
     value: str = ""
@@ -182,4 +186,24 @@ def date_picker(
         for label, iso in dates
     ]
     rows.append([InlineKeyboardButton(text="✖️ Отмена", callback_data=Menu(action="root").pack())])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def timezone_picker() -> InlineKeyboardMarkup:
+    """One row per Russian time zone, labelled the way schedules are written.
+
+    Eleven rows is a long keyboard, but it is a once-per-class decision and a
+    wrong zone silently shifts every bell, so it is worth the scroll.
+    """
+    from app.timezones import RUSSIAN_TIMEZONES
+
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=f"{offset} · {cities}",
+                callback_data=TimezonePick(zone=zone).pack(),
+            )
+        ]
+        for zone, offset, cities in RUSSIAN_TIMEZONES
+    ]
     return InlineKeyboardMarkup(inline_keyboard=rows)

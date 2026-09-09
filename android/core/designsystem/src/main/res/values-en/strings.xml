@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English translation of the Russian defaults in values/strings.xml. -->
+<resources>
+
+    <!-- DayState headline labels -->
+    <string name="ds_state_before_school">Lessons start soon</string>
+    <string name="ds_state_in_lesson">Lesson in progress</string>
+    <string name="ds_state_break">Break</string>
+    <string name="ds_state_after_school">Lessons are over</string>
+    <string name="ds_state_day_off">Day off</string>
+    <string name="ds_state_holiday">Holidays</string>
+    <string name="ds_state_remote_day">Remote day</string>
+    <string name="ds_state_shortened_day">Shortened day</string>
+    <string name="ds_state_no_data">No timetable</string>
+
+    <!-- DayState secondary lines -->
+    <string name="ds_state_next_subject">Next — %1$s</string>
+    <string name="ds_state_first_subject">First lesson — %1$s</string>
+    <string name="ds_state_finished_at">Finished at %1$s</string>
+    <string name="ds_state_day_off_detail">No lessons today</string>
+    <string name="ds_state_no_data_detail">The timetable has not been downloaded yet</string>
+    <string name="ds_state_homework_ready">Homework is already available</string>
+
+    <!-- Non-lesson events -->
+    <string name="ds_event_canteen">Canteen</string>
+    <string name="ds_event_exam">Test</string>
+    <string name="ds_event_trip">Field trip</string>
+    <string name="ds_event_meeting">Assembly</string>
+    <string name="ds_event_generic">Event</string>
+
+    <!-- Countdown captions on the hero card -->
+    <string name="ds_countdown_until_start">until it starts</string>
+    <string name="ds_countdown_until_end">left</string>
+    <string name="ds_countdown_progress">%1$d%% elapsed</string>
+
+    <!-- Lesson row -->
+    <string name="ds_lesson_index">Lesson %1$d</string>
+    <string name="ds_lesson_replaced">swapped</string>
+    <string name="ds_lesson_cancelled">cancelled</string>
+    <string name="ds_lesson_room">room %1$s</string>
+    <string name="ds_lesson_now">now</string>
+
+    <!-- Homework -->
+    <string name="ds_homework_title">Homework</string>
+    <string name="ds_homework_attachment">Attachment</string>
+
+    <!-- Generic affordances -->
+    <string name="ds_action_back">Back</string>
+    <string name="ds_action_more">More</string>
+
+</resources>

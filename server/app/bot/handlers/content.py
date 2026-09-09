@@ -47,8 +47,14 @@ EVENT_KIND_LABELS = {
 }
 
 
-def _today() -> Date:
-    return datetime.now(get_settings().tz).date()
+def _today(school_class: SchoolClass | None = None) -> Date:
+    """Today in the class's own zone.
+
+    Falls back to the server default only when no class is in scope, which in
+    practice means a handler that has already refused the request.
+    """
+    tz = school_class.tz if school_class is not None else get_settings().tz
+    return datetime.now(tz).date()
 
 
 def _parse_time_range(raw: str) -> tuple[time, time] | None:
@@ -80,7 +86,7 @@ async def homework_root(
         await callback.answer("Нет доступа", show_alert=True)
         return
 
-    today = _today()
+    today = _today(school_class)
     days = await ScheduleResolver(session, school_class).resolve_range(today, 14)
 
     extra = []
@@ -102,15 +108,18 @@ async def homework_root(
 async def homework_add(
     callback: CallbackQuery,
     state: FSMContext,
+    school_class: SchoolClass | None,
     role: Role | None,
 ) -> None:
-    if role is None or not role.at_least(Role.EDITOR):
+    if school_class is None or role is None or not role.at_least(Role.EDITOR):
         await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
     await callback.message.edit_text(
         "На какой день задано?",
-        reply_markup=date_picker(HomeworkAction, "pick_day", upcoming_dates(_today(), 7)),
+        reply_markup=date_picker(
+            HomeworkAction, "pick_day", upcoming_dates(_today(school_class), 7)
+        ),
     )
     await state.set_state(AddHomework.date)
     await callback.answer()
@@ -226,7 +235,7 @@ async def homework_text(
     await state.clear()
 
     await message.answer(
-        f"✅ Задание {verb}.\n\n<b>{subject}</b> {human_date(due, _today())}\n{text}",
+        f"✅ Задание {verb}.\n\n<b>{subject}</b> {human_date(due, _today(school_class))}\n{text}",
         reply_markup=back_to_menu(),
     )
 
@@ -240,15 +249,18 @@ async def homework_text(
 async def overrides_root(
     callback: CallbackQuery,
     state: FSMContext,
+    school_class: SchoolClass | None,
     role: Role | None,
 ) -> None:
-    if role is None or not role.at_least(Role.EDITOR):
+    if school_class is None or role is None or not role.at_least(Role.EDITOR):
         await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
     await callback.message.edit_text(
         "🔄 <b>Замены</b>\n\nВыберите день:",
-        reply_markup=date_picker(OverrideCB, "pick_day", upcoming_dates(_today(), 7)),
+        reply_markup=date_picker(
+            OverrideCB, "pick_day", upcoming_dates(_today(school_class), 7)
+        ),
     )
     await state.set_state(AddOverride.date)
     await callback.answer()
@@ -289,7 +301,7 @@ async def override_pick_day(
         return
 
     await callback.message.edit_text(
-        f"{human_date(target, _today()).capitalize()}\n\nКакой урок меняем?",
+        f"{human_date(target, _today(school_class)).capitalize()}\n\nКакой урок меняем?",
         reply_markup=back_to_menu(rows),
     )
     await state.set_state(AddOverride.index)
@@ -386,7 +398,7 @@ async def override_subject(
     )
     await state.clear()
     await message.answer(
-        f"✅ Замена сохранена: {human_date(day, _today())}, урок №{index} — "
+        f"✅ Замена сохранена: {human_date(day, _today(school_class))}, урок №{index} — "
         f"<b>{subject.strip()}</b>.",
         reply_markup=back_to_menu(),
     )
@@ -410,7 +422,8 @@ async def override_cancel(
     await _save_override(session, school_class.id, day, index, OverrideAction.CANCEL)
     await state.clear()
     await callback.message.edit_text(
-        f"🚫 Урок №{index} {human_date(day, _today())} отменён.", reply_markup=back_to_menu()
+        f"🚫 Урок №{index} {human_date(day, _today(school_class))} отменён.",
+        reply_markup=back_to_menu(),
     )
     await callback.answer()
 
@@ -458,15 +471,18 @@ async def override_clear(
 async def events_root(
     callback: CallbackQuery,
     state: FSMContext,
+    school_class: SchoolClass | None,
     role: Role | None,
 ) -> None:
-    if role is None or not role.at_least(Role.EDITOR):
+    if school_class is None or role is None or not role.at_least(Role.EDITOR):
         await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
     await callback.message.edit_text(
         "🎉 <b>События</b>\n\nНа какой день добавляем?",
-        reply_markup=date_picker(EventAction, "pick_day", upcoming_dates(_today(), 7)),
+        reply_markup=date_picker(
+            EventAction, "pick_day", upcoming_dates(_today(school_class), 7)
+        ),
     )
     await state.set_state(AddEvent.date)
     await callback.answer()
@@ -558,7 +574,7 @@ async def event_title(
 
     await message.answer(
         f"✅ Событие добавлено: <b>{title}</b> "
-        f"{human_date(Date.fromisoformat(data['date']), _today())}, "
+        f"{human_date(Date.fromisoformat(data['date']), _today(school_class))}, "
         f"{data['start'][:5]}–{data['end'][:5]}.",
         reply_markup=back_to_menu(),
     )

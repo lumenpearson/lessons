@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  These colours are ONLY used by the two static XML layouts (loading + picker
+  preview). Everything Glance draws goes through GlanceTheme.colors so the widget
+  picks up Material You from the wallpaper; a static layout cannot do that, so it
+  needs a plain neutral pair with a -night variant.
+-->
+<resources>
+    <color name="widget_preview_surface">#FFF4F1EC</color>
+    <color name="widget_preview_on_surface">#FF1B1B1B</color>
+    <color name="widget_preview_on_surface_variant">#FF5F5F5F</color>
+    <color name="widget_preview_accent">#FF3F6BD6</color>
+    <color name="widget_preview_track">#33000000</color>
+</resources>
