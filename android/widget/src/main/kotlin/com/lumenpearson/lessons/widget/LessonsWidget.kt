@@ -2,8 +2,6 @@ package com.lumenpearson.lessons.widget
 
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import androidx.compose.ui.unit.DpSize
 import androidx.glance.GlanceId
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalSize
@@ -91,12 +89,12 @@ class LessonsWidget : GlanceAppWidget() {
         const val MAIN_ACTIVITY = "com.lumenpearson.lessons.MainActivity"
     }
 
-    private fun openApp(context: Context): Action = actionStartActivity(
-        Intent().apply {
-            component = ComponentName(context.packageName, MAIN_ACTIVITY)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        },
-    )
+    // androidx.glance.action.actionStartActivity takes a ComponentName, not an
+    // Intent; the Intent-accepting overload lives in the appwidget.action
+    // package. ComponentName is the better fit anyway - Glance supplies the
+    // launch flags a widget tap needs, so there is nothing left to configure.
+    private fun openApp(context: Context): Action =
+        actionStartActivity(ComponentName(context.packageName, MAIN_ACTIVITY))
 
     /**
      * Reads the cache and the user's widget settings, and derives the state.
@@ -130,6 +128,3 @@ class LessonsWidget : GlanceAppWidget() {
         )
     }
 }
-
-/** Convenience for callers that already know the size they want to render. */
-internal fun sizeClassFor(size: DpSize): WidgetSizeClass = WidgetSizeClass.of(size)
