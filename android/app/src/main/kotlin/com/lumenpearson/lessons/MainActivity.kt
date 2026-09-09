@@ -23,6 +23,10 @@ import com.lumenpearson.lessons.ui.AppShellViewModel
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Swap the launch theme, whose only job was to paint the window while the
+        // process started, for the plain one. Leaving the starting theme applied
+        // would keep its splash icon attributes live for the rest of the session.
+        setTheme(R.style.Theme_Lessons)
         super.onCreate(savedInstanceState)
         // Drawn behind the system bars; the Scaffolds below apply the insets.
         enableEdgeToEdge()
