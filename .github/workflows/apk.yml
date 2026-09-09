@@ -29,9 +29,15 @@ on:
 permissions:
   contents: write
 
+# Queue, never cancel. cancel-in-progress is right for branch CI, where only
+# the newest commit matters and killing a stale run saves minutes. It is wrong
+# here: this workflow exists to hand somebody an artifact, so a second press of
+# the button - or a tag pushed while a manual build is running - would destroy
+# a build a person is actively waiting on. Two presses now produce two APKs,
+# one after the other.
 concurrency:
   group: apk-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
