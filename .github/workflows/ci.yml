@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Lets you build from the Actions tab without pushing anything.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -48,8 +50,21 @@ jobs:
         run: ./gradlew --no-daemon test
       - name: Assemble debug
         run: ./gradlew --no-daemon assembleDebug
+
+      # Release is built on every run, not only at release time. R8 and resource
+      # shrinking are the classic source of "worked in debug, broken in the APK
+      # people install", and finding that on a pull request costs minutes rather
+      # than a bad release.
+      - name: Assemble release
+        run: ./gradlew --no-daemon assembleRelease
+
       - uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: warn
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-release-unsigned-key
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error

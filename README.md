@@ -104,10 +104,20 @@ BOT_TOKEN=... OWNER_IDS=... docker compose up --build
 
 ### Приложение
 
+Готовый APK можно не собирать руками: **Actions → APK → Run workflow**, и
+через несколько минут он лежит в артефактах прогона. Тег `v*` дополнительно
+создаёт GitHub Release с приложенным APK.
+
+Локально:
+
 ```bash
 cd android
-./gradlew assembleDebug
+./gradlew assembleDebug     # или assembleRelease
 ```
+
+Без настроенного keystore release-сборка подписывается debug-ключом: ставится
+на телефон, но публиковать её нельзя. Как подключить свой ключ — в
+[docs/build.md](docs/build.md).
 
 При первом запуске приложение просит код класса — тот, что выдал бот.
 
@@ -117,6 +127,7 @@ cd android
 * [docs/api.md](docs/api.md) — контракт `/api/v1`
 * [docs/bot.md](docs/bot.md) — роли, приглашения по номеру, редактирование расписания
 * [docs/widget.md](docs/widget.md) — размеры, состояния, расписание обновлений
+* [docs/build.md](docs/build.md) — сборка APK в Actions, подпись, релизы
 
 ## Честный статус
 

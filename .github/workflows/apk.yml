@@ -1,0 +1,160 @@
+# Build an installable APK on demand.
+#
+# Two ways in:
+#   * Actions -> "APK" -> "Run workflow", pick a build type. Nothing to push.
+#   * push a tag like v0.2.0, which additionally publishes a GitHub Release
+#     with the APK attached.
+#
+# Signing: if the four keystore secrets are set the release APK is signed with
+# your key. If they are not, it is signed with the debug key so it still
+# installs; the job summary says which happened. See docs/build.md.
+name: APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: "Which APK to build"
+        type: choice
+        default: release
+        options: [release, debug, both]
+      version_name:
+        description: "versionName to stamp (blank = the value in build.gradle.kts)"
+        type: string
+        required: false
+  push:
+    tags: ["v*"]
+
+# Needed only by the tag path, which creates a Release.
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+
+      # A tag stamps its own version; a manual run may pass one; otherwise the
+      # build file's default stands. versionCode always advances with the run
+      # number so two APKs are never mistaken for each other.
+      - name: Resolve version
+        id: version
+        env:
+          # Via env, never interpolated into the script: a workflow_dispatch
+          # input is attacker-controlled text as far as the shell is concerned.
+          INPUT_VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          if [ -n "$INPUT_VERSION_NAME" ]; then
+            NAME="$INPUT_VERSION_NAME"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            NAME="${GITHUB_REF_NAME#v}"
+          else
+            NAME=""
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - name: Decode keystore
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No KEYSTORE_BASE64 secret; the release APK will be signed with the debug key and must not be published."
+            exit 0
+          fi
+          # Outside the workspace so it can never be picked up by an upload glob.
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        env:
+          LESSONS_KEYSTORE_FILE: ${{ steps.keystore.outputs.signed == 'true' && format('{0}/release.jks', runner.temp) || '' }}
+          LESSONS_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          LESSONS_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          LESSONS_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          LESSONS_VERSION_NAME: ${{ steps.version.outputs.name }}
+          LESSONS_VERSION_CODE: ${{ steps.version.outputs.code }}
+          INPUT_BUILD_TYPE: ${{ inputs.build_type || 'release' }}
+        run: |
+          case "$INPUT_BUILD_TYPE" in
+            debug)   TASKS="assembleDebug" ;;
+            both)    TASKS="assembleDebug assembleRelease" ;;
+            *)       TASKS="assembleRelease" ;;
+          esac
+          echo "Running: $TASKS"
+          ./gradlew --no-daemon $TASKS
+
+      # Deleted before anything is uploaded, so a misconfigured glob cannot
+      # publish the signing key.
+      - name: Shred keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
+
+      - name: Collect APKs
+        id: collect
+        run: |
+          mkdir -p "$RUNNER_TEMP/apks"
+          find app/build/outputs/apk -name '*.apk' -exec cp {} "$RUNNER_TEMP/apks/" \;
+          ls -la "$RUNNER_TEMP/apks/"
+          echo "count=$(find "$RUNNER_TEMP/apks" -name '*.apk' | wc -l)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lessons-apk
+          path: ${{ runner.temp }}/apks/*.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            "$RUNNER_TEMP"/apks/*.apk
+
+      - name: Summary
+        if: always()
+        env:
+          INPUT_BUILD_TYPE: ${{ inputs.build_type || 'release' }}
+        run: |
+          {
+            echo "## APK"
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Build type | \`$INPUT_BUILD_TYPE\` |"
+            echo "| versionName | \`${{ steps.version.outputs.name || 'default from build.gradle.kts' }}\` |"
+            echo "| versionCode | \`${{ steps.version.outputs.code }}\` |"
+            echo "| APKs produced | ${{ steps.collect.outputs.count }} |"
+            if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
+              echo "| Signing | your release keystore |"
+            else
+              echo "| Signing | **debug key** - installable, but do not publish |"
+            fi
+            echo
+            echo "Download it from the **lessons-apk** artifact on this run."
+          } >> "$GITHUB_STEP_SUMMARY"

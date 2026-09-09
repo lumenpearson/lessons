@@ -27,6 +27,42 @@ kotlin {
     }
 }
 
+/*
+ * Release signing.
+ *
+ * Credentials are read from environment variables (what CI sets) or Gradle
+ * properties (what `~/.gradle/gradle.properties` holds locally). Both are
+ * configuration-cache-tracked providers, and neither lives in the repository,
+ * so there is no keystore or password to leak in a commit.
+ *
+ * When nothing is configured the release build is signed with the debug key
+ * instead of being left unsigned. An unsigned APK cannot be installed at all,
+ * which makes "build me an APK" fail for the common case of a fresh clone with
+ * no secrets set up. A debug-signed release is installable and still gets the
+ * real R8 treatment; it simply must not be published, which the build warns
+ * about and the workflow repeats in its summary.
+ */
+fun signingSecret(env: String, property: String): String? =
+    (providers.environmentVariable(env).orNull ?: providers.gradleProperty(property).orNull)
+        ?.takeIf { it.isNotBlank() }
+
+val keystorePath = signingSecret("LESSONS_KEYSTORE_FILE", "lessons.keystore.file")
+val keystorePassword = signingSecret("LESSONS_KEYSTORE_PASSWORD", "lessons.keystore.password")
+val keystoreKeyAlias = signingSecret("LESSONS_KEY_ALIAS", "lessons.key.alias")
+val keystoreKeyPassword = signingSecret("LESSONS_KEY_PASSWORD", "lessons.key.password")
+
+val hasReleaseSigning: Boolean =
+    keystorePath != null &&
+        keystorePassword != null &&
+        keystoreKeyAlias != null &&
+        keystoreKeyPassword != null &&
+        File(keystorePath).exists()
+
+// Version identity can be overridden per build so a tagged release APK is
+// distinguishable from a nightly one. Both fall back to the values below.
+val appVersionName = signingSecret("LESSONS_VERSION_NAME", "lessons.versionName") ?: "0.1.0"
+val appVersionCode = signingSecret("LESSONS_VERSION_CODE", "lessons.versionCode")?.toIntOrNull() ?: 1
+
 android {
     namespace = "com.lumenpearson.lessons"
     compileSdk = 37
@@ -35,14 +71,28 @@ android {
         applicationId = "com.lumenpearson.lessons"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
     }
 
     androidResources {
         // The app is Russian-first with an English fallback; shipping only these
         // two keeps the APK free of the transitive AndroidX translations.
         localeFilters += listOf("ru", "en")
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = File(keystorePath!!)
+                storePassword = keystorePassword
+                keyAlias = keystoreKeyAlias
+                keyPassword = keystoreKeyPassword
+                // Both schemes: v1 for API 26-27 devices, v2+ for everything since.
+                enableV1Signing = true
+                enableV2Signing = true
+            }
+        }
     }
 
     buildTypes {
@@ -54,6 +104,16 @@ android {
             isMinifyEnabled = false
         }
         release {
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn(
+                    "No release keystore configured; signing the release build with the " +
+                        "debug key so the APK is installable. Do not publish this artifact - " +
+                        "see docs/build.md to set up real signing.",
+                )
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
