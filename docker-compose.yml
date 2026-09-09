@@ -1,0 +1,34 @@
+# Minimal production-ish deployment: Postgres plus the combined API + bot process.
+# For a single class, dropping the `db` service and keeping the default SQLite
+# URL is perfectly adequate.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lessons
+      POSTGRES_PASSWORD: lessons
+      POSTGRES_DB: lessons
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lessons"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  server:
+    build: ./server
+    environment:
+      DATABASE_URL: postgresql+asyncpg://lessons:lessons@db:5432/lessons
+      BOT_TOKEN: ${BOT_TOKEN:?set BOT_TOKEN in .env}
+      OWNER_IDS: ${OWNER_IDS:?set OWNER_IDS in .env}
+      TIMEZONE: ${TIMEZONE:-Europe/Moscow}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

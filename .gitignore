@@ -1,0 +1,34 @@
+# ---- Python / server ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.db
+*.sqlite3
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+*.egg-info/
+
+# ---- Android / Gradle ----
+.gradle/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+android/build/
+android/*/build/
+android/app/release/
+
+# ---- IDE ----
+.idea/
+*.iml
+.DS_Store
+.vscode/
