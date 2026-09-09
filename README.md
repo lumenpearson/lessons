@@ -129,9 +129,14 @@ cd android
 
 **Что не проверено.** Android-приложение **ни разу не собиралось**: в среде, где
 оно писалось, нет Android SDK. Ожидайте ошибок компиляции при первом
-`./gradlew assembleDebug` — в основном по версиям и сигнатурам API. Версии
-библиотек взяты из `essentials` как заведомо совместимый набор, но
-Material 3 Expressive и Glance 1.3.0-alpha02 — альфы, и их API двигаются.
+`./gradlew assembleDebug` — в основном по сигнатурам API. Material 3 Expressive
+и Glance 1.3.0-alpha02 — альфы, и их API двигаются.
+
+Версии зависимостей больше не выдуманы: AGP, Kotlin, KSP, Compose, Glance и
+WorkManager взяты из `essentials`, а Room, Navigation, DataStore, Retrofit,
+OkHttp и kotlinx-serialization — из `android/nowinandroid` со сверкой по Maven
+Central. Первый прогон CI упал именно на выдуманных версиях, которых не
+существует ни в одном репозитории.
 В спорных местах в коде стоят комментарии `// fallback:` с указанием стабильной
 альтернативы.
 
