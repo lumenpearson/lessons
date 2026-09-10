@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date as Date
 from datetime import datetime, time
+from html import escape
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
@@ -170,7 +171,7 @@ async def homework_pick_subject(
 ) -> None:
     await state.update_data(subject=callback_data.value)
     await callback.message.edit_text(
-        f"Предмет: <b>{callback_data.value}</b>\n\nТеперь пришлите текст задания:",
+        f"Предмет: <b>{escape(callback_data.value)}</b>\n\nТеперь пришлите текст задания:",
         reply_markup=cancel_keyboard(),
     )
     await state.set_state(AddHomework.text)
@@ -235,7 +236,8 @@ async def homework_text(
     await state.clear()
 
     await message.answer(
-        f"✅ Задание {verb}.\n\n<b>{subject}</b> {human_date(due, _today(school_class))}\n{text}",
+        f"✅ Задание {verb}.\n\n<b>{escape(subject)}</b> "
+        f"{human_date(due, _today(school_class))}\n{escape(text)}",
         reply_markup=back_to_menu(),
     )
 
@@ -399,7 +401,7 @@ async def override_subject(
     await state.clear()
     await message.answer(
         f"✅ Замена сохранена: {human_date(day, _today(school_class))}, урок №{index} — "
-        f"<b>{subject.strip()}</b>.",
+        f"<b>{escape(subject.strip())}</b>.",
         reply_markup=back_to_menu(),
     )
 
@@ -573,7 +575,7 @@ async def event_title(
     await state.clear()
 
     await message.answer(
-        f"✅ Событие добавлено: <b>{title}</b> "
+        f"✅ Событие добавлено: <b>{escape(title)}</b> "
         f"{human_date(Date.fromisoformat(data['date']), _today(school_class))}, "
         f"{data['start'][:5]}–{data['end'][:5]}.",
         reply_markup=back_to_menu(),

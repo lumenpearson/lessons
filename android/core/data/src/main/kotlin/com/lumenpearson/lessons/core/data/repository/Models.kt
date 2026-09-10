@@ -39,11 +39,15 @@ data class AppSettings(
 ) {
     companion object {
         /**
-         * The emulator's alias for the developer machine's localhost, i.e. a
-         * `uvicorn app.main:app` running next to this checkout. There is no
-         * sensible production default - the join screen asks for the address.
+         * Empty on purpose: there is no address that is right for a second user.
+         *
+         * This used to default to http://10.0.2.2:8000/, the emulator's alias
+         * for the developer machine. On a real phone that host does not exist,
+         * so the app shipped pointing at a phantom server and the first thing a
+         * new user saw was a connection failure they had no way to interpret.
+         * Empty makes the join screen ask, which is the honest behaviour.
          */
-        const val DEFAULT_BASE_URL: String = "http://10.0.2.2:8000/"
+        const val DEFAULT_BASE_URL: String = ""
 
         /** Hourly is enough: a school timetable changes a few times a term. */
         const val DEFAULT_SYNC_INTERVAL_MINUTES: Int = 60

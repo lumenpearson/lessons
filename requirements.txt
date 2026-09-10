@@ -1,0 +1,12 @@
+# Vercel installs from the repository root. The server's own dependency set
+# lives in server/pyproject.toml; this file mirrors it because Vercel's Python
+# builder does not read pyproject from a subdirectory.
+#
+# asyncpg only: the serverless database is Postgres, and aiosqlite would be
+# dead weight in the function bundle.
+fastapi>=0.115
+aiogram>=3.13
+sqlalchemy[asyncio]>=2.0.30
+asyncpg>=0.29
+pydantic>=2.8
+pydantic-settings>=2.4

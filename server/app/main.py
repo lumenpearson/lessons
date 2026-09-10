@@ -15,6 +15,7 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 
 from app.api.public import router as public_router
+from app.api.telegram import router as telegram_router
 from app.config import get_settings
 from app.db import init_db
 
@@ -53,6 +54,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(public_router)
+
+# Only mounted when a webhook secret is configured. On a long-polling
+# deployment the endpoint would be dead weight and one more thing to secure.
+if get_settings().webhook_enabled:
+    app.include_router(telegram_router, prefix="/api/v1")
 
 
 @app.get("/")

@@ -13,12 +13,18 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!--
-      Deliberately NOT requesting SCHEDULE_EXACT_ALARM / USE_EXACT_ALARM: Play
-      restricts them to alarm-clock and calendar apps, and a school diary is
-      neither. WidgetTickScheduler checks canScheduleExactAlarms() and degrades
-      to a one-minute window on API 31+, which is invisible for a lesson
-      countdown. If a distribution channel ever wants exactness, adding the
-      permission in :app upgrades this module automatically — no code change.
+      Exact alarms are requested, in :app rather than here.
+
+      An earlier version of this comment claimed the opposite. It was wrong:
+      the app manifest declares SCHEDULE_EXACT_ALARM and USE_EXACT_ALARM, and
+      that is the intended design. The project is distributed as an APK inside
+      a school, not through Google Play, so the Play policy that reserves
+      USE_EXACT_ALARM for alarm and calendar apps does not apply, and a bell
+      that lands on the second is worth more here than the permission is.
+
+      WidgetTickScheduler still checks canScheduleExactAlarms() and degrades to
+      a window, because the permission can be absent on a sideloaded build or
+      revoked by the user. Losing exactness must never crash the widget.
     -->
 
     <application>

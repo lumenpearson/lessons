@@ -108,7 +108,8 @@ object TickCadence {
      * comes first wins.
      *
      * @param transition the engine's next transition, or null with no timetable.
-     * @return a tick that is always strictly in the future by at least [MIN_LEAD].
+     * @return a boundary tick at exactly the bell, or a countdown tick at least
+     *   [MIN_LEAD] away.
      */
     fun nextWakeUp(
         state: DayState?,
@@ -129,9 +130,14 @@ object TickCadence {
         // Equality goes to the boundary: if the bell and a refresh land on the
         // same second, it is the bell that must not be late.
         val isBoundary = boundary != null && chosen == boundary
+        // A bell is never postponed. Applying the countdown floor to a boundary
+        // less than MIN_LEAD away would fire the state change *after* the moment
+        // it describes: with a bell 5 seconds out the widget would still read
+        // "Урок" for 10 seconds into the break. That is precisely the case where
+        // being on time matters most, so the floor is skipped here.
         val floor = now.plus(MIN_LEAD)
         return WidgetTick(
-            at = if (chosen.isBefore(floor)) floor else chosen,
+            at = if (!isBoundary && chosen.isBefore(floor)) floor else chosen,
             isBoundary = isBoundary,
         )
     }
