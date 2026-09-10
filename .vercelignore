@@ -1,0 +1,7 @@
+android/
+docs/
+server/tests/
+server/.venv/
+server/scripts/
+.github/
+*.md

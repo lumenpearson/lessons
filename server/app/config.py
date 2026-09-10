@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     port: int = 8000
     run_bot: bool = True
 
+    # Webhook mode. Serverless platforms cannot hold a long-polling loop open,
+    # so there Telegram pushes updates to us instead of us pulling them.
+    webhook_secret: str = ""
+    webhook_path: str = "/api/v1/telegram/webhook"
+
     @property
     def owner_id_list(self) -> list[int]:
         parts = self.owner_ids.replace(";", ",").split(",")
@@ -34,7 +39,19 @@ class Settings(BaseSettings):
 
     @property
     def bot_enabled(self) -> bool:
+        """Whether to start the long-polling loop. False on serverless."""
         return self.run_bot and bool(self.bot_token)
+
+    @property
+    def webhook_enabled(self) -> bool:
+        """Whether to expose the webhook endpoint.
+
+        Requires a secret on purpose. Without one the endpoint is unauthenticated
+        and anyone who guesses the URL can forge updates from any Telegram user
+        id - which, since the bot trusts that id for authorisation, means making
+        themselves an editor and rewriting the timetable.
+        """
+        return bool(self.bot_token) and bool(self.webhook_secret)
 
 
 @lru_cache

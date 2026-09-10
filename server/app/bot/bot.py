@@ -8,12 +8,13 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand
 
 from app.bot.handlers import build_router
 from app.bot.middlewares import ContextMiddleware
 from app.config import get_settings
+from app.db import SessionLocal
+from app.fsm_storage import DatabaseStorage
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +27,13 @@ COMMANDS = [
 
 
 def build_dispatcher() -> Dispatcher:
-    dispatcher = Dispatcher(storage=MemoryStorage())
+    """The one dispatcher factory, shared by polling and webhook.
+
+    Storage is the database rather than memory even when polling, so the two
+    modes behave identically and a restart does not drop conversations that
+    were half-finished.
+    """
+    dispatcher = Dispatcher(storage=DatabaseStorage(SessionLocal))
     # Both message and callback flows need the session/class/role bundle.
     dispatcher.message.middleware(ContextMiddleware())
     dispatcher.callback_query.middleware(ContextMiddleware())
