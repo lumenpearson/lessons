@@ -1,12 +1,16 @@
 package com.lumenpearson.lessons.ui.week
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
@@ -17,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Today
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,7 +31,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -37,12 +43,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
-import com.lumenpearson.lessons.core.designsystem.component.LessonRow
+import com.lumenpearson.lessons.core.designsystem.component.LessonGroup
 import com.lumenpearson.lessons.core.designsystem.component.LessonsTopAppBar
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
+import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
+import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
+import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 import com.lumenpearson.lessons.core.model.DayKind
-import com.lumenpearson.lessons.core.model.Lesson
+import com.lumenpearson.lessons.ui.common.FloatingBarSpace
 import com.lumenpearson.lessons.ui.common.asDayMonth
 import com.lumenpearson.lessons.ui.common.asFullWeekday
 import com.lumenpearson.lessons.ui.common.asShortWeekday
@@ -79,6 +89,7 @@ fun WeekScreen(
         modifier = modifier
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             LessonsTopAppBar(
                 title = stringResource(R.string.week_title),
@@ -127,7 +138,6 @@ fun WeekScreen(
                     coroutineScope.launch { pagerState.animateScrollToPage(page) }
                 },
             )
-            HorizontalDivider()
 
             HorizontalPager(
                 state = pagerState,
@@ -143,7 +153,7 @@ fun WeekScreen(
 }
 
 /**
- * The Mon–Sun chip row.
+ * The Mon–Sun selector.
  *
  * Selection is derived from the pager rather than stored: two sources of truth
  * for "which day" is exactly how a selector and its content start disagreeing.
@@ -157,16 +167,74 @@ private fun WeekdaySelector(
 ) {
     LazyRow(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = ScreenPadding, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         itemsIndexed(items = days, key = { _, day -> day.date.toString() }) { index, day ->
-            PillChip(
-                day.date.asShortWeekday(),
+            WeekdayTile(
+                weekday = day.date.asShortWeekday(),
+                dayOfMonth = day.date.dayOfMonth.toString(),
                 selected = index == selectedPage,
+                isToday = day.isToday,
                 onClick = { onSelect(index) },
             )
         }
+    }
+}
+
+/**
+ * One day of the selector: the weekday over the date, in a rounded tile.
+ *
+ * Two lines rather than one chip because "чт" alone is ambiguous the moment the
+ * user pages away from the current week.
+ */
+@Composable
+private fun WeekdayTile(
+    weekday: String,
+    dayOfMonth: String,
+    selected: Boolean,
+    isToday: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val container = if (selected) scheme.primary else scheme.rowContainer
+    val content = if (selected) scheme.onPrimary else scheme.onSurfaceVariant
+
+    Column(
+        modifier = modifier
+            .clip(LessonsShapeTokens.Row)
+            .background(container)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = weekday,
+            style = MaterialTheme.typography.labelSmall,
+            color = content,
+        )
+        Text(
+            text = dayOfMonth,
+            style = MaterialTheme.typography.titleMedium,
+            color = if (selected) scheme.onPrimary else scheme.onSurface,
+        )
+        // The dot is the only mark today gets when it is not the selected page;
+        // colouring the whole tile would compete with the selection itself. Drawn
+        // transparent rather than skipped so every tile keeps the same height.
+        Box(
+            modifier = Modifier
+                .size(4.dp)
+                .clip(LessonsShapeTokens.Pill)
+                .background(
+                    when {
+                        !isToday -> Color.Transparent
+                        selected -> scheme.onPrimary
+                        else -> scheme.primary
+                    },
+                ),
+        )
     }
 }
 
@@ -184,98 +252,58 @@ private fun WeekDayPage(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(
+                start = ScreenPadding,
+                end = ScreenPadding,
+                top = 4.dp,
+                bottom = FloatingBarSpace,
+            ),
+        verticalArrangement = Arrangement.spacedBy(GroupSpacing),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            SectionHeader(
-                "${day.date.asFullWeekday().replaceFirstChar { it.uppercase() }}, " +
-                    day.date.asDayMonth(),
-                modifier = Modifier.weight(1f),
-            )
-            if (day.isToday) {
-                PillChip(stringResource(R.string.day_today))
-            }
-        }
+        SectionHeader(
+            title = "${day.date.asFullWeekday().replaceFirstChar { it.uppercase() }}, " +
+                day.date.asDayMonth(),
+            subtitle = schoolDay?.let {
+                pluralStringResource(
+                    R.plurals.lessons_count,
+                    it.activeLessons.size,
+                    it.activeLessons.size,
+                )
+            },
+        )
 
-        schoolDay?.kind?.takeIf { it != DayKind.NORMAL }?.let { kind ->
-            PillChip(kind.asLabel())
-        }
-        schoolDay?.note?.let { note ->
-            Text(
-                text = note,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        val kind = schoolDay?.kind?.takeIf { it != DayKind.NORMAL }
+        val note = schoolDay?.note
+        if (day.isToday || kind != null || note != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (day.isToday) {
+                    PillChip(
+                        text = stringResource(R.string.day_today),
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    )
+                }
+                if (kind != null) PillChip(text = kind.asLabel())
+                if (note != null) PillChip(text = note)
+            }
         }
 
         when {
             schoolDay == null -> EmptyState(
                 title = stringResource(R.string.week_no_data_title),
                 description = stringResource(R.string.week_no_data_description),
-                modifier = Modifier.fillMaxWidth(),
             )
 
             lessons.isEmpty() -> EmptyState(
                 title = stringResource(R.string.week_day_off_title),
                 description = stringResource(R.string.week_day_off_description),
-                modifier = Modifier.fillMaxWidth(),
             )
 
-            else -> {
-                Text(
-                    text = pluralStringResource(
-                        R.plurals.lessons_count,
-                        schoolDay.activeLessons.size,
-                        schoolDay.activeLessons.size,
-                    ),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                lessons.forEach { lesson ->
-                    WeekLessonRow(lesson = lesson, showTeacher = showTeacher)
-                }
-            }
-        }
-    }
-}
-
-/**
- * A lesson plus its deviations.
- *
- * Cancelled and replaced lessons stay in the list — a pupil needs to see that
- * the second lesson is *gone*, not just that it is missing — so the status is
- * spelled out in a chip under the row.
- * // fallback: drop the chips if LessonRow already renders the two flags.
- */
-@Composable
-private fun WeekLessonRow(
-    lesson: Lesson,
-    showTeacher: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        LessonRow(
-            lesson,
-            showTeacher = showTeacher,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (lesson.isCancelled || lesson.isReplaced || lesson.note != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (lesson.isCancelled) {
-                    PillChip(stringResource(R.string.lesson_cancelled))
-                }
-                if (lesson.isReplaced) {
-                    PillChip(stringResource(R.string.lesson_replaced))
-                }
-                lesson.note?.let { note -> PillChip(note) }
-            }
+            else -> LessonGroup(
+                lessons = lessons,
+                now = null,
+                showTeacher = showTeacher,
+            )
         }
     }
 }

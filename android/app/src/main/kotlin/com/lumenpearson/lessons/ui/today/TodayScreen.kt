@@ -3,32 +3,24 @@ package com.lumenpearson.lessons.ui.today
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.EventNote
-import androidx.compose.material3.Icon
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
@@ -38,16 +30,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
-import com.lumenpearson.lessons.core.designsystem.component.HomeworkCard
-import com.lumenpearson.lessons.core.designsystem.component.LessonTimeline
+import com.lumenpearson.lessons.core.designsystem.component.GroupCard
+import com.lumenpearson.lessons.core.designsystem.component.GroupItem
+import com.lumenpearson.lessons.core.designsystem.component.HomeworkRow
+import com.lumenpearson.lessons.core.designsystem.component.LessonGroup
 import com.lumenpearson.lessons.core.designsystem.component.LessonsTopAppBar
-import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.component.StateHeroCard
+import com.lumenpearson.lessons.core.designsystem.state.icon
+import com.lumenpearson.lessons.core.designsystem.state.tone
+import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
+import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
+import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.model.DayState
-import com.lumenpearson.lessons.core.model.EventKind
 import com.lumenpearson.lessons.core.model.SchoolDay
-import com.lumenpearson.lessons.core.model.SchoolEvent
+import com.lumenpearson.lessons.ui.common.FloatingBarSpace
 import com.lumenpearson.lessons.ui.common.asRelativeDayLabel
 import com.lumenpearson.lessons.ui.common.asText
 import com.lumenpearson.lessons.ui.common.syncedAtLabel
@@ -56,13 +53,16 @@ import com.lumenpearson.lessons.ui.common.timeRange
 /** How many homework items the home screen previews before deferring to the tab. */
 private const val HomeworkPreviewCount = 3
 
+/** Accent slot of the "ещё N заданий" row; violet, unused by any event kind. */
+private const val HomeworkMoreSlot = 5
+
 /**
  * The home screen: one glance answers "what now?".
  *
- * Section order is not fixed. While school is on, the timeline leads; once the
- * last bell has rung — or on a day off — homework is promoted to the top, which
- * is the same rule the widget follows, so the two never disagree about what
- * matters at 16:00.
+ * Section order is not fixed. While school is on, the day leads; once the last
+ * bell has rung — or on a day off — homework is promoted to the top, which is
+ * the same rule the widget follows, so the two never disagree about what matters
+ * at 16:00.
  *
  * @param onOpenHomework opens the homework tab from the preview's footer.
  */
@@ -88,6 +88,7 @@ fun TodayScreen(
         modifier = modifier
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             LessonsTopAppBar(
                 title = stringResource(R.string.today_title),
@@ -106,11 +107,16 @@ fun TodayScreen(
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(
+                    start = ScreenPadding,
+                    end = ScreenPadding,
+                    top = 8.dp,
+                    bottom = FloatingBarSpace,
+                ),
+                verticalArrangement = Arrangement.spacedBy(GroupSpacing),
             ) {
                 item(key = "hero") {
-                    state.state?.let { dayState -> StateHeroCard(dayState) }
+                    state.state?.let { dayState -> StateHeroCard(state = dayState) }
                 }
 
                 if (state.homeworkFirst) {
@@ -127,7 +133,7 @@ fun TodayScreen(
                     Text(
                         text = syncedAtLabel(state.syncedAtEpochMillis),
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.outline,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -144,36 +150,32 @@ fun TodayScreen(
  * fourth lesson does not need the first three re-read to them.
  */
 private fun LazyListScope.lessonsSection(state: TodayUiState) {
-    item(key = "lessons-header") {
-        SectionHeader(stringResource(R.string.today_lessons_remaining))
-    }
-    item(key = "lessons-body") {
-        when {
-            state.isLoading -> Unit
+    item(key = "lessons") {
+        SectionHeaderedGroup(title = stringResource(R.string.today_lessons_remaining)) {
+            when {
+                state.isLoading -> Unit
 
-            state.remainingLessons.isNotEmpty() -> LessonTimeline(
-                state.remainingLessons,
-                showTeacher = state.showTeacher,
-                modifier = Modifier.fillMaxWidth(),
-            )
+                state.remainingLessons.isNotEmpty() -> LessonGroup(
+                    lessons = state.remainingLessons,
+                    now = state.now.toLocalTime(),
+                    showTeacher = state.showTeacher,
+                )
 
-            state.state is DayState.NoData -> EmptyState(
-                title = stringResource(R.string.today_no_data_title),
-                description = stringResource(R.string.today_no_data_description),
-                modifier = Modifier.fillMaxWidth(),
-            )
+                state.state is DayState.NoData -> EmptyState(
+                    title = stringResource(R.string.today_no_data_title),
+                    description = stringResource(R.string.today_no_data_description),
+                )
 
-            state.today?.hasLessons == true -> EmptyState(
-                title = stringResource(R.string.today_lessons_over_title),
-                description = stringResource(R.string.today_lessons_over_description),
-                modifier = Modifier.fillMaxWidth(),
-            )
+                state.today?.hasLessons == true -> EmptyState(
+                    title = stringResource(R.string.today_lessons_over_title),
+                    description = stringResource(R.string.today_lessons_over_description),
+                )
 
-            else -> EmptyState(
-                title = stringResource(R.string.today_no_lessons_title),
-                description = stringResource(R.string.today_no_lessons_description),
-                modifier = Modifier.fillMaxWidth(),
-            )
+                else -> EmptyState(
+                    title = stringResource(R.string.today_no_lessons_title),
+                    description = stringResource(R.string.today_no_lessons_description),
+                )
+            }
         }
     }
 }
@@ -182,11 +184,22 @@ private fun LazyListScope.lessonsSection(state: TodayUiState) {
 private fun LazyListScope.eventsSection(state: TodayUiState) {
     if (state.events.isEmpty()) return
 
-    item(key = "events-header") {
-        SectionHeader(stringResource(R.string.today_events))
-    }
-    state.events.forEachIndexed { index, event ->
-        item(key = "event-$index") { EventRow(event = event) }
+    item(key = "events") {
+        SectionHeaderedGroup(title = stringResource(R.string.today_events)) {
+            GroupCard {
+                state.events.forEach { event ->
+                    GroupItem(
+                        title = event.title,
+                        subtitle = listOfNotNull(
+                            timeRange(event.startsAt, event.endsAt),
+                            event.location,
+                        ).joinToString(separator = " · "),
+                        icon = event.kind.icon(),
+                        tone = event.kind.tone(),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -200,88 +213,42 @@ private fun LazyListScope.homeworkSection(state: TodayUiState, onOpenHomework: (
     val day: SchoolDay = state.homeworkDay ?: return
     if (day.homework.isEmpty()) return
 
-    item(key = "homework-header") {
-        SectionHeader(
-            stringResource(
-                R.string.today_homework_for,
-                day.date.asRelativeDayLabel(state.now.toLocalDate()),
-            ),
+    item(key = "homework") {
+        val title = stringResource(
+            R.string.today_homework_for,
+            day.date.asRelativeDayLabel(state.now.toLocalDate()),
         )
-    }
-    day.homework.take(HomeworkPreviewCount).forEachIndexed { index, homework ->
-        item(key = "homework-$index") { HomeworkCard(homework) }
-    }
-    if (day.homework.size > HomeworkPreviewCount) {
-        item(key = "homework-more") {
-            TextButton(onClick = onOpenHomework, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = stringResource(
-                        R.string.today_homework_more,
-                        day.homework.size - HomeworkPreviewCount,
-                    ),
-                )
+        SectionHeaderedGroup(title = title) {
+            GroupCard {
+                day.homework.take(HomeworkPreviewCount).forEach { homework ->
+                    HomeworkRow(item = homework)
+                }
+                // The "ещё N" affordance is a row of the group rather than a
+                // button under it: it is one more thing to read, in the same list.
+                if (day.homework.size > HomeworkPreviewCount) {
+                    GroupItem(
+                        title = stringResource(
+                            R.string.today_homework_more,
+                            day.homework.size - HomeworkPreviewCount,
+                        ),
+                        icon = Icons.AutoMirrored.Rounded.ArrowForward,
+                        tone = accentTone(HomeworkMoreSlot),
+                        onClick = onOpenHomework,
+                    )
+                }
             }
         }
     }
 }
 
-/**
- * A single non-lesson entry.
- *
- * Written here rather than in :core:designsystem because events are the one part
- * of the timeline the widget never renders, so there is nothing to share yet.
- */
+/** A label and whatever it labels, kept together so the two never wrap apart. */
 @Composable
-private fun EventRow(event: SchoolEvent, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Icon(
-                imageVector = if (event.kind == EventKind.EVENT) {
-                    Icons.Rounded.EventNote
-                } else {
-                    Icons.Rounded.CalendarMonth
-                },
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = event.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = listOfNotNull(
-                        timeRange(event.startsAt, event.endsAt),
-                        event.location,
-                    ).joinToString(separator = " · "),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(modifier = Modifier.size(4.dp))
-            PillChip(event.kind.asLabel())
-        }
+private fun SectionHeaderedGroup(
+    title: String,
+    content: @Composable () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SectionHeader(title = title)
+        content()
     }
 }
-
-/** Localized name of an event kind, used as the row's trailing chip. */
-@Composable
-private fun EventKind.asLabel(): String = stringResource(
-    when (this) {
-        EventKind.EVENT -> R.string.event_kind_event
-        EventKind.CANTEEN -> R.string.event_kind_canteen
-        EventKind.EXAM -> R.string.event_kind_exam
-        EventKind.TRIP -> R.string.event_kind_trip
-        EventKind.MEETING -> R.string.event_kind_meeting
-    },
-)

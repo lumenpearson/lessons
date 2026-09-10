@@ -44,7 +44,7 @@ fun LessonsTopAppBar(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     scrollBehavior: TopAppBarScrollBehavior? = null,
-    containerColor: Color = MaterialTheme.colorScheme.surface,
+    containerColor: Color = MaterialTheme.colorScheme.background,
     onBackClick: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
@@ -53,8 +53,14 @@ fun LessonsTopAppBar(
     // app bar's parameter churn. If a `subtitle` slot is available, moving to it
     // is a local change here and nowhere else.
     LargeFlexibleTopAppBar(
-        modifier = modifier.padding(horizontal = 4.dp),
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = containerColor),
+        modifier = modifier.padding(horizontal = 8.dp),
+        // Scrolled and resting colours are the same on purpose: the page is a
+        // stack of cards on a flat ground, and a bar that tints itself on scroll
+        // introduces a second surface level the rest of the app does not have.
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = containerColor,
+            scrolledContainerColor = containerColor,
+        ),
         expandedHeight = if (subtitle != null) 148.dp else 116.dp,
         collapsedHeight = TopAppBarDefaults.LargeAppBarCollapsedHeight,
         title = {

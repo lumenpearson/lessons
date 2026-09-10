@@ -14,17 +14,31 @@ import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Wifi
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.lumenpearson.lessons.core.designsystem.R
+import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
+import com.lumenpearson.lessons.core.designsystem.theme.accentTone
+import com.lumenpearson.lessons.core.designsystem.theme.errorTone
+import com.lumenpearson.lessons.core.designsystem.theme.neutralTone
 import com.lumenpearson.lessons.core.model.DayKind
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.EventKind
 import java.time.Duration
+
+/*
+ * Accent slots, named so the mapping below reads as a decision and not as a
+ * table of magic numbers. The hues themselves come from the installed scheme,
+ * so these survive dark mode and a wallpaper-derived palette.
+ */
+private const val SlotLesson = 0
+private const val SlotBreak = 1
+private const val SlotEvent = 2
+private const val SlotMorning = 3
+private const val SlotTrip = 4
+private const val SlotDayOff = 5
 
 /**
  * Everything the UI needs to draw a [DayState], resolved once.
@@ -37,99 +51,77 @@ import java.time.Duration
 data class StateVisuals(
     val label: String,
     val detail: String?,
-    val accent: Color,
-    val onAccent: Color,
-    val container: Color,
+    val tone: AccentTone,
     val icon: ImageVector,
 )
 
 /**
  * Maps a domain state onto the current colour scheme and the Russian wording.
  *
- * Composable because both halves are theme- and locale-dependent: the accent has
+ * Composable because both halves are theme- and locale-dependent: the tone has
  * to come from whatever wallpaper-derived scheme is installed, and the label has
  * to come from resources so `values-en/` can replace it.
  */
 @Composable
-fun DayState.visuals(): StateVisuals {
-    val scheme = MaterialTheme.colorScheme
-    return when (this) {
-        // Waiting for the day to start: the calm, non-academic teal, same family
-        // as the canteen — nothing is demanded of the reader yet.
-        is DayState.BeforeSchool -> StateVisuals(
-            label = stringResource(R.string.ds_state_before_school),
-            detail = stringResource(R.string.ds_state_first_subject, next.subject),
-            accent = scheme.secondary,
-            onAccent = scheme.onSecondary,
-            container = scheme.secondaryContainer,
-            icon = Icons.Rounded.Schedule,
-        )
+fun DayState.visuals(): StateVisuals = when (this) {
+    // Waiting for the day to start: the calm, non-academic green — nothing is
+    // demanded of the reader yet.
+    is DayState.BeforeSchool -> StateVisuals(
+        label = stringResource(R.string.ds_state_before_school),
+        detail = stringResource(R.string.ds_state_first_subject, next.subject),
+        tone = accentTone(SlotMorning),
+        icon = Icons.Rounded.Schedule,
+    )
 
-        // A lesson is the app's subject matter, so it gets the primary colour.
-        is DayState.InLesson -> StateVisuals(
-            label = stringResource(R.string.ds_state_in_lesson),
-            detail = current.subject,
-            accent = scheme.primary,
-            onAccent = scheme.onPrimary,
-            container = scheme.primaryContainer,
-            icon = Icons.Rounded.MenuBook,
-        )
+    // A lesson is the app's subject matter, so it gets the scheme's own hue.
+    is DayState.InLesson -> StateVisuals(
+        label = stringResource(R.string.ds_state_in_lesson),
+        detail = current.subject,
+        tone = accentTone(SlotLesson),
+        icon = Icons.Rounded.MenuBook,
+    )
 
-        // Warm amber: the one moment in the school day that belongs to the pupil.
-        is DayState.OnBreak -> StateVisuals(
-            label = stringResource(R.string.ds_state_break),
-            detail = stringResource(R.string.ds_state_next_subject, next.subject),
-            accent = scheme.tertiary,
-            onAccent = scheme.onTertiary,
-            container = scheme.tertiaryContainer,
-            icon = Icons.Rounded.FreeBreakfast,
-        )
+    // Warm amber: the one moment in the school day that belongs to the pupil.
+    is DayState.OnBreak -> StateVisuals(
+        label = stringResource(R.string.ds_state_break),
+        detail = stringResource(R.string.ds_state_next_subject, next.subject),
+        tone = accentTone(SlotBreak),
+        icon = Icons.Rounded.FreeBreakfast,
+    )
 
-        is DayState.DuringEvent -> {
-            val palette = event.kind.palette()
-            StateVisuals(
-                label = stringResource(event.kind.labelRes()),
-                detail = event.title,
-                accent = palette.accent,
-                onAccent = palette.onAccent,
-                container = palette.container,
-                icon = event.kind.icon(),
-            )
-        }
+    is DayState.DuringEvent -> StateVisuals(
+        label = stringResource(event.kind.labelRes()),
+        detail = event.title,
+        tone = event.kind.tone(),
+        icon = event.kind.icon(),
+    )
 
-        // Nothing is running any more, so the state steps back to a neutral
-        // surface and lets the homework list below it take the attention.
-        is DayState.AfterSchool -> StateVisuals(
-            label = stringResource(R.string.ds_state_after_school),
-            detail = finishedAt?.let { stringResource(R.string.ds_state_finished_at, it.formatHm()) },
-            accent = scheme.onSurfaceVariant,
-            onAccent = scheme.surface,
-            container = scheme.surfaceVariant,
-            icon = Icons.Rounded.School,
-        )
+    // Nothing is running any more, so the state steps back to a neutral tile and
+    // lets the homework list below it take the attention.
+    is DayState.AfterSchool -> StateVisuals(
+        label = stringResource(R.string.ds_state_after_school),
+        detail = finishedAt?.let { stringResource(R.string.ds_state_finished_at, it.formatHm()) },
+        tone = neutralTone(),
+        icon = Icons.Rounded.School,
+    )
 
-        is DayState.DayOff -> StateVisuals(
-            label = stringResource(kind.dayOffLabelRes()),
-            detail = note ?: when {
-                homeworkDay != null -> stringResource(R.string.ds_state_homework_ready)
-                else -> stringResource(R.string.ds_state_day_off_detail)
-            },
-            accent = scheme.tertiary,
-            onAccent = scheme.onTertiary,
-            container = scheme.tertiaryContainer,
-            icon = kind.dayOffIcon(),
-        )
+    is DayState.DayOff -> StateVisuals(
+        label = stringResource(kind.dayOffLabelRes()),
+        detail = note ?: when {
+            homeworkDay != null -> stringResource(R.string.ds_state_homework_ready)
+            else -> stringResource(R.string.ds_state_day_off_detail)
+        },
+        tone = accentTone(SlotDayOff),
+        icon = kind.dayOffIcon(),
+    )
 
-        // Muted outline colours: an empty state must not look like a real state.
-        is DayState.NoData -> StateVisuals(
-            label = stringResource(R.string.ds_state_no_data),
-            detail = stringResource(R.string.ds_state_no_data_detail),
-            accent = scheme.outline,
-            onAccent = scheme.surface,
-            container = scheme.surfaceContainerHighest,
-            icon = Icons.Rounded.CloudOff,
-        )
-    }
+    // Muted: an empty state must not look like a real state.
+    is DayState.NoData -> StateVisuals(
+        label = stringResource(R.string.ds_state_no_data),
+        detail = stringResource(R.string.ds_state_no_data_detail),
+        tone = neutralTone(),
+        icon = Icons.Rounded.CloudOff,
+    )
 }
 
 /**
@@ -161,21 +153,16 @@ val DayState.progressOrNull: Float?
         else -> null
     }
 
-/** Accent triple for one non-lesson event kind. Private so it stays an implementation detail. */
-private data class EventPalette(val accent: Color, val onAccent: Color, val container: Color)
-
+/** The row tone for a non-lesson event; also used by the events list on Сегодня. */
 @Composable
-private fun EventKind.palette(): EventPalette {
-    val scheme = MaterialTheme.colorScheme
-    return when (this) {
-        // Exams are the only state the app is allowed to make you feel something about.
-        EventKind.EXAM -> EventPalette(scheme.error, scheme.onError, scheme.errorContainer)
-        EventKind.TRIP -> EventPalette(scheme.tertiary, scheme.onTertiary, scheme.tertiaryContainer)
-        EventKind.CANTEEN,
-        EventKind.MEETING,
-        EventKind.EVENT,
-        -> EventPalette(scheme.secondary, scheme.onSecondary, scheme.secondaryContainer)
-    }
+fun EventKind.tone(): AccentTone = when (this) {
+    // Exams are the only state the app is allowed to make you feel something about.
+    EventKind.EXAM -> errorTone()
+    EventKind.TRIP -> accentTone(SlotTrip)
+    EventKind.CANTEEN,
+    EventKind.MEETING,
+    EventKind.EVENT,
+    -> accentTone(SlotEvent)
 }
 
 @StringRes
@@ -187,7 +174,8 @@ private fun EventKind.labelRes(): Int = when (this) {
     EventKind.EVENT -> R.string.ds_event_generic
 }
 
-private fun EventKind.icon(): ImageVector = when (this) {
+/** Also used outside the hero card: the events group on Сегодня draws the same glyphs. */
+fun EventKind.icon(): ImageVector = when (this) {
     EventKind.CANTEEN -> Icons.Rounded.Restaurant
     EventKind.EXAM -> Icons.Rounded.EditNote
     EventKind.TRIP -> Icons.Rounded.DirectionsBus

@@ -44,8 +44,16 @@ val LessonsTypography: Typography = Baseline.copy(
     titleLarge = Baseline.titleLarge.copy(
         fontWeight = FontWeight.SemiBold,
     ),
+    // Row titles: medium, not semi-bold. A grouped list is mostly titles, and at
+    // semi-bold the whole screen reads as emphasis.
     titleMedium = Baseline.titleMedium.copy(
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Medium,
+    ),
+    // The muted second line under every row title. 12sp is the Material default
+    // and is a size too small to read at arm's length on a phone.
+    bodySmall = Baseline.bodySmall.copy(
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
     ),
     // Labels are the chips and the overline above the hero headline: a little
     // extra tracking is what keeps three uppercase Cyrillic words legible at 11sp.
