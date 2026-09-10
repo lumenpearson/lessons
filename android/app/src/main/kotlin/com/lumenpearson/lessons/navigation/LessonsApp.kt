@@ -3,7 +3,6 @@ package com.lumenpearson.lessons.navigation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -21,7 +20,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.lumenpearson.lessons.core.designsystem.component.FloatingNavBar
-import com.lumenpearson.lessons.core.designsystem.component.FloatingNavBarItem
+import com.lumenpearson.lessons.core.designsystem.component.NavBarItem
 import com.lumenpearson.lessons.ui.homework.HomeworkScreen
 import com.lumenpearson.lessons.ui.join.JoinScreen
 import com.lumenpearson.lessons.ui.settings.SettingsScreen
@@ -141,16 +140,17 @@ private fun LessonsNavigationBar(
     currentPath: String?,
     onSelect: (TopLevelDestination) -> Unit,
 ) {
-    FloatingNavBar(modifier = Modifier.navigationBarsPadding()) {
-        TopLevelDestination.entries.forEach { destination ->
-            FloatingNavBarItem(
-                selected = currentPath == destination.route.path,
-                onClick = { onSelect(destination) },
+    val destinations = TopLevelDestination.entries
+    FloatingNavBar(
+        items = destinations.map { destination ->
+            NavBarItem(
                 icon = destination.icon,
                 label = stringResource(destination.labelRes),
+                onClick = { onSelect(destination) },
             )
-        }
-    }
+        },
+        selectedIndex = destinations.indexOfFirst { it.route.path == currentPath },
+    )
 }
 
 /**
