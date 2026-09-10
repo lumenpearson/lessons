@@ -136,9 +136,18 @@ class SchoolClass(Base):
 
     @property
     def timezone_name(self) -> str:
-        from app.config import get_settings
+        """The name of the zone actually in effect — never an unresolvable one.
 
-        return self.timezone or get_settings().timezone
+        The client is told to derive "now" from this field, so it has to be a
+        zone the client can look up. Returning a stored typo (or a zone this
+        build has no data for) while ``tz`` silently fell back to Moscow would
+        put the app an unknown number of hours off.
+        """
+        from app.config import get_settings
+        from app.timezones import resolve
+
+        settings = get_settings()
+        return resolve(self.timezone, settings.timezone).key
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return f"<SchoolClass {self.id} {self.name!r}>"

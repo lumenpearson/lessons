@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from datetime import time
+from html import escape
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
@@ -53,6 +54,15 @@ BELL_LINE = re.compile(
 
 def _parse_time(raw: str) -> time:
     return time.fromisoformat(raw.replace(".", ":"))
+
+
+def _weekday_or_none(raw: str) -> int | None:
+    """1..7, or ``None`` for anything a crafted callback might carry."""
+    try:
+        weekday = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return weekday if 1 <= weekday <= 7 else None
 
 
 @router.callback_query(Menu.filter(F.action == "timetable"))
@@ -100,7 +110,10 @@ async def timetable_pick_day(
         await callback.answer("Только для администраторов", show_alert=True)
         return
 
-    weekday = int(callback_data.value)
+    weekday = _weekday_or_none(callback_data.value)
+    if weekday is None:
+        await callback.answer("Неизвестный день недели", show_alert=True)
+        return
     await state.update_data(weekday=weekday)
 
     entries = list(
@@ -112,9 +125,9 @@ async def timetable_pick_day(
     )
     if entries:
         current = "\n".join(
-            f"{entry.index}. {entry.subject_name}"
-            + (f", {entry.room}" if entry.room else "")
-            + (f", {entry.teacher}" if entry.teacher else "")
+            f"{entry.index}. {escape(entry.subject_name)}"
+            + (f", {escape(entry.room)}" if entry.room else "")
+            + (f", {escape(entry.teacher)}" if entry.teacher else "")
             for entry in entries
         )
         body = f"<b>{WEEKDAY_FULL[weekday - 1]}</b>\n\n<code>{current}</code>\n\n{TIMETABLE_HELP}"
@@ -139,18 +152,22 @@ async def timetable_apply(
         return
 
     data = await state.get_data()
-    weekday = int(data["weekday"])
+    weekday = _weekday_or_none(str(data.get("weekday", "")))
+    if weekday is None:
+        await state.clear()
+        await message.answer(
+            "Не понял, какой это день недели. Откройте «Расписание» заново.",
+            reply_markup=back_to_menu(),
+        )
+        return
     raw = (message.text or "").strip()
 
-    # Replacing the whole weekday in one transaction keeps the template and the
-    # message the admin just sent identical — no partial merges to reason about.
-    await session.execute(
-        delete(TimetableEntry).where(
-            TimetableEntry.class_id == school_class.id, TimetableEntry.weekday == weekday
-        )
-    )
-
     if raw in {"-", "—"}:
+        await session.execute(
+            delete(TimetableEntry).where(
+                TimetableEntry.class_id == school_class.id, TimetableEntry.weekday == weekday
+            )
+        )
         await session.commit()
         await state.clear()
         await message.answer(
@@ -158,8 +175,11 @@ async def timetable_apply(
         )
         return
 
-    added: list[str] = []
+    # Parse the whole message before touching the database: a paste that turns
+    # out to be unusable must not have wiped the weekday on its way through.
+    parsed: list[tuple[int, str, str | None, str | None]] = []
     rejected: list[str] = []
+    seen: set[int] = set()
     for line in raw.splitlines():
         if not line.strip():
             continue
@@ -171,34 +191,62 @@ async def timetable_apply(
         index = int(match.group(1))
         parts = [part.strip() for part in match.group(2).split(",")]
         subject = parts[0][:120]
-        if not subject:
+        # Lesson numbers start at 1, and the unique key is (day, number): a zero
+        # or a repeated number used to abort the whole save with an IntegrityError.
+        if not subject or index < 1 or index in seen:
             rejected.append(line.strip())
             continue
+        seen.add(index)
 
+        parsed.append(
+            (
+                index,
+                subject,
+                (parts[1][:32] if len(parts) > 1 and parts[1] else None),
+                (parts[2][:120] if len(parts) > 2 and parts[2] else None),
+            )
+        )
+
+    if not parsed:
+        # Same rule as the bells: a bad paste never erases what is stored.
+        # Clearing a day is spelled "-", and only that.
+        await message.answer(
+            "Не удалось разобрать ни одной строки — расписание не изменено.\n\n"
+            + TIMETABLE_HELP,
+            reply_markup=cancel_keyboard(),
+        )
+        return
+
+    # Replacing the whole weekday in one transaction keeps the template and the
+    # message the admin just sent identical — no partial merges to reason about.
+    await session.execute(
+        delete(TimetableEntry).where(
+            TimetableEntry.class_id == school_class.id, TimetableEntry.weekday == weekday
+        )
+    )
+    for index, subject, room, teacher in parsed:
         session.add(
             TimetableEntry(
                 class_id=school_class.id,
                 weekday=weekday,
                 index=index,
                 subject_name=subject,
-                room=(parts[1][:32] if len(parts) > 1 and parts[1] else None),
-                teacher=(parts[2][:120] if len(parts) > 2 and parts[2] else None),
+                room=room,
+                teacher=teacher,
                 parity=WeekParity.ANY,
             )
         )
-        added.append(f"{index}. {subject}")
 
     await session.commit()
     await state.clear()
 
-    lines = [f"✅ {WEEKDAY_FULL[weekday - 1]}: сохранено уроков — {len(added)}."]
-    if added:
-        lines.append("")
-        lines.extend(added)
+    lines = [f"✅ {WEEKDAY_FULL[weekday - 1]}: сохранено уроков — {len(parsed)}."]
+    lines.append("")
+    lines.extend(f"{index}. {escape(subject)}" for index, subject, _, _ in parsed)
     if rejected:
         lines.append("")
         lines.append("⚠️ Не разобрал строки:")
-        lines.extend(f"<code>{line}</code>" for line in rejected)
+        lines.extend(f"<code>{escape(line)}</code>" for line in rejected)
 
     await message.answer("\n".join(lines), reply_markup=back_to_menu())
 
@@ -248,6 +296,7 @@ async def bells_apply(
 
     parsed: list[tuple[int, time, time]] = []
     rejected: list[str] = []
+    seen: set[int] = set()
     for line in (message.text or "").splitlines():
         if not line.strip():
             continue
@@ -264,7 +313,14 @@ async def bells_apply(
         if start >= end:
             rejected.append(line.strip())
             continue
-        parsed.append((int(match.group(1)), start, end))
+        index = int(match.group(1))
+        # (schedule, index) is unique: a zero or a repeat used to blow up the
+        # commit *after* the old rows had been deleted.
+        if index < 1 or index in seen:
+            rejected.append(line.strip())
+            continue
+        seen.add(index)
+        parsed.append((index, start, end))
 
     if not parsed:
         await message.answer(
@@ -293,5 +349,5 @@ async def bells_apply(
     if rejected:
         lines.append("")
         lines.append("⚠️ Не разобрал строки:")
-        lines.extend(f"<code>{line}</code>" for line in rejected)
+        lines.extend(f"<code>{escape(line)}</code>" for line in rejected)
     await message.answer("\n".join(lines), reply_markup=back_to_menu())

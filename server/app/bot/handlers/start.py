@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from html import escape
 
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
@@ -48,8 +49,8 @@ def _today(school_class: SchoolClass | None = None) -> datetime:
 
 async def _send_menu(message: Message, school_class: SchoolClass, role: Role) -> None:
     await message.answer(
-        f"<b>{school_class.name}</b>"
-        + (f" · {school_class.school}" if school_class.school else "")
+        f"<b>{escape(school_class.name)}</b>"
+        + (f" · {escape(school_class.school)}" if school_class.school else "")
         + f"\nВаша роль: <b>{role.title_ru}</b>. {render_role_help(role)}",
         reply_markup=main_menu(role),
     )
@@ -121,7 +122,7 @@ async def on_contact(
 
     school_class, role = granted[0]
     await message.answer(
-        f"✅ Доступ выдан: <b>{school_class.name}</b>, роль <b>{role.title_ru}</b>.",
+        f"✅ Доступ выдан: <b>{escape(school_class.name)}</b>, роль <b>{role.title_ru}</b>.",
         reply_markup=ReplyKeyboardRemove(),
     )
     await _send_menu(message, school_class, role)
@@ -161,7 +162,19 @@ async def create_class_timezone(
     state: FSMContext,
     session: AsyncSession,
 ) -> None:
+    # FSM state is per-user and therefore attacker-controlled; creating a class
+    # hands the caller OWNER of it, so the environment owner list is re-checked
+    # here rather than trusted from the step that set the state.
+    if not is_env_owner(callback.from_user.id):
+        await state.clear()
+        await callback.answer("Только для владельца", show_alert=True)
+        return
+
     data = await state.get_data()
+    if "name" not in data:
+        await state.clear()
+        await callback.answer("Начните сначала: /start", show_alert=True)
+        return
     zone = callback_data.zone if is_supported(callback_data.zone) else DEFAULT_TIMEZONE
 
     bells = BellSchedule(class_id=0, name="Обычное")
@@ -197,7 +210,7 @@ async def create_class_timezone(
     await state.clear()
 
     await callback.message.edit_text(
-        f"✅ Класс <b>{school_class.name}</b> создан.\n"
+        f"✅ Класс <b>{escape(school_class.name)}</b> создан.\n"
         f"Часовой пояс: {label_for(zone)}\n\n"
         f"Код для приложения: <code>{school_class.join_code}</code>\n"
         "Введите его в приложении на телефоне, чтобы подключить расписание.\n\n"
@@ -219,7 +232,7 @@ async def back_root(
         await callback.answer("Нет доступа", show_alert=True)
         return
     await callback.message.edit_text(
-        f"<b>{school_class.name}</b>\nВаша роль: <b>{role.title_ru}</b>.",
+        f"<b>{escape(school_class.name)}</b>\nВаша роль: <b>{role.title_ru}</b>.",
         reply_markup=main_menu(role),
     )
     await callback.answer()
@@ -274,7 +287,8 @@ async def cmd_code(
         await message.answer("Команда доступна администраторам класса.")
         return
     await message.answer(
-        f"Код класса <b>{school_class.name}</b>: <code>{school_class.join_code}</code>\n\n"
+        f"Код класса <b>{escape(school_class.name)}</b>: "
+        f"<code>{escape(school_class.join_code)}</code>\n\n"
         "Его вводят в приложении при первом запуске. "
         "Код даёт только чтение расписания.",
     )
@@ -309,10 +323,10 @@ async def class_settings(
         )
 
     await callback.message.edit_text(
-        f"<b>⚙️ {school_class.name}</b>\n"
-        + (f"Школа: {school_class.school}\n" if school_class.school else "")
+        f"<b>⚙️ {escape(school_class.name)}</b>\n"
+        + (f"Школа: {escape(school_class.school)}\n" if school_class.school else "")
         + f"Часовой пояс: {label_for(school_class.timezone_name)}\n"
-        + f"Код для приложения: <code>{school_class.join_code}</code>",
+        + f"Код для приложения: <code>{escape(school_class.join_code)}</code>",
         reply_markup=back_to_menu(extra),
     )
     await callback.answer()
@@ -334,7 +348,7 @@ async def rotate_code(
     school_class.join_code = new_join_code()
     await session.commit()
     await callback.message.edit_text(
-        f"Новый код класса: <code>{school_class.join_code}</code>\n\n"
+        f"Новый код класса: <code>{escape(school_class.join_code)}</code>\n\n"
         "Уже подключённые устройства продолжат работать.",
         reply_markup=back_to_menu(),
     )
@@ -357,12 +371,16 @@ async def cmd_help(message: Message, role: Role | None) -> None:
 @router.callback_query(ClassAction.filter(F.action == "timezone"))
 async def change_timezone_prompt(
     callback: CallbackQuery,
+    state: FSMContext,
     school_class: SchoolClass | None,
     role: Role | None,
 ) -> None:
     if school_class is None or role is None or not role.at_least(Role.ADMIN):
         await callback.answer("Только для администраторов", show_alert=True)
         return
+
+    # An abandoned "create class" flow would otherwise swallow the zone button.
+    await state.clear()
 
     await callback.message.edit_text(
         f"Текущий пояс: <b>{label_for(school_class.timezone_name)}</b>\n\n"

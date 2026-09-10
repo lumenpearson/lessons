@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date as Date
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,11 +24,26 @@ from app.schemas import (
     JoinResponse,
     LessonOut,
 )
-from app.security import hash_token, new_token
+from app.security import RateLimiter, hash_token, new_token
 
 router = APIRouter(prefix="/api/v1", tags=["client"])
 
 MAX_BUNDLE_DAYS = 31
+
+# ``start`` is arbitrary client input and the resolver does date arithmetic on
+# top of it (up to ``days`` forward, then another three weeks of look-ahead).
+# Near ``date.max`` that arithmetic raises OverflowError, which the widget would
+# see as a 500. Bound the parameter to dates a school timetable can plausibly
+# mean and reject the rest with the documented 422.
+MIN_BUNDLE_START = Date(2000, 1, 1)
+MAX_BUNDLE_START = Date(2100, 1, 1)
+
+# Six characters from a 32-symbol alphabet is 2**30 codes. That sounds like a
+# lot until you notice every guess is checked against *every* class at once: at
+# a thousand classes an attacker expects a working token roughly every million
+# tries, which an unthrottled endpoint hands out in a day. Only failures are
+# counted, so a whole classroom joining from one school NAT is never blocked.
+join_limiter = RateLimiter(limit=30, window=900.0)
 
 
 def _to_day_out(day: ResolvedDay) -> DayOut:
@@ -77,13 +92,24 @@ async def health() -> dict[str, object]:
 
 @router.post("/join", response_model=JoinResponse)
 async def join(
+    request: Request,
     payload: JoinRequest,
     session: AsyncSession = Depends(get_session),
 ) -> JoinResponse:
     """Exchange a class join code for a long-lived read-only device token."""
+    client = request.client.host if request.client else "unknown"
+    retry_after = join_limiter.blocked_for(client)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many join attempts",
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
+
     code = payload.code.strip().upper()
     school_class = await session.scalar(select(SchoolClass).where(SchoolClass.join_code == code))
     if school_class is None:
+        join_limiter.record_failure(client)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown join code")
 
     token = new_token()
@@ -116,6 +142,15 @@ async def bundle(
     The client computes the current lesson/break state locally from this
     payload, so the widget keeps ticking with no network.
     """
+    if start is not None and not (MIN_BUNDLE_START <= start <= MAX_BUNDLE_START):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"start must be between {MIN_BUNDLE_START.isoformat()} "
+                f"and {MAX_BUNDLE_START.isoformat()}"
+            ),
+        )
+
     # The class's own zone, not the server's: a Kaliningrad class and a
     # Vladivostok class hosted by the same instance are ten hours apart, and
     # "today" has to mean the right day for each of them.
