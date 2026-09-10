@@ -5,7 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
+import kotlin.math.abs
 
 /**
  * The pastel tile and the glyph that sits on it — the per-row colour that makes
@@ -28,9 +28,15 @@ private val AccentHueOffsets = floatArrayOf(0f, 42f, 96f, 158f, 214f, 292f)
 /** How many distinct row hues the system has; also the modulus for [accentSlotFor]. */
 val AccentSlotCount: Int = AccentHueOffsets.size
 
-/** Dark schemes need the tile dark and the glyph bright; light schemes the reverse. */
+/**
+ * Dark schemes need the tile dark and the glyph bright; light schemes the reverse.
+ *
+ * Weighted brightness of the page itself rather than a flag passed down from the
+ * theme: a wallpaper-derived scheme can be installed by anything, and the only
+ * reliable answer to "is this a dark page" is the page's own colour.
+ */
 private val ColorScheme.isDarkScheme: Boolean
-    get() = surface.luminance() < 0.5f
+    get() = surface.brightness() < 0.5f
 
 /**
  * The background a group of rows sits on. One step away from the page so the
@@ -51,9 +57,9 @@ val ColorScheme.floatingContainer: Color
 fun ColorScheme.toneForHue(hue: Float): AccentTone {
     val h = hue.mod(360f)
     return if (isDarkScheme) {
-        AccentTone(container = Color.hsl(h, 0.34f, 0.20f), content = Color.hsl(h, 0.66f, 0.74f))
+        AccentTone(container = hsl(h, 0.34f, 0.20f), content = hsl(h, 0.66f, 0.74f))
     } else {
-        AccentTone(container = Color.hsl(h, 0.72f, 0.90f), content = Color.hsl(h, 0.55f, 0.38f))
+        AccentTone(container = hsl(h, 0.72f, 0.90f), content = hsl(h, 0.55f, 0.38f))
     }
 }
 
@@ -86,13 +92,20 @@ fun subjectTone(subject: String, colorHex: String? = null): AccentTone {
 
 /** For rows that carry no colour of their own: disabled, cancelled, missing data. */
 @Composable
-fun neutralTone(): AccentTone = with(MaterialTheme.colorScheme) {
-    AccentTone(container = surfaceContainerHighest, content = onSurfaceVariant)
+fun neutralTone(): AccentTone {
+    val scheme = MaterialTheme.colorScheme
+    return AccentTone(container = scheme.surfaceContainerHighest, content = scheme.onSurfaceVariant)
 }
 
 /** The one destructive tone; derived from the scheme's error hue, not hard-coded red. */
 @Composable
-fun errorTone(): AccentTone = with(MaterialTheme.colorScheme) { toneForHue(error.hue()) }
+fun errorTone(): AccentTone {
+    // Spelled out through `scheme` rather than `with`: an unqualified `error`
+    // there sits next to kotlin.error(), and this is not the place to make a
+    // reader work out which one won.
+    val scheme = MaterialTheme.colorScheme
+    return scheme.toneForHue(scheme.error.hue())
+}
 
 /**
  * Stable slot for a free-form key.
@@ -109,16 +122,44 @@ fun accentSlotFor(key: String): Int {
     return hash.mod(AccentSlotCount)
 }
 
-/** Hue in degrees. Written out because Compose has no rgb→hsl accessor. */
+/*
+ * HSL both ways, by hand.
+ *
+ * Compose ships `Color.hsl` and `luminance`, but the whole accent system depends
+ * on this arithmetic, and eight lines of textbook conversion are cheaper than a
+ * dependency on which of those two spellings the installed Compose exposes.
+ */
+
+/** Hue in degrees. */
 private fun Color.hue(): Float {
     val max = maxOf(red, green, blue)
     val min = minOf(red, green, blue)
     val delta = max - min
     if (delta < 0.0001f) return 0f
-    val degrees = when (max) {
+    val degrees: Float = when (max) {
         red -> 60f * (((green - blue) / delta).mod(6f))
         green -> 60f * ((blue - red) / delta + 2f)
         else -> 60f * ((red - green) / delta + 4f)
     }
     return degrees.mod(360f)
 }
+
+/** A colour from hue (degrees), saturation and lightness, all wrapped or clamped. */
+private fun hsl(hue: Float, saturation: Float, lightness: Float): Color {
+    val h = hue.mod(360f)
+    val chroma = (1f - abs(2f * lightness - 1f)) * saturation
+    val second = chroma * (1f - abs((h / 60f).mod(2f) - 1f))
+    val match = lightness - chroma / 2f
+    val (red, green, blue) = when {
+        h < 60f -> Triple(chroma, second, 0f)
+        h < 120f -> Triple(second, chroma, 0f)
+        h < 180f -> Triple(0f, chroma, second)
+        h < 240f -> Triple(0f, second, chroma)
+        h < 300f -> Triple(second, 0f, chroma)
+        else -> Triple(chroma, 0f, second)
+    }
+    return Color(red = red + match, green = green + match, blue = blue + match)
+}
+
+/** Perceived brightness, 0f..1f. Enough to tell a dark page from a light one. */
+private fun Color.brightness(): Float = 0.2126f * red + 0.7152f * green + 0.0722f * blue

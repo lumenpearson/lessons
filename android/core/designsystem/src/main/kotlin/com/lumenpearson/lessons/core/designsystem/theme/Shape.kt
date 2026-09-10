@@ -56,6 +56,3 @@ val GroupRowSpacing: Dp = 3.dp
 
 /** Padding of the group container around its rows. */
 val GroupInset: Dp = 4.dp
-
-/** Inner padding of a row. */
-val RowPadding: Dp = 14.dp
