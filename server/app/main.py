@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from app.api.public import router as public_router
 from app.api.telegram import router as telegram_router
 from app.config import get_settings
-from app.db import init_db
+from app.db import engine, init_db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -26,7 +26,13 @@ log = logging.getLogger(__name__)
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
-    await init_db()
+
+    # Bootstrap the schema only for a local SQLite file. On a managed Postgres
+    # it is created once by `python -m scripts.init_db`: emitting create_all on
+    # every serverless cold start costs a round trip per table before the first
+    # response, and two cold starts racing the same DDL can deadlock.
+    if engine.dialect.name == "sqlite":
+        await init_db()
 
     stop_event = asyncio.Event()
     bot_task: asyncio.Task | None = None
