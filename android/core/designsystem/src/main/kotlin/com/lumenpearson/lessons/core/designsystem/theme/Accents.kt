@@ -39,19 +39,28 @@ private val ColorScheme.isDarkScheme: Boolean
     get() = surface.brightness() < 0.5f
 
 /**
- * The background a group of rows sits on. One step away from the page so the
- * group reads as an object even before the reader notices its corners.
+ * The background a group of rows sits on.
+ *
+ * Transparent: in this design language a group is a clip and nothing else, and
+ * the page shows through the 2 dp gaps between its rows. Kept as a named token
+ * so a variant of the group that does want a fill has somewhere to put it.
  */
 val ColorScheme.groupContainer: Color
-    get() = if (isDarkScheme) surfaceContainerLow else surfaceContainer
+    get() = Color.Transparent
 
-/** A single row inside a group: white on a light page, raised grey on a dark one. */
+/**
+ * A single row inside a group.
+ *
+ * `surfaceBright` is the row colour throughout Essentials — brighter than the
+ * page in both schemes, which is what lets a stack of rows read as raised
+ * without a single border or shadow.
+ */
 val ColorScheme.rowContainer: Color
-    get() = if (isDarkScheme) surfaceContainerHigh else surfaceContainerLowest
+    get() = surfaceBright
 
-/** The floating navigation pill; same fill as a row so the two read as one family. */
-val ColorScheme.floatingContainer: Color
-    get() = if (isDarkScheme) surfaceContainerHigh else surfaceContainerLowest
+/** The page a screen is drawn on; one step below the rows that sit on it. */
+val ColorScheme.pageContainer: Color
+    get() = surfaceContainer
 
 /** Builds a tone at an arbitrary hue, which is what keeps subject colours in family. */
 fun ColorScheme.toneForHue(hue: Float): AccentTone {

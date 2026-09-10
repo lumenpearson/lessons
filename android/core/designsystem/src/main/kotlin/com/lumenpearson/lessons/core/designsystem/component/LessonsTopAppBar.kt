@@ -23,6 +23,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
+import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
+import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 
 /**
@@ -44,7 +46,7 @@ fun LessonsTopAppBar(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     scrollBehavior: TopAppBarScrollBehavior? = null,
-    containerColor: Color = MaterialTheme.colorScheme.background,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
     onBackClick: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
@@ -83,10 +85,17 @@ fun LessonsTopAppBar(
         },
         navigationIcon = {
             if (onBackClick != null) {
+                val view = rememberHapticView()
                 IconButton(
-                    onClick = onBackClick,
+                    onClick = {
+                        LessonsHaptics.press(view)
+                        onBackClick()
+                    },
+                    // surfaceBright, the same fill a row of a group gets: in this
+                    // design language a circular button in the bar is a row that
+                    // has been rolled up, not a new surface level.
                     colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        containerColor = MaterialTheme.colorScheme.surfaceBright,
                     ),
                 ) {
                     Icon(
@@ -114,7 +123,7 @@ private fun LessonsTopAppBarPreview() {
                 IconButton(
                     onClick = {},
                     colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        containerColor = MaterialTheme.colorScheme.surfaceBright,
                     ),
                 ) {
                     Icon(

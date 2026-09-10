@@ -49,10 +49,11 @@ import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
+import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
+import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 import com.lumenpearson.lessons.core.model.DayKind
-import com.lumenpearson.lessons.ui.common.FloatingBarSpace
 import com.lumenpearson.lessons.ui.common.asDayMonth
 import com.lumenpearson.lessons.ui.common.asFullWeekday
 import com.lumenpearson.lessons.ui.common.asShortWeekday
@@ -89,7 +90,7 @@ fun WeekScreen(
         modifier = modifier
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             LessonsTopAppBar(
                 title = stringResource(R.string.week_title),
@@ -248,15 +249,18 @@ private fun WeekDayPage(
     val schoolDay = day.day
     val lessons = schoolDay?.lessons?.sortedBy { it.startsAt }.orEmpty()
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .appScrollMotionBlur(scrollState)
+            .verticalScroll(scrollState)
             .padding(
                 start = ScreenPadding,
                 end = ScreenPadding,
                 top = 4.dp,
-                bottom = FloatingBarSpace,
+                bottom = LocalBottomBarSpace.current,
             ),
         verticalArrangement = Arrangement.spacedBy(GroupSpacing),
     ) {

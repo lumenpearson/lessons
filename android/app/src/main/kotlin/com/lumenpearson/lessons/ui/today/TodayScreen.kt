@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material3.MaterialTheme
@@ -30,7 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
-import com.lumenpearson.lessons.core.designsystem.component.GroupCard
+import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.HomeworkRow
 import com.lumenpearson.lessons.core.designsystem.component.LessonGroup
@@ -41,10 +42,11 @@ import com.lumenpearson.lessons.core.designsystem.state.icon
 import com.lumenpearson.lessons.core.designsystem.state.tone
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
+import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
+import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.SchoolDay
-import com.lumenpearson.lessons.ui.common.FloatingBarSpace
 import com.lumenpearson.lessons.ui.common.asRelativeDayLabel
 import com.lumenpearson.lessons.ui.common.asText
 import com.lumenpearson.lessons.ui.common.syncedAtLabel
@@ -88,7 +90,7 @@ fun TodayScreen(
         modifier = modifier
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             LessonsTopAppBar(
                 title = stringResource(R.string.today_title),
@@ -105,13 +107,17 @@ fun TodayScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
+            val listState = rememberLazyListState()
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .appScrollMotionBlur(listState),
                 contentPadding = PaddingValues(
                     start = ScreenPadding,
                     end = ScreenPadding,
                     top = 8.dp,
-                    bottom = FloatingBarSpace,
+                    bottom = LocalBottomBarSpace.current,
                 ),
                 verticalArrangement = Arrangement.spacedBy(GroupSpacing),
             ) {
@@ -186,7 +192,7 @@ private fun LazyListScope.eventsSection(state: TodayUiState) {
 
     item(key = "events") {
         SectionHeaderedGroup(title = stringResource(R.string.today_events)) {
-            GroupCard {
+            RoundedCardContainer {
                 state.events.forEach { event ->
                     GroupItem(
                         title = event.title,
@@ -219,7 +225,7 @@ private fun LazyListScope.homeworkSection(state: TodayUiState, onOpenHomework: (
             day.date.asRelativeDayLabel(state.now.toLocalDate()),
         )
         SectionHeaderedGroup(title = title) {
-            GroupCard {
+            RoundedCardContainer {
                 day.homework.take(HomeworkPreviewCount).forEach { homework ->
                     HomeworkRow(item = homework)
                 }

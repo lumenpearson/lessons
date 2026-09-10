@@ -6,12 +6,16 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.Session
+import com.lumenpearson.lessons.core.model.HapticStrength
+import com.lumenpearson.lessons.core.model.HomeTab
+import com.lumenpearson.lessons.core.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -81,8 +85,17 @@ internal class LessonsPreferences(context: Context) {
         dataStore.edit { prefs ->
             val updated = transform(prefs.toSettings())
             prefs[KEY_BASE_URL] = updated.baseUrl.trim()
+            prefs[KEY_THEME_MODE] = updated.themeMode.name
             prefs[KEY_DYNAMIC_COLOR] = updated.dynamicColor
             prefs[KEY_PITCH_BLACK] = updated.pitchBlack
+            prefs[KEY_HAPTICS] = updated.hapticsEnabled
+            prefs[KEY_HAPTIC_STRENGTH] = updated.hapticStrength.name
+            prefs[KEY_SWIPE_TABS] = updated.swipeTabs
+            prefs[KEY_DEFAULT_TAB] = updated.defaultTab.name
+            prefs[KEY_MOTION_BLUR] = updated.motionBlur
+            prefs[KEY_MOTION_BLUR_SCALE] = updated.motionBlurScale
+                .coerceIn(AppSettings.MOTION_BLUR_SCALE_RANGE)
+            prefs[KEY_EDGE_BLUR] = updated.edgeBlur
             prefs[KEY_SHOW_TEACHER] = updated.showTeacher
             prefs[KEY_WIDGET_SHOW_PROGRESS] = updated.widgetShowProgress
             prefs[KEY_SYNC_INTERVAL] = updated.syncIntervalMinutes
@@ -112,10 +125,25 @@ internal class LessonsPreferences(context: Context) {
         )
     }
 
+    /**
+     * Enums are stored by name rather than by ordinal, and unknown names fall
+     * back to the default instead of throwing: reordering an enum must not be
+     * able to silently change what a user already chose, and a value written by
+     * a newer build must not crash an older one.
+     */
     private fun Preferences.toSettings(): AppSettings = AppSettings(
         baseUrl = this[KEY_BASE_URL]?.takeIf { it.isNotBlank() } ?: AppSettings.DEFAULT_BASE_URL,
+        themeMode = ThemeMode.fromName(this[KEY_THEME_MODE]),
         dynamicColor = this[KEY_DYNAMIC_COLOR] ?: true,
         pitchBlack = this[KEY_PITCH_BLACK] ?: false,
+        hapticsEnabled = this[KEY_HAPTICS] ?: true,
+        hapticStrength = HapticStrength.fromName(this[KEY_HAPTIC_STRENGTH]),
+        swipeTabs = this[KEY_SWIPE_TABS] ?: true,
+        defaultTab = HomeTab.fromName(this[KEY_DEFAULT_TAB]),
+        motionBlur = this[KEY_MOTION_BLUR] ?: false,
+        motionBlurScale = (this[KEY_MOTION_BLUR_SCALE] ?: AppSettings.DEFAULT_MOTION_BLUR_SCALE)
+            .coerceIn(AppSettings.MOTION_BLUR_SCALE_RANGE),
+        edgeBlur = this[KEY_EDGE_BLUR] ?: true,
         showTeacher = this[KEY_SHOW_TEACHER] ?: true,
         widgetShowProgress = this[KEY_WIDGET_SHOW_PROGRESS] ?: true,
         syncIntervalMinutes = (this[KEY_SYNC_INTERVAL] ?: AppSettings.DEFAULT_SYNC_INTERVAL_MINUTES)
@@ -129,8 +157,16 @@ internal class LessonsPreferences(context: Context) {
         val KEY_SCHOOL = stringPreferencesKey("session_school")
 
         val KEY_BASE_URL = stringPreferencesKey("settings_base_url")
+        val KEY_THEME_MODE = stringPreferencesKey("settings_theme_mode")
         val KEY_DYNAMIC_COLOR = booleanPreferencesKey("settings_dynamic_color")
         val KEY_PITCH_BLACK = booleanPreferencesKey("settings_pitch_black")
+        val KEY_HAPTICS = booleanPreferencesKey("settings_haptics_enabled")
+        val KEY_HAPTIC_STRENGTH = stringPreferencesKey("settings_haptic_strength")
+        val KEY_SWIPE_TABS = booleanPreferencesKey("settings_swipe_tabs")
+        val KEY_DEFAULT_TAB = stringPreferencesKey("settings_default_tab")
+        val KEY_MOTION_BLUR = booleanPreferencesKey("settings_motion_blur")
+        val KEY_MOTION_BLUR_SCALE = floatPreferencesKey("settings_motion_blur_scale")
+        val KEY_EDGE_BLUR = booleanPreferencesKey("settings_edge_blur")
         val KEY_SHOW_TEACHER = booleanPreferencesKey("settings_show_teacher")
         val KEY_WIDGET_SHOW_PROGRESS = booleanPreferencesKey("settings_widget_show_progress")
         val KEY_SYNC_INTERVAL = intPreferencesKey("settings_sync_interval_minutes")

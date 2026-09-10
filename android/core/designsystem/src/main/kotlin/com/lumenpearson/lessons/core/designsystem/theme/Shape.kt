@@ -6,18 +6,20 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * The corner scale.
+ * The corner scale, taken from `sameerasw/essentials` `ui/theme/Shapes.kt`.
  *
- * Bigger than the Material baseline on purpose: a school diary is read in
- * two-second glances between classes, and generous corners are what make the
- * grouped cards separate at a glance instead of needing dividers.
+ * Essentials overrides only three roles and leaves `extraSmall` and
+ * `extraLarge` at the Material defaults; both are spelled out here because
+ * `extraSmall` is load-bearing in this design language — it is the corner of a
+ * *row*, and rows are deliberately near-square so that the 24 dp corner of the
+ * group container around them is the only large radius the eye picks up.
  */
 val LessonsShapes: Shapes = Shapes(
-    extraSmall = RoundedCornerShape(10.dp),
-    small = RoundedCornerShape(14.dp),
-    medium = RoundedCornerShape(20.dp),
-    large = RoundedCornerShape(28.dp),
-    extraLarge = RoundedCornerShape(36.dp),
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(28.dp),
 )
 
 /**
@@ -26,14 +28,20 @@ val LessonsShapes: Shapes = Shapes(
  */
 object LessonsShapeTokens {
 
-    /** The container that holds a stack of rows. */
-    val Group: RoundedCornerShape = RoundedCornerShape(28.dp)
+    /**
+     * The container that holds a stack of rows.
+     *
+     * 24 dp is `RoundedCardContainer`'s default in Essentials, and the rows
+     * inside it are clipped by it rather than rounded themselves — that is what
+     * makes a group read as one slab with soft ends instead of a pile of cards.
+     */
+    val Group: RoundedCornerShape = RoundedCornerShape(24.dp)
 
-    /** One row inside a group; smaller than [Group] so it nests visibly. */
-    val Row: RoundedCornerShape = RoundedCornerShape(20.dp)
+    /** One row inside a group. Near-square; the group's clip does the rounding. */
+    val Row: RoundedCornerShape = RoundedCornerShape(4.dp)
 
     /** The one card per screen that answers "what is happening right now". */
-    val Hero: RoundedCornerShape = RoundedCornerShape(28.dp)
+    val Hero: RoundedCornerShape = RoundedCornerShape(24.dp)
 
     /** The circular colour tile in front of a row. */
     val Tile: RoundedCornerShape = RoundedCornerShape(percent = 50)
@@ -51,8 +59,19 @@ val ScreenPadding: Dp = 16.dp
 /** Empty background between two groups. */
 val GroupSpacing: Dp = 16.dp
 
-/** Gap between rows of a group: enough to separate them, too little to break the group. */
-val GroupRowSpacing: Dp = 3.dp
+/**
+ * Gap between two rows of a group.
+ *
+ * 2 dp, the `RoundedCardContainer` default: wide enough to draw a hairline of
+ * the page between two rows, too narrow to break the slab apart.
+ */
+val GroupRowSpacing: Dp = 2.dp
 
-/** Padding of the group container around its rows. */
-val GroupInset: Dp = 4.dp
+/**
+ * Padding of the group container around its rows.
+ *
+ * Zero: in Essentials the rows run edge to edge and the container is nothing but
+ * a clip. Kept as a named token because several screens still reference it, and
+ * because a future variant of the group may want an inset again.
+ */
+val GroupInset: Dp = 0.dp

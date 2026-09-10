@@ -114,6 +114,30 @@
     <string name="settings_dynamic_color_unavailable">Доступно на Android 12 и новее.</string>
     <string name="settings_pitch_black">Чёрная тема</string>
     <string name="settings_pitch_black_description">Полностью чёрный фон в тёмной теме — экономит заряд на OLED.</string>
+    <string name="settings_theme_mode">Тема</string>
+    <string name="settings_theme_system">Как в системе</string>
+    <string name="settings_theme_light">Светлая</string>
+    <string name="settings_theme_dark">Тёмная</string>
+
+    <string name="settings_feel">Взаимодействие</string>
+    <string name="settings_haptics">Вибрация</string>
+    <string name="settings_haptics_description">Короткий отклик на нажатия и переключения.</string>
+    <string name="settings_haptic_strength">Сила отклика</string>
+    <string name="settings_haptic_none">Нет</string>
+    <string name="settings_haptic_subtle">Лёгкий</string>
+    <string name="settings_haptic_double">Двойной</string>
+    <string name="settings_haptic_click">Чёткий</string>
+    <string name="settings_swipe_tabs">Свайп между вкладками</string>
+    <string name="settings_swipe_tabs_description">Листайте экраны пальцем, а не только нажимайте на панель.</string>
+    <string name="settings_default_tab">Стартовая вкладка</string>
+    <string name="settings_default_tab_description">С неё открывается приложение; на неё же возвращает «Назад».</string>
+    <string name="settings_edge_blur">Размытие под шторкой</string>
+    <string name="settings_edge_blur_description">Содержимое плавно тает под строкой состояния.</string>
+    <string name="settings_motion_blur">Размытие при прокрутке</string>
+    <string name="settings_motion_blur_description">Списки смазываются по направлению движения.</string>
+    <string name="settings_motion_blur_amount">Сила размытия</string>
+    <string name="settings_blur_unavailable">Доступно на Android 13 и новее.</string>
+
     <string name="settings_content">Содержимое</string>
     <string name="settings_show_teacher">Показывать учителя</string>
     <string name="settings_show_teacher_description">Имя учителя в строке урока.</string>
@@ -134,5 +158,6 @@
     <string name="settings_about">О приложении</string>
     <string name="about_version">Версия %1$s</string>
     <string name="about_description">Школьный дневник с виджетом на главном экране. Работает офлайн: расписание, замены и домашние задания хранятся на устройстве.</string>
+    <string name="about_design_credit">Оформление, шрифт и компоненты — по мотивам Essentials (github.com/sameerasw/essentials), лицензия MIT.</string>
 
 </resources>

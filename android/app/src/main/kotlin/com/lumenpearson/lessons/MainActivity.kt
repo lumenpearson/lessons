@@ -4,9 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.navigation.LessonsApp
 import com.lumenpearson.lessons.ui.AppShellViewModel
@@ -34,11 +36,20 @@ class MainActivity : ComponentActivity() {
             val shellViewModel: AppShellViewModel = viewModel(factory = AppShellViewModel.Factory)
             val shell by shellViewModel.uiState.collectAsStateWithLifecycle()
 
+            // Haptics are a process-wide gate rather than a parameter threaded
+            // through every component, so the stored preference is pushed into
+            // it here — the one place that already observes the settings flow.
+            LaunchedEffect(shell.settings.hapticsEnabled, shell.settings.hapticStrength) {
+                LessonsHaptics.enabled.value = shell.settings.hapticsEnabled
+                LessonsHaptics.strength.value = shell.settings.hapticStrength
+            }
+
             LessonsTheme(
+                themeMode = shell.settings.themeMode,
                 dynamicColor = shell.settings.dynamicColor,
                 pitchBlack = shell.settings.pitchBlack,
             ) {
-                LessonsApp(signedIn = shell.signedIn)
+                LessonsApp(signedIn = shell.signedIn, settings = shell.settings)
             }
         }
     }

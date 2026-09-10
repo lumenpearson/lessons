@@ -60,7 +60,7 @@ fun LessonGroup(
         }
     }
 
-    GroupCard(modifier = modifier) {
+    RoundedCardContainer(modifier = modifier) {
         ordered.forEachIndexed { index, lesson ->
             if (index == markerIndex) NowSeparator()
             LessonRow(

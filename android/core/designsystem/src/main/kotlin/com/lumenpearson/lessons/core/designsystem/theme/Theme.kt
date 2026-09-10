@@ -10,6 +10,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import com.lumenpearson.lessons.core.model.ThemeMode
 
 /**
  * The single theme wrapper for the app, the widget's Compose previews and every
@@ -20,6 +21,9 @@ import androidx.compose.ui.platform.LocalContext
  * indicator, the flexible top app bar and the button shape morphs fall back to
  * the standard springs and the app looks like a stock M3 sample.
  *
+ * @param themeMode light, dark, or follow the system. Resolved here rather than
+ *   by the caller so that "follow the system" keeps working when the system
+ *   flips mid-session.
  * @param dynamicColor take the palette from the user's wallpaper (Android 12+).
  *   Off falls back to [LessonsLightColorScheme] / [LessonsDarkColorScheme].
  * @param pitchBlack flatten dark surfaces to true black for OLED panels. Has no
@@ -27,12 +31,17 @@ import androidx.compose.ui.platform.LocalContext
  */
 @Composable
 fun LessonsTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     dynamicColor: Boolean = true,
     pitchBlack: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
+    val darkTheme = when (themeMode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
 
     // Resolved inside a single remember keyed on the inputs, not on the scheme:
     // dynamicDarkColorScheme() allocates a fresh ColorScheme on every call and

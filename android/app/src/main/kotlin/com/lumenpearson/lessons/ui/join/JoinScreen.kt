@@ -43,7 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.ui.common.ClassCodeLength
-import com.lumenpearson.lessons.ui.common.ServerUrlDialog
+import com.lumenpearson.lessons.ui.common.ServerUrlSheet
 
 /**
  * First run: turn a six-character code from the classroom whiteboard into a
@@ -62,7 +62,7 @@ fun JoinScreen(
     var showServerDialog by rememberSaveable { mutableStateOf(false) }
 
     if (showServerDialog) {
-        ServerUrlDialog(
+        ServerUrlSheet(
             initialUrl = state.baseUrl,
             onDismiss = { showServerDialog = false },
             onConfirm = { url ->
@@ -72,7 +72,10 @@ fun JoinScreen(
         )
     }
 
-    Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()

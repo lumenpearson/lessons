@@ -1,5 +1,9 @@
 package com.lumenpearson.lessons.core.data.repository
 
+import com.lumenpearson.lessons.core.model.HapticStrength
+import com.lumenpearson.lessons.core.model.HomeTab
+import com.lumenpearson.lessons.core.model.ThemeMode
+
 /**
  * Value types of the data layer's public API.
  *
@@ -28,11 +32,30 @@ data class Session(
  * [baseUrl] is a setting rather than a build constant because every school hosts
  * its own server; the rest are display preferences the widget and the app share,
  * which is why they live here and not in a UI module.
+ *
+ * The personalization block — theme, haptics, tab behaviour, the two blur
+ * effects — mirrors the "Customizations" section of
+ * [Essentials](https://github.com/sameerasw/essentials), the app this one takes
+ * its design language from.
+ *
+ * @property motionBlur blur a list along its scroll axis while it is moving.
+ *   Off by default: it is a runtime shader on every scrolling frame, which is
+ *   the one setting here a cheap phone can feel.
+ * @property edgeBlur fade content out under the status bar. On by default,
+ *   because without it a scrolled list collides with the clock.
  */
 data class AppSettings(
     val baseUrl: String = DEFAULT_BASE_URL,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
     val pitchBlack: Boolean = false,
+    val hapticsEnabled: Boolean = true,
+    val hapticStrength: HapticStrength = HapticStrength.SUBTLE,
+    val swipeTabs: Boolean = true,
+    val defaultTab: HomeTab = HomeTab.TODAY,
+    val motionBlur: Boolean = false,
+    val motionBlurScale: Float = DEFAULT_MOTION_BLUR_SCALE,
+    val edgeBlur: Boolean = true,
     val showTeacher: Boolean = true,
     val widgetShowProgress: Boolean = true,
     val syncIntervalMinutes: Int = DEFAULT_SYNC_INTERVAL_MINUTES,
@@ -54,6 +77,12 @@ data class AppSettings(
 
         /** WorkManager's own floor for periodic work; anything less is silently raised. */
         const val MIN_SYNC_INTERVAL_MINUTES: Int = 15
+
+        /** Neutral motion-blur amount; the slider runs from half to two and a half. */
+        const val DEFAULT_MOTION_BLUR_SCALE: Float = 1f
+
+        /** Ends of the motion-blur slider, straight from the Essentials settings screen. */
+        val MOTION_BLUR_SCALE_RANGE: ClosedFloatingPointRange<Float> = 0.5f..2.5f
     }
 }
 

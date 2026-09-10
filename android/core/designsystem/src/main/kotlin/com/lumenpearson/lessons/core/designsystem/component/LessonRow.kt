@@ -138,7 +138,7 @@ private fun Lesson.metaLine(showTeacher: Boolean): String {
 private fun LessonRowPreview() {
     LessonsTheme {
         Column(modifier = Modifier.padding(16.dp)) {
-            GroupCard {
+            RoundedCardContainer {
                 LessonRow(lesson = PreviewData.russian)
                 LessonRow(lesson = PreviewData.algebra, isCurrent = true)
                 LessonRow(lesson = PreviewData.physics)

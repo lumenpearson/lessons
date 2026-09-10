@@ -31,11 +31,13 @@ import java.time.LocalDateTime
 /**
  * Corner radius of the widget surface.
  *
- * Matches the launcher's own widget rounding on API 31+; below that
+ * 24 dp, the same radius `RoundedCardContainer` gives a group of rows in the
+ * app, so the widget reads as one more block of the same design system. It also
+ * sits close to the launcher's own widget rounding on API 31+; below that
  * `cornerRadius` is a no-op and the launcher supplies square edges, which is
  * what pre-Material-You launchers draw anyway.
  */
-private val SURFACE_CORNER = 20.dp
+private val SURFACE_CORNER = 24.dp
 
 /** Width of the MEDIUM layout's right-hand "Дальше" column. */
 private val NEXT_UP_COLUMN = 118.dp
@@ -372,16 +374,22 @@ private fun TimelineBody(
 
         if (withHomework) {
             VSpace(8)
-            ThinDivider()
-            VSpace(8)
-            HomeworkBlock(
-                homework = homework,
-                size = size,
-                // The timeline already took most of the height, so the homework
-                // block gets a smaller slice than it would as the primary content.
-                maxItems = (size.homeworkItems - 2).coerceAtLeast(1),
-                shortHeader = false,
-            )
+            // A container rather than a rule: in this design language two blocks
+            // are separated by grouping one of them, never by drawing a line
+            // between them.
+            WidgetCard {
+                Column(modifier = GlanceModifier.fillMaxWidth()) {
+                    HomeworkBlock(
+                        homework = homework,
+                        size = size,
+                        // The timeline already took most of the height, so the
+                        // homework block gets a smaller slice than it would as
+                        // the primary content.
+                        maxItems = (size.homeworkItems - 2).coerceAtLeast(1),
+                        shortHeader = false,
+                    )
+                }
+            }
         }
     }
 }

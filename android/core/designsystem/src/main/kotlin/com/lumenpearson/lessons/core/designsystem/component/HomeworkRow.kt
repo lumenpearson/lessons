@@ -111,7 +111,7 @@ private fun HomeworkRowPreview() {
     LessonsTheme {
         Column(modifier = Modifier.padding(16.dp)) {
             SectionHeader(title = stringResource(R.string.ds_homework_title))
-            GroupCard {
+            RoundedCardContainer {
                 HomeworkRow(item = PreviewData.homework, onOpenAttachment = {})
                 HomeworkRow(item = PreviewData.homeworkWithoutAttachment)
             }

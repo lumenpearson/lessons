@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -27,14 +28,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
-import com.lumenpearson.lessons.core.designsystem.component.GroupCard
+import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.HomeworkRow
 import com.lumenpearson.lessons.core.designsystem.component.LessonsTopAppBar
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
-import com.lumenpearson.lessons.ui.common.FloatingBarSpace
+import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
+import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.ui.common.asRelativeDayLabel
 import com.lumenpearson.lessons.ui.common.asText
 import java.time.LocalDate
@@ -71,7 +73,7 @@ fun HomeworkScreen(
         modifier = modifier
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             LessonsTopAppBar(
                 title = stringResource(R.string.homework_title),
@@ -107,13 +109,17 @@ fun HomeworkScreen(
                         modifier = Modifier.padding(ScreenPadding),
                     )
                 } else {
+                    val listState = rememberLazyListState()
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .appScrollMotionBlur(listState),
                         contentPadding = PaddingValues(
                             start = ScreenPadding,
                             end = ScreenPadding,
                             top = 4.dp,
-                            bottom = FloatingBarSpace,
+                            bottom = LocalBottomBarSpace.current,
                         ),
                         verticalArrangement = Arrangement.spacedBy(GroupSpacing),
                     ) {
@@ -123,7 +129,7 @@ fun HomeworkScreen(
                         ) { group ->
                             Column(modifier = Modifier.fillMaxWidth()) {
                                 SectionHeader(title = group.date.asRelativeDayLabel(today))
-                                GroupCard {
+                                RoundedCardContainer {
                                     group.items.forEach { homework ->
                                         HomeworkRow(item = homework)
                                     }
