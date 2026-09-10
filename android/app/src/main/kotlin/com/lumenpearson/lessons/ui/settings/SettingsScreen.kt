@@ -1,33 +1,33 @@
 package com.lumenpearson.lessons.ui.settings
 
 import android.os.Build
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Logout
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.Update
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -47,9 +47,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.BuildConfig
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
+import com.lumenpearson.lessons.core.designsystem.component.GroupCard
+import com.lumenpearson.lessons.core.designsystem.component.GroupItem
+import com.lumenpearson.lessons.core.designsystem.component.GroupLinkItem
+import com.lumenpearson.lessons.core.designsystem.component.GroupRow
+import com.lumenpearson.lessons.core.designsystem.component.GroupSwitchItem
 import com.lumenpearson.lessons.core.designsystem.component.LessonsTopAppBar
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
+import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
+import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
+import com.lumenpearson.lessons.core.designsystem.theme.accentTone
+import com.lumenpearson.lessons.core.designsystem.theme.errorTone
+import com.lumenpearson.lessons.ui.common.FloatingBarSpace
 import com.lumenpearson.lessons.ui.common.ServerUrlDialog
 import com.lumenpearson.lessons.ui.common.SyncIntervalOptionsMinutes
 import com.lumenpearson.lessons.ui.common.asText
@@ -58,9 +69,13 @@ import com.lumenpearson.lessons.ui.common.syncIntervalLabel
 /**
  * Preferences, class membership and the about box.
  *
- * Written as a plain list of rows rather than a preference library: there are
- * nine settings, they are all backed by one `AppSettings` object, and a library
- * would add a second definition of every one of them.
+ * Written as plain grouped rows rather than a preference library: there are nine
+ * settings, they are all backed by one `AppSettings` object, and a library would
+ * add a second definition of every one of them.
+ *
+ * Each row gets its own hue. On a screen where every row is a title, a subtitle
+ * and a switch, the colour of the tile is the only thing that lets a returning
+ * user find the one row they came for without reading.
  */
 @Composable
 fun SettingsScreen(
@@ -107,6 +122,7 @@ fun SettingsScreen(
         modifier = modifier
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             LessonsTopAppBar(
                 title = stringResource(R.string.settings_title),
@@ -119,144 +135,131 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(
+                start = ScreenPadding,
+                end = ScreenPadding,
+                top = 4.dp,
+                bottom = FloatingBarSpace,
+            ),
+            verticalArrangement = Arrangement.spacedBy(GroupSpacing),
         ) {
-            // --- Оформление ---------------------------------------------------
-            item(key = "appearance-header") {
-                SectionHeader(stringResource(R.string.settings_appearance))
-            }
-            item(key = "dynamic-color") {
-                SettingsToggleRow(
-                    title = stringResource(R.string.settings_dynamic_color),
-                    description = if (SupportsDynamicColor) {
-                        stringResource(R.string.settings_dynamic_color_description)
-                    } else {
-                        stringResource(R.string.settings_dynamic_color_unavailable)
-                    },
-                    checked = state.settings.dynamicColor && SupportsDynamicColor,
-                    enabled = SupportsDynamicColor,
-                    onCheckedChange = viewModel::setDynamicColor,
-                )
-            }
-            item(key = "pitch-black") {
-                SettingsToggleRow(
-                    title = stringResource(R.string.settings_pitch_black),
-                    description = stringResource(R.string.settings_pitch_black_description),
-                    checked = state.settings.pitchBlack,
-                    onCheckedChange = viewModel::setPitchBlack,
-                )
-            }
-
-            // --- Содержимое ---------------------------------------------------
-            item(key = "content-header") {
-                SectionHeader(stringResource(R.string.settings_content))
-            }
-            item(key = "show-teacher") {
-                SettingsToggleRow(
-                    title = stringResource(R.string.settings_show_teacher),
-                    description = stringResource(R.string.settings_show_teacher_description),
-                    checked = state.settings.showTeacher,
-                    onCheckedChange = viewModel::setShowTeacher,
-                )
-            }
-            item(key = "widget-progress") {
-                SettingsToggleRow(
-                    title = stringResource(R.string.settings_widget_progress),
-                    description = stringResource(R.string.settings_widget_progress_description),
-                    checked = state.settings.widgetShowProgress,
-                    onCheckedChange = viewModel::setWidgetShowProgress,
-                )
+            item(key = "appearance") {
+                SettingsGroup(title = stringResource(R.string.settings_appearance)) {
+                    GroupSwitchItem(
+                        title = stringResource(R.string.settings_dynamic_color),
+                        subtitle = if (SupportsDynamicColor) {
+                            stringResource(R.string.settings_dynamic_color_description)
+                        } else {
+                            stringResource(R.string.settings_dynamic_color_unavailable)
+                        },
+                        icon = Icons.Rounded.Palette,
+                        tone = accentTone(0),
+                        checked = state.settings.dynamicColor && SupportsDynamicColor,
+                        enabled = SupportsDynamicColor,
+                        onCheckedChange = viewModel::setDynamicColor,
+                    )
+                    GroupSwitchItem(
+                        title = stringResource(R.string.settings_pitch_black),
+                        subtitle = stringResource(R.string.settings_pitch_black_description),
+                        icon = Icons.Rounded.DarkMode,
+                        tone = accentTone(5),
+                        checked = state.settings.pitchBlack,
+                        onCheckedChange = viewModel::setPitchBlack,
+                    )
+                }
             }
 
-            // --- Синхронизация ------------------------------------------------
-            item(key = "sync-header") {
-                SectionHeader(stringResource(R.string.settings_sync))
+            item(key = "content") {
+                SettingsGroup(title = stringResource(R.string.settings_content)) {
+                    GroupSwitchItem(
+                        title = stringResource(R.string.settings_show_teacher),
+                        subtitle = stringResource(R.string.settings_show_teacher_description),
+                        icon = Icons.Rounded.Person,
+                        tone = accentTone(3),
+                        checked = state.settings.showTeacher,
+                        onCheckedChange = viewModel::setShowTeacher,
+                    )
+                    GroupSwitchItem(
+                        title = stringResource(R.string.settings_widget_progress),
+                        subtitle = stringResource(R.string.settings_widget_progress_description),
+                        icon = Icons.Rounded.Widgets,
+                        tone = accentTone(1),
+                        checked = state.settings.widgetShowProgress,
+                        onCheckedChange = viewModel::setWidgetShowProgress,
+                    )
+                }
             }
-            item(key = "sync-interval") {
-                SyncIntervalRow(
-                    selectedMinutes = state.settings.syncIntervalMinutes,
-                    onSelect = viewModel::setSyncInterval,
-                )
+
+            item(key = "sync") {
+                SettingsGroup(title = stringResource(R.string.settings_sync)) {
+                    SyncIntervalRow(
+                        selectedMinutes = state.settings.syncIntervalMinutes,
+                        onSelect = viewModel::setSyncInterval,
+                    )
+                    GroupLinkItem(
+                        title = stringResource(R.string.settings_server_url),
+                        subtitle = state.settings.baseUrl.takeIf { it.isNotBlank() }
+                            ?: stringResource(R.string.settings_server_url_default),
+                        icon = Icons.Rounded.Dns,
+                        tone = accentTone(0),
+                        onClick = { showServerDialog = true },
+                    )
+                    GroupItem(
+                        title = stringResource(R.string.settings_refresh_now),
+                        icon = Icons.Rounded.Refresh,
+                        tone = accentTone(3),
+                        enabled = !state.isRefreshing,
+                        onClick = viewModel::refreshNow,
+                        trailing = {
+                            if (state.isRefreshing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            }
+                        },
+                    )
+                }
             }
-            item(key = "server-url") {
-                SettingsClickableRow(
-                    title = stringResource(R.string.settings_server_url),
-                    description = state.settings.baseUrl.takeIf { it.isNotBlank() }
-                        ?: stringResource(R.string.settings_server_url_default),
-                    onClick = { showServerDialog = true },
-                )
+
+            item(key = "class") {
+                SettingsGroup(title = stringResource(R.string.settings_class)) {
+                    GroupItem(
+                        title = state.session?.className
+                            ?: stringResource(R.string.settings_class_unknown),
+                        subtitle = state.session?.school
+                            ?: stringResource(R.string.settings_class_no_school),
+                        icon = Icons.Rounded.School,
+                        tone = accentTone(1),
+                    )
+                    GroupItem(
+                        title = stringResource(R.string.settings_sign_out),
+                        icon = Icons.Rounded.Logout,
+                        tone = errorTone(),
+                        onClick = { showSignOutDialog = true },
+                    )
+                }
             }
-            item(key = "refresh-now") {
-                Button(
-                    onClick = viewModel::refreshNow,
-                    enabled = !state.isRefreshing,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    if (state.isRefreshing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Rounded.Refresh,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
+
+            item(key = "about") {
+                SettingsGroup(title = stringResource(R.string.settings_about)) {
+                    GroupItem(
+                        title = stringResource(R.string.app_name),
+                        subtitle = stringResource(
+                            R.string.about_version,
+                            BuildConfig.VERSION_NAME,
+                        ),
+                        icon = Icons.Rounded.Info,
+                        tone = accentTone(5),
+                    )
+                    GroupRow {
+                        Text(
+                            text = stringResource(R.string.about_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Text(
-                        text = stringResource(R.string.settings_refresh_now),
-                        modifier = Modifier.padding(start = 12.dp),
-                    )
                 }
-            }
-
-            // --- Класс ----------------------------------------------------------
-            item(key = "class-header") {
-                SectionHeader(stringResource(R.string.settings_class))
-            }
-            item(key = "class-info") {
-                SettingsInfoRow(
-                    title = state.session?.className
-                        ?: stringResource(R.string.settings_class_unknown),
-                    description = state.session?.school
-                        ?: stringResource(R.string.settings_class_no_school),
-                )
-            }
-            item(key = "sign-out") {
-                OutlinedButton(
-                    onClick = { showSignOutDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Logout,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_sign_out),
-                        modifier = Modifier.padding(start = 12.dp),
-                    )
-                }
-            }
-
-            // --- О приложении ---------------------------------------------------
-            item(key = "about-header") {
-                SectionHeader(stringResource(R.string.settings_about))
-            }
-            item(key = "about-body") {
-                SettingsInfoRow(
-                    title = stringResource(R.string.app_name),
-                    description = stringResource(
-                        R.string.about_version,
-                        BuildConfig.VERSION_NAME,
-                    ) + "\n" + stringResource(R.string.about_description),
-                )
             }
         }
     }
@@ -269,100 +272,15 @@ fun SettingsScreen(
  */
 private val SupportsDynamicColor: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
-/** A title, an explanation, and a switch — the shape every toggle here takes. */
+/** A labelled group; the one place the label-to-group spacing is decided. */
 @Composable
-private fun SettingsToggleRow(
+private fun SettingsGroup(
     title: String,
-    description: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
-    SettingsSurface(
-        modifier = modifier,
-        onClick = if (enabled) {
-            { onCheckedChange(!checked) }
-        } else {
-            null
-        },
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            enabled = enabled,
-        )
-    }
-}
-
-/** A row that opens a dialog. */
-@Composable
-private fun SettingsClickableRow(
-    title: String,
-    description: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SettingsSurface(modifier = modifier, onClick = onClick) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-/** A row that only states a fact. */
-@Composable
-private fun SettingsInfoRow(
-    title: String,
-    description: String,
-    modifier: Modifier = Modifier,
-) {
-    SettingsSurface(modifier = modifier, onClick = null) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-/** The shared container: one shape and one padding for every settings row. */
-@Composable
-private fun SettingsSurface(
-    onClick: (() -> Unit)?,
-    modifier: Modifier = Modifier,
-    content: @Composable RowScope.() -> Unit,
-) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            content = content,
-        )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SectionHeader(title = title)
+        GroupCard(content = content)
     }
 }
 
@@ -377,25 +295,32 @@ private fun SyncIntervalRow(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    GroupRow(
+        modifier = modifier,
+        verticalAlignment = Alignment.Top,
     ) {
-        Text(
-            text = stringResource(R.string.settings_sync_interval),
-            style = MaterialTheme.typography.titleMedium,
-        )
-        // FlowRow because six chips do not fit one line on a small phone.
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        AccentIconTile(icon = Icons.Rounded.Update, tone = accentTone(4))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            SyncIntervalOptionsMinutes.forEach { minutes ->
-                PillChip(
-                    syncIntervalLabel(minutes),
-                    selected = minutes == selectedMinutes,
-                    onClick = { onSelect(minutes) },
-                )
+            Text(
+                text = stringResource(R.string.settings_sync_interval),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            // FlowRow because six chips do not fit one line on a small phone.
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SyncIntervalOptionsMinutes.forEach { minutes ->
+                    PillChip(
+                        text = syncIntervalLabel(minutes),
+                        selected = minutes == selectedMinutes,
+                        onClick = { onSelect(minutes) },
+                    )
+                }
             }
         }
     }

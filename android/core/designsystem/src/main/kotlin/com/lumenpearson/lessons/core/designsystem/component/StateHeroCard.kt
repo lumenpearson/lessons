@@ -1,31 +1,22 @@
 package com.lumenpearson.lessons.core.designsystem.component
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.contentColorFor
-import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -38,6 +29,7 @@ import com.lumenpearson.lessons.core.designsystem.state.countdown
 import com.lumenpearson.lessons.core.designsystem.state.formatShortRu
 import com.lumenpearson.lessons.core.designsystem.state.progressOrNull
 import com.lumenpearson.lessons.core.designsystem.state.visuals
+import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.model.DayState
@@ -47,13 +39,12 @@ import java.time.LocalDateTime
 /**
  * The one card that answers "what is happening right now".
  *
- * Everything else in the app is a list; this is the single element a pupil is
- * allowed to look at and then put the phone away, so it carries the state name,
- * the subject, the countdown and the progress of the current interval at four
- * clearly different type sizes.
+ * Everything else in the app is a list of rows; this is the single element a
+ * pupil is allowed to look at and then put the phone away, so it takes the whole
+ * width, fills with the state's own pastel and carries the state name, the
+ * subject, the countdown and the progress at four clearly different type sizes.
  *
- * @param onClick optional; typically opens the full day. Omitted on the widget
- *   preview and anywhere the card is purely informational.
+ * @param onClick optional; typically opens the full day.
  */
 @Composable
 fun StateHeroCard(
@@ -62,8 +53,7 @@ fun StateHeroCard(
     onClick: (() -> Unit)? = null,
 ) {
     val visuals = state.visuals()
-    val onContainer = contentColorFor(visuals.container)
-        .takeOrElse { MaterialTheme.colorScheme.onSurface }
+    val scheme = MaterialTheme.colorScheme
     val countdown = state.countdown
     val progress = state.progressOrNull
 
@@ -71,36 +61,29 @@ fun StateHeroCard(
         modifier = modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        shape = LessonsShapeTokens.HeroCard,
-        color = visuals.container,
-        contentColor = onContainer,
+        shape = LessonsShapeTokens.Hero,
+        color = visuals.tone.container,
+        contentColor = scheme.onSurface,
     ) {
         Column(
-            modifier = Modifier.padding(22.dp),
+            modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        // Expressive cookie shape instead of a circle — this is
-                        // the one badge per screen that is allowed to be loud.
-                        // If MaterialShapes moves, the fallback is
-                        // LessonsShapeTokens.Badge (a plain circle).
-                        .clip(MaterialShapes.Cookie6Sided.toShape())
-                        .background(visuals.accent),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = visuals.icon,
-                        contentDescription = null,
-                        tint = visuals.onAccent,
-                        modifier = Modifier.size(26.dp),
-                    )
-                }
+                // The tile inverts the card: the glyph colour goes behind and the
+                // card's own fill in front, so it still reads as a tile on its
+                // own tint instead of disappearing into it.
+                AccentIconTile(
+                    icon = visuals.icon,
+                    tone = AccentTone(
+                        container = visuals.tone.content,
+                        content = visuals.tone.container,
+                    ),
+                    size = 52.dp,
+                )
 
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     // When there is no detail line the label is promoted to the
@@ -109,7 +92,7 @@ fun StateHeroCard(
                         Text(
                             text = visuals.label,
                             style = MaterialTheme.typography.labelLarge,
-                            color = visuals.accent,
+                            color = visuals.tone.content,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -117,7 +100,7 @@ fun StateHeroCard(
                     Text(
                         text = visuals.detail ?: visuals.label,
                         style = MaterialTheme.typography.headlineSmall,
-                        color = onContainer,
+                        color = scheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -132,7 +115,7 @@ fun StateHeroCard(
                     Text(
                         text = countdown.formatShortRu(),
                         style = MaterialTheme.typography.displaySmall,
-                        color = onContainer,
+                        color = scheme.onSurface,
                         maxLines = 1,
                     )
                     Text(
@@ -142,7 +125,7 @@ fun StateHeroCard(
                         },
                         modifier = Modifier.padding(bottom = 6.dp),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = onContainer.copy(alpha = 0.75f),
+                        color = scheme.onSurfaceVariant,
                         maxLines = 1,
                     )
                 }
@@ -151,8 +134,8 @@ fun StateHeroCard(
             if (progress != null) {
                 HeroProgress(
                     progress = progress,
-                    accent = visuals.accent,
-                    track = visuals.accent.copy(alpha = 0.22f),
+                    accent = visuals.tone.content,
+                    track = visuals.tone.content.copy(alpha = 0.22f),
                 )
             }
         }
@@ -182,9 +165,6 @@ private fun HeroProgress(
     )
     val description = stringResource(R.string.ds_countdown_progress, progress.asPercent())
 
-    // Expressive wavy indicator; if LinearWavyProgressIndicator is unavailable
-    // the drop-in fallback is LinearProgressIndicator with the same arguments
-    // minus the wave, so this stays a one-line swap.
     LinearWavyProgressIndicator(
         progress = { animated },
         modifier = Modifier

@@ -1,5 +1,7 @@
 package com.lumenpearson.lessons.ui.common
 
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 
 /**
@@ -29,3 +31,11 @@ internal val SyncIntervalOptionsMinutes: List<Int> = listOf(15, 30, 60, 180, 360
 
 /** Length of a class invite code; the join screen validates against it. */
 internal const val ClassCodeLength: Int = 6
+
+/**
+ * Room a scrolling screen leaves at its bottom for the floating navigation bar.
+ *
+ * The bar is drawn over the content rather than beside it, so nothing else knows
+ * how tall it is; this is that number, in one place.
+ */
+internal val FloatingBarSpace: Dp = 96.dp

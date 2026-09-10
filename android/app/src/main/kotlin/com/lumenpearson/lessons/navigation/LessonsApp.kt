@@ -3,13 +3,10 @@ package com.lumenpearson.lessons.navigation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,6 +20,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.lumenpearson.lessons.core.designsystem.component.FloatingNavBar
+import com.lumenpearson.lessons.core.designsystem.component.FloatingNavBarItem
 import com.lumenpearson.lessons.ui.homework.HomeworkScreen
 import com.lumenpearson.lessons.ui.join.JoinScreen
 import com.lumenpearson.lessons.ui.settings.SettingsScreen
@@ -84,6 +83,7 @@ fun LessonsApp(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             if (TopLevelDestination.isTopLevel(currentPath)) {
                 LessonsNavigationBar(
@@ -95,11 +95,12 @@ fun LessonsApp(
         // Each screen brings its own Scaffold and therefore its own top insets;
         // this outer one only owns the bar at the bottom.
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
-    ) { innerPadding ->
+    ) { _ ->
+        // The bar floats, so the content deliberately runs the full height and
+        // underneath it; each screen reserves the room in its own bottom padding.
         NavHost(
             navController = navController,
             startDestination = startDestination,
-            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
         ) {
             composable(LessonsRoute.Join.path) {
                 JoinScreen()
@@ -134,27 +135,19 @@ private fun NavHostController.switchTab(destination: TopLevelDestination) {
     }
 }
 
-/**
- * The four-tab bar.
- *
- * Plain [NavigationBar] rather than the Expressive `ShortNavigationBar`: this
- * module cannot be compiled here, and `NavigationBar` is the one spelling that
- * is certain to exist in material3 1.5.0-alpha24.
- * // fallback: swap for ShortNavigationBar/ShortNavigationBarItem once verified.
- */
+/** The four-tab bar, as a pill floating over the content. */
 @Composable
 private fun LessonsNavigationBar(
     currentPath: String?,
     onSelect: (TopLevelDestination) -> Unit,
 ) {
-    NavigationBar {
+    FloatingNavBar(modifier = Modifier.navigationBarsPadding()) {
         TopLevelDestination.entries.forEach { destination ->
-            val label = stringResource(destination.labelRes)
-            NavigationBarItem(
+            FloatingNavBarItem(
                 selected = currentPath == destination.route.path,
                 onClick = { onSelect(destination) },
-                icon = { Icon(imageVector = destination.icon, contentDescription = label) },
-                label = { Text(text = label) },
+                icon = destination.icon,
+                label = stringResource(destination.labelRes),
             )
         }
     }

@@ -21,11 +21,11 @@ import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 
 /**
- * Labels a group of cards and, optionally, offers the one action that group has.
+ * The quiet label above a group.
  *
- * The screens in this app are long scrolls of grouped cards; without a
- * consistent header the groups blur together, and without a fixed place for the
- * action every screen invents its own "показать все" affordance.
+ * Indented to line up with the group's first row rather than with the screen
+ * margin, and muted rather than bold: the groups are the objects on the screen,
+ * the labels only say what each one is.
  */
 @Composable
 fun SectionHeader(
@@ -38,7 +38,7 @@ fun SectionHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 4.dp),
+            .padding(start = 18.dp, end = 6.dp, top = 4.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -48,8 +48,8 @@ fun SectionHeader(
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -57,7 +57,7 @@ fun SectionHeader(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.outline,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

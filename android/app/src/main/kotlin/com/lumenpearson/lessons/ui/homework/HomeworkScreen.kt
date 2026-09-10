@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -25,16 +27,23 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
-import com.lumenpearson.lessons.core.designsystem.component.HomeworkCard
+import com.lumenpearson.lessons.core.designsystem.component.GroupCard
+import com.lumenpearson.lessons.core.designsystem.component.HomeworkRow
 import com.lumenpearson.lessons.core.designsystem.component.LessonsTopAppBar
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
+import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
+import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
+import com.lumenpearson.lessons.ui.common.FloatingBarSpace
 import com.lumenpearson.lessons.ui.common.asRelativeDayLabel
 import com.lumenpearson.lessons.ui.common.asText
 import java.time.LocalDate
 
 /**
  * Every piece of homework the cache knows about, grouped by the day it is due.
+ *
+ * One rounded group per due date, so a week of assignments reads as a handful of
+ * blocks rather than a wall of cards.
  *
  * The filter defaults to future work; "все" exists mainly for the case where a
  * pupil is catching up on something they missed, so it is one tap away rather
@@ -62,6 +71,7 @@ fun HomeworkScreen(
         modifier = modifier
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             LessonsTopAppBar(
                 title = stringResource(R.string.homework_title),
@@ -94,23 +104,29 @@ fun HomeworkScreen(
                         } else {
                             stringResource(R.string.homework_empty_description)
                         },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(24.dp),
+                        modifier = Modifier.padding(ScreenPadding),
                     )
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(
+                            start = ScreenPadding,
+                            end = ScreenPadding,
+                            top = 4.dp,
+                            bottom = FloatingBarSpace,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(GroupSpacing),
                     ) {
-                        state.groups.forEach { group ->
-                            item(key = "header-${group.date}") {
-                                SectionHeader(group.date.asRelativeDayLabel(today))
-                            }
-                            group.items.forEachIndexed { index, homework ->
-                                item(key = "${group.date}-$index") {
-                                    HomeworkCard(homework)
+                        items(
+                            items = state.groups,
+                            key = { group -> group.date.toString() },
+                        ) { group ->
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                SectionHeader(title = group.date.asRelativeDayLabel(today))
+                                GroupCard {
+                                    group.items.forEach { homework ->
+                                        HomeworkRow(item = homework)
+                                    }
                                 }
                             }
                         }
@@ -135,16 +151,16 @@ private fun HomeworkFilterRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = ScreenPadding, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         PillChip(
-            stringResource(R.string.homework_filter_upcoming),
+            text = stringResource(R.string.homework_filter_upcoming),
             selected = onlyUpcoming,
             onClick = { onSelect(true) },
         )
         PillChip(
-            if (hiddenCount > 0) {
+            text = if (hiddenCount > 0) {
                 stringResource(R.string.homework_filter_all_with_count, hiddenCount)
             } else {
                 stringResource(R.string.homework_filter_all)
