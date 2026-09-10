@@ -4,9 +4,11 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -49,18 +51,22 @@ data class NavBarItem(
 /** Width of an icon-only item, and the height of every item. */
 private val ItemSize = 48.dp
 
-/**
- * Extra width the selected item grows by to fit its label. Wider than the 80dp
- * the reference uses: "Настройки" is longer than the English labels it was sized
- * for.
- */
-private val LabelWidth = 96.dp
+/** Extra width the selected item grows by to fit its label. */
+private val LabelWidth = 80.dp
 
 /** Above this text scale the label is dropped rather than squeezed. */
 private const val LabelFontScaleLimit = 1.25f
 
-/** Below this width four items plus a label do not fit. */
-private const val CompactScreenWidthDp = 400
+/**
+ * Below this width four items plus a label do not fit.
+ *
+ * The reference drops the label below 400dp, which is wider than most phones in
+ * portrait — on a 360dp screen that hid the label permanently, so the expanding
+ * pill never appeared on the device it was written for. Four items need
+ * 3×48 + 3×8 spacing + 48 + 80 = 296dp inside 32dp of margin, so 328dp is the
+ * real floor.
+ */
+private const val CompactScreenWidthDp = 330
 
 /**
  * The bottom bar: a vibrant pill floating over the content, where the selected
@@ -87,17 +93,25 @@ fun FloatingNavBar(
         fontScale > LabelFontScaleLimit ||
             (screenWidth < CompactScreenWidthDp && items.size > 3)
 
-    HorizontalFloatingToolbar(
+    // The toolbar wraps its content, so it needs a full-width parent to be
+    // centred in. Its floatingActionButton slot is left off entirely rather than
+    // passed an empty lambda: an empty slot still reserves the width of the
+    // button that is not there, which pinned the pill to the left edge with a
+    // hole beside it.
+    Box(
         modifier = modifier
+            .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 16.dp),
-        expanded = true,
-        floatingActionButton = {},
-        colors = FloatingToolbarDefaults.vibrantFloatingToolbarColors(
-            toolbarContentColor = scheme.onSurface,
-            toolbarContainerColor = scheme.primary,
-        ),
-        content = {
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        HorizontalFloatingToolbar(
+            expanded = true,
+            colors = FloatingToolbarDefaults.vibrantFloatingToolbarColors(
+                toolbarContentColor = scheme.onSurface,
+                toolbarContainerColor = scheme.primary,
+            ),
+        ) {
             items.forEachIndexed { index, item ->
                 val selected = index == selectedIndex
                 val labelWidth by animateDpAsState(
@@ -154,8 +168,8 @@ fun FloatingNavBar(
                     Spacer(Modifier.width(8.dp))
                 }
             }
-        },
-    )
+        }
+    }
 }
 
 @Preview(name = "FloatingNavBar", showBackground = true)
