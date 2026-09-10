@@ -59,6 +59,11 @@ app.include_router(public_router)
 # deployment the endpoint would be dead weight and one more thing to secure.
 if get_settings().webhook_enabled:
     app.include_router(telegram_router, prefix="/api/v1")
+    log.info("Telegram webhook mounted at /api/v1/telegram/webhook")
+else:
+    # Without this line an unset BOT_TOKEN or WEBHOOK_SECRET is indistinguishable
+    # from a routing fault: both look like a bare 404 on the webhook.
+    log.warning("Telegram webhook NOT mounted: BOT_TOKEN and/or WEBHOOK_SECRET unset")
 
 
 @app.get("/")
