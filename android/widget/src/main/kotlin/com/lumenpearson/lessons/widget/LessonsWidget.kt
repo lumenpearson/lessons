@@ -15,7 +15,6 @@ import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.ScheduleEngine
 import com.lumenpearson.lessons.core.model.SchoolDay
 import com.lumenpearson.lessons.core.model.Timetable
-import com.lumenpearson.lessons.core.model.homeworkFocus
 import com.lumenpearson.lessons.widget.ui.LessonsWidgetBody
 import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
@@ -118,9 +117,7 @@ class LessonsWidget : GlanceAppWidget() {
             now = now,
             state = state,
             today = timetable?.day(now.toLocalDate()),
-            // AfterSchool and DayOff carry the day whose homework matters; every
-            // other state has none, and the body falls back to today's list.
-            homeworkDay = state?.homeworkFocus,
+            homeworkDay = homeworkDayFor(state, timetable, now.toLocalDate()),
             options = WidgetOptions(
                 showProgress = settings.widgetShowProgress,
                 showTeacher = settings.showTeacher,

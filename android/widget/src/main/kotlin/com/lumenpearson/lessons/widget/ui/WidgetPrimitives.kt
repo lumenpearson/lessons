@@ -162,11 +162,13 @@ internal fun HSpace(dp: Int) {
 }
 
 /**
- * One line of the remaining-day timeline: "08:30  Алгебра  каб. 214".
+ * One line of the remaining-day timeline: "▍08:30  Алгебра  каб. 214".
  *
- * The time column is fixed-width and zero-padded so the subjects line up; a
- * ragged left edge is the difference between a timeline you can scan and a list
- * you have to read.
+ * [WidgetStrings.time] is always zero-padded to five characters, so the times
+ * line up on their own advance width. They used to be forced into a 44dp column
+ * instead, which truncated "09:00" to "09:…" as soon as the reader had enlarged
+ * their system font, and left no gap at all before the subject when the text
+ * filled the column exactly.
  *
  * @param isCurrent draws the row in the accent colour — this is the lesson the
  *   student is sitting in right now.
@@ -185,20 +187,36 @@ internal fun TimelineRow(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
+        // Colour the eye can land on before it starts reading: without it every
+        // row is the same grey shape and the list has to be read in order.
+        Box(
+            modifier = GlanceModifier
+                .width(3.dp)
+                .height(16.dp)
+                .cornerRadius(2.dp)
+                .background(
+                    when {
+                        isCurrent -> GlanceTheme.colors.primary
+                        accent != null -> accent
+                        else -> GlanceTheme.colors.surfaceVariant
+                    },
+                ),
+        ) {}
+        HSpace(8)
         Text(
             text = WidgetStrings.time(lesson.startsAt),
             maxLines = 1,
-            modifier = GlanceModifier.width(44.dp),
             style = TextStyle(
-                color = when {
-                    isCurrent -> GlanceTheme.colors.primary
-                    accent != null -> accent
-                    else -> GlanceTheme.colors.onSurfaceVariant
+                color = if (isCurrent) {
+                    GlanceTheme.colors.primary
+                } else {
+                    GlanceTheme.colors.onSurfaceVariant
                 },
                 fontSize = size.bodySp.sp,
                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
             ),
         )
+        HSpace(8)
         Text(
             text = lesson.subject.ellipsize(size.homeworkChars.coerceAtLeast(12)),
             maxLines = 1,

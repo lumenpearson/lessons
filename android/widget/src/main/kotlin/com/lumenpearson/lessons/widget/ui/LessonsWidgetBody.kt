@@ -100,7 +100,7 @@ internal fun LessonsWidgetBody(
                 WidgetSizeClass.LARGE ->
                     TimelineBody(state, today, homeworkDay, now, size, options, withHomework = false)
 
-                WidgetSizeClass.XLARGE ->
+                WidgetSizeClass.XLARGE, WidgetSizeClass.TALL ->
                     TimelineBody(state, today, homeworkDay, now, size, options, withHomework = true)
             }
         }
