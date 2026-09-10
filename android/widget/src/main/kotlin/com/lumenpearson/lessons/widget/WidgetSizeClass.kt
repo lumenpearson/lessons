@@ -14,9 +14,11 @@ import androidx.compose.ui.unit.dp
  * .SizeMode.Responsive] reports whichever declared breakpoint the launcher
  * matched. So "resizable to any size" has to be implemented as a small number of
  * layouts that each look deliberate, with the launcher snapping between them.
- * Five is the point where adding another stops changing what the widget can say.
+ * A class earns its place only by changing what the widget can say — but the
+ * ladder also has to reach the tallest size a user can actually drag out, since
+ * a surplus no class claims is drawn as empty background.
  *
- * ### Why these five
+ * ### Why these six
  *
  * | Class    | Breakpoint  | Cells | What it can say                                    |
  * |----------|-------------|-------|----------------------------------------------------|
@@ -25,6 +27,7 @@ import androidx.compose.ui.unit.dp
  * | [MEDIUM] | 250 x 110dp | 4x2   | + the next two lessons                              |
  * | [LARGE]  | 250 x 250dp | 4x4   | + the whole remaining-day timeline                  |
  * | [XLARGE] | 320 x 320dp | 5x5   | + a homework block under the timeline               |
+ * | [TALL]   | 320 x 460dp | 5x7   | + the rest of the day rather than blank background  |
  *
  * The widths are the two that matter on a phone: 110dp is two cells on a typical
  * 4- or 5-column launcher grid, 250dp is four, 320dp is five or a tablet column.
@@ -124,6 +127,25 @@ enum class WidgetSizeClass(
         captionSp = 13f,
         paddingDp = 16f,
     ),
+
+    /**
+     * Half a home screen or more.
+     *
+     * Without this the ladder stopped at [XLARGE], so stretching the widget past
+     * five rows bought nothing but empty background: the row budget is fixed per
+     * class, and Glance gives no measure pass to distribute the surplus with.
+     */
+    TALL(
+        breakpoint = DpSize(320.dp, 460.dp),
+        homeworkItems = 8,
+        homeworkChars = 72,
+        timelineRows = 10,
+        showsProgressBar = true,
+        titleSp = 23f,
+        bodySp = 15f,
+        captionSp = 13f,
+        paddingDp = 16f,
+    ),
     ;
 
     companion object {
@@ -145,6 +167,7 @@ enum class WidgetSizeClass(
             val w = size.width
             val h = size.height
             return when {
+                w >= TALL.breakpoint.width && h >= TALL.breakpoint.height -> TALL
                 w >= XLARGE.breakpoint.width && h >= XLARGE.breakpoint.height -> XLARGE
                 w >= LARGE.breakpoint.width && h >= LARGE.breakpoint.height -> LARGE
                 w >= MEDIUM.breakpoint.width && h >= MEDIUM.breakpoint.height -> MEDIUM
