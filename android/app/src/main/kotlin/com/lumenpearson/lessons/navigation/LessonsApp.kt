@@ -492,6 +492,7 @@ private fun HomeShell(
                             // shownSection, not openSection: the latter is
                             // already null for the whole slide out.
                             section = shownSection,
+                            onOpenSection = { next -> openSectionName = next.name },
                             viewModel = settingsViewModel,
                         )
                     }

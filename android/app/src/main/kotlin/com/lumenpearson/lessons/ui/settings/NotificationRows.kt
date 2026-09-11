@@ -1,13 +1,5 @@
 package com.lumenpearson.lessons.ui.settings
 
-import android.Manifest
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
-import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -17,13 +9,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.EditCalendar
 import androidx.compose.material.icons.rounded.NotificationsActive
-import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,10 +24,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
@@ -46,6 +32,7 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupRow
 import com.lumenpearson.lessons.core.designsystem.component.GroupSwitchItem
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
+import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 import com.lumenpearson.lessons.core.model.AlertPreferences
@@ -67,9 +54,18 @@ import com.lumenpearson.lessons.core.model.AlertPreferences
 internal fun LazyListScope.notificationRows(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
+    onOpenSection: (SettingsSection) -> Unit,
 ) {
+    // One row for every permission this app needs rather than the one it used
+    // to name, because notifications arriving late is as broken as notifications
+    // not arriving, and only one of those two was ever reported here.
     item(key = "notifications-permission") {
-        NotificationPermissionRow()
+        val missing = rememberMissingPermissionCount()
+        MissingPermissionsRow(
+            missing = missing,
+            onOpen = { onOpenSection(SettingsSection.PERMISSIONS) },
+            modifier = Modifier.padding(horizontal = ScreenPadding),
+        )
     }
 
     item(key = "notifications-lessons") {
@@ -142,78 +138,6 @@ internal fun LazyListScope.notificationRows(
             )
         }
     }
-}
-
-/**
- * Shown only while notifications cannot actually be posted.
- *
- * Two different blocks look the same from the app's side: the Android 13
- * runtime permission was never granted, and the user switched the app's
- * notifications off in system settings. The first can be asked for in place; the
- * second can only be undone where it was done, so the row opens that page.
- */
-@Composable
-private fun NotificationPermissionRow() {
-    val context = LocalContext.current
-    var granted by remember { mutableStateOf(canPostNotifications(context)) }
-
-    // Re-read on every return to the screen. Both remedies leave the app —
-    // the permission dialog is a separate window, system settings a separate
-    // task — so a row that only checked once would still be telling the user to
-    // grant something they had just granted.
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) granted = canPostNotifications(context)
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    val request = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { result -> granted = result || canPostNotifications(context) }
-
-    if (granted) return
-
-    SettingsGroup(title = stringResource(R.string.settings_alerts_blocked_group)) {
-        GroupItem(
-            title = stringResource(R.string.settings_alerts_blocked),
-            subtitle = stringResource(R.string.settings_alerts_blocked_description),
-            icon = Icons.Rounded.NotificationsOff,
-            tone = errorTone(),
-            onClick = {
-                // Ask in place where the platform still allows it; otherwise the
-                // only thing left is the page where it was switched off.
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                    ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.POST_NOTIFICATIONS,
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    request.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else {
-                    openNotificationSettings(context)
-                }
-            },
-        )
-    }
-}
-
-/** Whether a notification posted right now would actually be shown. */
-private fun canPostNotifications(context: Context): Boolean {
-    val permitted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-        PackageManager.PERMISSION_GRANTED
-    return permitted && NotificationManagerCompat.from(context).areNotificationsEnabled()
-}
-
-/** Opens this app's page in the system notification settings, or does nothing. */
-private fun openNotificationSettings(context: Context) {
-    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    runCatching { context.startActivity(intent) }
 }
 
 /** How long before the bell, as chips: the choices are not a continuum. */

@@ -159,6 +159,35 @@ class AlertPlannerTest {
         assertNull(AlertPlanner.next(table, preferences, at(monday, "12:00")))
     }
 
+    /**
+     * The weekend is the case that was wrong, and it is the common one.
+     *
+     * The server returns a day for every date in the window, weekends included
+     * — they simply have no lessons — and "the next school day" skips them. So
+     * one set of Monday homework was announced on Friday, on Saturday and again
+     * on Sunday, three identical notifications under one id. Walking the week
+     * and counting is the shape of test that catches it: asserting a single
+     * `next` from one moment cannot, because each of the three is correct on its
+     * own.
+     */
+    @Test
+    fun `homework due after the weekend is announced once, on the evening before`() {
+        val preferences = AlertPreferences(homeworkReminder = true, homeworkAtMinutes = 20 * 60)
+        val friday = monday.minusDays(3)
+        val table = timetable(
+            day(friday),
+            day(friday.plusDays(1), lessons = emptyList()),
+            day(friday.plusDays(2), lessons = emptyList()),
+            day(monday, homework = listOf(HomeworkItem(subject = "Алгебра", text = "№ 42"))),
+        )
+
+        val reminders = generateSequence(at(friday, "00:00")) { moment ->
+            AlertPlanner.next(table, preferences, moment)?.at
+        }.drop(1).takeWhile { it < at(monday, "00:00") }.toList()
+
+        assertEquals(listOf(at(monday.minusDays(1), "20:00")), reminders)
+    }
+
     /** Two switches on means the earlier of the two wins, not the first one checked. */
     @Test
     fun `the earliest alert wins across kinds`() {

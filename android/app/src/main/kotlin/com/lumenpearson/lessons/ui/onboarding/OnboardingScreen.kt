@@ -116,8 +116,16 @@ fun OnboardingScreen(
     // The system gesture walks the same path as the button, so the flow has one
     // way back rather than two that disagree. On the first step it is left
     // alone, which lets it do what it means there: leave the app.
+    //
+    // Bounded rather than trusting `enabled` to have caught up. That flag
+    // reaches the callback in a SideEffect, after the composition is applied,
+    // while the write below lands in the snapshot at once — so two back events
+    // drained in one input pass both see it true, and the second asks for the
+    // step before the first. Reachable by tapping back twice during the slide,
+    // which is exactly where this screen is slowest, and a crash writes no
+    // saved state, so it restarted the whole introduction.
     BackHandler(enabled = step != OnboardingStep.WELCOME) {
-        step = OnboardingStep.entries[step.ordinal - 1]
+        OnboardingStep.entries.getOrNull(step.ordinal - 1)?.let { step = it }
     }
 
     Surface(

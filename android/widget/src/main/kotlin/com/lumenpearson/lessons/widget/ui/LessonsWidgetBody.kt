@@ -159,9 +159,11 @@ internal fun LessonsWidgetBody(
 @Composable
 private fun EmptyBody(size: WidgetSizeClass, signedIn: Boolean) {
     val context = LocalContext.current
-    val compact = size == WidgetSizeClass.TINY ||
-        size == WidgetSizeClass.WIDE ||
-        size == WidgetSizeClass.SMALL
+    // By width, not by naming the sizes one at a time. The list was written when
+    // there were three narrow rungs and did not grow when two more arrived, so
+    // SMALL_TALL and NARROW were handed the long strings in a 110 dp column —
+    // and Glance text cannot ellipsize, so they were hard-clipped mid-word.
+    val compact = size.isNarrow || size == WidgetSizeClass.WIDE
     val text = when {
         !signedIn && compact -> R.string.widget_empty_short
         !signedIn -> R.string.widget_empty_title

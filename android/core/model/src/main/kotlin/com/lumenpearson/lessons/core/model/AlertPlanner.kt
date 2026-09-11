@@ -186,8 +186,15 @@ object AlertPlanner {
 
             // The evening before, about the day it is set for. Homework is filed
             // under the day it is due, so the reminder has to look forward.
+            //
+            // "The evening before" is the guard, and it has to be stated: every
+            // cached date walks through here, and `schoolDayAfter` skips days
+            // without lessons, so Monday's homework was the answer on Friday,
+            // Saturday and Sunday alike — three identical notifications under
+            // one id for one set of homework, and one every night of a holiday.
             if (preferences.homeworkReminder) {
                 val target = timetable.schoolDayAfter(date)
+                    ?.takeIf { it.date == date.plusDays(1) }
                 if (target != null && target.homework.isNotEmpty()) {
                     add(
                         SchoolAlert.Homework(

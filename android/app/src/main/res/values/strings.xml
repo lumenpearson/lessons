@@ -253,5 +253,32 @@
     <string name="about_version">Версия %1$s</string>
     <string name="about_description">Школьный дневник с виджетом на главном экране. Работает офлайн: расписание, замены и домашние задания хранятся на устройстве.</string>
     <string name="about_design_credit">Оформление, шрифт и компоненты — по мотивам Essentials (github.com/sameerasw/essentials), лицензия MIT.</string>
+    <string name="about_name_and_version">Уроки v%1$s</string>
+    <string name="about_developer_line">Собрано lumenpearson</string>
+    <!-- Split around the link so the repository name can be tappable inside the sentence. -->
+    <string name="about_design_credit_before">Оформление, шрифт и компоненты — по мотивам </string>
+    <string name="about_design_credit_link">Essentials</string>
+    <string name="about_design_credit_after">, лицензия MIT.</string>
+    <string name="about_link_source">Исходный код</string>
+    <string name="about_link_essentials">Essentials</string>
+    <string name="about_closing_line">Сделано для одной школы</string>
+    <string name="permissions_title">Разрешения</string>
+    <string name="permissions_banner_title">Не хватает разрешений</string>
+    <string name="permissions_banner_description">Откройте каждое и выдайте — без них уведомления не придут вовремя</string>
+    <string name="permissions_refresh">Проверить снова</string>
+    <string name="permissions_action_grant">Выдать</string>
+    <string name="permissions_action_open">Открыть</string>
+    <string name="permission_notifications">Уведомления</string>
+    <string name="permission_notifications_description">Без них не придёт ничего: ни урок, ни сводка, ни замена</string>
+    <string name="permission_exact_alarms">Точные будильники</string>
+    <string name="permission_exact_alarms_description">Чтобы «через 10 минут урок» приходило за десять минут, а не когда придётся</string>
+    <string name="permission_background">Работа в фоне</string>
+    <string name="permission_background_description">Чтобы система не усыпила приложение до звонка</string>
+    <plurals name="permissions_missing">
+        <item quantity="one">%1$d не выдано</item>
+        <item quantity="few">%1$d не выдано</item>
+        <item quantity="many">%1$d не выдано</item>
+        <item quantity="other">%1$d не выдано</item>
+    </plurals>
 
 </resources>

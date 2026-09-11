@@ -189,10 +189,14 @@ internal object WidgetStrings {
      * five subjects half-read beats seeing one in full.
      */
     fun homeworkLine(context: Context, item: HomeworkItem, maxChars: Int): String =
+        homeworkLine(context, item.subject, item.text, maxChars)
+
+    /** @see homeworkLine */
+    fun homeworkLine(context: Context, subject: String, text: String, maxChars: Int): String =
         context.getString(
             R.string.widget_homework_line,
-            item.subject,
-            item.text.collapseWhitespace(),
+            subject,
+            text.collapseWhitespace(),
         ).ellipsize(maxChars)
 
     /** "5 предметов" — Russian needs one/few/many, so this goes through plurals. */
@@ -268,7 +272,12 @@ internal object WidgetStrings {
  */
 internal fun String.ellipsize(maxChars: Int): String {
     if (maxChars <= 1 || length <= maxChars) return this
-    return take(maxChars - 1).trimEnd().trimEnd(',', ';', '.', '\u2013', '-') + "\u2026"
+    // One back if the cut landed between the halves of a surrogate pair. A
+    // `Char` is a UTF-16 code unit, not a character, so an emoji straddling the
+    // boundary otherwise leaves its leading half behind \u2014 which `trimEnd` does
+    // not consider whitespace and the widget draws as a tofu box.
+    val end = (maxChars - 1).let { if (this[it - 1].isHighSurrogate()) it - 1 else it }
+    return take(end).trimEnd().trimEnd(',', ';', '.', '\u2013', '-') + "\u2026"
 }
 
 /**

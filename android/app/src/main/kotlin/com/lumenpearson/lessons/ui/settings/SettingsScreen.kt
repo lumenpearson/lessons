@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Swipe
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Update
@@ -159,7 +160,27 @@ enum class SettingsSection(
         Icons.Rounded.Info,
         5,
     ),
+
+    /**
+     * Reached from the notifications page, never from the root list.
+     *
+     * It is a page about a fault, so it exists only while there is one: a
+     * permanent "Разрешения" row on the landing page would be one more thing to
+     * read past on every visit, and would say nothing on the phones — most of
+     * them — where everything is granted. [listedOnRoot] is what keeps it off.
+     */
+    PERMISSIONS(
+        R.string.permissions_title,
+        R.string.permissions_banner_description,
+        Icons.Rounded.Shield,
+        5,
+    ) {
+        override val listedOnRoot: Boolean = false
+    },
     ;
+
+    /** Whether the landing page offers a row for this section. */
+    open val listedOnRoot: Boolean = true
 
     companion object {
         /** `null` for anything this build does not have, including `null` itself. */
@@ -201,7 +222,7 @@ fun SettingsRootScreen(
             Column(modifier = Modifier.fillMaxWidth()) {
                 SectionHeader(title = stringResource(R.string.settings_sections))
                 RoundedCardContainer {
-                    SettingsSection.entries.forEach { section ->
+                    SettingsSection.entries.filter { it.listedOnRoot }.forEach { section ->
                         GroupLinkItem(
                             title = stringResource(section.titleRes),
                             subtitle = stringResource(section.subtitleRes),
@@ -226,6 +247,7 @@ fun SettingsRootScreen(
 fun SettingsSectionScreen(
     section: SettingsSection,
     modifier: Modifier = Modifier,
+    onOpenSection: (SettingsSection) -> Unit = {},
     viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -271,10 +293,11 @@ fun SettingsSectionScreen(
             SettingsSection.APPEARANCE -> appearanceRows(state, viewModel)
             SettingsSection.FEEL -> feelRows(state, viewModel)
             SettingsSection.CONTENT -> contentRows(state, viewModel)
-            SettingsSection.ALERTS -> notificationRows(state, viewModel)
+            SettingsSection.ALERTS -> notificationRows(state, viewModel, onOpenSection)
             SettingsSection.SYNC -> syncRows(state, viewModel) { showServerSheet = true }
             SettingsSection.ACCOUNT -> accountRows(state) { showSignOutSheet = true }
             SettingsSection.ABOUT -> aboutRows(state, viewModel)
+            SettingsSection.PERMISSIONS -> permissionRows()
         }
     }
 }
@@ -586,36 +609,25 @@ private fun LazyListScope.accountRows(
 private fun LazyListScope.aboutRows(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
-) = item(key = "about") {
-    SettingsGroup(title = stringResource(R.string.settings_about_group)) {
-        GroupItem(
-            title = stringResource(R.string.app_name),
-            subtitle = stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
-            icon = Icons.Rounded.Info,
-            tone = accentTone(5),
-        )
-        GroupSwitchItem(
-            title = stringResource(R.string.settings_debug),
-            subtitle = stringResource(R.string.settings_debug_description),
-            icon = Icons.Rounded.BugReport,
-            tone = accentTone(2),
-            checked = state.settings.debugMode,
-            onCheckedChange = viewModel::setDebugMode,
-        )
-        GroupRow {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = stringResource(R.string.about_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = stringResource(R.string.about_design_credit),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+) {
+    item(key = "about") {
+        SettingsGroup(title = stringResource(R.string.settings_about_group)) {
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_debug),
+                subtitle = stringResource(R.string.settings_debug_description),
+                icon = Icons.Rounded.BugReport,
+                tone = accentTone(2),
+                checked = state.settings.debugMode,
+                onCheckedChange = viewModel::setDebugMode,
+            )
         }
+    }
+    // The last thing on the last page, which is where an about block belongs and
+    // where Essentials puts its own. It carries the version, the description and
+    // the design credit, so the three rows that used to state those separately
+    // are gone rather than repeated above it.
+    item(key = "about_card") {
+        AboutCard(modifier = Modifier.padding(horizontal = ScreenPadding))
     }
 }
 

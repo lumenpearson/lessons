@@ -46,8 +46,14 @@ object SchoolAlerts {
      */
     private val Tolerance: Duration = Duration.ofSeconds(90)
 
-    /** Window an inexact alarm may drift within. Matches the widget's. */
-    private const val INEXACT_WINDOW_MILLIS = 60_000L
+    /**
+     * How long before trying again when there was nothing to plan from.
+     *
+     * Long enough that a device wedged on a failing read is not woken every
+     * minute for it, short enough that a pupil does not lose a school day of
+     * alerts to one bad moment.
+     */
+    private val ReadRetry: Duration = Duration.ofMinutes(20)
 
     /**
      * Recomputes everything from the cache and arms the next alarm.
@@ -63,19 +69,14 @@ object SchoolAlerts {
     fun reschedule(context: Context) {
         val appContext = context.applicationContext
         val (timetable, preferences) = read(appContext) ?: return
-
-        if (preferences.silent) {
-            cancel(appContext)
-            return
-        }
-
-        val now = timetable.nowAtSchool()
-        val next = AlertPlanner.next(timetable, preferences, now.plus(Tolerance))
-        if (next == null) {
-            cancel(appContext)
-            return
-        }
-        arm(appContext, next.at, timetable.schoolClass.zone)
+        // Plain "now", not now + Tolerance. The offset belongs to the one caller
+        // that has just published a window and must not publish it twice; see
+        // [armNext]. Applied here it deleted alerts instead: this runs after
+        // every sync, every settings change, every app start and every boot,
+        // and arming replaces the standing alarm — so a sync landing within a
+        // minute and a half of a bell overwrote that bell's alarm with the one
+        // after it, and the notification was never posted.
+        armNext(appContext, timetable, preferences, after = timetable.nowAtSchool())
     }
 
     /**
@@ -88,13 +89,65 @@ object SchoolAlerts {
      */
     internal fun fire(context: Context) {
         val appContext = context.applicationContext
-        val (timetable, preferences) = read(appContext) ?: return
+        val read = read(appContext)
+        if (read == null) {
+            // The chain is one alarm long, so returning here used to end it: a
+            // locked database or a corrupt preference file at the moment an
+            // alarm fired left nothing armed behind it, and the whole feature
+            // stayed dead until some later sync happened to succeed. Nothing
+            // said so, because a read failure is also the normal state before
+            // the first sync. Leave a retry instead of a silence.
+            retryLater(appContext)
+            return
+        }
+        val (timetable, preferences) = read
 
         val now = timetable.nowAtSchool()
         AlertPlanner.due(timetable, preferences, now, Tolerance).forEach { alert ->
             AlertNotifier.post(appContext, alert)
         }
-        reschedule(appContext)
+        // Strictly after the window just published, so the next alarm cannot
+        // announce something this one already has. The same clock reading is
+        // reused rather than taken again, which also closes the gap the second
+        // read used to open.
+        armNext(appContext, timetable, preferences, after = now.plus(Tolerance))
+    }
+
+    /**
+     * Arms for the first alert strictly after [after], or cancels if there is
+     * none.
+     *
+     * The one place that decides what "next" means, so that the offset which
+     * only [fire] needs cannot leak into the callers that must not have it.
+     */
+    private fun armNext(
+        context: Context,
+        timetable: Timetable,
+        preferences: AlertPreferences,
+        after: LocalDateTime,
+    ) {
+        if (preferences.silent) {
+            cancel(context)
+            return
+        }
+
+        val next = AlertPlanner.next(timetable, preferences, after)
+        if (next == null) {
+            cancel(context)
+            return
+        }
+        arm(context, next.at, timetable.schoolClass.zone)
+    }
+
+    /**
+     * Comes back to try again, when there was nothing to plan from.
+     *
+     * The device's own zone rather than the school's: the reason we are here is
+     * that the school is precisely what could not be read.
+     */
+    private fun retryLater(context: Context) {
+        val zone = ZoneId.systemDefault()
+        arm(context, LocalDateTime.now(zone).plus(ReadRetry), zone)
     }
 
     /**
@@ -194,18 +247,18 @@ object SchoolAlerts {
             if (canScheduleExact(alarmManager)) {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, operation)
             } else {
-                alarmManager.setWindow(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerAt,
-                    INEXACT_WINDOW_MILLIS,
-                    operation,
-                )
+                // Not setWindow: Doze holds a plain window until the next
+                // maintenance pass, and because a firing alarm only publishes
+                // what is due within 90 seconds of itself, one deferred that
+                // far posts nothing at all and the alert is simply lost. This
+                // is still inexact, but it is not deferred.
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, operation)
             }
         } catch (error: SecurityException) {
             // The exact-alarm permission can be revoked between the check and
             // the call. A late notification beats a dead receiver.
-            Log.w(TAG, "Exact alarm refused, falling back to a window", error)
-            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, triggerAt, INEXACT_WINDOW_MILLIS, operation)
+            Log.w(TAG, "Exact alarm refused, falling back to an inexact one", error)
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, operation)
         }
     }
 

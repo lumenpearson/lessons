@@ -74,10 +74,21 @@ internal class LessonsPreferences(context: Context) {
     /** Clears identity only; the server address stays so re-joining is one field. */
     suspend fun clearSession() {
         dataStore.edit { prefs ->
+            // Written on the way out, because the token this is about to remove
+            // is what the read side uses to recognise somebody who predates the
+            // introduction flag. To be here at all you were in a class, and to
+            // have been in a class you got past the join screen.
+            prefs[KEY_ONBOARDING_DONE] = true
             prefs.remove(KEY_TOKEN)
             prefs.remove(KEY_CLASS_ID)
             prefs.remove(KEY_CLASS_NAME)
             prefs.remove(KEY_SCHOOL)
+            // The fingerprint describes the shape of *that* class's schedule, so
+            // keeping it means the first sync after joining a different one
+            // compares two unrelated timetables, finds them different, and
+            // announces that the schedule changed seconds after joining —
+            // exactly the noise the baseline rule exists to prevent.
+            prefs.remove(KEY_SCHEDULE_FINGERPRINT)
         }
     }
 
@@ -172,7 +183,17 @@ internal class LessonsPreferences(context: Context) {
         showTeacher = this[KEY_SHOW_TEACHER] ?: true,
         widgetShowProgress = this[KEY_WIDGET_SHOW_PROGRESS] ?: true,
         debugMode = this[KEY_DEBUG_MODE] ?: false,
-        onboardingDone = this[KEY_ONBOARDING_DONE] ?: false,
+        // False only for a genuinely fresh install. The key arrived with the
+        // introduction, so on every phone that had the app before it there is
+        // no value here — and a plain `?: false` therefore promised four
+        // screens of introduction to everyone who had been using the app all
+        // term, the first time they signed out.
+        //
+        // A stored class token is the sentinel because it cannot be there by
+        // accident: it is only written after a successful join, which is the
+        // screen the introduction ends on. Someone holding one has been past
+        // it, whatever else they have or have not touched.
+        onboardingDone = this[KEY_ONBOARDING_DONE] ?: (this[KEY_TOKEN] != null),
         alerts = AlertPreferences(
             lessonSoon = this[KEY_ALERT_LESSON] ?: false,
             lessonLeadMinutes = this[KEY_ALERT_LEAD] ?: AlertPreferences.DefaultLeadMinutes,

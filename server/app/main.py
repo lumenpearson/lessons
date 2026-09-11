@@ -15,7 +15,6 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 
 from app.api.public import router as public_router
-from app.api.telegram import router as telegram_router
 from app.config import get_settings
 from app.db import engine, init_db
 
@@ -63,7 +62,18 @@ app.include_router(public_router)
 
 # Only mounted when a webhook secret is configured. On a long-polling
 # deployment the endpoint would be dead weight and one more thing to secure.
+#
+# Imported here rather than at the top of the file, because importing the module
+# costs about four seconds of aiogram before anything else can run, and a
+# serverless cold start pays it on the way to the first response. It used to be
+# paid on *every* cold start, including the free-tier deployment this project
+# documents, where the webhook is unmounted and aiogram is then imported purely
+# to be told it is not wanted. The heavy `app.bot.bot` import inside
+# `app/api/telegram.py` is already deferred the same way and for the same
+# reason; this is the outer half of it.
 if get_settings().webhook_enabled:
+    from app.api.telegram import router as telegram_router
+
     app.include_router(telegram_router, prefix="/api/v1")
     log.info("Telegram webhook mounted at /api/v1/telegram/webhook")
 else:
