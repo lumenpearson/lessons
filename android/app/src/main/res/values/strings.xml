@@ -28,6 +28,15 @@
     <string name="join_error_generic">Не удалось подключиться. Проверьте код и подключение к сети.</string>
     <string name="join_server_current">Сервер: %1$s</string>
     <string name="join_server_change">Изменить адрес сервера</string>
+    <string name="join_what_you_get">Что появится после подключения</string>
+    <string name="join_feature_timetable">Расписание и замены</string>
+    <string name="join_feature_timetable_description">Неделя целиком, с кабинетами и заменами.</string>
+    <string name="join_feature_homework">Домашние задания</string>
+    <string name="join_feature_homework_description">Сгруппированы по дню, к которому заданы.</string>
+    <string name="join_feature_widget">Виджет на главном экране</string>
+    <string name="join_feature_widget_description">Текущий урок и сколько до звонка — без открытия приложения.</string>
+    <string name="join_server_section">Сервер</string>
+    <string name="join_server_unset">По умолчанию — сервер класса</string>
 
     <!-- Диалог адреса сервера -->
     <string name="server_dialog_title">Адрес сервера</string>
