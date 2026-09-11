@@ -34,3 +34,15 @@ internal data class SchoolDayRecord(
     val events: List<EventEntity> = emptyList(),
     val homework: List<HomeworkEntity> = emptyList(),
 )
+
+/**
+ * One consistent view of the cache: the class, its days, and the next school
+ * day, all read inside a single transaction.
+ *
+ * @see TimetableDao.snapshot
+ */
+internal data class TimetableSnapshot(
+    val schoolClass: SchoolClassEntity,
+    val days: List<SchoolDayWithDetails>,
+    val nextSchoolDay: SchoolDayWithDetails?,
+)

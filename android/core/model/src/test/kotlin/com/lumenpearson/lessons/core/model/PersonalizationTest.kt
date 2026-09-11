@@ -50,8 +50,18 @@ class PersonalizationTest {
     @Test
     fun `tabs are in bar order`() {
         assertEquals(
-            listOf(HomeTab.TODAY, HomeTab.WEEK, HomeTab.HOMEWORK, HomeTab.SETTINGS),
+            listOf(HomeTab.TODAY, HomeTab.WEEK, HomeTab.HOMEWORK),
             HomeTab.entries,
         )
+    }
+
+    /**
+     * Settings used to be a tab and is now the button beside the pill. A device
+     * that stored it as its default opens on a destination that still exists
+     * rather than on nothing.
+     */
+    @Test
+    fun `a stored settings tab falls back to today`() {
+        assertEquals(HomeTab.TODAY, HomeTab.fromName("SETTINGS"))
     }
 }

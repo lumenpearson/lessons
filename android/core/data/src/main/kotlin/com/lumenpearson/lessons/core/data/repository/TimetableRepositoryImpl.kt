@@ -5,6 +5,7 @@ import com.lumenpearson.lessons.core.data.database.buildTimetable
 import com.lumenpearson.lessons.core.data.database.toEntity
 import com.lumenpearson.lessons.core.data.database.toRecord
 import com.lumenpearson.lessons.core.data.network.LessonsApi
+import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
 import com.lumenpearson.lessons.core.data.network.dto.toDomain
 import com.lumenpearson.lessons.core.model.Timetable
 import kotlinx.coroutines.CancellationException
@@ -17,7 +18,9 @@ import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import java.io.IOException
 import java.time.Clock
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 
 /**
  * Room-backed implementation: the network writes, the database reads, and the
@@ -33,6 +36,13 @@ internal class TimetableRepositoryImpl(
     private val api: LessonsApi,
     private val clock: Clock = Clock.systemDefaultZone(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /**
+     * Called after a sync writes something. The widget lives in another module
+     * and cannot be called directly, so the container hands in the broadcast.
+     * Without it, pull-to-refresh filled the app and left the widget empty —
+     * which made the one remedy a user would try look like it did nothing.
+     */
+    private val onDataChanged: () -> Unit = {},
 ) : TimetableRepository {
 
     /**
@@ -51,23 +61,36 @@ internal class TimetableRepositoryImpl(
     }.distinctUntilChanged()
 
     override suspend fun snapshot(): Timetable? = withContext(ioDispatcher) {
-        val schoolClass = dao.schoolClass() ?: return@withContext null
-        buildTimetable(schoolClass, dao.days(), dao.nextSchoolDay())
+        // One transaction for all three reads: `replaceAll` swaps the class row
+        // and the days together, and a reader interleaved between two separate
+        // statements can take the class from before the swap and the days from
+        // after it. The widget redraws on the sync broadcast, i.e. by
+        // construction at exactly that moment.
+        val snapshot = dao.snapshot() ?: return@withContext null
+        buildTimetable(snapshot.schoolClass, snapshot.days, snapshot.nextSchoolDay)
     }
 
     override suspend fun refresh(days: Int): SyncResult = withContext(ioDispatcher) {
         val window = days.coerceIn(MIN_DAYS, MAX_DAYS)
         try {
-            // "Today" is resolved on the device: the widget must be able to sync
-            // a window it can actually display, even if the server's clock or
-            // time zone drifts.
-            val bundle = api.bundle(start = LocalDate.now(clock).toString(), days = window)
+            // The window starts on Monday of the current week, not today.
+            // Anchoring it to today means the days already past this week are
+            // never fetched — and `replaceAll` wipes the table on every sync, so
+            // they are actively destroyed. On a Friday the Week tab showed
+            // "Нет данных" for Monday through Thursday, and "Предыдущая неделя"
+            // was empty for everybody, always.
+            val today = LocalDate.now(clock)
+            val start = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            val span = (window + (today.toEpochDay() - start.toEpochDay()).toInt())
+                .coerceAtMost(MAX_DAYS)
+            val bundle = api.bundle(start = start.toString(), days = span)
             val timetable = bundle.toDomain(fallbackSyncedAtEpochMillis = clock.millis())
             dao.replaceAll(
                 schoolClass = timetable.schoolClass.toEntity(timetable.syncedAtEpochMillis),
                 days = timetable.days.map { it.toRecord(isNextSchoolDay = false) },
                 nextSchoolDay = timetable.nextSchoolDay?.toRecord(isNextSchoolDay = true),
             )
+            onDataChanged()
             SyncResult.Success
         } catch (cancellation: CancellationException) {
             // A cancelled sync is not a failed sync; let it propagate.
@@ -78,6 +101,8 @@ internal class TimetableRepositoryImpl(
             } else {
                 SyncResult.Failed("Server returned HTTP ${http.code()}")
             }
+        } catch (missing: ServerAddressMissingException) {
+            SyncResult.NotConfigured
         } catch (io: IOException) {
             SyncResult.Failed(io.message ?: "Network unavailable")
         } catch (unexpected: Exception) {

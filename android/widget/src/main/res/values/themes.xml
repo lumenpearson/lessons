@@ -3,7 +3,13 @@
     <!--
       The static layouts need *some* theme to resolve text appearance; the app
       theme lives in :core:designsystem and is a Compose theme, not an XML one,
-      so the widget carries this three-line stub rather than depending on it.
+      so the widget carries this stub rather than depending on it.
+
+      DeviceDefault without the DayNight suffix, because that suffix arrived in
+      API 29 and this module ships to API 26. A theme resource that does not
+      exist on the running device is not a graceful degradation — it fails to
+      resolve at inflation time. values-v29 carries the DayNight variant, so the
+      phones that have it still follow the system theme.
     -->
-    <style name="Theme.Lessons.Widget" parent="@android:style/Theme.DeviceDefault.DayNight" />
+    <style name="Theme.Lessons.Widget" parent="@android:style/Theme.DeviceDefault" />
 </resources>

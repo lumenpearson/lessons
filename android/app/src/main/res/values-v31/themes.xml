@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      The launcher icon on the window background is what the system animates
+      from the home screen, which removes the blank frame between tap and first
+      draw. Both attributes arrived in API 31, so this overrides the empty
+      declaration in values/themes.xml rather than appearing beside it.
+    -->
+    <style name="Theme.Lessons.Starting" parent="Theme.Lessons">
+        <item name="android:windowSplashScreenBackground">@color/window_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+    </style>
+
+</resources>

@@ -9,7 +9,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
-import com.lumenpearson.lessons.ui.common.ClassCodeLength
+import com.lumenpearson.lessons.core.data.repository.TimetableRepository
+import com.lumenpearson.lessons.ui.common.ClassCodeLengths
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +27,7 @@ import kotlinx.coroutines.launch
  */
 sealed interface JoinError {
 
-    /** Fewer than [ClassCodeLength] characters typed. */
+    /** The typed code is not a length [ClassCodeLengths] allows. */
     data object InvalidCode : JoinError
 
     /** The server refused the code, or was unreachable. */
@@ -34,7 +35,7 @@ sealed interface JoinError {
 }
 
 /**
- * @property code the 6-character invite code, already normalized to upper case.
+ * @property code the invite code, already normalized to upper case.
  * @property baseUrl current server address, shown as a link under the button.
  * @property isSubmitting a request is in flight; the button shows a spinner.
  * @property error inline error under the field, cleared on the next keystroke.
@@ -46,7 +47,7 @@ data class JoinUiState(
     val error: JoinError? = null,
 ) {
     /** The button is only live for a complete code with no request running. */
-    val canSubmit: Boolean get() = code.length == ClassCodeLength && !isSubmitting
+    val canSubmit: Boolean get() = code.length in ClassCodeLengths && !isSubmitting
 }
 
 /**
@@ -61,6 +62,7 @@ data class JoinUiState(
  */
 class JoinViewModel(
     private val sessionRepository: SessionRepository,
+    private val timetableRepository: TimetableRepository,
     private val settingsRepository: SettingsRepository,
     private val deviceName: String?,
 ) : ViewModel() {
@@ -96,7 +98,7 @@ class JoinViewModel(
         code.value = raw
             .uppercase()
             .filter { it.isLetterOrDigit() }
-            .take(ClassCodeLength)
+            .take(ClassCodeLengths.last)
         error.value = null
     }
 
@@ -110,7 +112,7 @@ class JoinViewModel(
     /** Sends the code. The result reaches the UI as a session, or as an error. */
     fun submit() {
         val value = code.value
-        if (value.length != ClassCodeLength) {
+        if (value.length !in ClassCodeLengths) {
             error.value = JoinError.InvalidCode
             return
         }
@@ -120,10 +122,21 @@ class JoinViewModel(
             submitting.value = true
             error.value = null
             val result = sessionRepository.join(value, deviceName)
-            submitting.value = false
-            result.exceptionOrNull()?.let { failure ->
+            val failure = result.exceptionOrNull()
+            if (failure != null) {
+                submitting.value = false
                 error.value = JoinError.Rejected(failure.message?.takeIf { it.isNotBlank() })
+                return@launch
             }
+            // Pull the timetable straight away. Joining only stores a token;
+            // without this the first data arrives whenever the periodic worker
+            // next happens to run — up to an hour later, and longer still
+            // because that worker had already fired once, before there was a
+            // session to sync, and consumed its slot. Until then both the app
+            // and the widget say "расписание ещё не загружено" to somebody who
+            // has just this second joined a class.
+            timetableRepository.refresh()
+            submitting.value = false
         }
     }
 
@@ -134,6 +147,7 @@ class JoinViewModel(
             initializer {
                 JoinViewModel(
                     sessionRepository = Graph.container.sessionRepository,
+                    timetableRepository = Graph.container.timetableRepository,
                     settingsRepository = Graph.container.settingsRepository,
                     deviceName = "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
                 )

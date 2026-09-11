@@ -15,6 +15,16 @@
     <!-- "Урок закончится через 5 минут" style notifications. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!--
+        Haptics above the lightest level are played through the vibrator rather
+        than through View.performHapticFeedback, because the platform's feedback
+        constants carry no amplitude and so cannot express a strength dial.
+        Vibrator.vibrate needs this permission; performHapticFeedback does not,
+        which is why the app ran for a while without it and then threw a
+        SecurityException the moment somebody chose "Двойной" or "Чёткий".
+    -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <!-- The widget re-arms its alarm chain after a reboot. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 

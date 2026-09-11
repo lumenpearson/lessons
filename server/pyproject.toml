@@ -12,7 +12,19 @@ dependencies = [
     "asyncpg>=0.29",
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
+    # Schema changes. Not in requirements.txt: migrations are run from a
+    # workstation against the database, never from inside a request, and the
+    # function bundle is smaller without it.
+    "alembic>=1.13",
 ]
+
+# Spelled out because the repository is a flat layout and now has more than one
+# top-level directory: setuptools' auto-discovery refuses to guess between
+# `app` and `alembic` and fails the install outright. Migrations are run from a
+# checkout with `alembic upgrade head`, never imported, so only the application
+# and its one-shot scripts are packaged.
+[tool.setuptools.packages.find]
+include = ["app*", "scripts*"]
 
 [project.optional-dependencies]
 dev = [

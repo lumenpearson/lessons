@@ -59,12 +59,21 @@ enum class HapticStrength {
  * Duplicated neither in the navigation graph nor in the settings picker: both
  * read this list, so "default tab" cannot offer a destination the bar does not
  * have.
+ *
+ * Settings is not among them. It used to be, and it does not belong: the other
+ * three are places you live in and switch between, settings is somewhere you go,
+ * change one thing and come back from. In the bar it sat next to them as a peer,
+ * took a quarter of the pill's width from screens that need it, and meant the
+ * "default tab" picker could open the app on the preferences. It is now the
+ * detached button beside the pill, which is where Essentials puts its own.
+ *
+ * [fromName] falls back to [TODAY], so a device that stored `SETTINGS` as its
+ * default tab before this change reads back a destination that exists.
  */
 enum class HomeTab {
     TODAY,
     WEEK,
     HOMEWORK,
-    SETTINGS,
     ;
 
     companion object {

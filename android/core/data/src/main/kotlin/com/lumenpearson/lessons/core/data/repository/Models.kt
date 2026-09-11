@@ -101,6 +101,15 @@ sealed interface SyncResult {
     /** HTTP 401: the device token is gone or revoked. Send the user to the join screen. */
     data object Unauthorised : SyncResult
 
+    /**
+     * No usable server address is stored, so nothing was even attempted.
+     *
+     * Separate from [Failed] because it is the one failure with a specific
+     * remedy — open settings and type an address — and because retrying it on a
+     * timer forever, as [Failed] invites, can never succeed.
+     */
+    data object NotConfigured : SyncResult
+
     /** Anything transient - no network, server down, malformed payload. Retry later. */
     data class Failed(val message: String) : SyncResult
 }

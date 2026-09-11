@@ -3,6 +3,7 @@ package com.lumenpearson.lessons.core.designsystem.component
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,14 +29,29 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.modifier.fadingEdges
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
+
+/** Inner padding of one segment; see the note at its use. */
+private val SegmentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
+
+/**
+ * How far a scrolling label dissolves at each edge.
+ *
+ * Narrow, because the segment is narrow: a fade as wide as the default would eat
+ * most of the four characters a segment can show at rest.
+ */
+private val SegmentFadeWidth = 8.dp
 
 /**
  * A connected button group: two to four mutually exclusive options, laid out as
@@ -87,6 +104,9 @@ fun <T> SegmentedPicker(
                     items.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                 },
+                // The default padding is sized for a button standing alone; in a
+                // four-way group it is most of the segment.
+                contentPadding = SegmentPadding,
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -101,16 +121,70 @@ fun <T> SegmentedPicker(
                         )
                         Spacer(Modifier.width(4.dp))
                     }
-                    Text(
+                    SegmentLabel(
                         text = labelProvider(item),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                        maxLines = 1,
-                        modifier = Modifier.basicMarquee(),
+                        selected = selected,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                 }
             }
         }
+    }
+}
+
+/**
+ * One segment's text: scrolls when it does not fit, and dissolves at both edges
+ * while it does.
+ *
+ * Only a label that actually overflows gets either treatment. Fading a label
+ * that fits would dim its first and last letter for no reason, and a marquee
+ * that has nothing to scroll is just a chance to animate at the wrong moment.
+ * Whether it overflows cannot be read off the layout — `basicMarquee` hands the
+ * text unbounded width, so it never reports visual overflow — so the string is
+ * measured against the space the segment actually has.
+ */
+@Composable
+private fun SegmentLabel(
+    text: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    // labelMedium, not labelLarge. Four segments on a 360 dp screen leave about
+    // 40 dp of text each, and at 14 sp every Russian label but "Нет" overflowed.
+    // Essentials reaches for a smaller size here for the same reason.
+    val style = MaterialTheme.typography.labelMedium.copy(
+        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+        textAlign = TextAlign.Center,
+    )
+    val measurer = rememberTextMeasurer()
+
+    BoxWithConstraints(modifier = modifier) {
+        val available = constraints.maxWidth
+        val overflows = remember(text, style, available) {
+            available != Constraints.Infinity &&
+                measurer.measure(
+                    text = text,
+                    style = style,
+                    maxLines = 1,
+                    softWrap = false,
+                ).size.width > available
+        }
+
+        Text(
+            text = text,
+            style = style,
+            maxLines = 1,
+            softWrap = false,
+            // The fade is applied outside the marquee so it masks the window the
+            // text scrolls through, not the text scrolling through it.
+            modifier = if (overflows) {
+                Modifier
+                    .fadingEdges(SegmentFadeWidth)
+                    .basicMarquee()
+            } else {
+                Modifier
+            },
+        )
     }
 }
 

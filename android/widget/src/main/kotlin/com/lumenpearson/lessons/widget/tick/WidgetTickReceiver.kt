@@ -31,13 +31,19 @@ class WidgetTickReceiver : BroadcastReceiver() {
 
         scope.launch {
             try {
-                // Redraw first, then re-arm: the new state is what decides when
-                // the next wake-up should be.
+                // Redraw first: the new state is what decides when the next
+                // wake-up should be.
                 LessonsWidget().updateAll(appContext)
-                WidgetTickScheduler.reschedule(appContext)
             } catch (error: Exception) {
                 android.util.Log.w(TAG, "Tick handling failed", error)
             } finally {
+                // Re-arming lives in `finally`, because it is the only thing
+                // that keeps the chain alive. After `updateAll`, one throw — a
+                // transient Room error, a RemoteViews payload over the binder
+                // limit — meant no alarm was ever armed again, and with
+                // updatePeriodMillis at 0 nothing else re-arms it. The widget
+                // froze on its last frame until a reboot.
+                WidgetTickScheduler.reschedule(appContext)
                 pendingResult.finish()
             }
         }

@@ -19,6 +19,7 @@ from datetime import datetime, time
 from datetime import time as Time
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     ForeignKey,
@@ -287,7 +288,14 @@ class Homework(Base):
     subject_name: Mapped[str] = mapped_column(String(120), nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     attachment_url: Mapped[str | None] = mapped_column(String(500))
-    created_by: Mapped[int | None] = mapped_column(Integer)  # telegram user id
+    # Telegram user id. BigInteger, not Integer: Telegram ids passed 2^31 in
+    # 2021 and the API documents them as up to 52 bits, while Integer maps to
+    # int4 on Postgres. The first teacher with a modern account would have hit
+    # NumericValueOutOfRange — invisibly, because the webhook answers 200 on an
+    # exception, so the bot would simply have stopped replying. SQLite, which
+    # the dev setup and the tests run on, has no integer width and never showed
+    # it. The same applies to every other telegram id column below.
+    created_by: Mapped[int | None] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
@@ -323,7 +331,7 @@ class BotUser(Base):
     __table_args__ = (UniqueConstraint("telegram_id", "class_id", name="uq_bot_user_class"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    telegram_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
     class_id: Mapped[int] = mapped_column(
         ForeignKey("classes.id", ondelete="CASCADE"), index=True, nullable=False
     )
@@ -331,7 +339,7 @@ class BotUser(Base):
     username: Mapped[str | None] = mapped_column(String(64))
     full_name: Mapped[str | None] = mapped_column(String(200))
     phone: Mapped[str | None] = mapped_column(String(32), index=True)
-    granted_by: Mapped[int | None] = mapped_column(Integer)
+    granted_by: Mapped[int | None] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -349,14 +357,43 @@ class PhoneInvite(Base):
     phone: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
     role: Mapped[Role] = mapped_column(SAEnum(Role, native_enum=False), nullable=False)
     label: Mapped[str | None] = mapped_column(String(120))
-    invited_by: Mapped[int | None] = mapped_column(Integer)
-    used_by: Mapped[int | None] = mapped_column(Integer)
+    invited_by: Mapped[int | None] = mapped_column(BigInteger)
+    used_by: Mapped[int | None] = mapped_column(BigInteger)
     used_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     @property
     def is_used(self) -> bool:
         return self.used_by is not None
+
+
+class JoinAttempt(Base):
+    """One failed join attempt, recorded so the limit survives a cold start.
+
+    The limiter used to hold its counters in a process-local dict, which it
+    documented as correct because "the deployment is a single uvicorn worker".
+    That premise is false for this deployment: on Vercel every concurrent
+    invocation is its own Python process and instances are recycled constantly,
+    so the dict was empty almost every time it was consulted and the ceiling of
+    thirty attempts per fifteen minutes did not exist. A six-character code from
+    a 32-symbol alphabet is 2**30 possibilities, and each guess is tested
+    against every class at once — so an unthrottled endpoint was the whole of
+    the security around somebody's timetable.
+
+    The database is the one thing every invocation shares, so the counter lives
+    here. Rows are pruned whenever the table is read, which keeps it to roughly
+    the failures of one window.
+
+    ``client_key`` is a hash, not an address: this only ever needs to tell two
+    clients apart, and storing the addresses themselves would be collecting
+    personal data to answer a question that does not need it.
+    """
+
+    __tablename__ = "join_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    client_key: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
 
 
 class DeviceToken(Base):

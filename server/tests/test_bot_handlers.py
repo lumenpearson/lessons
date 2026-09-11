@@ -407,3 +407,61 @@ async def test_an_admin_can_change_an_editor(session, school_class):
     victim = await session.scalar(select(BotUser).where(BotUser.telegram_id == 99))
     assert victim.role is Role.VIEWER
     assert not callback.alerted
+
+
+class _FakeCallback:
+    """Just enough CallbackQuery to see whether it was answered."""
+
+    def __init__(self) -> None:
+        self.answers: list[tuple[str | None, bool]] = []
+
+    async def answer(self, text: str | None = None, show_alert: bool = False) -> None:
+        self.answers.append((text, show_alert))
+
+
+def _error_event(exception: BaseException, callback: object) -> Any:
+    return SimpleNamespace(
+        update=SimpleNamespace(callback_query=callback),
+        exception=exception,
+    )
+
+
+async def test_pressing_a_button_that_changes_nothing_is_answered_quietly():
+    """Telegram calls an unchanged re-render a 400, and it is an ordinary press.
+
+    "Сегодня" from the day view and "‹ Меню" from the menu both re-render the
+    identical message. Unhandled, the exception escaped before `answer()` ran
+    and the button kept its loading spinner until Telegram gave up.
+    """
+    from aiogram.exceptions import TelegramBadRequest
+
+    from app.bot.bot import _on_error
+
+    callback = _FakeCallback()
+    error = TelegramBadRequest(
+        method=SimpleNamespace(),
+        message="Bad Request: message is not modified",
+    )
+
+    assert await _on_error(_error_event(error, callback)) is True
+    assert callback.answers == [(None, False)]
+
+
+async def test_any_other_handler_failure_tells_the_user_instead_of_hanging():
+    """Including the FSM flows that read a step the user may not have taken."""
+    from app.bot.bot import _on_error
+
+    callback = _FakeCallback()
+
+    assert await _on_error(_error_event(KeyError("phone"), callback)) is True
+    assert len(callback.answers) == 1
+    text, show_alert = callback.answers[0]
+    assert text is not None
+    assert show_alert is True
+
+
+async def test_a_failure_with_no_callback_is_still_handled():
+    """A message handler raising must not bubble out of the dispatcher."""
+    from app.bot.bot import _on_error
+
+    assert await _on_error(_error_event(RuntimeError("boom"), None)) is True

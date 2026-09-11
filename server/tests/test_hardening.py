@@ -13,18 +13,18 @@ import httpx
 import pytest
 from httpx import ASGITransport
 from sqlalchemy import select
+from starlette.datastructures import Headers
 
-from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START, join_limiter
+from app.api.public import (
+    MAX_BUNDLE_START,
+    MIN_BUNDLE_START,
+    _client_bucket,
+    join_limiter,
+)
+from app.config import get_settings
 from app.main import app
 from app.models import BellPeriod, BellSchedule, DeviceToken, Role, SchoolClass, TimetableEntry
-from app.security import RateLimiter
-
-
-@pytest.fixture(autouse=True)
-def _clean_limiter():
-    join_limiter.reset()
-    yield
-    join_limiter.reset()
+from app.security import JoinThrottle, client_bucket
 
 
 @pytest.fixture
@@ -42,13 +42,12 @@ async def client():
 
 async def test_deleting_a_class_takes_its_children_with_it(session, school_class):
     class_id = school_class.id
-    session.add(
-        DeviceToken(token_hash="deadbeef", class_id=class_id, device_name="phone")
-    )
+    session.add(DeviceToken(token_hash="deadbeef", class_id=class_id, device_name="phone"))
     await session.commit()
 
-    assert (await session.scalars(select(TimetableEntry).where(
-        TimetableEntry.class_id == class_id))).all()
+    assert (
+        await session.scalars(select(TimetableEntry).where(TimetableEntry.class_id == class_id))
+    ).all()
 
     await session.delete(school_class)
     await session.commit()
@@ -67,8 +66,9 @@ async def test_deleting_a_bell_schedule_takes_its_periods(session, school_class)
     await session.delete(schedule)
     await session.commit()
 
-    periods = (await session.scalars(
-        select(BellPeriod).where(BellPeriod.schedule_id == schedule_id))).all()
+    periods = (
+        await session.scalars(select(BellPeriod).where(BellPeriod.schedule_id == schedule_id))
+    ).all()
     assert periods == []
 
 
@@ -97,39 +97,131 @@ async def test_timezone_name_passes_a_real_zone_through(session, school_class):
 # --------------------------------------------------------------------------
 
 
-def test_rate_limiter_allows_up_to_the_limit_then_blocks():
-    limiter = RateLimiter(limit=3, window=100.0)
+async def test_the_limit_survives_a_process_that_remembers_nothing(session):
+    """The counter is in the database, so a fresh process still sees it.
+
+    This is the whole point of the change. The previous limiter kept a dict per
+    process and called that correct on the premise of "a single uvicorn worker";
+    on the Vercel deployment each concurrent invocation is its own process, so
+    the dict was empty nearly every time it was read and the ceiling never
+    existed. A second JoinThrottle instance here stands in for that second
+    process.
+    """
+    throttle = JoinThrottle(limit=3, window=100.0)
+    key = client_bucket("198.51.100.7")
 
     for _ in range(3):
-        assert limiter.blocked_for("a", now=0.0) is None
-        limiter.record_failure("a", now=0.0)
+        assert await throttle.blocked_for(session, key) is None
+        await throttle.record_failure(session, key)
 
-    blocked = limiter.blocked_for("a", now=0.0)
+    # A different object, as a cold start would be, reading the same table.
+    other_process = JoinThrottle(limit=3, window=100.0)
+    blocked = await other_process.blocked_for(session, key)
     assert blocked is not None and blocked > 0
 
 
-def test_rate_limiter_forgets_after_the_window():
-    limiter = RateLimiter(limit=2, window=10.0)
-    limiter.record_failure("a", now=0.0)
-    limiter.record_failure("a", now=0.0)
+async def test_the_limit_forgets_once_the_window_has_passed(session):
+    from datetime import UTC, datetime, timedelta
 
-    assert limiter.blocked_for("a", now=5.0) is not None
-    assert limiter.blocked_for("a", now=11.0) is None
+    from app.models import JoinAttempt
+
+    throttle = JoinThrottle(limit=2, window=10.0)
+    key = client_bucket("198.51.100.7")
+    await throttle.record_failure(session, key)
+    await throttle.record_failure(session, key)
+    assert await throttle.blocked_for(session, key) is not None
+
+    # Age the rows rather than sleep: the window is wall-clock, not a counter.
+    stale = datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=30)
+    for attempt in (await session.scalars(select(JoinAttempt))).all():
+        attempt.created_at = stale
+    await session.commit()
+
+    assert await throttle.blocked_for(session, key) is None
 
 
-def test_rate_limiter_keys_are_independent():
-    limiter = RateLimiter(limit=1, window=100.0)
-    limiter.record_failure("a", now=0.0)
+async def test_two_clients_are_counted_separately(session):
+    throttle = JoinThrottle(limit=1, window=100.0)
+    one = client_bucket("198.51.100.7")
+    two = client_bucket("203.0.113.9")
 
-    assert limiter.blocked_for("a", now=0.0) is not None
-    assert limiter.blocked_for("b", now=0.0) is None
+    await throttle.record_failure(session, one)
+
+    assert await throttle.blocked_for(session, one) is not None
+    assert await throttle.blocked_for(session, two) is None
 
 
-def test_rate_limiter_table_does_not_grow_without_bound():
-    limiter = RateLimiter(limit=5, window=1.0, max_keys=50)
-    for index in range(500):
-        limiter.record_failure(f"host-{index}", now=float(index))
-    assert len(limiter._hits) <= 50
+async def test_expired_attempts_are_cleared_out_as_new_ones_arrive(session):
+    """The table holds roughly one window, with no scheduler to prune it."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.models import JoinAttempt
+
+    throttle = JoinThrottle(limit=5, window=1.0)
+    await throttle.record_failure(session, client_bucket("198.51.100.7"))
+
+    stale = datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=60)
+    for attempt in (await session.scalars(select(JoinAttempt))).all():
+        attempt.created_at = stale
+    await session.commit()
+
+    await throttle.record_failure(session, client_bucket("203.0.113.9"))
+
+    remaining = (await session.scalars(select(JoinAttempt))).all()
+    assert len(remaining) == 1
+
+
+async def test_a_client_cannot_pick_its_own_bucket_with_a_header(client, school_class):
+    """X-Forwarded-For is client-controlled, so an unconfigured app ignores it.
+
+    Reading its leftmost entry is the usual advice and it is exactly wrong here:
+    an attacker would set it themselves and land in a fresh bucket on every
+    request, which is the limit not existing again by another route. With no
+    declared proxies in front, every one of these lands in the same bucket.
+    """
+    spoofed = {"X-Forwarded-For": "10.0.0.1"}
+    for index in range(join_limiter.limit):
+        spoofed["X-Forwarded-For"] = f"10.0.0.{index}"
+        assert (
+            await client.post("/api/v1/join", json={"code": "NOPE99"}, headers=spoofed)
+        ).status_code == 404
+
+    spoofed["X-Forwarded-For"] = "10.0.0.250"
+    blocked = await client.post("/api/v1/join", json={"code": "NOPE99"}, headers=spoofed)
+    assert blocked.status_code == 429
+
+
+def _request(headers: dict[str, str], host: str = "127.0.0.1"):
+    """Enough of a Request for _client_bucket, which only reads these two."""
+    return SimpleNamespace(headers=Headers(headers), client=SimpleNamespace(host=host))
+
+
+def test_one_declared_proxy_means_the_rightmost_entry(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "trusted_proxy_hops", 1)
+
+    # The caller prepended their own entry; the proxy appended the real one.
+    spoofed = _request({"X-Forwarded-For": "10.0.0.1, 198.51.100.7"})
+    honest = _request({"X-Forwarded-For": "198.51.100.7"})
+    assert _client_bucket(spoofed) == _client_bucket(honest) == client_bucket("198.51.100.7")
+
+
+def test_a_short_forwarded_header_falls_back_to_the_socket(monkeypatch):
+    """Two proxies cannot have produced a one-entry header, so it is not one."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "trusted_proxy_hops", 2)
+
+    assert _client_bucket(_request({"X-Forwarded-For": "10.0.0.1"})) == client_bucket("127.0.0.1")
+
+
+def test_on_vercel_the_platform_header_wins_over_the_client_one(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "vercel", "1")
+
+    bucket = _client_bucket(
+        _request({"X-Forwarded-For": "10.0.0.1", "X-Vercel-Forwarded-For": "198.51.100.7"})
+    )
+    assert bucket == client_bucket("198.51.100.7")
 
 
 async def test_join_blocks_after_repeated_wrong_codes(client, school_class):
@@ -206,9 +298,7 @@ async def test_a_device_name_with_control_characters_is_cleaned_not_rejected(
     assert device.device_name == "Pixel 8"
 
 
-async def test_a_device_name_of_only_control_characters_becomes_null(
-    client, session, school_class
-):
+async def test_a_device_name_of_only_control_characters_becomes_null(client, session, school_class):
     assert (
         await client.post("/api/v1/join", json={"code": "TEST42", "device_name": "\x00\x01"})
     ).status_code == 200
@@ -237,9 +327,7 @@ async def test_last_seen_is_not_rewritten_on_every_request(client, session, scho
     assert device.last_seen_at == first, "a second read must not take a write lock"
 
 
-async def test_last_seen_is_refreshed_once_the_interval_has_passed(
-    client, session, school_class
-):
+async def test_last_seen_is_refreshed_once_the_interval_has_passed(client, session, school_class):
     token = await _token(client)
     headers = {"Authorization": f"Bearer {token}"}
     await client.get("/api/v1/bundle", params={"days": 1}, headers=headers)
@@ -312,9 +400,7 @@ async def test_a_non_owner_cannot_create_a_class_by_reaching_the_final_step(sess
     callback = _Callback(user_id=2000)  # not in OWNER_IDS
     state = _State({"name": "Взлом", "school": None})
 
-    await create_class_timezone(
-        callback, SimpleNamespace(zone="Europe/Moscow"), state, session
-    )
+    await create_class_timezone(callback, SimpleNamespace(zone="Europe/Moscow"), state, session)
 
     assert callback.alerted
     assert state.cleared
@@ -327,9 +413,7 @@ async def test_the_owner_can_still_create_a_class(session):
     callback = _Callback(user_id=1000)  # matches OWNER_IDS in conftest
     state = _State({"name": "9Б", "school": "Школа № 2"})
 
-    await create_class_timezone(
-        callback, SimpleNamespace(zone="Asia/Omsk"), state, session
-    )
+    await create_class_timezone(callback, SimpleNamespace(zone="Asia/Omsk"), state, session)
 
     created = await session.scalar(select(SchoolClass).where(SchoolClass.name == "9Б"))
     assert created is not None
@@ -344,9 +428,7 @@ async def test_a_half_finished_create_flow_does_not_raise(session):
     callback = _Callback(user_id=1000)
     state = _State({})
 
-    await create_class_timezone(
-        callback, SimpleNamespace(zone="Europe/Moscow"), state, session
-    )
+    await create_class_timezone(callback, SimpleNamespace(zone="Europe/Moscow"), state, session)
 
     assert callback.alerted
     assert (await session.scalars(select(SchoolClass))).all() == []
@@ -377,3 +459,26 @@ async def test_a_class_name_containing_markup_is_escaped(session):
     assert "&lt;b&gt;9А&lt;/b&gt;" in rendered
     assert "<script>" not in rendered
     assert "<i>Школа</i>" not in rendered
+
+
+def test_telegram_id_columns_are_wide_enough_for_real_ids():
+    """Telegram ids exceed 2^31, and Integer maps to int4 on Postgres.
+
+    SQLite has no integer width, so nothing at runtime in this suite can catch a
+    column that is too narrow — the failure only appears in production, as an
+    asyncpg NumericValueOutOfRange the webhook swallows. Assert the declared
+    type instead.
+    """
+    from sqlalchemy import BigInteger
+
+    from app.models import BotUser, Homework, PhoneInvite
+
+    columns = [
+        BotUser.__table__.c.telegram_id,
+        BotUser.__table__.c.granted_by,
+        Homework.__table__.c.created_by,
+        PhoneInvite.__table__.c.invited_by,
+        PhoneInvite.__table__.c.used_by,
+    ]
+    for column in columns:
+        assert isinstance(column.type, BigInteger), column

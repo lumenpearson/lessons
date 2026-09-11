@@ -24,13 +24,35 @@ def _strip_control_chars(value: str) -> str:
     return "".join(ch for ch in value if ch == " " or ch.isprintable())
 
 
+#: Mirrors ``JoinRequest.code``'s own ``min_length``; see ``_clean_code``.
+_MIN_CODE_LENGTH = 4
+
+
 class JoinRequest(BaseModel):
     code: str = Field(min_length=4, max_length=16)
     device_name: str | None = Field(default=None, max_length=120)
 
-    @field_validator("code", "device_name")
+    @field_validator("code")
     @classmethod
-    def _sanitise(cls, value: str | None) -> str | None:
+    def _clean_code(cls, value: str) -> str:
+        """Sanitise the code, and reject one that sanitises away to nothing.
+
+        This used to share ``_sanitise`` with ``device_name`` and return
+        ``cleaned or None``. Pydantic does not re-check an after-validator's
+        return against the field's annotation, so a code of four spaces — which
+        passes ``min_length=4`` — arrived at the handler as ``None`` and the
+        ``.strip()`` there raised ``AttributeError``. That is a 500 out of a
+        request the schema exists to reject, on an unauthenticated endpoint.
+        """
+        cleaned = _strip_control_chars(value).strip()
+        if len(cleaned) < _MIN_CODE_LENGTH:
+            raise ValueError("code must contain at least 4 usable characters")
+        return cleaned
+
+    @field_validator("device_name")
+    @classmethod
+    def _clean_device_name(cls, value: str | None) -> str | None:
+        """Optional, so sanitising it away to nothing simply means absent."""
         if value is None:
             return None
         cleaned = _strip_control_chars(value).strip()

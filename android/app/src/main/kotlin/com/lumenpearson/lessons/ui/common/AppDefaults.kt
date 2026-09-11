@@ -21,5 +21,12 @@ internal val DefaultAppSettings: AppSettings = AppSettings()
  */
 internal val SyncIntervalOptionsMinutes: List<Int> = listOf(15, 30, 60, 180, 360, 720)
 
-/** Length of a class invite code; the join screen validates against it. */
-internal const val ClassCodeLength: Int = 6
+/**
+ * Lengths a class invite code may have; the join screen validates against it.
+ *
+ * A range, not a fixed number. Newly issued codes are eight characters — six of
+ * a 32-symbol alphabet is a small enough space to guess at — while codes handed
+ * out before that are six and still work, because the server matches whatever
+ * is stored. Pinning one length here would lock out one of the two.
+ */
+internal val ClassCodeLengths: IntRange = 4..16

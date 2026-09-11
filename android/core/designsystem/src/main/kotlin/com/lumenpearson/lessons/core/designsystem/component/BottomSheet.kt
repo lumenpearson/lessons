@@ -6,10 +6,14 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -59,7 +63,19 @@ fun LessonsBottomSheet(
         modifier = modifier.statusBarsPadding(),
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            // The sheet declares zero content insets so that it owns its own
+            // bottom spacing — which also means nothing else is handling the
+            // keyboard. The union of the two insets, rather than one padding on
+            // top of the other: while the IME is up it covers the navigation
+            // bar, so adding both would leave a gesture bar's worth of dead
+            // space between the sheet's last control and the keyboard.
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))
+                // Whatever is left after the keyboard has taken its share is
+                // what the sheet gets. A tall sheet on a short screen then
+                // scrolls instead of pushing its buttons out of the window.
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (title != null) {
@@ -77,7 +93,6 @@ fun LessonsBottomSheet(
                 )
             }
             content()
-            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
     }
 }

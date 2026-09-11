@@ -108,7 +108,12 @@ internal fun SchoolClassDto.toDomain(): SchoolClassInfo = SchoolClassInfo(
  */
 internal fun BundleDto.toDomain(fallbackSyncedAtEpochMillis: Long): Timetable = Timetable(
     schoolClass = schoolClass.toDomain(),
-    days = days.mapNotNull { it.toDomain() }.sortedBy { it.date },
+    // distinctBy, because `school_day` is unique on (date, is_next_school_day)
+    // and a plain @Insert aborts on a clash. A server that emits one date twice
+    // would otherwise fail every sync from then on, freezing the cache behind a
+    // SQLiteConstraintException — where this file's policy everywhere else is to
+    // drop what it cannot use and keep the rest.
+    days = days.mapNotNull { it.toDomain() }.distinctBy { it.date }.sortedBy { it.date },
     nextSchoolDay = nextSchoolDay?.toDomain(),
     syncedAtEpochMillis = WireFormats.parseEpochMillis(generatedAt) ?: fallbackSyncedAtEpochMillis,
 )

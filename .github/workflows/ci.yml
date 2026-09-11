@@ -7,6 +7,12 @@ on:
   # Lets you build from the Actions tab without pushing anything.
   workflow_dispatch:
 
+# Read-only. These jobs run ./gradlew on pull-request code, and a Gradle build
+# script executes arbitrary code at configuration time; on an older repository
+# the default token would hand that code write access to the repository.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -19,8 +25,8 @@ jobs:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -28,7 +34,7 @@ jobs:
       - name: Install
         run: pip install -e ".[dev]"
       - name: Lint
-        run: ruff check app tests scripts
+        run: ruff check app tests scripts migrations
       - name: Test
         run: pytest -q
 
@@ -39,13 +45,13 @@ jobs:
       run:
         working-directory: android
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
-      - uses: android-actions/setup-android@v3
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: android-actions/setup-android@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Unit tests
         run: ./gradlew --no-daemon test
       - name: Assemble debug
@@ -58,12 +64,12 @@ jobs:
       - name: Assemble release
         run: ./gradlew --no-daemon assembleRelease
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: app-release-unsigned-key
           path: android/app/build/outputs/apk/release/*.apk

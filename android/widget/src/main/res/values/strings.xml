@@ -79,13 +79,14 @@
     <string name="widget_next_up">Дальше</string>
     <string name="widget_timeline_title">Осталось сегодня</string>
     <string name="widget_room">каб. %1$s</string>
-    <string name="widget_lesson_cancelled">отменён</string>
     <string name="widget_lesson_replaced">замена</string>
     <string name="widget_nothing_left">Уроков больше нет</string>
 
     <!-- Empty / unauthenticated. -->
     <string name="widget_empty_title">Откройте приложение и введите код класса</string>
     <string name="widget_empty_short">Введите код класса</string>
+    <string name="widget_no_data_title">Расписание ещё не загружено — откройте приложение и потяните вниз</string>
+    <string name="widget_no_data_short">Расписание не загружено</string>
 
     <plurals name="widget_subject_count">
         <item quantity="one">%d предмет</item>

@@ -26,6 +26,8 @@ import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.CalendarViewWeek
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Today
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.FloatingToolbarScrollBehavior
 import androidx.compose.material3.HorizontalFloatingToolbar
@@ -42,10 +44,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
@@ -63,6 +67,19 @@ data class ToolbarItem(
     val onClick: () -> Unit,
 )
 
+/**
+ * The button drawn beside the pill.
+ *
+ * @param badge as on [ToolbarItem]: a dot over the icon, for "there is something
+ *   here" without a label to say what.
+ */
+data class ToolbarAction(
+    val icon: ImageVector,
+    val contentDescription: String,
+    val badge: Boolean = false,
+    val onClick: () -> Unit,
+)
+
 /** Width of an icon-only item, and the height of every item. */
 private val ItemSize: Dp = 48.dp
 
@@ -76,14 +93,18 @@ private val ItemGap: Dp = 8.dp
 private const val LabelFontScaleLimit = 1.25f
 
 /**
- * Below this width four items plus a label do not fit.
+ * Below this width four slots plus a label do not fit.
  *
  * Essentials drops the label below 400 dp, which is wider than most phones in
  * portrait: on a 360 dp screen — a Pixel 8, say — that hides the label
  * permanently, so the expanding pill that is the whole point of the component
- * never appears on the device it was written for. Four items need
+ * never appears on the device it was written for. Four slots need
  * 3×48 + 3×8 spacing + 48 + 80 = 296 dp inside 32 dp of margin, so 328 dp is the
  * real floor and 330 is it with a little air.
+ *
+ * The action button counts as a slot. It is drawn outside the pill but it is
+ * drawn on the same row, and a pill that fits only because the thing beside it
+ * was not counted does not fit.
  */
 private const val CompactScreenWidthDp = 330
 
@@ -119,7 +140,13 @@ private val TitleWidthRange = 100.dp..250.dp
  * @param items tabbed mode: pass these and [selectedIndex].
  * @param title standard mode: pass this with [onBackClick].
  * @param expanded false collapses every unselected item into the selected one.
- * @param floatingActionButton the trailing button, drawn outside the pill.
+ * @param action the button beside the pill — Essentials' `fabAction`. It is
+ *   outside the pill rather than in it because it is not a peer of what is
+ *   inside: in tabbed mode the pill is where you are and the button is where you
+ *   can go, and on a sub-page the pill is the way back and the button is the one
+ *   thing that page can do.
+ * @param floatingActionButton the same slot, for a caller that needs to draw the
+ *   button itself. [action] is the shorthand and wins if both are given.
  */
 @Composable
 fun LessonsFloatingToolbar(
@@ -130,13 +157,23 @@ fun LessonsFloatingToolbar(
     onBackClick: (() -> Unit)? = null,
     expanded: Boolean = true,
     scrollBehavior: FloatingToolbarScrollBehavior? = null,
+    action: ToolbarAction? = null,
     floatingActionButton: (@Composable () -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val fontScale = LocalDensity.current.fontScale
     val screenWidth = LocalConfiguration.current.screenWidthDp
+    val actionButton: (@Composable () -> Unit)? = when {
+        action != null -> {
+            { ToolbarActionButton(action) }
+        }
+
+        else -> floatingActionButton
+    }
+
+    val slots = items.size + if (actionButton != null) 1 else 0
     val hideLabel = fontScale > LabelFontScaleLimit ||
-        (screenWidth < CompactScreenWidthDp && items.size > 3)
+        (screenWidth < CompactScreenWidthDp && slots > 3)
 
     val colors = FloatingToolbarDefaults.vibrantFloatingToolbarColors(
         toolbarContentColor = scheme.onSurface,
@@ -170,12 +207,12 @@ fun LessonsFloatingToolbar(
 
         // Two call sites rather than one with a nullable argument: the overload
         // without the slot is what keeps a toolbar with no action button centred.
-        if (floatingActionButton != null) {
+        if (actionButton != null) {
             HorizontalFloatingToolbar(
                 expanded = expanded,
                 colors = colors,
                 scrollBehavior = scrollBehavior,
-                floatingActionButton = floatingActionButton,
+                floatingActionButton = actionButton,
                 content = content,
             )
         } else {
@@ -282,6 +319,47 @@ private fun ToolbarTab(
     }
 }
 
+/**
+ * Essentials' `fabAction` button: tonal, square-ish, and flat.
+ *
+ * No elevation on purpose — the pill beside it has none either, and a shadow
+ * under one of the two would read as the button hovering above the bar rather
+ * than sitting next to it.
+ */
+@Composable
+private fun ToolbarActionButton(action: ToolbarAction) {
+    val scheme = MaterialTheme.colorScheme
+    val view = rememberHapticView()
+
+    FloatingActionButton(
+        onClick = {
+            LessonsHaptics.press(view)
+            action.onClick()
+        },
+        containerColor = scheme.primaryContainer,
+        contentColor = scheme.onPrimaryContainer,
+        shape = MaterialTheme.shapes.large,
+        elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
+    ) {
+        Box {
+            Icon(
+                imageVector = action.icon,
+                contentDescription = action.contentDescription,
+                modifier = Modifier.size(24.dp),
+            )
+            if (action.badge) {
+                Box(
+                    modifier = Modifier
+                        .size(BadgeSize)
+                        .align(Alignment.TopEnd)
+                        .clip(CircleShape)
+                        .background(scheme.error),
+                )
+            }
+        }
+    }
+}
+
 /** Standard mode: the same inverted pill, holding a back button and a title. */
 @Composable
 private fun BackAndTitle(
@@ -304,7 +382,9 @@ private fun BackAndTitle(
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-            contentDescription = null,
+            // Named, not null. The title beside it is a separate node, so a
+            // screen reader announcing this button announced nothing at all.
+            contentDescription = stringResource(R.string.ds_action_back),
             modifier = Modifier.size(24.dp),
         )
     }
@@ -344,8 +424,8 @@ private fun FloatingToolbarPreview() {
                 ToolbarItem(Icons.Rounded.Today, "Сегодня") {},
                 ToolbarItem(Icons.Rounded.CalendarViewWeek, "Неделя") {},
                 ToolbarItem(Icons.AutoMirrored.Rounded.MenuBook, "Задания", badge = true) {},
-                ToolbarItem(Icons.Rounded.Settings, "Настройки") {},
             ),
+            action = ToolbarAction(Icons.Rounded.Settings, "Настройки") {},
         )
     }
 }

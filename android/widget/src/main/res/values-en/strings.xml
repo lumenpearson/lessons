@@ -66,12 +66,13 @@
     <string name="widget_next_up">Next up</string>
     <string name="widget_timeline_title">Left today</string>
     <string name="widget_room">room %1$s</string>
-    <string name="widget_lesson_cancelled">cancelled</string>
     <string name="widget_lesson_replaced">substitute</string>
     <string name="widget_nothing_left">No lessons left</string>
 
     <string name="widget_empty_title">Open the app and enter your class code</string>
     <string name="widget_empty_short">Enter class code</string>
+    <string name="widget_no_data_title">No timetable yet — open the app and pull down to refresh</string>
+    <string name="widget_no_data_short">No timetable yet</string>
 
     <plurals name="widget_subject_count">
         <item quantity="one">%d subject</item>

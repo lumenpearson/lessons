@@ -45,7 +45,7 @@ class LessonsWidgetReceiver : GlanceAppWidgetReceiver() {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
         // Re-arm on every update: the launcher calls this after a restore, a
         // resize and an app upgrade, all of which drop pending alarms.
-        WidgetTickScheduler.reschedule(context)
+        rescheduleOffMainThread(context)
     }
 
     override fun onEnabled(context: Context) {
@@ -53,13 +53,37 @@ class LessonsWidgetReceiver : GlanceAppWidgetReceiver() {
         // The first widget was just placed. It very likely has nothing to show,
         // so pull data immediately rather than waiting for the periodic worker.
         SyncScheduler.syncNow(context)
-        WidgetTickScheduler.reschedule(context)
+        rescheduleOffMainThread(context)
     }
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
         // No widgets left: stop waking the device for a countdown nobody sees.
         WidgetTickScheduler.cancel(context)
+    }
+
+    /**
+     * Re-arms the alarm chain without blocking the caller.
+     *
+     * `onUpdate` and `onEnabled` are plain `AppWidgetProvider` callbacks and run
+     * on the main thread — unlike the tick receiver, which already holds a
+     * `PendingResult`. The scheduler reads the cache to work out when the next
+     * bell is, so calling it directly opened Room and DataStore on the main
+     * looper, on the very first placement, on a cold process. That is how an
+     * `APPWIDGET_ENABLED` broadcast turns into an ANR.
+     */
+    private fun rescheduleOffMainThread(context: Context) {
+        val appContext = context.applicationContext
+        val pendingResult = goAsync()
+        scope.launch {
+            try {
+                WidgetTickScheduler.reschedule(appContext)
+            } catch (error: Exception) {
+                android.util.Log.w(TAG, "Rescheduling failed", error)
+            } finally {
+                pendingResult.finish()
+            }
+        }
     }
 
     /**
@@ -71,15 +95,22 @@ class LessonsWidgetReceiver : GlanceAppWidgetReceiver() {
      * is why the tick alarm lives in a separate receiver rather than here.
      */
     private fun redrawAll(context: Context) {
+        val appContext = context.applicationContext
         val pendingResult = goAsync()
         scope.launch {
             try {
-                glanceAppWidget.updateAll(context)
-                WidgetTickScheduler.reschedule(context)
+                glanceAppWidget.updateAll(appContext)
             } catch (error: Exception) {
                 // A redraw failure must never crash the launcher's broadcast.
                 android.util.Log.w(TAG, "Widget redraw failed", error)
             } finally {
+                // Re-arming lives in `finally`, because it is the only thing
+                // that keeps the chain alive. After `updateAll`, one throw — a
+                // transient Room error, a RemoteViews payload over the binder
+                // limit — meant no alarm was ever armed again, and with
+                // updatePeriodMillis at 0 nothing else re-arms it. The widget
+                // froze on its last frame until a reboot.
+                WidgetTickScheduler.reschedule(appContext)
                 pendingResult.finish()
             }
         }
