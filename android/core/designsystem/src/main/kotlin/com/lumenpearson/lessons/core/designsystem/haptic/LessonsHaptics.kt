@@ -75,17 +75,31 @@ object LessonsHaptics {
         view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
     }
 
+    /**
+     * Plays a two-tap pattern, or falls back to the platform's own click.
+     *
+     * Every failure path here ends in a fallback rather than in an exception. A
+     * haptic is decoration: whatever the motor, the vendor or the permission
+     * state turns out to be, the tap that triggered it must still open the
+     * screen it was going to open. This is not hypothetical — shipping without
+     * the VIBRATE permission made `vibrate` throw `SecurityException`, and
+     * because the toolbar taps a haptic before it switches tab, the app was left
+     * unable to leave the tab it started on.
+     */
     private fun waveform(view: View, pattern: LongArray, amplitudes: IntArray) {
-        val vibrator = vibratorFor(view.context)
-        if (vibrator == null || !vibrator.hasVibrator()) {
-            // No motor, or no access to it: fall back to the platform constant
-            // so the interaction is still confirmed on the devices that fake it.
+        val played = runCatching {
+            val vibrator = vibratorFor(view.context)
+            if (vibrator == null || !vibrator.hasVibrator()) return@runCatching false
+            vibrator.vibrate(VibrationEffect.createWaveform(pattern, amplitudes, NoRepeat))
+            true
+        }.getOrDefault(false)
+
+        if (!played) {
             view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-            return
         }
-        vibrator.vibrate(VibrationEffect.createWaveform(pattern, amplitudes, NoRepeat))
     }
 
+    /** `null` when the platform has no vibrator service to hand out. */
     private fun vibratorFor(context: Context): Vibrator? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)

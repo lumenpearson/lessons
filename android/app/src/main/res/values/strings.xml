@@ -115,7 +115,7 @@
     <string name="settings_pitch_black">Чёрная тема</string>
     <string name="settings_pitch_black_description">Полностью чёрный фон в тёмной теме — экономит заряд на OLED.</string>
     <string name="settings_theme_mode">Тема</string>
-    <string name="settings_theme_system">Как в системе</string>
+    <string name="settings_theme_system">Система</string>
     <string name="settings_theme_light">Светлая</string>
     <string name="settings_theme_dark">Тёмная</string>
 

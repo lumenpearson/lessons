@@ -52,8 +52,10 @@ private val NEXT_UP_COLUMN = 118.dp
  * (no suspending work inside a recomposition that runs on every alarm) and
  * possible to reason about (the same six arguments always draw the same pixels).
  *
- * @param state what is happening now, or null when there is no timetable at all
- *   — i.e. the user has not entered a class code yet.
+ * @param state what is happening now, or null when there is no cached timetable.
+ * @param signedIn whether a class has been joined. Only this tells the two
+ *   causes of a null [state] apart: no class code yet, or a class joined whose
+ *   timetable has never reached the device.
  * @param today today's [SchoolDay], for the remaining-day timeline. Null on a
  *   date outside the cached window.
  * @param homeworkDay the day whose homework to show. After school this is
@@ -71,6 +73,7 @@ private val NEXT_UP_COLUMN = 118.dp
 @Composable
 internal fun LessonsWidgetBody(
     state: DayState?,
+    signedIn: Boolean,
     today: SchoolDay?,
     homeworkDay: SchoolDay?,
     now: LocalDateTime,
@@ -91,7 +94,7 @@ internal fun LessonsWidgetBody(
             .padding(size.paddingDp.dp),
     ) {
         if (state == null) {
-            NotSignedInBody(size)
+            EmptyBody(size = size, signedIn = signedIn)
         } else {
             when (size) {
                 WidgetSizeClass.TINY -> TinyBody(state, homeworkDay, now, size)
@@ -110,25 +113,33 @@ internal fun LessonsWidgetBody(
 }
 
 /**
- * What the widget says before the user has ever signed in.
+ * What the widget says when it has no timetable to draw.
  *
  * Deliberately an instruction and not an error: the widget is often the first
- * thing a parent adds after installing, and "Откройте приложение и введите код
- * класса" tells them exactly what to do. The whole surface is already clickable,
- * so tapping the sentence does the thing the sentence asks for.
+ * thing a parent adds after installing, and the whole surface is already
+ * clickable, so tapping the sentence does the thing the sentence asks for.
+ *
+ * Which instruction depends on [signedIn]. Telling somebody who has already
+ * joined a class to go and enter a class code sends them to the one screen that
+ * cannot help them — what they actually need is to pull the timetable down, or
+ * to check the server address.
  */
 @Composable
-private fun NotSignedInBody(size: WidgetSizeClass) {
+private fun EmptyBody(size: WidgetSizeClass, signedIn: Boolean) {
     val context = LocalContext.current
     val compact = size == WidgetSizeClass.TINY || size == WidgetSizeClass.SMALL
+    val text = when {
+        !signedIn && compact -> R.string.widget_empty_short
+        !signedIn -> R.string.widget_empty_title
+        compact -> R.string.widget_no_data_short
+        else -> R.string.widget_no_data_title
+    }
     Box(
         modifier = GlanceModifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
         BodyText(
-            text = context.getString(
-                if (compact) R.string.widget_empty_short else R.string.widget_empty_title,
-            ),
+            text = context.getString(text),
             size = size,
             maxLines = if (compact) 2 else 3,
             muted = true,

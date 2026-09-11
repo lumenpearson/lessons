@@ -1,7 +1,6 @@
 package com.lumenpearson.lessons.core.designsystem.component
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,6 +26,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
@@ -35,6 +36,9 @@ import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
+
+/** Inner padding of one segment; see the note at its use. */
+private val SegmentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
 
 /**
  * A connected button group: two to four mutually exclusive options, laid out as
@@ -87,6 +91,9 @@ fun <T> SegmentedPicker(
                     items.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                 },
+                // The default padding is sized for a button standing alone; in a
+                // four-way group it is most of the segment.
+                contentPadding = SegmentPadding,
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -103,10 +110,18 @@ fun <T> SegmentedPicker(
                     }
                     Text(
                         text = labelProvider(item),
-                        style = MaterialTheme.typography.labelLarge,
+                        // labelMedium, not labelLarge. Four segments on a 360 dp
+                        // screen leave about 40 dp of text each, and at 14 sp
+                        // every Russian label but "Нет" overflowed it. Essentials
+                        // reaches for a smaller size here for the same reason.
+                        style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                         maxLines = 1,
-                        modifier = Modifier.basicMarquee(),
+                        // Ellipsis rather than a marquee: a label that scrolls
+                        // forever inside a settings row reads as a fault, and it
+                        // never lets the eye compare the four options at rest.
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
                     )
                 }
             }

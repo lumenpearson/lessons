@@ -50,6 +50,7 @@ class LessonsWidget : GlanceAppWidget() {
             GlanceTheme {
                 LessonsWidgetBody(
                     state = snapshot.state,
+                    signedIn = snapshot.signedIn,
                     today = snapshot.today,
                     homeworkDay = snapshot.homeworkDay,
                     now = snapshot.now,
@@ -64,12 +65,17 @@ class LessonsWidget : GlanceAppWidget() {
     /**
      * Everything one render needs, gathered off the composition.
      *
-     * @property state null only when there is no cached timetable at all, which
-     *   the body renders as the "enter a class code" prompt.
+     * @property state null whenever there is no cached timetable.
+     * @property signedIn whether a class session exists. Carried separately
+     *   because a null [state] has two very different causes — nobody has
+     *   entered a class code yet, or a class was joined but nothing has synced —
+     *   and the widget used to tell every one of those users to go and enter a
+     *   code they had already entered.
      */
     data class Snapshot(
         val now: LocalDateTime,
         val state: DayState?,
+        val signedIn: Boolean,
         val today: SchoolDay?,
         val homeworkDay: SchoolDay?,
         val options: WidgetOptions,
@@ -106,6 +112,7 @@ class LessonsWidget : GlanceAppWidget() {
         val container = Graph.container
         val timetable: Timetable? = container.timetableRepository.snapshot()
         val settings = container.settingsRepository.settings.first()
+        val signedIn = container.sessionRepository.current() != null
 
         // The school's wall clock, not the phone's. These differ whenever the
         // device has travelled, and permanently for anyone following a school
@@ -116,6 +123,7 @@ class LessonsWidget : GlanceAppWidget() {
         return Snapshot(
             now = now,
             state = state,
+            signedIn = signedIn,
             today = timetable?.day(now.toLocalDate()),
             homeworkDay = homeworkDayFor(state, timetable, now.toLocalDate()),
             options = WidgetOptions(

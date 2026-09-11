@@ -96,7 +96,8 @@ private const val BackReturnMillis = 400
 private const val SwipeHapticBuckets = 10
 
 /**
- * How many pixels of scroll in one frame it takes to fold or unfold the toolbar.
+ * How many pixels of *consumed* scroll in one frame it takes to fold or unfold
+ * the toolbar.
  *
  * Not zero: a list settling after a fling reports a stream of sub-pixel deltas
  * in both directions, and at zero the bar flickers open and shut through the
@@ -182,15 +183,37 @@ private fun HomeShell(
     var toolbarExpanded by remember { mutableStateOf(true) }
     val toolbarScroll = remember {
         object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y < -ScrollFoldThresholdPx) {
+            // `consumed`, in onPostScroll, rather than `available` in onPreScroll.
+            // What is *available* is whatever the finger offered, which on a
+            // screen too short to scroll — an empty timetable, a day with no
+            // homework — is the whole gesture. That folded the toolbar down to
+            // the selected tab on a page that could never scroll back up, so the
+            // other three tabs vanished with no way to bring them back. What is
+            // *consumed* is what the content actually moved by, which is zero on
+            // exactly those screens.
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                // A horizontal page swipe carries a little vertical slop with it;
+                // comparing the two axes keeps that slop from folding the bar.
+                if (abs(consumed.x) > abs(consumed.y)) return Offset.Zero
+                if (consumed.y < -ScrollFoldThresholdPx) {
                     toolbarExpanded = false
-                } else if (available.y > ScrollFoldThresholdPx) {
+                } else if (consumed.y > ScrollFoldThresholdPx) {
                     toolbarExpanded = true
                 }
                 return Offset.Zero
             }
         }
+    }
+
+    // Arriving on a tab always shows the whole bar. Folded state belongs to the
+    // scroll position of the page that folded it, and carrying it to the next
+    // tab is how a user lands on a fresh screen with three destinations missing.
+    LaunchedEffect(pagerState.currentPage) {
+        toolbarExpanded = true
     }
 
     Box(
