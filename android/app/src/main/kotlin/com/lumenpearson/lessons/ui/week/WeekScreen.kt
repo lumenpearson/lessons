@@ -1,5 +1,12 @@
 package com.lumenpearson.lessons.ui.week
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,8 +16,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -27,8 +37,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +46,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -45,6 +59,7 @@ import com.lumenpearson.lessons.core.designsystem.component.LessonGroup
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
+import com.lumenpearson.lessons.core.designsystem.component.SegmentedPicker
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
@@ -53,24 +68,28 @@ import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
+import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
 import com.lumenpearson.lessons.core.model.DayKind
+import com.lumenpearson.lessons.core.model.Lesson
 import com.lumenpearson.lessons.ui.common.asDayMonth
 import com.lumenpearson.lessons.ui.common.asFullWeekday
+import com.lumenpearson.lessons.ui.common.asMonthYear
 import com.lumenpearson.lessons.ui.common.asShortWeekday
+import java.time.LocalDate
 
 /**
- * The week, one day at a time.
+ * The calendar tab: the same timetable at three scales.
  *
- * One day rather than a scrolling list of seven: a school week is read one day
- * at a time ("what do I need for Thursday?"), and this keeps every day starting
- * from the same place on screen instead of at a random scroll offset.
+ * The week is what a pupil looks at most; the month answers "when is that trip"
+ * without stepping through four weeks; the day against an hour ruler is the only
+ * one of the three in which a forty-minute gap between lessons looks like a gap
+ * rather than like two rows next to each other.
  *
- * The day is chosen from the chip row and nothing else. It used to be a
- * `HorizontalPager`, which put a second horizontal pager inside the shell's
- * one: the inner pager won every drag, so on this tab — and only this tab — a
- * sideways swipe paged through Tuesday and Wednesday instead of moving to the
- * next destination. A quarter of the app had no tab swipe at all, and turning
- * "свайп между вкладками" off in settings did not disable this one either.
+ * There is no pager inside this screen. There used to be — seven day pages under
+ * the shell's own pager — and the inner one took every horizontal swipe, so on
+ * this tab the gesture paged to Wednesday instead of moving to Homework, and
+ * turning "swipe between tabs" off in settings did not disable it either. The
+ * day is chosen by tapping, and the period is stepped with the arrows.
  */
 @Composable
 fun WeekScreen(
@@ -78,21 +97,40 @@ fun WeekScreen(
     viewModel: WeekViewModel = viewModel(factory = WeekViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var selectedDay by rememberSaveable { mutableIntStateOf(state.initialPage) }
-    // One scroll for the whole page. The day panel used to own its own, under a
-    // fixed header and selector, which meant the two things at the top of the
-    // screen were the only two that never moved — and the fade under the status
-    // bar exists precisely for content that moves under it.
+
+    // One scroll for the whole page: the title, the picker and the grid all move
+    // under the status bar, which is what the fade up there is for.
     val scrollState = rememberScrollState()
     ReportScrollOffset(scrollState)
 
-    // Changing week re-anchors the selection: today for the current week, Monday
-    // otherwise. Keyed on the week itself so picking a day within one is left
-    // alone.
-    LaunchedEffect(state.weekStart, state.days.size) {
-        if (state.days.isNotEmpty()) {
-            selectedDay = state.initialPage.coerceIn(0, state.days.lastIndex)
-        }
+    var openLesson by remember { mutableStateOf<Lesson?>(null) }
+    var openDay by remember { mutableStateOf<LocalDate?>(null) }
+
+    val selected = state.selectedDay
+
+    openLesson?.let { lesson ->
+        LessonSheet(
+            lesson = lesson,
+            date = state.selected,
+            homework = selected?.day?.homework.orEmpty()
+                .filter { it.subject.equals(lesson.subject, ignoreCase = true) },
+            showTeacher = state.showTeacher,
+            onDismiss = { openLesson = null },
+        )
+    }
+
+    openDay?.let { date ->
+        val day = state.days.firstOrNull { it.date == date }
+        DaySheet(
+            day = day,
+            date = date,
+            showTeacher = state.showTeacher,
+            onLessonClick = { lesson ->
+                openDay = null
+                openLesson = lesson
+            },
+            onDismiss = { openDay = null },
+        )
     }
 
     Column(
@@ -106,45 +144,121 @@ fun WeekScreen(
             ),
         verticalArrangement = Arrangement.spacedBy(GroupSpacing),
     ) {
-        WeekHeader(
-            rangeLabel = stringResource(
-                R.string.week_range,
-                state.weekStart.asDayMonth(),
-                state.weekEnd.asDayMonth(),
-            ),
-            showCurrentWeekAction = state.weekOffset != 0,
-            onCurrentWeek = viewModel::showCurrentWeek,
-            onPreviousWeek = viewModel::showPreviousWeek,
-            onNextWeek = viewModel::showNextWeek,
+        ScheduleHeader(
+            periodLabel = state.periodLabel(),
+            showTodayAction = state.canReturnToToday,
+            onToday = viewModel::showToday,
+            onPrevious = viewModel::showPrevious,
+            onNext = viewModel::showNext,
         )
 
-        WeekdaySelector(
-            days = state.days,
-            selectedPage = selectedDay,
-            onSelect = { page -> selectedDay = page },
+        SegmentedPicker(
+            items = ScheduleView.entries,
+            selectedItem = state.view,
+            onItemSelected = viewModel::setView,
+            labelProvider = { view -> stringResource(view.labelRes) },
+            containerColor = MaterialTheme.colorScheme.rowContainer,
+            contentPadding = PaddingValues(4.dp),
+            modifier = Modifier
+                .padding(horizontal = ScreenPadding)
+                .clip(LessonsShapeTokens.Group),
         )
 
-        state.days.getOrNull(selectedDay)?.let { day ->
-            WeekDayPage(day = day, showTeacher = state.showTeacher)
+        // Keyed on the period as well as the view, so stepping a week slides the
+        // new one in from the side the arrow pointed at.
+        AnimatedContent(
+            targetState = state.view to state.periodStart,
+            transitionSpec = {
+                val forward = targetState.second >= initialState.second
+                val enter = slideInHorizontally(tween(PeriodTransitionMillis)) { width ->
+                    if (forward) width / 6 else -width / 6
+                } + fadeIn(tween(PeriodTransitionMillis))
+                val exit = slideOutHorizontally(tween(PeriodTransitionMillis)) { width ->
+                    if (forward) -width / 6 else width / 6
+                } + fadeOut(tween(PeriodTransitionMillis))
+                enter togetherWith exit
+            },
+            label = "schedule_period",
+        ) { (view, _) ->
+            Column(verticalArrangement = Arrangement.spacedBy(GroupSpacing)) {
+                when (view) {
+                    ScheduleView.WEEK -> WeekdaySelector(
+                        days = state.days,
+                        selected = state.selected,
+                        onSelect = viewModel::select,
+                    )
+
+                    ScheduleView.MONTH -> MonthGrid(
+                        days = state.days,
+                        selected = state.selected,
+                        onSelect = viewModel::select,
+                        onOpen = { date -> openDay = date },
+                    )
+
+                    ScheduleView.DAY -> Unit
+                }
+            }
+        }
+
+        when (state.view) {
+            ScheduleView.DAY -> HourTimeline(
+                day = selected,
+                date = state.selected,
+                nowAt = state.nowAt,
+                onLessonClick = { lesson -> openLesson = lesson },
+            )
+
+            else -> DayPanel(
+                day = selected,
+                date = state.selected,
+                showTeacher = state.showTeacher,
+                onLessonClick = { lesson -> openLesson = lesson },
+                onOpenDay = { openDay = state.selected },
+            )
         }
     }
 }
 
+/** How long a period change takes to slide across. */
+private const val PeriodTransitionMillis = 260
+
+/** Label of a view in the segmented picker. */
+private val ScheduleView.labelRes: Int
+    get() = when (this) {
+        ScheduleView.WEEK -> R.string.schedule_view_week
+        ScheduleView.MONTH -> R.string.schedule_view_month
+        ScheduleView.DAY -> R.string.schedule_view_day
+    }
+
+/** What the header says the screen is showing. */
+@Composable
+private fun ScheduleUiState.periodLabel(): String = when (view) {
+    ScheduleView.WEEK -> stringResource(
+        R.string.week_range,
+        periodStart.asDayMonth(),
+        periodEnd.asDayMonth(),
+    )
+
+    ScheduleView.MONTH -> anchor.asMonthYear()
+    ScheduleView.DAY -> "${selected.asFullWeekday().replaceFirstChar { it.uppercase() }}, " +
+        selected.asDayMonth()
+}
+
 /**
- * The page title and the three week controls.
+ * The page title and the three period controls.
  *
- * The controls used to be actions in the top app bar. They are here because
- * there is no top app bar any more, and because the top-right corner of a 6.7
- * inch phone was a poor place for the one pair of buttons on this screen that
+ * The controls used to be actions in a top app bar. They are here because there
+ * is no top app bar any more, and because the top-right corner of a 6.7 inch
+ * phone was a poor place for the one pair of buttons on this screen that
  * anybody presses repeatedly.
  */
 @Composable
-private fun WeekHeader(
-    rangeLabel: String,
-    showCurrentWeekAction: Boolean,
-    onCurrentWeek: () -> Unit,
-    onPreviousWeek: () -> Unit,
-    onNextWeek: () -> Unit,
+private fun ScheduleHeader(
+    periodLabel: String,
+    showTodayAction: Boolean,
+    onToday: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -155,26 +269,26 @@ private fun WeekHeader(
     ) {
         ScreenHeader(
             title = stringResource(R.string.week_title),
-            subtitle = rangeLabel,
+            subtitle = periodLabel,
             modifier = Modifier.weight(1f),
         )
         // Only offered when it would do something: a "back to today" button on
-        // the current week is noise.
-        if (showCurrentWeekAction) {
-            IconButton(onClick = onCurrentWeek) {
+        // a period that already contains today is noise.
+        if (showTodayAction) {
+            IconButton(onClick = onToday) {
                 Icon(
                     imageVector = Icons.Rounded.Today,
                     contentDescription = stringResource(R.string.week_current),
                 )
             }
         }
-        IconButton(onClick = onPreviousWeek) {
+        IconButton(onClick = onPrevious) {
             Icon(
                 imageVector = Icons.Rounded.ChevronLeft,
                 contentDescription = stringResource(R.string.week_previous),
             )
         }
-        IconButton(onClick = onNextWeek) {
+        IconButton(onClick = onNext) {
             Icon(
                 imageVector = Icons.Rounded.ChevronRight,
                 contentDescription = stringResource(R.string.week_next),
@@ -184,54 +298,55 @@ private fun WeekHeader(
 }
 
 /**
- * The Mon–Sun selector.
+ * The Mon–Sun strip.
  *
- * Selection is derived from the pager rather than stored: two sources of truth
- * for "which day" is exactly how a selector and its content start disagreeing.
+ * Seven tiles need about 400 dp and a phone has 360, so the last day or two
+ * start off-screen; without the scroll-to below, the row never moved and the
+ * selected chip could not be seen at all.
  */
 @Composable
 private fun WeekdaySelector(
     days: List<WeekDayUi>,
-    selectedPage: Int,
-    onSelect: (Int) -> Unit,
+    selected: LocalDate,
+    onSelect: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Seven tiles need about 400 dp and a phone has 360, so the last day or two
-    // start off-screen. Without this the row never moved and the selected chip
-    // could not be seen at all.
     val listState = rememberLazyListState()
-    LaunchedEffect(selectedPage) {
-        if (selectedPage >= 0) listState.animateScrollToItem(selectedPage)
+    val selectedIndex = days.indexOfFirst { it.date == selected }
+    LaunchedEffect(selectedIndex, days.size) {
+        if (selectedIndex >= 0) listState.animateScrollToItem(selectedIndex)
     }
 
     LazyRow(
         state = listState,
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = ScreenPadding, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = ScreenPadding),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        itemsIndexed(items = days, key = { _, day -> day.date.toString() }) { index, day ->
+        itemsIndexed(items = days, key = { _, day -> day.date.toString() }) { _, day ->
             WeekdayTile(
                 weekday = day.date.asShortWeekday(),
                 dayOfMonth = day.date.dayOfMonth.toString(),
-                selected = index == selectedPage,
+                lessonCount = day.day?.activeLessons?.size ?: 0,
+                selected = day.date == selected,
                 isToday = day.isToday,
-                onClick = { onSelect(index) },
+                onClick = { onSelect(day.date) },
             )
         }
     }
 }
 
 /**
- * One day of the selector: the weekday over the date, in a rounded tile.
+ * One day of the strip: the weekday over the date, in a rounded tile.
  *
  * Two lines rather than one chip because "чт" alone is ambiguous the moment the
- * user pages away from the current week.
+ * user steps away from the current week.
  */
 @Composable
 private fun WeekdayTile(
     weekday: String,
     dayOfMonth: String,
+    lessonCount: Int,
     selected: Boolean,
     isToday: Boolean,
     onClick: () -> Unit,
@@ -259,37 +374,165 @@ private fun WeekdayTile(
             text = dayOfMonth,
             style = MaterialTheme.typography.titleMedium,
             color = if (selected) scheme.onPrimary else scheme.onSurface,
+            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
         )
-        // The dot is the only mark today gets when it is not the selected page;
-        // colouring the whole tile would compete with the selection itself. Drawn
-        // transparent rather than skipped so every tile keeps the same height.
-        Box(
-            modifier = Modifier
-                .size(4.dp)
-                .clip(LessonsShapeTokens.Pill)
-                .background(
-                    when {
-                        !isToday -> Color.Transparent
-                        selected -> scheme.onPrimary
-                        else -> scheme.primary
-                    },
-                ),
+        LoadDots(
+            count = lessonCount,
+            color = if (selected) scheme.onPrimary else scheme.primary,
         )
     }
 }
 
-/** One day: header, whatever deviates from normal, then the lessons. */
+/**
+ * How busy a day is, as up to three dots.
+ *
+ * A number would be read; dots are seen. Three is the cap because the difference
+ * that matters in a grid is none / a few / a full day, and a fourth dot only
+ * makes the cell taller.
+ */
 @Composable
-private fun WeekDayPage(
-    day: WeekDayUi,
-    showTeacher: Boolean,
+private fun LoadDots(
+    count: Int,
+    color: Color,
     modifier: Modifier = Modifier,
 ) {
-    val schoolDay = day.day
-    val lessons = schoolDay?.lessons?.sortedBy { it.startsAt }.orEmpty()
+    val dots = count.coerceAtMost(MaxLoadDots)
+    Row(
+        modifier = modifier.height(DotSize),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(dots) {
+            Box(
+                modifier = Modifier
+                    .size(DotSize)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(color),
+            )
+        }
+    }
+}
 
-    // No scroll of its own: the whole screen scrolls as one, and a scrolling
-    // column inside a scrolling column swallows the outer one's gesture.
+private const val MaxLoadDots = 3
+private val DotSize: Dp = 4.dp
+
+/**
+ * A month as a seven-column grid.
+ *
+ * The corners are filled with the neighbouring months' days rather than left
+ * blank: a grid that starts mid-row is harder to read than one that does not,
+ * and a blank cell is a cell nobody can tap. They are drawn faint, and tapping
+ * one steps the month rather than selecting a date the grid does not own.
+ *
+ * A tap selects; a second tap on the same day opens its sheet. One gesture for
+ * "show me this day below" and one for "show me everything", which is what the
+ * month view is for — the grid itself has room for a number and three dots.
+ */
+@Composable
+private fun MonthGrid(
+    days: List<WeekDayUi>,
+    selected: LocalDate,
+    onSelect: (LocalDate) -> Unit,
+    onOpen: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val weeks = remember(days) { days.chunked(DaysPerRow) }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = ScreenPadding),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            days.take(DaysPerRow).forEach { day ->
+                Text(
+                    text = day.date.asShortWeekday(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = scheme.outline,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        weeks.forEach { week ->
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                week.forEach { day ->
+                    MonthCell(
+                        day = day,
+                        selected = day.date == selected,
+                        onClick = {
+                            if (day.date == selected) onOpen(day.date) else onSelect(day.date)
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private const val DaysPerRow = 7
+
+/** One cell of the month grid. */
+@Composable
+private fun MonthCell(
+    day: WeekDayUi,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val container = when {
+        selected -> scheme.primary
+        day.isToday -> scheme.secondaryContainer
+        day.inPeriod -> scheme.rowContainer
+        else -> Color.Transparent
+    }
+    val content = when {
+        selected -> scheme.onPrimary
+        day.isToday -> scheme.onSecondaryContainer
+        day.inPeriod -> scheme.onSurface
+        else -> scheme.outline
+    }
+
+    Column(
+        modifier = modifier
+            .clip(LessonsShapeTokens.Row)
+            .background(container)
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = day.date.dayOfMonth.toString(),
+            style = MaterialTheme.typography.bodyMedium,
+            color = content,
+            fontWeight = if (day.isToday) FontWeight.Bold else FontWeight.Normal,
+        )
+        LoadDots(
+            count = day.day?.activeLessons?.size ?: 0,
+            color = if (selected) scheme.onPrimary else scheme.primary,
+        )
+    }
+}
+
+/** The detail under the week strip or the month grid. */
+@Composable
+private fun DayPanel(
+    day: WeekDayUi?,
+    date: LocalDate,
+    showTeacher: Boolean,
+    onLessonClick: (Lesson) -> Unit,
+    onOpenDay: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val schoolDay = day?.day
+    val lessons = schoolDay?.activeLessons.orEmpty()
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -297,8 +540,8 @@ private fun WeekDayPage(
         verticalArrangement = Arrangement.spacedBy(GroupSpacing),
     ) {
         SectionHeader(
-            title = "${day.date.asFullWeekday().replaceFirstChar { it.uppercase() }}, " +
-                day.date.asDayMonth(),
+            title = "${date.asFullWeekday().replaceFirstChar { it.uppercase() }}, " +
+                date.asDayMonth(),
             subtitle = schoolDay?.let {
                 pluralStringResource(
                     R.plurals.lessons_count,
@@ -306,23 +549,11 @@ private fun WeekDayPage(
                     it.activeLessons.size,
                 )
             },
+            actionLabel = schoolDay?.let { stringResource(R.string.schedule_day_details) },
+            onActionClick = schoolDay?.let { { onOpenDay() } },
         )
 
-        val kind = schoolDay?.kind?.takeIf { it != DayKind.NORMAL }
-        val note = schoolDay?.note
-        if (day.isToday || kind != null || note != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (day.isToday) {
-                    PillChip(
-                        text = stringResource(R.string.day_today),
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    )
-                }
-                if (kind != null) PillChip(text = kind.asLabel())
-                if (note != null) PillChip(text = note)
-            }
-        }
+        DayChips(day = day, date = date)
 
         when {
             schoolDay == null -> EmptyState(
@@ -339,14 +570,42 @@ private fun WeekDayPage(
                 lessons = lessons,
                 now = null,
                 showTeacher = showTeacher,
+                onLessonClick = onLessonClick,
             )
         }
+
+        DayExtras(day = schoolDay)
+    }
+}
+
+/** Today / kind / note, as a row of pills. */
+@Composable
+private fun DayChips(
+    day: WeekDayUi?,
+    date: LocalDate,
+    modifier: Modifier = Modifier,
+) {
+    val kind = day?.day?.kind?.takeIf { it != DayKind.NORMAL }
+    val note = day?.day?.note
+    val isToday = day?.isToday == true
+    if (!isToday && kind == null && note == null) return
+
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (isToday) {
+            PillChip(
+                text = stringResource(R.string.day_today),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            )
+        }
+        if (kind != null) PillChip(text = kind.asLabel())
+        if (note != null) PillChip(text = note)
     }
 }
 
 /** Localized name of a non-normal day kind. */
 @Composable
-private fun DayKind.asLabel(): String = stringResource(
+internal fun DayKind.asLabel(): String = stringResource(
     when (this) {
         DayKind.NORMAL -> R.string.day_kind_normal
         DayKind.HOLIDAY -> R.string.day_kind_holiday
@@ -354,3 +613,187 @@ private fun DayKind.asLabel(): String = stringResource(
         DayKind.REMOTE -> R.string.day_kind_remote
     },
 )
+
+/**
+ * The hour ruler.
+ *
+ * Blocks are positioned by time rather than stacked in order, which is the whole
+ * point of this view: a forty-minute window between two lessons is forty minutes
+ * of empty space, not a gap you have to work out by reading two clocks. Events
+ * get their own column beside the lessons, because a canteen slot that overlaps
+ * a lesson is information and a list cannot show an overlap at all.
+ */
+@Composable
+private fun HourTimeline(
+    day: WeekDayUi?,
+    date: LocalDate,
+    nowAt: java.time.LocalTime?,
+    onLessonClick: (Lesson) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val schoolDay = day?.day
+    val lessons = schoolDay?.activeLessons.orEmpty()
+    val events = schoolDay?.events.orEmpty()
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = ScreenPadding),
+        verticalArrangement = Arrangement.spacedBy(GroupSpacing),
+    ) {
+        DayChips(day = day, date = date)
+
+        if (schoolDay == null) {
+            EmptyState(
+                title = stringResource(R.string.week_no_data_title),
+                description = stringResource(R.string.week_no_data_description),
+            )
+            return@Column
+        }
+        if (lessons.isEmpty() && events.isEmpty()) {
+            EmptyState(
+                title = stringResource(R.string.week_day_off_title),
+                description = stringResource(R.string.week_day_off_description),
+            )
+            return@Column
+        }
+
+        val starts = lessons.map { it.startsAt } + events.map { it.startsAt }
+        val ends = lessons.map { it.endsAt } + events.map { it.endsAt }
+        val firstHour = starts.minOf { it.hour }
+        val lastHour = ends.maxOf { if (it.minute == 0) it.hour else it.hour + 1 }
+        val hours = (lastHour - firstHour).coerceAtLeast(1)
+        val originMinutes = firstHour * MinutesPerHour
+
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.width(HourGutterWidth)) {
+                repeat(hours) { offset ->
+                    Text(
+                        text = "%02d:00".format(firstHour + offset),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = scheme.outline,
+                        modifier = Modifier.height(HourHeight),
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(HourHeight * hours),
+            ) {
+                lessons.forEach { lesson ->
+                    val tone = subjectTone(lesson.subject, lesson.colorHex)
+                    TimelineBlock(
+                        title = lesson.subject,
+                        subtitle = lesson.room?.let {
+                            stringResource(R.string.schedule_room_short, it)
+                        },
+                        startMinutes = lesson.startsAt.minutesOfDay() - originMinutes,
+                        endMinutes = lesson.endsAt.minutesOfDay() - originMinutes,
+                        container = tone.container,
+                        content = tone.content,
+                        onClick = { onLessonClick(lesson) },
+                    )
+                }
+
+                if (nowAt != null) {
+                    val offset = nowAt.minutesOfDay() - originMinutes
+                    if (offset in 0..(hours * MinutesPerHour)) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .offset(y = HourHeight * (offset / MinutesPerHour.toFloat()))
+                                .height(2.dp)
+                                .background(scheme.error),
+                        )
+                    }
+                }
+            }
+
+            if (events.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .width(EventColumnWidth)
+                        .height(HourHeight * hours),
+                ) {
+                    events.forEach { event ->
+                        TimelineBlock(
+                            title = event.title,
+                            subtitle = event.location,
+                            startMinutes = event.startsAt.minutesOfDay() - originMinutes,
+                            endMinutes = event.endsAt.minutesOfDay() - originMinutes,
+                            container = scheme.secondaryContainer,
+                            content = scheme.onSecondaryContainer,
+                            onClick = null,
+                        )
+                    }
+                }
+            }
+        }
+
+        DayExtras(day = schoolDay)
+    }
+}
+
+/** Height of one hour of the ruler, and the widths beside it. */
+private val HourHeight: Dp = 68.dp
+private val HourGutterWidth: Dp = 44.dp
+private val EventColumnWidth: Dp = 96.dp
+private const val MinutesPerHour = 60
+
+/** Minutes since midnight; the ruler's only coordinate. */
+private fun java.time.LocalTime.minutesOfDay(): Int = hour * MinutesPerHour + minute
+
+/** One block on the ruler, positioned and sized by its own start and end. */
+@Composable
+private fun TimelineBlock(
+    title: String,
+    subtitle: String?,
+    startMinutes: Int,
+    endMinutes: Int,
+    container: Color,
+    content: Color,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val top = HourHeight * (startMinutes / MinutesPerHour.toFloat())
+    // A ten-minute lesson would otherwise be a colour with no room for a word in
+    // it; below the floor the block stops shrinking and starts overlapping, which
+    // is at least legible.
+    val height = (HourHeight * ((endMinutes - startMinutes) / MinutesPerHour.toFloat()))
+        .coerceAtLeast(MinBlockHeight)
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .offset(y = top)
+            .height(height)
+            .padding(end = 4.dp, bottom = 2.dp)
+            .clip(LessonsShapeTokens.Row)
+            .background(container)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(1.dp),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            color = content,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (subtitle != null) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = content,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+private val MinBlockHeight: Dp = 30.dp

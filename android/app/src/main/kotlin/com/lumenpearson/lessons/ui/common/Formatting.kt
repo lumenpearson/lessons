@@ -32,6 +32,9 @@ private val DayMonthFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("
 /** "08.09" — the compact form used in the weekday selector. */
 private val ShortDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM")
 
+/** "сентябрь 2026" — the month view's period label. */
+private val MonthYearFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("LLLL yyyy")
+
 /** "8:30" for a bell time. */
 internal fun LocalTime.asClock(): String = format(ClockFormatter)
 
@@ -49,6 +52,17 @@ internal fun LocalDate.asShortDate(): String = format(ShortDateFormatter)
 /** "пн" — the weekday selector's chip label. */
 internal fun LocalDate.asShortWeekday(locale: Locale = Locale.getDefault()): String =
     dayOfWeek.getDisplayName(TextStyle.SHORT, locale).replaceFirstChar { it.lowercase(locale) }
+
+/**
+ * "сентябрь 2026", in the nominative.
+ *
+ * `LLLL` rather than `MMMM`: the pattern letter for a standalone month name. On
+ * its own `MMMM` gives the genitive form java.time uses inside a full date, so
+ * the month view's own title read "сентября 2026" — a date with its day
+ * amputated rather than the name of a month.
+ */
+internal fun LocalDate.asMonthYear(locale: Locale = Locale.getDefault()): String =
+    format(MonthYearFormatter.withLocale(locale)).replaceFirstChar { it.uppercase(locale) }
 
 /** "понедельник" — used as a page title in the week view. */
 internal fun LocalDate.asFullWeekday(locale: Locale = Locale.getDefault()): String =
