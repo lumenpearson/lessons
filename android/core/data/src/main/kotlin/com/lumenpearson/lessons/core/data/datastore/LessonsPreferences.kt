@@ -16,13 +16,13 @@ import com.lumenpearson.lessons.core.data.repository.Session
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
+import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
-import java.io.IOException
 
 /**
  * One preferences file for the whole app. DataStore forbids opening the same
@@ -98,6 +98,7 @@ internal class LessonsPreferences(context: Context) {
             prefs[KEY_EDGE_BLUR] = updated.edgeBlur
             prefs[KEY_SHOW_TEACHER] = updated.showTeacher
             prefs[KEY_WIDGET_SHOW_PROGRESS] = updated.widgetShowProgress
+            prefs[KEY_DEBUG_MODE] = updated.debugMode
             prefs[KEY_SYNC_INTERVAL] = updated.syncIntervalMinutes
                 .coerceAtLeast(AppSettings.MIN_SYNC_INTERVAL_MINUTES)
         }
@@ -146,6 +147,7 @@ internal class LessonsPreferences(context: Context) {
         edgeBlur = this[KEY_EDGE_BLUR] ?: true,
         showTeacher = this[KEY_SHOW_TEACHER] ?: true,
         widgetShowProgress = this[KEY_WIDGET_SHOW_PROGRESS] ?: true,
+        debugMode = this[KEY_DEBUG_MODE] ?: false,
         syncIntervalMinutes = (this[KEY_SYNC_INTERVAL] ?: AppSettings.DEFAULT_SYNC_INTERVAL_MINUTES)
             .coerceAtLeast(AppSettings.MIN_SYNC_INTERVAL_MINUTES),
     )
@@ -155,6 +157,8 @@ internal class LessonsPreferences(context: Context) {
         val KEY_CLASS_ID = longPreferencesKey("session_class_id")
         val KEY_CLASS_NAME = stringPreferencesKey("session_class_name")
         val KEY_SCHOOL = stringPreferencesKey("session_school")
+
+        val KEY_DEBUG_MODE = booleanPreferencesKey("settings_debug_mode")
 
         val KEY_BASE_URL = stringPreferencesKey("settings_base_url")
         val KEY_THEME_MODE = stringPreferencesKey("settings_theme_mode")

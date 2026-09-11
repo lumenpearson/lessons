@@ -59,6 +59,15 @@ data class AppSettings(
     val showTeacher: Boolean = true,
     val widgetShowProgress: Boolean = true,
     val syncIntervalMinutes: Int = DEFAULT_SYNC_INTERVAL_MINUTES,
+    /**
+     * Whether the app keeps a crash report when it dies.
+     *
+     * Off by default, and it is a real choice rather than a formality: a crash
+     * report contains the device model, the app version and a stack trace, and
+     * nothing should be written to disk about somebody's phone because the
+     * developer would find it convenient.
+     */
+    val debugMode: Boolean = false,
 ) {
     companion object {
         /**

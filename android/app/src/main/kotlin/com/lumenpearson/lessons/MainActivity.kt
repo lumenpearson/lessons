@@ -9,6 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.lumenpearson.lessons.core.data.diagnostics.CrashReporter
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.model.DeepLink
@@ -51,6 +52,9 @@ class MainActivity : ComponentActivity() {
         // would keep its splash icon attributes live for the rest of the session.
         setTheme(R.style.Theme_Lessons)
         super.onCreate(savedInstanceState)
+        // Installed before anything else can throw. It records nothing until the
+        // stored preference turns it on, which the effect below does.
+        CrashReporter.install(this)
         // Drawn behind the system bars; the screens below apply the insets.
         enableEdgeToEdge()
         pendingDate.value = intent?.requestedDate()
@@ -65,6 +69,12 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(shell.settings.hapticsEnabled, shell.settings.hapticStrength) {
                 LessonsHaptics.enabled.value = shell.settings.hapticsEnabled
                 LessonsHaptics.strength.value = shell.settings.hapticStrength
+            }
+
+            // Same shape, same reason: a process-wide gate fed from the one place
+            // that already observes the settings flow.
+            LaunchedEffect(shell.settings.debugMode) {
+                CrashReporter.setEnabled(shell.settings.debugMode)
             }
 
             LessonsTheme(

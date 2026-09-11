@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What the app is willing to hand to another app through a share sheet.
+
+  Exactly one directory: the crash reports. Nothing else the app writes — the
+  timetable database, the session token — is shareable, and a FileProvider that
+  exported the whole files directory would make them so by accident.
+-->
+<paths>
+    <external-files-path
+        name="crash_reports"
+        path="crash_reports/" />
+    <files-path
+        name="crash_reports_internal"
+        path="crash_reports/" />
+</paths>

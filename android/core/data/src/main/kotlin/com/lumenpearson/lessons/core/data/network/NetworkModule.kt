@@ -1,11 +1,11 @@
 package com.lumenpearson.lessons.core.data.network
 
+import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
-import java.util.concurrent.TimeUnit
 
 /**
  * Builds the networking stack by hand, in one place.

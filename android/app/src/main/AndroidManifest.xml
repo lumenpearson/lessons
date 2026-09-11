@@ -61,6 +61,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          Shares a crash report with whatever the user picks from the share
+          sheet. exported=false and grantUriPermissions=true is the pair that
+          makes that safe: no app can reach in, and the one file the user chose
+          to send is granted read access for that single intent.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/shared_files" />
+        </provider>
+
     </application>
 
 </manifest>

@@ -109,6 +109,15 @@ class SettingsViewModel(
     /** Whether the widget draws the lesson progress bar. */
     fun setWidgetShowProgress(enabled: Boolean) = update { it.copy(widgetShowProgress = enabled) }
 
+    /**
+     * Whether a crash leaves a report behind.
+     *
+     * Off by default and never turned on by the app itself: a report carries the
+     * device model and the app's own recent activity, and that is the user's to
+     * hand over, not ours to collect.
+     */
+    fun setDebugMode(enabled: Boolean) = update { it.copy(debugMode = enabled) }
+
     /** Background sync cadence, in minutes. */
     fun setSyncInterval(minutes: Int) = update { it.copy(syncIntervalMinutes = minutes) }
 

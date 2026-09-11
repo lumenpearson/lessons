@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
@@ -34,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -176,36 +178,40 @@ fun GroupItem(
     }
     val colors = ListItemDefaults.colors(containerColor = scheme.rowContainer)
 
-    // A row with nothing to tap uses the plain overload rather than a clickable
-    // one that has been disabled: the disabled clickable is announced as a
+    // The tap is `Modifier.clickable` on the plain row rather than `ListItem`'s
+    // own clickable overload.
+    //
+    // Not a style preference. Every row a user presses in this app is one of
+    // these, and the clickable overload is an experimental Material 3 API on an
+    // alpha build — the single most load-bearing interaction in the product
+    // should not be the thing that discovers a regression in it. `clickable` is
+    // the most exercised modifier in Compose and its behaviour is settled.
+    //
+    // `Role.Button` is what the overload was providing for a screen reader, so
+    // it is declared here instead. A row with nothing to tap gets no clickable
+    // at all rather than a disabled one: a disabled clickable is announced as a
     // button that cannot be pressed, which is a lie about a row that was never
-    // meant to be pressed at all.
-    if (onClick == null) {
-        ListItem(
-            modifier = modifier.fillMaxWidth(),
-            leadingContent = leading,
-            supportingContent = supporting,
-            trailingContent = trailing,
-            colors = colors,
-            content = headline,
-        )
-    } else {
-        ListItem(
-            onClick = {
-                LessonsHaptics.press(view)
-                onClick()
-            },
-            enabled = enabled,
-            modifier = modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            contentPadding = RowPadding,
-            leadingContent = leading,
-            supportingContent = supporting,
-            trailingContent = trailing,
-            colors = colors,
-            content = headline,
-        )
+    // meant to be pressed.
+    val tappable = when {
+        onClick == null -> Modifier
+        else -> Modifier.clickable(enabled = enabled, role = Role.Button) {
+            LessonsHaptics.press(view)
+            onClick()
+        }
     }
+
+    ListItem(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(tappable),
+        verticalAlignment = Alignment.CenterVertically,
+        contentPadding = RowPadding,
+        leadingContent = leading,
+        supportingContent = supporting,
+        trailingContent = trailing,
+        colors = colors,
+        content = headline,
+    )
 }
 
 /**
@@ -233,14 +239,23 @@ fun GroupSwitchItem(
     val view = rememberHapticView()
     val rowTone = if (enabled) tone else AccentTone(scheme.surfaceContainerHighest, scheme.outline)
 
+    // `Modifier.toggleable` rather than `ListItem`'s checkable overload, for the
+    // reason given in [GroupItem]: this is the gesture every settings row
+    // depends on and it should not rest on an experimental overload. The switch
+    // role and the on/off state that a screen reader announces come from the
+    // modifier, which is where they came from before it existed.
     ListItem(
-        checked = checked && enabled,
-        onCheckedChange = {
-            LessonsHaptics.press(view)
-            onCheckedChange(it)
-        },
-        enabled = enabled,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = checked && enabled,
+                enabled = enabled,
+                role = Role.Switch,
+                onValueChange = {
+                    LessonsHaptics.press(view)
+                    onCheckedChange(it)
+                },
+            ),
         verticalAlignment = Alignment.CenterVertically,
         contentPadding = RowPadding,
         leadingContent = icon?.let { { AccentIconTile(icon = it, tone = rowTone) } },
