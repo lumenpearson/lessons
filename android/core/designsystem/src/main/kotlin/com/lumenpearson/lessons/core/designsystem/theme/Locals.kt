@@ -1,9 +1,19 @@
 package com.lumenpearson.lessons.core.designsystem.theme
 
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -59,3 +69,68 @@ fun Modifier.appScrollMotionBlur(state: ScrollState): Modifier = composed {
 
 /** Extra breathing room between the last row of a screen and the toolbar. */
 val BottomBarGap: Dp = 8.dp
+
+/**
+ * Room a screen leaves above its first row, now that there is no top app bar.
+ *
+ * Content is drawn from the very top of the window so that it can pass *under*
+ * the status bar and be softened there, which is the whole point of the top
+ * fade. That means the inset is the screen's own business: it belongs in the
+ * list's `contentPadding`, not in a `padding` that would stop the list short of
+ * the bar it is supposed to scroll behind.
+ */
+@Composable
+fun statusBarSpace(): Dp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
+/**
+ * How far the screen under the toolbar has scrolled, in pixels.
+ *
+ * The shell draws the top fade, but only the screen knows whether anything has
+ * moved yet, and the shell holds four of them at once — the three pages of the
+ * pager plus whatever settings page is open. So the shell hands each screen its
+ * own holder and reads back the one belonging to the screen in front, rather
+ * than every screen writing into a single value and the off-screen ones winning.
+ */
+@Stable
+class ScrollOffsetHolder {
+    var value: Float by mutableFloatStateOf(0f)
+        internal set
+
+    internal fun report(offset: Float) {
+        value = offset
+    }
+}
+
+/** @see ScrollOffsetHolder */
+val LocalScrollOffset = compositionLocalOf { ScrollOffsetHolder() }
+
+/**
+ * Publishes [state]'s scroll position to the shell, for the top fade.
+ *
+ * Only the distance from the top matters and only up to about one row of it, so
+ * a list scrolled past its first item reports a number large enough to mean
+ * "fully in" rather than its true offset, which nothing reads and which would
+ * cost a measurement of every item above.
+ */
+@Composable
+fun ReportScrollOffset(state: LazyListState) {
+    val holder = LocalScrollOffset.current
+    LaunchedEffect(state, holder) {
+        snapshotFlow {
+            if (state.firstVisibleItemIndex > 0) {
+                Float.MAX_VALUE
+            } else {
+                state.firstVisibleItemScrollOffset.toFloat()
+            }
+        }.collect(holder::report)
+    }
+}
+
+/** @see ReportScrollOffset */
+@Composable
+fun ReportScrollOffset(state: ScrollState) {
+    val holder = LocalScrollOffset.current
+    LaunchedEffect(state, holder) {
+        snapshotFlow { state.value.toFloat() }.collect(holder::report)
+    }
+}

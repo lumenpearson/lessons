@@ -66,7 +66,6 @@
     <string name="widget_next_up">Next up</string>
     <string name="widget_timeline_title">Left today</string>
     <string name="widget_room">room %1$s</string>
-    <string name="widget_lesson_cancelled">cancelled</string>
     <string name="widget_lesson_replaced">substitute</string>
     <string name="widget_nothing_left">No lessons left</string>
 

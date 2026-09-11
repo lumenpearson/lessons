@@ -1,27 +1,24 @@
 package com.lumenpearson.lessons.ui.homework
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -29,15 +26,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
 import com.lumenpearson.lessons.core.designsystem.component.HomeworkRow
-import com.lumenpearson.lessons.core.designsystem.component.LessonsTopAppBar
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
+import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.component.SegmentedPicker
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
+import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
+import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.ui.common.asRelativeDayLabel
 import com.lumenpearson.lessons.ui.common.asText
 import java.time.LocalDate
@@ -59,11 +58,11 @@ fun HomeworkScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     // Hoisted above the empty/skeleton branches: remembered inside one of them
     // it is discarded whenever the filter empties the list, so coming back to
     // "Все" threw the reader back to the top of a list they had scrolled.
     val listState = rememberLazyListState()
+    ReportScrollOffset(listState)
     val today = LocalDate.now()
 
     state.message?.let { message ->
@@ -74,85 +73,65 @@ fun HomeworkScreen(
         }
     }
 
-    Scaffold(
-        modifier = modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        topBar = {
-            LessonsTopAppBar(
-                title = stringResource(R.string.homework_title),
-                scrollBehavior = scrollBehavior,
-            )
-        },
-        snackbarHost = {
-            // Lifted clear of the floating toolbar. Scaffold puts the host a
-            // few dp above the navigation bar, which is exactly where the pill
-            // is, and the pill is drawn after it — so the app's only error
-            // feedback was appearing underneath the bar and then being consumed.
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier.padding(bottom = LocalBottomBarSpace.current),
-            )
-        },
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
+    // No Scaffold and no top app bar: the page starts at the top of the window
+    // so that its rows can pass under the status bar and be softened there.
+    // The title and the filter are items of the list rather than a fixed header
+    // above it — a pinned strip there would be the one thing that never scrolls
+    // under the bar, which is exactly what the fade is for.
+    Box(modifier = modifier.fillMaxSize()) {
+        PullToRefreshBox(
+            isRefreshing = state.isRefreshing,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier.fillMaxSize(),
         ) {
-            HomeworkFilterRow(
-                onlyUpcoming = state.onlyUpcoming,
-                hiddenCount = state.hiddenCount,
-                onSelect = viewModel::setOnlyUpcoming,
-            )
-
-            PullToRefreshBox(
-                isRefreshing = state.isRefreshing,
-                onRefresh = viewModel::refresh,
-                modifier = Modifier.fillMaxSize(),
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .appScrollMotionBlur(listState),
+                contentPadding = PaddingValues(
+                    start = ScreenPadding,
+                    end = ScreenPadding,
+                    top = statusBarSpace() + 8.dp,
+                    bottom = LocalBottomBarSpace.current,
+                ),
+                verticalArrangement = Arrangement.spacedBy(GroupSpacing),
             ) {
+                item(key = "header") {
+                    ScreenHeader(title = stringResource(R.string.homework_title))
+                }
+
+                item(key = "filter") {
+                    HomeworkFilterRow(
+                        onlyUpcoming = state.onlyUpcoming,
+                        hiddenCount = state.hiddenCount,
+                        onSelect = viewModel::setOnlyUpcoming,
+                    )
+                }
+
                 if (state.groups.isEmpty() && state.isLoading) {
-                    SkeletonGroup(
-                        modifier = Modifier.padding(
-                            horizontal = ScreenPadding,
-                            vertical = 4.dp,
-                        ),
-                    )
+                    item(key = "skeleton") { SkeletonGroup() }
                 } else if (state.groups.isEmpty()) {
-                    EmptyState(
-                        title = stringResource(R.string.homework_empty_title),
-                        description = if (state.onlyUpcoming && state.hiddenCount > 0) {
-                            stringResource(R.string.homework_empty_filtered_description)
-                        } else {
-                            stringResource(R.string.homework_empty_description)
-                        },
-                        modifier = Modifier.padding(ScreenPadding),
-                    )
+                    item(key = "empty") {
+                        EmptyState(
+                            title = stringResource(R.string.homework_empty_title),
+                            description = if (state.onlyUpcoming && state.hiddenCount > 0) {
+                                stringResource(R.string.homework_empty_filtered_description)
+                            } else {
+                                stringResource(R.string.homework_empty_description)
+                            },
+                        )
+                    }
                 } else {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .appScrollMotionBlur(listState),
-                        contentPadding = PaddingValues(
-                            start = ScreenPadding,
-                            end = ScreenPadding,
-                            top = 4.dp,
-                            bottom = LocalBottomBarSpace.current,
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(GroupSpacing),
-                    ) {
-                        items(
-                            items = state.groups,
-                            key = { group -> group.date.toString() },
-                        ) { group ->
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                SectionHeader(title = group.date.asRelativeDayLabel(today))
-                                RoundedCardContainer {
-                                    group.items.forEach { homework ->
-                                        HomeworkRow(item = homework)
-                                    }
+                    items(
+                        items = state.groups,
+                        key = { group -> group.date.toString() },
+                    ) { group ->
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            SectionHeader(title = group.date.asRelativeDayLabel(today))
+                            RoundedCardContainer {
+                                group.items.forEach { homework ->
+                                    HomeworkRow(item = homework)
                                 }
                             }
                         }
@@ -160,6 +139,15 @@ fun HomeworkScreen(
                 }
             }
         }
+
+        // Lifted clear of the floating toolbar, which is drawn after this and
+        // sits exactly where an unlifted snackbar would appear.
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = LocalBottomBarSpace.current),
+        )
     }
 }
 

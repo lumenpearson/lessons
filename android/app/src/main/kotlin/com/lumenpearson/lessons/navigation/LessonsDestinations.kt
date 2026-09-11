@@ -4,7 +4,6 @@ import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.CalendarViewWeek
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Today
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.lumenpearson.lessons.R
@@ -23,7 +22,6 @@ val HomeTab.labelRes: Int
         HomeTab.TODAY -> R.string.nav_today
         HomeTab.WEEK -> R.string.nav_week
         HomeTab.HOMEWORK -> R.string.nav_homework
-        HomeTab.SETTINGS -> R.string.nav_settings
     }
 
 /** @see labelRes */
@@ -32,5 +30,4 @@ val HomeTab.icon: ImageVector
         HomeTab.TODAY -> Icons.Rounded.Today
         HomeTab.WEEK -> Icons.Rounded.CalendarViewWeek
         HomeTab.HOMEWORK -> Icons.AutoMirrored.Rounded.MenuBook
-        HomeTab.SETTINGS -> Icons.Rounded.Settings
     }

@@ -14,13 +14,13 @@
     </style>
 
     <!--
-      Applied in the manifest and swapped for Theme.Lessons in onCreate. The
-      launcher icon on the window background is what the system animates from
-      the home screen, which removes the blank frame between tap and first draw.
+      Applied in the manifest and swapped for Theme.Lessons in onCreate.
+
+      Empty below API 31, where the splash-screen attributes do not exist: the
+      window simply opens on the background colour it inherits, which is what
+      those phones did before the platform had a splash screen at all. The
+      variant that fills it in lives in values-v31.
     -->
-    <style name="Theme.Lessons.Starting" parent="Theme.Lessons">
-        <item name="android:windowSplashScreenBackground">@color/window_background</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
-    </style>
+    <style name="Theme.Lessons.Starting" parent="Theme.Lessons" />
 
 </resources>

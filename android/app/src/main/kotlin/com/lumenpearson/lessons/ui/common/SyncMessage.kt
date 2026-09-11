@@ -2,8 +2,8 @@ package com.lumenpearson.lessons.ui.common
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import com.lumenpearson.lessons.core.data.repository.SyncResult
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.repository.SyncResult
 
 /**
  * A sync outcome the user should see, in a form a view model is allowed to hold.

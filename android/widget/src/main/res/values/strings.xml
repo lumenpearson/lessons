@@ -79,7 +79,6 @@
     <string name="widget_next_up">Дальше</string>
     <string name="widget_timeline_title">Осталось сегодня</string>
     <string name="widget_room">каб. %1$s</string>
-    <string name="widget_lesson_cancelled">отменён</string>
     <string name="widget_lesson_replaced">замена</string>
     <string name="widget_nothing_left">Уроков больше нет</string>
 

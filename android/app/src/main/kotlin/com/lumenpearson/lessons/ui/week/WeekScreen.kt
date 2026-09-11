@@ -23,21 +23,17 @@ import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -46,15 +42,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
 import com.lumenpearson.lessons.core.designsystem.component.LessonGroup
-import com.lumenpearson.lessons.core.designsystem.component.LessonsTopAppBar
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
+import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
+import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
+import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.core.model.DayKind
 import com.lumenpearson.lessons.ui.common.asDayMonth
 import com.lumenpearson.lessons.ui.common.asFullWeekday
@@ -80,8 +78,13 @@ fun WeekScreen(
     viewModel: WeekViewModel = viewModel(factory = WeekViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var selectedDay by rememberSaveable { mutableIntStateOf(state.initialPage) }
+    // One scroll for the whole page. The day panel used to own its own, under a
+    // fixed header and selector, which meant the two things at the top of the
+    // screen were the only two that never moved — and the fade under the status
+    // bar exists precisely for content that moves under it.
+    val scrollState = rememberScrollState()
+    ReportScrollOffset(scrollState)
 
     // Changing week re-anchors the selection: today for the current week, Monday
     // otherwise. Keyed on the week itself so picking a day within one is left
@@ -92,61 +95,90 @@ fun WeekScreen(
         }
     }
 
-    Scaffold(
+    Column(
         modifier = modifier
             .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        topBar = {
-            LessonsTopAppBar(
-                title = stringResource(R.string.week_title),
-                subtitle = stringResource(
-                    R.string.week_range,
-                    state.weekStart.asDayMonth(),
-                    state.weekEnd.asDayMonth(),
-                ),
-                scrollBehavior = scrollBehavior,
-                actions = {
-                    // Only offered when it would do something: a "back to today"
-                    // button on the current week is noise.
-                    if (state.weekOffset != 0) {
-                        IconButton(onClick = viewModel::showCurrentWeek) {
-                            Icon(
-                                imageVector = Icons.Rounded.Today,
-                                contentDescription = stringResource(R.string.week_current),
-                            )
-                        }
-                    }
-                    IconButton(onClick = viewModel::showPreviousWeek) {
-                        Icon(
-                            imageVector = Icons.Rounded.ChevronLeft,
-                            contentDescription = stringResource(R.string.week_previous),
-                        )
-                    }
-                    IconButton(onClick = viewModel::showNextWeek) {
-                        Icon(
-                            imageVector = Icons.Rounded.ChevronRight,
-                            contentDescription = stringResource(R.string.week_next),
-                        )
-                    }
-                },
-            )
-        },
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-        ) {
-            WeekdaySelector(
-                days = state.days,
-                selectedPage = selectedDay,
-                onSelect = { page -> selectedDay = page },
-            )
+            .appScrollMotionBlur(scrollState)
+            .verticalScroll(scrollState)
+            .padding(
+                top = statusBarSpace() + 8.dp,
+                bottom = LocalBottomBarSpace.current,
+            ),
+        verticalArrangement = Arrangement.spacedBy(GroupSpacing),
+    ) {
+        WeekHeader(
+            rangeLabel = stringResource(
+                R.string.week_range,
+                state.weekStart.asDayMonth(),
+                state.weekEnd.asDayMonth(),
+            ),
+            showCurrentWeekAction = state.weekOffset != 0,
+            onCurrentWeek = viewModel::showCurrentWeek,
+            onPreviousWeek = viewModel::showPreviousWeek,
+            onNextWeek = viewModel::showNextWeek,
+        )
 
-            state.days.getOrNull(selectedDay)?.let { day ->
-                WeekDayPage(day = day, showTeacher = state.showTeacher)
+        WeekdaySelector(
+            days = state.days,
+            selectedPage = selectedDay,
+            onSelect = { page -> selectedDay = page },
+        )
+
+        state.days.getOrNull(selectedDay)?.let { day ->
+            WeekDayPage(day = day, showTeacher = state.showTeacher)
+        }
+    }
+}
+
+/**
+ * The page title and the three week controls.
+ *
+ * The controls used to be actions in the top app bar. They are here because
+ * there is no top app bar any more, and because the top-right corner of a 6.7
+ * inch phone was a poor place for the one pair of buttons on this screen that
+ * anybody presses repeatedly.
+ */
+@Composable
+private fun WeekHeader(
+    rangeLabel: String,
+    showCurrentWeekAction: Boolean,
+    onCurrentWeek: () -> Unit,
+    onPreviousWeek: () -> Unit,
+    onNextWeek: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = ScreenPadding),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ScreenHeader(
+            title = stringResource(R.string.week_title),
+            subtitle = rangeLabel,
+            modifier = Modifier.weight(1f),
+        )
+        // Only offered when it would do something: a "back to today" button on
+        // the current week is noise.
+        if (showCurrentWeekAction) {
+            IconButton(onClick = onCurrentWeek) {
+                Icon(
+                    imageVector = Icons.Rounded.Today,
+                    contentDescription = stringResource(R.string.week_current),
+                )
             }
+        }
+        IconButton(onClick = onPreviousWeek) {
+            Icon(
+                imageVector = Icons.Rounded.ChevronLeft,
+                contentDescription = stringResource(R.string.week_previous),
+            )
+        }
+        IconButton(onClick = onNextWeek) {
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = stringResource(R.string.week_next),
+            )
         }
     }
 }
@@ -256,19 +288,12 @@ private fun WeekDayPage(
     val schoolDay = day.day
     val lessons = schoolDay?.lessons?.sortedBy { it.startsAt }.orEmpty()
 
-    val scrollState = rememberScrollState()
-
+    // No scroll of its own: the whole screen scrolls as one, and a scrolling
+    // column inside a scrolling column swallows the outer one's gesture.
     Column(
         modifier = modifier
-            .fillMaxSize()
-            .appScrollMotionBlur(scrollState)
-            .verticalScroll(scrollState)
-            .padding(
-                start = ScreenPadding,
-                end = ScreenPadding,
-                top = 4.dp,
-                bottom = LocalBottomBarSpace.current,
-            ),
+            .fillMaxWidth()
+            .padding(horizontal = ScreenPadding),
         verticalArrangement = Arrangement.spacedBy(GroupSpacing),
     ) {
         SectionHeader(

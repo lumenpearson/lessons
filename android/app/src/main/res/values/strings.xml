@@ -26,8 +26,6 @@
     <string name="join_error_invalid_code">В коде от %1$d до %2$d символов</string>
     <string name="join_error_rejected">Не удалось подключиться: %1$s</string>
     <string name="join_error_generic">Не удалось подключиться. Проверьте код и подключение к сети.</string>
-    <string name="join_server_current">Сервер: %1$s</string>
-    <string name="join_server_change">Изменить адрес сервера</string>
     <string name="join_what_you_get">Что появится после подключения</string>
     <string name="join_feature_timetable">Расписание и замены</string>
     <string name="join_feature_timetable_description">Неделя целиком, с кабинетами и заменами.</string>
@@ -58,11 +56,6 @@
     <string name="today_no_lessons_description">Сегодня занятий не запланировано.</string>
 
     <!-- Виды событий -->
-    <string name="event_kind_event">Событие</string>
-    <string name="event_kind_canteen">Столовая</string>
-    <string name="event_kind_exam">Экзамен</string>
-    <string name="event_kind_trip">Экскурсия</string>
-    <string name="event_kind_meeting">Собрание</string>
 
     <!-- Даты -->
     <string name="day_today">Сегодня</string>
@@ -92,8 +85,6 @@
     <string name="week_day_off_description">Выходной или свободный день.</string>
 
     <!-- Уроки -->
-    <string name="lesson_cancelled">Отменён</string>
-    <string name="lesson_replaced">Замена</string>
     <plurals name="lessons_count">
         <item quantity="one">%1$d урок</item>
         <item quantity="few">%1$d урока</item>
@@ -118,6 +109,21 @@
 
     <!-- Настройки -->
     <string name="settings_title">Настройки</string>
+    <string name="settings_sections">Разделы</string>
+    <string name="settings_appearance_summary">Тема, цвета, чёрный фон</string>
+    <string name="settings_feel_summary">Отклик, жесты, размытие</string>
+    <string name="settings_content_summary">Что показывать в списках и виджете</string>
+    <string name="settings_sync_summary">Расписание обновлений и адрес сервера</string>
+    <string name="settings_class_summary">Класс, школа и выход</string>
+    <string name="settings_about_summary">Версия и благодарности</string>
+    <string name="settings_theme">Тема</string>
+    <string name="settings_haptics_group">Отклик</string>
+    <string name="settings_navigation_group">Навигация</string>
+    <string name="settings_effects_group">Эффекты</string>
+    <string name="settings_content_group">Списки и виджет</string>
+    <string name="settings_sync_group">Обновление</string>
+    <string name="settings_class_group">Ваш класс</string>
+    <string name="settings_about_group">Приложение</string>
     <string name="settings_appearance">Оформление</string>
     <string name="settings_dynamic_color">Цвета из обоев</string>
     <string name="settings_dynamic_color_description">Палитра приложения подстраивается под обои.</string>

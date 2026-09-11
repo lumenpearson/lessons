@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- @see values/themes.xml: DayNight exists only from API 29. -->
+    <style name="Theme.Lessons.Widget" parent="@android:style/Theme.DeviceDefault.DayNight" />
+</resources>

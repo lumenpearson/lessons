@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The haptics in this module call Vibrator.vibrate, so the permission is
+    declared where the code that needs it lives rather than only in :app. The
+    manifest merger unions it into every consumer, so nothing changes for the
+    app; what changes is that the module is honest about what it requires, and
+    that lint can check it in isolation instead of erroring on every build.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.VIBRATE" />
+</manifest>
