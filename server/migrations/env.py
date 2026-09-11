@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 
 from alembic import context
+
 from app.db import Base, engine
 
 # Importing the models is what registers them on the metadata; without it

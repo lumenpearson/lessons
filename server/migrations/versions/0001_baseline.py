@@ -24,6 +24,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from alembic import context, op
+
 from app.db import Base
 
 # Importing the models registers them on the metadata.

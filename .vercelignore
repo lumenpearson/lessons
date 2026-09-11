@@ -3,7 +3,7 @@ docs/
 server/tests/
 server/.venv/
 server/scripts/
-server/alembic/
+server/migrations/
 server/alembic.ini
 .github/
 *.md
