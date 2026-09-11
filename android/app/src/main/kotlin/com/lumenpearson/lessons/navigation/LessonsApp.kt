@@ -210,12 +210,12 @@ private fun HomeShell(
     //
     // The tabs are then dropped from the composition rather than covered, which
     // is the only way to stop them receiving touches. A layer on top cannot do
-    // it: Compose hit-tests every node under the pointer, not only the topmost,
-    // and it runs each pass over the whole overlay subtree before the pager's —
-    // so an overlay that consumes early enough to stop the pager is also early
-    // enough to cancel taps on its own rows, and one that consumes late enough
-    // to spare them is too late to stop the pager. There is no pass that reaches
-    // the sibling and not the children.
+    // it, and that is measured rather than argued: `OverlayLayerTest` presses a
+    // row inside such a layer and the press never arrives. Compose runs each
+    // pass over the whole of one subtree before the next, so a layer that
+    // consumes early enough to stop the pager is early enough to cancel taps on
+    // its own rows, and one that waits until its rows are safe has already let
+    // the pager through. This shipped twice before that test existed.
     //
     // The delay is the slide: while the page is still moving the tabs are behind
     // it and have to be drawn.
