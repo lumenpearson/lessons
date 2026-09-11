@@ -153,14 +153,93 @@ fun GroupItem(
     // washed-out pastel still reads as "there is a colour here" and confuses.
     val rowTone = if (enabled) tone else AccentTone(scheme.surfaceContainerHighest, scheme.outline)
 
-    ListItem(
-        onClick = {
-            if (enabled && onClick != null) {
+    val leading: (@Composable () -> Unit)? = icon?.let { { AccentIconTile(icon = it, tone = rowTone) } }
+    val supporting: (@Composable () -> Unit)? = subtitle?.let {
+        {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+    val headline: @Composable () -> Unit = {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = if (enabled) scheme.onSurface else scheme.outline,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+    val colors = ListItemDefaults.colors(containerColor = scheme.rowContainer)
+
+    // A row with nothing to tap uses the plain overload rather than a clickable
+    // one that has been disabled: the disabled clickable is announced as a
+    // button that cannot be pressed, which is a lie about a row that was never
+    // meant to be pressed at all.
+    if (onClick == null) {
+        ListItem(
+            modifier = modifier.fillMaxWidth(),
+            leadingContent = leading,
+            supportingContent = supporting,
+            trailingContent = trailing,
+            colors = colors,
+            content = headline,
+        )
+    } else {
+        ListItem(
+            onClick = {
                 LessonsHaptics.press(view)
                 onClick()
-            }
+            },
+            enabled = enabled,
+            modifier = modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            contentPadding = RowPadding,
+            leadingContent = leading,
+            supportingContent = supporting,
+            trailingContent = trailing,
+            colors = colors,
+            content = headline,
+        )
+    }
+}
+
+/**
+ * A [GroupItem] whose trailing control is a switch; the whole row toggles it.
+ *
+ * Built on `ListItem`'s checkable overload rather than on [GroupItem] with a
+ * switch dropped into its trailing slot — the same choice Essentials makes in
+ * `IconToggleItem`. It is not cosmetic: the checkable overload is what gives
+ * the row the switch role and its on/off state in the accessibility tree, so a
+ * screen reader says "Чёрная тема, выключено" instead of reading a label and an
+ * unrelated control next to it.
+ */
+@Composable
+fun GroupSwitchItem(
+    title: String,
+    tone: AccentTone,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    icon: ImageVector? = null,
+    enabled: Boolean = true,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val view = rememberHapticView()
+    val rowTone = if (enabled) tone else AccentTone(scheme.surfaceContainerHighest, scheme.outline)
+
+    ListItem(
+        checked = checked && enabled,
+        onCheckedChange = {
+            LessonsHaptics.press(view)
+            onCheckedChange(it)
         },
-        enabled = enabled && onClick != null,
+        enabled = enabled,
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         contentPadding = RowPadding,
@@ -176,7 +255,15 @@ fun GroupItem(
                 )
             }
         },
-        trailingContent = trailing,
+        trailingContent = {
+            // No click of its own: the row already owns the gesture, and two
+            // overlapping targets is how one tap toggles twice.
+            Switch(
+                checked = checked && enabled,
+                onCheckedChange = null,
+                enabled = enabled,
+            )
+        },
         colors = ListItemDefaults.colors(containerColor = scheme.rowContainer),
         content = {
             Text(
@@ -185,39 +272,6 @@ fun GroupItem(
                 color = if (enabled) scheme.onSurface else scheme.outline,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-            )
-        },
-    )
-}
-
-/** A [GroupItem] whose trailing control is a switch; the whole row toggles it. */
-@Composable
-fun GroupSwitchItem(
-    title: String,
-    tone: AccentTone,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-    subtitle: String? = null,
-    icon: ImageVector? = null,
-    enabled: Boolean = true,
-) {
-    GroupItem(
-        title = title,
-        tone = tone,
-        modifier = modifier,
-        subtitle = subtitle,
-        icon = icon,
-        enabled = enabled,
-        onClick = { onCheckedChange(!checked) },
-        trailing = {
-            // The switch takes no click of its own: the row already owns the
-            // gesture, and two overlapping targets is how a tap on the switch
-            // ends up toggling twice.
-            Switch(
-                checked = checked && enabled,
-                onCheckedChange = null,
-                enabled = enabled,
             )
         },
     )

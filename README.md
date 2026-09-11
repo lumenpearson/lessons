@@ -128,6 +128,7 @@ cd android
 * [docs/bot.md](docs/bot.md) — роли, приглашения по номеру, редактирование расписания
 * [docs/widget.md](docs/widget.md) — размеры, состояния, расписание обновлений
 * [docs/build.md](docs/build.md) — сборка APK в Actions, подпись, релизы
+* [docs/design.md](docs/design.md) — дизайн-система: что взято из Essentials и что в ней исправлено
 
 ## Честный статус
 
@@ -190,3 +191,8 @@ Central. Первый прогон CI упал именно на выдуман�
 ## Лицензия
 
 MIT — см. [LICENSE](LICENSE).
+
+Дизайн-система, шрифт и часть компонентов перенесены из
+[sameerasw/essentials](https://github.com/sameerasw/essentials) (MIT,
+© sameerasw.com) — подробности и оговорка про лицензию шрифта в
+[docs/design.md](docs/design.md).

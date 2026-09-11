@@ -2,8 +2,8 @@ package com.lumenpearson.lessons.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.CalendarViewWeek
-import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Today
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -31,6 +31,6 @@ val HomeTab.icon: ImageVector
     get() = when (this) {
         HomeTab.TODAY -> Icons.Rounded.Today
         HomeTab.WEEK -> Icons.Rounded.CalendarViewWeek
-        HomeTab.HOMEWORK -> Icons.Rounded.MenuBook
+        HomeTab.HOMEWORK -> Icons.AutoMirrored.Rounded.MenuBook
         HomeTab.SETTINGS -> Icons.Rounded.Settings
     }

@@ -48,9 +48,6 @@ object LessonsShapeTokens {
 
     /** Status chips; a fully-rounded capsule regardless of its height. */
     val Pill: RoundedCornerShape = RoundedCornerShape(percent = 50)
-
-    /** The floating navigation bar. */
-    val Floating: RoundedCornerShape = RoundedCornerShape(32.dp)
 }
 
 /** Side margin of every screen; the one number that sets the app's rhythm. */
@@ -66,12 +63,3 @@ val GroupSpacing: Dp = 16.dp
  * the page between two rows, too narrow to break the slab apart.
  */
 val GroupRowSpacing: Dp = 2.dp
-
-/**
- * Padding of the group container around its rows.
- *
- * Zero: in Essentials the rows run edge to edge and the container is nothing but
- * a clip. Kept as a named token because several screens still reference it, and
- * because a future variant of the group may want an inset again.
- */
-val GroupInset: Dp = 0.dp

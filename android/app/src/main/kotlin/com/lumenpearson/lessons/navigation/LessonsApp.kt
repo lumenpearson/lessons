@@ -53,6 +53,7 @@ import com.lumenpearson.lessons.ui.join.JoinScreen
 import com.lumenpearson.lessons.ui.settings.SettingsScreen
 import com.lumenpearson.lessons.ui.today.TodayScreen
 import com.lumenpearson.lessons.ui.week.WeekScreen
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -130,7 +131,10 @@ private fun HomeShell(
     // Measured rather than assumed: the pill's height depends on the gesture bar.
     var barHeight by remember { mutableStateOf(0.dp) }
 
-    LaunchedEffect(pagerState, settings.swipeTabs) {
+    // A tap when the page actually changes, however it was changed. Keyed on the
+    // pager alone: re-keying on the swipe setting would restart the collector and
+    // swallow the next change as if it were the initial one.
+    LaunchedEffect(pagerState) {
         var first = true
         snapshotFlow { pagerState.currentPage }.collect {
             if (first) first = false else LessonsHaptics.tap(view)
@@ -138,11 +142,13 @@ private fun HomeShell(
     }
 
     // The rumble while a swipe is in flight, bucketed so it ticks ten times
-    // across a page instead of once per frame.
+    // across a page instead of once per frame. Only while a finger is on the
+    // screen: an animated page change already got its tap above, and rumbling
+    // through that animation turns one event into eleven.
     var lastBucket by remember { mutableIntStateOf(0) }
-    LaunchedEffect(pagerState, settings.swipeTabs) {
+    LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPageOffsetFraction }.collect { offset ->
-            if (!settings.swipeTabs) return@collect
+            if (!pagerState.isScrollInProgress) return@collect
             val bucket = (abs(offset) * SwipeHapticBuckets).toInt()
             if (bucket != lastBucket) {
                 if (abs(offset) > 0f) LessonsHaptics.swipe(view)
@@ -157,7 +163,7 @@ private fun HomeShell(
             events.collect { event -> backProgress.snapTo(event.progress) }
             scope.launch { pagerState.animateScrollToPage(homePage) }
             scope.launch { backProgress.animateTo(0f, tween(BackReturnMillis)) }
-        } catch (_: kotlinx.coroutines.CancellationException) {
+        } catch (_: CancellationException) {
             scope.launch { backProgress.animateTo(0f, tween(BackSettleMillis)) }
         }
     }

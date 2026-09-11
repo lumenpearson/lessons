@@ -22,8 +22,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.CalendarViewWeek
-import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.FloatingToolbarDefaults
@@ -343,7 +343,7 @@ private fun FloatingToolbarPreview() {
             items = listOf(
                 ToolbarItem(Icons.Rounded.Today, "Сегодня") {},
                 ToolbarItem(Icons.Rounded.CalendarViewWeek, "Неделя") {},
-                ToolbarItem(Icons.Rounded.MenuBook, "Задания", badge = true) {},
+                ToolbarItem(Icons.AutoMirrored.Rounded.MenuBook, "Задания", badge = true) {},
                 ToolbarItem(Icons.Rounded.Settings, "Настройки") {},
             ),
         )

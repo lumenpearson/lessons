@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.PowerManager
 import androidx.annotation.RequiresApi
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -128,6 +129,7 @@ fun Modifier.progressiveBlur(
         Modifier
     }
 
+
     val overlay = if (showGradientOverlay) {
         Modifier.drawWithContent {
             drawContent()
@@ -166,18 +168,29 @@ private fun isBlurProblematicDevice(): Boolean {
     return Build.VERSION.SDK_INT <= Build.VERSION_CODES.VANILLA_ICE_CREAM
 }
 
-/** The graphics layer itself, kept behind an API guard lint can see. */
+/**
+ * The graphics layer itself, kept behind an API guard lint can see.
+ *
+ * The shader is built once and remembered. Essentials constructs a fresh
+ * `RuntimeShader` *inside* the `graphicsLayer` block, which means the AGSL
+ * source is parsed and compiled again on every draw of the layer this modifier
+ * is attached to — and in that app, as in this one, that layer is the whole
+ * screen. Hoisting it out is the only difference from the original.
+ */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 private object ProgressiveBlurLayer {
 
-    fun of(blurRadius: Float, height: Float, edge: BlurEdge): Modifier = Modifier.graphicsLayer {
-        val shader = RuntimeShader(ProgressiveBlurShader)
-        shader.setFloatUniform("blurRadius", blurRadius)
-        shader.setFloatUniform("height", height)
-        shader.setFloatUniform("contentHeight", size.height)
-        shader.setIntUniform("isTop", if (edge == BlurEdge.TOP) 1 else 0)
-        renderEffect = RenderEffect
-            .createRuntimeShaderEffect(shader, "content")
-            .asComposeRenderEffect()
+    @Composable
+    fun of(blurRadius: Float, height: Float, edge: BlurEdge): Modifier {
+        val shader = remember { RuntimeShader(ProgressiveBlurShader) }
+        return Modifier.graphicsLayer {
+            shader.setFloatUniform("blurRadius", blurRadius)
+            shader.setFloatUniform("height", height)
+            shader.setFloatUniform("contentHeight", size.height)
+            shader.setIntUniform("isTop", if (edge == BlurEdge.TOP) 1 else 0)
+            renderEffect = RenderEffect
+                .createRuntimeShaderEffect(shader, "content")
+                .asComposeRenderEffect()
+        }
     }
 }

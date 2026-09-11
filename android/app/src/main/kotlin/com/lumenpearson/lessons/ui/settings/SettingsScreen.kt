@@ -14,13 +14,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.BlurOn
+import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.BlurLinear
+import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Logout
 import androidx.compose.material.icons.rounded.MotionPhotosOn
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
@@ -56,6 +56,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.BuildConfig
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupLinkItem
@@ -74,7 +75,6 @@ import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
-import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
@@ -348,7 +348,7 @@ fun SettingsScreen(
                     )
                     GroupItem(
                         title = stringResource(R.string.settings_sign_out),
-                        icon = Icons.Rounded.Logout,
+                        icon = Icons.AutoMirrored.Rounded.Logout,
                         tone = errorTone(),
                         onClick = { showSignOutSheet = true },
                     )

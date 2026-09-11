@@ -14,8 +14,9 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,7 +43,7 @@ fun LessonsBottomSheet(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     title: String? = null,
-    sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    sheetState: SheetState = rememberFullSheetState(),
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
     scrimColor: Color = BottomSheetDefaults.ScrimColor,
     dragHandle: @Composable (() -> Unit)? = { BottomSheetDefaults.DragHandle() },
@@ -80,3 +81,17 @@ fun LessonsBottomSheet(
         }
     }
 }
+
+/**
+ * A sheet that is either hidden or fully expanded — never half-open.
+ *
+ * Essentials passes `skipPartiallyExpanded = true` to
+ * `rememberModalBottomSheetState` for the same effect; that factory is
+ * deprecated in this Material build, and its replacement states the intent the
+ * other way round, as the set of heights the sheet is *allowed* to rest at.
+ */
+@Composable
+private fun rememberFullSheetState(): SheetState = rememberBottomSheetState(
+    initialValue = SheetValue.Hidden,
+    enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+)

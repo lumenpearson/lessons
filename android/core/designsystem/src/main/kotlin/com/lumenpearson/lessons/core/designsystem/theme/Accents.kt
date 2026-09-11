@@ -39,16 +39,6 @@ private val ColorScheme.isDarkScheme: Boolean
     get() = surface.brightness() < 0.5f
 
 /**
- * The background a group of rows sits on.
- *
- * Transparent: in this design language a group is a clip and nothing else, and
- * the page shows through the 2 dp gaps between its rows. Kept as a named token
- * so a variant of the group that does want a fill has somewhere to put it.
- */
-val ColorScheme.groupContainer: Color
-    get() = Color.Transparent
-
-/**
  * A single row inside a group.
  *
  * `surfaceBright` is the row colour throughout Essentials — brighter than the
@@ -57,10 +47,6 @@ val ColorScheme.groupContainer: Color
  */
 val ColorScheme.rowContainer: Color
     get() = surfaceBright
-
-/** The page a screen is drawn on; one step below the rows that sit on it. */
-val ColorScheme.pageContainer: Color
-    get() = surfaceContainer
 
 /** Builds a tone at an arbitrary hue, which is what keeps subject colours in family. */
 fun ColorScheme.toneForHue(hue: Float): AccentTone {

@@ -28,14 +28,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
-import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.HomeworkRow
 import com.lumenpearson.lessons.core.designsystem.component.LessonsTopAppBar
-import com.lumenpearson.lessons.core.designsystem.component.PillChip
+import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
+import com.lumenpearson.lessons.core.designsystem.component.SegmentedPicker
+import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
-import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
+import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.ui.common.asRelativeDayLabel
 import com.lumenpearson.lessons.ui.common.asText
@@ -98,7 +99,14 @@ fun HomeworkScreen(
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                if (state.groups.isEmpty() && !state.isLoading) {
+                if (state.groups.isEmpty() && state.isLoading) {
+                    SkeletonGroup(
+                        modifier = Modifier.padding(
+                            horizontal = ScreenPadding,
+                            vertical = 4.dp,
+                        ),
+                    )
+                } else if (state.groups.isEmpty()) {
                     EmptyState(
                         title = stringResource(R.string.homework_empty_title),
                         description = if (state.onlyUpcoming && state.hiddenCount > 0) {
@@ -144,8 +152,10 @@ fun HomeworkScreen(
 }
 
 /**
- * Two chips instead of a switch: the labels say what each state *shows*, which
- * is less ambiguous than a toggle whose off-state has to be inferred.
+ * A connected button group instead of a switch: the labels say what each state
+ * *shows*, which is less ambiguous than a toggle whose off-state has to be
+ * inferred. It is the same control the settings screen uses for every either-or
+ * choice, so the two screens do not each invent a filter.
  */
 @Composable
 private fun HomeworkFilterRow(
@@ -154,25 +164,19 @@ private fun HomeworkFilterRow(
     onSelect: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = ScreenPadding, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        PillChip(
-            text = stringResource(R.string.homework_filter_upcoming),
-            selected = onlyUpcoming,
-            onClick = { onSelect(true) },
-        )
-        PillChip(
-            text = if (hiddenCount > 0) {
-                stringResource(R.string.homework_filter_all_with_count, hiddenCount)
-            } else {
-                stringResource(R.string.homework_filter_all)
-            },
-            selected = !onlyUpcoming,
-            onClick = { onSelect(false) },
-        )
+    val allLabel = if (hiddenCount > 0) {
+        stringResource(R.string.homework_filter_all_with_count, hiddenCount)
+    } else {
+        stringResource(R.string.homework_filter_all)
     }
+
+    SegmentedPicker(
+        items = listOf(true, false),
+        selectedItem = onlyUpcoming,
+        onItemSelected = onSelect,
+        labelProvider = { upcoming ->
+            if (upcoming) stringResource(R.string.homework_filter_upcoming) else allLabel
+        },
+        modifier = modifier.padding(horizontal = ScreenPadding, vertical = 8.dp),
+    )
 }

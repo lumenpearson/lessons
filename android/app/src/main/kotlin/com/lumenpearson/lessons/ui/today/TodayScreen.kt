@@ -31,20 +31,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
-import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.HomeworkRow
 import com.lumenpearson.lessons.core.designsystem.component.LessonGroup
 import com.lumenpearson.lessons.core.designsystem.component.LessonsTopAppBar
+import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
+import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
 import com.lumenpearson.lessons.core.designsystem.component.StateHeroCard
 import com.lumenpearson.lessons.core.designsystem.state.icon
 import com.lumenpearson.lessons.core.designsystem.state.tone
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
-import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
-import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
+import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
+import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.SchoolDay
 import com.lumenpearson.lessons.ui.common.asRelativeDayLabel
@@ -159,7 +160,9 @@ private fun LazyListScope.lessonsSection(state: TodayUiState) {
     item(key = "lessons") {
         SectionHeaderedGroup(title = stringResource(R.string.today_lessons_remaining)) {
             when {
-                state.isLoading -> Unit
+                // A shimmering copy of the group rather than a spinner: the page
+                // keeps its shape when the real rows land.
+                state.isLoading -> SkeletonGroup()
 
                 state.remainingLessons.isNotEmpty() -> LessonGroup(
                     lessons = state.remainingLessons,
