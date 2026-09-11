@@ -21,6 +21,13 @@ android {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
+
+    testOptions {
+        // Robolectric needs the module's own resources on the test classpath; a
+        // Compose component that resolves a string or a colour is otherwise
+        // being tested against a stub.
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 kotlin {
@@ -62,4 +69,15 @@ dependencies {
     implementation(libs.androidx.graphics.shapes)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    // The rows in this module are what every tap in the app lands on, and until
+    // now nothing could press one without a phone in somebody's hand — which is
+    // exactly how a settings screen shipped with six rows that did not respond.
+    // Robolectric runs the Compose test harness on the JVM, so that fails a
+    // build now instead of a screenshot.
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(composeBom)
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

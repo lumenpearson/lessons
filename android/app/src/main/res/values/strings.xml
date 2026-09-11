@@ -142,6 +142,21 @@
     <string name="settings_sync_group">Обновление</string>
     <string name="settings_class_group">Ваш класс</string>
     <string name="settings_about_group">Приложение</string>
+
+    <!-- Отладка -->
+    <string name="settings_debug">Отчёты о сбоях</string>
+    <string name="settings_debug_description">Сохранять на устройстве, что произошло перед закрытием приложения. Отчёт можно отправить разработчику.</string>
+    <string name="debug_title">Отладка</string>
+    <string name="debug_on_description">Отчёты сохраняются. Хранятся последние пять, во внутренней папке приложения; их видно при подключении телефона кабелем.</string>
+    <string name="debug_off_description">Отчёты не сохраняются. Включите, если приложение закрывается само, — тогда в следующий раз будет что отправить.</string>
+    <string name="debug_reports">Отчёты</string>
+    <string name="debug_reports_empty">Пока ни одного</string>
+    <string name="debug_report_size">%1$d КБ</string>
+    <string name="debug_share">Отправить</string>
+    <string name="debug_clear">Удалить все</string>
+    <string name="debug_turn_on">Включить</string>
+    <string name="debug_turn_off">Выключить</string>
+    <string name="debug_open">Отладка</string>
     <string name="settings_appearance">Оформление</string>
     <string name="settings_dynamic_color">Цвета из обоев</string>
     <string name="settings_dynamic_color_description">Палитра приложения подстраивается под обои.</string>

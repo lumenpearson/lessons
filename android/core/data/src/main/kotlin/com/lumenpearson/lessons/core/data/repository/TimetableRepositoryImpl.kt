@@ -8,6 +8,11 @@ import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
 import com.lumenpearson.lessons.core.data.network.dto.toDomain
 import com.lumenpearson.lessons.core.model.Timetable
+import java.io.IOException
+import java.time.Clock
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -16,11 +21,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
-import java.io.IOException
-import java.time.Clock
-import java.time.DayOfWeek
-import java.time.LocalDate
-import java.time.temporal.TemporalAdjusters
 
 /**
  * Room-backed implementation: the network writes, the database reads, and the

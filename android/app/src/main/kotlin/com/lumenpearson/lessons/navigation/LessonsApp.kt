@@ -20,7 +20,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -55,7 +56,6 @@ import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurExtent
 import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurRadius
 import com.lumenpearson.lessons.core.designsystem.modifier.TopBlurRampPx
 import com.lumenpearson.lessons.core.designsystem.modifier.progressiveBlur
-import com.lumenpearson.lessons.core.designsystem.modifier.swallowGestures
 import com.lumenpearson.lessons.core.designsystem.theme.BottomBarGap
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.LocalScrollBlur
@@ -63,6 +63,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.LocalScrollOffset
 import com.lumenpearson.lessons.core.designsystem.theme.ScrollBlurSettings
 import com.lumenpearson.lessons.core.designsystem.theme.ScrollOffsetHolder
 import com.lumenpearson.lessons.core.model.HomeTab
+import com.lumenpearson.lessons.ui.debug.DebugSheet
 import com.lumenpearson.lessons.ui.homework.HomeworkScreen
 import com.lumenpearson.lessons.ui.join.JoinScreen
 import com.lumenpearson.lessons.ui.settings.SettingsRootScreen
@@ -76,6 +77,7 @@ import com.lumenpearson.lessons.ui.week.WeekViewModel
 import java.time.LocalDate
 import kotlin.math.abs
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -127,6 +129,9 @@ private const val SwipeHapticBuckets = 10
 
 /** How long a settings page takes to slide in over the tabs. */
 private const val PageTransitionMillis = 320
+
+/** Key the tabs' saved state is filed under while they are out of the tree. */
+private const val TabsStateKey = "home-tabs"
 
 /**
  * The signed-in app: three tabs under one floating toolbar, with the settings
@@ -180,6 +185,7 @@ private fun HomeShell(
     val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
 
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    var showDebugSheet by rememberSaveable { mutableStateOf(false) }
     var openSectionName by rememberSaveable { mutableStateOf<String?>(null) }
     val openSection = remember(openSectionName) { SettingsSection.fromName(openSectionName) }
 
@@ -200,6 +206,35 @@ private fun HomeShell(
     val seedBarHeight = LocalBottomBarSpace.current
     var barHeight by remember { mutableStateOf(seedBarHeight) }
 
+    // Whether a settings page has finished sliding over the tabs.
+    //
+    // The tabs are then dropped from the composition rather than covered, which
+    // is the only way to stop them receiving touches. A layer on top cannot do
+    // it, and that is measured rather than argued: `OverlayLayerTest` presses a
+    // row inside such a layer and the press never arrives. Compose runs each
+    // pass over the whole of one subtree before the next, so a layer that
+    // consumes early enough to stop the pager is early enough to cancel taps on
+    // its own rows, and one that waits until its rows are safe has already let
+    // the pager through. This shipped twice before that test existed.
+    //
+    // The delay is the slide: while the page is still moving the tabs are behind
+    // it and have to be drawn.
+    var tabsCovered by remember { mutableStateOf(false) }
+    LaunchedEffect(settingsOpen) {
+        if (!settingsOpen) {
+            tabsCovered = false
+        } else {
+            delay(PageTransitionMillis.toLong())
+            tabsCovered = true
+        }
+    }
+
+    // Keeps each tab's scroll position across that removal. Without it, opening
+    // settings and coming back would put every list at the top — the scroll
+    // position of a LazyColumn is `rememberSaveable`, and a `rememberSaveable`
+    // in a composable that leaves the tree is gone unless something holds it.
+    val tabStates = rememberSaveableStateHolder()
+
     // One holder per page plus one per settings layer. The pager keeps its
     // neighbours composed, so a single shared holder would have an off-screen
     // page reporting its own scroll over the visible one's.
@@ -214,6 +249,7 @@ private fun HomeShell(
         val date = openDate ?: return@LaunchedEffect
         openSectionName = null
         settingsOpen = false
+        tabsCovered = false
         calendarViewModel.select(date)
         calendarViewModel.setView(ScheduleView.DAY)
         pagerState.animateScrollToPage(tabs.indexOf(HomeTab.WEEK).coerceAtLeast(0))
@@ -302,6 +338,14 @@ private fun HomeShell(
         label = "top_blur_fraction",
     )
 
+    if (showDebugSheet) {
+        DebugSheet(
+            enabled = settingsState.settings.debugMode,
+            onEnabledChange = settingsViewModel::setDebugMode,
+            onDismiss = { showDebugSheet = false },
+        )
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         CompositionLocalProvider(
             LocalBottomBarSpace provides barHeight + BottomBarGap,
@@ -324,35 +368,41 @@ private fun HomeShell(
                         showGradientOverlay = settings.edgeBlur,
                     ),
             ) {
-                HorizontalPager(
-                    state = pagerState,
-                    userScrollEnabled = settings.swipeTabs && !settingsOpen,
-                    // Off-screen pages stay composed so a swipe back to a tab
-                    // shows the list where it was left rather than re-running
-                    // its loader.
-                    beyondViewportPageCount = 1,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            val scale = 1f - backProgress.value * BackScaleDepth
-                            scaleX = scale
-                            scaleY = scale
-                        },
-                ) { page ->
-                    CompositionLocalProvider(LocalScrollOffset provides pageOffsets[page]) {
-                        when (tabs[page]) {
-                            HomeTab.TODAY -> TodayScreen(
-                                onOpenHomework = {
-                                    scope.launch {
-                                        pagerState.animateScrollToPage(
-                                            tabs.indexOf(HomeTab.HOMEWORK),
-                                        )
-                                    }
+                if (!tabsCovered) {
+                    tabStates.SaveableStateProvider(TabsStateKey) {
+                        HorizontalPager(
+                            state = pagerState,
+                            userScrollEnabled = settings.swipeTabs && !settingsOpen,
+                            // Off-screen pages stay composed so a swipe back to a
+                            // tab shows the list where it was left rather than
+                            // re-running its loader.
+                            beyondViewportPageCount = 1,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    val scale = 1f - backProgress.value * BackScaleDepth
+                                    scaleX = scale
+                                    scaleY = scale
                                 },
-                            )
+                        ) { page ->
+                            CompositionLocalProvider(
+                                LocalScrollOffset provides pageOffsets[page],
+                            ) {
+                                when (tabs[page]) {
+                                    HomeTab.TODAY -> TodayScreen(
+                                        onOpenHomework = {
+                                            scope.launch {
+                                                pagerState.animateScrollToPage(
+                                                    tabs.indexOf(HomeTab.HOMEWORK),
+                                                )
+                                            }
+                                        },
+                                    )
 
-                            HomeTab.WEEK -> WeekScreen(viewModel = calendarViewModel)
-                            HomeTab.HOMEWORK -> HomeworkScreen()
+                                    HomeTab.WEEK -> WeekScreen(viewModel = calendarViewModel)
+                                    HomeTab.HOMEWORK -> HomeworkScreen()
+                                }
+                            }
                         }
                     }
                 }
@@ -410,10 +460,8 @@ private fun HomeShell(
             },
             action = shellAction(
                 settingsOpen = settingsOpen,
-                section = openSection,
-                isRefreshing = settingsState.isRefreshing,
                 onOpenSettings = { settingsOpen = true },
-                onRefresh = settingsViewModel::refreshNow,
+                onOpenDebug = { showDebugSheet = true },
             ),
         )
     }
@@ -422,33 +470,34 @@ private fun HomeShell(
 /**
  * The button beside the pill, chosen by where the shell is.
  *
- * On the tabs it is the way into settings, which is why settings stopped being
- * a tab. Inside settings it is the one thing that page can do from here, and on
- * the pages where there is nothing it is absent rather than disabled — an
- * always-present button that is grey on four pages out of six teaches nobody
- * anything.
+ * On the tabs it is the way into settings, which is why settings stopped being a
+ * tab. Inside settings it is the bug — the crash reports and the switch that
+ * decides whether any are kept — which is where Essentials puts its own bug
+ * button and for the same reason: this app ships as an APK inside one school,
+ * with no crash service behind it, so the only place a crash can be read is the
+ * phone it happened on.
+ *
+ * It used to be a refresh button here. Refresh already has a row of its own in
+ * the sync section, two taps away, and spending the one permanent button in the
+ * app on a duplicate of a row is a poor trade.
  */
 @Composable
 private fun shellAction(
     settingsOpen: Boolean,
-    section: SettingsSection?,
-    isRefreshing: Boolean,
     onOpenSettings: () -> Unit,
-    onRefresh: () -> Unit,
-): ToolbarAction? = when {
-    !settingsOpen -> ToolbarAction(
+    onOpenDebug: () -> Unit,
+): ToolbarAction = if (settingsOpen) {
+    ToolbarAction(
+        icon = Icons.Rounded.BugReport,
+        contentDescription = stringResource(R.string.debug_open),
+        onClick = onOpenDebug,
+    )
+} else {
+    ToolbarAction(
         icon = Icons.Rounded.Settings,
         contentDescription = stringResource(R.string.nav_settings),
         onClick = onOpenSettings,
     )
-
-    section == null || section == SettingsSection.SYNC -> ToolbarAction(
-        icon = Icons.Rounded.Refresh,
-        contentDescription = stringResource(R.string.settings_refresh_now),
-        onClick = { if (!isRefreshing) onRefresh() },
-    )
-
-    else -> null
 }
 
 /**
@@ -472,12 +521,7 @@ private fun SettingsLayer(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                // The pager underneath stays composed and stays hit-testable, so
-                // without this a tap on an empty part of a settings page reached
-                // whatever row happened to be behind it, and a horizontal drag
-                // there changed tabs under the page the user was looking at.
-                .swallowGestures(),
+                .background(MaterialTheme.colorScheme.surfaceContainer),
         ) {
             content()
         }

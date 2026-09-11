@@ -1,8 +1,17 @@
 package com.lumenpearson.lessons.core.designsystem.component
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +57,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
@@ -189,26 +199,59 @@ fun LessonsFloatingToolbar(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
+        // The two modes cross-fade into each other and the pill resizes with a
+        // spring, rather than the row of tabs being replaced by a back button
+        // between one frame and the next. The bar is the one element that is on
+        // screen the whole time the app is, so it is the one place where a cut
+        // reads as a glitch: opening settings should look like the pill
+        // *becoming* the back button, not like a different bar arriving.
         val content: @Composable RowScope.() -> Unit = {
-            if (onBackClick != null) {
-                BackAndTitle(title = title, onBackClick = onBackClick)
-            } else {
-                items.forEachIndexed { index, item ->
-                    ToolbarTab(
-                        item = item,
-                        selected = index == selectedIndex,
-                        isLast = index == items.lastIndex,
-                        expanded = expanded,
-                        hideLabel = hideLabel,
-                    )
+            AnimatedContent(
+                targetState = onBackClick != null,
+                transitionSpec = {
+                    // Going in slides from the right, coming back from the left,
+                    // which is the direction the page itself travels.
+                    val forward = targetState
+                    val enter = fadeIn(tween(ModeFadeMillis)) +
+                        slideInHorizontally(tween(ModeSlideMillis)) { width ->
+                            if (forward) width / 3 else -width / 3
+                        }
+                    val exit = fadeOut(tween(ModeFadeMillis)) +
+                        slideOutHorizontally(tween(ModeSlideMillis)) { width ->
+                            if (forward) -width / 3 else width / 3
+                        }
+                    // No size transform: the pill's own animateContentSize below
+                    // owns the width, and two things animating it fight.
+                    (enter togetherWith exit).using(SizeTransform(clip = false))
+                },
+                label = "toolbar_mode",
+            ) { backMode ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (backMode) {
+                        BackAndTitle(title = title, onBackClick = onBackClick ?: {})
+                    } else {
+                        items.forEachIndexed { index, item ->
+                            ToolbarTab(
+                                item = item,
+                                selected = index == selectedIndex,
+                                isLast = index == items.lastIndex,
+                                expanded = expanded,
+                                hideLabel = hideLabel,
+                            )
+                        }
+                    }
                 }
             }
         }
+
+        // The pill's width follows its content instead of jumping to it.
+        val pillModifier = Modifier.animateContentSize(animationSpec = toolbarSizeSpring())
 
         // Two call sites rather than one with a nullable argument: the overload
         // without the slot is what keeps a toolbar with no action button centred.
         if (actionButton != null) {
             HorizontalFloatingToolbar(
+                modifier = pillModifier,
                 expanded = expanded,
                 colors = colors,
                 scrollBehavior = scrollBehavior,
@@ -217,6 +260,7 @@ fun LessonsFloatingToolbar(
             )
         } else {
             HorizontalFloatingToolbar(
+                modifier = pillModifier,
                 expanded = expanded,
                 colors = colors,
                 scrollBehavior = scrollBehavior,
@@ -413,6 +457,21 @@ private fun toolbarSpring() = spring<Dp>(
     dampingRatio = Spring.DampingRatioMediumBouncy,
     stiffness = Spring.StiffnessLow,
 )
+
+/**
+ * The spring the pill's own width follows.
+ *
+ * Less bouncy than [toolbarSpring]: the whole bar overshooting its width reads
+ * as the bar wobbling, where one tab overshooting reads as the tab landing.
+ */
+private fun toolbarSizeSpring() = spring<IntSize>(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMediumLow,
+)
+
+/** Cross-fade and slide of the two toolbar modes. */
+private const val ModeFadeMillis = 180
+private const val ModeSlideMillis = 260
 
 @Preview(name = "Floating toolbar", showBackground = true)
 @Composable

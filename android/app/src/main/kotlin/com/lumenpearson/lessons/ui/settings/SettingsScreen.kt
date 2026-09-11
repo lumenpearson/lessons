@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.BlurLinear
 import androidx.compose.material.icons.rounded.BlurOn
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
@@ -262,7 +263,7 @@ fun SettingsSectionScreen(
             SettingsSection.CONTENT -> contentRows(state, viewModel)
             SettingsSection.SYNC -> syncRows(state, viewModel) { showServerSheet = true }
             SettingsSection.ACCOUNT -> accountRows(state) { showSignOutSheet = true }
-            SettingsSection.ABOUT -> aboutRows()
+            SettingsSection.ABOUT -> aboutRows(state, viewModel)
         }
     }
 }
@@ -567,13 +568,24 @@ private fun LazyListScope.accountRows(
     }
 }
 
-private fun LazyListScope.aboutRows() = item(key = "about") {
+private fun LazyListScope.aboutRows(
+    state: SettingsUiState,
+    viewModel: SettingsViewModel,
+) = item(key = "about") {
     SettingsGroup(title = stringResource(R.string.settings_about_group)) {
         GroupItem(
             title = stringResource(R.string.app_name),
             subtitle = stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
             icon = Icons.Rounded.Info,
             tone = accentTone(5),
+        )
+        GroupSwitchItem(
+            title = stringResource(R.string.settings_debug),
+            subtitle = stringResource(R.string.settings_debug_description),
+            icon = Icons.Rounded.BugReport,
+            tone = accentTone(2),
+            checked = state.settings.debugMode,
+            onCheckedChange = viewModel::setDebugMode,
         )
         GroupRow {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
