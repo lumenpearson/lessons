@@ -6,7 +6,7 @@ from datetime import date as Date
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class
@@ -141,6 +141,22 @@ def _to_day_out(day: ResolvedDay) -> DayOut:
 
 @router.get("/health")
 async def health() -> dict[str, object]:
+    return {"status": "ok", "api_version": API_VERSION}
+
+
+@router.get("/warmup")
+async def warmup(session: AsyncSession = Depends(get_session)) -> dict[str, object]:
+    """Same as `/health`, plus one round trip to the database.
+
+    `/health` deliberately never opens a connection, so pinging it keeps the
+    serverless function loaded but leaves a Neon compute that has scaled to
+    zero asleep - the query that finally wakes it is then the user's own
+    `/start`, or a device's own sync. This endpoint exists to be pinged
+    instead, by an external scheduler: see docs/deploy.md for how the two
+    cold starts stack and why hitting this one on a timer is the free
+    mitigation for both.
+    """
+    await session.execute(text("SELECT 1"))
     return {"status": "ok", "api_version": API_VERSION}
 
 
