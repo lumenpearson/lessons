@@ -4,16 +4,21 @@ import android.os.SystemClock
 import android.util.TypedValue
 import android.widget.RemoteViews
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
+import androidx.glance.action.Action
+import androidx.glance.action.clickable
+import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.LinearProgressIndicator
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
+import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxWidth
@@ -23,20 +28,19 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.unit.ColorProvider
-import com.lumenpearson.lessons.core.model.Lesson
-import com.lumenpearson.lessons.core.model.SchoolEvent
-import androidx.compose.ui.graphics.toArgb
 import com.lumenpearson.lessons.core.designsystem.theme.AccentMath
 import com.lumenpearson.lessons.core.designsystem.theme.parseSubjectColor
+import com.lumenpearson.lessons.core.model.Lesson
+import com.lumenpearson.lessons.core.model.SchoolEvent
 import com.lumenpearson.lessons.widget.R
-import java.time.Duration
-import java.time.LocalDateTime
 import com.lumenpearson.lessons.widget.WidgetOptions
 import com.lumenpearson.lessons.widget.WidgetSizeClass
 import com.lumenpearson.lessons.widget.format.WidgetStrings
 import com.lumenpearson.lessons.widget.format.ellipsize
+import java.time.Duration
+import java.time.LocalDate
+import java.time.LocalDateTime
 
 /**
  * The small building blocks every size class shares.
@@ -347,6 +351,87 @@ internal fun SectionTitle(text: String, size: WidgetSizeClass) {
         ),
     )
 }
+
+/**
+ * The school week, as seven chips.
+ *
+ * As close to "scrollable weekdays" as a home-screen widget gets. `RemoteViews`
+ * has no horizontally scrolling container — the platform offers `ListView`,
+ * `GridView` and `StackView` and every one of them scrolls vertically — so the
+ * week is fitted rather than scrolled: seven fixed columns, each carrying the
+ * weekday letter, the date and a dot per lesson.
+ *
+ * Every chip is a link into the app on that day, which is the other half of what
+ * scrolling would have been for. Tapping the widget already opened the app; now
+ * it can open it somewhere.
+ *
+ * @param week seven days starting Monday, in order.
+ */
+@Composable
+internal fun WeekStrip(
+    week: List<DayLoad>,
+    today: LocalDate,
+    size: WidgetSizeClass,
+    openDay: (LocalDate) -> Action,
+    modifier: GlanceModifier = GlanceModifier,
+) {
+    Row(modifier = modifier.fillMaxWidth()) {
+        week.forEach { day ->
+            val isToday = day.date == today
+            Column(
+                modifier = GlanceModifier
+                    .defaultWeight()
+                    .padding(horizontal = 1.dp)
+                    .cornerRadius(DayChipCorner)
+                    .background(
+                        if (isToday) {
+                            GlanceTheme.colors.primaryContainer
+                        } else {
+                            GlanceTheme.colors.surfaceVariant
+                        },
+                    )
+                    .clickable(openDay(day.date))
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
+            ) {
+                val content = if (isToday) {
+                    GlanceTheme.colors.onPrimaryContainer
+                } else {
+                    GlanceTheme.colors.onSurfaceVariant
+                }
+                Text(
+                    text = WidgetStrings.shortWeekday(day.date),
+                    maxLines = 1,
+                    style = TextStyle(color = content, fontSize = (size.captionSp - 1f).sp),
+                )
+                Text(
+                    text = day.date.dayOfMonth.toString(),
+                    maxLines = 1,
+                    style = TextStyle(
+                        color = content,
+                        fontSize = size.bodySp.sp,
+                        fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium,
+                    ),
+                )
+                Text(
+                    // Dots rather than a number: how busy a day is only has three
+                    // useful answers at this size, and a digit would be read while
+                    // a row of dots is seen.
+                    text = LoadDot.repeat(day.lessons.coerceAtMost(MaxLoadDots)),
+                    maxLines = 1,
+                    style = TextStyle(color = content, fontSize = (size.captionSp - 2f).sp),
+                )
+            }
+        }
+    }
+}
+
+/** How busy one day of [WeekStrip] is. */
+data class DayLoad(val date: LocalDate, val lessons: Int)
+
+private val DayChipCorner = 10.dp
+private const val LoadDot = "·"
+private const val MaxLoadDots = 3
 
 /**
  * One event on the timeline.

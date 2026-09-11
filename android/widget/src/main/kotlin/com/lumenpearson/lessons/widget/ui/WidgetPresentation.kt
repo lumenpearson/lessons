@@ -4,9 +4,9 @@ import android.content.Context
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.HomeworkItem
 import com.lumenpearson.lessons.core.model.Lesson
+import com.lumenpearson.lessons.core.model.ScheduleEngine
 import com.lumenpearson.lessons.core.model.SchoolDay
 import com.lumenpearson.lessons.core.model.SchoolEvent
-import com.lumenpearson.lessons.core.model.ScheduleEngine
 import com.lumenpearson.lessons.widget.R
 import com.lumenpearson.lessons.widget.format.HomeworkDayLabel
 import com.lumenpearson.lessons.widget.format.WidgetStrings

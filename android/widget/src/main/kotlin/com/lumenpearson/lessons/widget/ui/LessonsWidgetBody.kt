@@ -26,6 +26,7 @@ import com.lumenpearson.lessons.widget.WidgetOptions
 import com.lumenpearson.lessons.widget.WidgetSizeClass
 import com.lumenpearson.lessons.widget.format.WidgetStrings
 import com.lumenpearson.lessons.widget.format.ellipsize
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 /**
@@ -96,6 +97,8 @@ internal fun LessonsWidgetBody(
     size: WidgetSizeClass,
     options: WidgetOptions,
     onClick: Action,
+    week: List<DayLoad> = emptyList(),
+    onDayClick: ((LocalDate) -> Action)? = null,
 ) {
     Box(
         modifier = GlanceModifier
@@ -119,11 +122,15 @@ internal fun LessonsWidgetBody(
                 WidgetSizeClass.MEDIUM, WidgetSizeClass.MEDIUM_TALL ->
                     MediumBody(state, today, homeworkDay, now, size, options)
 
-                WidgetSizeClass.LARGE ->
-                    TimelineBody(state, today, homeworkDay, now, size, options, withHomework = false)
+                WidgetSizeClass.LARGE -> TimelineBody(
+                    state, today, homeworkDay, now, size, options,
+                    withHomework = false, week = week, onDayClick = onDayClick,
+                )
 
-                WidgetSizeClass.XLARGE, WidgetSizeClass.TALL ->
-                    TimelineBody(state, today, homeworkDay, now, size, options, withHomework = true)
+                WidgetSizeClass.XLARGE, WidgetSizeClass.TALL -> TimelineBody(
+                    state, today, homeworkDay, now, size, options,
+                    withHomework = true, week = week, onDayClick = onDayClick,
+                )
             }
         }
     }
@@ -383,6 +390,8 @@ private fun TimelineBody(
     size: WidgetSizeClass,
     options: WidgetOptions,
     withHomework: Boolean,
+    week: List<DayLoad>,
+    onDayClick: ((LocalDate) -> Action)?,
 ) {
     val context = LocalContext.current
     val homework = homeworkOf(context, homeworkDay, now.toLocalDate())
@@ -429,6 +438,20 @@ private fun TimelineBody(
                 VSpace(6)
                 StateProgress(progress = headline.progress)
             }
+        }
+
+        // The week, as close to a scrollable day strip as RemoteViews allows:
+        // it has no horizontally scrolling container at all, so seven columns
+        // are fitted rather than scrolled. Each one is a link into the app on
+        // that day — which is the other half of what scrolling would be for.
+        if (onDayClick != null && week.isNotEmpty()) {
+            VSpace(10)
+            WeekStrip(
+                week = week,
+                today = now.toLocalDate(),
+                size = size,
+                openDay = onDayClick,
+            )
         }
 
         VSpace(10)

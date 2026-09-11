@@ -76,14 +76,23 @@ fun StateHeroCard(
                 // The tile inverts the card: the glyph colour goes behind and the
                 // card's own fill in front, so it still reads as a tile on its
                 // own tint instead of disappearing into it.
-                AccentIconTile(
-                    icon = visuals.icon,
-                    tone = AccentTone(
-                        container = visuals.tone.content,
-                        content = visuals.tone.container,
-                    ),
-                    size = 52.dp,
+                val tileTone = AccentTone(
+                    container = visuals.tone.content,
+                    content = visuals.tone.container,
                 )
+                // A break gets the bell, swinging. It is the state a pupil checks
+                // most and the one that is over soonest, and the widget cannot
+                // animate anything at all — RemoteViews has no frame loop — so
+                // this is the one place in the product where it can be shown.
+                if (state is DayState.OnBreak) {
+                    SchoolBell(tone = tileTone, size = 52.dp)
+                } else {
+                    AccentIconTile(
+                        icon = visuals.icon,
+                        tone = tileTone,
+                        size = 52.dp,
+                    )
+                }
 
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     // When there is no detail line the label is promoted to the

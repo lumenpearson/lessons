@@ -73,6 +73,17 @@ internal object WidgetStrings {
         else -> stateLabel(context, state)
     }
 
+    /**
+     * "пн" for the week strip.
+     *
+     * From java.time rather than a string array, which is how the app does it
+     * too: java.time already knows the correctly abbreviated weekday for the
+     * device's locale, and a hand-written table gets the declensions wrong.
+     */
+    fun shortWeekday(date: java.time.LocalDate): String = date.dayOfWeek
+        .getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())
+        .lowercase(java.util.Locale.getDefault())
+
     fun eventLabel(context: Context, kind: EventKind): String = context.getString(
         when (kind) {
             EventKind.CANTEEN -> R.string.widget_state_canteen

@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.widget
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import androidx.glance.GlanceId
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalSize
@@ -9,15 +10,21 @@ import androidx.glance.action.Action
 import androidx.glance.action.actionStartActivity
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.provideContent
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.model.DayState
+import com.lumenpearson.lessons.core.model.DeepLink
 import com.lumenpearson.lessons.core.model.ScheduleEngine
 import com.lumenpearson.lessons.core.model.SchoolDay
 import com.lumenpearson.lessons.core.model.Timetable
+import com.lumenpearson.lessons.widget.ui.DayLoad
 import com.lumenpearson.lessons.widget.ui.LessonsWidgetBody
-import kotlinx.coroutines.flow.first
+import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.temporal.TemporalAdjusters
+import kotlinx.coroutines.flow.first
 
 /**
  * The home-screen widget.
@@ -56,6 +63,7 @@ class LessonsWidget : GlanceAppWidget() {
                 signedIn = false,
                 today = null,
                 homeworkDay = null,
+                week = emptyList(),
                 options = WidgetOptions(),
             )
         }
@@ -69,8 +77,10 @@ class LessonsWidget : GlanceAppWidget() {
                     homeworkDay = snapshot.homeworkDay,
                     now = snapshot.now,
                     size = WidgetSizeClass.of(LocalSize.current),
+                    week = snapshot.week,
                     options = snapshot.options,
                     onClick = openApp(context),
+                    onDayClick = { date -> openDay(context, date) },
                 )
             }
         }
@@ -92,10 +102,14 @@ class LessonsWidget : GlanceAppWidget() {
         val signedIn: Boolean,
         val today: SchoolDay?,
         val homeworkDay: SchoolDay?,
+        val week: List<DayLoad>,
         val options: WidgetOptions,
     )
 
     private companion object {
+
+        /** Monday through Sunday; the week strip has no other shape. */
+        const val DAYS_IN_WEEK = 7
 
         /**
          * The activity a tap opens, addressed by name.
@@ -116,6 +130,20 @@ class LessonsWidget : GlanceAppWidget() {
         actionStartActivity(ComponentName(context.packageName, MAIN_ACTIVITY))
 
     /**
+     * Opens the app on one particular day.
+     *
+     * The class comment above has always said the widget deep-links into a
+     * screen; until the week strip existed it did not — every tap landed on
+     * whatever tab the app was last on. A day chip is only worth tapping if it
+     * takes you to that day.
+     */
+    private fun openDay(context: Context, date: LocalDate): Action = actionStartActivity(
+        Intent(DeepLink.ACTION_OPEN_DAY)
+            .setComponent(ComponentName(context.packageName, MAIN_ACTIVITY))
+            .putExtra(DeepLink.EXTRA_DATE, date.toString()),
+    )
+
+    /**
      * Reads the cache and the user's widget settings, and derives the state.
      *
      * Both reads go to local storage — Room and DataStore — so this never blocks
@@ -134,10 +162,15 @@ class LessonsWidget : GlanceAppWidget() {
         val now = timetable?.nowAtSchool() ?: LocalDateTime.now()
 
         val state = timetable?.let { ScheduleEngine.stateAt(it, now) }
+        val monday = now.toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         return Snapshot(
             now = now,
             state = state,
             signedIn = signedIn,
+            week = (0 until DAYS_IN_WEEK).map { offset ->
+                val date = monday.plusDays(offset.toLong())
+                DayLoad(date = date, lessons = timetable?.day(date)?.activeLessons?.size ?: 0)
+            },
             today = timetable?.day(now.toLocalDate()),
             homeworkDay = homeworkDayFor(state, timetable, now.toLocalDate()),
             options = WidgetOptions(
