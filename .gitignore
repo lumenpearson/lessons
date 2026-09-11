@@ -26,6 +26,8 @@ captures/
 android/build/
 android/*/build/
 android/app/release/
+# Kotlin compiler scratch: incremental-cache state and daemon crash logs.
+android/.kotlin/
 
 # ---- IDE ----
 .idea/

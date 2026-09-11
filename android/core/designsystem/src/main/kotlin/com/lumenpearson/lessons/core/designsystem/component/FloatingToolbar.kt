@@ -2,7 +2,6 @@ package com.lumenpearson.lessons.core.designsystem.component
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -47,10 +46,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -82,12 +87,16 @@ data class ToolbarItem(
  *
  * @param badge as on [ToolbarItem]: a dot over the icon, for "there is something
  *   here" without a label to say what.
+ * @param onClick handed the middle of the button in the root composition's
+ *   coordinates. Most callers ignore it; the one that does not needs a point for
+ *   an effect to start from, and the button is the only thing that knows where
+ *   it ended up — the toolbar floats, and its width changes with the tab.
  */
 data class ToolbarAction(
     val icon: ImageVector,
     val contentDescription: String,
     val badge: Boolean = false,
-    val onClick: () -> Unit,
+    val onClick: (at: Offset) -> Unit,
 )
 
 /** Width of an icon-only item, and the height of every item. */
@@ -220,9 +229,21 @@ fun LessonsFloatingToolbar(
                         slideOutHorizontally(tween(ModeSlideMillis)) { width ->
                             if (forward) -width / 3 else width / 3
                         }
-                    // No size transform: the pill's own animateContentSize below
-                    // owns the width, and two things animating it fight.
-                    (enter togetherWith exit).using(SizeTransform(clip = false))
+                    // The size transform owns the width, and it is the only
+                    // thing that does. `Modifier.animateContentSize` used to,
+                    // and it cannot be used here: it applies `clipToBounds` to
+                    // the *animating* box while the pill inside is already laid
+                    // out at its final width, so the morph played as the two
+                    // rounded ends being wiped off rather than as the bar
+                    // resizing. There is no flag to turn that clip off.
+                    //
+                    // `AnimatedContent` measures both modes during the
+                    // transition and animates its own size between them, so the
+                    // pill really is narrower mid-morph — and `clip = false`
+                    // means nothing is cut while it gets there.
+                    (enter togetherWith exit).using(
+                        SizeTransform(clip = false) { _, _ -> toolbarSizeSpring() },
+                    )
                 },
                 label = "toolbar_mode",
             ) { backMode ->
@@ -244,8 +265,10 @@ fun LessonsFloatingToolbar(
             }
         }
 
-        // The pill's width follows its content instead of jumping to it.
-        val pillModifier = Modifier.animateContentSize(animationSpec = toolbarSizeSpring())
+        // Nothing here: the mode morph is animated by the size transform above,
+        // and within a mode the pill's width already follows its tabs, which
+        // animate their own widths on a spring.
+        val pillModifier = Modifier
 
         // Two call sites rather than one with a nullable argument: the overload
         // without the slot is what keeps a toolbar with no action button centred.
@@ -374,11 +397,19 @@ private fun ToolbarTab(
 private fun ToolbarActionButton(action: ToolbarAction) {
     val scheme = MaterialTheme.colorScheme
     val view = rememberHapticView()
+    var centre by remember { mutableStateOf(Offset.Unspecified) }
 
     FloatingActionButton(
         onClick = {
             LessonsHaptics.press(view)
-            action.onClick()
+            action.onClick(centre)
+        },
+        modifier = Modifier.onGloballyPositioned { coordinates ->
+            val corner = coordinates.positionInRoot()
+            centre = Offset(
+                x = corner.x + coordinates.size.width / 2f,
+                y = corner.y + coordinates.size.height / 2f,
+            )
         },
         containerColor = scheme.primaryContainer,
         contentColor = scheme.onPrimaryContainer,
@@ -459,7 +490,7 @@ private fun toolbarSpring() = spring<Dp>(
 )
 
 /**
- * The spring the pill's own width follows.
+ * The spring the pill's width follows while it morphs between its two modes.
  *
  * Less bouncy than [toolbarSpring]: the whole bar overshooting its width reads
  * as the bar wobbling, where one tab overshooting reads as the tab landing.

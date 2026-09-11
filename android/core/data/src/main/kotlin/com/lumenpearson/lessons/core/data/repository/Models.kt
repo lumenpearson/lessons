@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.core.data.repository
 
+import com.lumenpearson.lessons.core.model.AlertPreferences
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
@@ -68,6 +69,25 @@ data class AppSettings(
      * developer would find it convenient.
      */
     val debugMode: Boolean = false,
+    /**
+     * Whether the first-run introduction has been seen.
+     *
+     * Separate from "has a session" because the two answer different questions.
+     * Signing out has to put the user back on the code field, but it must not
+     * replay four screens of introduction at somebody who has been using the app
+     * all term. This flag is therefore set once, when the introduction is
+     * finished, and never cleared.
+     */
+    val onboardingDone: Boolean = false,
+    /**
+     * What the app is allowed to interrupt the user about.
+     *
+     * A nested value rather than seven more fields here: the planner in
+     * :core:model takes exactly this type, so the settings screen, the store and
+     * the scheduler all pass the same object around and no one has to rebuild it
+     * field by field.
+     */
+    val alerts: AlertPreferences = AlertPreferences(),
 ) {
     companion object {
         /**

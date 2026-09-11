@@ -1,8 +1,10 @@
 package com.lumenpearson.lessons
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.LaunchedEffect
@@ -12,6 +14,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.core.data.diagnostics.CrashReporter
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealHost
+import com.lumenpearson.lessons.core.designsystem.theme.resolvesToDark
 import com.lumenpearson.lessons.core.model.DeepLink
 import com.lumenpearson.lessons.navigation.LessonsApp
 import com.lumenpearson.lessons.ui.AppShellViewModel
@@ -55,7 +59,9 @@ class MainActivity : ComponentActivity() {
         // Installed before anything else can throw. It records nothing until the
         // stored preference turns it on, which the effect below does.
         CrashReporter.install(this)
-        // Drawn behind the system bars; the screens below apply the insets.
+        // Drawn behind the system bars; the screens below apply the insets. The
+        // call is repeated from the composition below, once the stored theme is
+        // known — see the effect there.
         enableEdgeToEdge()
         pendingDate.value = intent?.requestedDate()
         setContent {
@@ -77,17 +83,39 @@ class MainActivity : ComponentActivity() {
                 CrashReporter.setEnabled(shell.settings.debugMode)
             }
 
+            // Which way to tint the clock, the battery and the gesture bar.
+            //
+            // `enableEdgeToEdge()` on its own reads the *system* night mode to
+            // decide, and the whole point of the theme setting is that the app
+            // may disagree with the system: a light app under a dark system was
+            // drawing white status-bar icons onto a white page. Re-applied
+            // whenever the answer changes, which is the supported way to do it —
+            // the call is idempotent.
+            val darkTheme = shell.settings.themeMode.resolvesToDark()
+            LaunchedEffect(darkTheme) {
+                val bars = SystemBarStyle.auto(
+                    lightScrim = Color.TRANSPARENT,
+                    darkScrim = Color.TRANSPARENT,
+                ) { darkTheme }
+                enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
+            }
+
             LessonsTheme(
                 themeMode = shell.settings.themeMode,
                 dynamicColor = shell.settings.dynamicColor,
                 pitchBlack = shell.settings.pitchBlack,
             ) {
-                LessonsApp(
-                    signedIn = shell.signedIn,
-                    settings = shell.settings,
-                    openDate = openDate,
-                    onDateOpened = { pendingDate.value = null },
-                )
+                // Wraps the app rather than living inside a screen: the circle
+                // has to cross the whole window, and the still it wipes away is
+                // a photograph of the whole window.
+                ThemeRevealHost {
+                    LessonsApp(
+                        signedIn = shell.signedIn,
+                        settings = shell.settings,
+                        openDate = openDate,
+                        onDateOpened = { pendingDate.value = null },
+                    )
+                }
             }
         }
     }

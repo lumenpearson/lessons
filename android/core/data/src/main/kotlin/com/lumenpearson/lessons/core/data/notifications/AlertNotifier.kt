@@ -1,0 +1,295 @@
+package com.lumenpearson.lessons.core.data.notifications
+
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import androidx.core.content.getSystemService
+import com.lumenpearson.lessons.core.data.R
+import com.lumenpearson.lessons.core.model.DeepLink
+import com.lumenpearson.lessons.core.model.SchoolAlert
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+
+/**
+ * Turns a planned [SchoolAlert] into a notification on the status bar.
+ *
+ * The split from `AlertPlanner` is deliberate and it is the reason the planner
+ * can be tested by walking a school week in a loop: the planner decides *what*
+ * and *when* with no Android on the classpath, and this decides what the
+ * sentence says and which channel it lands on.
+ *
+ * Every post is best-effort. A receiver that throws because a channel was
+ * deleted, or because the user revoked the notification permission between the
+ * alarm being armed and it ringing, takes the process down with it — and this
+ * one runs while the app is not on screen, so nobody would ever see why.
+ */
+internal object AlertNotifier {
+
+    /**
+     * Three channels, not one.
+     *
+     * A pupil who wants "через 10 минут алгебра" on the lock screen and does not
+     * want a 20:00 homework nudge has to be able to say so, and the only place
+     * Android lets them say it is per channel. One channel would mean the choice
+     * is all or nothing, which in practice means nothing.
+     */
+    private const val CHANNEL_LESSONS = "alerts.lessons"
+    private const val CHANNEL_DAILY = "alerts.daily"
+    private const val CHANNEL_CHANGES = "alerts.changes"
+
+    /**
+     * Stable per kind, so a second morning summary replaces the first rather
+     * than stacking. There is never anything to gain from two of these at once.
+     */
+    private const val ID_LESSON = 0x5A01
+    private const val ID_MORNING = 0x5A02
+    private const val ID_HOMEWORK = 0x5A03
+    private const val ID_CHANGES = 0x5A04
+
+    private val clockFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("H:mm")
+
+    /**
+     * Creates the channels if they are not there yet.
+     *
+     * Safe to call on every path that might post, because creating a channel
+     * that exists is a no-op that does *not* overwrite the user's own choices
+     * for it — which is exactly why importance is set here once and never
+     * adjusted afterwards.
+     */
+    fun ensureChannels(context: Context) {
+        val manager = context.getSystemService<NotificationManager>() ?: return
+        manager.createNotificationChannel(
+            channel(
+                context,
+                CHANNEL_LESSONS,
+                R.string.alert_channel_lessons,
+                R.string.alert_channel_lessons_description,
+                NotificationManager.IMPORTANCE_HIGH,
+            ),
+        )
+        manager.createNotificationChannel(
+            channel(
+                context,
+                CHANNEL_DAILY,
+                R.string.alert_channel_daily,
+                R.string.alert_channel_daily_description,
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ),
+        )
+        manager.createNotificationChannel(
+            channel(
+                context,
+                CHANNEL_CHANGES,
+                R.string.alert_channel_changes,
+                R.string.alert_channel_changes_description,
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ),
+        )
+    }
+
+    /** Posts [alert], or does nothing if the user has not granted the permission. */
+    fun post(context: Context, alert: SchoolAlert) {
+        if (!canPost(context)) return
+        ensureChannels(context)
+
+        when (alert) {
+            is SchoolAlert.LessonSoon -> show(
+                context = context,
+                id = ID_LESSON,
+                channel = CHANNEL_LESSONS,
+                title = context.resources.getQuantityString(
+                    R.plurals.alert_lesson_title,
+                    alert.leadMinutes,
+                    alert.leadMinutes,
+                ),
+                body = lessonLine(context, alert),
+                date = alert.date,
+            )
+
+            is SchoolAlert.Morning -> {
+                val lessons = alert.day.activeLessons
+                val first = lessons.firstOrNull() ?: return
+                show(
+                    context = context,
+                    id = ID_MORNING,
+                    channel = CHANNEL_DAILY,
+                    title = context.resources.getQuantityString(
+                        R.plurals.alert_morning_title,
+                        lessons.size,
+                        lessons.size,
+                    ),
+                    body = context.getString(
+                        R.string.alert_morning_body,
+                        first.subject,
+                        first.startsAt.format(clockFormat),
+                        lessons.last().endsAt.format(clockFormat),
+                    ),
+                    date = alert.day.date,
+                )
+            }
+
+            is SchoolAlert.Homework -> {
+                // Counted by subject, not by item: "задано по трём предметам" is
+                // what a pupil is deciding about when they choose what to pack.
+                val subjects = alert.day.homework.map { it.subject }.distinct()
+                if (subjects.isEmpty()) return
+                show(
+                    context = context,
+                    id = ID_HOMEWORK,
+                    channel = CHANNEL_DAILY,
+                    title = context.resources.getQuantityString(
+                        R.plurals.alert_homework_title,
+                        subjects.size,
+                        subjects.size,
+                    ),
+                    body = subjects.joinToString(", "),
+                    date = alert.day.date,
+                )
+            }
+        }
+    }
+
+    /**
+     * The one alert with no planned time: the schedule moved under the user's
+     * feet and they are being told within seconds of the sync that found it.
+     */
+    fun postScheduleChanged(context: Context) {
+        if (!canPost(context)) return
+        ensureChannels(context)
+        show(
+            context = context,
+            id = ID_CHANGES,
+            channel = CHANNEL_CHANGES,
+            title = context.getString(R.string.alert_changes_title),
+            body = context.getString(R.string.alert_changes_body),
+            date = null,
+        )
+    }
+
+    /** Clears anything still on the shade; used when the user signs out. */
+    fun cancelAll(context: Context) {
+        runCatching {
+            NotificationManagerCompat.from(context).apply {
+                cancel(ID_LESSON)
+                cancel(ID_MORNING)
+                cancel(ID_HOMEWORK)
+                cancel(ID_CHANGES)
+            }
+        }
+    }
+
+    private fun lessonLine(context: Context, alert: SchoolAlert.LessonSoon): String {
+        val room = alert.lesson.room?.takeIf { it.isNotBlank() }
+        val base = if (room != null) {
+            context.getString(R.string.alert_lesson_room, alert.lesson.subject, room)
+        } else {
+            alert.lesson.subject
+        }
+        return if (alert.lesson.isReplaced) {
+            context.getString(R.string.alert_lesson_replaced, base)
+        } else {
+            base
+        }
+    }
+
+    private fun show(
+        context: Context,
+        id: Int,
+        channel: String,
+        title: String,
+        body: String,
+        date: LocalDate?,
+    ) {
+        // Checked again, here, one line from the call it guards. [canPost] has
+        // already refused everything this would post, but a permission check
+        // hidden behind a helper is invisible to the tooling that verifies it —
+        // and to the next person deciding whether this method is safe to call.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val notification = NotificationCompat.Builder(context, channel)
+            .setSmallIcon(R.drawable.ic_alert_bell)
+            .setContentTitle(title)
+            .setContentText(body)
+            // The body of a homework alert is a list of subjects and will not fit
+            // on one line on any phone; expanding is the difference between
+            // "задано по трём предметам" and knowing which three.
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(openApp(context, date))
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .build()
+
+        runCatching { NotificationManagerCompat.from(context).notify(id, notification) }
+    }
+
+    /**
+     * Opens the app, on the day the alert is about where there is one.
+     *
+     * Built by component name rather than by class reference: the activity lives
+     * in `:app`, which depends on this module and not the other way round. The
+     * same deep link the widget's day chips use, so there is one way in and one
+     * intent contract to keep working.
+     */
+    private fun openApp(context: Context, date: LocalDate?): PendingIntent? {
+        val intent = Intent(DeepLink.ACTION_OPEN_DAY)
+            .setComponent(ComponentName(context.packageName, MAIN_ACTIVITY))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            .apply { if (date != null) putExtra(DeepLink.EXTRA_DATE, date.toString()) }
+
+        return runCatching {
+            PendingIntent.getActivity(
+                context,
+                REQUEST_CODE,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }.getOrNull()
+    }
+
+    /**
+     * From Android 13 posting is a runtime permission, and a notification posted
+     * without it is dropped silently. Checking first is what lets the caller
+     * skip the work rather than discover it went nowhere.
+     *
+     * The version guard is not decoration. `POST_NOTIFICATIONS` does not exist
+     * before Android 13, so asking the package manager about it there returns
+     * DENIED for every device — which would have turned notifications off on
+     * every phone the app was actually written for. Below 13 the only question
+     * worth asking is whether the user has switched them off themselves.
+     */
+    private fun canPost(context: Context): Boolean {
+        val granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        return granted && NotificationManagerCompat.from(context).areNotificationsEnabled()
+    }
+
+    private fun channel(
+        context: Context,
+        id: String,
+        nameRes: Int,
+        descriptionRes: Int,
+        importance: Int,
+    ): NotificationChannel = NotificationChannel(id, context.getString(nameRes), importance).apply {
+        description = context.getString(descriptionRes)
+    }
+
+    /** Must match the activity `:app` declares; see [openApp]. */
+    private const val MAIN_ACTIVITY = "com.lumenpearson.lessons.MainActivity"
+
+    private const val REQUEST_CODE = 0x5A00
+}

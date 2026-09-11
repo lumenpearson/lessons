@@ -4,7 +4,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 
 /**
- * The five layouts the widget can be, and the content budget of each.
+ * The layouts the widget can be, and the content budget of each.
  *
  * ### Why a ladder rather than a fluid layout
  *
@@ -14,48 +14,69 @@ import androidx.compose.ui.unit.dp
  * .SizeMode.Responsive] reports whichever declared breakpoint the launcher
  * matched. So "resizable to any size" has to be implemented as a small number of
  * layouts that each look deliberate, with the launcher snapping between them.
- * A class earns its place only by changing what the widget can say — but the
- * ladder also has to reach the tallest size a user can actually drag out, since
- * a surplus no class claims is drawn as empty background.
  *
- * ### Why these six
+ * ### What each rung is for
  *
- * | Class    | Breakpoint  | Cells | What it can say                                    |
- * |----------|-------------|-------|----------------------------------------------------|
- * | [TINY]   | 110 x 40dp  | 2x1   | state word + countdown, on one line                 |
- * | [SMALL]  | 110 x 110dp | 2x2   | + subject and a progress bar                        |
- * | [MEDIUM] | 250 x 110dp | 4x2   | + the next two lessons                              |
- * | [M_TALL] | 250 x 180dp | 4x3   | + twice as many of them, and a progress bar         |
- * | [LARGE]  | 250 x 250dp | 4x4   | + the whole remaining-day timeline                  |
- * | [XLARGE] | 320 x 320dp | 5x5   | + a homework block under the timeline               |
- * | [WIDE]   | 250 x 60dp  | 4x1   | state + subject + countdown on one line             |
- * | [TALL]   | 320 x 400dp | 5x6   | + the rest of the day rather than blank background  |
+ * A class earns its place by changing what the widget can *say*, and the ladder
+ * has to cover every shape a user can actually drag out — a surplus no class
+ * claims is drawn as empty background, which is what a widget two cells wide and
+ * five tall used to be: the 110 × 110 layout, three lines of text, and four rows
+ * of nothing under it.
  *
- * The widths are the two that matter on a phone: 110dp is two cells on a typical
- * 4- or 5-column launcher grid, 250dp is four, 320dp is five or a tablet column.
- * The heights step 40 → 110 → 250 → 320 because those are roughly one, two, four
- * and five rows; between them the launcher picks the largest breakpoint that
- * fits, which is exactly the behaviour we want (grow the widget, get more).
+ * | Class        | Breakpoint  | Cells | What it adds                          |
+ * |--------------|-------------|-------|---------------------------------------|
+ * | [TINY]       | 110 × 40dp  | 2×1   | state word + how long left            |
+ * | [WIDE]       | 250 × 60dp  | 4×1   | + the subject, on the same line       |
+ * | [SMALL]      | 110 × 110dp | 2×2   | + progress and the length of it       |
+ * | [SMALL_TALL] | 110 × 190dp | 2×3   | + what is next, + homework count      |
+ * | [NARROW]     | 110 × 300dp | 2×5   | + the rest of the day, narrow rows    |
+ * | [MEDIUM]     | 250 × 110dp | 4×2   | + a "Дальше" column                   |
+ * | [MEDIUM_TALL]| 250 × 180dp | 4×3   | + the rest of the day                 |
+ * | [LARGE]      | 250 × 250dp | 4×4   | + the week strip                      |
+ * | [XLARGE]     | 320 × 320dp | 5×5   | + homework                            |
+ * | [TALL]       | 320 × 400dp | 5×6   | + the next school day and its homework|
+ * | [HUGE]       | 320 × 560dp | 5×8   | + more of all of it                   |
  *
- * 40dp is the floor because it is the smallest height in which a 13sp label and a
- * 13sp countdown still clear the launcher's own widget padding.
+ * The widths are the three that matter: 110dp is two cells on a typical 4- or
+ * 5-column launcher grid, 250dp is four, 320dp is five or a tablet column. The
+ * heights step 40 → 60 → 110 → 190 → 250 → 300 → 320 → 400 because those are
+ * roughly one through six rows; between them the launcher picks the largest
+ * breakpoint that fits, which is exactly the behaviour we want: grow the widget,
+ * get more.
+ *
+ * 40dp is the floor because it is the smallest height in which a 13sp label and
+ * a 13sp countdown still clear the launcher's own widget padding.
  *
  * @property breakpoint the size handed to `SizeMode.Responsive`.
- * @property homeworkItems how many homework subjects the after-school layout shows.
+ * @property timelineRows how many lessons the rest-of-day list shows.
+ * @property homeworkItems how many homework subjects a homework block shows.
  * @property homeworkChars per-subject character budget before truncation.
- * @property timelineRows how many lessons the timeline / next-up list shows.
+ * @property showsSubject whether the subject gets a line of its own.
+ * @property showsMeta whether there is room for "каб. 30 · из 40 мин".
  * @property showsProgressBar whether there is vertical room for a progress bar.
+ * @property showsNextUp whether "what comes after this" is worth a line.
+ * @property showsTodayHomework whether today's own homework gets a line.
+ * @property showsWeekStrip whether the seven day chips fit.
+ * @property showsHomework whether a homework block is drawn beside the timeline.
+ * @property showsNextDay whether the next school day gets a block of its own.
  * @property titleSp size of the subject line.
  * @property bodySp size of list rows.
  * @property captionSp size of the state label and countdown.
- * @property padding inner padding; small sizes cannot afford much.
+ * @property paddingDp inner padding; small sizes cannot afford much.
  */
 enum class WidgetSizeClass(
     val breakpoint: DpSize,
+    val timelineRows: Int,
     val homeworkItems: Int,
     val homeworkChars: Int,
-    val timelineRows: Int,
+    val showsSubject: Boolean,
+    val showsMeta: Boolean,
     val showsProgressBar: Boolean,
+    val showsNextUp: Boolean,
+    val showsTodayHomework: Boolean,
+    val showsWeekStrip: Boolean,
+    val showsHomework: Boolean,
+    val showsNextDay: Boolean,
     val titleSp: Float,
     val bodySp: Float,
     val captionSp: Float,
@@ -68,10 +89,17 @@ enum class WidgetSizeClass(
      */
     TINY(
         breakpoint = DpSize(110.dp, 40.dp),
+        timelineRows = 0,
         homeworkItems = 0,
         homeworkChars = 0,
-        timelineRows = 0,
+        showsSubject = false,
+        showsMeta = false,
         showsProgressBar = false,
+        showsNextUp = false,
+        showsTodayHomework = false,
+        showsWeekStrip = false,
+        showsHomework = false,
+        showsNextDay = false,
         titleSp = 13f,
         bodySp = 12f,
         captionSp = 12f,
@@ -88,24 +116,91 @@ enum class WidgetSizeClass(
      */
     WIDE(
         breakpoint = DpSize(250.dp, 60.dp),
+        timelineRows = 0,
         homeworkItems = 0,
         homeworkChars = 0,
-        timelineRows = 0,
+        showsSubject = true,
+        showsMeta = false,
         showsProgressBar = false,
+        showsNextUp = false,
+        showsTodayHomework = false,
+        showsWeekStrip = false,
+        showsHomework = false,
+        showsNextDay = false,
         titleSp = 16f,
         bodySp = 13f,
         captionSp = 12f,
         paddingDp = 10f,
     ),
 
-    /** The square 2x2 most launchers default to when a user drags from the picker. */
+    /** The square 2×2 most launchers default to when a user drags from the picker. */
     SMALL(
         breakpoint = DpSize(110.dp, 110.dp),
+        timelineRows = 0,
         homeworkItems = 2,
         homeworkChars = 24,
-        timelineRows = 0,
+        showsSubject = true,
+        showsMeta = false,
         showsProgressBar = true,
+        showsNextUp = false,
+        showsTodayHomework = false,
+        showsWeekStrip = false,
+        showsHomework = false,
+        showsNextDay = false,
         titleSp = 16f,
+        bodySp = 12f,
+        captionSp = 11f,
+        paddingDp = 10f,
+    ),
+
+    /**
+     * Two cells wide, three tall — the shape a narrow column of a home screen
+     * ends up as.
+     *
+     * It used to match [SMALL] and leave a third of itself empty. The height
+     * buys the two lines a pupil asks for next: what comes after this, and
+     * whether anything is set for the next school day.
+     */
+    SMALL_TALL(
+        breakpoint = DpSize(110.dp, 190.dp),
+        timelineRows = 0,
+        homeworkItems = 2,
+        homeworkChars = 24,
+        showsSubject = true,
+        showsMeta = true,
+        showsProgressBar = true,
+        showsNextUp = true,
+        showsTodayHomework = true,
+        showsWeekStrip = false,
+        showsHomework = false,
+        showsNextDay = false,
+        titleSp = 17f,
+        bodySp = 12f,
+        captionSp = 11f,
+        paddingDp = 10f,
+    ),
+
+    /**
+     * A full-height narrow column.
+     *
+     * The same width as [SMALL] and five times the height, which before this
+     * rung existed was five times the same three lines of text. Narrow rows —
+     * time and subject, no room, no teacher — are what fits in 110 dp.
+     */
+    NARROW(
+        breakpoint = DpSize(110.dp, 300.dp),
+        timelineRows = 5,
+        homeworkItems = 3,
+        homeworkChars = 24,
+        showsSubject = true,
+        showsMeta = true,
+        showsProgressBar = true,
+        showsNextUp = false,
+        showsTodayHomework = true,
+        showsWeekStrip = false,
+        showsHomework = true,
+        showsNextDay = false,
+        titleSp = 17f,
         bodySp = 12f,
         captionSp = 11f,
         paddingDp = 10f,
@@ -114,10 +209,17 @@ enum class WidgetSizeClass(
     /** The drop target from `targetCellWidth/Height`: wide enough for a second column. */
     MEDIUM(
         breakpoint = DpSize(250.dp, 110.dp),
+        timelineRows = 2,
         homeworkItems = 3,
         homeworkChars = 40,
-        timelineRows = 2,
+        showsSubject = true,
+        showsMeta = false,
         showsProgressBar = true,
+        showsNextUp = true,
+        showsTodayHomework = false,
+        showsWeekStrip = false,
+        showsHomework = false,
+        showsNextDay = false,
         titleSp = 19f,
         bodySp = 13f,
         captionSp = 12f,
@@ -134,23 +236,37 @@ enum class WidgetSizeClass(
      */
     MEDIUM_TALL(
         breakpoint = DpSize(250.dp, 180.dp),
+        timelineRows = 3,
         homeworkItems = 4,
         homeworkChars = 48,
-        timelineRows = 4,
+        showsSubject = true,
+        showsMeta = true,
         showsProgressBar = true,
+        showsNextUp = false,
+        showsTodayHomework = true,
+        showsWeekStrip = false,
+        showsHomework = false,
+        showsNextDay = false,
         titleSp = 20f,
         bodySp = 13f,
         captionSp = 12f,
         paddingDp = 12f,
     ),
 
-    /** Four rows: the whole rest of the school day fits without scrolling. */
+    /** Four rows: the whole rest of the school day fits, with the week above it. */
     LARGE(
         breakpoint = DpSize(250.dp, 250.dp),
+        timelineRows = 6,
         homeworkItems = 5,
         homeworkChars = 56,
-        timelineRows = 5,
+        showsSubject = true,
+        showsMeta = true,
         showsProgressBar = true,
+        showsNextUp = false,
+        showsTodayHomework = true,
+        showsWeekStrip = true,
+        showsHomework = false,
+        showsNextDay = false,
         titleSp = 21f,
         bodySp = 14f,
         captionSp = 12f,
@@ -160,10 +276,17 @@ enum class WidgetSizeClass(
     /** Timeline *and* homework at once — the "I live on my home screen" size. */
     XLARGE(
         breakpoint = DpSize(320.dp, 320.dp),
-        homeworkItems = 6,
-        homeworkChars = 72,
         timelineRows = 6,
+        homeworkItems = 5,
+        homeworkChars = 72,
+        showsSubject = true,
+        showsMeta = true,
         showsProgressBar = true,
+        showsNextUp = false,
+        showsTodayHomework = true,
+        showsWeekStrip = true,
+        showsHomework = true,
+        showsNextDay = false,
         titleSp = 23f,
         bodySp = 15f,
         captionSp = 13f,
@@ -171,24 +294,65 @@ enum class WidgetSizeClass(
     ),
 
     /**
-     * Half a home screen or more.
+     * Half a home screen.
      *
-     * Without this the ladder stopped at [XLARGE], so stretching the widget past
-     * five rows bought nothing but empty background: the row budget is fixed per
-     * class, and Glance gives no measure pass to distribute the surplus with.
+     * Its extra height is spent on the one thing the other sizes cannot afford:
+     * the next school day. Late in the afternoon the rest of today is one row or
+     * none, and without something after it the tall widget was mostly empty at
+     * exactly the hour a pupil is deciding what to pack.
      */
     TALL(
         breakpoint = DpSize(320.dp, 400.dp),
-        homeworkItems = 8,
+        timelineRows = 6,
+        homeworkItems = 6,
         homeworkChars = 72,
-        timelineRows = 10,
+        showsSubject = true,
+        showsMeta = true,
         showsProgressBar = true,
+        showsNextUp = false,
+        showsTodayHomework = true,
+        showsWeekStrip = true,
+        showsHomework = true,
+        showsNextDay = true,
         titleSp = 23f,
         bodySp = 15f,
         captionSp = 13f,
         paddingDp = 16f,
     ),
+
+    /**
+     * Most of a home screen.
+     *
+     * The top of the ladder, and it exists because the ladder stopping at
+     * [TALL] is visible: a widget dragged out to six or seven rows drew the
+     * 400 dp layout and left two hundred more of background under it. There is
+     * nothing new to say at this size, only more of everything — every lesson
+     * left today rather than the first six, and the whole homework list rather
+     * than a slice.
+     */
+    HUGE(
+        breakpoint = DpSize(320.dp, 560.dp),
+        timelineRows = 8,
+        homeworkItems = 8,
+        homeworkChars = 80,
+        showsSubject = true,
+        showsMeta = true,
+        showsProgressBar = true,
+        showsNextUp = false,
+        showsTodayHomework = true,
+        showsWeekStrip = true,
+        showsHomework = true,
+        showsNextDay = true,
+        titleSp = 24f,
+        bodySp = 15f,
+        captionSp = 13f,
+        paddingDp = 16f,
+    ),
     ;
+
+    /** True for the two widths that cannot hold a room number beside a subject. */
+    val isNarrow: Boolean
+        get() = breakpoint.width < MEDIUM.breakpoint.width
 
     companion object {
 
@@ -204,11 +368,15 @@ enum class WidgetSizeClass(
          * widget that renders a blank box because of an equality miss is a bad
          * failure. Comparing against thresholds is right under either behaviour,
          * and it also lets a preview pass in an arbitrary size.
+         *
+         * Ordered widest-and-tallest first, so a size that satisfies several
+         * classes gets the most generous one it actually fits.
          */
         fun of(size: DpSize): WidgetSizeClass {
             val w = size.width
             val h = size.height
             return when {
+                w >= HUGE.breakpoint.width && h >= HUGE.breakpoint.height -> HUGE
                 w >= TALL.breakpoint.width && h >= TALL.breakpoint.height -> TALL
                 w >= XLARGE.breakpoint.width && h >= XLARGE.breakpoint.height -> XLARGE
                 w >= LARGE.breakpoint.width && h >= LARGE.breakpoint.height -> LARGE
@@ -216,6 +384,10 @@ enum class WidgetSizeClass(
                     h >= MEDIUM_TALL.breakpoint.height -> MEDIUM_TALL
 
                 w >= MEDIUM.breakpoint.width && h >= MEDIUM.breakpoint.height -> MEDIUM
+                // Narrow and tall: checked after the wide classes, so a widget
+                // that is both wide and tall never falls into the narrow column.
+                h >= NARROW.breakpoint.height -> NARROW
+                h >= SMALL_TALL.breakpoint.height -> SMALL_TALL
                 h >= SMALL.breakpoint.height -> SMALL
                 w >= WIDE.breakpoint.width && h >= WIDE.breakpoint.height -> WIDE
                 else -> TINY

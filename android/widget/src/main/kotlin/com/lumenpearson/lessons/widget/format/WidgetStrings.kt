@@ -199,6 +199,46 @@ internal object WidgetStrings {
     fun subjectCount(context: Context, count: Int): String =
         context.resources.getQuantityString(R.plurals.widget_subject_count, count, count)
 
+    /**
+     * The word beside the ticking figure.
+     *
+     * The `Chronometer` can only draw digits, and "05:57" on its own reads as
+     * five minutes to six. It needs a word, and which word depends on whether
+     * something is running or something is coming.
+     */
+    fun untilBell(context: Context): String = context.getString(R.string.widget_until_bell)
+
+    /** @see untilBell */
+    fun untilStart(context: Context): String = context.getString(R.string.widget_until_start)
+
+    /** "из 40 мин" — how long the thing that is running lasts in total. */
+    fun ofMinutes(context: Context, minutes: Int): String =
+        context.getString(R.string.widget_of_minutes, minutes)
+
+    /** "перемена 20 мин" — the length of the gap, which is what decides the plan for it. */
+    fun breakLength(context: Context, minutes: Int): String =
+        context.getString(R.string.widget_break_length, minutes)
+
+    /** Joins the pieces of the meta line, skipping the ones that are absent. */
+    fun meta(context: Context, vararg parts: String?): String? {
+        val kept = parts.filterNotNull().filter { it.isNotBlank() }
+        if (kept.isEmpty()) return null
+        return kept.joinToString(" ${context.getString(R.string.widget_meta_separator)} ")
+    }
+
+    /** "6 уроков" — Russian needs one/few/many, so this goes through plurals. */
+    fun lessonCount(context: Context, count: Int): String =
+        context.resources.getQuantityString(R.plurals.widget_lesson_count, count, count)
+
+    /** "6 уроков · Алгебра в 09:00". */
+    fun dayPlan(context: Context, lessons: Int, firstSubject: String, firstAt: LocalTime): String =
+        context.getString(
+            R.string.widget_next_day_summary,
+            lessonCount(context, lessons),
+            firstSubject,
+            time(firstAt),
+        )
+
     /** "каб. 214", or null when the timetable has no room for this lesson. */
     fun room(context: Context, lesson: Lesson): String? =
         lesson.room?.takeIf { it.isNotBlank() }?.let { context.getString(R.string.widget_room, it) }

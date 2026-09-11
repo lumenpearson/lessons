@@ -37,11 +37,7 @@ fun LessonsTheme(
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
-    val darkTheme = when (themeMode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-        ThemeMode.LIGHT -> false
-        ThemeMode.DARK -> true
-    }
+    val darkTheme = themeMode.resolvesToDark()
 
     // Resolved inside a single remember keyed on the inputs, not on the scheme:
     // dynamicDarkColorScheme() allocates a fresh ColorScheme on every call and
@@ -71,6 +67,22 @@ fun LessonsTheme(
         typography = LessonsTypography,
         content = content,
     )
+}
+
+/**
+ * Whether this mode ends up dark, right now.
+ *
+ * Public because the theme is not the only thing that needs the answer: the
+ * activity has to tell the system which way to tint the status-bar icons, and it
+ * cannot ask `isSystemInDarkTheme()` for that — the whole point of the setting is
+ * that the app may disagree with the system. It did ask, and on a light app under
+ * a dark system the clock and the battery were drawn white on a white page.
+ */
+@Composable
+fun ThemeMode.resolvesToDark(): Boolean = when (this) {
+    ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    ThemeMode.LIGHT -> false
+    ThemeMode.DARK -> true
 }
 
 /**

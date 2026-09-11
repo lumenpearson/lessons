@@ -21,6 +21,15 @@ internal class SessionRepositoryImpl(
     private val api: LessonsApi,
     private val dao: TimetableDao,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /**
+     * Called once the session and the cache are gone.
+     *
+     * Signing out has to take the armed notification alarm with it. Without this
+     * the chain kept running off the last cached timetable and the phone
+     * announced a lesson for a class the device had already left — and there was
+     * no screen left in the app that could explain where it came from.
+     */
+    private val onSignedOut: () -> Unit = {},
 ) : SessionRepository {
 
     override val session: Flow<Session?> = preferences.session
@@ -64,6 +73,7 @@ internal class SessionRepositoryImpl(
         withContext(ioDispatcher) {
             preferences.clearSession()
             dao.clearAll()
+            onSignedOut()
         }
     }
 }

@@ -3,7 +3,9 @@ package com.lumenpearson.lessons.navigation
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -24,6 +26,7 @@ import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -38,10 +41,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -55,6 +61,7 @@ import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurExtent
 import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurRadius
 import com.lumenpearson.lessons.core.designsystem.modifier.TopBlurRampPx
+import com.lumenpearson.lessons.core.designsystem.modifier.liquidRipple
 import com.lumenpearson.lessons.core.designsystem.modifier.progressiveBlur
 import com.lumenpearson.lessons.core.designsystem.theme.BottomBarGap
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
@@ -62,10 +69,13 @@ import com.lumenpearson.lessons.core.designsystem.theme.LocalScrollBlur
 import com.lumenpearson.lessons.core.designsystem.theme.LocalScrollOffset
 import com.lumenpearson.lessons.core.designsystem.theme.ScrollBlurSettings
 import com.lumenpearson.lessons.core.designsystem.theme.ScrollOffsetHolder
+import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
+import com.lumenpearson.lessons.core.designsystem.theme.appSlideMotionBlur
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.ui.debug.DebugSheet
 import com.lumenpearson.lessons.ui.homework.HomeworkScreen
 import com.lumenpearson.lessons.ui.join.JoinScreen
+import com.lumenpearson.lessons.ui.onboarding.OnboardingScreen
 import com.lumenpearson.lessons.ui.settings.SettingsRootScreen
 import com.lumenpearson.lessons.ui.settings.SettingsSection
 import com.lumenpearson.lessons.ui.settings.SettingsSectionScreen
@@ -103,15 +113,61 @@ fun LessonsApp(
     openDate: LocalDate? = null,
     onDateOpened: () -> Unit = {},
 ) {
-    when (signedIn) {
-        null -> SplashShell(modifier = modifier)
-        false -> JoinScreen(modifier = modifier)
-        true -> HomeShell(
-            settings = settings,
-            openDate = openDate,
-            onDateOpened = onDateOpened,
-            modifier = modifier,
-        )
+    // Published here rather than inside the signed-in shell, which is where it
+    // used to live: the first-run steps and the join screen slide too, and a
+    // local provided below them left those transitions permanently unblurred
+    // however the setting was set.
+    CompositionLocalProvider(
+        LocalScrollBlur provides ScrollBlurSettings(
+            enabled = settings.motionBlur,
+            scale = settings.motionBlurScale,
+        ),
+    ) {
+        // The page colour, painted once for the whole app.
+        //
+        // Nothing used to paint it. The tabs draw rows and nothing behind them,
+        // so what showed between the rows was the *window* background — an
+        // Android resource that follows the system's night mode and cannot
+        // follow an in-app setting. While the two agreed it looked deliberate.
+        // Choosing "светлая" on a phone in dark mode gave white rows and black
+        // text on a black page, and "чёрная тема" appeared to do nothing at all,
+        // because the only surface in the app that painted itself was the
+        // settings layer — which is exactly where both settings did seem to work.
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+        ) {
+            when (signedIn) {
+                null -> SplashShell(modifier = modifier)
+
+                false -> {
+                    // Latched on the first composition of this branch rather than
+                    // read live. The introduction records itself as seen the moment
+                    // it reaches its last step, and re-reading the flag there would
+                    // swap the whole screen for a bare join page halfway through the
+                    // slide that was carrying the user to it.
+                    //
+                    // Safe to latch because settings are real by the time this
+                    // branch exists at all: the shell's state combines the settings
+                    // flow with the session, so nothing is emitted — and the splash
+                    // above stays — until preferences have actually been read from
+                    // disk.
+                    val introduce = rememberSaveable { !settings.onboardingDone }
+                    if (introduce) {
+                        OnboardingScreen(modifier = modifier)
+                    } else {
+                        JoinScreen(modifier = modifier)
+                    }
+                }
+
+                true -> HomeShell(
+                    settings = settings,
+                    openDate = openDate,
+                    onDateOpened = onDateOpened,
+                    modifier = modifier,
+                )
+            }
+        }
     }
 }
 
@@ -186,6 +242,13 @@ private fun HomeShell(
 
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var showDebugSheet by rememberSaveable { mutableStateOf(false) }
+
+    // A counter rather than a flag, because the thing being answered is a tap:
+    // pressing the bug button twice should give two waves, and a boolean has no
+    // way to say "again". Deliberately not saved across configuration changes —
+    // a ripple restored on rotation would be a wave from nowhere.
+    var rippleTrigger by remember { mutableIntStateOf(0) }
+    var rippleOrigin by remember { mutableStateOf(Offset.Unspecified) }
     var openSectionName by rememberSaveable { mutableStateOf<String?>(null) }
     val openSection = remember(openSectionName) { SettingsSection.fromName(openSectionName) }
 
@@ -346,14 +409,16 @@ private fun HomeShell(
         )
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        CompositionLocalProvider(
-            LocalBottomBarSpace provides barHeight + BottomBarGap,
-            LocalScrollBlur provides ScrollBlurSettings(
-                enabled = settings.motionBlur,
-                scale = settings.motionBlurScale,
-            ),
-        ) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            // On the whole shell, toolbar included, rather than on the content
+            // box below: the wave starts at the bug button, and a ripple that
+            // left the button it came from perfectly still would look like it
+            // came from somewhere else.
+            .liquidRipple(trigger = rippleTrigger, origin = rippleOrigin),
+    ) {
+        CompositionLocalProvider(LocalBottomBarSpace provides barHeight + BottomBarGap) {
             // The blur goes on the content, never on the parent that also holds
             // the toolbar: a bottom fade applied there would dissolve the
             // toolbar along with the list running underneath it.
@@ -379,6 +444,11 @@ private fun HomeShell(
                             beyondViewportPageCount = 1,
                             modifier = Modifier
                                 .fillMaxSize()
+                                // The largest scroll in the app, and the one the
+                                // blur setting was missing: it named lists and
+                                // left out the gesture people actually spend
+                                // their day on.
+                                .appScrollMotionBlur(pagerState)
                                 .graphicsLayer {
                                     val scale = 1f - backProgress.value * BackScaleDepth
                                     scaleX = scale
@@ -461,7 +531,11 @@ private fun HomeShell(
             action = shellAction(
                 settingsOpen = settingsOpen,
                 onOpenSettings = { settingsOpen = true },
-                onOpenDebug = { showDebugSheet = true },
+                onOpenDebug = { at ->
+                    rippleOrigin = at
+                    rippleTrigger++
+                    showDebugSheet = true
+                },
             ),
         )
     }
@@ -485,7 +559,7 @@ private fun HomeShell(
 private fun shellAction(
     settingsOpen: Boolean,
     onOpenSettings: () -> Unit,
-    onOpenDebug: () -> Unit,
+    onOpenDebug: (at: Offset) -> Unit,
 ): ToolbarAction = if (settingsOpen) {
     ToolbarAction(
         icon = Icons.Rounded.BugReport,
@@ -496,7 +570,7 @@ private fun shellAction(
     ToolbarAction(
         icon = Icons.Rounded.Settings,
         contentDescription = stringResource(R.string.nav_settings),
-        onClick = onOpenSettings,
+        onClick = { onOpenSettings() },
     )
 }
 
@@ -513,20 +587,44 @@ private fun SettingsLayer(
 ) {
     AnimatedVisibility(
         visible = visible,
-        enter = slideInHorizontally(tween(PageTransitionMillis)) { width -> width / 3 } +
+        enter = slideInHorizontally(tween(PageTransitionMillis)) { width -> width / LayerTravelDivisor } +
             fadeIn(tween(PageTransitionMillis)),
-        exit = slideOutHorizontally(tween(PageTransitionMillis)) { width -> width / 3 } +
+        exit = slideOutHorizontally(tween(PageTransitionMillis)) { width -> width / LayerTravelDivisor } +
             fadeOut(tween(PageTransitionMillis)),
     ) {
+        // The same float the slide is drawn from, so the blur is driven by the
+        // movement rather than by a second timer that has to be kept in step
+        // with it. `transition` belongs to this AnimatedVisibility and is only
+        // running while the page is actually travelling.
+        val slide = transition.animateFloat(
+            transitionSpec = { tween(PageTransitionMillis) },
+            label = "layer_slide",
+        ) { state -> if (state == EnterExitState.Visible) 1f else 0f }
+        val travel = LocalConfiguration.current.screenWidthDp.dp / LayerTravelDivisor
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .appSlideMotionBlur(
+                    moving = { transition.isRunning },
+                    fraction = { slide.value },
+                    travel = travel,
+                )
                 .background(MaterialTheme.colorScheme.surfaceContainer),
         ) {
             content()
         }
     }
 }
+
+/**
+ * A settings page slides in across a third of the screen, not the whole of it.
+ *
+ * Named because the blur needs the same number: the shader is fed how far the
+ * layer really travels, and a second copy of "3" would silently stop matching
+ * the first the day the animation is retuned.
+ */
+private const val LayerTravelDivisor = 3
 
 /**
  * Shown only while the session is being read. It is a deliberate blank with a

@@ -4,6 +4,7 @@ import android.content.Context
 import com.lumenpearson.lessons.core.data.database.LessonsDatabase
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.network.LessonsApi
+import com.lumenpearson.lessons.core.data.notifications.SchoolAlerts
 import com.lumenpearson.lessons.core.data.network.NetworkModule
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SessionRepositoryImpl
@@ -55,8 +56,12 @@ class DefaultLessonsContainer(context: Context) : LessonsContainer {
             api = api,
             // The widget cannot be called directly from here — it depends on
             // this module, not the other way round — so the broadcast it already
-            // listens for is handed in instead.
-            onDataChanged = { DataSyncBroadcast.send(appContext) },
+            // listens for is handed in instead. The alerts live in this module
+            // and are called directly.
+            onDataChanged = {
+                DataSyncBroadcast.send(appContext)
+                SchoolAlerts.onDataChanged(appContext)
+            },
         )
     }
 
@@ -65,10 +70,14 @@ class DefaultLessonsContainer(context: Context) : LessonsContainer {
             preferences = preferences,
             api = api,
             dao = database.timetableDao(),
+            onSignedOut = { SchoolAlerts.clear(appContext) },
         )
     }
 
     override val settingsRepository: SettingsRepository by lazy {
-        SettingsRepositoryImpl(preferences)
+        SettingsRepositoryImpl(
+            preferences = preferences,
+            onAlertsChanged = { SchoolAlerts.reschedule(appContext) },
+        )
     }
 }

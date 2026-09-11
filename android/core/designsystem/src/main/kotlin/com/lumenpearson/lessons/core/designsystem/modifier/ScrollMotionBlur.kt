@@ -19,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import kotlin.math.abs
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.collectLatest
@@ -173,6 +175,58 @@ fun Modifier.scrollMotionBlur(
                 val delta = (position - previous) * PageWidthGuessPx
                 previous = position
                 delta
+            }
+        }
+    }
+
+    MotionBlurLayer.of(velocity, isHorizontal = true, scale = scale)
+}
+
+/**
+ * Blurs a layer sideways while a transition slides it in or out.
+ *
+ * The three scrollable overloads above cover everything a finger drags. They do
+ * not cover the two places this app *moves a whole screen* — the settings page
+ * arriving over the tabs, and one first-run step replacing the next — and a
+ * user who has asked for motion blur notices its absence exactly where the
+ * motion is largest.
+ *
+ * There is no scroll state to ask, so the driver is the transition's own
+ * fraction: the same animated float the slide is drawn from, sampled per frame
+ * and multiplied by how far the slide actually travels. That keeps one
+ * definition of the movement — change the distance and the blur follows — and
+ * it keeps the frame loop scoped to the animation, since [moving] is false
+ * everywhere except during it.
+ *
+ * @param moving read inside a snapshot; the frame loop runs only while it is true.
+ * @param fraction 0f at one end of the slide, 1f at the other.
+ * @param travel how far the layer moves between those two ends.
+ */
+fun Modifier.slideMotionBlur(
+    moving: () -> Boolean,
+    fraction: () -> Float,
+    travel: Dp,
+    enabled: Boolean = true,
+    scale: Float = 1f,
+): Modifier = composed {
+    if (!enabled || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        return@composed Modifier
+    }
+    val travelPx = with(LocalDensity.current) { travel.toPx() }
+    val velocity = remember { Animatable(0f) }
+
+    LaunchedEffect(travelPx) {
+        snapshotFlow(moving).collectLatest { running ->
+            if (running) {
+                var previous = fraction() * travelPx
+                trackVelocity(velocity) {
+                    val position = fraction() * travelPx
+                    val delta = position - previous
+                    previous = position
+                    delta
+                }
+            } else {
+                velocity.animateTo(0f, tween(SettleMillis))
             }
         }
     }

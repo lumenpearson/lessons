@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 
 /**
  * The pastel tile and the glyph that sits on it — the per-row colour that makes
@@ -44,6 +45,25 @@ private val ColorScheme.isDarkScheme: Boolean
  */
 val ColorScheme.rowContainer: Color
     get() = surfaceBright
+
+/**
+ * The same row once its switch is on.
+ *
+ * Essentials tints a switched-on row towards the palette's own primary, and it
+ * is the cheapest piece of information on the whole settings page: the state of
+ * a dozen switches is readable from a scroll past, without landing on any single
+ * row and reading its thumb position.
+ *
+ * A blend rather than `primaryContainer` itself. The full container colour is
+ * loud enough at row size that four consecutive switched-on rows read as a
+ * selection the user made by dragging, and a light palette's container is bright
+ * enough to swallow the switch sitting on it.
+ */
+val ColorScheme.rowSelectedContainer: Color
+    get() = lerp(surfaceBright, primaryContainer, RowSelectedTint)
+
+/** How far a switched-on row travels from the plain row colour towards primary. */
+private const val RowSelectedTint = 0.45f
 
 /** Builds a tone at an arbitrary hue, which is what keeps subject colours in family. */
 fun ColorScheme.toneForHue(hue: Float): AccentTone {

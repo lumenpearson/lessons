@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +21,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.modifier.scrollMotionBlur
+import com.lumenpearson.lessons.core.designsystem.modifier.slideMotionBlur
 
 /**
  * How much room a scrolling screen must leave at its bottom for the floating
@@ -65,6 +67,38 @@ fun Modifier.appScrollMotionBlur(state: LazyListState): Modifier = composed {
 fun Modifier.appScrollMotionBlur(state: ScrollState): Modifier = composed {
     val settings = LocalScrollBlur.current
     scrollMotionBlur(state = state, enabled = settings.enabled, scale = settings.scale)
+}
+
+/**
+ * Motion blur for the swipe between tabs, wired to the user's setting.
+ *
+ * The setting is called "размытие при прокрутке" and a tab swipe is the largest
+ * scroll in the app, so leaving the pager out of it made the option look broken
+ * on the one gesture people use most.
+ */
+fun Modifier.appScrollMotionBlur(state: PagerState): Modifier = composed {
+    val settings = LocalScrollBlur.current
+    scrollMotionBlur(state = state, enabled = settings.enabled, scale = settings.scale)
+}
+
+/**
+ * Motion blur for a screen sliding in over another, wired to the user's setting.
+ *
+ * @see slideMotionBlur
+ */
+fun Modifier.appSlideMotionBlur(
+    moving: () -> Boolean,
+    fraction: () -> Float,
+    travel: Dp,
+): Modifier = composed {
+    val settings = LocalScrollBlur.current
+    slideMotionBlur(
+        moving = moving,
+        fraction = fraction,
+        travel = travel,
+        enabled = settings.enabled,
+        scale = settings.scale,
+    )
 }
 
 /** Extra breathing room between the last row of a screen and the toolbar. */

@@ -82,6 +82,29 @@
     <string name="widget_lesson_replaced">замена</string>
     <string name="widget_nothing_left">Уроков больше нет</string>
 
+    <!-- The live countdown needs a word: "05:57" on its own reads as a clock. -->
+    <string name="widget_until_bell">до звонка</string>
+    <string name="widget_until_start">до начала</string>
+
+    <!-- Meta line under the subject: length of what is running, and where. -->
+    <string name="widget_of_minutes">из %1$d мин</string>
+    <string name="widget_break_length">перемена %1$d мин</string>
+    <string name="widget_meta_separator">·</string>
+
+    <!-- Today's own homework, shown while lessons are still running. -->
+    <string name="widget_homework_today_title">ДЗ на сегодня</string>
+
+    <!-- The next school day, under the timeline on the tall sizes. -->
+    <string name="widget_next_day_title">Следующий учебный день</string>
+    <plurals name="widget_lesson_count">
+        <item quantity="one">%d урок</item>
+        <item quantity="few">%d урока</item>
+        <item quantity="many">%d уроков</item>
+        <item quantity="other">%d урока</item>
+    </plurals>
+    <!-- %1$s lesson count, %2$s first lesson, %3$s its time. -->
+    <string name="widget_next_day_summary">%1$s · %2$s в %3$s</string>
+
     <!-- Empty / unauthenticated. -->
     <string name="widget_empty_title">Откройте приложение и введите код класса</string>
     <string name="widget_empty_short">Введите код класса</string>

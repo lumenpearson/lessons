@@ -23,9 +23,15 @@ import java.time.LocalDateTime
  *
  * @property label the state word: "Урок", "Перемена", "Столовая"…
  * @property subject what is happening, or what is next during a break.
+ * @property detail the line under the subject: where it is and how long it
+ *   lasts — "каб. 30 · из 40 мин", "перемена 20 мин". Null on the sizes that
+ *   have no room for it, and whenever the timetable knows neither.
  * @property countdown pre-worded, e.g. "осталось 12 мин" or "через 8 мин".
  * @property bareCountdown the same duration without the framing verb, for the
  *   one-line TINY layout where "осталось" does not fit.
+ * @property countdownWord what the ticking figure is counting to — "до звонка"
+ *   or "до начала". The `Chronometer` can only draw digits, and "05:57" on its
+ *   own reads as a time of day rather than as five minutes and change.
  * @property progress 0..1 through the current lesson/break/event, or null when
  *   nothing is running.
  * @property accentIsUrgent true in the last five minutes, which is when a
@@ -33,6 +39,9 @@ import java.time.LocalDateTime
  * @property endsAt when the running lesson, break or event is over, in the
  *   school's wall time. It is what the live countdown counts to, and it is null
  *   exactly when [countdown] is: after school there is nothing to count.
+ * @property nextAt when the thing after this one starts, for the "Дальше" line.
+ * @property nextSubject what that thing is. Null during a break, where the
+ *   subject *is* what comes next and repeating it would be noise.
  */
 internal data class Headline(
     val label: String,
@@ -42,6 +51,10 @@ internal data class Headline(
     val progress: Float?,
     val accentIsUrgent: Boolean,
     val endsAt: java.time.LocalDateTime? = null,
+    val detail: String? = null,
+    val countdownWord: String? = null,
+    val nextAt: java.time.LocalTime? = null,
+    val nextSubject: String? = null,
 )
 
 /** Minutes below which a countdown is drawn in the accent colour. */
@@ -63,6 +76,8 @@ internal fun headlineOf(context: Context, state: DayState): Headline = when (sta
         progress = null,
         accentIsUrgent = state.startsIn.toMinutes() <= URGENT_MINUTES,
         endsAt = state.validUntil,
+        detail = lessonDetail(context, state.next),
+        countdownWord = WidgetStrings.untilStart(context),
     )
 
     is DayState.InLesson -> Headline(
@@ -73,6 +88,10 @@ internal fun headlineOf(context: Context, state: DayState): Headline = when (sta
         progress = state.progress,
         accentIsUrgent = state.endsIn.toMinutes() <= URGENT_MINUTES,
         endsAt = state.validUntil,
+        detail = lessonDetail(context, state.current),
+        countdownWord = WidgetStrings.untilBell(context),
+        nextAt = state.next?.startsAt,
+        nextSubject = state.next?.subject,
     )
 
     // On a break the useful subject is the one you are walking towards, not the
@@ -85,6 +104,17 @@ internal fun headlineOf(context: Context, state: DayState): Headline = when (sta
         progress = state.progress,
         accentIsUrgent = state.endsIn.toMinutes() <= URGENT_MINUTES,
         endsAt = state.validUntil,
+        // How long the break *is*, not how much of it is left: the figure beside
+        // it already says what is left, and twenty minutes and five minutes are
+        // two different plans for the same gap.
+        detail = WidgetStrings.meta(
+            context,
+            state.previous?.let {
+                WidgetStrings.breakLength(context, minutesBetween(it.endsAt, state.next.startsAt))
+            },
+            if (state.next.room.isNullOrBlank()) null else WidgetStrings.room(context, state.next),
+        ),
+        countdownWord = WidgetStrings.untilBell(context),
     )
 
     is DayState.DuringEvent -> Headline(
@@ -95,6 +125,17 @@ internal fun headlineOf(context: Context, state: DayState): Headline = when (sta
         progress = state.progress,
         accentIsUrgent = state.endsIn.toMinutes() <= URGENT_MINUTES,
         endsAt = state.validUntil,
+        detail = WidgetStrings.meta(
+            context,
+            state.event.location?.takeIf { it.isNotBlank() },
+            WidgetStrings.ofMinutes(
+                context,
+                minutesBetween(state.event.startsAt, state.event.endsAt),
+            ),
+        ),
+        countdownWord = WidgetStrings.untilBell(context),
+        nextAt = state.next?.startsAt,
+        nextSubject = state.next?.subject,
     )
 
     is DayState.AfterSchool,
@@ -108,6 +149,30 @@ internal fun headlineOf(context: Context, state: DayState): Headline = when (sta
         progress = null,
         accentIsUrgent = false,
     )
+}
+
+/** "каб. 30 · из 40 мин" — where the lesson is, and how long it runs. */
+private fun lessonDetail(context: Context, lesson: Lesson): String? = WidgetStrings.meta(
+    context,
+    if (lesson.room.isNullOrBlank()) null else WidgetStrings.room(context, lesson),
+    WidgetStrings.ofMinutes(context, minutesBetween(lesson.startsAt, lesson.endsAt)),
+)
+
+/** Whole minutes between two wall-clock times on the same day. */
+private fun minutesBetween(from: java.time.LocalTime, to: java.time.LocalTime): Int =
+    java.time.Duration.between(from, to).toMinutes().toInt().coerceAtLeast(0)
+
+/**
+ * A one-line plan for a school day: how many lessons and when the first is.
+ *
+ * Drawn under the timeline on the tallest size, where the rest of today is one
+ * row or none by the middle of the afternoon — which is exactly the hour a pupil
+ * is deciding what to put in a bag for tomorrow.
+ */
+internal fun dayPlanOf(context: Context, day: SchoolDay?): String? {
+    val lessons = day?.activeLessons.orEmpty()
+    val first = lessons.firstOrNull() ?: return null
+    return WidgetStrings.dayPlan(context, lessons.size, first.subject, first.startsAt)
 }
 
 /**

@@ -13,6 +13,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.Session
+import com.lumenpearson.lessons.core.model.AlertPreferences
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
@@ -99,6 +100,14 @@ internal class LessonsPreferences(context: Context) {
             prefs[KEY_SHOW_TEACHER] = updated.showTeacher
             prefs[KEY_WIDGET_SHOW_PROGRESS] = updated.widgetShowProgress
             prefs[KEY_DEBUG_MODE] = updated.debugMode
+            prefs[KEY_ONBOARDING_DONE] = updated.onboardingDone
+            prefs[KEY_ALERT_LESSON] = updated.alerts.lessonSoon
+            prefs[KEY_ALERT_LEAD] = updated.alerts.lessonLeadMinutes
+            prefs[KEY_ALERT_MORNING] = updated.alerts.morningSummary
+            prefs[KEY_ALERT_MORNING_AT] = updated.alerts.morningAtMinutes
+            prefs[KEY_ALERT_HOMEWORK] = updated.alerts.homeworkReminder
+            prefs[KEY_ALERT_HOMEWORK_AT] = updated.alerts.homeworkAtMinutes
+            prefs[KEY_ALERT_CHANGES] = updated.alerts.scheduleChanges
             prefs[KEY_SYNC_INTERVAL] = updated.syncIntervalMinutes
                 .coerceAtLeast(AppSettings.MIN_SYNC_INTERVAL_MINUTES)
         }
@@ -115,6 +124,21 @@ internal class LessonsPreferences(context: Context) {
 
     /** @see tokenBlocking */
     fun baseUrlBlocking(): String = runBlocking { currentSettings().baseUrl }
+
+    /**
+     * The shape of the cached schedule as of the previous sync.
+     *
+     * Kept here rather than in [AppSettings] because it is not a preference and
+     * nothing outside the notification code has any business reading it: it
+     * exists only so a sync can tell "the timetable changed" from "the timetable
+     * was fetched again".
+     */
+    suspend fun scheduleFingerprint(): String? = preferences.first()[KEY_SCHEDULE_FINGERPRINT]
+
+    /** @see scheduleFingerprint */
+    suspend fun writeScheduleFingerprint(value: String) {
+        dataStore.edit { prefs -> prefs[KEY_SCHEDULE_FINGERPRINT] = value }
+    }
 
     private fun Preferences.toSession(): Session? {
         val token = this[KEY_TOKEN]?.takeIf { it.isNotBlank() } ?: return null
@@ -148,6 +172,16 @@ internal class LessonsPreferences(context: Context) {
         showTeacher = this[KEY_SHOW_TEACHER] ?: true,
         widgetShowProgress = this[KEY_WIDGET_SHOW_PROGRESS] ?: true,
         debugMode = this[KEY_DEBUG_MODE] ?: false,
+        onboardingDone = this[KEY_ONBOARDING_DONE] ?: false,
+        alerts = AlertPreferences(
+            lessonSoon = this[KEY_ALERT_LESSON] ?: false,
+            lessonLeadMinutes = this[KEY_ALERT_LEAD] ?: AlertPreferences.DefaultLeadMinutes,
+            morningSummary = this[KEY_ALERT_MORNING] ?: false,
+            morningAtMinutes = this[KEY_ALERT_MORNING_AT] ?: AlertPreferences.DefaultMorningMinutes,
+            homeworkReminder = this[KEY_ALERT_HOMEWORK] ?: false,
+            homeworkAtMinutes = this[KEY_ALERT_HOMEWORK_AT] ?: AlertPreferences.DefaultHomeworkMinutes,
+            scheduleChanges = this[KEY_ALERT_CHANGES] ?: false,
+        ),
         syncIntervalMinutes = (this[KEY_SYNC_INTERVAL] ?: AppSettings.DEFAULT_SYNC_INTERVAL_MINUTES)
             .coerceAtLeast(AppSettings.MIN_SYNC_INTERVAL_MINUTES),
     )
@@ -159,6 +193,16 @@ internal class LessonsPreferences(context: Context) {
         val KEY_SCHOOL = stringPreferencesKey("session_school")
 
         val KEY_DEBUG_MODE = booleanPreferencesKey("settings_debug_mode")
+        val KEY_ONBOARDING_DONE = booleanPreferencesKey("settings_onboarding_done")
+
+        val KEY_ALERT_LESSON = booleanPreferencesKey("alert_lesson_soon")
+        val KEY_ALERT_LEAD = intPreferencesKey("alert_lesson_lead_minutes")
+        val KEY_ALERT_MORNING = booleanPreferencesKey("alert_morning")
+        val KEY_ALERT_MORNING_AT = intPreferencesKey("alert_morning_at_minutes")
+        val KEY_ALERT_HOMEWORK = booleanPreferencesKey("alert_homework")
+        val KEY_ALERT_HOMEWORK_AT = intPreferencesKey("alert_homework_at_minutes")
+        val KEY_ALERT_CHANGES = booleanPreferencesKey("alert_schedule_changes")
+        val KEY_SCHEDULE_FINGERPRINT = stringPreferencesKey("alert_schedule_fingerprint")
 
         val KEY_BASE_URL = stringPreferencesKey("settings_base_url")
         val KEY_THEME_MODE = stringPreferencesKey("settings_theme_mode")

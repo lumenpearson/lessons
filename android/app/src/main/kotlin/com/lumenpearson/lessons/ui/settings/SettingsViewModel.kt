@@ -11,6 +11,7 @@ import com.lumenpearson.lessons.core.data.repository.Session
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
+import com.lumenpearson.lessons.core.model.AlertPreferences
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
@@ -117,6 +118,26 @@ class SettingsViewModel(
      * hand over, not ours to collect.
      */
     fun setDebugMode(enabled: Boolean) = update { it.copy(debugMode = enabled) }
+
+    /**
+     * Records that the first-run introduction has been seen.
+     *
+     * Written when the introduction reaches the class-code step rather than when
+     * a class is actually joined: a pupil who backs out at the code field has
+     * still read the four screens, and making them read them again is a
+     * punishment for hesitating.
+     */
+    fun setOnboardingDone() = update { it.copy(onboardingDone = true) }
+
+    /**
+     * Everything the app is allowed to interrupt the user about.
+     *
+     * One setter over the whole block rather than seven: the repository re-arms
+     * the alarm chain when this value changes, and it can only tell that it
+     * changed if the change arrives as one write.
+     */
+    fun setAlerts(transform: (AlertPreferences) -> AlertPreferences) =
+        update { it.copy(alerts = transform(it.alerts)) }
 
     /** Background sync cadence, in minutes. */
     fun setSyncInterval(minutes: Int) = update { it.copy(syncIntervalMinutes = minutes) }

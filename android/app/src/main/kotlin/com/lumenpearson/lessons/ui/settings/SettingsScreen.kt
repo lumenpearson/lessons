@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -27,6 +26,7 @@ import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MotionPhotosOn
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
@@ -39,7 +39,6 @@ import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -63,6 +62,7 @@ import com.lumenpearson.lessons.BuildConfig
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
+import com.lumenpearson.lessons.core.designsystem.component.GroupActionItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupLinkItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupRow
@@ -78,6 +78,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
+import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealAnchor
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -130,6 +131,15 @@ enum class SettingsSection(
         R.string.settings_content_summary,
         Icons.Rounded.ViewAgenda,
         3,
+    ),
+    // There are six accent slots and seven sections, so one hue is used twice.
+    // It is shared with "О приложении", three rows further down, which is as far
+    // apart as the list allows.
+    ALERTS(
+        R.string.settings_alerts,
+        R.string.settings_alerts_summary,
+        Icons.Rounded.NotificationsActive,
+        5,
     ),
     SYNC(
         R.string.settings_sync,
@@ -261,6 +271,7 @@ fun SettingsSectionScreen(
             SettingsSection.APPEARANCE -> appearanceRows(state, viewModel)
             SettingsSection.FEEL -> feelRows(state, viewModel)
             SettingsSection.CONTENT -> contentRows(state, viewModel)
+            SettingsSection.ALERTS -> notificationRows(state, viewModel)
             SettingsSection.SYNC -> syncRows(state, viewModel) { showServerSheet = true }
             SettingsSection.ACCOUNT -> accountRows(state) { showSignOutSheet = true }
             SettingsSection.ABOUT -> aboutRows(state, viewModel)
@@ -357,37 +368,46 @@ private fun LazyListScope.appearanceRows(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
 ) = item(key = "appearance") {
+    // Every row in this group repaints the whole app, so every row opens the
+    // circle from itself. The anchor is what makes the wavefront look like it
+    // came out from under the finger rather than from the middle of nowhere.
     SettingsGroup(title = stringResource(R.string.settings_theme)) {
-        GroupSegmentedItem(
-            title = stringResource(R.string.settings_theme_mode),
-            icon = Icons.Rounded.Contrast,
-            tone = accentTone(4),
-            items = ThemeMode.entries,
-            selectedItem = state.settings.themeMode,
-            onItemSelected = viewModel::setThemeMode,
-            labelProvider = { mode -> stringResource(mode.labelRes) },
-        )
-        GroupSwitchItem(
-            title = stringResource(R.string.settings_dynamic_color),
-            subtitle = if (SupportsDynamicColor) {
-                stringResource(R.string.settings_dynamic_color_description)
-            } else {
-                stringResource(R.string.settings_dynamic_color_unavailable)
-            },
-            icon = Icons.Rounded.Palette,
-            tone = accentTone(0),
-            checked = state.settings.dynamicColor && SupportsDynamicColor,
-            enabled = SupportsDynamicColor,
-            onCheckedChange = viewModel::setDynamicColor,
-        )
-        GroupSwitchItem(
-            title = stringResource(R.string.settings_pitch_black),
-            subtitle = stringResource(R.string.settings_pitch_black_description),
-            icon = Icons.Rounded.DarkMode,
-            tone = accentTone(5),
-            checked = state.settings.pitchBlack,
-            onCheckedChange = viewModel::setPitchBlack,
-        )
+        ThemeRevealAnchor { reveal ->
+            GroupSegmentedItem(
+                title = stringResource(R.string.settings_theme_mode),
+                icon = Icons.Rounded.Contrast,
+                tone = accentTone(4),
+                items = ThemeMode.entries,
+                selectedItem = state.settings.themeMode,
+                onItemSelected = { mode -> reveal { viewModel.setThemeMode(mode) } },
+                labelProvider = { mode -> stringResource(mode.labelRes) },
+            )
+        }
+        ThemeRevealAnchor { reveal ->
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_dynamic_color),
+                subtitle = if (SupportsDynamicColor) {
+                    stringResource(R.string.settings_dynamic_color_description)
+                } else {
+                    stringResource(R.string.settings_dynamic_color_unavailable)
+                },
+                icon = Icons.Rounded.Palette,
+                tone = accentTone(0),
+                checked = state.settings.dynamicColor && SupportsDynamicColor,
+                enabled = SupportsDynamicColor,
+                onCheckedChange = { on -> reveal { viewModel.setDynamicColor(on) } },
+            )
+        }
+        ThemeRevealAnchor { reveal ->
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_pitch_black),
+                subtitle = stringResource(R.string.settings_pitch_black_description),
+                icon = Icons.Rounded.DarkMode,
+                tone = accentTone(5),
+                checked = state.settings.pitchBlack,
+                onCheckedChange = { on -> reveal { viewModel.setPitchBlack(on) } },
+            )
+        }
     }
 }
 
@@ -528,20 +548,15 @@ private fun LazyListScope.syncRows(
             tone = accentTone(0),
             onClick = onEditServer,
         )
-        GroupItem(
-            title = stringResource(R.string.settings_refresh_now),
+        // Filled and full width, as the last row of the group, because it is
+        // the one thing on this page that *does* something the moment it is
+        // pressed rather than storing a preference. Essentials closes its own
+        // updates group with the same shape.
+        GroupActionItem(
+            label = stringResource(R.string.settings_refresh_now),
             icon = Icons.Rounded.Refresh,
-            tone = accentTone(3),
-            enabled = !state.isRefreshing,
+            busy = state.isRefreshing,
             onClick = viewModel::refreshNow,
-            trailing = {
-                if (state.isRefreshing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                    )
-                }
-            },
         )
     }
 }
@@ -609,14 +624,14 @@ private fun LazyListScope.aboutRows(
  * 12 on. Below that the row stays visible but disabled — hiding it would make
  * the setting look like a bug on the phones that do have it.
  */
-private val SupportsDynamicColor: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+internal val SupportsDynamicColor: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
 /** Both blur effects are AGSL runtime shaders, which arrived in Android 13. */
-private val SupportsShaders: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+internal val SupportsShaders: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
 
 /** A labelled group; the one place the label-to-group spacing is decided. */
 @Composable
-private fun SettingsGroup(
+internal fun SettingsGroup(
     title: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -627,7 +642,7 @@ private fun SettingsGroup(
 }
 
 /** Label of a theme mode in the segmented picker. */
-private val ThemeMode.labelRes: Int
+internal val ThemeMode.labelRes: Int
     get() = when (this) {
         ThemeMode.SYSTEM -> R.string.settings_theme_system
         ThemeMode.LIGHT -> R.string.settings_theme_light
