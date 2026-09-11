@@ -25,9 +25,11 @@ import androidx.compose.ui.unit.dp
  * | [TINY]   | 110 x 40dp  | 2x1   | state word + countdown, on one line                 |
  * | [SMALL]  | 110 x 110dp | 2x2   | + subject and a progress bar                        |
  * | [MEDIUM] | 250 x 110dp | 4x2   | + the next two lessons                              |
+ * | [M_TALL] | 250 x 180dp | 4x3   | + twice as many of them, and a progress bar         |
  * | [LARGE]  | 250 x 250dp | 4x4   | + the whole remaining-day timeline                  |
  * | [XLARGE] | 320 x 320dp | 5x5   | + a homework block under the timeline               |
- * | [TALL]   | 320 x 460dp | 5x7   | + the rest of the day rather than blank background  |
+ * | [WIDE]   | 250 x 60dp  | 4x1   | state + subject + countdown on one line             |
+ * | [TALL]   | 320 x 400dp | 5x6   | + the rest of the day rather than blank background  |
  *
  * The widths are the two that matter on a phone: 110dp is two cells on a typical
  * 4- or 5-column launcher grid, 250dp is four, 320dp is five or a tablet column.
@@ -76,6 +78,26 @@ enum class WidgetSizeClass(
         paddingDp = 8f,
     ),
 
+    /**
+     * Wide and one row tall.
+     *
+     * Without this rung a widget four cells wide and one cell high matched
+     * [TINY], whose whole design assumes 110 dp of width — so two thirds of the
+     * surface was background. The extra width buys the subject, which is the
+     * word the user came for.
+     */
+    WIDE(
+        breakpoint = DpSize(250.dp, 60.dp),
+        homeworkItems = 0,
+        homeworkChars = 0,
+        timelineRows = 0,
+        showsProgressBar = false,
+        titleSp = 16f,
+        bodySp = 13f,
+        captionSp = 12f,
+        paddingDp = 10f,
+    ),
+
     /** The square 2x2 most launchers default to when a user drags from the picker. */
     SMALL(
         breakpoint = DpSize(110.dp, 110.dp),
@@ -97,6 +119,26 @@ enum class WidgetSizeClass(
         timelineRows = 2,
         showsProgressBar = true,
         titleSp = 19f,
+        bodySp = 13f,
+        captionSp = 12f,
+        paddingDp = 12f,
+    ),
+
+    /**
+     * Between [MEDIUM] and [LARGE], which is where a lot of widgets actually sit.
+     *
+     * The height ladder stepped 110 → 250, so every widget in between drew the
+     * 110 dp layout and left up to 140 dp of empty background under it — the
+     * single most visible thing wrong with the widget. This rung takes that band
+     * and spends it on the rows [MEDIUM] had no room for.
+     */
+    MEDIUM_TALL(
+        breakpoint = DpSize(250.dp, 180.dp),
+        homeworkItems = 4,
+        homeworkChars = 48,
+        timelineRows = 4,
+        showsProgressBar = true,
+        titleSp = 20f,
         bodySp = 13f,
         captionSp = 12f,
         paddingDp = 12f,
@@ -136,7 +178,7 @@ enum class WidgetSizeClass(
      * class, and Glance gives no measure pass to distribute the surplus with.
      */
     TALL(
-        breakpoint = DpSize(320.dp, 460.dp),
+        breakpoint = DpSize(320.dp, 400.dp),
         homeworkItems = 8,
         homeworkChars = 72,
         timelineRows = 10,
@@ -170,8 +212,12 @@ enum class WidgetSizeClass(
                 w >= TALL.breakpoint.width && h >= TALL.breakpoint.height -> TALL
                 w >= XLARGE.breakpoint.width && h >= XLARGE.breakpoint.height -> XLARGE
                 w >= LARGE.breakpoint.width && h >= LARGE.breakpoint.height -> LARGE
+                w >= MEDIUM_TALL.breakpoint.width &&
+                    h >= MEDIUM_TALL.breakpoint.height -> MEDIUM_TALL
+
                 w >= MEDIUM.breakpoint.width && h >= MEDIUM.breakpoint.height -> MEDIUM
                 h >= SMALL.breakpoint.height -> SMALL
+                w >= WIDE.breakpoint.width && h >= WIDE.breakpoint.height -> WIDE
                 else -> TINY
             }
         }

@@ -5,6 +5,7 @@ import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.HomeworkItem
 import com.lumenpearson.lessons.core.model.Lesson
 import com.lumenpearson.lessons.core.model.SchoolDay
+import com.lumenpearson.lessons.core.model.SchoolEvent
 import com.lumenpearson.lessons.core.model.ScheduleEngine
 import com.lumenpearson.lessons.widget.R
 import com.lumenpearson.lessons.widget.format.HomeworkDayLabel
@@ -29,6 +30,9 @@ import java.time.LocalDateTime
  *   nothing is running.
  * @property accentIsUrgent true in the last five minutes, which is when a
  *   student actually looks at the widget.
+ * @property endsAt when the running lesson, break or event is over, in the
+ *   school's wall time. It is what the live countdown counts to, and it is null
+ *   exactly when [countdown] is: after school there is nothing to count.
  */
 internal data class Headline(
     val label: String,
@@ -37,6 +41,7 @@ internal data class Headline(
     val bareCountdown: String?,
     val progress: Float?,
     val accentIsUrgent: Boolean,
+    val endsAt: java.time.LocalDateTime? = null,
 )
 
 /** Minutes below which a countdown is drawn in the accent colour. */
@@ -57,6 +62,7 @@ internal fun headlineOf(context: Context, state: DayState): Headline = when (sta
         bareCountdown = WidgetStrings.duration(context, state.startsIn, short = true),
         progress = null,
         accentIsUrgent = state.startsIn.toMinutes() <= URGENT_MINUTES,
+        endsAt = state.validUntil,
     )
 
     is DayState.InLesson -> Headline(
@@ -66,6 +72,7 @@ internal fun headlineOf(context: Context, state: DayState): Headline = when (sta
         bareCountdown = WidgetStrings.duration(context, state.endsIn, short = true),
         progress = state.progress,
         accentIsUrgent = state.endsIn.toMinutes() <= URGENT_MINUTES,
+        endsAt = state.validUntil,
     )
 
     // On a break the useful subject is the one you are walking towards, not the
@@ -77,6 +84,7 @@ internal fun headlineOf(context: Context, state: DayState): Headline = when (sta
         bareCountdown = WidgetStrings.duration(context, state.endsIn, short = true),
         progress = state.progress,
         accentIsUrgent = state.endsIn.toMinutes() <= URGENT_MINUTES,
+        endsAt = state.validUntil,
     )
 
     is DayState.DuringEvent -> Headline(
@@ -86,6 +94,7 @@ internal fun headlineOf(context: Context, state: DayState): Headline = when (sta
         bareCountdown = WidgetStrings.duration(context, state.endsIn, short = true),
         progress = state.progress,
         accentIsUrgent = state.endsIn.toMinutes() <= URGENT_MINUTES,
+        endsAt = state.validUntil,
     )
 
     is DayState.AfterSchool,
@@ -186,3 +195,48 @@ internal fun homeworkOf(
  */
 internal fun remainingLessonsOf(today: SchoolDay?, now: LocalDateTime): List<Lesson> =
     today?.let { ScheduleEngine.remainingLessons(it, now.toLocalTime()) }.orEmpty()
+
+/**
+ * The events still to come today.
+ *
+ * Events were cached and never drawn anywhere on the widget: a class trip, an
+ * exam or a canteen slot existed in the snapshot and the home screen showed the
+ * lessons it replaces as if nothing were happening. The filter matches
+ * [remainingLessonsOf] — something in progress still counts as remaining,
+ * because "сейчас идёт" is the answer the widget exists to give.
+ */
+internal fun remainingEventsOf(today: SchoolDay?, now: LocalDateTime): List<SchoolEvent> {
+    val time = now.toLocalTime()
+    return today?.events.orEmpty().filter { it.endsAt > time }.sortedBy { it.startsAt }
+}
+
+/**
+ * Lessons and events on one axis, in the order they happen.
+ *
+ * Two lists drawn one after the other would put a trip that replaces the third
+ * lesson below the fifth, which is worse than not showing it. Ties go to the
+ * event: an event that starts exactly when a lesson does is the thing that
+ * replaced it.
+ */
+internal fun remainingTimeline(today: SchoolDay?, now: LocalDateTime): List<TimelineEntry> {
+    val lessons = remainingLessonsOf(today, now).map { TimelineEntry.OfLesson(it) }
+    val events = remainingEventsOf(today, now).map { TimelineEntry.OfEvent(it) }
+    return (lessons + events).sortedWith(
+        compareBy({ it.startsAt }, { if (it is TimelineEntry.OfEvent) 0 else 1 }),
+    )
+}
+
+/** One row of the merged timeline. */
+internal sealed interface TimelineEntry {
+    val startsAt: java.time.LocalTime
+
+    @JvmInline
+    value class OfLesson(val lesson: Lesson) : TimelineEntry {
+        override val startsAt: java.time.LocalTime get() = lesson.startsAt
+    }
+
+    @JvmInline
+    value class OfEvent(val event: SchoolEvent) : TimelineEntry {
+        override val startsAt: java.time.LocalTime get() = event.startsAt
+    }
+}
