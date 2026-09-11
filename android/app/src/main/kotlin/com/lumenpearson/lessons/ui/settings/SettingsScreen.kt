@@ -78,6 +78,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
+import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealAnchor
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -367,37 +368,46 @@ private fun LazyListScope.appearanceRows(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
 ) = item(key = "appearance") {
+    // Every row in this group repaints the whole app, so every row opens the
+    // circle from itself. The anchor is what makes the wavefront look like it
+    // came out from under the finger rather than from the middle of nowhere.
     SettingsGroup(title = stringResource(R.string.settings_theme)) {
-        GroupSegmentedItem(
-            title = stringResource(R.string.settings_theme_mode),
-            icon = Icons.Rounded.Contrast,
-            tone = accentTone(4),
-            items = ThemeMode.entries,
-            selectedItem = state.settings.themeMode,
-            onItemSelected = viewModel::setThemeMode,
-            labelProvider = { mode -> stringResource(mode.labelRes) },
-        )
-        GroupSwitchItem(
-            title = stringResource(R.string.settings_dynamic_color),
-            subtitle = if (SupportsDynamicColor) {
-                stringResource(R.string.settings_dynamic_color_description)
-            } else {
-                stringResource(R.string.settings_dynamic_color_unavailable)
-            },
-            icon = Icons.Rounded.Palette,
-            tone = accentTone(0),
-            checked = state.settings.dynamicColor && SupportsDynamicColor,
-            enabled = SupportsDynamicColor,
-            onCheckedChange = viewModel::setDynamicColor,
-        )
-        GroupSwitchItem(
-            title = stringResource(R.string.settings_pitch_black),
-            subtitle = stringResource(R.string.settings_pitch_black_description),
-            icon = Icons.Rounded.DarkMode,
-            tone = accentTone(5),
-            checked = state.settings.pitchBlack,
-            onCheckedChange = viewModel::setPitchBlack,
-        )
+        ThemeRevealAnchor { reveal ->
+            GroupSegmentedItem(
+                title = stringResource(R.string.settings_theme_mode),
+                icon = Icons.Rounded.Contrast,
+                tone = accentTone(4),
+                items = ThemeMode.entries,
+                selectedItem = state.settings.themeMode,
+                onItemSelected = { mode -> reveal { viewModel.setThemeMode(mode) } },
+                labelProvider = { mode -> stringResource(mode.labelRes) },
+            )
+        }
+        ThemeRevealAnchor { reveal ->
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_dynamic_color),
+                subtitle = if (SupportsDynamicColor) {
+                    stringResource(R.string.settings_dynamic_color_description)
+                } else {
+                    stringResource(R.string.settings_dynamic_color_unavailable)
+                },
+                icon = Icons.Rounded.Palette,
+                tone = accentTone(0),
+                checked = state.settings.dynamicColor && SupportsDynamicColor,
+                enabled = SupportsDynamicColor,
+                onCheckedChange = { on -> reveal { viewModel.setDynamicColor(on) } },
+            )
+        }
+        ThemeRevealAnchor { reveal ->
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_pitch_black),
+                subtitle = stringResource(R.string.settings_pitch_black_description),
+                icon = Icons.Rounded.DarkMode,
+                tone = accentTone(5),
+                checked = state.settings.pitchBlack,
+                onCheckedChange = { on -> reveal { viewModel.setPitchBlack(on) } },
+            )
+        }
     }
 }
 

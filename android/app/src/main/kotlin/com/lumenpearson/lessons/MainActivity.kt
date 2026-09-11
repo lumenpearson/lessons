@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.core.data.diagnostics.CrashReporter
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealHost
 import com.lumenpearson.lessons.core.designsystem.theme.resolvesToDark
 import com.lumenpearson.lessons.core.model.DeepLink
 import com.lumenpearson.lessons.navigation.LessonsApp
@@ -104,12 +105,17 @@ class MainActivity : ComponentActivity() {
                 dynamicColor = shell.settings.dynamicColor,
                 pitchBlack = shell.settings.pitchBlack,
             ) {
-                LessonsApp(
-                    signedIn = shell.signedIn,
-                    settings = shell.settings,
-                    openDate = openDate,
-                    onDateOpened = { pendingDate.value = null },
-                )
+                // Wraps the app rather than living inside a screen: the circle
+                // has to cross the whole window, and the still it wipes away is
+                // a photograph of the whole window.
+                ThemeRevealHost {
+                    LessonsApp(
+                        signedIn = shell.signedIn,
+                        settings = shell.settings,
+                        openDate = openDate,
+                        onDateOpened = { pendingDate.value = null },
+                    )
+                }
             }
         }
     }

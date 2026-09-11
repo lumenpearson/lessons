@@ -56,6 +56,7 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
+import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealAnchor
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.appSlideMotionBlur
 import com.lumenpearson.lessons.core.model.ThemeMode
@@ -236,15 +237,17 @@ private fun WelcomeStep(
         Spacer(Modifier.height(40.dp))
 
         RoundedCardContainer {
-            GroupSegmentedItem(
-                title = stringResource(R.string.settings_theme_mode),
-                icon = Icons.Rounded.Contrast,
-                tone = accentTone(4),
-                items = ThemeMode.entries,
-                selectedItem = state.settings.themeMode,
-                onItemSelected = viewModel::setThemeMode,
-                labelProvider = { mode -> stringResource(mode.labelRes) },
-            )
+            ThemeRevealAnchor { reveal ->
+                GroupSegmentedItem(
+                    title = stringResource(R.string.settings_theme_mode),
+                    icon = Icons.Rounded.Contrast,
+                    tone = accentTone(4),
+                    items = ThemeMode.entries,
+                    selectedItem = state.settings.themeMode,
+                    onItemSelected = { mode -> reveal { viewModel.setThemeMode(mode) } },
+                    labelProvider = { mode -> stringResource(mode.labelRes) },
+                )
+            }
         }
         Spacer(Modifier.height(8.dp))
     }
