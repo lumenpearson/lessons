@@ -9,7 +9,7 @@
 
     <!-- Навигация -->
     <string name="nav_today">Сегодня</string>
-    <string name="nav_week">Неделя</string>
+    <string name="nav_week">Календарь</string>
     <string name="nav_homework">Задания</string>
     <string name="nav_settings">Настройки</string>
 
@@ -46,6 +46,24 @@
     <string name="today_title">Сегодня</string>
     <string name="today_lessons_remaining">Оставшиеся уроки</string>
     <string name="today_events">События</string>
+
+    <!-- Календарь -->
+    <string name="schedule_view_week">Неделя</string>
+    <string name="schedule_view_month">Месяц</string>
+    <string name="schedule_view_day">День</string>
+    <string name="schedule_day_details">Подробно</string>
+    <string name="schedule_room_short">каб. %1$s</string>
+    <string name="schedule_lesson_index">Урок %1$d</string>
+    <string name="schedule_time">Время</string>
+    <string name="schedule_duration">%1$d мин</string>
+    <string name="schedule_room">Кабинет</string>
+    <string name="schedule_teacher">Учитель</string>
+    <string name="schedule_note">Примечание</string>
+    <string name="schedule_homework">Домашнее задание</string>
+    <string name="schedule_homework_empty">По этому предмету ничего не задано</string>
+    <string name="schedule_lesson_replaced">замена</string>
+    <string name="schedule_lesson_cancelled">отменён</string>
+    <string name="schedule_events">События</string>
     <string name="today_homework_for">Домашнее задание на %1$s</string>
     <string name="today_homework_more">Ещё %1$d — открыть все задания</string>
     <string name="today_no_data_title">Расписания нет</string>
@@ -74,7 +92,7 @@
     <string name="sync_error_generic">Не удалось обновить расписание</string>
 
     <!-- Неделя -->
-    <string name="week_title">Неделя</string>
+    <string name="week_title">Календарь</string>
     <string name="week_range">%1$s — %2$s</string>
     <string name="week_previous">Предыдущая неделя</string>
     <string name="week_next">Следующая неделя</string>

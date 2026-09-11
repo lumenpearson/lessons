@@ -75,8 +75,16 @@ class SyncWorker(
         /** @see SyncResult.NotConfigured */
         const val REASON_NOT_CONFIGURED: String = "not_configured"
 
-        /** Two weeks: enough for the widget to survive a holiday offline. */
-        const val DEFAULT_DAYS: Int = 14
+        /**
+         * A month, which is what the calendar's month view needs to be a month.
+         *
+         * It was two weeks, chosen so the widget could survive a holiday
+         * offline. A month grid drawn over a two-week cache is half real and
+         * half "нет данных", and the difference between the two on the wire is
+         * one integer in a query string — the server already caps the window at
+         * 31 days and resolves the whole range in one query.
+         */
+        const val DEFAULT_DAYS: Int = 31
 
         /**
          * After three tries the next scheduled run will happen sooner than the

@@ -1,14 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  initialLayout: what the launcher shows in the ~200 ms between "widget dropped"
-  and Glance's first RemoteViews arriving. Deliberately just the surface, so the
-  drop animation does not flash text that is about to be replaced.
-  The @android:id/background id is what makes the launcher round our corners and
-  apply its own widget background treatment.
+  initialLayout: what the launcher shows between "widget dropped" and Glance's
+  first RemoteViews arriving.
+
+  It used to be the bare surface, on the theory that the gap is about 200 ms and
+  that flashing text about to be replaced is worse than nothing. The gap is not
+  200 ms on a cold process: the first render opens Room and DataStore from a
+  standing start, and on a phone that has just been unlocked it can be most of a
+  minute. For that minute the user is looking at an empty black rectangle they
+  have just dragged onto their home screen, which reads as a widget that does not
+  work — the one impression it cannot afford to make on its first appearance.
+
+  So it says what it is doing. @android:id/background is what makes the launcher
+  round our corners and apply its own widget background treatment.
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_preview_background"
-    android:theme="@style/Theme.Lessons.Widget" />
+    android:padding="12dp"
+    android:theme="@style/Theme.Lessons.Widget">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:alpha="0.6"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="2"
+        android:text="@string/widget_loading"
+        android:textSize="13sp" />
+
+</FrameLayout>

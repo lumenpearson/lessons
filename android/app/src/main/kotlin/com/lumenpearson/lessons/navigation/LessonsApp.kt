@@ -70,7 +70,10 @@ import com.lumenpearson.lessons.ui.settings.SettingsSection
 import com.lumenpearson.lessons.ui.settings.SettingsSectionScreen
 import com.lumenpearson.lessons.ui.settings.SettingsViewModel
 import com.lumenpearson.lessons.ui.today.TodayScreen
+import com.lumenpearson.lessons.ui.week.ScheduleView
 import com.lumenpearson.lessons.ui.week.WeekScreen
+import com.lumenpearson.lessons.ui.week.WeekViewModel
+import java.time.LocalDate
 import kotlin.math.abs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -87,17 +90,26 @@ import kotlinx.coroutines.launch
  * @param signedIn `null` while the stored session is still being read — the
  *   splash is shown for that moment rather than guessing a destination and then
  *   yanking the user somewhere else a frame later.
+ * @param openDate a day the widget asked for; the shell moves to the calendar
+ *   and selects it, then calls [onDateOpened] so the request is acted on once.
  */
 @Composable
 fun LessonsApp(
     signedIn: Boolean?,
     settings: AppSettings,
     modifier: Modifier = Modifier,
+    openDate: LocalDate? = null,
+    onDateOpened: () -> Unit = {},
 ) {
     when (signedIn) {
         null -> SplashShell(modifier = modifier)
         false -> JoinScreen(modifier = modifier)
-        true -> HomeShell(settings = settings, modifier = modifier)
+        true -> HomeShell(
+            settings = settings,
+            openDate = openDate,
+            onDateOpened = onDateOpened,
+            modifier = modifier,
+        )
     }
 }
 
@@ -142,6 +154,8 @@ private const val PageTransitionMillis = 320
 @Composable
 private fun HomeShell(
     settings: AppSettings,
+    openDate: LocalDate?,
+    onDateOpened: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val tabs = HomeTab.entries
@@ -160,6 +174,9 @@ private fun HomeShell(
     // call sites resolve to the same instance through the activity's store, so
     // the screens below can keep their own default and nothing is passed down.
     val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory)
+    // Hoisted for the same reason: a day chip on the widget has to be able to
+    // put a date into the calendar before the calendar has been composed.
+    val calendarViewModel: WeekViewModel = viewModel(factory = WeekViewModel.Factory)
     val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
 
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
@@ -189,6 +206,19 @@ private fun HomeShell(
     val pageOffsets = remember(tabs.size) { List(tabs.size) { ScrollOffsetHolder() } }
     val settingsOffset = remember { ScrollOffsetHolder() }
     val sectionOffset = remember { ScrollOffsetHolder() }
+
+    // A widget tap lands here. Closing the settings layers first, because the
+    // request is "show me this day" and a page that slides in over the calendar
+    // would answer it with a screen the user did not ask for.
+    LaunchedEffect(openDate) {
+        val date = openDate ?: return@LaunchedEffect
+        openSectionName = null
+        settingsOpen = false
+        calendarViewModel.select(date)
+        calendarViewModel.setView(ScheduleView.DAY)
+        pagerState.animateScrollToPage(tabs.indexOf(HomeTab.WEEK).coerceAtLeast(0))
+        onDateOpened()
+    }
 
     // A tap when the page actually changes, however it was changed. Keyed on the
     // pager alone: re-keying on the swipe setting would restart the collector and
@@ -321,7 +351,7 @@ private fun HomeShell(
                                 },
                             )
 
-                            HomeTab.WEEK -> WeekScreen()
+                            HomeTab.WEEK -> WeekScreen(viewModel = calendarViewModel)
                             HomeTab.HOMEWORK -> HomeworkScreen()
                         }
                     }

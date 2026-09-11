@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The one piece of the widget that ticks on its own.
+
+  A Chronometer in count-down mode is redrawn by the launcher's own view, once a
+  second, with no broadcast, no alarm and no process wake-up. Everything else in
+  the widget is a snapshot rendered when something changes; this is the part that
+  has to change every second, and rendering it as text would mean an alarm per
+  second, which the platform would rightly refuse to deliver.
+
+  Glance has no Chronometer, so it arrives through AndroidRemoteViews. The text
+  size and colour are set from code rather than here, because they come from the
+  size class and the theme.
+-->
+<Chronometer xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_countdown"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:includeFontPadding="false"
+    android:maxLines="1"
+    android:textStyle="bold" />

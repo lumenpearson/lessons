@@ -26,6 +26,7 @@ import com.lumenpearson.lessons.widget.WidgetOptions
 import com.lumenpearson.lessons.widget.WidgetSizeClass
 import com.lumenpearson.lessons.widget.format.WidgetStrings
 import com.lumenpearson.lessons.widget.format.ellipsize
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 /**
@@ -96,6 +97,8 @@ internal fun LessonsWidgetBody(
     size: WidgetSizeClass,
     options: WidgetOptions,
     onClick: Action,
+    week: List<DayLoad> = emptyList(),
+    onDayClick: ((LocalDate) -> Action)? = null,
 ) {
     Box(
         modifier = GlanceModifier
@@ -114,15 +117,20 @@ internal fun LessonsWidgetBody(
         } else {
             when (size) {
                 WidgetSizeClass.TINY -> TinyBody(state, homeworkDay, now, size)
+                WidgetSizeClass.WIDE -> WideBody(state, homeworkDay, now, size)
                 WidgetSizeClass.SMALL -> SmallBody(state, homeworkDay, now, size, options)
-                WidgetSizeClass.MEDIUM ->
+                WidgetSizeClass.MEDIUM, WidgetSizeClass.MEDIUM_TALL ->
                     MediumBody(state, today, homeworkDay, now, size, options)
 
-                WidgetSizeClass.LARGE ->
-                    TimelineBody(state, today, homeworkDay, now, size, options, withHomework = false)
+                WidgetSizeClass.LARGE -> TimelineBody(
+                    state, today, homeworkDay, now, size, options,
+                    withHomework = false, week = week, onDayClick = onDayClick,
+                )
 
-                WidgetSizeClass.XLARGE, WidgetSizeClass.TALL ->
-                    TimelineBody(state, today, homeworkDay, now, size, options, withHomework = true)
+                WidgetSizeClass.XLARGE, WidgetSizeClass.TALL -> TimelineBody(
+                    state, today, homeworkDay, now, size, options,
+                    withHomework = true, week = week, onDayClick = onDayClick,
+                )
             }
         }
     }
@@ -143,7 +151,9 @@ internal fun LessonsWidgetBody(
 @Composable
 private fun EmptyBody(size: WidgetSizeClass, signedIn: Boolean) {
     val context = LocalContext.current
-    val compact = size == WidgetSizeClass.TINY || size == WidgetSizeClass.SMALL
+    val compact = size == WidgetSizeClass.TINY ||
+        size == WidgetSizeClass.WIDE ||
+        size == WidgetSizeClass.SMALL
     val text = when {
         !signedIn && compact -> R.string.widget_empty_short
         !signedIn -> R.string.widget_empty_title
@@ -212,6 +222,56 @@ private fun TinyBody(
 }
 
 /**
+ * 4x1: the whole state on one line, with a countdown that ticks.
+ *
+ * The width [TINY] does not have is spent on the subject — "ПЕРЕМЕНА · Физика ·
+ * 07:42" answers the question without opening anything, and it is the shape a
+ * widget one cell high can actually hold. Before this size existed, a widget
+ * this shape drew the 110 dp layout and left two thirds of itself empty.
+ */
+@Composable
+private fun WideBody(
+    state: DayState,
+    homeworkDay: SchoolDay?,
+    now: LocalDateTime,
+    size: WidgetSizeClass,
+) {
+    val context = LocalContext.current
+    Row(
+        modifier = GlanceModifier.fillMaxSize(),
+        verticalAlignment = Alignment.Vertical.CenterVertically,
+    ) {
+        if (isHomeworkPrimary(state)) {
+            val homework = homeworkOf(context, homeworkDay, now.toLocalDate())
+            StateLabel(
+                text = homework.shortHeader,
+                size = size,
+                uppercase = false,
+                modifier = GlanceModifier.defaultWeight(),
+            )
+            if (homework.isKnown) {
+                HSpace(8)
+                CaptionText(text = homework.subjectCount, size = size, emphasised = true)
+            }
+            return@Row
+        }
+
+        val headline = headlineOf(context, state)
+        StateLabel(text = headline.label, size = size, urgent = headline.accentIsUrgent)
+        headline.subject?.let {
+            HSpace(8)
+            SubjectText(
+                text = it,
+                size = size,
+                maxLines = 1,
+                modifier = GlanceModifier.defaultWeight(),
+            )
+        }
+        Countdown(headline = headline, now = now, size = size)
+    }
+}
+
+/**
  * 2x2: the state, what it is about, how long is left, and a progress bar.
  *
  * This is the size most people keep, so it is the one tuned hardest: two lines
@@ -244,7 +304,7 @@ private fun SmallBody(
         VSpace(2)
         headline.subject?.let { SubjectText(text = it, size = size, maxLines = 2) }
         VSpace(2)
-        headline.countdown?.let { CaptionText(text = it, size = size, emphasised = true) }
+        Countdown(headline = headline, now = now, size = size, verbose = true)
         if (options.showProgress && size.showsProgressBar && headline.progress != null) {
             VSpace(6)
             StateProgress(progress = headline.progress)
@@ -286,7 +346,7 @@ private fun MediumBody(
                 VSpace(2)
                 headline.subject?.let { SubjectText(text = it, size = size, maxLines = 1) }
                 VSpace(2)
-                headline.countdown?.let { CaptionText(text = it, size = size, emphasised = true) }
+                Countdown(headline = headline, now = now, size = size, verbose = true)
             }
             val upcoming = upcomingLessons(state, today, now, limit = size.timelineRows)
             if (upcoming.isNotEmpty()) {
@@ -330,6 +390,8 @@ private fun TimelineBody(
     size: WidgetSizeClass,
     options: WidgetOptions,
     withHomework: Boolean,
+    week: List<DayLoad>,
+    onDayClick: ((LocalDate) -> Action)?,
 ) {
     val context = LocalContext.current
     val homework = homeworkOf(context, homeworkDay, now.toLocalDate())
@@ -368,9 +430,7 @@ private fun TimelineBody(
                     urgent = headline.accentIsUrgent,
                     modifier = GlanceModifier.defaultWeight(),
                 )
-                headline.bareCountdown?.let {
-                    CaptionText(text = it, size = size, emphasised = true)
-                }
+                Countdown(headline = headline, now = now, size = size)
             }
             VSpace(2)
             headline.subject?.let { SubjectText(text = it, size = size, maxLines = 1) }
@@ -380,13 +440,30 @@ private fun TimelineBody(
             }
         }
 
+        // The week, as close to a scrollable day strip as RemoteViews allows:
+        // it has no horizontally scrolling container at all, so seven columns
+        // are fitted rather than scrolled. Each one is a link into the app on
+        // that day — which is the other half of what scrolling would be for.
+        if (onDayClick != null && week.isNotEmpty()) {
+            VSpace(10)
+            WeekStrip(
+                week = week,
+                today = now.toLocalDate(),
+                size = size,
+                openDay = onDayClick,
+            )
+        }
+
         VSpace(10)
 
         // …and one for the whole timeline, however many lessons are left.
         Column(modifier = GlanceModifier.fillMaxWidth()) {
             SectionTitle(text = context.getString(R.string.widget_timeline_title), size = size)
             VSpace(4)
-            val remaining = remainingLessonsOf(today, now)
+            // Lessons and events on one axis. Drawn as two lists one after the
+            // other, a trip that replaces the third lesson appeared below the
+            // fifth, which is worse than not showing it at all.
+            val remaining = remainingTimeline(today, now)
             if (remaining.isEmpty()) {
                 BodyText(
                     text = context.getString(R.string.widget_nothing_left),
@@ -397,13 +474,17 @@ private fun TimelineBody(
                 val current = (state as? DayState.InLesson)?.current
                 // The rows carry their own vertical padding, so there is no
                 // spacer between them to spend a child slot on.
-                remaining.take(size.timelineRows.coerceAtMost(CHILD_LIMIT - 2)).forEach { lesson ->
-                    TimelineRow(
-                        lesson = lesson,
-                        size = size,
-                        options = options,
-                        isCurrent = lesson == current,
-                    )
+                remaining.take(size.timelineRows.coerceAtMost(CHILD_LIMIT - 2)).forEach { entry ->
+                    when (entry) {
+                        is TimelineEntry.OfLesson -> TimelineRow(
+                            lesson = entry.lesson,
+                            size = size,
+                            options = options,
+                            isCurrent = entry.lesson == current,
+                        )
+
+                        is TimelineEntry.OfEvent -> EventRow(event = entry.event, size = size)
+                    }
                 }
             }
         }
@@ -428,6 +509,47 @@ private fun TimelineBody(
             }
         }
     }
+}
+
+/**
+ * How long is left, ticking.
+ *
+ * The widget is otherwise a snapshot: the process wakes on an alarm, renders,
+ * and sleeps, so "осталось 12 мин" stayed at twelve until the next wake — which
+ * is exactly wrong for the one number on the screen that a pupil watches. The
+ * remaining time is now drawn by a `Chronometer` counting down in the launcher's
+ * own process, second by second, costing nothing.
+ *
+ * The wording around the figure ("осталось …", "через …") is dropped in the
+ * live form rather than split into a second view: which of the two it is, is
+ * already said by the state label right next to it, and languages disagree about
+ * whether the word goes before the number or after it.
+ *
+ * Falls back to the frozen string when the state has no end — after school there
+ * is nothing to count to, and a chronometer counting to nothing shows zero.
+ */
+@Composable
+private fun Countdown(
+    headline: Headline,
+    now: LocalDateTime,
+    size: WidgetSizeClass,
+    verbose: Boolean = false,
+    modifier: GlanceModifier = GlanceModifier,
+) {
+    val endsAt = headline.endsAt
+    if (endsAt == null) {
+        val frozen = if (verbose) headline.countdown else headline.bareCountdown
+        frozen?.let { CaptionText(text = it, size = size, emphasised = true, modifier = modifier) }
+        return
+    }
+
+    LiveCountdown(
+        endsAt = endsAt,
+        now = now,
+        size = size,
+        urgent = headline.accentIsUrgent,
+        modifier = modifier,
+    )
 }
 
 /**

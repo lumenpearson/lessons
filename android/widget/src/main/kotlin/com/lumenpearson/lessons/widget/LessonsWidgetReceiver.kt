@@ -1,11 +1,11 @@
 package com.lumenpearson.lessons.widget
 
+// updateAll is an extension on GlanceAppWidget, not a member.
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
-// updateAll is an extension on GlanceAppWidget, not a member.
 import androidx.glance.appwidget.updateAll
 import com.lumenpearson.lessons.core.data.sync.DataSyncBroadcast
 import com.lumenpearson.lessons.core.data.sync.SyncScheduler

@@ -30,12 +30,13 @@ interface TimetableRepository {
     suspend fun snapshot(): Timetable?
 
     /**
-     * Fetches [days] days starting today and replaces the cache with them.
+     * Fetches [days] days from the Monday of the current week and replaces the
+     * cache with them.
      *
      * Never throws: network trouble is normal on a phone in a school building,
      * so it is reported as [SyncResult] instead. Callers that want the widget
      * redrawn afterwards should go through `SyncScheduler.syncNow`, which
      * broadcasts on success.
      */
-    suspend fun refresh(days: Int = 14): SyncResult
+    suspend fun refresh(days: Int = 31): SyncResult
 }

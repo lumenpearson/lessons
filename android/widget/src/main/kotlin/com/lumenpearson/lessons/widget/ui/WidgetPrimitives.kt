@@ -1,16 +1,24 @@
 package com.lumenpearson.lessons.widget.ui
 
+import android.os.SystemClock
+import android.util.TypedValue
+import android.widget.RemoteViews
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
+import androidx.glance.action.Action
+import androidx.glance.action.clickable
+import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.LinearProgressIndicator
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
+import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxWidth
@@ -21,12 +29,18 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.lumenpearson.lessons.core.designsystem.theme.AccentMath
+import com.lumenpearson.lessons.core.designsystem.theme.parseSubjectColor
 import com.lumenpearson.lessons.core.model.Lesson
+import com.lumenpearson.lessons.core.model.SchoolEvent
 import com.lumenpearson.lessons.widget.R
 import com.lumenpearson.lessons.widget.WidgetOptions
 import com.lumenpearson.lessons.widget.WidgetSizeClass
 import com.lumenpearson.lessons.widget.format.WidgetStrings
 import com.lumenpearson.lessons.widget.format.ellipsize
+import java.time.Duration
+import java.time.LocalDate
+import java.time.LocalDateTime
 
 /**
  * The small building blocks every size class shares.
@@ -181,6 +195,15 @@ private val WidgetCardCorner = 18.dp
 /** Corner of the pill drawn behind the lesson that is running right now. */
 private val CurrentRowCorner = 12.dp
 
+/**
+ * The colour mark at the head of a timeline row.
+ *
+ * Wider than it was. Three pixels of a muted grey was, in practice, invisible;
+ * now that the bar actually carries the subject's hue it is worth seeing.
+ */
+private val AccentBarWidth = 4.dp
+private val AccentBarHeight = 18.dp
+
 /** Vertical rhythm helper, so the spacing constants live in one place. */
 @Composable
 internal fun VSpace(dp: Int) {
@@ -214,7 +237,7 @@ internal fun TimelineRow(
     modifier: GlanceModifier = GlanceModifier,
 ) {
     val context = LocalContext.current
-    val accent = lessonAccent(lesson.colorHex)
+    val accent = subjectAccent(lesson.subject, lesson.colorHex)
     // The running lesson is filled rather than merely tinted — the same
     // inversion the floating toolbar uses for the selected tab, so "you are
     // here" reads the same way in the app and on the home screen.
@@ -235,15 +258,11 @@ internal fun TimelineRow(
         // row is the same grey shape and the list has to be read in order.
         Box(
             modifier = GlanceModifier
-                .width(3.dp)
-                .height(16.dp)
+                .width(AccentBarWidth)
+                .height(AccentBarHeight)
                 .cornerRadius(2.dp)
                 .background(
-                    when {
-                        isCurrent -> GlanceTheme.colors.onPrimaryContainer
-                        accent != null -> accent
-                        else -> GlanceTheme.colors.surfaceVariant
-                    },
+                    if (isCurrent) GlanceTheme.colors.onPrimaryContainer else accent,
                 ),
         ) {}
         HSpace(8)
@@ -334,18 +353,215 @@ internal fun SectionTitle(text: String, size: WidgetSizeClass) {
 }
 
 /**
- * Wraps a hex colour from the timetable into a Glance colour provider.
+ * The school week, as seven chips.
  *
- * Returns null on anything unparseable: a malformed colour from the server must
- * never take the widget down, and falling back to the theme accent is invisible
- * to the user.
+ * As close to "scrollable weekdays" as a home-screen widget gets. `RemoteViews`
+ * has no horizontally scrolling container — the platform offers `ListView`,
+ * `GridView` and `StackView` and every one of them scrolls vertically — so the
+ * week is fitted rather than scrolled: seven fixed columns, each carrying the
+ * weekday letter, the date and a dot per lesson.
+ *
+ * Every chip is a link into the app on that day, which is the other half of what
+ * scrolling would have been for. Tapping the widget already opened the app; now
+ * it can open it somewhere.
+ *
+ * @param week seven days starting Monday, in order.
  */
-internal fun lessonAccent(colorHex: String?): ColorProvider? {
-    val hex = colorHex?.takeIf { it.isNotBlank() } ?: return null
-    return runCatching {
-        // fallback: androidx.glance.unit.ColorProvider(Color) is the documented
-        // factory; androidx.glance.color.ColorProvider(day, night) is the newer
-        // two-tone one if this overload ever disappears.
-        ColorProvider(androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(hex)))
-    }.getOrNull()
+@Composable
+internal fun WeekStrip(
+    week: List<DayLoad>,
+    today: LocalDate,
+    size: WidgetSizeClass,
+    openDay: (LocalDate) -> Action,
+    modifier: GlanceModifier = GlanceModifier,
+) {
+    Row(modifier = modifier.fillMaxWidth()) {
+        week.forEach { day ->
+            val isToday = day.date == today
+            Column(
+                modifier = GlanceModifier
+                    .defaultWeight()
+                    .padding(horizontal = 1.dp)
+                    .cornerRadius(DayChipCorner)
+                    .background(
+                        if (isToday) {
+                            GlanceTheme.colors.primaryContainer
+                        } else {
+                            GlanceTheme.colors.surfaceVariant
+                        },
+                    )
+                    .clickable(openDay(day.date))
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
+            ) {
+                val content = if (isToday) {
+                    GlanceTheme.colors.onPrimaryContainer
+                } else {
+                    GlanceTheme.colors.onSurfaceVariant
+                }
+                Text(
+                    text = WidgetStrings.shortWeekday(day.date),
+                    maxLines = 1,
+                    style = TextStyle(color = content, fontSize = (size.captionSp - 1f).sp),
+                )
+                Text(
+                    text = day.date.dayOfMonth.toString(),
+                    maxLines = 1,
+                    style = TextStyle(
+                        color = content,
+                        fontSize = size.bodySp.sp,
+                        fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium,
+                    ),
+                )
+                Text(
+                    // Dots rather than a number: how busy a day is only has three
+                    // useful answers at this size, and a digit would be read while
+                    // a row of dots is seen.
+                    text = LoadDot.repeat(day.lessons.coerceAtMost(MaxLoadDots)),
+                    maxLines = 1,
+                    style = TextStyle(color = content, fontSize = (size.captionSp - 2f).sp),
+                )
+            }
+        }
+    }
+}
+
+/** How busy one day of [WeekStrip] is. */
+data class DayLoad(val date: LocalDate, val lessons: Int)
+
+private val DayChipCorner = 10.dp
+private const val LoadDot = "·"
+private const val MaxLoadDots = 3
+
+/**
+ * One event on the timeline.
+ *
+ * Deliberately not a lesson row with different words. An event is what happens
+ * *instead of* what the timetable says, so it is drawn as a filled chip rather
+ * than a row with a coloured tick — the difference has to survive being glanced
+ * at from across a room, which is the only way a home screen is ever read.
+ */
+@Composable
+internal fun EventRow(
+    event: SchoolEvent,
+    size: WidgetSizeClass,
+    modifier: GlanceModifier = GlanceModifier,
+) {
+    val context = LocalContext.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .cornerRadius(CurrentRowCorner)
+            .background(GlanceTheme.colors.secondaryContainer)
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.Vertical.CenterVertically,
+    ) {
+        Text(
+            text = WidgetStrings.time(event.startsAt),
+            maxLines = 1,
+            style = TextStyle(
+                color = GlanceTheme.colors.onSecondaryContainer,
+                fontSize = size.bodySp.sp,
+                fontWeight = FontWeight.Medium,
+            ),
+        )
+        HSpace(8)
+        Text(
+            text = event.title.ellipsize(EventTitleChars),
+            maxLines = 1,
+            modifier = GlanceModifier.defaultWeight(),
+            style = TextStyle(
+                color = GlanceTheme.colors.onSecondaryContainer,
+                fontSize = size.bodySp.sp,
+                fontWeight = FontWeight.Bold,
+            ),
+        )
+        Text(
+            text = WidgetStrings.eventLabel(context, event.kind),
+            maxLines = 1,
+            style = TextStyle(
+                color = GlanceTheme.colors.onSecondaryContainer,
+                fontSize = size.captionSp.sp,
+            ),
+        )
+    }
+}
+
+/** Longest an event title may be before the kind label loses its room. */
+private const val EventTitleChars = 18
+
+/**
+ * The colour of a subject, the same one the app gives it.
+ *
+ * The widget used to colour a row only when the server had sent a `colorHex` for
+ * it, and no school sends one, so every row of the timeline fell back to the
+ * same flat `surfaceVariant` — a list that had to be read in order because
+ * nothing in it could be recognised at a glance. The hue now comes from the
+ * subject name through the same [AccentMath] the app uses, so «Алгебра» is the
+ * same green in the timetable, in the homework list and on the home screen.
+ *
+ * A colour the school *did* send still wins, but only its hue: re-derived
+ * through the same formula rather than used raw, because one school's saturated
+ * blue next to five soft pastels reads as a rendering fault.
+ */
+@Composable
+internal fun subjectAccent(subject: String, colorHex: String?): ColorProvider {
+    val context = LocalContext.current
+    val primary = GlanceTheme.colors.primary.getColor(context)
+    val background = GlanceTheme.colors.widgetBackground.getColor(context)
+    val dark = AccentMath.brightnessOf(background) < 0.5f
+    val explicit = parseSubjectColor(colorHex)
+    val hue = if (explicit != null) {
+        AccentMath.hueOf(explicit)
+    } else {
+        AccentMath.hueFor(subject, AccentMath.hueOf(primary))
+    }
+    return ColorProvider(AccentMath.mark(hue, dark))
+}
+
+/**
+ * A countdown that actually counts down.
+ *
+ * Every other number on the widget is a snapshot: the process wakes on an alarm,
+ * re-renders, and goes back to sleep, so "осталось 12 мин" stays 12 until the
+ * next wake. A bell is the one thing where the seconds matter, and an alarm per
+ * second is not something the platform will deliver.
+ *
+ * `Chronometer` solves it in the launcher's own process — it is given a moment
+ * to count to and redraws itself once a second, forever, at no cost to us.
+ * Glance has no such element, so it arrives as [AndroidRemoteViews]; that is the
+ * documented way to put a plain `RemoteViews` inside a Glance tree.
+ *
+ * @param endsAt when the thing being counted ends, in the school's wall time.
+ * @param now the same wall time the rest of this render used, so the offset from
+ *   the device's own clock is applied once and consistently.
+ */
+@Composable
+internal fun LiveCountdown(
+    endsAt: LocalDateTime,
+    now: LocalDateTime,
+    size: WidgetSizeClass,
+    urgent: Boolean,
+    modifier: GlanceModifier = GlanceModifier,
+) {
+    val context = LocalContext.current
+    val color = if (urgent) GlanceTheme.colors.error else GlanceTheme.colors.onSurface
+    val remaining = Duration.between(now, endsAt).toMillis().coerceAtLeast(0L)
+
+    val views = RemoteViews(context.packageName, R.layout.widget_countdown).apply {
+        // Base is on the elapsed-realtime clock, which is what Chronometer
+        // counts against — wall time would drift the moment the user changed
+        // the clock or crossed a timezone.
+        setChronometer(
+            R.id.widget_countdown,
+            SystemClock.elapsedRealtime() + remaining,
+            null,
+            true,
+        )
+        setChronometerCountDown(R.id.widget_countdown, true)
+        setTextColor(R.id.widget_countdown, color.getColor(context).toArgb())
+        setTextViewTextSize(R.id.widget_countdown, TypedValue.COMPLEX_UNIT_SP, size.captionSp + 2f)
+    }
+
+    AndroidRemoteViews(remoteViews = views, modifier = modifier)
 }
