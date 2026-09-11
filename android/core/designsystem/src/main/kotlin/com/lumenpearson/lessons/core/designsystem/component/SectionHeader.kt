@@ -23,9 +23,9 @@ import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 /**
  * The quiet label above a group.
  *
- * Indented to line up with the group's first row rather than with the screen
- * margin, and muted rather than bold: the groups are the objects on the screen,
- * the labels only say what each one is.
+ * Indented to line up with the text inside the group's first row rather than
+ * with the screen margin, and muted rather than bold: the groups are the objects
+ * on the screen, the labels only say what each one is.
  */
 @Composable
 fun SectionHeader(
@@ -38,7 +38,7 @@ fun SectionHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 18.dp, end = 6.dp, top = 4.dp, bottom = 8.dp),
+            .padding(start = 16.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -48,7 +48,10 @@ fun SectionHeader(
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelLarge,
+                // titleMedium, the weight Essentials gives every section label:
+                // large enough to structure the page, muted enough that the
+                // groups under it stay the objects on screen.
+                style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

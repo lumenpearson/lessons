@@ -15,6 +15,7 @@ import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
+import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
@@ -149,6 +150,37 @@ internal fun StateProgress(
     )
 }
 
+/**
+ * A block of the widget, as one rounded container.
+ *
+ * The widget's answer to `RoundedCardContainer` in `:core:designsystem`: the
+ * same idea Essentials builds every screen from — group related lines inside one
+ * clipped block rather than separating them with rules. Glance has no clip, so
+ * the corner radius and the fill are set on the box itself, which comes to the
+ * same thing for a container whose children are plain text.
+ */
+@Composable
+internal fun WidgetCard(
+    modifier: GlanceModifier = GlanceModifier,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .cornerRadius(WidgetCardCorner)
+            .background(GlanceTheme.colors.surfaceVariant)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        content()
+    }
+}
+
+/** Corner of an inner block; one step tighter than the widget's own surface. */
+private val WidgetCardCorner = 18.dp
+
+/** Corner of the pill drawn behind the lesson that is running right now. */
+private val CurrentRowCorner = 12.dp
+
 /** Vertical rhythm helper, so the spacing constants live in one place. */
 @Composable
 internal fun VSpace(dp: Int) {
@@ -183,8 +215,20 @@ internal fun TimelineRow(
 ) {
     val context = LocalContext.current
     val accent = lessonAccent(lesson.colorHex)
+    // The running lesson is filled rather than merely tinted — the same
+    // inversion the floating toolbar uses for the selected tab, so "you are
+    // here" reads the same way in the app and on the home screen.
+    val rowModifier = if (isCurrent) {
+        modifier
+            .fillMaxWidth()
+            .cornerRadius(CurrentRowCorner)
+            .background(GlanceTheme.colors.primaryContainer)
+            .padding(horizontal = 6.dp, vertical = 4.dp)
+    } else {
+        modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp)
+    }
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = rowModifier,
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
         // Colour the eye can land on before it starts reading: without it every
@@ -196,7 +240,7 @@ internal fun TimelineRow(
                 .cornerRadius(2.dp)
                 .background(
                     when {
-                        isCurrent -> GlanceTheme.colors.primary
+                        isCurrent -> GlanceTheme.colors.onPrimaryContainer
                         accent != null -> accent
                         else -> GlanceTheme.colors.surfaceVariant
                     },
@@ -208,7 +252,7 @@ internal fun TimelineRow(
             maxLines = 1,
             style = TextStyle(
                 color = if (isCurrent) {
-                    GlanceTheme.colors.primary
+                    GlanceTheme.colors.onPrimaryContainer
                 } else {
                     GlanceTheme.colors.onSurfaceVariant
                 },
@@ -222,7 +266,11 @@ internal fun TimelineRow(
             maxLines = 1,
             modifier = GlanceModifier.defaultWeight(),
             style = TextStyle(
-                color = GlanceTheme.colors.onSurface,
+                color = if (isCurrent) {
+                    GlanceTheme.colors.onPrimaryContainer
+                } else {
+                    GlanceTheme.colors.onSurface
+                },
                 fontSize = size.bodySp.sp,
                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
             ),
@@ -283,22 +331,6 @@ internal fun SectionTitle(text: String, size: WidgetSizeClass) {
             fontWeight = FontWeight.Medium,
         ),
     )
-}
-
-/**
- * A subtle divider. Glance has no `Divider` component in every version, so this
- * is a 1dp [Box] with a background — cheap and version-proof.
- */
-@Composable
-internal fun ThinDivider(modifier: GlanceModifier = GlanceModifier) {
-    // fallback: androidx.glance.appwidget.components.Divider exists in some
-    // Glance builds; this hand-rolled one avoids depending on that surface.
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(GlanceTheme.colors.outline),
-    ) {}
 }
 
 /**

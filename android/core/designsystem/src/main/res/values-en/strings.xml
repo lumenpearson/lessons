@@ -47,5 +47,7 @@
     <!-- Generic affordances -->
     <string name="ds_action_back">Back</string>
     <string name="ds_action_more">More</string>
+    <string name="ds_slider_decrease">Decrease</string>
+    <string name="ds_slider_increase">Increase</string>
 
 </resources>

@@ -11,6 +11,9 @@ import com.lumenpearson.lessons.core.data.repository.Session
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
+import com.lumenpearson.lessons.core.model.HapticStrength
+import com.lumenpearson.lessons.core.model.HomeTab
+import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.ui.common.DefaultAppSettings
 import com.lumenpearson.lessons.ui.common.SyncMessage
 import com.lumenpearson.lessons.ui.common.toMessageOrNull
@@ -70,11 +73,35 @@ class SettingsViewModel(
         initialValue = SettingsUiState(),
     )
 
+    /** Light, dark, or whatever the system is doing. */
+    fun setThemeMode(mode: ThemeMode) = update { it.copy(themeMode = mode) }
+
     /** Material You colours from the wallpaper (Android 12+ only). */
     fun setDynamicColor(enabled: Boolean) = update { it.copy(dynamicColor = enabled) }
 
     /** True black in dark mode; saves power on OLED and looks better at night. */
     fun setPitchBlack(enabled: Boolean) = update { it.copy(pitchBlack = enabled) }
+
+    /** Master switch for every haptic in the app. */
+    fun setHapticsEnabled(enabled: Boolean) = update { it.copy(hapticsEnabled = enabled) }
+
+    /** How hard the app taps back. */
+    fun setHapticStrength(strength: HapticStrength) = update { it.copy(hapticStrength = strength) }
+
+    /** Whether the four tabs can be swiped between, or only tapped. */
+    fun setSwipeTabs(enabled: Boolean) = update { it.copy(swipeTabs = enabled) }
+
+    /** Which tab the app opens on, and which one Back returns to. */
+    fun setDefaultTab(tab: HomeTab) = update { it.copy(defaultTab = tab) }
+
+    /** Blur lists along their scroll axis while they are moving. */
+    fun setMotionBlur(enabled: Boolean) = update { it.copy(motionBlur = enabled) }
+
+    /** How strong that blur is; see `AppSettings.MOTION_BLUR_SCALE_RANGE`. */
+    fun setMotionBlurScale(scale: Float) = update { it.copy(motionBlurScale = scale) }
+
+    /** Fade content out under the status bar. */
+    fun setEdgeBlur(enabled: Boolean) = update { it.copy(edgeBlur = enabled) }
 
     /** Whether lesson rows show the teacher's name. */
     fun setShowTeacher(enabled: Boolean) = update { it.copy(showTeacher = enabled) }

@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.core.designsystem.state
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.BeachAccess
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.DirectionsBus
@@ -9,7 +10,6 @@ import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.FreeBreakfast
 import androidx.compose.material.icons.rounded.Groups
-import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.School
@@ -78,7 +78,7 @@ fun DayState.visuals(): StateVisuals = when (this) {
         label = stringResource(R.string.ds_state_in_lesson),
         detail = current.subject,
         tone = accentTone(SlotLesson),
-        icon = Icons.Rounded.MenuBook,
+        icon = Icons.AutoMirrored.Rounded.MenuBook,
     )
 
     // Warm amber: the one moment in the school day that belongs to the pupil.

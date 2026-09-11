@@ -1,155 +1,263 @@
 package com.lumenpearson.lessons.navigation
 
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
-import com.lumenpearson.lessons.core.designsystem.component.FloatingNavBar
-import com.lumenpearson.lessons.core.designsystem.component.FloatingNavBarItem
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import com.lumenpearson.lessons.core.data.repository.AppSettings
+import com.lumenpearson.lessons.core.designsystem.component.LessonsFloatingToolbar
+import com.lumenpearson.lessons.core.designsystem.component.ToolbarItem
+import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
+import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.modifier.BlurEdge
+import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurExtent
+import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurRadius
+import com.lumenpearson.lessons.core.designsystem.modifier.progressiveBlur
+import com.lumenpearson.lessons.core.designsystem.theme.BottomBarGap
+import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
+import com.lumenpearson.lessons.core.designsystem.theme.LocalScrollBlur
+import com.lumenpearson.lessons.core.designsystem.theme.ScrollBlurSettings
+import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.ui.homework.HomeworkScreen
 import com.lumenpearson.lessons.ui.join.JoinScreen
 import com.lumenpearson.lessons.ui.settings.SettingsScreen
 import com.lumenpearson.lessons.ui.today.TodayScreen
 import com.lumenpearson.lessons.ui.week.WeekScreen
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 /**
- * The whole app below the theme: navigation bar, graph, and the rule that keeps
- * the graph in step with the session.
+ * The whole app below the theme.
+ *
+ * The signed-in part is a pager rather than a navigation graph, which is how
+ * [Essentials](https://github.com/sameerasw/essentials) builds its own shell:
+ * the four destinations are peers, they keep their scroll position, and the
+ * gesture between them is a swipe. A graph would give the same four screens
+ * without the swipe, and the swipe is half of what the floating toolbar is for.
  *
  * @param signedIn `null` while the stored session is still being read — the
- *   splash is shown for that moment so the start destination is only ever chosen
- *   once, from a known answer.
- * @param navController hoisted so a future deep link from the widget can drive
- *   it from the Activity.
+ *   splash is shown for that moment rather than guessing a destination and then
+ *   yanking the user somewhere else a frame later.
  */
 @Composable
 fun LessonsApp(
     signedIn: Boolean?,
+    settings: AppSettings,
     modifier: Modifier = Modifier,
-    navController: NavHostController = rememberNavController(),
 ) {
-    if (signedIn == null) {
-        SplashShell(modifier = modifier)
-        return
-    }
-
-    // Captured once: NavHost ignores later changes to startDestination, and
-    // sign-in/sign-out are handled by the effect below instead.
-    val startDestination = remember {
-        if (signedIn) LessonsRoute.Today.path else LessonsRoute.Join.path
-    }
-
-    val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentPath = backStackEntry?.destination?.route
-
-    // Session changes are the single source of truth for entering and leaving the
-    // signed-in part of the graph: joining a class or signing out anywhere makes
-    // the repository emit, and navigation follows. No screen has to know how the
-    // other one is reached.
-    LaunchedEffect(signedIn) {
-        val path = navController.currentBackStackEntry?.destination?.route
-        when {
-            !signedIn && path != LessonsRoute.Join.path -> {
-                navController.navigate(LessonsRoute.Join.path) {
-                    popUpTo(navController.graph.id) { inclusive = true }
-                    launchSingleTop = true
-                }
-            }
-
-            signedIn && path == LessonsRoute.Join.path -> {
-                navController.navigate(LessonsRoute.Today.path) {
-                    popUpTo(LessonsRoute.Join.path) { inclusive = true }
-                    launchSingleTop = true
-                }
-            }
-        }
-    }
-
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            if (TopLevelDestination.isTopLevel(currentPath)) {
-                LessonsNavigationBar(
-                    currentPath = currentPath,
-                    onSelect = { destination -> navController.switchTab(destination) },
-                )
-            }
-        },
-        // Each screen brings its own Scaffold and therefore its own top insets;
-        // this outer one only owns the bar at the bottom.
-        contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
-    ) { _ ->
-        // The bar floats, so the content deliberately runs the full height and
-        // underneath it; each screen reserves the room in its own bottom padding.
-        NavHost(
-            navController = navController,
-            startDestination = startDestination,
-        ) {
-            composable(LessonsRoute.Join.path) {
-                JoinScreen()
-            }
-            composable(LessonsRoute.Today.path) {
-                TodayScreen(
-                    onOpenHomework = { navController.switchTab(TopLevelDestination.HOMEWORK) },
-                )
-            }
-            composable(LessonsRoute.Week.path) {
-                WeekScreen()
-            }
-            composable(LessonsRoute.Homework.path) {
-                HomeworkScreen()
-            }
-            composable(LessonsRoute.Settings.path) {
-                SettingsScreen()
-            }
-        }
+    when (signedIn) {
+        null -> SplashShell(modifier = modifier)
+        false -> JoinScreen(modifier = modifier)
+        true -> HomeShell(settings = settings, modifier = modifier)
     }
 }
+
+/** How far the whole pager shrinks while a predictive back gesture is in flight. */
+private const val BackScaleDepth = 0.06f
+
+/** Time the shell takes to settle back to rest after a cancelled back gesture. */
+private const val BackSettleMillis = 300
+
+/** …and after a completed one, which travels further and so takes longer. */
+private const val BackReturnMillis = 400
+
+/** The swipe rumble fires once per tenth of a page travelled. */
+private const val SwipeHapticBuckets = 10
 
 /**
- * Bar destinations behave like tabs: one entry per tab on the back stack, state
- * preserved when coming back, and Back always leaves through Today.
+ * How many pixels of scroll in one frame it takes to fold or unfold the toolbar.
+ *
+ * Not zero: a list settling after a fling reports a stream of sub-pixel deltas
+ * in both directions, and at zero the bar flickers open and shut through the
+ * whole deceleration.
  */
-private fun NavHostController.switchTab(destination: TopLevelDestination) {
-    navigate(destination.route.path) {
-        popUpTo(graph.findStartDestination().id) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
-    }
-}
+private const val ScrollFoldThresholdPx = 3f
 
-/** The four-tab bar, as a pill floating over the content. */
+/**
+ * The signed-in app: four tabs under one floating toolbar.
+ *
+ * Everything that makes the shell feel like Essentials is here rather than in
+ * the screens: the swipe between tabs, the haptic that ticks through it, the
+ * predictive-back gesture that scales the page down and returns to the default
+ * tab, and the blur that lets content pass under the status bar.
+ */
 @Composable
-private fun LessonsNavigationBar(
-    currentPath: String?,
-    onSelect: (TopLevelDestination) -> Unit,
+private fun HomeShell(
+    settings: AppSettings,
+    modifier: Modifier = Modifier,
 ) {
-    FloatingNavBar(modifier = Modifier.navigationBarsPadding()) {
-        TopLevelDestination.entries.forEach { destination ->
-            FloatingNavBarItem(
-                selected = currentPath == destination.route.path,
-                onClick = { onSelect(destination) },
-                icon = destination.icon,
-                label = stringResource(destination.labelRes),
-            )
+    val tabs = HomeTab.entries
+    val view = rememberHapticView()
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+
+    // Only read on the first composition — a pager cannot be re-seeded without
+    // yanking the page out from under the user, so changing the default tab
+    // takes effect the next time the app is opened. Essentials behaves the same.
+    val homePage = remember { tabs.indexOf(settings.defaultTab).coerceAtLeast(0) }
+    val pagerState = rememberPagerState(initialPage = homePage) { tabs.size }
+
+    // Measured rather than assumed: the pill's height depends on the gesture bar.
+    var barHeight by remember { mutableStateOf(0.dp) }
+
+    // A tap when the page actually changes, however it was changed. Keyed on the
+    // pager alone: re-keying on the swipe setting would restart the collector and
+    // swallow the next change as if it were the initial one.
+    LaunchedEffect(pagerState) {
+        var first = true
+        snapshotFlow { pagerState.currentPage }.collect {
+            if (first) first = false else LessonsHaptics.tap(view)
         }
+    }
+
+    // The rumble while a swipe is in flight, bucketed so it ticks ten times
+    // across a page instead of once per frame. Only while a finger is on the
+    // screen: an animated page change already got its tap above, and rumbling
+    // through that animation turns one event into eleven.
+    var lastBucket by remember { mutableIntStateOf(0) }
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPageOffsetFraction }.collect { offset ->
+            if (!pagerState.isScrollInProgress) return@collect
+            val bucket = (abs(offset) * SwipeHapticBuckets).toInt()
+            if (bucket != lastBucket) {
+                if (abs(offset) > 0f) LessonsHaptics.swipe(view)
+                lastBucket = bucket
+            }
+        }
+    }
+
+    val backProgress = remember { Animatable(0f) }
+    PredictiveBackHandler(enabled = pagerState.currentPage != homePage) { events ->
+        try {
+            events.collect { event -> backProgress.snapTo(event.progress) }
+            scope.launch { pagerState.animateScrollToPage(homePage) }
+            scope.launch { backProgress.animateTo(0f, tween(BackReturnMillis)) }
+        } catch (_: CancellationException) {
+            scope.launch { backProgress.animateTo(0f, tween(BackSettleMillis)) }
+        }
+    }
+
+    val statusBarHeightPx = with(density) {
+        WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx()
+    }
+
+    // Scrolling down folds the toolbar into the selected tab and scrolling back
+    // up unfolds it. This is what the toolbar's `expanded` parameter and its
+    // spring were built for, and it is the one Essentials animation that cannot
+    // be driven from inside the component: only the shell sees every screen's
+    // scroll. A nested-scroll connection is used rather than each screen
+    // reporting its own list state, so a screen added later gets the behaviour
+    // for free.
+    var toolbarExpanded by remember { mutableStateOf(true) }
+    val toolbarScroll = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -ScrollFoldThresholdPx) {
+                    toolbarExpanded = false
+                } else if (available.y > ScrollFoldThresholdPx) {
+                    toolbarExpanded = true
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(toolbarScroll)
+            .progressiveBlur(
+                blurRadius = if (settings.edgeBlur) StatusBarBlurRadius else 0f,
+                height = statusBarHeightPx * StatusBarBlurExtent,
+                edge = BlurEdge.TOP,
+                showGradientOverlay = settings.edgeBlur,
+            ),
+    ) {
+        CompositionLocalProvider(
+            LocalBottomBarSpace provides barHeight + BottomBarGap,
+            LocalScrollBlur provides ScrollBlurSettings(
+                enabled = settings.motionBlur,
+                scale = settings.motionBlurScale,
+            ),
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                userScrollEnabled = settings.swipeTabs,
+                // Off-screen pages stay composed so a swipe back to a tab shows
+                // the list where it was left rather than re-running its loader.
+                beyondViewportPageCount = 1,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        val scale = 1f - backProgress.value * BackScaleDepth
+                        scaleX = scale
+                        scaleY = scale
+                    },
+            ) { page ->
+                when (tabs[page]) {
+                    HomeTab.TODAY -> TodayScreen(
+                        onOpenHomework = {
+                            scope.launch {
+                                pagerState.animateScrollToPage(tabs.indexOf(HomeTab.HOMEWORK))
+                            }
+                        },
+                    )
+
+                    HomeTab.WEEK -> WeekScreen()
+                    HomeTab.HOMEWORK -> HomeworkScreen()
+                    HomeTab.SETTINGS -> SettingsScreen()
+                }
+            }
+        }
+
+        LessonsFloatingToolbar(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .zIndex(1f)
+                .onSizeChanged { size ->
+                    barHeight = with(density) { size.height.toDp() }
+                },
+            expanded = toolbarExpanded,
+            selectedIndex = pagerState.currentPage,
+            items = tabs.mapIndexed { index, tab ->
+                ToolbarItem(
+                    icon = tab.icon,
+                    label = stringResource(tab.labelRes),
+                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                )
+            },
+        )
     }
 }
 
@@ -160,9 +268,10 @@ private fun LessonsNavigationBar(
 @Composable
 private fun SplashShell(modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
-        CircularProgressIndicator()
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
     }
 }
