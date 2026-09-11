@@ -25,6 +25,7 @@ import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
+import androidx.glance.layout.wrapContentSize
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -41,6 +42,7 @@ import com.lumenpearson.lessons.widget.format.ellipsize
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 
 /**
  * The small building blocks every size class shares.
@@ -227,6 +229,9 @@ internal fun HSpace(dp: Int) {
  *
  * @param isCurrent draws the row in the accent colour — this is the lesson the
  *   student is sitting in right now.
+ * @param compact drops the trailing detail. A 110 dp column holds a time and a
+ *   subject and nothing else; a room number there costs the subject its last
+ *   five characters, and the subject is the half worth reading.
  */
 @Composable
 internal fun TimelineRow(
@@ -234,6 +239,7 @@ internal fun TimelineRow(
     size: WidgetSizeClass,
     options: WidgetOptions,
     isCurrent: Boolean,
+    compact: Boolean = false,
     modifier: GlanceModifier = GlanceModifier,
 ) {
     val context = LocalContext.current
@@ -298,7 +304,10 @@ internal fun TimelineRow(
         // notice outranks the room, which outranks the teacher.
         val room = if (options.showRoom) WidgetStrings.room(context, lesson) else null
         val trailing: String? = when {
+            // A substitution is the one detail worth the width even here: it is
+            // the reason to look at the row at all.
             lesson.isReplaced -> context.getString(R.string.widget_lesson_replaced)
+            compact -> null
             room != null -> room
             options.showTeacher -> lesson.teacher?.takeIf { it.isNotBlank() }
             else -> null
@@ -532,9 +541,22 @@ internal fun subjectAccent(subject: String, colorHex: String?): ColorProvider {
  * Glance has no such element, so it arrives as [AndroidRemoteViews]; that is the
  * documented way to put a plain `RemoteViews` inside a Glance tree.
  *
+ * Two things about it are load-bearing and were both wrong:
+ *
+ *  * **It wraps its content.** An `AndroidRemoteViews` with no size modifier is
+ *    laid out as "fill", so in a row beside a weighted state label it took the
+ *    whole width and the label was measured at zero — which is why the widget
+ *    showed a bare "05:57" and never once said "ПЕРЕМЕНА" beside it.
+ *  * **It is labelled.** A `Chronometer` can only draw digits, and in count-down
+ *    mode under an hour those digits are `MM:SS`. "05:57" over a subject reads
+ *    as five minutes to six, not as six minutes of break left. The word goes
+ *    beside it, from the state, because Russian and English disagree about
+ *    which side of the number it belongs on.
+ *
  * @param endsAt when the thing being counted ends, in the school's wall time.
  * @param now the same wall time the rest of this render used, so the offset from
  *   the device's own clock is applied once and consistently.
+ * @param label "до звонка" / "до начала", or null where there is no room for it.
  */
 @Composable
 internal fun LiveCountdown(
@@ -542,6 +564,7 @@ internal fun LiveCountdown(
     now: LocalDateTime,
     size: WidgetSizeClass,
     urgent: Boolean,
+    label: String? = null,
     modifier: GlanceModifier = GlanceModifier,
 ) {
     val context = LocalContext.current
@@ -563,5 +586,49 @@ internal fun LiveCountdown(
         setTextViewTextSize(R.id.widget_countdown, TypedValue.COMPLEX_UNIT_SP, size.captionSp + 2f)
     }
 
-    AndroidRemoteViews(remoteViews = views, modifier = modifier)
+    Row(
+        modifier = modifier.wrapContentSize(),
+        verticalAlignment = Alignment.Vertical.CenterVertically,
+    ) {
+        if (label != null) {
+            CaptionText(text = label, size = size)
+            HSpace(5)
+        }
+        AndroidRemoteViews(
+            remoteViews = views,
+            modifier = GlanceModifier.wrapContentSize(),
+        )
+    }
 }
+
+/**
+ * "Дальше 12:45 · Вероятность" — the one line that answers the second question.
+ *
+ * A line rather than a block: on the sizes that show it there is no room for a
+ * heading and a row, and the heading would be the half that carries no
+ * information.
+ */
+@Composable
+internal fun NextUpLine(
+    at: LocalTime,
+    subject: String,
+    size: WidgetSizeClass,
+    modifier: GlanceModifier = GlanceModifier,
+) {
+    val context = LocalContext.current
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Vertical.CenterVertically,
+    ) {
+        CaptionText(text = context.getString(R.string.widget_next_up), size = size)
+        HSpace(6)
+        BodyText(
+            text = "${WidgetStrings.time(at)}  ${subject.ellipsize(NextUpSubjectChars)}",
+            size = size,
+            modifier = GlanceModifier.defaultWeight(),
+        )
+    }
+}
+
+/** Longest a "Дальше" subject may be on the narrowest size that draws one. */
+private const val NextUpSubjectChars = 14

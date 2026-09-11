@@ -69,6 +69,22 @@
     <string name="widget_lesson_replaced">substitute</string>
     <string name="widget_nothing_left">No lessons left</string>
 
+    <string name="widget_until_bell">to the bell</string>
+    <string name="widget_until_start">to the start</string>
+
+    <string name="widget_of_minutes">of %1$d min</string>
+    <string name="widget_break_length">%1$d min break</string>
+    <string name="widget_meta_separator">·</string>
+
+    <string name="widget_homework_today_title">Homework for today</string>
+
+    <string name="widget_next_day_title">Next school day</string>
+    <plurals name="widget_lesson_count">
+        <item quantity="one">%d lesson</item>
+        <item quantity="other">%d lessons</item>
+    </plurals>
+    <string name="widget_next_day_summary">%1$s · %2$s at %3$s</string>
+
     <string name="widget_empty_title">Open the app and enter your class code</string>
     <string name="widget_empty_short">Enter class code</string>
     <string name="widget_loading">Loading the timetable…</string>
