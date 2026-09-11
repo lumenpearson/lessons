@@ -105,6 +105,39 @@ After a successful sync, `SyncWorker` sends a package-internal broadcast
 for. That is why `:core:data` does not depend on `:widget` — the dependency would
 otherwise be circular.
 
+### Notifications
+
+Split the same way the widget's state is: `AlertPlanner` in `:core:model` turns a
+cached timetable plus the user's preferences plus a clock into "what is due in
+this window" and "when is the next thing", with no Android on the classpath and
+a test suite that walks a school week in a loop. `:core:data` owns the Android
+half — the channels, the sentences, and one self-propelling alarm.
+
+```
+alarm fires ──▶ SchoolAlerts.fire
+                  ├─ AlertPlanner.due(now ± 90 s)  ──▶ AlertNotifier.post
+                  └─ AlertPlanner.next(now + 90 s) ──▶ arm one alarm
+```
+
+One alarm at a time, not a repeating one: a school day has half a dozen moments
+worth interrupting for and a minute-by-minute alarm is four hundred wake-ups to
+find them. It is the same shape as the widget's tick chain, and a separate
+receiver from it, because a `BroadcastReceiver` may hand out its `PendingResult`
+only once.
+
+Nothing remembers what it has already posted. It does not need to: the planner is
+asked for a window around now and then for the next moment strictly after that
+window, so posting twice needs the clock to go backwards — and a clock change
+re-arms the chain from scratch anyway. The chain is re-armed on boot, on
+`MY_PACKAGE_REPLACED`, on a clock or timezone change, after every sync, whenever
+the alert preferences change, and once per cold start, because a missed broadcast
+should cost one launch rather than a reinstall.
+
+The one alert with no clock behind it is "расписание изменилось": each sync
+fingerprints the next seven days — index, subject, start, room, cancelled,
+replaced — and compares it against the previous one. The first sync sets the
+baseline and says nothing.
+
 ## What we took from Essentials, and what we changed
 
 The design language is modelled on

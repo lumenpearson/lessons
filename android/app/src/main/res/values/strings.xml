@@ -227,6 +227,29 @@
     <string name="settings_sign_out_message">Расписание класса «%1$s» будет удалено с устройства. Чтобы вернуться, понадобится код.</string>
     <string name="settings_sign_out_message_generic">Расписание будет удалено с устройства. Чтобы вернуться, понадобится код.</string>
     <string name="settings_about">О приложении</string>
+
+    <!-- Уведомления -->
+    <string name="settings_alerts">Уведомления</string>
+    <string name="settings_alerts_summary">Звонок, сводка на день, домашка и замены</string>
+    <string name="settings_alerts_blocked_group">Доступ</string>
+    <string name="settings_alerts_blocked">Уведомления выключены</string>
+    <string name="settings_alerts_blocked_description">Нажмите, чтобы разрешить — иначе переключатели ниже ничего не сделают.</string>
+    <string name="settings_alerts_lessons_group">Уроки</string>
+    <string name="settings_alert_lesson">Скоро урок</string>
+    <string name="settings_alert_lesson_description">Предмет и кабинет за несколько минут до звонка</string>
+    <string name="settings_alert_lead">За сколько предупреждать</string>
+    <string name="settings_alert_lead_value">%1$d мин</string>
+    <string name="settings_alerts_daily_group">Расписание на день</string>
+    <string name="settings_alert_morning">Утренняя сводка</string>
+    <string name="settings_alert_morning_description">Сколько сегодня уроков и когда первый</string>
+    <string name="settings_alert_morning_at">Время сводки</string>
+    <string name="settings_alert_homework">Напоминание о домашке</string>
+    <string name="settings_alert_homework_description">Вечером — по каким предметам задано на завтра</string>
+    <string name="settings_alert_homework_at">Время напоминания</string>
+    <string name="settings_alert_hour_value">%1$d:00</string>
+    <string name="settings_alerts_changes_group">Изменения</string>
+    <string name="settings_alert_changes">Замены и отмены</string>
+    <string name="settings_alert_changes_description">Сообщать, когда расписание ближайших дней изменилось</string>
     <string name="about_version">Версия %1$s</string>
     <string name="about_description">Школьный дневник с виджетом на главном экране. Работает офлайн: расписание, замены и домашние задания хранятся на устройстве.</string>
     <string name="about_design_credit">Оформление, шрифт и компоненты — по мотивам Essentials (github.com/sameerasw/essentials), лицензия MIT.</string>

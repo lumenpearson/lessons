@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MotionPhotosOn
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
@@ -129,6 +130,15 @@ enum class SettingsSection(
         R.string.settings_content_summary,
         Icons.Rounded.ViewAgenda,
         3,
+    ),
+    // There are six accent slots and seven sections, so one hue is used twice.
+    // It is shared with "О приложении", three rows further down, which is as far
+    // apart as the list allows.
+    ALERTS(
+        R.string.settings_alerts,
+        R.string.settings_alerts_summary,
+        Icons.Rounded.NotificationsActive,
+        5,
     ),
     SYNC(
         R.string.settings_sync,
@@ -260,6 +270,7 @@ fun SettingsSectionScreen(
             SettingsSection.APPEARANCE -> appearanceRows(state, viewModel)
             SettingsSection.FEEL -> feelRows(state, viewModel)
             SettingsSection.CONTENT -> contentRows(state, viewModel)
+            SettingsSection.ALERTS -> notificationRows(state, viewModel)
             SettingsSection.SYNC -> syncRows(state, viewModel) { showServerSheet = true }
             SettingsSection.ACCOUNT -> accountRows(state) { showSignOutSheet = true }
             SettingsSection.ABOUT -> aboutRows(state, viewModel)
@@ -610,7 +621,7 @@ internal val SupportsShaders: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_C
 
 /** A labelled group; the one place the label-to-group spacing is decided. */
 @Composable
-private fun SettingsGroup(
+internal fun SettingsGroup(
     title: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {

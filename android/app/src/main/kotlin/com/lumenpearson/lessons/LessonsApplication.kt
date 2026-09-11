@@ -2,6 +2,7 @@ package com.lumenpearson.lessons
 
 import android.app.Application
 import com.lumenpearson.lessons.core.data.di.Graph
+import com.lumenpearson.lessons.core.data.notifications.SchoolAlerts
 import com.lumenpearson.lessons.core.data.sync.SyncScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +22,9 @@ import kotlinx.coroutines.launch
  *     any entry point can read is simpler and honest about its lifetime.
  *  2. Background sync has to be (re)scheduled from a place that runs on every
  *     cold start, otherwise a user who changes the interval and never opens the
- *     settings screen again keeps the old cadence forever.
+ *     settings screen again keeps the old cadence forever. The notification
+ *     alarm is re-armed here for the same reason, and because a missed boot
+ *     broadcast should cost one launch rather than a reinstall.
  */
 class LessonsApplication : Application() {
 
@@ -36,6 +39,10 @@ class LessonsApplication : Application() {
         super.onCreate()
         Graph.init(this)
         observeSyncInterval()
+        // Off the main thread: it reads the cached timetable to work out what to
+        // arm for, and Application.onCreate is on the critical path of every
+        // cold start, including the one a widget update triggers.
+        applicationScope.launch { SchoolAlerts.onAppStart(this@LessonsApplication) }
     }
 
     /**

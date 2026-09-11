@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The data layer contributes exactly two permissions and nothing else. The
-  DATA_SYNCED broadcast is deliberately NOT declared here: it is an explicit,
+  The data layer contributes the network permissions and the one receiver that
+  has to exist whether or not the app is running.
+
+  The DATA_SYNCED broadcast is deliberately NOT declared here: it is an explicit,
   package-internal intent, and the receiver is registered by :widget so that
   :core:data never has to know that a widget exists.
 -->
@@ -9,5 +11,42 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
+      Alarms do not survive a reboot, and the notification chain arms exactly one
+      at a time. Without this, switching a phone off on Sunday evening would end
+      the chain for good and the app would go quiet with no sign that it had.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!--
+      Declared here as well as in :app, even though the merged manifest only
+      needs it once. A library is linted against its own manifest, and the class
+      that actually calls `notify()` is in this module: without the declaration
+      here the check cannot see that the permission is ever asked for.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application>
+
+        <!--
+          Internal plumbing: only our own alarm and a few system broadcasts reach
+          it, so it stays unexported. Separate from the widget's tick receiver
+          because a BroadcastReceiver can hand out its PendingResult only once,
+          and these are two independent chains.
+        -->
+        <receiver
+            android:name="com.lumenpearson.lessons.core.data.notifications.SchoolAlertReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <!-- A manual clock or timezone change invalidates every armed alarm. -->
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
 
 </manifest>

@@ -2,7 +2,6 @@ package com.lumenpearson.lessons.core.designsystem.component
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -220,9 +219,21 @@ fun LessonsFloatingToolbar(
                         slideOutHorizontally(tween(ModeSlideMillis)) { width ->
                             if (forward) -width / 3 else width / 3
                         }
-                    // No size transform: the pill's own animateContentSize below
-                    // owns the width, and two things animating it fight.
-                    (enter togetherWith exit).using(SizeTransform(clip = false))
+                    // The size transform owns the width, and it is the only
+                    // thing that does. `Modifier.animateContentSize` used to,
+                    // and it cannot be used here: it applies `clipToBounds` to
+                    // the *animating* box while the pill inside is already laid
+                    // out at its final width, so the morph played as the two
+                    // rounded ends being wiped off rather than as the bar
+                    // resizing. There is no flag to turn that clip off.
+                    //
+                    // `AnimatedContent` measures both modes during the
+                    // transition and animates its own size between them, so the
+                    // pill really is narrower mid-morph — and `clip = false`
+                    // means nothing is cut while it gets there.
+                    (enter togetherWith exit).using(
+                        SizeTransform(clip = false) { _, _ -> toolbarSizeSpring() },
+                    )
                 },
                 label = "toolbar_mode",
             ) { backMode ->
@@ -244,8 +255,10 @@ fun LessonsFloatingToolbar(
             }
         }
 
-        // The pill's width follows its content instead of jumping to it.
-        val pillModifier = Modifier.animateContentSize(animationSpec = toolbarSizeSpring())
+        // Nothing here: the mode morph is animated by the size transform above,
+        // and within a mode the pill's width already follows its tabs, which
+        // animate their own widths on a spring.
+        val pillModifier = Modifier
 
         // Two call sites rather than one with a nullable argument: the overload
         // without the slot is what keeps a toolbar with no action button centred.
@@ -459,7 +472,7 @@ private fun toolbarSpring() = spring<Dp>(
 )
 
 /**
- * The spring the pill's own width follows.
+ * The spring the pill's width follows while it morphs between its two modes.
  *
  * Less bouncy than [toolbarSpring]: the whole bar overshooting its width reads
  * as the bar wobbling, where one tab overshooting reads as the tab landing.

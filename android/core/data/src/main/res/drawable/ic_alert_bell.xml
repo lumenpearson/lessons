@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Small icon of every notification this app posts.
+
+  The platform draws a small icon as a silhouette: every non-transparent pixel
+  becomes the accent colour and everything else is dropped. So it is one solid
+  white path with no detail, no second colour and no thin strokes — anything
+  else arrives as a grey blob in the status bar.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,22c1.1,0 2,-0.9 2,-2h-4c0,1.1 0.9,2 2,2zM18.5,16v-5.5c0,-3.07 -1.87,-5.64 -4.5,-6.32V3.5c0,-0.83 -0.67,-1.5 -1.5,-1.5h-1c-0.83,0 -1.5,0.67 -1.5,1.5v0.68C7.37,4.86 5.5,7.43 5.5,10.5V16l-1.6,1.6c-0.31,0.31 -0.09,0.9 0.35,0.9h15.5c0.44,0 0.66,-0.59 0.35,-0.9L18.5,16z" />
+
+</vector>

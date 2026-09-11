@@ -2,13 +2,16 @@ package com.lumenpearson.lessons.ui.onboarding
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
@@ -40,6 +43,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,6 +57,7 @@ import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
+import com.lumenpearson.lessons.core.designsystem.theme.appSlideMotionBlur
 import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.ui.join.JoinScreen
 import com.lumenpearson.lessons.ui.settings.SettingsUiState
@@ -138,30 +143,50 @@ fun OnboardingScreen(
             },
             label = "onboarding_step",
         ) { current ->
-            when (current) {
-                OnboardingStep.WELCOME -> WelcomeStep(
-                    state = state,
-                    viewModel = viewModel,
-                    onNext = { goTo(OnboardingStep.ACKNOWLEDGEMENT) },
-                )
+            // Each step travels a full screen width, which is the biggest single
+            // movement in the app; blurring it is what the scroll-blur setting
+            // means here. Driven by the transition's own fraction, so the
+            // shader and the slide can never disagree about where the page is.
+            val slide = transition.animateFloat(
+                transitionSpec = { tween(StepTransitionMillis) },
+                label = "onboarding_slide",
+            ) { state -> if (state == EnterExitState.Visible) 1f else 0f }
+            val travel = LocalConfiguration.current.screenWidthDp.dp
 
-                OnboardingStep.ACKNOWLEDGEMENT -> AcknowledgementStep(
-                    state = state,
-                    viewModel = viewModel,
-                    onBack = { goTo(OnboardingStep.WELCOME) },
-                    onNext = { goTo(OnboardingStep.PREFERENCES) },
-                )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .appSlideMotionBlur(
+                        moving = { transition.isRunning },
+                        fraction = { slide.value },
+                        travel = travel,
+                    ),
+            ) {
+                when (current) {
+                    OnboardingStep.WELCOME -> WelcomeStep(
+                        state = state,
+                        viewModel = viewModel,
+                        onNext = { goTo(OnboardingStep.ACKNOWLEDGEMENT) },
+                    )
 
-                OnboardingStep.PREFERENCES -> PreferencesStep(
-                    state = state,
-                    viewModel = viewModel,
-                    onBack = { goTo(OnboardingStep.ACKNOWLEDGEMENT) },
-                    onNext = { goTo(OnboardingStep.JOIN) },
-                )
+                    OnboardingStep.ACKNOWLEDGEMENT -> AcknowledgementStep(
+                        state = state,
+                        viewModel = viewModel,
+                        onBack = { goTo(OnboardingStep.WELCOME) },
+                        onNext = { goTo(OnboardingStep.PREFERENCES) },
+                    )
 
-                OnboardingStep.JOIN -> JoinScreen(
-                    onBack = { goTo(OnboardingStep.PREFERENCES) },
-                )
+                    OnboardingStep.PREFERENCES -> PreferencesStep(
+                        state = state,
+                        viewModel = viewModel,
+                        onBack = { goTo(OnboardingStep.ACKNOWLEDGEMENT) },
+                        onNext = { goTo(OnboardingStep.JOIN) },
+                    )
+
+                    OnboardingStep.JOIN -> JoinScreen(
+                        onBack = { goTo(OnboardingStep.PREFERENCES) },
+                    )
+                }
             }
         }
     }
