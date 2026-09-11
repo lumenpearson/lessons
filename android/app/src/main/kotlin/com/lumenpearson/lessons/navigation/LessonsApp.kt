@@ -2,11 +2,13 @@ package com.lumenpearson.lessons.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -29,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -47,6 +50,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -252,50 +256,31 @@ private fun HomeShell(
     var openSectionName by rememberSaveable { mutableStateOf<String?>(null) }
     val openSection = remember(openSectionName) { SettingsSection.fromName(openSectionName) }
 
-    // The section still being drawn, which outlives the one navigated away from.
-    // Closing a section leaves this pointing at it so that the page has
-    // something to render for the 320 ms it spends sliding away; without it the
-    // page empties on the first frame of its own exit. A plain box rather than
-    // snapshot state: it only ever changes in a composition that is already
-    // happening because `openSection` changed.
-    val sectionLatch = remember { arrayOfNulls<SettingsSection>(1) }
-    if (openSection != null) sectionLatch[0] = openSection
-    val shownSection = sectionLatch[0] ?: SettingsSection.APPEARANCE
-
-    // Measured rather than assumed: the pill's height depends on the gesture bar.
-    // Seeded with the local's own default so the first frame — drawn before
-    // onSizeChanged lands — reserves a plausible gap rather than none, which
-    // showed as the bottom of the first list jumping once after sign-in.
-    val seedBarHeight = LocalBottomBarSpace.current
-    var barHeight by remember { mutableStateOf(seedBarHeight) }
-
-    // Whether a settings page has finished sliding over the tabs.
-    //
-    // The tabs are then dropped from the composition rather than covered, which
-    // is the only way to stop them receiving touches. A layer on top cannot do
-    // it, and that is measured rather than argued: `OverlayLayerTest` presses a
-    // row inside such a layer and the press never arrives. Compose runs each
-    // pass over the whole of one subtree before the next, so a layer that
-    // consumes early enough to stop the pager is early enough to cancel taps on
-    // its own rows, and one that waits until its rows are safe has already let
-    // the pager through. This shipped twice before that test existed.
-    //
-    // The delay is the slide: while the page is still moving the tabs are behind
-    // it and have to be drawn.
-    var tabsCovered by remember { mutableStateOf(false) }
-    LaunchedEffect(settingsOpen) {
-        if (!settingsOpen) {
-            tabsCovered = false
-        } else {
-            delay(PageTransitionMillis.toLong())
-            tabsCovered = true
+    // Where the shell is, as one value. Derived from the two saved flags rather
+    // than replacing them, so what survives process death is unchanged.
+    val destination = remember(settingsOpen, openSection) {
+        when {
+            openSection != null -> ShellPage.Section(openSection)
+            settingsOpen -> ShellPage.SettingsRoot
+            else -> ShellPage.Tabs
         }
     }
 
-    // Keeps each tab's scroll position across that removal. Without it, opening
-    // settings and coming back would put every list at the top — the scroll
-    // position of a LazyColumn is `rememberSaveable`, and a `rememberSaveable`
-    // in a composable that leaves the tree is gone unless something holds it.
+    // Keeps each tab's scroll position while the tabs are out of the tree.
+    //
+    // They leave it entirely once a settings page is in front, which is what
+    // stops them receiving touches — and that has to be removal rather than
+    // cover. `OverlayLayerTest` measures why: a layer that consumes early enough
+    // to stop the pager is early enough to cancel taps on its own rows, and one
+    // that waits until its rows are safe has already let the pager through. This
+    // shipped twice before that test existed. `AnimatedContent` removes the slot
+    // that is no longer current, so the property now falls out of the navigation
+    // rather than being maintained beside it.
+    //
+    // Without the holder, coming back would put every list at the top: the
+    // scroll position of a LazyColumn is `rememberSaveable`, and a
+    // `rememberSaveable` in a composable that leaves the tree is gone unless
+    // something holds it.
     val tabStates = rememberSaveableStateHolder()
 
     // One holder per page plus one per settings layer. The pager keeps its
@@ -312,7 +297,6 @@ private fun HomeShell(
         val date = openDate ?: return@LaunchedEffect
         openSectionName = null
         settingsOpen = false
-        tabsCovered = false
         calendarViewModel.select(date)
         calendarViewModel.setView(ScheduleView.DAY)
         pagerState.animateScrollToPage(tabs.indexOf(HomeTab.WEEK).coerceAtLeast(0))
@@ -388,19 +372,6 @@ private fun HomeShell(
     val statusBarHeightPx = with(density) {
         WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx()
     }
-    val barHeightPx = with(density) { barHeight.toPx() }
-
-    // Whichever screen is actually in front decides how far the top fade is in.
-    val frontOffset = when {
-        openSection != null -> sectionOffset
-        settingsOpen -> settingsOffset
-        else -> pageOffsets[pagerState.currentPage]
-    }
-    val topFraction by animateFloatAsState(
-        targetValue = (frontOffset.value / TopBlurRampPx).coerceIn(0f, 1f),
-        label = "top_blur_fraction",
-    )
-
     if (showDebugSheet) {
         DebugSheet(
             enabled = settingsState.settings.debugMode,
@@ -412,32 +383,76 @@ private fun HomeShell(
     Box(
         modifier = modifier
             .fillMaxSize()
-            // On the whole shell, toolbar included, rather than on the content
-            // box below: the wave starts at the bug button, and a ripple that
-            // left the button it came from perfectly still would look like it
-            // came from somewhere else.
+            // On the whole shell, toolbar included, rather than on one page: the
+            // wave starts at the bug button, and a ripple that left the button it
+            // came from perfectly still would look like it came from somewhere
+            // else. Outside the AnimatedContent for the same reason — a ripple
+            // that only touched the page arriving would stop at its edge.
             .liquidRipple(trigger = rippleTrigger, origin = rippleOrigin),
     ) {
-        CompositionLocalProvider(LocalBottomBarSpace provides barHeight + BottomBarGap) {
-            // The blur goes on the content, never on the parent that also holds
-            // the toolbar: a bottom fade applied there would dissolve the
-            // toolbar along with the list running underneath it.
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .progressiveBlur(
-                        blurRadius = if (settings.edgeBlur) StatusBarBlurRadius else 0f,
-                        topHeight = statusBarHeightPx * StatusBarBlurExtent,
-                        bottomHeight = barHeightPx,
-                        topFraction = topFraction,
-                        showGradientOverlay = settings.edgeBlur,
-                    ),
+        AnimatedContent(
+            targetState = destination,
+            transitionSpec = { pageTransition(targetState.depth > initialState.depth) },
+            label = "shell_page",
+        ) { page ->
+            ShellScaffold(
+                edgeBlur = settings.edgeBlur,
+                statusBarHeightPx = statusBarHeightPx,
+                offset = when (page) {
+                    ShellPage.Tabs -> pageOffsets[pagerState.currentPage]
+                    ShellPage.SettingsRoot -> settingsOffset
+                    is ShellPage.Section -> sectionOffset
+                },
+                // Everything here is read from `page`, never from the hoisted
+                // state, and that is the whole discipline of this arrangement:
+                // both slots are composed at once while the slide runs, so a
+                // title read from outside would flip the instant you navigated
+                // and the page would leave carrying the name of the one
+                // arriving.
+                toolbar = { barModifier ->
+                    LessonsFloatingToolbar(
+                        modifier = barModifier,
+                        selectedIndex = if (page == ShellPage.Tabs) pagerState.currentPage else -1,
+                        items = if (page == ShellPage.Tabs) {
+                            tabs.mapIndexed { index, tab ->
+                                ToolbarItem(
+                                    icon = tab.icon,
+                                    label = stringResource(tab.labelRes),
+                                    onClick = {
+                                        scope.launch { pagerState.animateScrollToPage(index) }
+                                    },
+                                )
+                            }
+                        } else {
+                            emptyList()
+                        },
+                        title = when (page) {
+                            ShellPage.Tabs -> null
+                            ShellPage.SettingsRoot -> stringResource(R.string.settings_title)
+                            is ShellPage.Section -> stringResource(page.section.titleRes)
+                        },
+                        onBackClick = when (page) {
+                            ShellPage.Tabs -> null
+                            ShellPage.SettingsRoot -> ::closeSettings
+                            is ShellPage.Section -> ::closeSection
+                        },
+                        action = shellAction(
+                            settingsOpen = page != ShellPage.Tabs,
+                            onOpenSettings = { settingsOpen = true },
+                            onOpenDebug = { at ->
+                                rippleOrigin = at
+                                rippleTrigger++
+                                showDebugSheet = true
+                            },
+                        ),
+                    )
+                },
             ) {
-                if (!tabsCovered) {
-                    tabStates.SaveableStateProvider(TabsStateKey) {
+                when (page) {
+                    ShellPage.Tabs -> tabStates.SaveableStateProvider(TabsStateKey) {
                         HorizontalPager(
                             state = pagerState,
-                            userScrollEnabled = settings.swipeTabs && !settingsOpen,
+                            userScrollEnabled = settings.swipeTabs,
                             // Off-screen pages stay composed so a swipe back to a
                             // tab shows the list where it was left rather than
                             // re-running its loader.
@@ -454,11 +469,11 @@ private fun HomeShell(
                                     scaleX = scale
                                     scaleY = scale
                                 },
-                        ) { page ->
+                        ) { tabIndex ->
                             CompositionLocalProvider(
-                                LocalScrollOffset provides pageOffsets[page],
+                                LocalScrollOffset provides pageOffsets[tabIndex],
                             ) {
-                                when (tabs[page]) {
+                                when (tabs[tabIndex]) {
                                     HomeTab.TODAY -> TodayScreen(
                                         onOpenHomework = {
                                             scope.launch {
@@ -475,23 +490,24 @@ private fun HomeShell(
                             }
                         }
                     }
-                }
 
-                SettingsLayer(visible = settingsOpen) {
-                    CompositionLocalProvider(LocalScrollOffset provides settingsOffset) {
+                    ShellPage.SettingsRoot -> CompositionLocalProvider(
+                        LocalScrollOffset provides settingsOffset,
+                    ) {
                         SettingsRootScreen(
                             viewModel = settingsViewModel,
                             onOpenSection = { section -> openSectionName = section.name },
                         )
                     }
-                }
 
-                SettingsLayer(visible = openSection != null) {
-                    CompositionLocalProvider(LocalScrollOffset provides sectionOffset) {
+                    is ShellPage.Section -> CompositionLocalProvider(
+                        LocalScrollOffset provides sectionOffset,
+                    ) {
+                        // page.section, not the hoisted one: that is already null
+                        // for the whole slide out, which is what the latch this
+                        // replaces existed to paper over.
                         SettingsSectionScreen(
-                            // shownSection, not openSection: the latter is
-                            // already null for the whole slide out.
-                            section = shownSection,
+                            section = page.section,
                             onOpenSection = { next -> openSectionName = next.name },
                             viewModel = settingsViewModel,
                         )
@@ -499,48 +515,130 @@ private fun HomeShell(
                 }
             }
         }
+    }
+}
 
-        LessonsFloatingToolbar(
-            modifier = Modifier
+/**
+ * Where the shell is, and how deep.
+ *
+ * The depth is declared rather than taken from an enum's ordinal, because an
+ * ordinal is a declaration order and reordering the list would silently reverse
+ * a transition.
+ */
+@Immutable
+private sealed interface ShellPage {
+
+    val depth: Int
+
+    data object Tabs : ShellPage {
+        override val depth: Int = 0
+    }
+
+    data object SettingsRoot : ShellPage {
+        override val depth: Int = 1
+    }
+
+    data class Section(val section: SettingsSection) : ShellPage {
+        override val depth: Int = 2
+    }
+}
+
+/**
+ * One page of the shell, with its own toolbar riding on it.
+ *
+ * The toolbar used to be drawn once, above everything, and stayed still while
+ * the page moved under it — so opening settings slid a page in beneath a bar
+ * that was already showing that page's title. Here it belongs to the page, so
+ * the two travel together and each screen's bar arrives with it.
+ *
+ * The cost of that is one measurement per page instead of one for the app, and
+ * that is deliberate too: during a slide there are two toolbars, and a single
+ * shared height would be written twice per frame by two different bars.
+ */
+@Composable
+private fun ShellScaffold(
+    edgeBlur: Boolean,
+    statusBarHeightPx: Float,
+    offset: ScrollOffsetHolder,
+    toolbar: @Composable (Modifier) -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val density = LocalDensity.current
+    val seedBarHeight = LocalBottomBarSpace.current
+    var barHeight by remember { mutableStateOf(seedBarHeight) }
+    val barHeightPx = with(density) { barHeight.toPx() }
+
+    // This page's own scroll drives this page's own fade. The shell used to pick
+    // whichever screen was in front and hand one number to everybody, which the
+    // page sliding away then wore for the length of the slide.
+    val topFraction by animateFloatAsState(
+        targetValue = (offset.value / TopBlurRampPx).coerceIn(0f, 1f),
+        label = "top_blur_fraction",
+    )
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        CompositionLocalProvider(LocalBottomBarSpace provides barHeight + BottomBarGap) {
+            // The blur goes on the content, never on the parent that also holds
+            // the toolbar: a bottom fade applied there would dissolve the
+            // toolbar along with the list running underneath it.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .progressiveBlur(
+                        blurRadius = if (edgeBlur) StatusBarBlurRadius else 0f,
+                        topHeight = statusBarHeightPx * StatusBarBlurExtent,
+                        bottomHeight = barHeightPx,
+                        topFraction = topFraction,
+                        showGradientOverlay = edgeBlur,
+                    ),
+            ) {
+                content()
+            }
+        }
+
+        toolbar(
+            Modifier
                 .align(Alignment.BottomCenter)
                 .zIndex(1f)
                 .onSizeChanged { size ->
                     barHeight = with(density) { size.height.toDp() }
                 },
-            selectedIndex = if (settingsOpen) -1 else pagerState.currentPage,
-            items = if (settingsOpen) {
-                emptyList()
-            } else {
-                tabs.mapIndexed { index, tab ->
-                    ToolbarItem(
-                        icon = tab.icon,
-                        label = stringResource(tab.labelRes),
-                        onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                    )
-                }
-            },
-            title = when {
-                openSection != null -> stringResource(openSection.titleRes)
-                settingsOpen -> stringResource(R.string.settings_title)
-                else -> null
-            },
-            onBackClick = when {
-                openSection != null -> ::closeSection
-                settingsOpen -> ::closeSettings
-                else -> null
-            },
-            action = shellAction(
-                settingsOpen = settingsOpen,
-                onOpenSettings = { settingsOpen = true },
-                onOpenDebug = { at ->
-                    rippleOrigin = at
-                    rippleTrigger++
-                    showDebugSheet = true
-                },
-            ),
         )
     }
 }
+
+/**
+ * Forward pushes the old page off to the left; back slides it away to the right.
+ *
+ * One spec for the movement and the fade, rather than a tween on one and a
+ * spring on the other: given different curves the arriving page reaches full
+ * opacity while it is still visibly moving, and the leaving one disappears
+ * before it is off the screen.
+ *
+ * `SizeTransform(clip = false)` because settings pages are wildly different
+ * heights, and the default animates the slot's size *and* clips to it — which
+ * crops whichever page is taller for the length of the slide.
+ */
+private fun pageTransition(forward: Boolean): ContentTransform {
+    val enter = slideInHorizontally(animationSpec = pageSlideSpring()) { width ->
+        if (forward) width else -width
+    } + fadeIn(animationSpec = tween(PageTransitionMillis))
+
+    val exit = slideOutHorizontally(animationSpec = pageSlideSpring()) { width ->
+        if (forward) -width else width
+    } + fadeOut(animationSpec = tween(PageTransitionMillis))
+
+    return ContentTransform(
+        targetContentEnter = enter,
+        initialContentExit = exit,
+        sizeTransform = SizeTransform(clip = false),
+    )
+}
+
+private fun pageSlideSpring() = spring<IntOffset>(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMediumLow,
+)
 
 /**
  * The button beside the pill, chosen by where the shell is.
@@ -573,49 +671,6 @@ private fun shellAction(
         contentDescription = stringResource(R.string.nav_settings),
         onClick = { onOpenSettings() },
     )
-}
-
-/**
- * One page of the settings tree, sliding in from the side over what is beneath.
- *
- * Opaque on purpose: the pager underneath stays composed so that the tabs keep
- * their scroll position, and a translucent layer would show it moving.
- */
-@Composable
-private fun SettingsLayer(
-    visible: Boolean,
-    content: @Composable () -> Unit,
-) {
-    AnimatedVisibility(
-        visible = visible,
-        enter = slideInHorizontally(tween(PageTransitionMillis)) { width -> width / LayerTravelDivisor } +
-            fadeIn(tween(PageTransitionMillis)),
-        exit = slideOutHorizontally(tween(PageTransitionMillis)) { width -> width / LayerTravelDivisor } +
-            fadeOut(tween(PageTransitionMillis)),
-    ) {
-        // The same float the slide is drawn from, so the blur is driven by the
-        // movement rather than by a second timer that has to be kept in step
-        // with it. `transition` belongs to this AnimatedVisibility and is only
-        // running while the page is actually travelling.
-        val slide = transition.animateFloat(
-            transitionSpec = { tween(PageTransitionMillis) },
-            label = "layer_slide",
-        ) { state -> if (state == EnterExitState.Visible) 1f else 0f }
-        val travel = LocalConfiguration.current.screenWidthDp.dp / LayerTravelDivisor
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .appSlideMotionBlur(
-                    moving = { transition.isRunning },
-                    fraction = { slide.value },
-                    travel = travel,
-                )
-                .background(MaterialTheme.colorScheme.surfaceContainer),
-        ) {
-            content()
-        }
-    }
 }
 
 /**
