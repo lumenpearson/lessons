@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -131,5 +133,42 @@ class GroupRowClickTest {
         compose.onNodeWithText("Класс").performClick()
 
         assertEquals(1, clicks)
+    }
+
+    /**
+     * The filled action inside a group reports its click, and stops reporting
+     * while it is busy.
+     *
+     * The busy case is the one worth pinning: "обновить сейчас" is a network
+     * call, and a button that keeps accepting presses while one is in flight
+     * queues up as many syncs as the user has patience for.
+     */
+    @Test
+    fun `a group action fires once and goes dead while busy`() {
+        var clicks = 0
+        // Snapshot state rather than a captured local: a plain `var` read during
+        // composition is read once and never again, so flipping it below would
+        // change nothing on screen and the assertion would pass for the wrong
+        // reason.
+        val busy = mutableStateOf(false)
+        compose.setContent {
+            LessonsTheme {
+                RoundedCardContainer {
+                    GroupActionItem(
+                        label = "Обновить сейчас",
+                        icon = Icons.Rounded.Palette,
+                        busy = busy.value,
+                        onClick = { clicks++ },
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithText("Обновить сейчас").performClick()
+        assertEquals(1, clicks)
+
+        compose.runOnIdle { busy.value = true }
+
+        compose.onNodeWithText("Обновить сейчас").assertIsNotEnabled()
     }
 }

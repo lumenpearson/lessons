@@ -15,6 +15,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -26,6 +27,11 @@ import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
  * Indented to line up with the text inside the group's first row rather than
  * with the screen margin, and muted rather than bold: the groups are the objects
  * on the screen, the labels only say what each one is.
+ *
+ * @param titleColor muted by default. The first-run screens pass the palette's
+ *   primary, which is what Essentials does on its own setup pages: there the
+ *   labels are the only structure on a page the user has never seen, so they are
+ *   allowed to carry colour, and a settings page read every week is not.
  */
 @Composable
 fun SectionHeader(
@@ -34,6 +40,7 @@ fun SectionHeader(
     subtitle: String? = null,
     actionLabel: String? = null,
     onActionClick: (() -> Unit)? = null,
+    titleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     Row(
         modifier = modifier
@@ -52,7 +59,7 @@ fun SectionHeader(
                 // large enough to structure the page, muted enough that the
                 // groups under it stay the objects on screen.
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = titleColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

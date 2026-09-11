@@ -99,6 +99,7 @@ internal class LessonsPreferences(context: Context) {
             prefs[KEY_SHOW_TEACHER] = updated.showTeacher
             prefs[KEY_WIDGET_SHOW_PROGRESS] = updated.widgetShowProgress
             prefs[KEY_DEBUG_MODE] = updated.debugMode
+            prefs[KEY_ONBOARDING_DONE] = updated.onboardingDone
             prefs[KEY_SYNC_INTERVAL] = updated.syncIntervalMinutes
                 .coerceAtLeast(AppSettings.MIN_SYNC_INTERVAL_MINUTES)
         }
@@ -148,6 +149,7 @@ internal class LessonsPreferences(context: Context) {
         showTeacher = this[KEY_SHOW_TEACHER] ?: true,
         widgetShowProgress = this[KEY_WIDGET_SHOW_PROGRESS] ?: true,
         debugMode = this[KEY_DEBUG_MODE] ?: false,
+        onboardingDone = this[KEY_ONBOARDING_DONE] ?: false,
         syncIntervalMinutes = (this[KEY_SYNC_INTERVAL] ?: AppSettings.DEFAULT_SYNC_INTERVAL_MINUTES)
             .coerceAtLeast(AppSettings.MIN_SYNC_INTERVAL_MINUTES),
     )
@@ -159,6 +161,7 @@ internal class LessonsPreferences(context: Context) {
         val KEY_SCHOOL = stringPreferencesKey("session_school")
 
         val KEY_DEBUG_MODE = booleanPreferencesKey("settings_debug_mode")
+        val KEY_ONBOARDING_DONE = booleanPreferencesKey("settings_onboarding_done")
 
         val KEY_BASE_URL = stringPreferencesKey("settings_base_url")
         val KEY_THEME_MODE = stringPreferencesKey("settings_theme_mode")

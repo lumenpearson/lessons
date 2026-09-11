@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -39,7 +38,6 @@ import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -63,6 +61,7 @@ import com.lumenpearson.lessons.BuildConfig
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
+import com.lumenpearson.lessons.core.designsystem.component.GroupActionItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupLinkItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupRow
@@ -528,20 +527,15 @@ private fun LazyListScope.syncRows(
             tone = accentTone(0),
             onClick = onEditServer,
         )
-        GroupItem(
-            title = stringResource(R.string.settings_refresh_now),
+        // Filled and full width, as the last row of the group, because it is
+        // the one thing on this page that *does* something the moment it is
+        // pressed rather than storing a preference. Essentials closes its own
+        // updates group with the same shape.
+        GroupActionItem(
+            label = stringResource(R.string.settings_refresh_now),
             icon = Icons.Rounded.Refresh,
-            tone = accentTone(3),
-            enabled = !state.isRefreshing,
+            busy = state.isRefreshing,
             onClick = viewModel::refreshNow,
-            trailing = {
-                if (state.isRefreshing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                    )
-                }
-            },
         )
     }
 }
@@ -609,10 +603,10 @@ private fun LazyListScope.aboutRows(
  * 12 on. Below that the row stays visible but disabled — hiding it would make
  * the setting look like a bug on the phones that do have it.
  */
-private val SupportsDynamicColor: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+internal val SupportsDynamicColor: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
 /** Both blur effects are AGSL runtime shaders, which arrived in Android 13. */
-private val SupportsShaders: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+internal val SupportsShaders: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
 
 /** A labelled group; the one place the label-to-group spacing is decided. */
 @Composable
@@ -627,7 +621,7 @@ private fun SettingsGroup(
 }
 
 /** Label of a theme mode in the segmented picker. */
-private val ThemeMode.labelRes: Int
+internal val ThemeMode.labelRes: Int
     get() = when (this) {
         ThemeMode.SYSTEM -> R.string.settings_theme_system
         ThemeMode.LIGHT -> R.string.settings_theme_light

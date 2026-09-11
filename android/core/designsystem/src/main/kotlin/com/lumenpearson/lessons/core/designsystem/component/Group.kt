@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +22,8 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -46,6 +50,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
+import com.lumenpearson.lessons.core.designsystem.theme.rowSelectedContainer
 
 private val TileSize: Dp = 40.dp
 
@@ -264,7 +269,14 @@ fun GroupSwitchItem(
                 enabled = enabled,
             )
         },
-        colors = ListItemDefaults.colors(containerColor = scheme.rowContainer),
+        // The switched-on colour is named rather than left to the library's
+        // default for the checked state: the default is chosen to read against
+        // Material's own list background, and these rows sit on `surfaceBright`
+        // inside a group, where it is nearly invisible in a dark scheme.
+        colors = ListItemDefaults.colors(
+            containerColor = scheme.rowContainer,
+            selectedContainerColor = scheme.rowSelectedContainer,
+        ),
         content = {
             Text(
                 text = title,
@@ -276,6 +288,73 @@ fun GroupSwitchItem(
         },
     )
 }
+
+/**
+ * A group's own call to action, filled and full width, as the last row of the
+ * group it belongs to.
+ *
+ * Straight out of the Essentials settings screen, where "Check for updates"
+ * closes the updates group the same way. A row with a chevron says "there is
+ * more to read here"; this says "press this and something happens now", and the
+ * two are worth telling apart when they are eight pixels apart.
+ *
+ * It sits on the group's own row colour rather than on the page, so that the
+ * button floats inside the slab with the rows instead of breaking it in two.
+ */
+@Composable
+fun GroupActionItem(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    enabled: Boolean = true,
+    busy: Boolean = false,
+) {
+    val view = rememberHapticView()
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RectangleShape,
+        color = MaterialTheme.colorScheme.rowContainer,
+    ) {
+        Button(
+            onClick = {
+                LessonsHaptics.press(view)
+                onClick()
+            },
+            enabled = enabled && !busy,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .height(ActionRowHeight),
+        ) {
+            if (busy) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
+                Spacer(Modifier.size(10.dp))
+            } else if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.size(10.dp))
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** Height of a filled action inside a group; Essentials' own 52 dp. */
+private val ActionRowHeight: Dp = 52.dp
 
 /** A [GroupItem] that leads somewhere: an optional value, then a chevron. */
 @Composable

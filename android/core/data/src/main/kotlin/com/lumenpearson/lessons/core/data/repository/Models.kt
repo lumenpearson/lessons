@@ -68,6 +68,16 @@ data class AppSettings(
      * developer would find it convenient.
      */
     val debugMode: Boolean = false,
+    /**
+     * Whether the first-run introduction has been seen.
+     *
+     * Separate from "has a session" because the two answer different questions.
+     * Signing out has to put the user back on the code field, but it must not
+     * replay four screens of introduction at somebody who has been using the app
+     * all term. This flag is therefore set once, when the introduction is
+     * finished, and never cleared.
+     */
+    val onboardingDone: Boolean = false,
 ) {
     companion object {
         /**

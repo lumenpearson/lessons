@@ -66,6 +66,7 @@ import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.ui.debug.DebugSheet
 import com.lumenpearson.lessons.ui.homework.HomeworkScreen
 import com.lumenpearson.lessons.ui.join.JoinScreen
+import com.lumenpearson.lessons.ui.onboarding.OnboardingScreen
 import com.lumenpearson.lessons.ui.settings.SettingsRootScreen
 import com.lumenpearson.lessons.ui.settings.SettingsSection
 import com.lumenpearson.lessons.ui.settings.SettingsSectionScreen
@@ -105,7 +106,26 @@ fun LessonsApp(
 ) {
     when (signedIn) {
         null -> SplashShell(modifier = modifier)
-        false -> JoinScreen(modifier = modifier)
+
+        false -> {
+            // Latched on the first composition of this branch rather than read
+            // live. The introduction records itself as seen the moment it
+            // reaches its last step, and re-reading the flag there would swap
+            // the whole screen for a bare join page halfway through the slide
+            // that was carrying the user to it.
+            //
+            // Safe to latch because settings are real by the time this branch
+            // exists at all: the shell's state combines the settings flow with
+            // the session, so nothing is emitted — and the splash above stays —
+            // until preferences have actually been read from disk.
+            val introduce = rememberSaveable { !settings.onboardingDone }
+            if (introduce) {
+                OnboardingScreen(modifier = modifier)
+            } else {
+                JoinScreen(modifier = modifier)
+            }
+        }
+
         true -> HomeShell(
             settings = settings,
             openDate = openDate,

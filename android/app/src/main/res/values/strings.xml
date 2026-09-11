@@ -16,6 +16,28 @@
     <!-- Общие действия -->
     <string name="action_save">Сохранить</string>
     <string name="action_cancel">Отмена</string>
+    <string name="action_back">Назад</string>
+
+    <!-- Первый запуск -->
+    <string name="onboarding_welcome_title">Добро пожаловать в «%1$s»</string>
+    <string name="onboarding_welcome_subtitle">Расписание, замены и домашние задания вашего класса — в приложении и на главном экране.</string>
+    <string name="onboarding_action_begin">Давайте начнём</string>
+    <string name="onboarding_ack_title">Подтверждение</string>
+    <string name="onboarding_ack_body">Приложение показывает расписание того класса, к которому вы подключитесь. Данные приходят с сервера школы: приложение только читает их и ничего не меняет в школьном журнале.
+
+На устройстве остаются выданный вам ключ доступа и копия расписания — чтобы приложение и виджет работали без сети. Всё это удаляется, когда вы выходите из класса.</string>
+    <string name="onboarding_ack_warning">Расписание могли изменить позже, чем приложение успело его забрать. Перед контрольной или заменой сверяйтесь с тем, что сказали в школе.</string>
+    <string name="onboarding_ack_footer">Если приложение поведёт себя странно, отчёт об ошибке поможет разобраться. Он остаётся на телефоне, пока вы сами его не отправите.</string>
+    <string name="onboarding_ack_reports">Отчёты об ошибках</string>
+    <string name="onboarding_ack_reports_description">Сохранять на устройстве, что именно случилось перед сбоем</string>
+    <string name="onboarding_reports_off">Выкл</string>
+    <string name="onboarding_reports_on">Вкл</string>
+    <string name="onboarding_action_understood">Я понимаю</string>
+    <string name="onboarding_preferences_title">Свойства</string>
+    <string name="onboarding_preferences_subtitle">Выберите основные настройки, чтобы начать. Всё это потом можно изменить.</string>
+    <string name="onboarding_group_app">Настройки приложения</string>
+    <string name="onboarding_group_content">Содержимое</string>
+    <string name="onboarding_action_all_set">Всё готово</string>
 
     <!-- Подключение к классу -->
     <string name="join_title">Подключиться к классу</string>
