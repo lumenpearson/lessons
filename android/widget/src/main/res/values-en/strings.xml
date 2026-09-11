@@ -71,6 +71,7 @@
 
     <string name="widget_empty_title">Open the app and enter your class code</string>
     <string name="widget_empty_short">Enter class code</string>
+    <string name="widget_loading">Loading the timetable…</string>
     <string name="widget_no_data_title">No timetable yet — open the app and pull down to refresh</string>
     <string name="widget_no_data_short">No timetable yet</string>
 
