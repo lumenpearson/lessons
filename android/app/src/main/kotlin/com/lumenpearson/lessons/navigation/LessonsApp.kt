@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -120,35 +121,50 @@ fun LessonsApp(
             scale = settings.motionBlurScale,
         ),
     ) {
-        when (signedIn) {
-            null -> SplashShell(modifier = modifier)
+        // The page colour, painted once for the whole app.
+        //
+        // Nothing used to paint it. The tabs draw rows and nothing behind them,
+        // so what showed between the rows was the *window* background — an
+        // Android resource that follows the system's night mode and cannot
+        // follow an in-app setting. While the two agreed it looked deliberate.
+        // Choosing "светлая" on a phone in dark mode gave white rows and black
+        // text on a black page, and "чёрная тема" appeared to do nothing at all,
+        // because the only surface in the app that painted itself was the
+        // settings layer — which is exactly where both settings did seem to work.
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+        ) {
+            when (signedIn) {
+                null -> SplashShell(modifier = modifier)
 
-            false -> {
-                // Latched on the first composition of this branch rather than
-                // read live. The introduction records itself as seen the moment
-                // it reaches its last step, and re-reading the flag there would
-                // swap the whole screen for a bare join page halfway through the
-                // slide that was carrying the user to it.
-                //
-                // Safe to latch because settings are real by the time this
-                // branch exists at all: the shell's state combines the settings
-                // flow with the session, so nothing is emitted — and the splash
-                // above stays — until preferences have actually been read from
-                // disk.
-                val introduce = rememberSaveable { !settings.onboardingDone }
-                if (introduce) {
-                    OnboardingScreen(modifier = modifier)
-                } else {
-                    JoinScreen(modifier = modifier)
+                false -> {
+                    // Latched on the first composition of this branch rather than
+                    // read live. The introduction records itself as seen the moment
+                    // it reaches its last step, and re-reading the flag there would
+                    // swap the whole screen for a bare join page halfway through the
+                    // slide that was carrying the user to it.
+                    //
+                    // Safe to latch because settings are real by the time this
+                    // branch exists at all: the shell's state combines the settings
+                    // flow with the session, so nothing is emitted — and the splash
+                    // above stays — until preferences have actually been read from
+                    // disk.
+                    val introduce = rememberSaveable { !settings.onboardingDone }
+                    if (introduce) {
+                        OnboardingScreen(modifier = modifier)
+                    } else {
+                        JoinScreen(modifier = modifier)
+                    }
                 }
-            }
 
-            true -> HomeShell(
-                settings = settings,
-                openDate = openDate,
-                onDateOpened = onDateOpened,
-                modifier = modifier,
-            )
+                true -> HomeShell(
+                    settings = settings,
+                    openDate = openDate,
+                    onDateOpened = onDateOpened,
+                    modifier = modifier,
+                )
+            }
         }
     }
 }
