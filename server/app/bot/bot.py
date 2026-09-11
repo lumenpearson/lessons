@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import suppress
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.types import BotCommand
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.types import BotCommand, ErrorEvent
 
 from app.bot.handlers import build_router
 from app.bot.middlewares import ContextMiddleware
@@ -38,7 +40,46 @@ def build_dispatcher() -> Dispatcher:
     dispatcher.message.middleware(ContextMiddleware())
     dispatcher.callback_query.middleware(ContextMiddleware())
     dispatcher.include_router(build_router())
+    dispatcher.errors.register(_on_error)
     return dispatcher
+
+
+async def _on_error(event: ErrorEvent) -> bool:
+    """Answer the callback whatever happened, so no button spins forever.
+
+    There are thirty ``edit_text`` calls across the handlers and not one of them
+    was guarded, with no error handler registered either. Two ordinary things
+    therefore left a button with a loading spinner on it until Telegram timed
+    out:
+
+    * Pressing a button that re-renders the same view — "Сегодня" from the day
+      view, "‹ Меню" from the menu — makes Telegram answer *message is not
+      modified*, which is a 400. The exception escaped before ``answer()``.
+    * Any handler raising at all, including the ``data["…"]`` reads in the FSM
+      flows that assume a step the user may not have been through.
+
+    On the webhook deployment none of this is visible: the route answers 200 on
+    an exception, so the only symptom is a bot that stops responding.
+
+    An unmodified message is not worth telling anybody about. Anything else is
+    logged and the user is told, and their conversation state is cleared so
+    that the next thing they type is not swallowed by a half-finished flow.
+    """
+    callback = event.update.callback_query
+    error = event.exception
+
+    if isinstance(error, TelegramBadRequest) and "message is not modified" in str(error).lower():
+        if callback is not None:
+            with suppress(TelegramBadRequest):
+                await callback.answer()
+        return True
+
+    log.exception("Bot handler failed", exc_info=error)
+
+    if callback is not None:
+        with suppress(TelegramBadRequest):
+            await callback.answer("Что-то пошло не так. Начните заново: /start", show_alert=True)
+    return True
 
 
 def build_bot() -> Bot:
