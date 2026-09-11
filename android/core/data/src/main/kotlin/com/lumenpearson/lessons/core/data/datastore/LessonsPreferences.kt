@@ -121,6 +121,11 @@ internal class LessonsPreferences(context: Context) {
             prefs[KEY_ALERT_CHANGES] = updated.alerts.scheduleChanges
             prefs[KEY_SYNC_INTERVAL] = updated.syncIntervalMinutes
                 .coerceAtLeast(AppSettings.MIN_SYNC_INTERVAL_MINUTES)
+            prefs[KEY_RIPPLE_EFFECTS] = updated.rippleEffects
+            prefs[KEY_THEME_REVEAL] = updated.themeReveal
+            prefs[KEY_AUTO_CHECK_UPDATES] = updated.autoCheckUpdates
+            prefs[KEY_INCLUDE_PRERELEASE] = updated.includePrerelease
+            prefs[KEY_NOTIFY_UPDATES] = updated.notifyNewUpdates
         }
     }
 
@@ -205,6 +210,11 @@ internal class LessonsPreferences(context: Context) {
         ),
         syncIntervalMinutes = (this[KEY_SYNC_INTERVAL] ?: AppSettings.DEFAULT_SYNC_INTERVAL_MINUTES)
             .coerceAtLeast(AppSettings.MIN_SYNC_INTERVAL_MINUTES),
+        rippleEffects = this[KEY_RIPPLE_EFFECTS] ?: true,
+        themeReveal = this[KEY_THEME_REVEAL] ?: true,
+        autoCheckUpdates = this[KEY_AUTO_CHECK_UPDATES] ?: true,
+        includePrerelease = this[KEY_INCLUDE_PRERELEASE] ?: false,
+        notifyNewUpdates = this[KEY_NOTIFY_UPDATES] ?: true,
     )
 
     private companion object {
@@ -239,5 +249,10 @@ internal class LessonsPreferences(context: Context) {
         val KEY_SHOW_TEACHER = booleanPreferencesKey("settings_show_teacher")
         val KEY_WIDGET_SHOW_PROGRESS = booleanPreferencesKey("settings_widget_show_progress")
         val KEY_SYNC_INTERVAL = intPreferencesKey("settings_sync_interval_minutes")
+        val KEY_RIPPLE_EFFECTS = booleanPreferencesKey("settings_ripple_effects")
+        val KEY_THEME_REVEAL = booleanPreferencesKey("settings_theme_reveal")
+        val KEY_AUTO_CHECK_UPDATES = booleanPreferencesKey("settings_auto_check_updates")
+        val KEY_INCLUDE_PRERELEASE = booleanPreferencesKey("settings_include_prerelease")
+        val KEY_NOTIFY_UPDATES = booleanPreferencesKey("settings_notify_updates")
     }
 }

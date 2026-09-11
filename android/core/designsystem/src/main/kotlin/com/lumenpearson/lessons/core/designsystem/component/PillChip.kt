@@ -18,11 +18,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 
 /**
  * The smallest status carrier in the design system: "замена", "отменён", "сейчас",
@@ -32,8 +34,11 @@ import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
  * labels: a chip that invites a tap that does nothing is worse than a label, and
  * a chip's minimum touch target would make every lesson row 16 dp taller.
  *
- * @param selected drives the default colours; a selected chip fills with the
- *   primary colour so one glance finds the current day in a row of seven.
+ * @param selected the chip is the current one — the day in view, the lesson
+ *   running now. It drives the default colours, so a selected chip fills with
+ *   the primary colour and one glance finds the current day in a row of seven;
+ *   and it sets the label bold, which is the part that survives when a caller
+ *   brings colours of its own.
  * @param onClick when non-null the chip becomes a real, ripple-clipped target.
  */
 @Composable
@@ -92,7 +97,7 @@ fun PillChip(
             }
             Text(
                 text = text,
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelSmall.emphasised(selected, resting = FontWeight.Medium),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

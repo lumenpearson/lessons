@@ -37,7 +37,7 @@ class LessonsApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        Graph.init(this)
+        Graph.init(this, githubClientId = BuildConfig.GITHUB_CLIENT_ID)
         observeSyncInterval()
         // Off the main thread: it reads the cached timetable to work out what to
         // arm for, and Application.onCreate is on the critical path of every

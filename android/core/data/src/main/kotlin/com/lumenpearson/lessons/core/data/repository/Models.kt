@@ -88,6 +88,32 @@ data class AppSettings(
      * field by field.
      */
     val alerts: AlertPreferences = AlertPreferences(),
+    /**
+     * The liquid ripple over the whole screen — on the debug switch, on a theme
+     * change, on an update decision. A full-screen runtime shader for a second
+     * and a half, and the one ornament here that a cheap phone can feel, so it
+     * can be turned off on its own.
+     */
+    val rippleEffects: Boolean = true,
+    /**
+     * The circular wipe from the old theme to the new one. Without it the
+     * colours simply swap in a frame, which is what a phone with reduced
+     * motion asks for and what some people prefer regardless.
+     */
+    val themeReveal: Boolean = true,
+    /**
+     * Ask GitHub for a newer release when the app opens. One request, once
+     * per launch, and only when the last one was long enough ago.
+     */
+    val autoCheckUpdates: Boolean = true,
+    /** Whether a release GitHub flags as pre-release may be offered. */
+    val includePrerelease: Boolean = false,
+    /**
+     * Raise the release sheet by itself when the automatic check finds one.
+     * Off, the check still runs and the settings row shows the verdict, but
+     * nothing interrupts.
+     */
+    val notifyNewUpdates: Boolean = true,
 ) {
     companion object {
         /**

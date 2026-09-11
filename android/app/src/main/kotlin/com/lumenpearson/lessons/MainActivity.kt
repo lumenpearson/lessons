@@ -108,7 +108,7 @@ class MainActivity : ComponentActivity() {
                 // Wraps the app rather than living inside a screen: the circle
                 // has to cross the whole window, and the still it wipes away is
                 // a photograph of the whole window.
-                ThemeRevealHost {
+                ThemeRevealHost(enabled = shell.settings.themeReveal) {
                     LessonsApp(
                         signedIn = shell.signedIn,
                         settings = shell.settings,

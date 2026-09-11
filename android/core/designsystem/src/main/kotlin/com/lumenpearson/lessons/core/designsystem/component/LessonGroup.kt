@@ -94,6 +94,7 @@ private fun NowSeparator(modifier: Modifier = Modifier) {
         )
         PillChip(
             text = stringResource(R.string.ds_lesson_now),
+            selected = true,
             containerColor = accent,
             contentColor = MaterialTheme.colorScheme.onPrimary,
         )

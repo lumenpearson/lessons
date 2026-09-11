@@ -170,6 +170,7 @@ fun DaySheet(
                 if (day?.isToday == true) {
                     PillChip(
                         text = stringResource(R.string.day_today),
+                        selected = true,
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                     )

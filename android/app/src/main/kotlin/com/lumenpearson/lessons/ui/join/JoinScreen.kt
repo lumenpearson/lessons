@@ -1,5 +1,7 @@
 package com.lumenpearson.lessons.ui.join
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,6 +23,7 @@ import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -28,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,6 +55,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.GoogleSansFlexRounded
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
+import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import com.lumenpearson.lessons.ui.common.ClassCodeLengths
 import com.lumenpearson.lessons.ui.common.ServerUrlSheet
 import com.lumenpearson.lessons.ui.onboarding.OnboardingActions
@@ -243,12 +248,17 @@ private fun ClassCodeField(
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     val errorText = error.asText()
+    // Held only to know whether the field has focus: the label is bold while
+    // it does, which is the one accent a text field gets.
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
 
     OutlinedTextField(
         value = code,
         onValueChange = onCodeChange,
         modifier = modifier.fillMaxWidth(),
         enabled = enabled,
+        interactionSource = interactionSource,
         singleLine = true,
         isError = error != null,
         shape = MaterialTheme.shapes.large,
@@ -257,7 +267,12 @@ private fun ClassCodeField(
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 12.sp,
         ),
-        label = { Text(text = stringResource(R.string.join_code_label)) },
+        label = {
+            Text(
+                text = stringResource(R.string.join_code_label),
+                style = LocalTextStyle.current.emphasised(focused),
+            )
+        },
         supportingText = {
             Text(
                 text = errorText ?: stringResource(R.string.join_code_hint, ClassCodeLengths.first, ClassCodeLengths.last),

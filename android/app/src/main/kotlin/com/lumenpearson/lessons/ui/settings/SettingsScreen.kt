@@ -33,10 +33,12 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Swipe
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.ViewAgenda
+import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -154,6 +156,12 @@ enum class SettingsSection(
         Icons.Rounded.School,
         1,
     ),
+    UPDATES(
+        R.string.settings_updates,
+        R.string.settings_updates_summary,
+        Icons.Rounded.SystemUpdate,
+        2,
+    ),
     ABOUT(
         R.string.settings_about,
         R.string.settings_about_summary,
@@ -253,6 +261,9 @@ fun SettingsSectionScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showServerSheet by rememberSaveable { mutableStateOf(false) }
     var showSignOutSheet by rememberSaveable { mutableStateOf(false) }
+    val sheets = rememberSupportSheets()
+
+    SupportSheets(sheets = sheets, state = state, viewModel = viewModel)
 
     if (showServerSheet) {
         ServerUrlSheet(
@@ -296,7 +307,25 @@ fun SettingsSectionScreen(
             SettingsSection.ALERTS -> notificationRows(state, viewModel, onOpenSection)
             SettingsSection.SYNC -> syncRows(state, viewModel) { showServerSheet = true }
             SettingsSection.ACCOUNT -> accountRows(state) { showSignOutSheet = true }
-            SettingsSection.ABOUT -> aboutRows(state, viewModel)
+            SettingsSection.UPDATES -> updateRows(
+                state = state,
+                viewModel = viewModel,
+                onShowRelease = viewModel::showReleaseSheet,
+                onAskPrerelease = { sheets.prerelease = true },
+            )
+            SettingsSection.ABOUT -> {
+                aboutRows(state, viewModel)
+                supportRows(
+                    state = state,
+                    viewModel = viewModel,
+                    onReportBug = { sheets.bugReport = true },
+                    onSignIn = {
+                        sheets.signIn = true
+                        viewModel.signInWithGithub()
+                    },
+                    onShowLicenses = { sheets.licenses = true },
+                )
+            }
             SettingsSection.PERMISSIONS -> permissionRows()
         }
     }
@@ -525,6 +554,30 @@ private fun LazyListScope.feelRows(
                     valueFormatter = { amount -> "%.1f×".format(amount) },
                 )
             }
+            // The two whole-screen ornaments, each on its own switch. The
+            // ripple is a shader and shares the blur rows' availability; the
+            // wipe is a bitmap and runs on anything, so it is never disabled.
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_ripple),
+                subtitle = if (SupportsShaders) {
+                    stringResource(R.string.settings_ripple_description)
+                } else {
+                    stringResource(R.string.settings_blur_unavailable)
+                },
+                icon = Icons.Rounded.Waves,
+                tone = accentTone(2),
+                enabled = SupportsShaders,
+                checked = state.settings.rippleEffects && SupportsShaders,
+                onCheckedChange = viewModel::setRippleEffects,
+            )
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_theme_reveal),
+                subtitle = stringResource(R.string.settings_theme_reveal_description),
+                icon = Icons.Rounded.Contrast,
+                tone = accentTone(4),
+                checked = state.settings.themeReveal,
+                onCheckedChange = viewModel::setThemeReveal,
+            )
         }
     }
 }

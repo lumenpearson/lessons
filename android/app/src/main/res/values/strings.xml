@@ -281,4 +281,46 @@
         <item quantity="other">%1$d не выдано</item>
     </plurals>
 
+    <!-- Effects: the two full-screen shader ornaments, each with its own switch. -->
+    <string name="settings_ripple">Волна</string>
+    <string name="settings_ripple_description">Рябь по экрану при смене темы и включении отладки</string>
+    <string name="settings_theme_reveal">Круговая смена темы</string>
+    <string name="settings_theme_reveal_description">Новая тема расходится кругом из-под пальца</string>
+
+    <!-- Updates section -->
+    <string name="settings_updates">Обновления</string>
+    <string name="settings_updates_summary">Проверка новых версий на GitHub</string>
+    <string name="settings_updates_group">Версия</string>
+    <string name="settings_updates_installed">Установлена %1$s</string>
+    <string name="settings_updates_check">Проверить обновления</string>
+    <string name="settings_updates_checking">Проверяем…</string>
+    <string name="settings_updates_available">Доступна %1$s</string>
+    <string name="settings_updates_up_to_date">Всё актуально</string>
+    <string name="settings_updates_failed">Не удалось проверить</string>
+    <string name="settings_updates_never">Ещё не проверялось</string>
+    <string name="settings_updates_behaviour_group">Поведение</string>
+    <string name="settings_updates_auto">Проверять автоматически</string>
+    <string name="settings_updates_auto_description">При запуске приложения, не чаще раза в день</string>
+    <string name="settings_updates_prerelease">Пре-релизы</string>
+    <string name="settings_updates_prerelease_description">Тестовые сборки. Могут работать нестабильно</string>
+    <string name="settings_updates_notify">Сообщать о новых версиях</string>
+    <string name="settings_updates_notify_description">Показывать заметки к выпуску, когда версия найдена</string>
+    <string name="settings_updates_release_notes">Заметки к выпуску</string>
+    <string name="settings_updates_release_notes_description">Что изменилось в установленной версии</string>
+
+    <!-- About: GitHub, bug reports, licences -->
+    <string name="settings_github_group">GitHub</string>
+    <string name="settings_github_sign_in">Войти через GitHub</string>
+    <string name="settings_github_sign_in_description">Чтобы отправлять сообщения об ошибках прямо из приложения</string>
+    <string name="settings_github_signed_in_as">Вы вошли как @%1$s</string>
+    <string name="settings_github_sign_out">Выйти</string>
+    <string name="settings_bug_report">Сообщить об ошибке</string>
+    <string name="settings_bug_report_description">Что сломалось, с данными об устройстве</string>
+    <string name="settings_licenses">Лицензии и благодарности</string>
+    <string name="settings_licenses_description">Открытый код, на котором держится приложение</string>
+    <string name="issue_error_failed">Не удалось отправить на GitHub</string>
+    <string name="issue_filed">Отправлено. Открыть на GitHub?</string>
+    <string name="issue_filed_open">Открыть</string>
+    <string name="bug_report_email_subject">Отчёт из приложения «Уроки» %1$s</string>
+
 </resources>

@@ -45,6 +45,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
@@ -65,6 +67,8 @@ import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurExtent
 import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurRadius
 import com.lumenpearson.lessons.core.designsystem.modifier.TopBlurRampPx
+import com.lumenpearson.lessons.core.designsystem.modifier.LiquidRippleState
+import com.lumenpearson.lessons.core.designsystem.modifier.LocalLiquidRipple
 import com.lumenpearson.lessons.core.designsystem.modifier.liquidRipple
 import com.lumenpearson.lessons.core.designsystem.modifier.progressiveBlur
 import com.lumenpearson.lessons.core.designsystem.theme.BottomBarGap
@@ -83,6 +87,7 @@ import com.lumenpearson.lessons.ui.onboarding.OnboardingScreen
 import com.lumenpearson.lessons.ui.settings.SettingsRootScreen
 import com.lumenpearson.lessons.ui.settings.SettingsSection
 import com.lumenpearson.lessons.ui.settings.SettingsSectionScreen
+import com.lumenpearson.lessons.ui.settings.UpdateHost
 import com.lumenpearson.lessons.ui.settings.SettingsViewModel
 import com.lumenpearson.lessons.ui.today.TodayScreen
 import com.lumenpearson.lessons.ui.week.ScheduleView
@@ -121,11 +126,18 @@ fun LessonsApp(
     // used to live: the first-run steps and the join screen slide too, and a
     // local provided below them left those transitions permanently unblurred
     // however the setting was set.
+    // The one wave for the whole window. Deliberately not saved across
+    // configuration changes — a ripple restored on rotation would be a wave
+    // from nowhere. Provided here, above every screen, so a theme switch three
+    // pages down can fire it from its own row.
+    val ripple = remember { LiquidRippleState() }
+
     CompositionLocalProvider(
         LocalScrollBlur provides ScrollBlurSettings(
             enabled = settings.motionBlur,
             scale = settings.motionBlurScale,
         ),
+        LocalLiquidRipple provides ripple,
     ) {
         // The page colour, painted once for the whole app.
         //
@@ -247,12 +259,12 @@ private fun HomeShell(
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var showDebugSheet by rememberSaveable { mutableStateOf(false) }
 
-    // A counter rather than a flag, because the thing being answered is a tap:
-    // pressing the bug button twice should give two waves, and a boolean has no
-    // way to say "again". Deliberately not saved across configuration changes —
-    // a ripple restored on rotation would be a wave from nowhere.
-    var rippleTrigger by remember { mutableIntStateOf(0) }
-    var rippleOrigin by remember { mutableStateOf(Offset.Unspecified) }
+    // The app's wave, provided by [LessonsApp]; a fresh one only for a preview
+    // that composes the shell bare.
+    val ripple = LocalLiquidRipple.current ?: remember { LiquidRippleState() }
+    // Where the shell sits on the screen, for turning a point a modal sheet
+    // measured in its own window into one of ours.
+    var shellOnScreen by remember { mutableStateOf(Offset.Zero) }
     var openSectionName by rememberSaveable { mutableStateOf<String?>(null) }
     val openSection = remember(openSectionName) { SettingsSection.fromName(openSectionName) }
 
@@ -379,16 +391,23 @@ private fun HomeShell(
             onDismiss = { showDebugSheet = false },
         )
     }
+    UpdateHost(
+        state = settingsState,
+        viewModel = settingsViewModel,
+        ripple = ripple,
+        screenToRoot = { onScreen -> onScreen - shellOnScreen },
+    )
 
     Box(
         modifier = modifier
             .fillMaxSize()
+            .onGloballyPositioned { shellOnScreen = it.positionOnScreen() }
             // On the whole shell, toolbar included, rather than on one page: the
             // wave starts at the bug button, and a ripple that left the button it
             // came from perfectly still would look like it came from somewhere
             // else. Outside the AnimatedContent for the same reason — a ripple
             // that only touched the page arriving would stop at its edge.
-            .liquidRipple(trigger = rippleTrigger, origin = rippleOrigin),
+            .liquidRipple(ripple, enabled = settings.rippleEffects),
     ) {
         AnimatedContent(
             targetState = destination,
@@ -440,8 +459,7 @@ private fun HomeShell(
                             settingsOpen = page != ShellPage.Tabs,
                             onOpenSettings = { settingsOpen = true },
                             onOpenDebug = { at ->
-                                rippleOrigin = at
-                                rippleTrigger++
+                                ripple.fire(at)
                                 showDebugSheet = true
                             },
                         ),

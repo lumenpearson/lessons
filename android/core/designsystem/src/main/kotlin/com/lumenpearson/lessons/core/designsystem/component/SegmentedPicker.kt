@@ -28,7 +28,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -40,6 +39,7 @@ import com.lumenpearson.lessons.core.designsystem.modifier.fadingEdges
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
+import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 
 /** Inner padding of one segment; see the note at its use. */
@@ -152,10 +152,9 @@ private fun SegmentLabel(
     // labelMedium, not labelLarge. Four segments on a 360 dp screen leave about
     // 40 dp of text each, and at 14 sp every Russian label but "Нет" overflowed.
     // Essentials reaches for a smaller size here for the same reason.
-    val style = MaterialTheme.typography.labelMedium.copy(
-        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-        textAlign = TextAlign.Center,
-    )
+    val style = MaterialTheme.typography.labelMedium
+        .emphasised(selected)
+        .copy(textAlign = TextAlign.Center)
     val measurer = rememberTextMeasurer()
 
     BoxWithConstraints(modifier = modifier) {

@@ -68,6 +68,7 @@ import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 
 /**
  * One destination of the toolbar in tabbed mode.
@@ -371,7 +372,7 @@ private fun ToolbarTab(
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = item.label,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.labelLarge.emphasised(active = selected),
                     color = scheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
