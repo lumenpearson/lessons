@@ -377,3 +377,26 @@ async def test_a_class_name_containing_markup_is_escaped(session):
     assert "&lt;b&gt;9А&lt;/b&gt;" in rendered
     assert "<script>" not in rendered
     assert "<i>Школа</i>" not in rendered
+
+
+def test_telegram_id_columns_are_wide_enough_for_real_ids():
+    """Telegram ids exceed 2^31, and Integer maps to int4 on Postgres.
+
+    SQLite has no integer width, so nothing at runtime in this suite can catch a
+    column that is too narrow — the failure only appears in production, as an
+    asyncpg NumericValueOutOfRange the webhook swallows. Assert the declared
+    type instead.
+    """
+    from sqlalchemy import BigInteger
+
+    from app.models import BotUser, Homework, PhoneInvite
+
+    columns = [
+        BotUser.__table__.c.telegram_id,
+        BotUser.__table__.c.granted_by,
+        Homework.__table__.c.created_by,
+        PhoneInvite.__table__.c.invited_by,
+        PhoneInvite.__table__.c.used_by,
+    ]
+    for column in columns:
+        assert isinstance(column.type, BigInteger), column

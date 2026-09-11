@@ -49,6 +49,24 @@ async def test_join_rejects_an_unknown_code(client, school_class):
     assert response.status_code == 404
 
 
+@pytest.mark.parametrize("code", ["    ", " \t\n\r ", "\x00\x01\x02\x03"])
+async def test_join_rejects_a_code_that_sanitises_away_to_nothing(client, school_class, code):
+    """A code long enough to pass min_length but empty once cleaned is a 422.
+
+    It used to be a 500: the validator returned None for it, pydantic does not
+    re-check an after-validator's return against the annotation, and the handler
+    then called .strip() on None. An unauthenticated 500 generator, reachable by
+    tapping send on a field holding a space.
+    """
+    response = await client.post("/api/v1/join", json={"code": code})
+    assert response.status_code == 422
+
+
+async def test_join_keeps_a_code_that_only_needs_trimming(client, school_class):
+    response = await client.post("/api/v1/join", json={"code": "  test42  "})
+    assert response.status_code == 200
+
+
 async def test_bundle_requires_a_bearer_token(client, school_class):
     assert (await client.get("/api/v1/bundle")).status_code == 401
     assert (

@@ -19,6 +19,7 @@ from datetime import datetime, time
 from datetime import time as Time
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     ForeignKey,
@@ -287,7 +288,14 @@ class Homework(Base):
     subject_name: Mapped[str] = mapped_column(String(120), nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     attachment_url: Mapped[str | None] = mapped_column(String(500))
-    created_by: Mapped[int | None] = mapped_column(Integer)  # telegram user id
+    # Telegram user id. BigInteger, not Integer: Telegram ids passed 2^31 in
+    # 2021 and the API documents them as up to 52 bits, while Integer maps to
+    # int4 on Postgres. The first teacher with a modern account would have hit
+    # NumericValueOutOfRange — invisibly, because the webhook answers 200 on an
+    # exception, so the bot would simply have stopped replying. SQLite, which
+    # the dev setup and the tests run on, has no integer width and never showed
+    # it. The same applies to every other telegram id column below.
+    created_by: Mapped[int | None] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
@@ -323,7 +331,7 @@ class BotUser(Base):
     __table_args__ = (UniqueConstraint("telegram_id", "class_id", name="uq_bot_user_class"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    telegram_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
     class_id: Mapped[int] = mapped_column(
         ForeignKey("classes.id", ondelete="CASCADE"), index=True, nullable=False
     )
@@ -331,7 +339,7 @@ class BotUser(Base):
     username: Mapped[str | None] = mapped_column(String(64))
     full_name: Mapped[str | None] = mapped_column(String(200))
     phone: Mapped[str | None] = mapped_column(String(32), index=True)
-    granted_by: Mapped[int | None] = mapped_column(Integer)
+    granted_by: Mapped[int | None] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -349,8 +357,8 @@ class PhoneInvite(Base):
     phone: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
     role: Mapped[Role] = mapped_column(SAEnum(Role, native_enum=False), nullable=False)
     label: Mapped[str | None] = mapped_column(String(120))
-    invited_by: Mapped[int | None] = mapped_column(Integer)
-    used_by: Mapped[int | None] = mapped_column(Integer)
+    invited_by: Mapped[int | None] = mapped_column(BigInteger)
+    used_by: Mapped[int | None] = mapped_column(BigInteger)
     used_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

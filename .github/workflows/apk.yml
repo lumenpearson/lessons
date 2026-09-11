@@ -48,15 +48,15 @@ jobs:
         working-directory: android
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
 
-      - uses: android-actions/setup-android@v3
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: android-actions/setup-android@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # A tag stamps its own version; a manual run may pass one; otherwise the
       # build file's default stands. versionCode always advances with the run
@@ -92,6 +92,26 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
           echo "signed=true" >> "$GITHUB_OUTPUT"
 
+      # A ::warning:: cannot fail a job, so an absent keystore fell through to
+      # the debug key — and the publish step was gated on the tag alone. A tag
+      # pushed before the secrets were configured would attach a debug-signed
+      # APK to a public release. That key is the AGP default: same password,
+      # same certificate, on every machine on Earth, so anyone could then build
+      # an "update" Android would accept over it. Checked before the build, so
+      # a misconfigured release fails in seconds rather than after eight
+      # minutes of compiling.
+      - name: Refuse to publish an unsigned release
+        if: github.ref_type == 'tag' && steps.keystore.outputs.signed != 'true'
+        run: |
+          echo "::error::Release signing is not configured; refusing to publish $GITHUB_REF_NAME."
+          exit 1
+
+      # The tag path used to go straight from checkout to `gh release create`,
+      # so `git push --tags` on a commit that never saw a pull request shipped a
+      # public release whose unit tests had never been run.
+      - name: Unit tests
+        run: ./gradlew --no-daemon test
+
       - name: Build
         env:
           LESSONS_KEYSTORE_FILE: ${{ steps.keystore.outputs.signed == 'true' && format('{0}/release.jks', runner.temp) || '' }}
@@ -124,7 +144,7 @@ jobs:
           ls -la "$RUNNER_TEMP/apks/"
           echo "count=$(find "$RUNNER_TEMP/apks" -name '*.apk' | wc -l)" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: lessons-apk
           path: ${{ runner.temp }}/apks/*.apk
@@ -132,7 +152,7 @@ jobs:
           retention-days: 90
 
       - name: Publish release
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' && steps.keystore.outputs.signed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
