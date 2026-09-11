@@ -18,12 +18,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import org.intellij.lang.annotations.Language
 
-/** Which edge of the element fades out. */
-enum class BlurEdge {
-    TOP,
-    BOTTOM,
-}
-
 /**
  * The progressive-blur shader from `sameerasw/essentials`
  * `ui/modifiers/ProgressiveBlurModifier.kt`, unchanged.
@@ -35,17 +29,21 @@ enum class BlurEdge {
 private const val ProgressiveBlurShader = """
     uniform shader content;
     uniform float blurRadius;
-    uniform float height;
+    uniform float topHeight;
+    uniform float bottomHeight;
     uniform float contentHeight;
-    uniform int isTop;
 
     half4 main(float2 fragCoord) {
-        float progress;
-        if (isTop == 1) {
-            progress = 1.0 - clamp(fragCoord.y / height, 0.0, 1.0);
-        } else {
-            progress = 1.0 - clamp((contentHeight - fragCoord.y) / height, 0.0, 1.0);
-        }
+        // Both edges in one pass. Essentials' shader takes an isTop flag and
+        // does one; stacking two of these modifiers to get both would mean two
+        // full-screen offscreen layers and two 81-tap kernels per frame.
+        float topProgress = topHeight > 0.0
+            ? 1.0 - clamp(fragCoord.y / topHeight, 0.0, 1.0)
+            : 0.0;
+        float bottomProgress = bottomHeight > 0.0
+            ? 1.0 - clamp((contentHeight - fragCoord.y) / bottomHeight, 0.0, 1.0)
+            : 0.0;
+        float progress = max(topProgress, bottomProgress);
 
         progress = pow(progress, 1.5);
 
@@ -93,23 +91,28 @@ const val StatusBarBlurExtent: Float = 1.15f
 private const val OverlayAlpha = 0.65f
 
 /**
- * Fades the content out under one edge of the screen — the effect that lets a
- * list scroll all the way behind the status bar without the top row turning into
- * noise behind the clock.
+ * Fades the content out under the top and bottom edges of the screen — the
+ * effect that lets a list scroll all the way behind the status bar without the
+ * top row turning into noise behind the clock, and out from under the floating
+ * toolbar instead of being sliced off by it.
  *
  * Ported from Essentials, including its two escape hatches: the shader is
  * skipped in battery-saver mode, and on the Samsung builds whose blur
  * implementation makes the whole window flicker. The gradient tint is drawn
- * either way, so the strip still reads as a soft edge on the devices and
- * API levels that get no blur at all.
+ * either way, so the strip still reads as a soft edge on the devices and API
+ * levels that get no blur at all.
  *
- * @param height how tall the fade is, in pixels.
+ * Apply this to the scrolling content only. Applied to a parent that also holds
+ * the toolbar, the bottom fade would dissolve the toolbar itself.
+ *
+ * @param topHeight how tall the top fade is, in pixels; `0f` for none.
+ * @param bottomHeight the same for the bottom edge.
  * @param blurRadius pass `0f` to keep the tint but drop the blur.
  */
 fun Modifier.progressiveBlur(
     blurRadius: Float,
-    height: Float,
-    edge: BlurEdge = BlurEdge.TOP,
+    topHeight: Float = 0f,
+    bottomHeight: Float = 0f,
     showGradientOverlay: Boolean = true,
 ): Modifier = composed {
     val overlayColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = OverlayAlpha)
@@ -121,30 +124,34 @@ fun Modifier.progressiveBlur(
     val blur = if (
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
         blurRadius > 0f &&
+        (topHeight > 0f || bottomHeight > 0f) &&
         !isPowerSave &&
         !isBlurProblematicDevice()
     ) {
-        ProgressiveBlurLayer.of(blurRadius, height, edge)
+        ProgressiveBlurLayer.of(blurRadius, topHeight, bottomHeight)
     } else {
         Modifier
     }
 
-
     val overlay = if (showGradientOverlay) {
         Modifier.drawWithContent {
             drawContent()
-            val brush = when (edge) {
-                BlurEdge.TOP -> Brush.verticalGradient(
-                    colors = listOf(overlayColor, Color.Transparent),
-                    endY = height,
-                )
-
-                BlurEdge.BOTTOM -> Brush.verticalGradient(
-                    colors = listOf(Color.Transparent, overlayColor),
-                    startY = size.height - height,
+            if (topHeight > 0f) {
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(overlayColor, Color.Transparent),
+                        endY = topHeight,
+                    ),
                 )
             }
-            drawRect(brush = brush)
+            if (bottomHeight > 0f) {
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, overlayColor),
+                        startY = size.height - bottomHeight,
+                    ),
+                )
+            }
         }
     } else {
         Modifier
@@ -181,13 +188,13 @@ private fun isBlurProblematicDevice(): Boolean {
 private object ProgressiveBlurLayer {
 
     @Composable
-    fun of(blurRadius: Float, height: Float, edge: BlurEdge): Modifier {
+    fun of(blurRadius: Float, topHeight: Float, bottomHeight: Float): Modifier {
         val shader = remember { RuntimeShader(ProgressiveBlurShader) }
         return Modifier.graphicsLayer {
             shader.setFloatUniform("blurRadius", blurRadius)
-            shader.setFloatUniform("height", height)
+            shader.setFloatUniform("topHeight", topHeight)
+            shader.setFloatUniform("bottomHeight", bottomHeight)
             shader.setFloatUniform("contentHeight", size.height)
-            shader.setIntUniform("isTop", if (edge == BlurEdge.TOP) 1 else 0)
             renderEffect = RenderEffect
                 .createRuntimeShaderEffect(shader, "content")
                 .asComposeRenderEffect()

@@ -7,6 +7,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
@@ -17,7 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import org.intellij.lang.annotations.Language
 import kotlin.math.abs
@@ -109,18 +112,17 @@ fun Modifier.scrollMotionBlur(
     val velocity = remember { Animatable(0f) }
 
     LaunchedEffect(state) {
-        var previousIndex = state.firstVisibleItemIndex
-        var previousOffset = state.firstVisibleItemScrollOffset
-        trackVelocity(velocity, { state.isScrollInProgress }) {
-            val delta = (state.firstVisibleItemIndex - previousIndex) * ItemHeightGuessPx +
-                (state.firstVisibleItemScrollOffset - previousOffset)
-            previousIndex = state.firstVisibleItemIndex
-            previousOffset = state.firstVisibleItemScrollOffset
-            delta
+        state.whileScrolling(velocity) {
+            var previousIndex = state.firstVisibleItemIndex
+            var previousOffset = state.firstVisibleItemScrollOffset
+            trackVelocity(velocity) {
+                val delta = (state.firstVisibleItemIndex - previousIndex) * ItemHeightGuessPx +
+                    (state.firstVisibleItemScrollOffset - previousOffset)
+                previousIndex = state.firstVisibleItemIndex
+                previousOffset = state.firstVisibleItemScrollOffset
+                delta
+            }
         }
-    }
-    LaunchedEffect(state.isScrollInProgress) {
-        if (!state.isScrollInProgress) velocity.animateTo(0f, tween(SettleMillis))
     }
 
     MotionBlurLayer.of(velocity, isHorizontal, scale)
@@ -139,15 +141,14 @@ fun Modifier.scrollMotionBlur(
     val velocity = remember { Animatable(0f) }
 
     LaunchedEffect(state) {
-        var previous = state.value
-        trackVelocity(velocity, { state.isScrollInProgress }) {
-            val delta = (state.value - previous).toFloat()
-            previous = state.value
-            delta
+        state.whileScrolling(velocity) {
+            var previous = state.value
+            trackVelocity(velocity) {
+                val delta = (state.value - previous).toFloat()
+                previous = state.value
+                delta
+            }
         }
-    }
-    LaunchedEffect(state.isScrollInProgress) {
-        if (!state.isScrollInProgress) velocity.animateTo(0f, tween(SettleMillis))
     }
 
     MotionBlurLayer.of(velocity, isHorizontal, scale)
@@ -165,16 +166,15 @@ fun Modifier.scrollMotionBlur(
     val velocity = remember { Animatable(0f) }
 
     LaunchedEffect(state) {
-        var previous = state.currentPage + state.currentPageOffsetFraction
-        trackVelocity(velocity, { state.isScrollInProgress }) {
-            val position = state.currentPage + state.currentPageOffsetFraction
-            val delta = (position - previous) * PageWidthGuessPx
-            previous = position
-            delta
+        state.whileScrolling(velocity) {
+            var previous = state.currentPage + state.currentPageOffsetFraction
+            trackVelocity(velocity) {
+                val position = state.currentPage + state.currentPageOffsetFraction
+                val delta = (position - previous) * PageWidthGuessPx
+                previous = position
+                delta
+            }
         }
-    }
-    LaunchedEffect(state.isScrollInProgress) {
-        if (!state.isScrollInProgress) velocity.animateTo(0f, tween(SettleMillis))
     }
 
     MotionBlurLayer.of(velocity, isHorizontal = true, scale = scale)
@@ -185,6 +185,27 @@ private const val SettleMillis = 60
 
 /** Frames further apart than this are a dropped frame, not a fast scroll. */
 private val PlausibleFrameMillis = 1f..100f
+
+/**
+ * Runs [block] for exactly as long as the container is being scrolled, and
+ * settles the blur away when it stops.
+ *
+ * The reference leaves its frame loop running for the lifetime of the modifier,
+ * which means it asks for a frame every frame forever — on a static list, on
+ * three off-screen pager pages at once, on a phone in a pocket. It also lets
+ * that loop's `snapTo` race the settle animation for the same `Animatable`, so
+ * the settle never actually runs. Scoping the loop to the gesture fixes both:
+ * there is nothing to race, because the loop is gone by the time the settle
+ * starts.
+ */
+private suspend fun ScrollableState.whileScrolling(
+    velocity: Animatable<Float, *>,
+    block: suspend () -> Unit,
+) {
+    snapshotFlow { isScrollInProgress }.collectLatest { scrolling ->
+        if (scrolling) block() else velocity.animateTo(0f, tween(SettleMillis))
+    }
+}
 
 /**
  * The per-frame loop that turns "how far did it move" into a smoothed velocity.
@@ -198,7 +219,6 @@ private val PlausibleFrameMillis = 1f..100f
  */
 private suspend fun trackVelocity(
     velocity: Animatable<Float, *>,
-    isScrolling: () -> Boolean,
     delta: () -> Float,
 ) {
     var previousFrameNanos = 0L
@@ -211,7 +231,7 @@ private suspend fun trackVelocity(
                 next = when {
                     elapsedMillis !in PlausibleFrameMillis -> 0f
 
-                    abs(moved) > 0.1f && isScrolling() -> {
+                    abs(moved) > 0.1f -> {
                         val sample = (moved / elapsedMillis).coerceIn(
                             -VelocityCeiling,
                             VelocityCeiling,

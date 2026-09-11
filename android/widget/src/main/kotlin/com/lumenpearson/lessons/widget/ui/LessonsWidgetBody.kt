@@ -43,6 +43,22 @@ private val SURFACE_CORNER = 24.dp
 private val NEXT_UP_COLUMN = 118.dp
 
 /**
+ * How many children a Glance container may hold before the rest are discarded.
+ *
+ * Not a guideline — a hard truncation. Glance builds a widget out of pre-baked
+ * `RemoteViews` layouts, and it ships variants for zero through ten children;
+ * its translator takes the first ten of whatever it is given and drops the
+ * remainder without a warning, an exception or a log line.
+ *
+ * The cost of not knowing this was severe and invisible: the 4x4 layout emitted
+ * eighteen siblings, so it showed one lesson of the five it advertises, and the
+ * 5x5's homework block — children twenty-nine and thirty — never rendered at
+ * all. Every variable-length list here is therefore wrapped in its own
+ * container, and every take() is clamped.
+ */
+private const val CHILD_LIMIT = 10
+
+/**
  * The entire widget, as a pure function of its arguments.
  *
  * Nothing in this tree reads a clock, a repository, or a `SharedPreferences`.
@@ -278,13 +294,14 @@ private fun MediumBody(
                 Column(modifier = GlanceModifier.width(NEXT_UP_COLUMN)) {
                     SectionTitle(text = context.getString(R.string.widget_next_up), size = size)
                     VSpace(4)
-                    upcoming.forEach { lesson ->
-                        BodyText(
-                            text = "${WidgetStrings.time(lesson.startsAt)}  ${lesson.subject.ellipsize(11)}",
-                            size = size,
-                            maxLines = 1,
-                        )
-                        VSpace(2)
+                    Column(modifier = GlanceModifier.fillMaxWidth()) {
+                        upcoming.take(CHILD_LIMIT).forEach { lesson ->
+                            BodyText(
+                                text = "${WidgetStrings.time(lesson.startsAt)}  ${lesson.subject.ellipsize(11)}",
+                                size = size,
+                                maxLines = 1,
+                            )
+                        }
                     }
                 }
             }
@@ -339,47 +356,55 @@ private fun TimelineBody(
         }
 
         val headline = headlineOf(context, state)
-        Row(
-            modifier = GlanceModifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Vertical.CenterVertically,
-        ) {
-            StateLabel(
-                text = headline.label,
-                size = size,
-                urgent = headline.accentIsUrgent,
-                modifier = GlanceModifier.defaultWeight(),
-            )
-            headline.bareCountdown?.let {
-                CaptionText(text = it, size = size, emphasised = true)
+        // One child of the outer Column, not five. See CHILD_LIMIT.
+        Column(modifier = GlanceModifier.fillMaxWidth()) {
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Vertical.CenterVertically,
+            ) {
+                StateLabel(
+                    text = headline.label,
+                    size = size,
+                    urgent = headline.accentIsUrgent,
+                    modifier = GlanceModifier.defaultWeight(),
+                )
+                headline.bareCountdown?.let {
+                    CaptionText(text = it, size = size, emphasised = true)
+                }
             }
-        }
-        VSpace(2)
-        headline.subject?.let { SubjectText(text = it, size = size, maxLines = 1) }
-        if (options.showProgress && size.showsProgressBar && headline.progress != null) {
-            VSpace(6)
-            StateProgress(progress = headline.progress)
+            VSpace(2)
+            headline.subject?.let { SubjectText(text = it, size = size, maxLines = 1) }
+            if (options.showProgress && size.showsProgressBar && headline.progress != null) {
+                VSpace(6)
+                StateProgress(progress = headline.progress)
+            }
         }
 
         VSpace(10)
-        SectionTitle(text = context.getString(R.string.widget_timeline_title), size = size)
-        VSpace(4)
-        val remaining = remainingLessonsOf(today, now)
-        if (remaining.isEmpty()) {
-            BodyText(
-                text = context.getString(R.string.widget_nothing_left),
-                size = size,
-                muted = true,
-            )
-        } else {
-            val current = (state as? DayState.InLesson)?.current
-            remaining.take(size.timelineRows).forEach { lesson ->
-                TimelineRow(
-                    lesson = lesson,
+
+        // …and one for the whole timeline, however many lessons are left.
+        Column(modifier = GlanceModifier.fillMaxWidth()) {
+            SectionTitle(text = context.getString(R.string.widget_timeline_title), size = size)
+            VSpace(4)
+            val remaining = remainingLessonsOf(today, now)
+            if (remaining.isEmpty()) {
+                BodyText(
+                    text = context.getString(R.string.widget_nothing_left),
                     size = size,
-                    options = options,
-                    isCurrent = lesson == current,
+                    muted = true,
                 )
-                VSpace(4)
+            } else {
+                val current = (state as? DayState.InLesson)?.current
+                // The rows carry their own vertical padding, so there is no
+                // spacer between them to spend a child slot on.
+                remaining.take(size.timelineRows.coerceAtMost(CHILD_LIMIT - 2)).forEach { lesson ->
+                    TimelineRow(
+                        lesson = lesson,
+                        size = size,
+                        options = options,
+                        isCurrent = lesson == current,
+                    )
+                }
             }
         }
 
@@ -421,29 +446,35 @@ private fun HomeworkBlock(
     itemMaxLines: Int = 1,
 ) {
     val context = LocalContext.current
-    CaptionText(
-        text = if (shortHeader) homework.shortHeader else homework.header,
-        size = size,
-        emphasised = true,
-        maxLines = 2,
-    )
-    VSpace(4)
-    when {
-        !homework.isKnown -> Unit // The header already says the day is unknown.
-        homework.items.isEmpty() -> BodyText(
-            text = context.getString(R.string.widget_homework_empty),
+    // Wrapped, so this contributes exactly one child to whatever contains it.
+    // Emitted as loose siblings it was the block that pushed the 4x4 and 5x5
+    // layouts past CHILD_LIMIT, and it is itself the part that got dropped.
+    Column(modifier = GlanceModifier.fillMaxWidth()) {
+        CaptionText(
+            text = if (shortHeader) homework.shortHeader else homework.header,
             size = size,
-            muted = true,
+            emphasised = true,
+            maxLines = 2,
         )
-
-        else -> homework.items.take(maxItems).forEach { item ->
-            HomeworkRow(
-                subject = item.subject,
-                text = item.text,
+        VSpace(4)
+        when {
+            !homework.isKnown -> Unit // The header already says the day is unknown.
+            homework.items.isEmpty() -> BodyText(
+                text = context.getString(R.string.widget_homework_empty),
                 size = size,
-                maxLines = itemMaxLines,
+                muted = true,
             )
-            VSpace(2)
+
+            else -> Column(modifier = GlanceModifier.fillMaxWidth()) {
+                homework.items.take(maxItems.coerceAtMost(CHILD_LIMIT)).forEach { item ->
+                    HomeworkRow(
+                        subject = item.subject,
+                        text = item.text,
+                        size = size,
+                        maxLines = itemMaxLines,
+                    )
+                }
+            }
         }
     }
 }

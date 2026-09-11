@@ -13,8 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -30,7 +29,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,16 +59,20 @@ import com.lumenpearson.lessons.core.model.DayKind
 import com.lumenpearson.lessons.ui.common.asDayMonth
 import com.lumenpearson.lessons.ui.common.asFullWeekday
 import com.lumenpearson.lessons.ui.common.asShortWeekday
-import kotlinx.coroutines.launch
 
 /**
- * The week, one day per page.
+ * The week, one day at a time.
  *
- * A pager rather than a scrolling list of seven days: a school week is read one
- * day at a time ("what do I need for Thursday?"), and swiping keeps every day
- * starting from the same place on screen instead of at a random scroll offset.
- * The chip row is the same selection expressed as a map, so the current day is
- * always visible even mid-swipe.
+ * One day rather than a scrolling list of seven: a school week is read one day
+ * at a time ("what do I need for Thursday?"), and this keeps every day starting
+ * from the same place on screen instead of at a random scroll offset.
+ *
+ * The day is chosen from the chip row and nothing else. It used to be a
+ * `HorizontalPager`, which put a second horizontal pager inside the shell's
+ * one: the inner pager won every drag, so on this tab — and only this tab — a
+ * sideways swipe paged through Tuesday and Wednesday instead of moving to the
+ * next destination. A quarter of the app had no tab swipe at all, and turning
+ * "свайп между вкладками" off in settings did not disable this one either.
  */
 @Composable
 fun WeekScreen(
@@ -75,14 +81,14 @@ fun WeekScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    val coroutineScope = rememberCoroutineScope()
-    val pagerState = rememberPagerState(initialPage = state.initialPage) { state.days.size }
+    var selectedDay by rememberSaveable { mutableIntStateOf(state.initialPage) }
 
-    // Changing week re-anchors the pager: today for the current week, Monday
-    // otherwise. Keyed on the week itself so a swipe within a week is untouched.
+    // Changing week re-anchors the selection: today for the current week, Monday
+    // otherwise. Keyed on the week itself so picking a day within one is left
+    // alone.
     LaunchedEffect(state.weekStart, state.days.size) {
         if (state.days.isNotEmpty()) {
-            pagerState.scrollToPage(state.initialPage.coerceIn(0, state.days.lastIndex))
+            selectedDay = state.initialPage.coerceIn(0, state.days.lastIndex)
         }
     }
 
@@ -134,20 +140,12 @@ fun WeekScreen(
         ) {
             WeekdaySelector(
                 days = state.days,
-                selectedPage = pagerState.currentPage,
-                onSelect = { page ->
-                    coroutineScope.launch { pagerState.animateScrollToPage(page) }
-                },
+                selectedPage = selectedDay,
+                onSelect = { page -> selectedDay = page },
             )
 
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize(),
-                pageSpacing = 8.dp,
-            ) { page ->
-                state.days.getOrNull(page)?.let { day ->
-                    WeekDayPage(day = day, showTeacher = state.showTeacher)
-                }
+            state.days.getOrNull(selectedDay)?.let { day ->
+                WeekDayPage(day = day, showTeacher = state.showTeacher)
             }
         }
     }
@@ -166,7 +164,16 @@ private fun WeekdaySelector(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Seven tiles need about 400 dp and a phone has 360, so the last day or two
+    // start off-screen. Without this the row never moved and the selected chip
+    // could not be seen at all.
+    val listState = rememberLazyListState()
+    LaunchedEffect(selectedPage) {
+        if (selectedPage >= 0) listState.animateScrollToItem(selectedPage)
+    }
+
     LazyRow(
+        state = listState,
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = ScreenPadding, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),

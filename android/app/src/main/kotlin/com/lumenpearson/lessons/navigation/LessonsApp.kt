@@ -36,7 +36,6 @@ import com.lumenpearson.lessons.core.designsystem.component.LessonsFloatingToolb
 import com.lumenpearson.lessons.core.designsystem.component.ToolbarItem
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
-import com.lumenpearson.lessons.core.designsystem.modifier.BlurEdge
 import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurExtent
 import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurRadius
 import com.lumenpearson.lessons.core.designsystem.modifier.progressiveBlur
@@ -184,16 +183,9 @@ private fun HomeShell(
         WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx()
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .progressiveBlur(
-                blurRadius = if (settings.edgeBlur) StatusBarBlurRadius else 0f,
-                height = statusBarHeightPx * StatusBarBlurExtent,
-                edge = BlurEdge.TOP,
-                showGradientOverlay = settings.edgeBlur,
-            ),
-    ) {
+    val barHeightPx = with(density) { barHeight.toPx() }
+
+    Box(modifier = modifier.fillMaxSize()) {
         CompositionLocalProvider(
             LocalBottomBarSpace provides barHeight + BottomBarGap,
             LocalScrollBlur provides ScrollBlurSettings(
@@ -209,6 +201,15 @@ private fun HomeShell(
                 beyondViewportPageCount = 1,
                 modifier = Modifier
                     .fillMaxSize()
+                    // On the content, not on the Box: the Box also holds the
+                    // toolbar, and a bottom fade applied there would dissolve
+                    // the toolbar along with the list running underneath it.
+                    .progressiveBlur(
+                        blurRadius = if (settings.edgeBlur) StatusBarBlurRadius else 0f,
+                        topHeight = statusBarHeightPx * StatusBarBlurExtent,
+                        bottomHeight = barHeightPx,
+                        showGradientOverlay = settings.edgeBlur,
+                    )
                     .graphicsLayer {
                         val scale = 1f - backProgress.value * BackScaleDepth
                         scaleX = scale

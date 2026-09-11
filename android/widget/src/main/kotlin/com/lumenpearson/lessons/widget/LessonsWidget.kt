@@ -44,7 +44,21 @@ class LessonsWidget : GlanceAppWidget() {
     override val sizeMode: SizeMode = SizeMode.Responsive(WidgetSizeClass.breakpoints)
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val snapshot = loadSnapshot(context)
+        // A failed read must not become "Problem loading widget" on somebody's
+        // home screen. Anything thrown out of provideGlance — an uninitialised
+        // graph, a corrupt Room file, a DataStore IO error — makes Glance draw
+        // its error layout, permanently, where the honest empty state would
+        // have told the user what to do and offered them a tap to do it.
+        val snapshot = runCatching { loadSnapshot(context) }.getOrElse {
+            Snapshot(
+                now = LocalDateTime.now(),
+                state = null,
+                signedIn = false,
+                today = null,
+                homeworkDay = null,
+                options = WidgetOptions(),
+            )
+        }
 
         provideContent {
             GlanceTheme {
@@ -129,6 +143,11 @@ class LessonsWidget : GlanceAppWidget() {
             options = WidgetOptions(
                 showProgress = settings.widgetShowProgress,
                 showTeacher = settings.showTeacher,
+                // Only one trailing detail fits a phone-width row, and the room
+                // outranks the teacher — so with both on, the teacher never
+                // appeared and the setting did nothing at all. They are the
+                // same choice, so they are wired as one.
+                showRoom = !settings.showTeacher,
             ),
         )
     }
