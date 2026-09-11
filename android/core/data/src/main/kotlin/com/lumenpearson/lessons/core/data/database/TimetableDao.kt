@@ -51,6 +51,25 @@ internal abstract class TimetableDao {
     abstract suspend fun nextSchoolDay(): SchoolDayWithDetails?
 
     /**
+     * All three reads a render needs, taken inside one transaction.
+     *
+     * [replaceAll] swaps the class row and the days atomically, so reading them
+     * through three separate statements can straddle that swap and return the
+     * class from before it with the days from after — an old "обновлено в …"
+     * над a new week, or the reverse. The widget redraws on the sync broadcast,
+     * which puts it at exactly that instant.
+     */
+    @Transaction
+    open suspend fun snapshot(): TimetableSnapshot? {
+        val schoolClass = schoolClass() ?: return null
+        return TimetableSnapshot(
+            schoolClass = schoolClass,
+            days = days(),
+            nextSchoolDay = nextSchoolDay(),
+        )
+    }
+
+    /**
      * Building blocks of [replaceAll]. They are public only because Room has to
      * generate overrides; call [replaceAll] instead, so the cache is never left
      * half-written.

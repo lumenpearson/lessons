@@ -3,6 +3,7 @@ package com.lumenpearson.lessons.navigation
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -24,11 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -53,9 +50,9 @@ import com.lumenpearson.lessons.ui.join.JoinScreen
 import com.lumenpearson.lessons.ui.settings.SettingsScreen
 import com.lumenpearson.lessons.ui.today.TodayScreen
 import com.lumenpearson.lessons.ui.week.WeekScreen
+import kotlin.math.abs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 
 /**
  * The whole app below the theme.
@@ -96,22 +93,20 @@ private const val BackReturnMillis = 400
 private const val SwipeHapticBuckets = 10
 
 /**
- * How many pixels of *consumed* scroll in one frame it takes to fold or unfold
- * the toolbar.
- *
- * Not zero: a list settling after a fling reports a stream of sub-pixel deltas
- * in both directions, and at zero the bar flickers open and shut through the
- * whole deceleration.
- */
-private const val ScrollFoldThresholdPx = 3f
-
-/**
  * The signed-in app: four tabs under one floating toolbar.
  *
  * Everything that makes the shell feel like Essentials is here rather than in
  * the screens: the swipe between tabs, the haptic that ticks through it, the
  * predictive-back gesture that scales the page down and returns to the default
  * tab, and the blur that lets content pass under the status bar.
+ *
+ * The toolbar does not fold away on scroll. It used to, driven from here, and
+ * the idea cost more than it bought: on a page too short to scroll it folded
+ * with nothing left to unfold it, so three destinations vanished for good; and
+ * once folded it sat inside its own container's side padding as a lopsided
+ * halo, because that padding is sized for four items and not for one. Four
+ * destinations that are always present and always reachable — by a screen
+ * reader too — beat an animation nobody asked for.
  */
 @Composable
 private fun HomeShell(
@@ -130,7 +125,11 @@ private fun HomeShell(
     val pagerState = rememberPagerState(initialPage = homePage) { tabs.size }
 
     // Measured rather than assumed: the pill's height depends on the gesture bar.
-    var barHeight by remember { mutableStateOf(0.dp) }
+    // Seeded with the local's own default so the first frame — drawn before
+    // onSizeChanged lands — reserves a plausible gap rather than none, which
+    // showed as the bottom of the first list jumping once after sign-in.
+    val seedBarHeight = LocalBottomBarSpace.current
+    var barHeight by remember { mutableStateOf(seedBarHeight) }
 
     // A tap when the page actually changes, however it was changed. Keyed on the
     // pager alone: re-keying on the swipe setting would restart the collector and
@@ -143,13 +142,25 @@ private fun HomeShell(
     }
 
     // The rumble while a swipe is in flight, bucketed so it ticks ten times
-    // across a page instead of once per frame. Only while a finger is on the
-    // screen: an animated page change already got its tap above, and rumbling
-    // through that animation turns one event into eleven.
+    // across a page instead of once per frame. Only while a finger is actually
+    // on the screen: `isScrollInProgress` is also true for animateScrollToPage,
+    // so gating on it turned one tap on a tab into a press, ten rumbles and a
+    // tap — a buzz, and at the stronger levels three overlapping waveforms.
+    var dragging by remember { mutableStateOf(false) }
+    LaunchedEffect(pagerState) {
+        pagerState.interactionSource.interactions.collect { interaction ->
+            dragging = when (interaction) {
+                is DragInteraction.Start -> true
+                is DragInteraction.Stop, is DragInteraction.Cancel -> false
+                else -> dragging
+            }
+        }
+    }
+
     var lastBucket by remember { mutableIntStateOf(0) }
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPageOffsetFraction }.collect { offset ->
-            if (!pagerState.isScrollInProgress) return@collect
+            if (!dragging) return@collect
             val bucket = (abs(offset) * SwipeHapticBuckets).toInt()
             if (bucket != lastBucket) {
                 if (abs(offset) > 0f) LessonsHaptics.swipe(view)
@@ -173,53 +184,9 @@ private fun HomeShell(
         WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx()
     }
 
-    // Scrolling down folds the toolbar into the selected tab and scrolling back
-    // up unfolds it. This is what the toolbar's `expanded` parameter and its
-    // spring were built for, and it is the one Essentials animation that cannot
-    // be driven from inside the component: only the shell sees every screen's
-    // scroll. A nested-scroll connection is used rather than each screen
-    // reporting its own list state, so a screen added later gets the behaviour
-    // for free.
-    var toolbarExpanded by remember { mutableStateOf(true) }
-    val toolbarScroll = remember {
-        object : NestedScrollConnection {
-            // `consumed`, in onPostScroll, rather than `available` in onPreScroll.
-            // What is *available* is whatever the finger offered, which on a
-            // screen too short to scroll — an empty timetable, a day with no
-            // homework — is the whole gesture. That folded the toolbar down to
-            // the selected tab on a page that could never scroll back up, so the
-            // other three tabs vanished with no way to bring them back. What is
-            // *consumed* is what the content actually moved by, which is zero on
-            // exactly those screens.
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource,
-            ): Offset {
-                // A horizontal page swipe carries a little vertical slop with it;
-                // comparing the two axes keeps that slop from folding the bar.
-                if (abs(consumed.x) > abs(consumed.y)) return Offset.Zero
-                if (consumed.y < -ScrollFoldThresholdPx) {
-                    toolbarExpanded = false
-                } else if (consumed.y > ScrollFoldThresholdPx) {
-                    toolbarExpanded = true
-                }
-                return Offset.Zero
-            }
-        }
-    }
-
-    // Arriving on a tab always shows the whole bar. Folded state belongs to the
-    // scroll position of the page that folded it, and carrying it to the next
-    // tab is how a user lands on a fresh screen with three destinations missing.
-    LaunchedEffect(pagerState.currentPage) {
-        toolbarExpanded = true
-    }
-
     Box(
         modifier = modifier
             .fillMaxSize()
-            .nestedScroll(toolbarScroll)
             .progressiveBlur(
                 blurRadius = if (settings.edgeBlur) StatusBarBlurRadius else 0f,
                 height = statusBarHeightPx * StatusBarBlurExtent,
@@ -271,7 +238,6 @@ private fun HomeShell(
                 .onSizeChanged { size ->
                     barHeight = with(density) { size.height.toDp() }
                 },
-            expanded = toolbarExpanded,
             selectedIndex = pagerState.currentPage,
             items = tabs.mapIndexed { index, tab ->
                 ToolbarItem(

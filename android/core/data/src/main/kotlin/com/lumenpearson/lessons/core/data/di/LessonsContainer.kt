@@ -11,6 +11,7 @@ import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepositoryImpl
+import com.lumenpearson.lessons.core.data.sync.DataSyncBroadcast
 
 /**
  * Everything the rest of the app is allowed to reach for.
@@ -49,7 +50,14 @@ class DefaultLessonsContainer(context: Context) : LessonsContainer {
     }
 
     override val timetableRepository: TimetableRepository by lazy {
-        TimetableRepositoryImpl(dao = database.timetableDao(), api = api)
+        TimetableRepositoryImpl(
+            dao = database.timetableDao(),
+            api = api,
+            // The widget cannot be called directly from here — it depends on
+            // this module, not the other way round — so the broadcast it already
+            // listens for is handed in instead.
+            onDataChanged = { DataSyncBroadcast.send(appContext) },
+        )
     }
 
     override val sessionRepository: SessionRepository by lazy {

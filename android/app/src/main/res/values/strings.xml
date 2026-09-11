@@ -67,6 +67,7 @@
     <string name="interval_minutes">%1$d мин</string>
     <string name="interval_hours">%1$d ч</string>
     <string name="sync_error_unauthorised">Доступ к классу отозван. Подключитесь заново.</string>
+    <string name="sync_error_not_configured">Не указан адрес сервера — задайте его в настройках.</string>
     <string name="sync_error_failed">Не удалось обновить: %1$s</string>
     <string name="sync_error_generic">Не удалось обновить расписание</string>
 

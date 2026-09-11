@@ -99,7 +99,16 @@ fun TodayScreen(
                 scrollBehavior = scrollBehavior,
             )
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = {
+            // Lifted clear of the floating toolbar. Scaffold puts the host a
+            // few dp above the navigation bar, which is exactly where the pill
+            // is, and the pill is drawn after it — so the app's only error
+            // feedback was appearing underneath the bar and then being consumed.
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(bottom = LocalBottomBarSpace.current),
+            )
+        },
     ) { innerPadding ->
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,

@@ -60,6 +60,10 @@ fun HomeworkScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    // Hoisted above the empty/skeleton branches: remembered inside one of them
+    // it is discarded whenever the filter empties the list, so coming back to
+    // "Все" threw the reader back to the top of a list they had scrolled.
+    val listState = rememberLazyListState()
     val today = LocalDate.now()
 
     state.message?.let { message ->
@@ -81,7 +85,16 @@ fun HomeworkScreen(
                 scrollBehavior = scrollBehavior,
             )
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = {
+            // Lifted clear of the floating toolbar. Scaffold puts the host a
+            // few dp above the navigation bar, which is exactly where the pill
+            // is, and the pill is drawn after it — so the app's only error
+            // feedback was appearing underneath the bar and then being consumed.
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(bottom = LocalBottomBarSpace.current),
+            )
+        },
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -117,7 +130,6 @@ fun HomeworkScreen(
                         modifier = Modifier.padding(ScreenPadding),
                     )
                 } else {
-                    val listState = rememberLazyListState()
                     LazyColumn(
                         state = listState,
                         modifier = Modifier

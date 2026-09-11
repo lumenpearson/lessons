@@ -39,13 +39,18 @@ class SyncWorker(
 
         val days = inputData.getInt(KEY_DAYS, DEFAULT_DAYS)
         return when (val result = container.timetableRepository.refresh(days)) {
-            is SyncResult.Success -> {
-                DataSyncBroadcast.send(applicationContext)
-                Result.success()
-            }
+            // The repository broadcasts on its own now, so that an in-app
+            // refresh reaches the widget too; this path needs nothing extra.
+            is SyncResult.Success -> Result.success()
 
             is SyncResult.Unauthorised -> Result.failure(
                 workDataOf(KEY_ERROR to REASON_UNAUTHORISED),
+            )
+
+            // Retrying on a timer cannot invent a server address. Fail once and
+            // leave it; the next run after the user sets one will go through.
+            is SyncResult.NotConfigured -> Result.failure(
+                workDataOf(KEY_ERROR to REASON_NOT_CONFIGURED),
             )
 
             is SyncResult.Failed ->
@@ -66,6 +71,9 @@ class SyncWorker(
 
         /** Value of [KEY_ERROR] that means "join again"; the app matches on it. */
         const val REASON_UNAUTHORISED: String = "unauthorised"
+        
+        /** @see SyncResult.NotConfigured */
+        const val REASON_NOT_CONFIGURED: String = "not_configured"
 
         /** Two weeks: enough for the widget to survive a holiday offline. */
         const val DEFAULT_DAYS: Int = 14

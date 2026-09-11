@@ -155,7 +155,16 @@ fun SettingsScreen(
                 scrollBehavior = scrollBehavior,
             )
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = {
+            // Lifted clear of the floating toolbar. Scaffold puts the host a
+            // few dp above the navigation bar, which is exactly where the pill
+            // is, and the pill is drawn after it — so the app's only error
+            // feedback was appearing underneath the bar and then being consumed.
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(bottom = LocalBottomBarSpace.current),
+            )
+        },
     ) { innerPadding ->
         LazyColumn(
             state = listState,
@@ -243,8 +252,12 @@ fun SettingsScreen(
                         items = HomeTab.entries,
                         selectedItem = state.settings.defaultTab,
                         onItemSelected = viewModel::setDefaultTab,
+                        // No icons here. Four segments on a 360 dp screen leave
+                        // about 38 dp of label once an 18 dp glyph and its
+                        // spacer are taken out, so every option read as "Сег…",
+                        // "Нед…", "Зад…", "Нас…". The icons also only repeated
+                        // the toolbar this row is about.
                         labelProvider = { tab -> stringResource(tab.labelRes) },
-                        iconProvider = { tab -> tab.icon },
                     )
                     GroupSwitchItem(
                         title = stringResource(R.string.settings_edge_blur),

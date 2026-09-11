@@ -3,6 +3,16 @@ package com.lumenpearson.lessons.core.data.network
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.Response
+import java.io.IOException
+
+/**
+ * The server address is missing, or is not an address.
+ *
+ * A dedicated type rather than a plain [IOException] so the layers above can
+ * tell "you have not set this up yet" apart from "the network is down" and say
+ * something the user can act on.
+ */
+class ServerAddressMissingException : IOException("No server address configured")
 
 /**
  * Points every request at the server address currently stored in settings.
@@ -24,8 +34,14 @@ internal class BaseUrlInterceptor(
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
+        // Failing here rather than proceeding is the whole point. Letting an
+        // unusable address through sends the call to the `.invalid` placeholder
+        // Retrofit was built with, and the user is shown a DNS error naming a
+        // host they have never heard of — or, from a background sync, nothing
+        // at all. The two causes are one exception because the cure is the same
+        // screen either way.
         val configured = baseUrlProvider().trim().toHttpUrlOrNull()
-            ?: return chain.proceed(request)
+            ?: throw ServerAddressMissingException()
 
         // A configured path such as /lessons/ prefixes the endpoint path, which
         // is what makes hosting behind a reverse proxy subdirectory work.

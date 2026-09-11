@@ -87,10 +87,10 @@ fun ServerUrlSheet(
             TextButton(onClick = onDismiss) {
                 Text(text = stringResource(R.string.action_cancel))
             }
-            Button(
-                onClick = { onConfirm(trimmed) },
-                enabled = trimmed.isNotEmpty(),
-            ) {
+            // Enabled on an empty field too: the callers treat "" as "use the
+            // default", and with the button disabled there was no way to undo a
+            // mistyped address short of reinstalling.
+            Button(onClick = { onConfirm(trimmed) }) {
                 Text(text = stringResource(R.string.action_save))
             }
         }

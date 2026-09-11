@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
+import com.lumenpearson.lessons.core.data.repository.TimetableRepository
 import com.lumenpearson.lessons.ui.common.ClassCodeLength
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -61,6 +62,7 @@ data class JoinUiState(
  */
 class JoinViewModel(
     private val sessionRepository: SessionRepository,
+    private val timetableRepository: TimetableRepository,
     private val settingsRepository: SettingsRepository,
     private val deviceName: String?,
 ) : ViewModel() {
@@ -120,10 +122,21 @@ class JoinViewModel(
             submitting.value = true
             error.value = null
             val result = sessionRepository.join(value, deviceName)
-            submitting.value = false
-            result.exceptionOrNull()?.let { failure ->
+            val failure = result.exceptionOrNull()
+            if (failure != null) {
+                submitting.value = false
                 error.value = JoinError.Rejected(failure.message?.takeIf { it.isNotBlank() })
+                return@launch
             }
+            // Pull the timetable straight away. Joining only stores a token;
+            // without this the first data arrives whenever the periodic worker
+            // next happens to run — up to an hour later, and longer still
+            // because that worker had already fired once, before there was a
+            // session to sync, and consumed its slot. Until then both the app
+            // and the widget say "расписание ещё не загружено" to somebody who
+            // has just this second joined a class.
+            timetableRepository.refresh()
+            submitting.value = false
         }
     }
 
@@ -134,6 +147,7 @@ class JoinViewModel(
             initializer {
                 JoinViewModel(
                     sessionRepository = Graph.container.sessionRepository,
+                    timetableRepository = Graph.container.timetableRepository,
                     settingsRepository = Graph.container.settingsRepository,
                     deviceName = "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
                 )
