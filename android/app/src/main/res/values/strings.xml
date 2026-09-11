@@ -21,9 +21,9 @@
     <string name="join_title">Подключиться к классу</string>
     <string name="join_subtitle">Введите код, который дал классный руководитель</string>
     <string name="join_code_label">Код класса</string>
-    <string name="join_code_hint">%1$d символов, буквы и цифры</string>
+    <string name="join_code_hint">От %1$d до %2$d символов, буквы и цифры</string>
     <string name="join_action">Подключиться</string>
-    <string name="join_error_invalid_code">В коде должно быть %1$d символов</string>
+    <string name="join_error_invalid_code">В коде от %1$d до %2$d символов</string>
     <string name="join_error_rejected">Не удалось подключиться: %1$s</string>
     <string name="join_error_generic">Не удалось подключиться. Проверьте код и подключение к сети.</string>
     <string name="join_server_current">Сервер: %1$s</string>

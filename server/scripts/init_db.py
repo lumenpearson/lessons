@@ -1,14 +1,15 @@
-"""Create the schema. Run once against a fresh database.
+"""Create the schema on a brand-new database.
 
     python -m scripts.init_db
 
-Why this exists as a command rather than only running at startup: FastAPI's
-lifespan is what creates tables in a long-running deployment, and a serverless
-platform may never invoke lifespan at all. Relying on it there produces a first
-request that fails with "no such table" and no obvious cause.
+Prefer ``alembic upgrade head``, which does everything this does and also
+records what the database has been through. This is kept for a throwaway local
+database where a version table is more ceremony than the situation deserves.
 
-Safe to re-run: it creates only what is missing and touches no data. It is not a
-migration tool - the first incompatible schema change needs Alembic.
+It creates only what is missing and touches no data, but it cannot *change*
+anything: widening a column, renaming one, adding a constraint are all invisible
+to it, and a database it has quietly left half-correct looks exactly like one
+that is right. That is what the migrations exist for.
 """
 
 from __future__ import annotations

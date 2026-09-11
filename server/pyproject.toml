@@ -12,6 +12,10 @@ dependencies = [
     "asyncpg>=0.29",
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
+    # Schema changes. Not in requirements.txt: migrations are run from a
+    # workstation against the database, never from inside a request, and the
+    # function bundle is smaller without it.
+    "alembic>=1.13",
 ]
 
 [project.optional-dependencies]

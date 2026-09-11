@@ -54,7 +54,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.GoogleSansFlexRounded
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
-import com.lumenpearson.lessons.ui.common.ClassCodeLength
+import com.lumenpearson.lessons.ui.common.ClassCodeLengths
 import com.lumenpearson.lessons.ui.common.ServerUrlSheet
 
 /** Height of the primary action, straight from the Essentials onboarding. */
@@ -298,7 +298,7 @@ private fun ClassCodeField(
         label = { Text(text = stringResource(R.string.join_code_label)) },
         supportingText = {
             Text(
-                text = errorText ?: stringResource(R.string.join_code_hint, ClassCodeLength),
+                text = errorText ?: stringResource(R.string.join_code_hint, ClassCodeLengths.first, ClassCodeLengths.last),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -322,7 +322,7 @@ private fun ClassCodeField(
 @Composable
 private fun JoinError?.asText(): String? = when (this) {
     null -> null
-    JoinError.InvalidCode -> stringResource(R.string.join_error_invalid_code, ClassCodeLength)
+    JoinError.InvalidCode -> stringResource(R.string.join_error_invalid_code, ClassCodeLengths.first, ClassCodeLengths.last)
     is JoinError.Rejected ->
         detail?.let { stringResource(R.string.join_error_rejected, it) }
             ?: stringResource(R.string.join_error_generic)

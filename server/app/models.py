@@ -367,6 +367,35 @@ class PhoneInvite(Base):
         return self.used_by is not None
 
 
+class JoinAttempt(Base):
+    """One failed join attempt, recorded so the limit survives a cold start.
+
+    The limiter used to hold its counters in a process-local dict, which it
+    documented as correct because "the deployment is a single uvicorn worker".
+    That premise is false for this deployment: on Vercel every concurrent
+    invocation is its own Python process and instances are recycled constantly,
+    so the dict was empty almost every time it was consulted and the ceiling of
+    thirty attempts per fifteen minutes did not exist. A six-character code from
+    a 32-symbol alphabet is 2**30 possibilities, and each guess is tested
+    against every class at once — so an unthrottled endpoint was the whole of
+    the security around somebody's timetable.
+
+    The database is the one thing every invocation shares, so the counter lives
+    here. Rows are pruned whenever the table is read, which keeps it to roughly
+    the failures of one window.
+
+    ``client_key`` is a hash, not an address: this only ever needs to tell two
+    clients apart, and storing the addresses themselves would be collecting
+    personal data to answer a question that does not need it.
+    """
+
+    __tablename__ = "join_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    client_key: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+
+
 class DeviceToken(Base):
     """Read-only token handed to an Android device after it enters a join code."""
 

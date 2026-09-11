@@ -23,6 +23,22 @@ class Settings(BaseSettings):
     port: int = 8000
     run_bot: bool = True
 
+    # How many reverse proxies sit in front of this app.
+    #
+    # Zero, the default, means none — and then forwarding headers are ignored
+    # entirely. X-Forwarded-For is client-supplied text: believing it lets any
+    # caller pick their own rate-limit bucket and rotate out of it on every
+    # request, which is the limit not existing at all. Set this to the real
+    # number of proxies and the entry that many places from the right (the one
+    # the outermost trusted proxy appended) is used instead.
+    trusted_proxy_hops: int = 0
+
+    # Set by Vercel itself in every function environment. Its own
+    # x-vercel-forwarded-for header is written by the platform and replaces
+    # whatever the client sent, so a Vercel deployment needs no proxy
+    # configuration of its own.
+    vercel: str = Field(default="", alias="VERCEL")
+
     # Webhook mode. Serverless platforms cannot hold a long-polling loop open,
     # so there Telegram pushes updates to us instead of us pulling them.
     webhook_secret: str = ""
@@ -32,6 +48,10 @@ class Settings(BaseSettings):
     def owner_id_list(self) -> list[int]:
         parts = self.owner_ids.replace(";", ",").split(",")
         return [int(part) for part in (p.strip() for p in parts) if part.lstrip("-").isdigit()]
+
+    @property
+    def behind_vercel(self) -> bool:
+        return bool(self.vercel)
 
     @property
     def tz(self) -> ZoneInfo:

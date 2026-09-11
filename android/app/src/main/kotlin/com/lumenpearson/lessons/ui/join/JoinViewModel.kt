@@ -10,7 +10,7 @@ import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
-import com.lumenpearson.lessons.ui.common.ClassCodeLength
+import com.lumenpearson.lessons.ui.common.ClassCodeLengths
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
  */
 sealed interface JoinError {
 
-    /** Fewer than [ClassCodeLength] characters typed. */
+    /** The typed code is not a length [ClassCodeLengths] allows. */
     data object InvalidCode : JoinError
 
     /** The server refused the code, or was unreachable. */
@@ -35,7 +35,7 @@ sealed interface JoinError {
 }
 
 /**
- * @property code the 6-character invite code, already normalized to upper case.
+ * @property code the invite code, already normalized to upper case.
  * @property baseUrl current server address, shown as a link under the button.
  * @property isSubmitting a request is in flight; the button shows a spinner.
  * @property error inline error under the field, cleared on the next keystroke.
@@ -47,7 +47,7 @@ data class JoinUiState(
     val error: JoinError? = null,
 ) {
     /** The button is only live for a complete code with no request running. */
-    val canSubmit: Boolean get() = code.length == ClassCodeLength && !isSubmitting
+    val canSubmit: Boolean get() = code.length in ClassCodeLengths && !isSubmitting
 }
 
 /**
@@ -98,7 +98,7 @@ class JoinViewModel(
         code.value = raw
             .uppercase()
             .filter { it.isLetterOrDigit() }
-            .take(ClassCodeLength)
+            .take(ClassCodeLengths.last)
         error.value = null
     }
 
@@ -112,7 +112,7 @@ class JoinViewModel(
     /** Sends the code. The result reaches the UI as a session, or as an error. */
     fun submit() {
         val value = code.value
-        if (value.length != ClassCodeLength) {
+        if (value.length !in ClassCodeLengths) {
             error.value = JoinError.InvalidCode
             return
         }
