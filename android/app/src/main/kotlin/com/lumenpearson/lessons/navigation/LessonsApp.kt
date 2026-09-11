@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
@@ -60,6 +61,7 @@ import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurExtent
 import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurRadius
 import com.lumenpearson.lessons.core.designsystem.modifier.TopBlurRampPx
+import com.lumenpearson.lessons.core.designsystem.modifier.liquidRipple
 import com.lumenpearson.lessons.core.designsystem.modifier.progressiveBlur
 import com.lumenpearson.lessons.core.designsystem.theme.BottomBarGap
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
@@ -240,6 +242,13 @@ private fun HomeShell(
 
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var showDebugSheet by rememberSaveable { mutableStateOf(false) }
+
+    // A counter rather than a flag, because the thing being answered is a tap:
+    // pressing the bug button twice should give two waves, and a boolean has no
+    // way to say "again". Deliberately not saved across configuration changes —
+    // a ripple restored on rotation would be a wave from nowhere.
+    var rippleTrigger by remember { mutableIntStateOf(0) }
+    var rippleOrigin by remember { mutableStateOf(Offset.Unspecified) }
     var openSectionName by rememberSaveable { mutableStateOf<String?>(null) }
     val openSection = remember(openSectionName) { SettingsSection.fromName(openSectionName) }
 
@@ -400,7 +409,15 @@ private fun HomeShell(
         )
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            // On the whole shell, toolbar included, rather than on the content
+            // box below: the wave starts at the bug button, and a ripple that
+            // left the button it came from perfectly still would look like it
+            // came from somewhere else.
+            .liquidRipple(trigger = rippleTrigger, origin = rippleOrigin),
+    ) {
         CompositionLocalProvider(LocalBottomBarSpace provides barHeight + BottomBarGap) {
             // The blur goes on the content, never on the parent that also holds
             // the toolbar: a bottom fade applied there would dissolve the
@@ -514,7 +531,11 @@ private fun HomeShell(
             action = shellAction(
                 settingsOpen = settingsOpen,
                 onOpenSettings = { settingsOpen = true },
-                onOpenDebug = { showDebugSheet = true },
+                onOpenDebug = { at ->
+                    rippleOrigin = at
+                    rippleTrigger++
+                    showDebugSheet = true
+                },
             ),
         )
     }
@@ -538,7 +559,7 @@ private fun HomeShell(
 private fun shellAction(
     settingsOpen: Boolean,
     onOpenSettings: () -> Unit,
-    onOpenDebug: () -> Unit,
+    onOpenDebug: (at: Offset) -> Unit,
 ): ToolbarAction = if (settingsOpen) {
     ToolbarAction(
         icon = Icons.Rounded.BugReport,
@@ -549,7 +570,7 @@ private fun shellAction(
     ToolbarAction(
         icon = Icons.Rounded.Settings,
         contentDescription = stringResource(R.string.nav_settings),
-        onClick = onOpenSettings,
+        onClick = { onOpenSettings() },
     )
 }
 

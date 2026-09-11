@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import android.provider.Settings
 import android.view.View
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import kotlin.math.hypot
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
@@ -68,13 +69,21 @@ class ThemeRevealState internal constructor(
     private val enabled: () -> Boolean,
 ) {
 
-    internal var snapshot by mutableStateOf<ImageBitmap?>(null)
+    /**
+     * The wipe being drawn, or null when the screen is simply itself.
+     *
+     * Replaced whole rather than mutated, which is what makes a second tap
+     * during the first one safe: the new wipe carries its own picture *and* its
+     * own clock, both starting together. The previous arrangement kept one
+     * clock on the state and reset it from the coroutine that drove it, so a
+     * tap arriving mid-flight put a fresh photograph on screen with the old
+     * animation's progress still under it — a hole that was already half the
+     * screen wide opening onto a picture taken a moment ago.
+     */
+    internal var wipe by mutableStateOf<Wipe?>(null)
         private set
 
-    internal var origin by mutableStateOf(Offset.Unspecified)
-        private set
-
-    internal val progress = Animatable(0f)
+    private var running: Job? = null
 
     /**
      * Photographs the screen, applies [change], and wipes the photograph away in
@@ -82,7 +91,10 @@ class ThemeRevealState internal constructor(
      *
      * Safe to call for a change that turns out not to alter the theme at all —
      * the animation is then a circle opening onto an identical picture, which
-     * costs one frame of work and looks like nothing happened.
+     * costs one frame of work and looks like nothing happened. Safe to call
+     * again while one is still running, which is the case that matters: somebody
+     * flipping between light and dark to compare them gets a wave per tap, each
+     * from its own switch, and never a frozen one.
      *
      * @param origin in the root composition's coordinates, which is what
      *   [androidx.compose.ui.layout.LayoutCoordinates.positionInRoot] gives.
@@ -99,25 +111,64 @@ class ThemeRevealState internal constructor(
             return
         }
 
-        this.origin = origin
-        snapshot = shot
+        val wipe = Wipe(shot, origin)
+        // Cancelled before the new one is published, so the old animation cannot
+        // land a frame — or its own cleanup — on top of it.
+        running?.cancel()
+        this.wipe = wipe
         change()
 
-        scope.launch {
-            progress.snapTo(0f)
-            progress.animateTo(1f, tween(RevealMillis, easing = FastOutSlowInEasing))
-            snapshot = null
+        running = scope.launch {
+            try {
+                wipe.progress.animateTo(1f, tween(RevealMillis, easing = FastOutLinearInEasing))
+            } finally {
+                // Only if it is still ours: a wipe that was superseded has
+                // already been dropped, and clearing here would take the
+                // replacement down with it.
+                if (this@ThemeRevealState.wipe === wipe) this@ThemeRevealState.wipe = null
+            }
         }
     }
 }
 
 /**
- * How long the circle takes to cross the screen.
+ * One pass of the circle: a picture, a centre, and a clock of its own.
+ *
+ * Stable rather than immutable: the clock does change, but only through snapshot
+ * state that the draw reads directly, which is the contract stability asks for.
+ */
+@Stable
+internal class Wipe(
+    val shot: ImageBitmap,
+    val origin: Offset,
+) {
+    val progress = Animatable(0f)
+}
+
+/**
+ * How long the circle takes to leave the screen.
  *
  * Long enough to be read as a movement rather than a flicker, short enough that
  * somebody flipping the switch twice does not have to wait for it.
  */
-private const val RevealMillis = 520
+private const val RevealMillis = 560
+
+/**
+ * How far past the furthest corner the wavefront travels before it is done.
+ *
+ * Without it the circle ends exactly on the corner, and because the curve of a
+ * circle is slowest to cross a corner, the last thing anybody sees is an arc of
+ * the old theme sitting in the corner of the screen for a tenth of a second. It
+ * looks like the wave ran out of screen rather than out of time. A quarter more
+ * radius puts the visible edge off the display well before the clock stops, and
+ * the tail of the animation is then a wave crossing ground nobody can see —
+ * which is the only place a wave should stop.
+ *
+ * Paired with an easing that ends at full speed rather than gliding to a halt,
+ * for the same reason: a wavefront that decelerates on its way out reads as one
+ * that got stuck.
+ */
+private const val Overshoot = 1.25f
 
 /**
  * How much the photograph is scaled down before it is taken.
@@ -176,11 +227,12 @@ fun ThemeRevealHost(
  */
 @Composable
 private fun RevealOverlay(state: ThemeRevealState) {
-    val shot = state.snapshot ?: return
+    val wipe = state.wipe ?: return
+    val shot = wipe.shot
 
     Canvas(modifier = Modifier.fillMaxSize()) {
-        val centre = if (state.origin.isSpecified) {
-            state.origin
+        val centre = if (wipe.origin.isSpecified) {
+            wipe.origin
         } else {
             Offset(size.width / 2f, size.height / 2f)
         }
@@ -188,7 +240,7 @@ private fun RevealOverlay(state: ThemeRevealState) {
             addOval(
                 Rect(
                     center = centre,
-                    radius = farthestCorner(centre, size) * state.progress.value,
+                    radius = farthestCorner(centre, size) * Overshoot * wipe.progress.value,
                 ),
             )
         }

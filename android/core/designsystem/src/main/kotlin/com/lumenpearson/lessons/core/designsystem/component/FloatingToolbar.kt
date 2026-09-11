@@ -46,10 +46,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -81,12 +87,16 @@ data class ToolbarItem(
  *
  * @param badge as on [ToolbarItem]: a dot over the icon, for "there is something
  *   here" without a label to say what.
+ * @param onClick handed the middle of the button in the root composition's
+ *   coordinates. Most callers ignore it; the one that does not needs a point for
+ *   an effect to start from, and the button is the only thing that knows where
+ *   it ended up — the toolbar floats, and its width changes with the tab.
  */
 data class ToolbarAction(
     val icon: ImageVector,
     val contentDescription: String,
     val badge: Boolean = false,
-    val onClick: () -> Unit,
+    val onClick: (at: Offset) -> Unit,
 )
 
 /** Width of an icon-only item, and the height of every item. */
@@ -387,11 +397,19 @@ private fun ToolbarTab(
 private fun ToolbarActionButton(action: ToolbarAction) {
     val scheme = MaterialTheme.colorScheme
     val view = rememberHapticView()
+    var centre by remember { mutableStateOf(Offset.Unspecified) }
 
     FloatingActionButton(
         onClick = {
             LessonsHaptics.press(view)
-            action.onClick()
+            action.onClick(centre)
+        },
+        modifier = Modifier.onGloballyPositioned { coordinates ->
+            val corner = coordinates.positionInRoot()
+            centre = Offset(
+                x = corner.x + coordinates.size.width / 2f,
+                y = corner.y + coordinates.size.height / 2f,
+            )
         },
         containerColor = scheme.primaryContainer,
         contentColor = scheme.onPrimaryContainer,
