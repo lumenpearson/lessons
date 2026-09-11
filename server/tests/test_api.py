@@ -33,6 +33,13 @@ async def test_health_is_unauthenticated(client):
     assert response.json()["status"] == "ok"
 
 
+async def test_warmup_is_unauthenticated_and_touches_the_database(client):
+    """Unlike `/health`, this one has to prove the database actually answered."""
+    response = await client.get("/api/v1/warmup")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+
 async def test_join_returns_a_token_and_class_identity(client, school_class):
     response = await client.post("/api/v1/join", json={"code": "test42", "device_name": "Pixel"})
     assert response.status_code == 200
