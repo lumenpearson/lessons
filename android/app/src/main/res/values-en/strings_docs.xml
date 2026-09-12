@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    English mirror of res/values/strings_docs.xml (the Russian original).
+
+    Every name there has to exist here: a hole would put a Russian paragraph in
+    the middle of an English page, and a page read end to end is where that is
+    most obvious. `ResourceTranslationTest` keeps the two files level.
+-->
+<resources>
+
+    <!-- The way in: a row in the "About" section -->
+    <string name="docs_group">Documentation</string>
+    <string name="docs_open">How to use this</string>
+    <string name="docs_open_description">First run, the tabs, the widget, notifications and the rest</string>
+    <string name="docs_back">Back</string>
+
+    <!-- Page names: the full one heads the page, the short one rides the toolbar -->
+    <string name="docs_start_title">First run</string>
+    <string name="docs_start_label">Start</string>
+    <string name="docs_start_summary">Five steps and a class code</string>
+
+    <string name="docs_tabs_title">The three tabs</string>
+    <string name="docs_tabs_label">Tabs</string>
+    <string name="docs_tabs_summary">What lives where, and where settings are</string>
+
+    <string name="docs_widget_title">The widget</string>
+    <string name="docs_widget_label">Widget</string>
+    <string name="docs_widget_summary">What is on now, without opening the app</string>
+
+    <string name="docs_alerts_title">Notifications</string>
+    <string name="docs_alerts_label">Alerts</string>
+    <string name="docs_alerts_summary">Four reasons, and when to stay quiet</string>
+
+    <string name="docs_language_title">Language and wording</string>
+    <string name="docs_language_label">Language</string>
+    <string name="docs_language_summary">Switching language and fixing a phrase</string>
+
+    <string name="docs_telegram_title">The phone and the bot</string>
+    <string name="docs_telegram_label">Telegram</string>
+    <string name="docs_telegram_summary">Linking, roles and the bot commands</string>
+
+    <string name="docs_diary_title">The Petersburg diary</string>
+    <string name="docs_diary_label">Diary</string>
+    <string name="docs_diary_summary">Marks and absences from the city service</string>
+
+    <string name="docs_admin_title">Managing the class</string>
+    <string name="docs_admin_label">Manage</string>
+    <string name="docs_admin_summary">The section an administrator or owner has</string>
+
+    <!-- "First run" -->
+    <string name="docs_start_intro">One person keeps the class timetable in a Telegram bot; the app reads it and shows it — on screen, in the widget and in notifications. There is nothing for you to type in but the class code, once.</string>
+    <string name="docs_start_steps_intro">A fresh install does not open with the code field. It opens with five steps.</string>
+    <string name="docs_start_step_welcome_title">Welcome</string>
+    <string name="docs_start_step_welcome_text">The app mark, the theme and the language. The mark spins under a finger; the theme and the language are in settings afterwards.</string>
+    <string name="docs_start_step_about_title">What this is</string>
+    <string name="docs_start_step_about_text">A few paragraphs on what the app shows and what it does not do. It is also where you choose whether crash reports are kept — by default they are not.</string>
+    <string name="docs_start_step_preferences_title">Preferences</string>
+    <string name="docs_start_step_preferences_text">Haptics, wallpaper colours, a black background, the edge blur, the teacher on a lesson row and the progress bar in the widget. Only the things you can judge before seeing a single lesson.</string>
+    <string name="docs_start_step_permissions_title">Permissions</string>
+    <string name="docs_start_step_permissions_text">Notifications, exact alarms and background work, one card each. Without them the timetable still works — it just stays silent.</string>
+    <string name="docs_start_step_join_title">The class code</string>
+    <string name="docs_start_step_join_text">That field.</string>
+    <string name="docs_start_language_note">The language is on the first step on purpose: somebody who does not read Russian has to be able to switch it before the third screen, not after it. Below Android 13 changing it recreates the screen — that is normal, and the step is not lost.</string>
+    <string name="docs_start_code">The bot hands out the code with /code, to anybody who is an administrator of the class. A new code is eight characters long and never contains the look-alikes O, 0, I and 1. Older six-character codes still work: the field accepts 4 to 16 characters and upper-cases them for you.</string>
+    <string name="docs_start_server">If the school runs its own server rather than the one built into this APK, tap “Server” at the bottom of the join screen and type the whole address. It has to be the address the server is reachable at from the phone itself: “localhost” on a phone means the phone.</string>
+    <string name="docs_start_leaving">To change class or leave it: Settings → Class. After leaving, the app shows the code field again rather than the five screens over.</string>
+
+    <!-- "The three tabs" -->
+    <string name="docs_tabs_intro">Three tabs under one floating toolbar; swipe between them or tap an icon in the bar. Settings is not a fourth tab but the button beside it: you go in, change one thing and come back.</string>
+    <string name="docs_tabs_today">“Today” — what is on now and how long is left, then the rest of the day and the homework.</string>
+    <string name="docs_tabs_week">“Calendar” — the timetable as a week, a month or a single day, with rooms, replacements and cancellations.</string>
+    <string name="docs_tabs_homework">“Homework” — assignments grouped by the day they are due on.</string>
+    <string name="docs_tabs_homework_filter">“Homework” shows only what is still ahead. The “All” button opens the past ones too, and says how many were hidden.</string>
+    <string name="docs_tabs_settings">Settings holds nine sections, each one a page of its own: appearance, interaction, content, notifications, sync, class, diary, updates and “about”. An administrator of the class has a tenth — “Managing the class”.</string>
+    <string name="docs_tabs_widget_note">Tapping a day in the widget opens “Calendar” in its day view, on the date you tapped.</string>
+
+    <!-- "The widget" -->
+    <string name="docs_widget_intro">The widget answers one question — “what is on now?” — and once the lessons are over it switches itself to “what is set”.</string>
+    <string name="docs_widget_adding">Added like any other: long-press an empty spot on the home screen, “Widgets”, “Lessons — timetable”. It resizes both ways with no upper limit, and what it shows changes with its size — from a single line with a countdown to the whole day beside the homework.</string>
+    <string name="docs_widget_offline">It works with no internet. Everything it draws is already on the phone; the network is only needed to refresh it.</string>
+    <string name="docs_widget_wakeups">It does not wake the phone every minute. One alarm is set for the exact moment the text will change, and updates only get more frequent when a bell is minutes away.</string>
+    <string name="docs_widget_timezone">It counts in the school\'s time, not the phone\'s. A parent in another timezone sees the bells as they ring at the school.</string>
+    <string name="docs_widget_homework">After the lessons it shows the homework — for the next school day, and across a holiday for the first day after it.</string>
+    <string name="docs_widget_no_data">If the widget says there is no data, open the app: nothing is cached for that date and no sync has run yet.</string>
+
+    <!-- "Notifications" -->
+    <string name="docs_alerts_intro">Four reasons, a switch for each, and every one of them off on a fresh install. An app that starts buzzing on day one is an app whose notifications get turned off wholesale.</string>
+    <string name="docs_alerts_lesson">“Lesson soon” — 5, 10, 15 or 30 minutes before the bell; briefly, or with the room and the teacher.</string>
+    <string name="docs_alerts_morning">“Morning summary” — at an hour you pick, on the weekdays you pick, if there are lessons today.</string>
+    <string name="docs_alerts_homework">“Homework reminder” — in the evening, if anything is set for the next school day.</string>
+    <string name="docs_alerts_changes">“Replacements and cancellations” — right after the sync that found the change.</string>
+    <string name="docs_alerts_quiet">Two more settings say when to stay silent: quiet hours — nothing arrives inside the window, and nothing missed is delivered afterwards — and “nothing during the holidays”.</string>
+    <string name="docs_alerts_permission">The first row of the section is access. While notifications are blocked by the system the switches below do nothing, and the page says so plainly.</string>
+    <string name="docs_alerts_test">The same page has “Show an example”: it posts a lesson reminder right now, with your current settings, so a bell is not needed to test one.</string>
+
+    <!-- "Language and wording" -->
+    <string name="docs_language_intro">Russian or English, or “same as the phone”. It is switched under Appearance and applies to everything: the screens, the notifications and the widget.</string>
+    <string name="docs_language_legacy_note">Below Android 13 the only things that stay in the phone\'s language are the ones the app does not draw: the widget\'s name in the launcher\'s picker and its preview.</string>
+    <string name="docs_language_appearance">The same page carries the theme (light, dark, follow the system, plus a black background for OLED), wallpaper colours, the typeface and its size. The theme changes as a circle spreading from under your finger; if that is too much, the circle and the ripple can be switched off separately under “Effects” on the Interaction page.</string>
+    <string name="docs_language_translation">If a phrase reads badly, it can be fixed without leaving the app: Settings → About → Correction mode. While the mode is on, a long press on any text opens an editor for it, and the “Corrections” row collects everything you changed into a list — copy it as ready XML or send it through Share.</string>
+    <string name="docs_language_translation_note">The mode saves nothing and dies with the app: an export not taken before it closes is gone.</string>
+
+    <!-- "The phone and the bot" -->
+    <string name="docs_telegram_intro">On its own the app only reads. To give it any rights, link it to a Telegram account: Settings → Class → Telegram.</string>
+    <string name="docs_telegram_code">A six-character code appears there, next to an “Open the bot” button. Send the bot /link with that code and the app can do exactly what you can do in the bot. Rights are checked on the server at the moment you tap, so the phone holds no rights of its own: if the bot demotes you to a viewer, the app becomes read-only in the same second.</string>
+    <string name="docs_telegram_unlink">“Unlink” puts the app back into reading mode; it goes on showing the timetable exactly as it did before the link.</string>
+    <string name="docs_telegram_role_viewer">Viewer — reads.</string>
+    <string name="docs_telegram_role_editor">Editor — adds homework, replacements and events.</string>
+    <string name="docs_telegram_role_admin">Administrator — edits the timetable, the bells and the subjects, and hands out roles.</string>
+    <string name="docs_telegram_role_owner">Owner — everything, including deleting the class.</string>
+    <string name="docs_telegram_editing_note">Homework, replacements and events are entered in the bot: the app has no form for them. Linking is what opens “Managing the class”, and that section is for administrators and owners. To ask for a higher role: /request.</string>
+    <string name="docs_telegram_commands_intro">The commands an ordinary member of the class needs. One you are not allowed refuses out loud rather than staying silent.</string>
+    <string name="docs_telegram_command_schedule">/today, /tomorrow, /week, /next — the timetable for today, for tomorrow, for the week, and “what is next”.</string>
+    <string name="docs_telegram_command_homework">/homework — the assignments as a list; /find searches them.</string>
+    <string name="docs_telegram_command_tasks">/tasks and /task — personal to-dos only you can see.</string>
+    <string name="docs_telegram_command_remind">/remind — summaries and reminders inside Telegram itself.</string>
+    <string name="docs_telegram_command_calendar">/calendar — a subscription link: the timetable in the phone\'s calendar.</string>
+    <string name="docs_telegram_command_help">/help — the command list, grouped by what is available to you.</string>
+
+    <!-- "The Petersburg diary" -->
+    <string name="docs_diary_intro">A separate thing with a separate account: the class timetable lives in the bot, while the diary is the St Petersburg city service that holds marks, absences and the homework the school itself sets. In the app it is Settings → Diary.</string>
+    <string name="docs_diary_sign_in">Sign in with the same login and password as on the diary site.</string>
+    <string name="docs_diary_password_note">The password is never stored: it is needed for exactly one request, after which both the phone and the server forget it. Only the diary\'s own session is kept, and it lives as long as the service renews it. When it ends the app asks for the password again — the login stays where it was.</string>
+    <string name="docs_diary_inside">Inside are two tabs — Timetable and Marks — and a child picker if the account sees more than one. Diary homework appears under the lessons of the day it is due on. An absence, a late arrival and a remark all arrive in the same list as the marks, but the app tells them apart and shows them differently.</string>
+    <string name="docs_diary_foreign_note">The service belongs to somebody else and is undocumented. If it answers in a way the app cannot read, the app says so: that is fixed on the server, not in the app.</string>
+
+    <!-- "Managing the class" -->
+    <string name="docs_admin_intro">The section appears in settings only for an administrator or the owner of the class, and only while the server still confirms the linked account\'s role. Somebody demoted in the bot loses it in the same second, page open or not.</string>
+    <string name="docs_admin_screens_intro">Eight pages, each roughly one bot command; they open as a sheet from the bottom.</string>
+    <string name="docs_admin_screen_class">“Class” — the name, the school, the city and the timezone. The owner can delete the class outright.</string>
+    <string name="docs_admin_screen_subjects">“Subjects” — the subject dictionary: name, short name, teacher, colour.</string>
+    <string name="docs_admin_screen_bells">“Bells” — the bell schedules, the time of each lesson in them, and which schedule is the default one.</string>
+    <string name="docs_admin_screen_timetable">“Timetable” — importing a timetable as text, showing what it would replace before anything is saved.</string>
+    <string name="docs_admin_screen_devices">“Devices” — the phones joined with the class code; any of them can have its access revoked.</string>
+    <string name="docs_admin_screen_log">“Log” — who changed what, a page at a time.</string>
+    <string name="docs_admin_screen_stats">“Statistics” — how much of everything the class has.</string>
+    <string name="docs_admin_screen_requests">“Requests” — who is asking for a higher role; approve or decline.</string>
+    <string name="docs_admin_security_note">None of this is a right the phone grants itself: the server checks the role on every single request, and hiding the page is tidiness rather than security.</string>
+    <string name="docs_admin_code">The class code for new phones comes from the bot, with /code.</string>
+
+</resources>

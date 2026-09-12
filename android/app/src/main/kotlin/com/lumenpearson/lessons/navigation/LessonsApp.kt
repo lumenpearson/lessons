@@ -27,6 +27,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CircularProgressIndicator
@@ -87,6 +88,11 @@ import com.lumenpearson.lessons.core.designsystem.theme.appSlideMotionBlur
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.ui.admin.isClassManager
 import com.lumenpearson.lessons.ui.debug.DebugSheet
+import com.lumenpearson.lessons.ui.docs.DocsHistory
+import com.lumenpearson.lessons.ui.docs.DocsPage
+import com.lumenpearson.lessons.ui.docs.DocsScreen
+import com.lumenpearson.lessons.ui.docs.docsToolbarItems
+import com.lumenpearson.lessons.ui.docs.docsToolbarSelection
 import com.lumenpearson.lessons.ui.homework.HomeworkScreen
 import com.lumenpearson.lessons.ui.join.JoinScreen
 import com.lumenpearson.lessons.ui.onboarding.OnboardingScreen
@@ -286,10 +292,19 @@ private fun HomeShell(
     var openSectionName by rememberSaveable { mutableStateOf<String?>(null) }
     val openSection = remember(openSectionName) { SettingsSection.fromName(openSectionName) }
 
-    // Where the shell is, as one value. Derived from the two saved flags rather
+    // The documentation's whole path, as one saveable string — `null` while it
+    // is closed. A string rather than a list because that is what the open
+    // section above already is, and because the reader's path through the pages
+    // has to survive a rotation as surely as the page they are on: a history
+    // that came back empty would turn one press of "back" into a jump home.
+    var docsPath by rememberSaveable { mutableStateOf<String?>(null) }
+    val docs = remember(docsPath) { DocsHistory.decode(docsPath) }
+
+    // Where the shell is, as one value. Derived from the saved flags rather
     // than replacing them, so what survives process death is unchanged.
-    val destination = remember(settingsOpen, openSection) {
+    val destination = remember(settingsOpen, openSection, docs) {
         when {
+            docs != null -> ShellPage.Docs(docs.current)
             openSection != null -> ShellPage.Section(openSection)
             settingsOpen -> ShellPage.SettingsRoot
             else -> ShellPage.Tabs
@@ -319,12 +334,14 @@ private fun HomeShell(
     val pageOffsets = remember(tabs.size) { List(tabs.size) { ScrollOffsetHolder() } }
     val settingsOffset = remember { ScrollOffsetHolder() }
     val sectionOffset = remember { ScrollOffsetHolder() }
+    val docsOffset = remember { ScrollOffsetHolder() }
 
     // A widget tap lands here. Closing the settings layers first, because the
     // request is "show me this day" and a page that slides in over the calendar
     // would answer it with a screen the user did not ask for.
     LaunchedEffect(openDate) {
         val date = openDate ?: return@LaunchedEffect
+        docsPath = null
         openSectionName = null
         settingsOpen = false
         calendarViewModel.select(date)
@@ -380,15 +397,67 @@ private fun HomeShell(
         settingsOpen = false
     }
 
+    /** Opening the guide from the «О приложении» page, on its first section. */
+    fun openDocs() {
+        docsPath = DocsHistory.opened().encode()
+    }
+
+    /**
+     * The path as it stands *now*, decoded from the saved string rather than
+     * read off [docs].
+     *
+     * [docs] is a `remember`, so it is only as new as the last composition,
+     * while a write to [docsPath] lands in the snapshot at once. Two back
+     * events drained in one input pass — reachable by pressing back twice
+     * during a slide — would both see the stale value and ask to leave the same
+     * page twice, losing a press. The same hazard, and the same fix, as the
+     * bounded step in `OnboardingScreen`.
+     */
+    fun docsHistoryNow(): DocsHistory? = DocsHistory.decode(docsPath)
+
+    /** A tap on a section in the toolbar: a push, so back can walk it off. */
+    fun openDocsPage(page: DocsPage) {
+        docsPath = docsHistoryNow()?.open(page)?.encode() ?: DocsHistory.opened(page).encode()
+    }
+
+    /**
+     * The one definition of "back" inside the documentation.
+     *
+     * Both ways out run this and neither has a rule of its own, which is the
+     * point: the button beside the pill and the system gesture disagreeing
+     * about where back goes is a bug a reader cannot work around.
+     *
+     * Leaving the documentation goes home rather than to the settings page it
+     * was opened from. The guide is somewhere you go to read, and a reader who
+     * has walked off the end of their own path is finished — handing them back
+     * the settings tree they came through would make them press back twice more
+     * to reach the thing the documentation was about.
+     */
+    fun docsBack() {
+        val previous = docsHistoryNow()?.back()
+        if (previous != null) {
+            docsPath = previous.encode()
+        } else {
+            docsPath = null
+            closeSettings()
+        }
+    }
+
     // One layer per press, innermost first. Registered before the predictive
     // handler below so that it wins while anything is open: a back gesture in
     // settings has to leave settings, not scroll the pager underneath it.
-    BackHandler(enabled = openSection != null) { closeSection() }
-    BackHandler(enabled = settingsOpen && openSection == null) { closeSettings() }
+    //
+    // The guards are mutually exclusive rather than merely ordered. The
+    // documentation is opened from inside a settings section, so while it is up
+    // both of the conditions below are also true, and only one handler may act
+    // on one press.
+    BackHandler(enabled = docs != null) { docsBack() }
+    BackHandler(enabled = docs == null && openSection != null) { closeSection() }
+    BackHandler(enabled = docs == null && settingsOpen && openSection == null) { closeSettings() }
 
     val backProgress = remember { Animatable(0f) }
     PredictiveBackHandler(
-        enabled = !settingsOpen && pagerState.currentPage != homePage,
+        enabled = docs == null && !settingsOpen && pagerState.currentPage != homePage,
     ) { events ->
         try {
             events.collect { event -> backProgress.snapTo(event.progress) }
@@ -439,6 +508,7 @@ private fun HomeShell(
                     ShellPage.Tabs -> pageOffsets[pagerState.currentPage]
                     ShellPage.SettingsRoot -> settingsOffset
                     is ShellPage.Section -> sectionOffset
+                    is ShellPage.Docs -> docsOffset
                 },
                 // Everything here is read from `page`, never from the hoisted
                 // state, and that is the whole discipline of this arrangement:
@@ -449,9 +519,13 @@ private fun HomeShell(
                 toolbar = { barModifier ->
                     LessonsFloatingToolbar(
                         modifier = barModifier,
-                        selectedIndex = if (page == ShellPage.Tabs) pagerState.currentPage else -1,
-                        items = if (page == ShellPage.Tabs) {
-                            tabs.mapIndexed { index, tab ->
+                        selectedIndex = when (page) {
+                            ShellPage.Tabs -> pagerState.currentPage
+                            is ShellPage.Docs -> docsToolbarSelection(page.page)
+                            else -> -1
+                        },
+                        items = when (page) {
+                            ShellPage.Tabs -> tabs.mapIndexed { index, tab ->
                                 ToolbarItem(
                                     icon = tab.icon,
                                     label = stringResource(tab.labelRes),
@@ -460,32 +534,42 @@ private fun HomeShell(
                                     },
                                 )
                             }
-                        } else {
-                            emptyList()
+
+                            // The bar is the documentation's only navigation,
+                            // so it carries every section rather than a way
+                            // back to a list of them: there is no list.
+                            is ShellPage.Docs -> docsToolbarItems(::openDocsPage)
+
+                            else -> emptyList()
                         },
+                        // Only the destinations that are peers of each other
+                        // overflow a phone; the three tabs never will.
+                        scrollableItems = page is ShellPage.Docs,
                         title = when (page) {
-                            ShellPage.Tabs -> null
+                            ShellPage.Tabs, is ShellPage.Docs -> null
                             ShellPage.SettingsRoot -> stringResource(R.string.settings_title)
                             is ShellPage.Section -> stringResource(page.section.titleRes)
                         },
                         onBackClick = when (page) {
-                            ShellPage.Tabs -> null
+                            // Null keeps the bar in its tabbed mode. On the
+                            // documentation that is deliberate: the pill is the
+                            // table of contents, and back is the button beside
+                            // it — see [shellActionKind].
+                            ShellPage.Tabs, is ShellPage.Docs -> null
                             ShellPage.SettingsRoot -> ::closeSettings
                             is ShellPage.Section -> ::closeSection
                         },
                         action = shellAction(
-                            settingsOpen = page != ShellPage.Tabs,
+                            destination = page.destination,
                             // The shortcut exists for the people who have the
-                            // page it shortcuts to. Everybody else gets no
-                            // button at all rather than a disabled one: on a
-                            // toolbar with room for exactly one action, a
-                            // button that refuses is worse than a gap.
+                            // page it shortcuts to.
                             manager = isClassManager(settingsState.deviceLink.role),
                             onOpenSettings = { settingsOpen = true },
                             onOpenDebug = { at ->
                                 ripple.fire(at)
                                 showDebugSheet = true
                             },
+                            onBack = ::docsBack,
                         ),
                     )
                 },
@@ -552,8 +636,19 @@ private fun HomeShell(
                         SettingsSectionScreen(
                             section = page.section,
                             onOpenSection = { next -> openSectionName = next.name },
+                            onOpenDocs = ::openDocs,
                             viewModel = settingsViewModel,
                         )
+                    }
+
+                    is ShellPage.Docs -> CompositionLocalProvider(
+                        LocalScrollOffset provides docsOffset,
+                    ) {
+                        // page.page, not docs.current, for the reason the
+                        // section above reads its own: during the slide both
+                        // pages are composed, and the one leaving has to keep
+                        // showing what it was showing.
+                        DocsScreen(page = page.page)
                     }
                 }
             }
@@ -584,7 +679,33 @@ private sealed interface ShellPage {
     data class Section(val section: SettingsSection) : ShellPage {
         override val depth: Int = 2
     }
+
+    /**
+     * One page of the guide.
+     *
+     * Deeper than a settings section, so opening the guide slides forward and
+     * leaving it slides back — and deeper still for each section along the bar,
+     * which is the one thing [pageTransition] can be told about a move between
+     * peers. Tapping a section to the right of the one on screen then pushes
+     * the page off to the left, exactly as the finger went; tapping one to the
+     * left brings it back. Equal depths would have made every move look like a
+     * retreat.
+     */
+    data class Docs(val page: DocsPage) : ShellPage {
+        override val depth: Int = DocsBaseDepth + page.ordinal
+    }
 }
+
+/** Below the deepest settings page, so the guide always opens forward. */
+private const val DocsBaseDepth = 3
+
+/** As much of the page as the toolbar's action button needs to know. */
+private val ShellPage.destination: ShellDestination
+    get() = when (this) {
+        ShellPage.Tabs -> ShellDestination.TABS
+        ShellPage.SettingsRoot, is ShellPage.Section -> ShellDestination.SETTINGS
+        is ShellPage.Docs -> ShellDestination.DOCS
+    }
 
 /**
  * One page of the shell, with its own toolbar riding on it.
@@ -709,29 +830,39 @@ private fun pageSlideSpring(motion: MotionSettings) = spring<IntOffset>(
  * It used to be a refresh button here. Refresh already has a row of its own in
  * the sync section, two taps away, and spending the one permanent button in the
  * app on a duplicate of a row is a poor trade.
+ *
+ * On the documentation it is the way back, because the pill beside it is full:
+ * it carries the sections, so the bar's standard mode — a back arrow and a
+ * title — is not available there. Which of the three it is, is decided by
+ * [shellActionKind]; this only dresses the answer.
  */
 @Composable
 private fun shellAction(
-    settingsOpen: Boolean,
+    destination: ShellDestination,
     manager: Boolean,
     onOpenSettings: () -> Unit,
     onOpenDebug: (at: Offset) -> Unit,
-): ToolbarAction? = if (settingsOpen) {
-    if (!manager) {
-        null
-    } else {
-        ToolbarAction(
-            icon = Icons.Rounded.BugReport,
-            contentDescription = stringResource(R.string.debug_open),
-            onClick = onOpenDebug,
-        )
-    }
-} else {
-    ToolbarAction(
+    onBack: () -> Unit,
+): ToolbarAction? = when (shellActionKind(destination, manager)) {
+    ShellActionKind.SETTINGS -> ToolbarAction(
         icon = Icons.Rounded.Settings,
         contentDescription = stringResource(R.string.nav_settings),
         onClick = { onOpenSettings() },
     )
+
+    ShellActionKind.DEBUG -> ToolbarAction(
+        icon = Icons.Rounded.BugReport,
+        contentDescription = stringResource(R.string.debug_open),
+        onClick = onOpenDebug,
+    )
+
+    ShellActionKind.BACK -> ToolbarAction(
+        icon = Icons.AutoMirrored.Rounded.ArrowBack,
+        contentDescription = stringResource(R.string.docs_back),
+        onClick = { onBack() },
+    )
+
+    ShellActionKind.NONE -> null
 }
 
 /**

@@ -326,6 +326,7 @@ fun SettingsSectionScreen(
     section: SettingsSection,
     modifier: Modifier = Modifier,
     onOpenSection: (SettingsSection) -> Unit = {},
+    onOpenDocs: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
 ) {
     // The diary is a whole screen of its own rather than a list of rows: it has
@@ -418,7 +419,7 @@ fun SettingsSectionScreen(
                 onAskPrerelease = { sheets.prerelease = true },
             )
             SettingsSection.ABOUT -> {
-                aboutRows(state, viewModel)
+                aboutRows(state, viewModel, onOpenDocs)
                 supportRows(
                     state = state,
                     viewModel = viewModel,
@@ -1045,7 +1046,23 @@ private fun LazyListScope.accountRows(
 private fun LazyListScope.aboutRows(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
+    onOpenDocs: () -> Unit,
 ) {
+    // First on the page, above the switch and the licences. The guide is the
+    // only row here somebody arrives *looking* for — everything else on this
+    // page is something you find — and a row you have to scroll to is a row a
+    // reader concludes does not exist.
+    item(key = "docs") {
+        SettingsGroup(title = stringResource(R.string.docs_group)) {
+            GroupLinkItem(
+                title = stringResource(R.string.docs_open),
+                subtitle = stringResource(R.string.docs_open_description),
+                icon = Icons.AutoMirrored.Rounded.MenuBook,
+                tone = accentTone(4),
+                onClick = onOpenDocs,
+            )
+        }
+    }
     item(key = "about") {
         SettingsGroup(title = stringResource(R.string.settings_about_group)) {
             GroupSwitchItem(
