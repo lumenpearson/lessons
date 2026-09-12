@@ -1,0 +1,386 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    English mirror of res/values/strings.xml (which is the Russian original).
+
+    Every name in values/ has to exist here, because a missing one is not a
+    missing word: Android falls back to the default locale for that name alone,
+    so one hole shows a Russian row in the middle of an English screen.
+    `ResourceTranslationTest` in src/test/ is what keeps the two files level.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <string name="app_name">Lessons</string>
+
+    <!-- Navigation -->
+    <string name="nav_today">Today</string>
+    <string name="nav_week">Calendar</string>
+    <string name="nav_homework">Homework</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Common actions -->
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_back">Back</string>
+
+    <!-- First run -->
+    <string name="onboarding_welcome_title">Welcome to %1$s</string>
+    <string name="onboarding_welcome_subtitle">Your class timetable, its substitutions and its homework — in the app and on the home screen.</string>
+    <string name="onboarding_action_begin">Let\'s begin</string>
+    <string name="onboarding_ack_title">Confirmation</string>
+    <string name="onboarding_ack_body">The app shows the timetable of whichever class you join. The data comes from the school server: the app only reads it and changes nothing in the school register.
+
+The access key you were given and a copy of the timetable stay on the device, so that the app and the widget work without a network. All of it is deleted when you leave the class.</string>
+    <string name="onboarding_ack_warning">The timetable may have been changed later than the app managed to fetch it. Before a test or a substitution, check it against what you were told at school.</string>
+    <string name="onboarding_ack_footer">If the app behaves strangely, an error report helps work out why. It stays on the phone until you send it yourself.</string>
+    <string name="onboarding_ack_reports">Error reports</string>
+    <string name="onboarding_ack_reports_description">Keep a record on the device of what happened before a crash</string>
+    <string name="onboarding_reports_off">Off</string>
+    <string name="onboarding_reports_on">On</string>
+    <string name="onboarding_action_understood">I understand</string>
+    <string name="onboarding_preferences_title">Preferences</string>
+    <string name="onboarding_preferences_subtitle">Choose the main settings to start with. All of it can be changed later.</string>
+    <string name="onboarding_group_app">App settings</string>
+    <string name="onboarding_group_content">Content</string>
+    <string name="onboarding_action_all_set">All set</string>
+    <string name="onboarding_permissions_title">Permissions</string>
+    <string name="onboarding_permissions_subtitle">So that reminders arrive on time. Without them the timetable still works — it just stays quiet.</string>
+    <string name="onboarding_action_later">Later</string>
+    <string name="onboarding_action_continue">Next</string>
+
+    <!-- Joining a class -->
+    <string name="join_title">Join a class</string>
+    <string name="join_subtitle">Enter the code your class teacher gave you</string>
+    <string name="join_code_label">Class code</string>
+    <!--
+        tools:ignore: a range is plural whatever the numbers are ("from 4 to 16
+        characters"), so there is no singular form for a <plurals> to pick.
+    -->
+    <string name="join_code_hint" tools:ignore="PluralsCandidate">From %1$d to %2$d characters, letters and digits</string>
+    <string name="join_action">Join</string>
+    <string name="join_error_invalid_code" tools:ignore="PluralsCandidate">The code is %1$d to %2$d characters long</string>
+    <string name="join_error_rejected">Could not join: %1$s</string>
+    <string name="join_error_generic">Could not join. Check the code and your network connection.</string>
+    <string name="join_what_you_get">What you get once you have joined</string>
+    <string name="join_feature_timetable">Timetable and substitutions</string>
+    <string name="join_feature_timetable_description">The whole week, with rooms and substitutions.</string>
+    <string name="join_feature_homework">Homework</string>
+    <string name="join_feature_homework_description">Grouped by the day it is set for.</string>
+    <string name="join_feature_widget">A widget on the home screen</string>
+    <string name="join_feature_widget_description">The current lesson and how long until the bell — without opening the app.</string>
+    <string name="join_server_section">Server</string>
+    <string name="join_server_unset">Default — the class server</string>
+
+    <!-- Server address dialog -->
+    <string name="server_dialog_title">Server address</string>
+    <string name="server_dialog_description">Change this only if the school runs its own server.</string>
+    <string name="server_dialog_label">Address</string>
+    <string name="server_dialog_placeholder">https://…</string>
+
+    <!-- Today -->
+    <string name="today_title">Today</string>
+    <string name="today_lessons_remaining">Lessons left</string>
+    <string name="today_events">Events</string>
+
+    <!-- Calendar -->
+    <string name="schedule_view_week">Week</string>
+    <string name="schedule_view_month">Month</string>
+    <string name="schedule_view_day">Day</string>
+    <string name="schedule_day_details">Details</string>
+    <string name="schedule_room_short">room %1$s</string>
+    <string name="schedule_lesson_index">Lesson %1$d</string>
+    <string name="schedule_time">Time</string>
+    <string name="schedule_duration">%1$d min</string>
+    <string name="schedule_room">Room</string>
+    <string name="schedule_teacher">Teacher</string>
+    <string name="schedule_note">Note</string>
+    <string name="schedule_homework">Homework</string>
+    <string name="schedule_homework_empty">Nothing is set for this subject</string>
+    <string name="schedule_lesson_replaced">substitute</string>
+    <string name="schedule_lesson_cancelled">cancelled</string>
+    <string name="schedule_events">Events</string>
+    <string name="today_homework_for">Homework for %1$s</string>
+    <!-- tools:ignore: "1 more" and "2 more" are the same words; no plural to pick. -->
+    <string name="today_homework_more" tools:ignore="PluralsCandidate">%1$d more — open all homework</string>
+    <string name="today_no_data_title">No timetable</string>
+    <string name="today_no_data_description">Pull down to load the timetable.</string>
+    <string name="today_lessons_over_title">Lessons are over</string>
+    <string name="today_lessons_over_description">That is it for today. Time for the homework.</string>
+    <string name="today_no_lessons_title">No lessons</string>
+    <string name="today_no_lessons_description">Nothing is scheduled for today.</string>
+
+    <!-- Dates -->
+    <!-- Weekday abbreviations, for the row of chips in the notification settings -->
+    <string name="weekday_short_monday">Mon</string>
+    <string name="weekday_short_tuesday">Tue</string>
+    <string name="weekday_short_wednesday">Wed</string>
+    <string name="weekday_short_thursday">Thu</string>
+    <string name="weekday_short_friday">Fri</string>
+    <string name="weekday_short_saturday">Sat</string>
+    <string name="weekday_short_sunday">Sun</string>
+    <string name="day_today">Today</string>
+    <string name="day_tomorrow">Tomorrow</string>
+    <string name="day_yesterday">Yesterday</string>
+
+    <!-- Sync -->
+    <string name="sync_never">Not updated yet</string>
+    <string name="sync_at_time">Updated at %1$s</string>
+    <string name="sync_at_date_time">Updated %1$s at %2$s</string>
+    <string name="interval_minutes">%1$d min</string>
+    <string name="interval_hours">%1$d h</string>
+    <string name="sync_error_unauthorised">Access to the class was revoked. Join again.</string>
+    <string name="sync_error_not_configured">No server address — set one in the settings.</string>
+    <string name="sync_error_failed">Could not update: %1$s</string>
+    <string name="sync_error_generic">Could not update the timetable</string>
+
+    <!-- Week -->
+    <string name="week_title">Calendar</string>
+    <string name="week_range">%1$s — %2$s</string>
+    <string name="week_previous">Previous week</string>
+    <string name="week_next">Next week</string>
+    <string name="week_current">Current week</string>
+    <string name="week_no_data_title">No data</string>
+    <string name="week_no_data_description">The timetable for this day has not been loaded yet.</string>
+    <string name="week_day_off_title">No lessons</string>
+    <string name="week_day_off_description">A weekend or a free day.</string>
+
+    <!-- Lessons -->
+    <plurals name="lessons_count">
+        <item quantity="one">%1$d lesson</item>
+        <item quantity="other">%1$d lessons</item>
+    </plurals>
+
+    <!-- Kinds of day -->
+    <string name="day_kind_normal">Normal day</string>
+    <string name="day_kind_holiday">Holidays</string>
+    <string name="day_kind_shortened">Shortened day</string>
+    <string name="day_kind_remote">Remote</string>
+
+    <!-- Homework -->
+    <string name="homework_title">Homework</string>
+    <string name="homework_filter_upcoming">Upcoming only</string>
+    <string name="homework_filter_all">All</string>
+    <string name="homework_filter_all_with_count">All (+%1$d)</string>
+    <string name="homework_empty_title">No homework</string>
+    <string name="homework_empty_description">When a teacher sets something, it will appear here.</string>
+    <string name="homework_empty_filtered_description">Nothing is set for the days ahead — tap “All” to see what came before.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_sections">Sections</string>
+    <string name="settings_appearance_summary">Theme, colours, font, its size and the language</string>
+    <string name="settings_feel_summary">Feedback, gestures, animations and blur</string>
+    <string name="settings_content_summary">What the lists and the widget show</string>
+    <string name="settings_sync_summary">Update schedule and server address</string>
+    <string name="settings_class_summary">Class, school and signing out</string>
+    <string name="settings_about_summary">Version and credits</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_type_group">Font</string>
+    <string name="settings_haptics_group">Feedback</string>
+    <string name="settings_motion_group">Motion</string>
+    <string name="settings_navigation_group">Navigation</string>
+    <string name="settings_effects_group">Effects</string>
+    <string name="settings_content_group">Lists and widget</string>
+    <string name="settings_sync_group">Updating</string>
+    <string name="settings_class_group">Your class</string>
+    <string name="settings_about_group">App</string>
+
+    <!-- Debugging -->
+    <string name="settings_debug">Crash reports</string>
+    <string name="settings_debug_description">Keep a record on the device of what happened before the app closed. The report can be sent to the developer.</string>
+    <string name="debug_title">Debugging</string>
+    <string name="debug_on_description">Reports are being kept. The last five are stored in the app\'s own folder; they are visible with the phone plugged in by cable.</string>
+    <string name="debug_off_description">Reports are not kept. Turn this on if the app closes by itself — then next time there will be something to send.</string>
+    <string name="debug_reports">Reports</string>
+    <string name="debug_reports_empty">None so far</string>
+    <string name="debug_report_size">%1$d KB</string>
+    <string name="debug_share">Send</string>
+    <string name="debug_clear">Delete all</string>
+    <string name="debug_turn_on">Turn on</string>
+    <string name="debug_turn_off">Turn off</string>
+    <string name="debug_open">Debugging</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_dynamic_color">Colours from the wallpaper</string>
+    <string name="settings_dynamic_color_description">The app palette follows the wallpaper.</string>
+    <string name="settings_dynamic_color_unavailable">Available on Android 12 and newer.</string>
+    <string name="settings_pitch_black">Pitch black theme</string>
+    <string name="settings_pitch_black_description">A fully black background in the dark theme — it saves charge on OLED.</string>
+    <string name="settings_theme_mode">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_font">Font</string>
+    <string name="settings_font_description">The bundled Google Sans, or the one the rest of your phone is set in.</string>
+    <string name="settings_font_bundled">Google Sans</string>
+    <string name="settings_font_system">System</string>
+    <string name="settings_text_size">Text size</string>
+    <string name="settings_text_size_description">Multiplied by the font size set on the phone.</string>
+    <string name="settings_text_size_small">Smaller</string>
+    <string name="settings_text_size_normal">Normal</string>
+    <string name="settings_text_size_large">Larger</string>
+    <string name="settings_text_size_huge">Largest</string>
+
+    <!-- Language -->
+    <string name="settings_language_group">Language</string>
+    <string name="settings_language">App language</string>
+    <string name="settings_language_description">“System” follows the language of the phone.</string>
+    <string name="settings_language_system">System</string>
+    <string name="settings_language_russian">Russian</string>
+    <string name="settings_language_english">English</string>
+
+    <string name="settings_feel">Interaction</string>
+    <string name="settings_haptics">Vibration</string>
+    <string name="settings_haptics_description">A short response to taps and switches.</string>
+    <string name="settings_haptic_strength">Feedback strength</string>
+    <string name="settings_haptic_none">None</string>
+    <string name="settings_haptic_subtle">Light</string>
+    <string name="settings_haptic_double">Double</string>
+    <string name="settings_haptic_click">Sharp</string>
+    <string name="settings_swipe_tabs">Swipe between tabs</string>
+    <string name="settings_swipe_tabs_description">Flick through the screens instead of only tapping the bar.</string>
+    <string name="settings_default_tab">Start tab</string>
+    <string name="settings_default_tab_description">The app opens on it, and “Back” returns to it.</string>
+    <string name="settings_animations">Animations</string>
+    <string name="settings_animations_description">Transitions between screens. Without them screens change at once.</string>
+    <string name="settings_motion_speed">Animation speed</string>
+    <string name="settings_motion_speed_description">Higher is faster; 1.0 is as designed.</string>
+    <string name="settings_edge_blur">Blur under the status bar</string>
+    <string name="settings_edge_blur_description">Content melts away smoothly under the status bar.</string>
+    <string name="settings_motion_blur">Blur while scrolling</string>
+    <string name="settings_motion_blur_description">Lists smear along the direction they move in.</string>
+    <string name="settings_motion_blur_amount">Blur amount</string>
+    <string name="settings_blur_unavailable">Available on Android 13 and newer.</string>
+
+    <string name="settings_content">Content</string>
+    <string name="settings_show_teacher">Show the teacher</string>
+    <string name="settings_show_teacher_description">The teacher\'s name in the lesson row.</string>
+    <string name="settings_widget_progress">Progress in the widget</string>
+    <string name="settings_widget_progress_description">A bar showing how much of the lesson is left.</string>
+    <string name="settings_sync">Sync</string>
+    <string name="settings_sync_interval">How often to update</string>
+    <string name="settings_server_url">Server address</string>
+    <string name="settings_server_url_default">Default</string>
+    <string name="settings_refresh_now">Update now</string>
+    <string name="settings_class">Class</string>
+    <string name="settings_class_unknown">No class chosen</string>
+    <string name="settings_class_no_school">No school given</string>
+    <string name="settings_sign_out">Sign out</string>
+    <string name="settings_sign_out_title">Leave the class?</string>
+    <string name="settings_sign_out_message">The timetable of class “%1$s” will be deleted from the device. Coming back will take a code.</string>
+    <string name="settings_sign_out_message_generic">The timetable will be deleted from the device. Coming back will take a code.</string>
+    <string name="settings_about">About</string>
+
+    <!-- Notifications -->
+    <string name="settings_alerts">Notifications</string>
+    <string name="settings_alerts_summary">The bell, the day summary, homework, substitutions and quiet hours</string>
+    <string name="settings_alerts_blocked_group">Access</string>
+    <string name="settings_alerts_blocked">Notifications are off</string>
+    <string name="settings_alerts_blocked_description">Tap to allow them — otherwise the switches below do nothing.</string>
+    <string name="settings_alerts_lessons_group">Lessons</string>
+    <string name="settings_alert_lesson">Lesson soon</string>
+    <string name="settings_alert_lesson_description">The subject and the room a few minutes before the bell</string>
+    <string name="settings_alert_lead">How early to warn</string>
+    <string name="settings_alert_lead_value">%1$d min</string>
+    <string name="settings_alert_detail">What the reminder says</string>
+    <string name="settings_alert_detail_description">Short — the subject only; full — the room and the teacher as well</string>
+    <string name="settings_alert_detail_subject">Subject</string>
+    <string name="settings_alert_detail_full">Full</string>
+    <string name="settings_alerts_daily_group">Day\'s timetable</string>
+    <string name="settings_alert_morning">Morning summary</string>
+    <string name="settings_alert_morning_description">How many lessons there are today and when the first one is</string>
+    <string name="settings_alert_morning_at">Summary time</string>
+    <string name="settings_alert_morning_days">On which days</string>
+    <string name="settings_alert_morning_days_none">No day is chosen — the summary will not arrive</string>
+    <string name="settings_alert_homework">Homework reminder</string>
+    <string name="settings_alert_homework_description">In the evening — which subjects have homework for tomorrow</string>
+    <string name="settings_alert_homework_at">Reminder time</string>
+    <string name="settings_alert_hour_value">%1$d:00</string>
+    <string name="settings_alerts_quiet_group">When to stay quiet</string>
+    <string name="settings_alert_quiet">Quiet hours</string>
+    <string name="settings_alert_quiet_description">Nothing arrives during this stretch. What was missed is not delivered later</string>
+    <string name="settings_alert_quiet_from">Quiet from</string>
+    <string name="settings_alert_quiet_to">Quiet until</string>
+    <string name="settings_alert_holidays">Nothing during the holidays</string>
+    <string name="settings_alert_holidays_description">Days the school marked as holidays are skipped — even if lessons are still listed on them</string>
+    <string name="settings_alerts_test_group">Check</string>
+    <string name="settings_alert_test">Show an example</string>
+    <string name="settings_alert_test_description">Send a lesson reminder right now — with the current settings</string>
+    <string name="settings_alert_test_sent">Sent. Look at the notification shade</string>
+    <string name="settings_alert_test_blocked">Notifications are off — allow them above</string>
+    <string name="settings_alerts_changes_group">Changes</string>
+    <string name="settings_alert_changes">Substitutions and cancellations</string>
+    <string name="settings_alert_changes_description">Say when the timetable of the next few days has changed</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_description">A school diary with a widget on the home screen. It works offline: the timetable, the substitutions and the homework are kept on the device.</string>
+    <string name="about_design_credit">Design language, font and components — after Essentials (github.com/sameerasw/essentials), MIT licence.</string>
+    <string name="about_name_and_version">Lessons v%1$s</string>
+    <string name="about_developer_line">Built by lumenpearson</string>
+    <!-- Split around the link so the repository name can be tappable inside the sentence. -->
+    <string name="about_design_credit_before">Design language, font and components — after </string>
+    <string name="about_design_credit_link">Essentials</string>
+    <string name="about_design_credit_after">, MIT licence.</string>
+    <string name="about_link_source">Source code</string>
+    <string name="about_link_essentials">Essentials</string>
+    <string name="about_closing_line">Made for one school</string>
+    <string name="permissions_title">Permissions</string>
+    <string name="permissions_banner_title">Permissions are missing</string>
+    <string name="permissions_banner_description">Open each one and grant it — without them notifications will not arrive on time</string>
+    <string name="permissions_refresh">Check again</string>
+    <string name="permissions_action_grant">Grant</string>
+    <string name="permissions_action_open">Open</string>
+    <string name="permissions_action_open_settings">Open settings</string>
+    <string name="permission_notifications">Notifications</string>
+    <string name="permission_notifications_description">Without it nothing arrives: no lesson, no summary, no substitution</string>
+    <string name="permission_exact_alarms">Exact alarms</string>
+    <string name="permission_exact_alarms_description">So that “a lesson in 10 minutes” arrives ten minutes before, and not whenever</string>
+    <string name="permission_background">Background work</string>
+    <string name="permission_background_description">So the system does not put the app to sleep before the bell</string>
+    <!-- Shown instead of the description once the system has stopped offering the dialog. -->
+    <string name="permission_denied_forever">The system will not ask again — turn it on by hand in the settings</string>
+    <plurals name="permissions_missing">
+        <item quantity="one">%1$d not granted</item>
+        <item quantity="other">%1$d not granted</item>
+    </plurals>
+
+    <!-- Effects: the two full-screen shader ornaments, each with its own switch. -->
+    <string name="settings_ripple">Ripple</string>
+    <string name="settings_ripple_description">A ripple across the screen when the theme changes and when debugging is switched on</string>
+    <string name="settings_theme_reveal">Circular theme change</string>
+    <string name="settings_theme_reveal_description">The new theme spreads out in a circle from under your finger</string>
+
+    <!-- Updates section -->
+    <string name="settings_updates">Updates</string>
+    <string name="settings_updates_summary">Checking GitHub for new versions</string>
+    <string name="settings_updates_group">Version</string>
+    <string name="settings_updates_installed">%1$s installed</string>
+    <string name="settings_updates_check">Check for updates</string>
+    <string name="settings_updates_checking">Checking…</string>
+    <string name="settings_updates_available">%1$s available</string>
+    <string name="settings_updates_up_to_date">Up to date</string>
+    <string name="settings_updates_failed">Could not check</string>
+    <string name="settings_updates_never">Not checked yet</string>
+    <string name="settings_updates_behaviour_group">Behaviour</string>
+    <string name="settings_updates_auto">Check automatically</string>
+    <string name="settings_updates_auto_description">At app start, no more than once a day</string>
+    <string name="settings_updates_prerelease">Pre-releases</string>
+    <string name="settings_updates_prerelease_description">Test builds. They may be unstable</string>
+    <string name="settings_updates_notify">Announce new versions</string>
+    <string name="settings_updates_notify_description">Show the release notes when a version is found</string>
+    <string name="settings_updates_release_notes">Release notes</string>
+    <string name="settings_updates_release_notes_description">What changed in the installed version</string>
+
+    <!-- About: GitHub, bug reports, licences -->
+    <string name="settings_github_group">GitHub</string>
+    <string name="settings_github_sign_in">Sign in with GitHub</string>
+    <string name="settings_github_sign_in_description">So that problems can be reported straight from the app</string>
+    <string name="settings_github_signed_in_as">Signed in as @%1$s</string>
+    <string name="settings_github_sign_out">Sign out</string>
+    <string name="settings_bug_report">Report a problem</string>
+    <string name="settings_bug_report_description">What broke, with the device details</string>
+    <string name="settings_licenses">Licences and credits</string>
+    <string name="settings_licenses_description">The open source the app stands on</string>
+    <string name="issue_error_failed">Could not send it to GitHub</string>
+    <string name="issue_filed">Sent. Open it on GitHub?</string>
+    <string name="issue_filed_open">Open</string>
+    <string name="bug_report_email_subject">Lessons app report %1$s</string>
+
+</resources>

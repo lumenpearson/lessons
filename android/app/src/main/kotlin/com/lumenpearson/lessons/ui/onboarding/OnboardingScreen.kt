@@ -61,14 +61,16 @@ import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.appSlideMotionBlur
 import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.ui.join.JoinScreen
+import com.lumenpearson.lessons.ui.settings.PermissionCard
 import com.lumenpearson.lessons.ui.settings.SettingsUiState
 import com.lumenpearson.lessons.ui.settings.SettingsViewModel
 import com.lumenpearson.lessons.ui.settings.SupportsDynamicColor
 import com.lumenpearson.lessons.ui.settings.SupportsShaders
 import com.lumenpearson.lessons.ui.settings.labelRes
+import com.lumenpearson.lessons.ui.settings.rememberPermissionPrompts
 
 /**
- * The four screens a new install opens with, in order.
+ * The five screens a new install opens with, in order.
  *
  * The order is Essentials' own and it is not arbitrary: say what this is, say
  * what it is not and let the user opt out of the one thing it records, let them
@@ -76,11 +78,22 @@ import com.lumenpearson.lessons.ui.settings.labelRes
  * formed a habit, and only then ask for something. Putting the class-code field
  * first — which is what the app did before — asks a stranger for a credential on
  * a screen that has not yet said what the credential is for.
+ *
+ * [PERMISSIONS] goes last before [JOIN], for two reasons. It is the first time
+ * the app hands the user over to the system, and everything the three
+ * permissions are *for* — a bell in ten minutes, a replacement lesson, a
+ * morning summary — is about the timetable that arrives on the very next
+ * screen, so the ask sits as close to its payoff as the flow allows; put before
+ * [PREFERENCES] it would interrupt a run of in-app switches with two system
+ * dialogs. And [JOIN] is where `onboardingDone` is written, so a step in front
+ * of it leaves that rule — reaching the last step is what counts as "seen" —
+ * exactly as it was.
  */
 enum class OnboardingStep {
     WELCOME,
     ACKNOWLEDGEMENT,
     PREFERENCES,
+    PERMISSIONS,
     JOIN,
 }
 
@@ -189,11 +202,16 @@ fun OnboardingScreen(
                         state = state,
                         viewModel = viewModel,
                         onBack = { goTo(OnboardingStep.ACKNOWLEDGEMENT) },
+                        onNext = { goTo(OnboardingStep.PERMISSIONS) },
+                    )
+
+                    OnboardingStep.PERMISSIONS -> PermissionsStep(
+                        onBack = { goTo(OnboardingStep.PREFERENCES) },
                         onNext = { goTo(OnboardingStep.JOIN) },
                     )
 
                     OnboardingStep.JOIN -> JoinScreen(
-                        onBack = { goTo(OnboardingStep.PREFERENCES) },
+                        onBack = { goTo(OnboardingStep.PERMISSIONS) },
                     )
                 }
             }
@@ -452,6 +470,69 @@ private fun PreferencesStep(
                 checked = state.settings.widgetShowProgress,
                 onCheckedChange = viewModel::setWidgetShowProgress,
             )
+        }
+
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+/**
+ * Step four: the three things the app needs from the system, asked one at a
+ * time.
+ *
+ * Each permission gets a card of its own rather than a shared group, because
+ * each is a separate question with a separate answer, and a group reads as one
+ * block to be dealt with in one go — which is exactly the "allow everything"
+ * habit this step should not be training. The cards themselves are the settings
+ * page's, from [PermissionCard]: the same button, the same wording, and the
+ * same handling of a dialog the platform has stopped offering.
+ *
+ * Nothing here blocks [OnboardingStep.JOIN]. The action moves on whatever the
+ * answers were — «Потом» while something is missing, «Дальше» once nothing is —
+ * and it is never disabled, because a pupil who refuses all three still gets a
+ * timetable, a week view and a widget; what they lose is being told about them.
+ *
+ * The step is not skipped when everything is already granted either. Skipping
+ * forward would make the back gesture from [OnboardingStep.JOIN] land here and
+ * be thrown straight forward again, which is a flow with no way back rather
+ * than a shortcut.
+ */
+@Composable
+private fun PermissionsStep(
+    onBack: () -> Unit,
+    onNext: () -> Unit,
+) {
+    val prompts = rememberPermissionPrompts()
+    val settled = prompts.missing == 0
+
+    StepScaffold(
+        actions = {
+            OnboardingActions(
+                label = stringResource(
+                    if (settled) {
+                        R.string.onboarding_action_continue
+                    } else {
+                        R.string.onboarding_action_later
+                    },
+                ),
+                icon = if (settled) Icons.Rounded.Check else Icons.AutoMirrored.Rounded.ArrowForward,
+                onBack = onBack,
+                onClick = onNext,
+            )
+        },
+    ) {
+        Spacer(Modifier.height(24.dp))
+        OnboardingTitle(
+            title = stringResource(R.string.onboarding_permissions_title),
+            subtitle = stringResource(R.string.onboarding_permissions_subtitle),
+        )
+        Spacer(Modifier.height(24.dp))
+
+        prompts.states.forEachIndexed { index, state ->
+            if (index > 0) Spacer(Modifier.height(GroupSpacing))
+            RoundedCardContainer {
+                PermissionCard(state = state, onAct = { prompts.act(state) })
+            }
         }
 
         Spacer(Modifier.height(24.dp))

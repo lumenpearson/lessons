@@ -24,7 +24,13 @@
         <item quantity="other">Через %1$d минуты</item>
     </plurals>
     <string name="alert_lesson_room">%1$s, кабинет %2$s</string>
+    <string name="alert_lesson_teacher">%1$s, %2$s</string>
     <string name="alert_lesson_replaced">%1$s (замена)</string>
+
+    <!-- Пробное уведомление: как выглядит напоминание с текущими настройками -->
+    <string name="alert_sample_subject">Алгебра</string>
+    <string name="alert_sample_room">214</string>
+    <string name="alert_sample_teacher">Иванова М. П.</string>
 
     <!-- Утренняя сводка -->
     <plurals name="alert_morning_title">

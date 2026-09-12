@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.core.data.repository
 
+import com.lumenpearson.lessons.core.model.AppLanguage
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -20,4 +21,14 @@ interface SettingsRepository {
      * each other's field.
      */
     suspend fun update(transform: (AppSettings) -> AppSettings)
+
+    /**
+     * The stored language, without suspending.
+     *
+     * The one preference with a caller that cannot wait: below API 33 the
+     * locale is applied by wrapping the activity's base context in
+     * `attachBaseContext`, which runs before the activity exists and therefore
+     * before anything can collect [settings]. Everything else reads the flow.
+     */
+    fun languageBlocking(): AppLanguage
 }

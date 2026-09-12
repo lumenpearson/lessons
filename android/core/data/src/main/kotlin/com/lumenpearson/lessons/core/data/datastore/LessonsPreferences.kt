@@ -11,11 +11,15 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.Session
 import com.lumenpearson.lessons.core.model.AlertPreferences
+import com.lumenpearson.lessons.core.model.AppFont
+import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.HapticStrength
+import com.lumenpearson.lessons.core.model.LessonAlertDetail
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
 import java.io.IOException
@@ -110,6 +114,11 @@ internal class LessonsPreferences(context: Context) {
             prefs[KEY_PITCH_BLACK] = updated.pitchBlack
             prefs[KEY_HAPTICS] = updated.hapticsEnabled
             prefs[KEY_HAPTIC_STRENGTH] = updated.hapticStrength.name
+            prefs[KEY_APP_FONT] = updated.appFont.name
+            prefs[KEY_LANGUAGE] = updated.language.name
+            prefs[KEY_TEXT_SCALE] = updated.textScale.coerceIn(AppSettings.TEXT_SCALE_RANGE)
+            prefs[KEY_ANIMATIONS] = updated.animations
+            prefs[KEY_MOTION_SPEED] = updated.motionSpeed.coerceIn(AppSettings.MOTION_SPEED_RANGE)
             prefs[KEY_SWIPE_TABS] = updated.swipeTabs
             prefs[KEY_DEFAULT_TAB] = updated.defaultTab.name
             prefs[KEY_MOTION_BLUR] = updated.motionBlur
@@ -127,6 +136,16 @@ internal class LessonsPreferences(context: Context) {
             prefs[KEY_ALERT_HOMEWORK] = updated.alerts.homeworkReminder
             prefs[KEY_ALERT_HOMEWORK_AT] = updated.alerts.homeworkAtMinutes
             prefs[KEY_ALERT_CHANGES] = updated.alerts.scheduleChanges
+            prefs[KEY_ALERT_LESSON_DETAIL] = updated.alerts.lessonDetail.name
+            // Stored as a set of decimal weekday numbers. An empty set is a
+            // real answer — "не показывать ни в один день" — and DataStore
+            // keeps an empty set as a present key, so it survives the read
+            // below rather than falling back to all seven.
+            prefs[KEY_ALERT_MORNING_DAYS] = updated.alerts.morningWeekdays.map(Int::toString).toSet()
+            prefs[KEY_ALERT_QUIET] = updated.alerts.quietHours
+            prefs[KEY_ALERT_QUIET_FROM] = updated.alerts.quietFromMinutes
+            prefs[KEY_ALERT_QUIET_TO] = updated.alerts.quietToMinutes
+            prefs[KEY_ALERT_SKIP_HOLIDAYS] = updated.alerts.skipHolidays
             prefs[KEY_SYNC_INTERVAL] = updated.syncIntervalMinutes
                 .coerceAtLeast(AppSettings.MIN_SYNC_INTERVAL_MINUTES)
             prefs[KEY_RIPPLE_EFFECTS] = updated.rippleEffects
@@ -148,6 +167,17 @@ internal class LessonsPreferences(context: Context) {
 
     /** @see tokenBlocking */
     fun baseUrlBlocking(): String = runBlocking { currentSettings().baseUrl }
+
+    /**
+     * The stored language, read the only way the caller can read it.
+     *
+     * `Activity.attachBaseContext` is where a per-app locale has to be applied
+     * below API 33, and it cannot suspend and cannot wait for a flow: the base
+     * context is already needed by the time the activity exists. The file is a
+     * few hundred bytes and DataStore serves every read after the first from
+     * memory, so this costs one disk read per process.
+     */
+    fun languageBlocking(): AppLanguage = runBlocking { currentSettings().language }
 
     /**
      * The shape of the cached schedule as of the previous sync.
@@ -187,6 +217,13 @@ internal class LessonsPreferences(context: Context) {
         pitchBlack = this[KEY_PITCH_BLACK] ?: false,
         hapticsEnabled = this[KEY_HAPTICS] ?: true,
         hapticStrength = HapticStrength.fromName(this[KEY_HAPTIC_STRENGTH]),
+        appFont = AppFont.fromName(this[KEY_APP_FONT]),
+        language = AppLanguage.fromName(this[KEY_LANGUAGE]),
+        textScale = (this[KEY_TEXT_SCALE] ?: AppSettings.DEFAULT_TEXT_SCALE)
+            .coerceIn(AppSettings.TEXT_SCALE_RANGE),
+        animations = this[KEY_ANIMATIONS] ?: true,
+        motionSpeed = (this[KEY_MOTION_SPEED] ?: AppSettings.DEFAULT_MOTION_SPEED)
+            .coerceIn(AppSettings.MOTION_SPEED_RANGE),
         swipeTabs = this[KEY_SWIPE_TABS] ?: true,
         defaultTab = HomeTab.fromName(this[KEY_DEFAULT_TAB]),
         motionBlur = this[KEY_MOTION_BLUR] ?: false,
@@ -215,6 +252,18 @@ internal class LessonsPreferences(context: Context) {
             homeworkReminder = this[KEY_ALERT_HOMEWORK] ?: false,
             homeworkAtMinutes = this[KEY_ALERT_HOMEWORK_AT] ?: AlertPreferences.DefaultHomeworkMinutes,
             scheduleChanges = this[KEY_ALERT_CHANGES] ?: false,
+            lessonDetail = LessonAlertDetail.fromName(this[KEY_ALERT_LESSON_DETAIL]),
+            // Anything unparseable is dropped rather than defaulted: a set that
+            // half survived an older build should lose the bad entries, not the
+            // days the user actually picked.
+            morningWeekdays = this[KEY_ALERT_MORNING_DAYS]
+                ?.mapNotNull { it.toIntOrNull()?.takeIf { day -> day in 1..7 } }
+                ?.toSet()
+                ?: AlertPreferences.AllWeekdays,
+            quietHours = this[KEY_ALERT_QUIET] ?: false,
+            quietFromMinutes = this[KEY_ALERT_QUIET_FROM] ?: AlertPreferences.DefaultQuietFromMinutes,
+            quietToMinutes = this[KEY_ALERT_QUIET_TO] ?: AlertPreferences.DefaultQuietToMinutes,
+            skipHolidays = this[KEY_ALERT_SKIP_HOLIDAYS] ?: true,
         ),
         syncIntervalMinutes = (this[KEY_SYNC_INTERVAL] ?: AppSettings.DEFAULT_SYNC_INTERVAL_MINUTES)
             .coerceAtLeast(AppSettings.MIN_SYNC_INTERVAL_MINUTES),
@@ -241,6 +290,12 @@ internal class LessonsPreferences(context: Context) {
         val KEY_ALERT_HOMEWORK = booleanPreferencesKey("alert_homework")
         val KEY_ALERT_HOMEWORK_AT = intPreferencesKey("alert_homework_at_minutes")
         val KEY_ALERT_CHANGES = booleanPreferencesKey("alert_schedule_changes")
+        val KEY_ALERT_LESSON_DETAIL = stringPreferencesKey("alert_lesson_detail")
+        val KEY_ALERT_MORNING_DAYS = stringSetPreferencesKey("alert_morning_weekdays")
+        val KEY_ALERT_QUIET = booleanPreferencesKey("alert_quiet_hours")
+        val KEY_ALERT_QUIET_FROM = intPreferencesKey("alert_quiet_from_minutes")
+        val KEY_ALERT_QUIET_TO = intPreferencesKey("alert_quiet_to_minutes")
+        val KEY_ALERT_SKIP_HOLIDAYS = booleanPreferencesKey("alert_skip_holidays")
         val KEY_SCHEDULE_FINGERPRINT = stringPreferencesKey("alert_schedule_fingerprint")
 
         val KEY_BASE_URL = stringPreferencesKey("settings_base_url")
@@ -249,6 +304,11 @@ internal class LessonsPreferences(context: Context) {
         val KEY_PITCH_BLACK = booleanPreferencesKey("settings_pitch_black")
         val KEY_HAPTICS = booleanPreferencesKey("settings_haptics_enabled")
         val KEY_HAPTIC_STRENGTH = stringPreferencesKey("settings_haptic_strength")
+        val KEY_APP_FONT = stringPreferencesKey("settings_app_font")
+        val KEY_LANGUAGE = stringPreferencesKey("settings_language")
+        val KEY_TEXT_SCALE = floatPreferencesKey("settings_text_scale")
+        val KEY_ANIMATIONS = booleanPreferencesKey("settings_animations")
+        val KEY_MOTION_SPEED = floatPreferencesKey("settings_motion_speed")
         val KEY_SWIPE_TABS = booleanPreferencesKey("settings_swipe_tabs")
         val KEY_DEFAULT_TAB = stringPreferencesKey("settings_default_tab")
         val KEY_MOTION_BLUR = booleanPreferencesKey("settings_motion_blur")

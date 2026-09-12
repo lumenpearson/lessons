@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -22,6 +24,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BugReport
@@ -73,8 +76,10 @@ import com.lumenpearson.lessons.core.designsystem.modifier.liquidRipple
 import com.lumenpearson.lessons.core.designsystem.modifier.progressiveBlur
 import com.lumenpearson.lessons.core.designsystem.theme.BottomBarGap
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
+import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
 import com.lumenpearson.lessons.core.designsystem.theme.LocalScrollBlur
 import com.lumenpearson.lessons.core.designsystem.theme.LocalScrollOffset
+import com.lumenpearson.lessons.core.designsystem.theme.MotionSettings
 import com.lumenpearson.lessons.core.designsystem.theme.ScrollBlurSettings
 import com.lumenpearson.lessons.core.designsystem.theme.ScrollOffsetHolder
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
@@ -136,6 +141,13 @@ fun LessonsApp(
         LocalScrollBlur provides ScrollBlurSettings(
             enabled = settings.motionBlur,
             scale = settings.motionBlurScale,
+        ),
+        // Published beside the blur settings and for the same reason: what has
+        // to act on the preference is a transition spec below every screen, and
+        // the first-run steps slide too.
+        LocalMotion provides MotionSettings(
+            enabled = settings.animations,
+            speed = settings.motionSpeed,
         ),
         LocalLiquidRipple provides ripple,
     ) {
@@ -239,6 +251,10 @@ private fun HomeShell(
     val view = rememberHapticView()
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
+    // Read here rather than inside the transition spec below: `transitionSpec`
+    // is a plain lambda, not a composable one, so a composition local cannot be
+    // reached from inside it.
+    val motion = LocalMotion.current
 
     // Only read on the first composition — a pager cannot be re-seeded without
     // yanking the page out from under the user, so changing the default tab
@@ -311,7 +327,7 @@ private fun HomeShell(
         settingsOpen = false
         calendarViewModel.select(date)
         calendarViewModel.setView(ScheduleView.DAY)
-        pagerState.animateScrollToPage(tabs.indexOf(HomeTab.WEEK).coerceAtLeast(0))
+        pagerState.goToPage(motion, tabs.indexOf(HomeTab.WEEK).coerceAtLeast(0))
         onDateOpened()
     }
 
@@ -374,7 +390,7 @@ private fun HomeShell(
     ) { events ->
         try {
             events.collect { event -> backProgress.snapTo(event.progress) }
-            scope.launch { pagerState.animateScrollToPage(homePage) }
+            scope.launch { pagerState.goToPage(motion, homePage) }
             scope.launch { backProgress.animateTo(0f, tween(BackReturnMillis)) }
         } catch (_: CancellationException) {
             scope.launch { backProgress.animateTo(0f, tween(BackSettleMillis)) }
@@ -411,7 +427,7 @@ private fun HomeShell(
     ) {
         AnimatedContent(
             targetState = destination,
-            transitionSpec = { pageTransition(targetState.depth > initialState.depth) },
+            transitionSpec = { pageTransition(targetState.depth > initialState.depth, motion) },
             label = "shell_page",
         ) { page ->
             ShellScaffold(
@@ -438,7 +454,7 @@ private fun HomeShell(
                                     icon = tab.icon,
                                     label = stringResource(tab.labelRes),
                                     onClick = {
-                                        scope.launch { pagerState.animateScrollToPage(index) }
+                                        scope.launch { pagerState.goToPage(motion, index) }
                                     },
                                 )
                             }
@@ -495,7 +511,8 @@ private fun HomeShell(
                                     HomeTab.TODAY -> TodayScreen(
                                         onOpenHomework = {
                                             scope.launch {
-                                                pagerState.animateScrollToPage(
+                                                pagerState.goToPage(
+                                                    motion,
                                                     tabs.indexOf(HomeTab.HOMEWORK),
                                                 )
                                             }
@@ -637,14 +654,26 @@ private fun ShellScaffold(
  * heights, and the default animates the slot's size *and* clips to it — which
  * crops whichever page is taller for the length of the slide.
  */
-private fun pageTransition(forward: Boolean): ContentTransform {
-    val enter = slideInHorizontally(animationSpec = pageSlideSpring()) { width ->
-        if (forward) width else -width
-    } + fadeIn(animationSpec = tween(PageTransitionMillis))
+private fun pageTransition(forward: Boolean, motion: MotionSettings): ContentTransform {
+    // Instant, not quick. Scaling the durations towards zero would still slide
+    // the page — a two-frame slide is a flicker, which is worse than no
+    // animation for exactly the people who switch animations off.
+    if (!motion.enabled) {
+        return ContentTransform(
+            targetContentEnter = EnterTransition.None,
+            initialContentExit = ExitTransition.None,
+            sizeTransform = SizeTransform(clip = false),
+        )
+    }
 
-    val exit = slideOutHorizontally(animationSpec = pageSlideSpring()) { width ->
+    val fade = tween<Float>(motion.durationMillis(PageTransitionMillis))
+    val enter = slideInHorizontally(animationSpec = pageSlideSpring(motion)) { width ->
+        if (forward) width else -width
+    } + fadeIn(animationSpec = fade)
+
+    val exit = slideOutHorizontally(animationSpec = pageSlideSpring(motion)) { width ->
         if (forward) -width else width
-    } + fadeOut(animationSpec = tween(PageTransitionMillis))
+    } + fadeOut(animationSpec = fade)
 
     return ContentTransform(
         targetContentEnter = enter,
@@ -653,9 +682,10 @@ private fun pageTransition(forward: Boolean): ContentTransform {
     )
 }
 
-private fun pageSlideSpring() = spring<IntOffset>(
+/** A stiffer spring is a faster one; see [MotionSettings.stiffness]. */
+private fun pageSlideSpring(motion: MotionSettings) = spring<IntOffset>(
     dampingRatio = Spring.DampingRatioNoBouncy,
-    stiffness = Spring.StiffnessMediumLow,
+    stiffness = motion.stiffness(Spring.StiffnessMediumLow),
 )
 
 /**
@@ -689,6 +719,18 @@ private fun shellAction(
         contentDescription = stringResource(R.string.nav_settings),
         onClick = { onOpenSettings() },
     )
+}
+
+/**
+ * Moves the pager to [page] — instantly when the user has switched animations
+ * off, and with the usual glide otherwise.
+ *
+ * A tab tap is the movement people make most, so leaving it animated while the
+ * settings pages had become instant would have made the switch look broken from
+ * the very screen it lives on.
+ */
+private suspend fun PagerState.goToPage(motion: MotionSettings, page: Int) {
+    if (motion.enabled) animateScrollToPage(page) else scrollToPage(page)
 }
 
 /**

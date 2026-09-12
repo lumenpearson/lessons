@@ -21,6 +21,8 @@ import com.lumenpearson.lessons.core.data.repository.TimetableRepository
 import com.lumenpearson.lessons.core.data.repository.UpdateCheck
 import com.lumenpearson.lessons.core.data.repository.UpdateRepository
 import com.lumenpearson.lessons.core.model.AlertPreferences
+import com.lumenpearson.lessons.core.model.AppFont
+import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
@@ -179,6 +181,26 @@ class SettingsViewModel(
 
     /** How hard the app taps back. */
     fun setHapticStrength(strength: HapticStrength) = update { it.copy(hapticStrength = strength) }
+
+    /** The bundled face or the phone's own; see `AppSettings.appFont`. */
+    fun setAppFont(font: AppFont) = update { it.copy(appFont = font) }
+
+    /**
+     * Writes the choice and nothing else. Putting the locale on is the
+     * activity's job — see `AppLocales` — because it is the activity's context
+     * that carries a language, and because on API 33+ the platform, not this
+     * class, decides when the screen restarts.
+     */
+    fun setLanguage(language: AppLanguage) = update { it.copy(language = language) }
+
+    /** One of `AppSettings.TEXT_SCALE_OPTIONS`; anything else is clamped on read. */
+    fun setTextScale(scale: Float) = update { it.copy(textScale = scale) }
+
+    /** Master switch for the app's own animations; off makes them instant. */
+    fun setAnimations(enabled: Boolean) = update { it.copy(animations = enabled) }
+
+    /** How fast it moves; see `AppSettings.MOTION_SPEED_RANGE`. */
+    fun setMotionSpeed(speed: Float) = update { it.copy(motionSpeed = speed) }
 
     /** Whether the four tabs can be swiped between, or only tapped. */
     fun setSwipeTabs(enabled: Boolean) = update { it.copy(swipeTabs = enabled) }

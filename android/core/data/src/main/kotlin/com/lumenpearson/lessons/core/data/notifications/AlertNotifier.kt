@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import com.lumenpearson.lessons.core.data.R
 import com.lumenpearson.lessons.core.model.DeepLink
+import com.lumenpearson.lessons.core.model.LessonAlertDetail
 import com.lumenpearson.lessons.core.model.SchoolAlert
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -187,12 +188,34 @@ internal object AlertNotifier {
         }
     }
 
+    /**
+     * The one line under "Через 10 минут", as much of it as the user asked for.
+     *
+     * "Замена" is appended whatever the detail level, because it is not a detail
+     * of the lesson — it is the reason this notification is worth reading.
+     */
     private fun lessonLine(context: Context, alert: SchoolAlert.LessonSoon): String {
-        val room = alert.lesson.room?.takeIf { it.isNotBlank() }
-        val base = if (room != null) {
-            context.getString(R.string.alert_lesson_room, alert.lesson.subject, room)
-        } else {
-            alert.lesson.subject
+        val subject = alert.lesson.subject
+        val base = when (alert.detail) {
+            LessonAlertDetail.SUBJECT -> subject
+
+            LessonAlertDetail.FULL -> {
+                val room = alert.lesson.room?.takeIf { it.isNotBlank() }
+                val teacher = alert.lesson.teacher?.takeIf { it.isNotBlank() }
+                val withRoom = if (room != null) {
+                    context.getString(R.string.alert_lesson_room, subject, room)
+                } else {
+                    subject
+                }
+                // Nothing is invented for a lesson the server sent without a
+                // room or a teacher: an empty "каб. —" is worse than the short
+                // line the other setting would have given.
+                if (teacher != null) {
+                    context.getString(R.string.alert_lesson_teacher, withRoom, teacher)
+                } else {
+                    withRoom
+                }
+            }
         }
         return if (alert.lesson.isReplaced) {
             context.getString(R.string.alert_lesson_replaced, base)
@@ -271,7 +294,7 @@ internal object AlertNotifier {
      * every phone the app was actually written for. Below 13 the only question
      * worth asking is whether the user has switched them off themselves.
      */
-    private fun canPost(context: Context): Boolean {
+    internal fun canPost(context: Context): Boolean {
         val granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English mirror of res/values/strings_github.xml (which is the Russian original). -->
+<resources>
+
+    <!-- Licences and credits -->
+    <string name="licences_title">Licences and credits</string>
+    <string name="licences_subtitle">The open source, and the people, this app exists thanks to</string>
+    <string name="licences_expand">Expand</string>
+    <string name="licences_collapse">Collapse</string>
+    <string name="licence_mit">MIT licence</string>
+    <string name="licence_apache">Apache 2.0 licence</string>
+    <string name="credit_essentials">Essentials</string>
+    <string name="credit_essentials_note">Sameera Wijerathna. The design language, the first-run screens, the press ripple and the blur modifiers were carried over from here.</string>
+    <string name="credit_compose">Jetpack Compose and Material 3</string>
+    <string name="credit_compose_note">Every screen of the app is built out of its components, its motion and its typography.</string>
+    <string name="credit_glance">Glance</string>
+    <string name="credit_glance_note">The home screen widget is drawn with it.</string>
+    <string name="credit_square">Retrofit and OkHttp</string>
+    <string name="credit_square_note">Square. The network layer the timetable arrives over.</string>
+    <string name="credit_kotlinx">kotlinx.serialization and kotlinx.coroutines</string>
+    <string name="credit_kotlinx_note">JetBrains. Reading the server\'s answers, and everything that happens in the background.</string>
+    <string name="credit_jetpack_storage">Room and DataStore</string>
+    <string name="credit_jetpack_storage_note">The copy of the timetable and the settings on the device.</string>
+    <string name="credit_material_symbols">Material Symbols</string>
+    <string name="credit_material_symbols_note">Every icon in the app and in the widget.</string>
+
+    <!-- Report a problem -->
+    <string name="bug_report_title">Report a problem</string>
+    <string name="bug_report_device">About the device</string>
+    <string name="bug_report_description_label">Describe the problem or the suggestion…</string>
+    <string name="bug_report_email_label">Email to reply to (optional)</string>
+    <string name="bug_report_send">Send</string>
+    <string name="bug_report_send_signed_out">Sign in with GitHub to send it</string>
+    <string name="bug_report_or">Or</string>
+    <string name="bug_report_open_issue">Open an issue on GitHub</string>
+    <string name="bug_report_email">Send by email</string>
+
+    <!-- Signing in with GitHub -->
+    <string name="github_sign_in_title">Signing in with GitHub</string>
+    <string name="github_requesting">Requesting a code…</string>
+    <string name="github_step_copy">1. Copy the code:</string>
+    <string name="github_copy">Copy</string>
+    <string name="github_copied">Copied</string>
+    <string name="github_clipboard_label">GitHub code</string>
+    <string name="github_step_paste">2. Paste the code on GitHub:</string>
+    <string name="github_open_login">Open the sign-in page</string>
+    <string name="github_waiting">Waiting for confirmation…</string>
+    <string name="github_code_valid">The code is good for another %1$d min</string>
+    <string name="github_code_expiring">The code is about to expire</string>
+    <string name="github_signed_in_as">Signed in as @%1$s</string>
+    <string name="github_done">Done</string>
+    <string name="github_failed_title">Could not sign in</string>
+    <string name="github_failed_expired">The code expired — ask for a new one.</string>
+    <string name="github_failed_denied">The sign-in was turned down on GitHub.</string>
+    <string name="github_failed_generic">Check the connection and try once more.</string>
+    <string name="github_retry">Try again</string>
+
+</resources>

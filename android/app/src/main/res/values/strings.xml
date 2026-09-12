@@ -38,6 +38,10 @@
     <string name="onboarding_group_app">Настройки приложения</string>
     <string name="onboarding_group_content">Содержимое</string>
     <string name="onboarding_action_all_set">Всё готово</string>
+    <string name="onboarding_permissions_title">Разрешения</string>
+    <string name="onboarding_permissions_subtitle">Чтобы напоминания приходили вовремя. Без них расписание всё равно работает — просто молча.</string>
+    <string name="onboarding_action_later">Потом</string>
+    <string name="onboarding_action_continue">Дальше</string>
 
     <!-- Подключение к классу -->
     <string name="join_title">Подключиться к классу</string>
@@ -98,6 +102,14 @@
     <!-- Виды событий -->
 
     <!-- Даты -->
+    <!-- Сокращения дней недели, для строки чипов в настройках уведомлений -->
+    <string name="weekday_short_monday">Пн</string>
+    <string name="weekday_short_tuesday">Вт</string>
+    <string name="weekday_short_wednesday">Ср</string>
+    <string name="weekday_short_thursday">Чт</string>
+    <string name="weekday_short_friday">Пт</string>
+    <string name="weekday_short_saturday">Сб</string>
+    <string name="weekday_short_sunday">Вс</string>
     <string name="day_today">Сегодня</string>
     <string name="day_tomorrow">Завтра</string>
     <string name="day_yesterday">Вчера</string>
@@ -150,14 +162,16 @@
     <!-- Настройки -->
     <string name="settings_title">Настройки</string>
     <string name="settings_sections">Разделы</string>
-    <string name="settings_appearance_summary">Тема, цвета, чёрный фон</string>
-    <string name="settings_feel_summary">Отклик, жесты, размытие</string>
+    <string name="settings_appearance_summary">Тема, цвета, шрифт, его размер и язык</string>
+    <string name="settings_feel_summary">Отклик, жесты, анимации и размытие</string>
     <string name="settings_content_summary">Что показывать в списках и виджете</string>
     <string name="settings_sync_summary">Расписание обновлений и адрес сервера</string>
     <string name="settings_class_summary">Класс, школа и выход</string>
     <string name="settings_about_summary">Версия и благодарности</string>
     <string name="settings_theme">Тема</string>
+    <string name="settings_type_group">Шрифт</string>
     <string name="settings_haptics_group">Отклик</string>
+    <string name="settings_motion_group">Движение</string>
     <string name="settings_navigation_group">Навигация</string>
     <string name="settings_effects_group">Эффекты</string>
     <string name="settings_content_group">Списки и виджет</string>
@@ -189,6 +203,24 @@
     <string name="settings_theme_system">Система</string>
     <string name="settings_theme_light">Светлая</string>
     <string name="settings_theme_dark">Тёмная</string>
+    <string name="settings_font">Шрифт</string>
+    <string name="settings_font_description">Встроенный Google Sans или тот, которым набран ваш телефон.</string>
+    <string name="settings_font_bundled">Google Sans</string>
+    <string name="settings_font_system">Системный</string>
+    <string name="settings_text_size">Размер текста</string>
+    <string name="settings_text_size_description">Умножается на размер шрифта в настройках телефона.</string>
+    <string name="settings_text_size_small">Мельче</string>
+    <string name="settings_text_size_normal">Обычный</string>
+    <string name="settings_text_size_large">Крупнее</string>
+    <string name="settings_text_size_huge">Самый крупный</string>
+
+    <!-- Язык -->
+    <string name="settings_language_group">Язык</string>
+    <string name="settings_language">Язык приложения</string>
+    <string name="settings_language_description">«Системный» — тот, что выбран в телефоне.</string>
+    <string name="settings_language_system">Системный</string>
+    <string name="settings_language_russian">Русский</string>
+    <string name="settings_language_english">English</string>
 
     <string name="settings_feel">Взаимодействие</string>
     <string name="settings_haptics">Вибрация</string>
@@ -202,6 +234,10 @@
     <string name="settings_swipe_tabs_description">Листайте экраны пальцем, а не только нажимайте на панель.</string>
     <string name="settings_default_tab">Стартовая вкладка</string>
     <string name="settings_default_tab_description">С неё открывается приложение; на неё же возвращает «Назад».</string>
+    <string name="settings_animations">Анимации</string>
+    <string name="settings_animations_description">Переходы между экранами. Без них экраны сменяются сразу.</string>
+    <string name="settings_motion_speed">Скорость анимаций</string>
+    <string name="settings_motion_speed_description">Больше — быстрее; 1,0 — как задумано.</string>
     <string name="settings_edge_blur">Размытие под шторкой</string>
     <string name="settings_edge_blur_description">Содержимое плавно тает под строкой состояния.</string>
     <string name="settings_motion_blur">Размытие при прокрутке</string>
@@ -230,7 +266,7 @@
 
     <!-- Уведомления -->
     <string name="settings_alerts">Уведомления</string>
-    <string name="settings_alerts_summary">Звонок, сводка на день, домашка и замены</string>
+    <string name="settings_alerts_summary">Звонок, сводка на день, домашка, замены и тихие часы</string>
     <string name="settings_alerts_blocked_group">Доступ</string>
     <string name="settings_alerts_blocked">Уведомления выключены</string>
     <string name="settings_alerts_blocked_description">Нажмите, чтобы разрешить — иначе переключатели ниже ничего не сделают.</string>
@@ -239,14 +275,32 @@
     <string name="settings_alert_lesson_description">Предмет и кабинет за несколько минут до звонка</string>
     <string name="settings_alert_lead">За сколько предупреждать</string>
     <string name="settings_alert_lead_value">%1$d мин</string>
+    <string name="settings_alert_detail">Что писать в напоминании</string>
+    <string name="settings_alert_detail_description">Коротко — только предмет; подробно — ещё кабинет и учитель</string>
+    <string name="settings_alert_detail_subject">Предмет</string>
+    <string name="settings_alert_detail_full">Подробно</string>
     <string name="settings_alerts_daily_group">Расписание на день</string>
     <string name="settings_alert_morning">Утренняя сводка</string>
     <string name="settings_alert_morning_description">Сколько сегодня уроков и когда первый</string>
     <string name="settings_alert_morning_at">Время сводки</string>
+    <string name="settings_alert_morning_days">В какие дни</string>
+    <string name="settings_alert_morning_days_none">Ни одного дня не выбрано — сводка не придёт</string>
     <string name="settings_alert_homework">Напоминание о домашке</string>
     <string name="settings_alert_homework_description">Вечером — по каким предметам задано на завтра</string>
     <string name="settings_alert_homework_at">Время напоминания</string>
     <string name="settings_alert_hour_value">%1$d:00</string>
+    <string name="settings_alerts_quiet_group">Когда молчать</string>
+    <string name="settings_alert_quiet">Тихие часы</string>
+    <string name="settings_alert_quiet_description">В этот промежуток ничего не приходит. Пропущенное не досылается позже</string>
+    <string name="settings_alert_quiet_from">Тишина с</string>
+    <string name="settings_alert_quiet_to">Тишина до</string>
+    <string name="settings_alert_holidays">Не напоминать в каникулы</string>
+    <string name="settings_alert_holidays_description">Дни, отмеченные школой как каникулы, пропускаются — даже если уроки в них ещё остались</string>
+    <string name="settings_alerts_test_group">Проверка</string>
+    <string name="settings_alert_test">Показать пример</string>
+    <string name="settings_alert_test_description">Прислать напоминание об уроке прямо сейчас — с текущими настройками</string>
+    <string name="settings_alert_test_sent">Отправлено. Посмотрите на шторку уведомлений</string>
+    <string name="settings_alert_test_blocked">Уведомления выключены — разрешите их выше</string>
     <string name="settings_alerts_changes_group">Изменения</string>
     <string name="settings_alert_changes">Замены и отмены</string>
     <string name="settings_alert_changes_description">Сообщать, когда расписание ближайших дней изменилось</string>
@@ -268,12 +322,15 @@
     <string name="permissions_refresh">Проверить снова</string>
     <string name="permissions_action_grant">Выдать</string>
     <string name="permissions_action_open">Открыть</string>
+    <string name="permissions_action_open_settings">Открыть настройки</string>
     <string name="permission_notifications">Уведомления</string>
     <string name="permission_notifications_description">Без них не придёт ничего: ни урок, ни сводка, ни замена</string>
     <string name="permission_exact_alarms">Точные будильники</string>
     <string name="permission_exact_alarms_description">Чтобы «через 10 минут урок» приходило за десять минут, а не когда придётся</string>
     <string name="permission_background">Работа в фоне</string>
     <string name="permission_background_description">Чтобы система не усыпила приложение до звонка</string>
+    <!-- Shown instead of the description once the system has stopped offering the dialog. -->
+    <string name="permission_denied_forever">Система больше не спросит — включите вручную в настройках</string>
     <plurals name="permissions_missing">
         <item quantity="one">%1$d не выдано</item>
         <item quantity="few">%1$d не выдано</item>

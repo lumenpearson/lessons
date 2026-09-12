@@ -12,22 +12,81 @@ import java.time.LocalTime
  * survives a round trip through a preferences file without a formatter, and so
  * the settings screen can offer them as a row of chips.
  *
- * Everything is off by default. A school diary that starts buzzing the moment it
- * is installed is a school diary that gets its notifications turned off at the
- * system level, and that channel is never coming back.
+ * Everything that posts is off by default. A school diary that starts buzzing
+ * the moment it is installed is a school diary that gets its notifications
+ * turned off at the system level, and that channel is never coming back.
+ *
+ * The rules that only ever *suppress* — [skipHolidays] — start on for the
+ * mirror image of the same reason: the first notification anybody gets from
+ * this app should not be a bell for a lesson that is not happening.
  */
 data class AlertPreferences(
     val lessonSoon: Boolean = false,
     val lessonLeadMinutes: Int = DefaultLeadMinutes,
+    /** How much of the lesson the reminder spells out; see [LessonAlertDetail]. */
+    val lessonDetail: LessonAlertDetail = LessonAlertDetail.FULL,
     val morningSummary: Boolean = false,
     val morningAtMinutes: Int = DefaultMorningMinutes,
+    /**
+     * Weekdays the morning summary may be posted on, ISO-8601 numbered
+     * (1 = Monday … 7 = Sunday).
+     *
+     * All seven by default, which changes nothing for anybody: a day with no
+     * lessons is already skipped. It earns its keep in the schools that do
+     * teach on Saturday and in the families where Saturday is the one morning
+     * nobody wants a phone to make a sound, and those two cannot both be
+     * served by a rule the app decides on its own.
+     */
+    val morningWeekdays: Set<Int> = AllWeekdays,
     val homeworkReminder: Boolean = false,
     val homeworkAtMinutes: Int = DefaultHomeworkMinutes,
     val scheduleChanges: Boolean = false,
+    /**
+     * Whether the hours in [quietFromMinutes]..[quietToMinutes] are silent.
+     *
+     * Off by default. Every alert here is already tied to a school day, so a
+     * quiet window that nobody asked for would only ever delete something.
+     */
+    val quietHours: Boolean = false,
+    val quietFromMinutes: Int = DefaultQuietFromMinutes,
+    val quietToMinutes: Int = DefaultQuietToMinutes,
+    /**
+     * Whether a date the school has marked as holidays is left alone.
+     *
+     * On by default, and it is not the no-op it looks like: a school that puts
+     * каникулы on the calendar rarely deletes the lesson rows underneath, so
+     * without this a week of holidays rings the morning bell every day from a
+     * timetable nobody is following.
+     */
+    val skipHolidays: Boolean = true,
 ) {
     /** True when nothing at all is on, which lets callers skip every alarm. */
     val silent: Boolean
         get() = !lessonSoon && !morningSummary && !homeworkReminder
+
+    /**
+     * Whether [at] falls inside the quiet window.
+     *
+     * The window is half-open — quiet from [quietFromMinutes] inclusive to
+     * [quietToMinutes] exclusive — so "с 22:00 до 7:00" leaves 07:00 itself
+     * loud, which is where people put the morning summary.
+     *
+     * A window that ends where it starts is treated as no window at all rather
+     * than as the whole day: the two ends are picked from separate chip rows,
+     * so a user passes through "равны" on the way to any other pair, and a
+     * momentary "everything is silenced" is a worse answer than "nothing is".
+     */
+    fun isQuiet(at: LocalTime): Boolean {
+        if (!quietHours) return false
+        val from = quietFromMinutes.coerceIn(0, MinutesPerDay - 1)
+        val to = quietToMinutes.coerceIn(0, MinutesPerDay - 1)
+        if (from == to) return false
+        val minute = at.hour * 60 + at.minute
+        // Crossing midnight is the normal case for a quiet window, so it is the
+        // shape the comparison is written for: outside it the window is one
+        // interval, inside it is the two ends of the day.
+        return if (from < to) minute in from until to else minute >= from || minute < to
+    }
 
     companion object {
         /** Long enough to pack a bag, short enough to still be in the lesson before. */
@@ -44,6 +103,23 @@ data class AlertPreferences(
 
         /** The hours a summary or a homework reminder may be set to. */
         val HourOptions: List<Int> = (5..22).toList()
+
+        /** Every hour, because a quiet window routinely starts late and ends early. */
+        val QuietHourOptions: List<Int> = (0..23).toList()
+
+        /** Bedtime on a school night. */
+        const val DefaultQuietFromMinutes: Int = 22 * 60
+
+        /** Before the earliest morning summary the hour chips offer. */
+        const val DefaultQuietToMinutes: Int = 7 * 60
+
+        /** ISO-8601 weekday numbers, Monday first; the order the chips are drawn in. */
+        val Weekdays: List<Int> = (1..7).toList()
+
+        /** @see morningWeekdays */
+        val AllWeekdays: Set<Int> = Weekdays.toSet()
+
+        internal const val MinutesPerDay: Int = 24 * 60
     }
 }
 
@@ -68,6 +144,16 @@ sealed interface SchoolAlert {
         val date: LocalDate,
         val lesson: Lesson,
         val leadMinutes: Int,
+        /**
+         * How much of [lesson] the sentence should name.
+         *
+         * Carried on the alert rather than read from the preferences where the
+         * words are built, for the same reason [leadMinutes] is: the planner is
+         * the only thing that holds the preferences, and an alert that had to
+         * be rendered against a *later* reading of them could say "через 10
+         * минут" from one setting and name the room from another.
+         */
+        val detail: LessonAlertDetail = LessonAlertDetail.FULL,
     ) : SchoolAlert
 
     /** "Сегодня 6 уроков, первый — Алгебра в 8:30." */
@@ -178,19 +264,27 @@ object AlertPlanner {
             val date = start.plusDays(offset.toLong())
             val day = timetable.day(date) ?: continue
 
-            if (preferences.lessonSoon) {
+            // Every rule below asks about the day the alert is *about*, never
+            // the day it would be posted on. That is what keeps the homework
+            // reminder — planned the evening before, about tomorrow — working on
+            // the last night of the holidays, which is the one night of them it
+            // is worth anything.
+            val skipped = preferences.skipHolidays && day.kind == DayKind.HOLIDAY
+
+            if (preferences.lessonSoon && !skipped) {
                 day.activeLessons.forEach { lesson ->
                     // Crossing midnight is not a real school day, but a 30-minute
                     // lead on a 00:10 lesson would otherwise plan an alert for
                     // the previous day and never be found by a window around it.
                     val at = date.atTime(lesson.startsAt).minusMinutes(preferences.lessonLeadMinutes.toLong())
-                    if (at.toLocalDate() == date) {
+                    if (at.toLocalDate() == date && !preferences.isQuiet(at.toLocalTime())) {
                         add(
                             SchoolAlert.LessonSoon(
                                 at = at,
                                 date = date,
                                 lesson = lesson,
                                 leadMinutes = preferences.lessonLeadMinutes,
+                                detail = preferences.lessonDetail,
                             ),
                         )
                     }
@@ -200,8 +294,13 @@ object AlertPlanner {
             // Nothing to summarise on a day off, and a pupil who is told "сегодня
             // нет уроков" at seven in the morning on every holiday learns to
             // dismiss the app rather than to read it.
-            if (preferences.morningSummary && day.hasLessons) {
-                add(SchoolAlert.Morning(at = date.atTime(minutesToTime(preferences.morningAtMinutes)), day = day))
+            if (preferences.morningSummary && day.hasLessons && !skipped &&
+                date.dayOfWeek.value in preferences.morningWeekdays
+            ) {
+                val at = date.atTime(minutesToTime(preferences.morningAtMinutes))
+                if (!preferences.isQuiet(at.toLocalTime())) {
+                    add(SchoolAlert.Morning(at = at, day = day))
+                }
             }
 
             // The evening before, about the day it is set for. Homework is filed
@@ -215,13 +314,12 @@ object AlertPlanner {
             if (preferences.homeworkReminder) {
                 val target = timetable.schoolDayAfter(date)
                     ?.takeIf { it.date == date.plusDays(1) }
-                if (target != null && target.homework.isNotEmpty()) {
-                    add(
-                        SchoolAlert.Homework(
-                            at = date.atTime(minutesToTime(preferences.homeworkAtMinutes)),
-                            day = target,
-                        ),
-                    )
+                val about = target?.takeUnless { preferences.skipHolidays && it.kind == DayKind.HOLIDAY }
+                if (about != null && about.homework.isNotEmpty()) {
+                    val at = date.atTime(minutesToTime(preferences.homeworkAtMinutes))
+                    if (!preferences.isQuiet(at.toLocalTime())) {
+                        add(SchoolAlert.Homework(at = at, day = about))
+                    }
                 }
             }
         }
@@ -235,5 +333,5 @@ object AlertPlanner {
     private fun minutesToTime(minutes: Int): LocalTime =
         LocalTime.ofSecondOfDay(minutes.coerceIn(0, MinutesPerDay - 1).toLong() * 60L)
 
-    private const val MinutesPerDay = 24 * 60
+    private const val MinutesPerDay = AlertPreferences.MinutesPerDay
 }

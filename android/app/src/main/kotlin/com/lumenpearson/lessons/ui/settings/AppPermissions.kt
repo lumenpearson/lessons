@@ -68,6 +68,23 @@ enum class AppPermission(
             Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                 .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
         )
+
+        // Only while the permission itself is still missing. Once it is held and
+        // [isGranted] is false anyway, the remaining "no" is the notification
+        // switch in system settings — a request would come straight back
+        // granted, having shown nothing and changed nothing.
+        override fun runtimePermission(context: Context): String? {
+            // The version check is a guard clause rather than the first half of
+            // a condition, so that the constant below is never so much as named
+            // on a device that predates it: lint inlines field references and
+            // flags the ones it cannot prove are version-guarded.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
+
+            val permission = Manifest.permission.POST_NOTIFICATIONS
+            return permission.takeIf {
+                ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+            }
+        }
     },
 
     /**
@@ -132,6 +149,18 @@ enum class AppPermission(
 
     /** Asked of the system, never cached: it changes while the app is not looking. */
     abstract fun isGranted(context: Context): Boolean
+
+    /**
+     * The runtime permission to ask the platform for, or `null` when asking is
+     * not a thing here.
+     *
+     * Two of the three entries have no dialog at all — exact alarms and battery
+     * exemption are settings toggles wearing a permission's clothes, and the
+     * only honest thing to do is to open the page they live on. Returning `null`
+     * for them is what keeps that decision in one place instead of a version
+     * check next to every button.
+     */
+    open fun runtimePermission(context: Context): String? = null
 
     /** Where to send the user, best first. */
     protected abstract fun intents(context: Context): List<Intent>

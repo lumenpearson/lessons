@@ -25,7 +25,13 @@
         <item quantity="other">In %1$d minutes</item>
     </plurals>
     <string name="alert_lesson_room">%1$s, room %2$s</string>
+    <string name="alert_lesson_teacher">%1$s, %2$s</string>
     <string name="alert_lesson_replaced">%1$s (replacement)</string>
+
+    <!-- Test notification: what a reminder looks like as configured -->
+    <string name="alert_sample_subject">Algebra</string>
+    <string name="alert_sample_room">214</string>
+    <string name="alert_sample_teacher">M. Ivanova</string>
 
     <!-- Morning summary -->
     <plurals name="alert_morning_title">

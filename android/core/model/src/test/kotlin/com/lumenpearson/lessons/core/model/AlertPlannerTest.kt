@@ -5,6 +5,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -41,9 +42,11 @@ class AlertPlannerTest {
         date: LocalDate,
         lessons: List<Lesson> = mondayLessons,
         homework: List<HomeworkItem> = emptyList(),
+        kind: DayKind = DayKind.NORMAL,
     ) = SchoolDay(
         date = date,
         weekday = date.dayOfWeek.value,
+        kind = kind,
         lessons = lessons,
         homework = homework,
     )
@@ -275,5 +278,217 @@ class AlertPlannerTest {
                 .due(table, lessonsOnly, from = at(monday, "09:00"), to = at(monday, "08:00"))
                 .isEmpty(),
         )
+    }
+
+    /**
+     * Quiet hours are stated as "с 22:00 до 7:00", which is two intervals and
+     * not one, and the wrapped case is the one people actually configure.
+     */
+    @Test
+    fun `a quiet window that spans midnight silences both ends of the day`() {
+        val preferences = AlertPreferences(
+            morningSummary = true,
+            morningAtMinutes = 6 * 60,
+            quietHours = true,
+            quietFromMinutes = 22 * 60,
+            quietToMinutes = 7 * 60,
+        )
+        val table = timetable(day(monday), day(tuesday))
+
+        assertNull(AlertPlanner.next(table, preferences, at(monday, "00:00")))
+
+        // The same summary an hour later, outside the window, is planned as usual.
+        val loud = preferences.copy(morningAtMinutes = 7 * 60)
+        assertEquals(at(monday, "07:00"), AlertPlanner.next(table, loud, at(monday, "00:00"))?.at)
+    }
+
+    /** The end of the window is exclusive, which is where the morning summary lives. */
+    @Test
+    fun `the moment quiet hours end is not itself quiet`() {
+        val preferences = AlertPreferences(
+            quietHours = true,
+            quietFromMinutes = 22 * 60,
+            quietToMinutes = 7 * 60,
+        )
+
+        assertTrue(preferences.isQuiet(LocalTime.parse("06:59")))
+        assertFalse(preferences.isQuiet(LocalTime.parse("07:00")))
+        assertTrue(preferences.isQuiet(LocalTime.parse("22:00")))
+    }
+
+    /** A window inside one day is the other half of the same comparison. */
+    @Test
+    fun `a quiet window inside one day silences only that window`() {
+        val preferences = AlertPreferences(
+            lessonSoon = true,
+            lessonLeadMinutes = 10,
+            quietHours = true,
+            quietFromMinutes = 8 * 60,
+            quietToMinutes = 9 * 60,
+        )
+        val table = timetable(day(monday))
+
+        // 08:20 is silenced, 09:15 is not.
+        assertEquals(at(monday, "09:15"), AlertPlanner.next(table, preferences, at(monday, "00:00"))?.at)
+    }
+
+    /**
+     * Two ends that are equal is a state a user passes through while setting
+     * the second of them, and silencing the whole day for that moment would be
+     * a setting that appears to break the app while it is being configured.
+     */
+    @Test
+    fun `a quiet window with equal ends silences nothing`() {
+        val preferences = AlertPreferences(
+            morningSummary = true,
+            morningAtMinutes = 7 * 60,
+            quietHours = true,
+            quietFromMinutes = 9 * 60,
+            quietToMinutes = 9 * 60,
+        )
+        val table = timetable(day(monday))
+
+        assertEquals(at(monday, "07:00"), AlertPlanner.next(table, preferences, at(monday, "00:00"))?.at)
+    }
+
+    /**
+     * The lead time decides *when* an alert lands, so it is what quiet hours
+     * are applied to — not the lesson.
+     *
+     * A first lesson at 08:00 with a half-hour lead is a 07:30 notification,
+     * and somebody who asked for silence until 08:00 asked for that one not to
+     * arrive. Testing the lesson's own time instead would have let it through.
+     */
+    @Test
+    fun `quiet hours judge the moment the alert lands, not the lesson`() {
+        val early = listOf(lesson(1, "Алгебра", "08:00", "08:45"))
+        val table = timetable(day(monday, lessons = early))
+        val preferences = AlertPreferences(
+            lessonSoon = true,
+            lessonLeadMinutes = 30,
+            quietHours = true,
+            quietFromMinutes = 22 * 60,
+            quietToMinutes = 8 * 60,
+        )
+
+        assertNull(AlertPlanner.next(table, preferences, at(monday, "00:00")))
+
+        // Five minutes' lead lands at 07:55 — still inside the window — while
+        // ten minutes past the hour is outside it, so the boundary is the
+        // alert's own moment and nothing else.
+        val short = preferences.copy(lessonLeadMinutes = 5, quietToMinutes = 7 * 60 + 50)
+        assertEquals(at(monday, "07:55"), AlertPlanner.next(table, short, at(monday, "00:00"))?.at)
+    }
+
+    /**
+     * A morning nobody wants the phone to make a sound on.
+     *
+     * Walking the week rather than asking once: the switch has to keep the
+     * other four days, and a single `next` from Sunday cannot tell "Saturday is
+     * off" from "the whole thing is off".
+     */
+    @Test
+    fun `a weekday switched off loses its summary and keeps the rest`() {
+        val preferences = AlertPreferences(
+            morningSummary = true,
+            morningAtMinutes = 7 * 60,
+            morningWeekdays = AlertPreferences.AllWeekdays - SATURDAY,
+        )
+        val week = (0L..5L).map { offset -> day(monday.plusDays(offset)) }
+        val table = timetable(*week.toTypedArray())
+
+        val summaries = generateSequence(at(monday, "00:00")) { moment ->
+            AlertPlanner.next(table, preferences, moment)?.at
+        }.drop(1).takeWhile { it < at(monday.plusDays(6), "00:00") }.toList()
+
+        assertEquals(
+            (0L..4L).map { offset -> at(monday.plusDays(offset), "07:00") },
+            summaries,
+        )
+    }
+
+    /** Every day off is still a valid answer, and it means nothing is planned. */
+    @Test
+    fun `a summary with no weekdays left is never planned`() {
+        val preferences = AlertPreferences(
+            morningSummary = true,
+            morningWeekdays = emptySet(),
+        )
+
+        assertNull(AlertPlanner.next(timetable(day(monday)), preferences, at(monday, "00:00")))
+    }
+
+    /**
+     * The case the holiday rule exists for.
+     *
+     * A school marks a week as каникулы and leaves the lesson rows underneath
+     * it, because the timetable is generated from the term's grid. Without the
+     * rule the phone rings the morning bell every day of the break from a
+     * schedule nobody is following.
+     */
+    @Test
+    fun `a holiday with lessons still cached is left alone`() {
+        val preferences = AlertPreferences(
+            lessonSoon = true,
+            lessonLeadMinutes = 10,
+            morningSummary = true,
+            morningAtMinutes = 7 * 60,
+        )
+        val table = timetable(day(monday, kind = DayKind.HOLIDAY), day(tuesday))
+
+        val next = AlertPlanner.next(table, preferences, at(monday, "00:00"))
+
+        assertEquals(at(tuesday, "07:00"), next?.at)
+    }
+
+    /** Off, the same day is announced exactly as any other. */
+    @Test
+    fun `a holiday is announced when the rule is switched off`() {
+        val preferences = AlertPreferences(
+            morningSummary = true,
+            morningAtMinutes = 7 * 60,
+            skipHolidays = false,
+        )
+        val table = timetable(day(monday, kind = DayKind.HOLIDAY))
+
+        assertEquals(at(monday, "07:00"), AlertPlanner.next(table, preferences, at(monday, "00:00"))?.at)
+    }
+
+    /**
+     * The holiday rule asks about the day the alert is *about*, which is what
+     * keeps the one useful notification of the whole break.
+     *
+     * The homework reminder is posted the evening before and names tomorrow. On
+     * the last night of the holidays that evening falls inside the break and
+     * tomorrow is a school day with homework on it — so a rule written about
+     * the day of posting would delete precisely the reminder somebody who has
+     * been off for a week needs most.
+     */
+    @Test
+    fun `the last evening of the holidays still reminds about tomorrow`() {
+        val preferences = AlertPreferences(homeworkReminder = true, homeworkAtMinutes = 20 * 60)
+        val table = timetable(
+            day(monday.minusDays(1), lessons = emptyList(), kind = DayKind.HOLIDAY),
+            day(monday, homework = listOf(HomeworkItem(subject = "Алгебра", text = "№ 42"))),
+        )
+
+        val next = AlertPlanner.next(table, preferences, at(monday.minusDays(1), "00:00"))
+
+        assertEquals(at(monday.minusDays(1), "20:00"), next?.at)
+    }
+
+    /** What the notification is allowed to say travels with the alert. */
+    @Test
+    fun `the lesson alert carries the detail level it was planned with`() {
+        val preferences = lessonsOnly.copy(lessonDetail = LessonAlertDetail.SUBJECT)
+
+        val next = AlertPlanner.next(timetable(day(monday)), preferences, at(monday, "06:00"))
+
+        assertEquals(LessonAlertDetail.SUBJECT, (next as SchoolAlert.LessonSoon).detail)
+    }
+
+    private companion object {
+        /** ISO-8601: Monday is 1. */
+        const val SATURDAY = 6
     }
 }
