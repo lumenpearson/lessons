@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.EventNote
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.BlurLinear
 import androidx.compose.material.icons.rounded.BlurOn
@@ -114,6 +115,8 @@ import com.lumenpearson.lessons.ui.diary.DiaryScreen
 import com.lumenpearson.lessons.ui.common.SyncIntervalOptionsMinutes
 import com.lumenpearson.lessons.ui.common.asText
 import com.lumenpearson.lessons.ui.common.syncIntervalLabel
+import com.lumenpearson.lessons.ui.admin.adminRows
+import com.lumenpearson.lessons.ui.admin.isClassManager
 import com.lumenpearson.lessons.ui.translate.translationRows
 
 /**
@@ -208,6 +211,23 @@ enum class SettingsSection(
     ),
 
     /**
+     * The pages only an administrator or the owner of the class has.
+     *
+     * Kept off the root list by [listedOnRoot] and put back by the root page
+     * itself once the server has said who this phone belongs to — the same
+     * shape as [PERMISSIONS], for a different reason: that one appears when
+     * something is wrong, this one when somebody is allowed.
+     */
+    ADMIN(
+        R.string.settings_admin,
+        R.string.settings_admin_summary,
+        Icons.Rounded.AdminPanelSettings,
+        1,
+    ) {
+        override val listedOnRoot: Boolean = false
+    },
+
+    /**
      * Reached from the notifications page, never from the root list.
      *
      * It is a page about a fault, so it exists only while there is one: a
@@ -249,6 +269,15 @@ fun SettingsRootScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // One `/me` on the way in, because the landing page is where the class
+    // management row has to decide whether it exists. The refresh is a no-op
+    // while one is already in flight, and a failure leaves the previous answer
+    // standing, so opening settings repeatedly costs one request and never
+    // takes the row away again.
+    LaunchedEffect(Unit) { viewModel.refreshDeviceLink() }
+
+    val manager = isClassManager(state.deviceLink.role)
+
     SettingsPage(
         modifier = modifier,
         message = state.message?.asText(),
@@ -268,7 +297,10 @@ fun SettingsRootScreen(
             Column(modifier = Modifier.fillMaxWidth()) {
                 SectionHeader(title = stringResource(R.string.settings_sections))
                 RoundedCardContainer {
-                    SettingsSection.entries.filter { it.listedOnRoot }.forEach { section ->
+                    val sections = SettingsSection.entries.filter {
+                        it.listedOnRoot || (it == SettingsSection.ADMIN && manager)
+                    }
+                    sections.forEach { section ->
                         GroupLinkItem(
                             title = stringResource(section.titleRes),
                             subtitle = stringResource(section.subtitleRes),
@@ -404,6 +436,11 @@ fun SettingsSectionScreen(
                 // reaches by accident.
                 translationRows()
             }
+            SettingsSection.ADMIN -> adminRows(
+                role = state.deviceLink.role,
+                debugEnabled = state.settings.debugMode,
+                onDebugEnabledChange = viewModel::setDebugMode,
+            )
             SettingsSection.PERMISSIONS -> permissionRows()
             // Handled above, before this page's scaffold exists.
             SettingsSection.DIARY -> Unit

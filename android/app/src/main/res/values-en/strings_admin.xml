@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The English twin of strings_admin.xml. Every key here exists there too. -->
+<resources>
+    <string name="settings_admin">Management</string>
+    <string name="settings_admin_summary">The class, devices, the log and debugging</string>
+
+    <string name="admin_role_admin">You are an administrator of this class</string>
+    <string name="admin_role_owner">You own this class</string>
+    <string name="admin_role_description">Only you and other administrators see this page. The server checks permissions on every action.</string>
+
+    <string name="admin_tools_group">Tools</string>
+    <string name="admin_debug">Debugging</string>
+    <string name="admin_debug_description">Crash reports, the log and detailed error messages</string>
+    <string name="admin_debug_open">Open</string>
+</resources>

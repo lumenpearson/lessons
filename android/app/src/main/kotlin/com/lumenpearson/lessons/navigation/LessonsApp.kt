@@ -85,6 +85,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.ScrollOffsetHolder
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.appSlideMotionBlur
 import com.lumenpearson.lessons.core.model.HomeTab
+import com.lumenpearson.lessons.ui.admin.isClassManager
 import com.lumenpearson.lessons.ui.debug.DebugSheet
 import com.lumenpearson.lessons.ui.homework.HomeworkScreen
 import com.lumenpearson.lessons.ui.join.JoinScreen
@@ -94,6 +95,7 @@ import com.lumenpearson.lessons.ui.settings.SettingsSection
 import com.lumenpearson.lessons.ui.settings.SettingsSectionScreen
 import com.lumenpearson.lessons.ui.settings.UpdateHost
 import com.lumenpearson.lessons.ui.settings.SettingsViewModel
+import com.lumenpearson.lessons.ui.settings.role
 import com.lumenpearson.lessons.ui.today.TodayScreen
 import com.lumenpearson.lessons.ui.week.ScheduleView
 import com.lumenpearson.lessons.ui.week.WeekScreen
@@ -473,6 +475,12 @@ private fun HomeShell(
                         },
                         action = shellAction(
                             settingsOpen = page != ShellPage.Tabs,
+                            // The shortcut exists for the people who have the
+                            // page it shortcuts to. Everybody else gets no
+                            // button at all rather than a disabled one: on a
+                            // toolbar with room for exactly one action, a
+                            // button that refuses is worse than a gap.
+                            manager = isClassManager(settingsState.deviceLink.role),
                             onOpenSettings = { settingsOpen = true },
                             onOpenDebug = { at ->
                                 ripple.fire(at)
@@ -705,14 +713,19 @@ private fun pageSlideSpring(motion: MotionSettings) = spring<IntOffset>(
 @Composable
 private fun shellAction(
     settingsOpen: Boolean,
+    manager: Boolean,
     onOpenSettings: () -> Unit,
     onOpenDebug: (at: Offset) -> Unit,
-): ToolbarAction = if (settingsOpen) {
-    ToolbarAction(
-        icon = Icons.Rounded.BugReport,
-        contentDescription = stringResource(R.string.debug_open),
-        onClick = onOpenDebug,
-    )
+): ToolbarAction? = if (settingsOpen) {
+    if (!manager) {
+        null
+    } else {
+        ToolbarAction(
+            icon = Icons.Rounded.BugReport,
+            contentDescription = stringResource(R.string.debug_open),
+            onClick = onOpenDebug,
+        )
+    }
 } else {
     ToolbarAction(
         icon = Icons.Rounded.Settings,

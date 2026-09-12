@@ -9,6 +9,7 @@ import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.DeviceFlow
 import com.lumenpearson.lessons.core.data.repository.GithubAccount
+import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.DeviceLink
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
 import com.lumenpearson.lessons.core.data.repository.GithubRepository
@@ -473,3 +474,20 @@ sealed interface DeviceLinkState {
 
     data class Failed(val cause: Throwable, val known: DeviceLink?) : DeviceLinkState
 }
+
+/**
+ * The role the server last reported, whatever the state is doing right now.
+ *
+ * A refresh in flight and a refresh that failed both still know who this phone
+ * is, from the answer before — which is what keeps the management page from
+ * flickering out of the list every time the page reloads, or the moment the
+ * train goes into a tunnel. It is `null` only when nothing has ever been
+ * answered, or when the phone is tied to no account at all.
+ */
+val DeviceLinkState.role: ClassRole?
+    get() = when (this) {
+        DeviceLinkState.Idle -> null
+        is DeviceLinkState.Loading -> known?.role
+        is DeviceLinkState.Ready -> link.role
+        is DeviceLinkState.Failed -> known?.role
+    }

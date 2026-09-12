@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Страницы, которых нет у большинства.
+
+  Держатся отдельным файлом, потому что появляются только у администратора и
+  владельца класса: их проще читать и проверять, когда они не перемешаны с
+  тремястами строками, которые видят все.
+-->
+<resources>
+    <string name="settings_admin">Управление</string>
+    <string name="settings_admin_summary">Класс, устройства, журнал и отладка</string>
+
+    <string name="admin_role_admin">Вы администратор класса</string>
+    <string name="admin_role_owner">Вы владелец класса</string>
+    <string name="admin_role_description">Эта страница видна только вам и другим администраторам. Права проверяет сервер при каждом действии.</string>
+
+    <string name="admin_tools_group">Инструменты</string>
+    <string name="admin_debug">Отладка</string>
+    <string name="admin_debug_description">Отчёты о сбоях, журнал и подробные сообщения об ошибках</string>
+    <string name="admin_debug_open">Открыть</string>
+</resources>
