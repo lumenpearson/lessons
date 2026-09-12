@@ -10,7 +10,7 @@ import java.time.LocalTime
  *
  * Times are minutes from midnight rather than [LocalTime] so the whole thing
  * survives a round trip through a preferences file without a formatter, and so
- * the settings screen can offer them as a row of chips.
+ * the settings screen can hand one straight to a clock dial and take one back.
  *
  * Everything that posts is off by default. A school diary that starts buzzing
  * the moment it is installed is a school diary that gets its notifications
@@ -72,9 +72,9 @@ data class AlertPreferences(
      * loud, which is where people put the morning summary.
      *
      * A window that ends where it starts is treated as no window at all rather
-     * than as the whole day: the two ends are picked from separate chip rows,
-     * so a user passes through "равны" on the way to any other pair, and a
-     * momentary "everything is silenced" is a worse answer than "nothing is".
+     * than as the whole day: the two ends are picked one at a time, so a user
+     * passes through "равны" on the way to any other pair, and a momentary
+     * "everything is silenced" is a worse answer than "nothing is".
      */
     fun isQuiet(at: LocalTime): Boolean {
         if (!quietHours) return false
@@ -101,16 +101,10 @@ data class AlertPreferences(
         /** After dinner, before the evening is gone. */
         const val DefaultHomeworkMinutes: Int = 20 * 60
 
-        /** The hours a summary or a homework reminder may be set to. */
-        val HourOptions: List<Int> = (5..22).toList()
-
-        /** Every hour, because a quiet window routinely starts late and ends early. */
-        val QuietHourOptions: List<Int> = (0..23).toList()
-
         /** Bedtime on a school night. */
         const val DefaultQuietFromMinutes: Int = 22 * 60
 
-        /** Before the earliest morning summary the hour chips offer. */
+        /** Before the hour anybody would ask to be woken by a summary. */
         const val DefaultQuietToMinutes: Int = 7 * 60
 
         /** ISO-8601 weekday numbers, Monday first; the order the chips are drawn in. */

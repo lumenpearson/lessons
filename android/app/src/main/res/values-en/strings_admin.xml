@@ -11,5 +11,4 @@
     <string name="admin_tools_group">Tools</string>
     <string name="admin_debug">Debugging</string>
     <string name="admin_debug_description">Crash reports, the log and detailed error messages</string>
-    <string name="admin_debug_open">Open</string>
 </resources>

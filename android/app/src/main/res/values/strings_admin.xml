@@ -17,5 +17,4 @@
     <string name="admin_tools_group">Инструменты</string>
     <string name="admin_debug">Отладка</string>
     <string name="admin_debug_description">Отчёты о сбоях, журнал и подробные сообщения об ошибках</string>
-    <string name="admin_debug_open">Открыть</string>
 </resources>
