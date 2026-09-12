@@ -2,34 +2,49 @@
 
     python -m scripts.seed_demo
 
-Prints the join code to paste into the app. Safe to re-run: it replaces the
-demo class rather than duplicating it.
+Prints the join code to paste into the app, and a device token that is
+already linked to the demo editor account, for trying the write endpoints
+with curl. Safe to re-run: it replaces the demo class rather than duplicating
+it.
 """
 
 from __future__ import annotations
 
 import asyncio
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import select
 
 from app.db import init_db, session_scope
 from app.models import (
     DEFAULT_BELLS,
+    AuditEntry,
     BellPeriod,
     BellSchedule,
+    BotUser,
     DayEvent,
+    DeviceToken,
     EventKind,
     Homework,
     LessonOverride,
     OverrideAction,
+    PersonalTask,
+    ReminderSettings,
+    Role,
     SchoolClass,
     Subject,
+    TaskPriority,
     TimetableEntry,
     WeekParity,
 )
+from app.security import hash_token, new_token
 
 DEMO_CODE = "DEMO24"
+
+# A made-up Telegram id for the demo editor. Nothing is ever sent to it: the
+# demo has no bot token, and a real id here would mean the seed script could
+# message a stranger the moment somebody ran it with one.
+DEMO_EDITOR_ID = 100_000_001
 
 WEEK = {
     1: ["Алгебра", "Физика", "История", "Английский", "Литература"],
@@ -170,7 +185,74 @@ async def seed() -> None:
             )
         )
 
+        # An editor with a phone already linked, so the write endpoints can be
+        # tried straight away. The token is printed once and stored hashed.
+        session.add(BotUser(telegram_id=DEMO_EDITOR_ID, class_id=klass.id, role=Role.EDITOR))
+        device_token = new_token()
+        session.add(
+            DeviceToken(
+                token_hash=hash_token(device_token),
+                class_id=klass.id,
+                device_name="Демо-телефон",
+                telegram_id=DEMO_EDITOR_ID,
+                linked_at=datetime.utcnow(),
+            )
+        )
+
+        # Three personal tasks in the three shapes the list sorts by: a dated
+        # urgent one, a dated ordinary one, and one with no date at all.
+        session.add(
+            PersonalTask(
+                class_id=klass.id,
+                telegram_id=DEMO_EDITOR_ID,
+                title="Сдать реферат по истории",
+                subject_name="История",
+                due_date=next_weekday,
+                due_time=time(8, 30),
+                priority=int(TaskPriority.HIGH),
+            )
+        )
+        session.add(
+            PersonalTask(
+                class_id=klass.id,
+                telegram_id=DEMO_EDITOR_ID,
+                title="Купить тетрадь в клетку",
+                notes="48 листов",
+                due_date=today + timedelta(days=3),
+                priority=int(TaskPriority.NORMAL),
+            )
+        )
+        session.add(
+            PersonalTask(
+                class_id=klass.id,
+                telegram_id=DEMO_EDITOR_ID,
+                title="Записаться на олимпиаду",
+                priority=int(TaskPriority.LOW),
+            )
+        )
+
+        session.add(
+            ReminderSettings(
+                class_id=klass.id,
+                telegram_id=DEMO_EDITOR_ID,
+                morning_at=time(7, 30),
+                evening_at=time(20, 0),
+                notify_changes=True,
+                notify_homework=True,
+            )
+        )
+
+        session.add(
+            AuditEntry(
+                class_id=klass.id,
+                telegram_id=DEMO_EDITOR_ID,
+                action="override.replace",
+                summary=f"Замена: урок №2, {next_weekday:%d.%m} — Астрономия",
+            )
+        )
+
     print(f"Demo class ready. Join code: {DEMO_CODE}")
+    print(f"Linked device token (editor): {device_token}")
 
 
 if __name__ == "__main__":
