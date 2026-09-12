@@ -14,12 +14,23 @@ from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 
+from app.api.cron import router as cron_router
+from app.api.edit import router as edit_router
 from app.api.public import router as public_router
 from app.config import get_settings
 from app.db import engine, init_db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
+
+
+def _report_bot_exit(task: asyncio.Task) -> None:
+    """Log why the polling task stopped, if it stopped on its own."""
+    if task.cancelled():
+        return
+    failure = task.exception()
+    if failure is not None:
+        log.error("Telegram polling stopped: %s", failure, exc_info=failure)
 
 
 @contextlib.asynccontextmanager
@@ -40,6 +51,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         from app.bot.bot import run_polling
 
         bot_task = asyncio.create_task(run_polling(stop_event))
+        # Nothing awaits this task until shutdown, so without a callback a
+        # failure before aiogram's own retry loop takes over - a malformed
+        # token, a 401 from set_my_commands, no network at boot - is stored in
+        # the task and never seen. The bot is then simply silent for the life
+        # of the process, with a clean log.
+        bot_task.add_done_callback(_report_bot_exit)
     else:
         log.warning("Telegram bot disabled (RUN_BOT=false or BOT_TOKEN unset)")
 
@@ -59,6 +76,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(public_router)
+app.include_router(edit_router)
+# Always mounted; the endpoint itself answers 404 until CRON_SECRET is set,
+# the same way the webhook does, and the aiogram import it needs is deferred
+# until a tick actually runs.
+app.include_router(cron_router)
 
 # Only mounted when a webhook secret is configured. On a long-polling
 # deployment the endpoint would be dead weight and one more thing to secure.

@@ -158,6 +158,33 @@ repositories from entry points Hilt does not inject cleanly, and Room already
 costs one KSP processor. `Graph` is a small hand-written container that a test
 can swap wholesale.
 
+## Слой сервисов, и почему телефон не логинится
+
+`server/app/services/` — восемь модулей чистых async-функций над сессией, и
+существуют они ровно потому, что у каждой функции продукта теперь два входа:
+бот и приложение. Домашка добавляется командой в чате и кнопкой на телефоне;
+замена, событие, особый день — тоже. Две реализации одного правила разошлись бы
+в первый же месяц, поэтому правило одно, а handler'ы и endpoint'ы — две тонкие
+оболочки над ним: журнал изменений, привязка устройств, личные задачи, отметки
+о сделанной домашке, напоминания и их идемпотентность, рассылка подписчикам,
+лента календаря, статистика, экспорт и импорт расписания.
+
+Прав у телефона своих нет — и это главное решение этого слоя. Устройство
+получает от сервера шестисимвольный код, человек отправляет его боту, и с этого
+момента токен устройства привязан к Telegram-аккаунту. Любая запись с телефона
+проверяется так: найти аккаунт по токену, спросить его роль **в этом классе в
+момент запроса** (`linking.effective_role`), сравнить с EDITOR. Ни роли, ни
+срока действия на устройстве не хранится, потому что хранить нечего: отозвали
+человека в боте — следующее нажатие в приложении получает 403. Отвязка
+устройства не трогает сам токен: приложение продолжает читать расписание, как
+читало до привязки.
+
+У сервера нет своих часов: на serverless между запросами не выполняется ничего.
+Поэтому сводки шлёт внешний тик (`/api/v1/cron/tick`, workflow каждые пять
+минут), который спрашивает у базы «что созрело по часам своего класса и ещё не
+отправлено сегодня». Отметка о отправке ставится **до** отправки: тик, упавший
+посередине, не рассылает сводку дважды, а опоздавший на десять минут — досылает.
+
 ## Testing
 
 | Suite | What it covers | Runs where |
@@ -166,6 +193,9 @@ can swap wholesale.
 | `server/tests/test_api.py` | join, bundle, auth failures, revoked tokens, parameter validation | pytest + httpx ASGI |
 | `server/tests/test_roles.py` | the permission ladder, phone normalisation, invite claiming | pytest |
 | `server/tests/test_bot_handlers.py` | timetable and bell parsing, homework upsert, замена parsing, role-grant guards | pytest |
+| `server/tests/test_services.py` | task grammar, reminder idempotence across zones, ICS folding and escaping, timetable import/export, stats | pytest |
+| `server/tests/test_api_extended.py` | ETag and 304, device linking, write endpoints under every role, tasks scoped to their owner, the calendar feed, the cron tick | pytest + httpx ASGI |
+| `server/tests/test_bot_views.py` | week and "what next" rendering at fixed times, task grouping, reminder settings | pytest |
 | `server/tests/test_timezones.py` | all eleven Russian zones, ordering, bad-input fallback | pytest |
 | `android/core/model/.../ScheduleEngineTest.kt` | every `DayState`, boundary conditions, event precedence, next-transition scheduling | JVM JUnit |
 

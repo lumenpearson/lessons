@@ -482,3 +482,38 @@ def test_telegram_id_columns_are_wide_enough_for_real_ids():
     ]
     for column in columns:
         assert isinstance(column.type, BigInteger), column
+
+
+# --------------------------------------------------------------------------
+# The last-seen write must not poison the request it rides on
+# --------------------------------------------------------------------------
+
+
+async def test_a_failed_last_seen_write_still_serves_the_bundle(client, school_class, monkeypatch):
+    """The rollback that absorbs the failure also expires every row the session
+    holds, and an expired row in an async session reloads itself lazily - which
+    raises MissingGreenlet from whatever the endpoint reads next. The branch
+    that exists to keep the read working used to be the thing that broke it."""
+    from sqlalchemy.exc import SQLAlchemyError
+
+    from app.api import deps
+
+    token = await _token(client)
+
+    calls = {"n": 0}
+    real_commit = deps.AsyncSession.commit
+
+    async def failing_commit(self):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise SQLAlchemyError("disk full")
+        return await real_commit(self)
+
+    monkeypatch.setattr(deps.AsyncSession, "commit", failing_commit)
+
+    response = await client.get(
+        "/api/v1/bundle", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["school_class"]["name"] == school_class.name
+    assert calls["n"] >= 1

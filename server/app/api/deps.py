@@ -41,12 +41,27 @@ async def _touch_last_seen(session: AsyncSession, device: DeviceToken) -> None:
         # widget actually asked for.
         log.warning("could not record last_seen_at for device %s", device.id, exc_info=True)
         await session.rollback()
+        # A rollback expires every instance in the session, including the class
+        # this request is about to serialise - and an expired instance in an
+        # async session reloads itself lazily, which raises MissingGreenlet from
+        # whatever attribute the endpoint touches next. So the failure this
+        # branch exists to absorb used to turn into a 500 anyway. Refreshing
+        # here brings the rows back inside the greenlet that can do the I/O.
+        await session.refresh(device)
 
 
-async def current_class(
+async def current_device(
     authorization: str = Header(default=""),
     session: AsyncSession = Depends(get_session),
-) -> SchoolClass:
+) -> DeviceToken:
+    """The device behind the bearer token, or 401.
+
+    Separate from :func:`current_class` because the linking endpoints act on
+    the device row itself, and the write endpoints derive their permission
+    from ``device.telegram_id``. FastAPI caches a dependency's result for the
+    request, so an endpoint that asks for both the device and the class still
+    costs one token lookup.
+    """
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token:
         raise HTTPException(
@@ -67,10 +82,17 @@ async def current_class(
             detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    return device
 
+
+async def current_class(
+    device: DeviceToken = Depends(current_device),
+    session: AsyncSession = Depends(get_session),
+) -> SchoolClass:
+    await _touch_last_seen(session, device)
+    # After the write, not before: a rollback inside it expires everything the
+    # session holds, and this is the object the endpoint is about to read.
     school_class = await session.get(SchoolClass, device.class_id)
     if school_class is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class no longer exists")
-
-    await _touch_last_seen(session, device)
     return school_class
