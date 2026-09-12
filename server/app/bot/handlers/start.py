@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from html import escape
 
 from aiogram import F, Router
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message, ReplyKeyboardRemove
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,12 +24,13 @@ from app.bot.keyboards import (
     timezone_picker,
 )
 from app.bot.render import render_day, render_role_help
-from app.bot.roles import claim_phone_invites, is_env_owner
+from app.bot.roles import claim_phone_invites, get_role, is_env_owner
 from app.bot.states import CreateClass
 from app.config import get_settings
 from app.models import DEFAULT_BELLS, BellPeriod, BellSchedule, BotUser, Role, SchoolClass
 from app.schedule import ScheduleResolver
 from app.security import new_join_code
+from app.services import linking
 from app.timezones import DEFAULT_TIMEZONE, is_supported, label_for
 
 router = Router(name="start")
@@ -53,6 +54,56 @@ async def _send_menu(message: Message, school_class: SchoolClass, role: Role) ->
         + (f" · {escape(school_class.school)}" if school_class.school else "")
         + f"\nВаша роль: <b>{role.title_ru}</b>. {render_role_help(role)}",
         reply_markup=main_menu(role),
+    )
+
+
+#: Link codes are six characters; anything longer is not one and is not
+#: worth a database round trip.
+LINK_CODE_MAX = 16
+
+
+@router.message(CommandStart(deep_link=True, magic=F.args.startswith("link_")))
+async def cmd_start_link(
+    message: Message,
+    command: CommandObject,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
+    """``t.me/<bot>?start=link_<code>`` - the QR / button on the app's link screen.
+
+    No role check: attaching a phone to *this* account is what the link does,
+    and the phone then acts with whatever role this account holds in the
+    device's class - possibly none, in which case it stays read-only. The
+    reply says which, so the person knows what to ask an admin for.
+    """
+    await state.clear()
+    code = (command.args or "")[len("link_"):].strip()
+    device = (
+        await linking.link_device(session, code, message.from_user.id)
+        if 0 < len(code) <= LINK_CODE_MAX
+        else None
+    )
+    if device is None:
+        await message.answer(
+            "Код не подошёл. Он действует один раз - откройте экран привязки в "
+            "приложении ещё раз и отсканируйте новый."
+        )
+        return
+
+    school_class = await session.get(SchoolClass, device.class_id)
+    role = await get_role(session, message.from_user.id, device.class_id)
+    name = escape(device.device_name or "Телефон")
+    class_name = escape(school_class.name) if school_class is not None else "класс"
+    if role is None:
+        access = (
+            "У вас пока нет роли в этом классе, поэтому телефон только читает "
+            "расписание. Попросите администратора выдать доступ."
+        )
+    else:
+        access = f"Телефон действует с вашей ролью: <b>{role.title_ru}</b>."
+    await message.answer(
+        f"📱 Устройство <b>{name}</b> привязано к вашему аккаунту "
+        f"(класс <b>{class_name}</b>).\n{access}"
     )
 
 
@@ -276,6 +327,22 @@ async def cmd_today(
     await message.answer(render_day(days[0], today), reply_markup=day_nav(0))
 
 
+@router.message(Command("tomorrow"))
+async def cmd_tomorrow(
+    message: Message,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+) -> None:
+    if school_class is None:
+        await message.answer(WELCOME_UNKNOWN, reply_markup=request_contact())
+        return
+    today = _today(school_class).date()
+    days = await ScheduleResolver(session, school_class).resolve_range(
+        today + timedelta(days=1), 1
+    )
+    await message.answer(render_day(days[0], today), reply_markup=day_nav(1))
+
+
 @router.message(Command("code"))
 async def cmd_code(
     message: Message,
@@ -355,16 +422,64 @@ async def rotate_code(
     await callback.answer("Код обновлён")
 
 
+HELP_SECTIONS: list[tuple[Role | None, str, list[str]]] = [
+    (
+        None,
+        "Расписание",
+        [
+            "/today — сегодня",
+            "/tomorrow — завтра",
+            "/week — неделя",
+            "/next — что дальше: урок, перемена, сколько осталось",
+            "/homework — домашнее задание с отметками «сделал»",
+            "/find — поиск по домашним заданиям",
+        ],
+    ),
+    (
+        None,
+        "Личное",
+        [
+            "/tasks — мои задачи",
+            "/task <i>текст</i> — добавить задачу одной строкой",
+            "/remind — напоминания и сводки",
+            "/calendar — подписка на календарь",
+            "/link — привязать телефон к аккаунту",
+            "/request — запросить доступ повыше",
+        ],
+    ),
+    (
+        Role.ADMIN,
+        "Администрирование",
+        [
+            "/subjects — предметы и учителя",
+            "/holidays — каникулы и особые дни",
+            "/bells — расписание звонков",
+            "/devices — подключённые устройства",
+            "/log — журнал изменений",
+            "/class — настройки класса",
+            "/export — выгрузить расписание текстом",
+            "/import — загрузить расписание текстом",
+            "/stats — статистика класса",
+            "/code — код класса для приложения",
+        ],
+    ),
+]
+
+
 @router.message(Command("help"))
 async def cmd_help(message: Message, role: Role | None) -> None:
-    lines = [
-        "<b>Команды</b>",
-        "/start — главное меню",
-        "/today — расписание на сегодня",
-        "/help — эта справка",
-    ]
-    if role is not None and role.at_least(Role.ADMIN):
-        lines.append("/code — код класса для приложения")
+    """Grouped by what the caller may do: a viewer is not shown admin commands
+    that would only answer with a refusal."""
+    lines = ["<b>Команды</b>", "/start — главное меню", "/help — эта справка"]
+    for minimum, title, items in HELP_SECTIONS:
+        if minimum is not None and (role is None or not role.at_least(minimum)):
+            continue
+        lines.append("")
+        lines.append(f"<b>{title}</b>")
+        lines.extend(items)
+    if role is not None and role.at_least(Role.EDITOR):
+        lines.append("")
+        lines.append("Замены, события и домашнее задание добавляются из меню /start.")
     await message.answer("\n".join(lines))
 
 
