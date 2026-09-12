@@ -42,6 +42,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot import manage_render as mr
 from app.bot.keyboards import (
     WEEKDAY_FULL,
+    Menu,
     back_to_menu,
     cancel_keyboard,
     date_picker,
@@ -1845,6 +1846,10 @@ async def cmd_class(
     await message.answer(text, reply_markup=keyboard)
 
 
+# Two entry points, one card. The «⚙️ Класс» button in the main menu used to
+# open a thinner version of this that lived in start.py, so half the settings
+# were on whichever card you had not opened.
+@router.callback_query(Menu.filter(F.action == "class"))
 @router.callback_query(ManageAction.filter(F.action == "root"))
 async def class_root(
     callback: CallbackQuery,
@@ -2426,11 +2431,10 @@ async def cmd_find(
 
     today = _today(school_class)
     # ``lower().contains()`` rather than ILIKE, which SQLite does not have.
-    # One honest caveat: SQLite's own ``lower()`` folds ASCII only, so on the
-    # development file «Алгебра» does not match «алгебра». Postgres — which is
-    # what a real class runs on — folds Cyrillic properly, so the search works
-    # where it matters; teaching SQLite otherwise means an ICU build or a
-    # second stored column, and neither is worth it for a dev convenience.
+    # Both dialects fold Cyrillic: Postgres does it natively, and ``app.db``
+    # replaces SQLite's ASCII-only ``lower()`` with Python's on every
+    # connection, so the search behaves the same for the developer and for the
+    # class.
     pattern = needle.lower()
     rows = list(
         await session.scalars(

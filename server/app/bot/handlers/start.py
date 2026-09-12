@@ -8,7 +8,7 @@ from html import escape
 from aiogram import F, Router
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardButton, Message, ReplyKeyboardRemove
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.keyboards import (
@@ -359,44 +359,6 @@ async def cmd_code(
         "Его вводят в приложении при первом запуске. "
         "Код даёт только чтение расписания.",
     )
-
-
-@router.callback_query(Menu.filter(F.action == "class"))
-async def class_settings(
-    callback: CallbackQuery,
-    school_class: SchoolClass | None,
-    role: Role | None,
-) -> None:
-    if school_class is None or role is None or not role.at_least(Role.ADMIN):
-        await callback.answer("Только для администраторов", show_alert=True)
-        return
-
-    extra = [
-        [
-            InlineKeyboardButton(
-                text="🕒 Часовой пояс",
-                callback_data=ClassAction(action="timezone").pack(),
-            )
-        ]
-    ]
-    if role.at_least(Role.OWNER):
-        extra.append(
-            [
-                InlineKeyboardButton(
-                    text="🔁 Сменить код класса",
-                    callback_data=ClassAction(action="rotate_code").pack(),
-                )
-            ]
-        )
-
-    await callback.message.edit_text(
-        f"<b>⚙️ {escape(school_class.name)}</b>\n"
-        + (f"Школа: {escape(school_class.school)}\n" if school_class.school else "")
-        + f"Часовой пояс: {label_for(school_class.timezone_name)}\n"
-        + f"Код для приложения: <code>{escape(school_class.join_code)}</code>",
-        reply_markup=back_to_menu(extra),
-    )
-    await callback.answer()
 
 
 @router.callback_query(ClassAction.filter(F.action == "rotate_code"))

@@ -441,7 +441,7 @@ async def test_a_half_finished_create_flow_does_not_raise(session):
 
 
 async def test_a_class_name_containing_markup_is_escaped(session):
-    from app.bot.handlers.start import class_settings
+    from app.bot.handlers.manage import class_root
 
     hostile = SchoolClass(
         name="<b>9А</b><script>",
@@ -453,7 +453,7 @@ async def test_a_class_name_containing_markup_is_escaped(session):
     await session.commit()
 
     callback = _Callback(user_id=1000)
-    await class_settings(callback, hostile, Role.OWNER)
+    await class_root(callback, _State({}), session, hostile, Role.OWNER)
 
     rendered = callback.message.texts[-1]
     assert "&lt;b&gt;9А&lt;/b&gt;" in rendered

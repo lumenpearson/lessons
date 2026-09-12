@@ -969,3 +969,33 @@ async def test_a_full_log_page_still_fits_in_one_telegram_message(session, schoo
 
     assert len(message.last) < 4096
     assert "и ещё" in message.last
+
+
+async def test_search_folds_case_for_cyrillic_too(session, school_class):
+    """SQLite's own ``lower()`` folds ASCII and stops; `app.db` replaces it, so
+    the search works the same way for the developer as for the class."""
+    from datetime import date, timedelta
+
+    from app.bot.handlers.manage import cmd_find
+    from app.models import Homework
+
+    today = date.today()
+    session.add(
+        Homework(
+            class_id=school_class.id,
+            due_date=today + timedelta(days=1),
+            subject_name="Алгебра",
+            text="Параграф 12",
+        )
+    )
+    await session.commit()
+
+    message = FakeMessage(text="/find АЛГЕБРА")
+    await cmd_find(
+        message,
+        _command("АЛГЕБРА"),
+        session,
+        school_class,
+        Role.VIEWER,
+    )
+    assert "Алгебра" in message.last

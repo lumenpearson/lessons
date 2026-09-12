@@ -53,6 +53,26 @@ if engine.dialect.name == "sqlite":
         finally:
             cursor.close()
 
+        # SQLite's built-in ``lower()`` folds ASCII and nothing else, so
+        # «Алгебра» did not match «алгебра» in the bot's homework search -
+        # on the development file only, because Postgres folds Cyrillic
+        # properly and production is Postgres. A search that behaves one way
+        # for the developer and another for the class is a search nobody can
+        # reason about, so the builtin is replaced with Python's, which knows
+        # the whole alphabet. SQLite allows overriding it; the cost is a
+        # Python call per row, and the rows here are one class's homework.
+        dbapi_connection.create_function("lower", 1, _unicode_lower)
+        dbapi_connection.create_function("upper", 1, _unicode_upper)
+
+
+def _unicode_lower(value):
+    """``None`` in, ``None`` out - SQL semantics, not Python's."""
+    return value.lower() if isinstance(value, str) else value
+
+
+def _unicode_upper(value):
+    return value.upper() if isinstance(value, str) else value
+
 
 async def init_db() -> None:
     """Create tables that do not exist yet.
