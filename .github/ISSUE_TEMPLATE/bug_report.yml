@@ -1,0 +1,120 @@
+name: Ошибка
+description: Что-то работает не так — в приложении, виджете, боте или на сервере
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за отчёт. Одна просьба: **не публикуйте здесь токен бота, код класса,
+        пароль от электронного дневника и ссылку на календарь** — замените их на
+        `<redacted>`. Issue публичный, а токен из публичного issue придётся отзывать.
+
+        Отчёт можно отправить и прямо из приложения: «Настройки → О приложении → Сообщить
+        об ошибке». Там уже собрана таблица об устройстве.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Перед отправкой
+      options:
+        - label: Похожий issue ещё не заведён
+          required: true
+        - label: В тексте нет токенов, паролей и кода класса
+          required: true
+        - label: Я посмотрел раздел «Честный статус» в README — это не то, что там уже названо непроверенным
+          required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Где
+      options:
+        - Приложение — экраны
+        - Приложение — виджет
+        - Приложение — уведомления
+        - Приложение — электронный дневник Петербурга
+        - Бот в Telegram
+        - Сервер / API
+        - Сборка APK, Actions
+        - Не знаю
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Что произошло
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Что ожидалось
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как воспроизвести
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Версия приложения
+      description: «Настройки → О приложении». Для сервера — коммит или тег.
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Устройство и Android
+      placeholder: Pixel 6a, Android 15
+
+  - type: input
+    id: widget-size
+    attributes:
+      label: Размер виджета
+      description: Если дело в виджете — сколько клеток он занимает. Содержимое зависит от размера.
+      placeholder: 4×2
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: Язык приложения
+      options:
+        - Русский
+        - English
+        - Как в телефоне
+
+  - type: input
+    id: timezone
+    attributes:
+      label: Часовой пояс класса
+      description: «⚙️ Класс → 🕒 Часовой пояс» в боте. Важно для всего, что связано со временем.
+      placeholder: Europe/Moscow
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи, ответ сервера, вывод упавшей команды
+      description: Секреты замените на `<redacted>`.
+      render: shell
+
+  - type: dropdown
+    id: regression
+    attributes:
+      label: Раньше работало?
+      options:
+        - Не знаю
+        - Да, сломалось в какой-то версии
+        - Нет, не работало никогда

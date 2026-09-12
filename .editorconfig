@@ -1,0 +1,48 @@
+# Ни один файл в репозитории не содержит табуляции и завершающих пробелов, и
+# все заканчиваются переводом строки. Этот файл не вводит новое правило, а
+# записывает то, что уже верно, — чтобы редактор не сломал его первой правкой.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Kotlin: kotlin.code.style=official в android/gradle.properties — четыре
+# пробела и сто двадцать колонок. Длиннее сейчас четыре строки во всём дереве,
+# и все четыре — ссылки в комментариях, которые переносить некуда.
+[*.{kt,kts}]
+max_line_length = 120
+
+# Python: line-length = 100 в server/pyproject.toml, его же проверяет ruff.
+[*.py]
+max_line_length = 100
+
+# Ресурсы Android и манифесты — четыре пробела, как в values/strings.xml.
+[*.xml]
+indent_size = 4
+
+[*.{yml,yaml,json,toml}]
+indent_size = 2
+
+[*.{properties,cfg,ini}]
+indent_size = 4
+
+# Markdown: проза переносится около восьмидесяти колонок, но таблицы и ссылки
+# длиннее, и обрезать их нечем. Завершающие пробелы не используются как
+# перенос строки ни в одном документе, поэтому их можно чистить.
+[*.md]
+max_line_length = off
+
+# gradlew.bat в репозитории лежит с CRLF, и иначе cmd.exe разбирает его
+# неправильно. Остальное дерево — LF.
+[*.bat]
+end_of_line = crlf
+
+# Обёртка Gradle приходит из дистрибутива и правится только его обновлением.
+[**/gradle/wrapper/**]
+insert_final_newline = unset
+trim_trailing_whitespace = unset

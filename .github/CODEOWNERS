@@ -1,0 +1,35 @@
+# Владельцы кода назначаются рецензентами автоматически.
+# Синтаксис: https://docs.github.com/articles/about-code-owners
+
+* @lumenpearson
+
+# Правило разрешений и его две двери: бот и /api/v1/manage судят по одной
+# и той же роли, и разойтись им нельзя.
+/server/app/bot/roles.py        @lumenpearson
+/server/app/services/           @lumenpearson
+/server/app/api/                @lumenpearson
+
+# Схема базы и миграции: боевая база уже на 0004, откатов там не бывает.
+/server/app/models.py           @lumenpearson
+/server/migrations/             @lumenpearson
+
+# Движок состояний и лестница размеров виджета — самая логикоёмкая часть
+# продукта и единственная, у которой есть полное покрытие тестами.
+/android/core/model/            @lumenpearson
+/android/widget/                @lumenpearson
+
+# Версии зависимостей здесь выверены по репозиториям, а не выдуманы.
+/android/gradle/libs.versions.toml  @lumenpearson
+
+# Сборка, подпись и автоматизация.
+/.github/                       @lumenpearson
+/vercel.json                    @lumenpearson
+/requirements.txt               @lumenpearson
+
+# Документы, которые читают люди.
+/docs/                          @lumenpearson
+/README.md                      @lumenpearson
+/CONTRIBUTING.md                @lumenpearson
+/CODE_OF_CONDUCT.md             @lumenpearson
+/AI_USAGE_POLICY.md             @lumenpearson
+/CLAUDE.md                      @lumenpearson
