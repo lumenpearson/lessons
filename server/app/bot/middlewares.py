@@ -59,6 +59,10 @@ async def active_class(session, telegram_id: int) -> SchoolClass | None:
     memberships = await list_memberships(session, telegram_id)
     if not memberships:
         return await default_class_for(session, telegram_id)
+    if len(memberships) == 1:
+        # The common case by a wide margin, and it has nothing to choose
+        # between: no reason to pay for the preference read on every update.
+        return await session.get(SchoolClass, memberships[0].class_id)
 
     chosen = await preferred_class_id(telegram_id)
     if chosen is not None and any(member.class_id == chosen for member in memberships):
