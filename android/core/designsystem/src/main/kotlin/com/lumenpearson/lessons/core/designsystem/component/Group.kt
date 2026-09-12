@@ -32,9 +32,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -44,6 +50,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.modifier.LocalControlCentre
+import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.GroupRowSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
@@ -238,10 +246,17 @@ fun GroupSwitchItem(
     val view = rememberHapticView()
     val rowTone = if (enabled) tone else AccentTone(scheme.surfaceContainerHighest, scheme.outline)
 
+    // The switch sits against the right edge; the row it belongs to is the
+    // width of the screen. Anything that starts an effect where the finger was
+    // needs the first of those, not the second — see ControlCentre.
+    val controlCentre = LocalControlCentre.current
+    var switchCentre by remember { mutableStateOf(Offset.Unspecified) }
+
     ListItem(
         checked = checked && enabled,
         onCheckedChange = {
             LessonsHaptics.press(view)
+            if (switchCentre.isSpecified) controlCentre?.report(switchCentre)
             onCheckedChange(it)
         },
         enabled = enabled,
@@ -267,6 +282,7 @@ fun GroupSwitchItem(
                 checked = checked && enabled,
                 onCheckedChange = null,
                 enabled = enabled,
+                modifier = Modifier.centreInRoot { switchCentre = it },
             )
         },
         // The switched-on colour is named rather than left to the library's

@@ -54,8 +54,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -67,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 
@@ -405,13 +404,7 @@ private fun ToolbarActionButton(action: ToolbarAction) {
             LessonsHaptics.press(view)
             action.onClick(centre)
         },
-        modifier = Modifier.onGloballyPositioned { coordinates ->
-            val corner = coordinates.positionInRoot()
-            centre = Offset(
-                x = corner.x + coordinates.size.width / 2f,
-                y = corner.y + coordinates.size.height / 2f,
-            )
-        },
+        modifier = Modifier.centreInRoot { centre = it },
         containerColor = scheme.primaryContainer,
         contentColor = scheme.onPrimaryContainer,
         shape = MaterialTheme.shapes.large,

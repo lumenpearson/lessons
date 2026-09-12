@@ -1,13 +1,18 @@
 package com.lumenpearson.lessons.core.designsystem.modifier
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.isSpecified
 
 /**
  * One ripple for the whole window, fired from wherever the reason for it is.
@@ -71,3 +76,37 @@ fun Modifier.liquidRipple(state: LiquidRippleState, enabled: Boolean = true): Mo
         enabled = enabled,
         reverse = state.reverse,
     )
+
+/**
+ * Fires a wave from whatever control inside was pressed, and nothing else.
+ *
+ * [com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealAnchor] does this
+ * too, but it also wipes the screen to a new theme, which is exactly right for a
+ * row that repaints the app and exactly wrong for one that does not. The switch
+ * that turns the ripple *on* is the clearest case: the honest way to show what
+ * the setting does is to do it, once, starting at the switch that was just
+ * flipped — and a theme wipe riding along would be a second answer to a question
+ * nobody asked.
+ *
+ * The origin comes from [ControlCentre], so it is the switch or the segment
+ * rather than the middle of the row that holds it; the box's own centre is the
+ * fallback for a control that does not report one.
+ */
+@Composable
+fun LiquidRippleAnchor(
+    modifier: Modifier = Modifier,
+    content: @Composable (fire: () -> Unit) -> Unit,
+) {
+    val ripple = LocalLiquidRipple.current
+    var centre by remember { mutableStateOf(Offset.Unspecified) }
+    val control = remember { ControlCentre() }
+
+    Box(modifier = modifier.centreInRoot { centre = it }) {
+        CompositionLocalProvider(LocalControlCentre provides control) {
+            content {
+                val from = if (control.offset.isSpecified) control.offset else centre
+                ripple?.fire(from)
+            }
+        }
+    }
+}
