@@ -44,6 +44,24 @@ class Settings(BaseSettings):
     webhook_secret: str = ""
     webhook_path: str = "/api/v1/telegram/webhook"
 
+    # Shared secret for the reminder tick. A serverless deployment has no
+    # scheduler of its own, so an external cron calls the tick endpoint every
+    # few minutes with this value in ``X-Cron-Secret``. Empty means the endpoint
+    # refuses everyone: a tick anybody can trigger is a way to make the bot
+    # message every subscriber on demand.
+    cron_secret: str = ""
+
+    # The bot's @username without the "@", for ``t.me/<bot>?start=link_<code>``
+    # deep links. Not fetched from Telegram at runtime because that is one API
+    # round trip per cold start for a value that never changes.
+    bot_username: str = ""
+
+    # Public origin of this deployment ("https://lessons.example.com"), for the
+    # calendar feed URL the bot shows. Configured rather than read off a
+    # request: behind Vercel the function sees an internal host, and the bot
+    # builds the URL from inside a Telegram update where there is no request.
+    public_base_url: str = ""
+
     @property
     def owner_id_list(self) -> list[int]:
         parts = self.owner_ids.replace(";", ",").split(",")
