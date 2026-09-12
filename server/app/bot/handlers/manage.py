@@ -2425,8 +2425,12 @@ async def cmd_find(
         return
 
     today = _today(school_class)
-    # ``lower().contains()`` rather than ILIKE: SQLite has no ILIKE, and the
-    # comparison has to behave the same on it and on Postgres.
+    # ``lower().contains()`` rather than ILIKE, which SQLite does not have.
+    # One honest caveat: SQLite's own ``lower()`` folds ASCII only, so on the
+    # development file «Алгебра» does not match «алгебра». Postgres — which is
+    # what a real class runs on — folds Cyrillic properly, so the search works
+    # where it matters; teaching SQLite otherwise means an ICU build or a
+    # second stored column, and neither is worth it for a dev convenience.
     pattern = needle.lower()
     rows = list(
         await session.scalars(
