@@ -14,6 +14,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lumenpearson.lessons.core.data.repository.AppSettings
+import com.lumenpearson.lessons.core.data.repository.DiarySession
+import com.lumenpearson.lessons.core.data.repository.DiarySessionStore
 import com.lumenpearson.lessons.core.data.repository.Session
 import com.lumenpearson.lessons.core.model.AlertPreferences
 import com.lumenpearson.lessons.core.model.AppFont
@@ -53,7 +55,7 @@ private val Context.lessonsDataStore: DataStore<Preferences> by preferencesDataS
  * screens, they are both tiny, and a single file means a single fsync and a
  * single flow to observe.
  */
-internal class LessonsPreferences(context: Context) {
+internal class LessonsPreferences(context: Context) : DiarySessionStore {
 
     private val dataStore = context.applicationContext.lessonsDataStore
 
@@ -83,7 +85,14 @@ internal class LessonsPreferences(context: Context) {
         }
     }
 
-    /** Clears identity only; the server address stays so re-joining is one field. */
+    /**
+     * Clears identity only; the server address stays so re-joining is one field.
+     *
+     * The diary keys are not in here on purpose. Leaving a class is not leaving
+     * the diary: they are two accounts, and the one being signed out of is the
+     * one the user pressed a button about. [clearDiarySession] is the other
+     * half, and it is just as narrow.
+     */
     suspend fun clearSession() {
         dataStore.edit { prefs ->
             // Written on the way out, because the token this is about to remove
@@ -101,6 +110,39 @@ internal class LessonsPreferences(context: Context) {
             // announces that the schedule changed seconds after joining —
             // exactly the noise the baseline rule exists to prevent.
             prefs.remove(KEY_SCHEDULE_FINGERPRINT)
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // The diary's own session
+    // ---------------------------------------------------------------------
+    //
+    // Separate keys, separate reads, separate writes, and nothing below touches
+    // the pair above. The two accounts are independent on the server — see
+    // `current_diary` in `server/app/api/diary.py` — so leaving a class must
+    // not sign a parent out of the diary, and signing out of the diary must not
+    // unjoin the class. Writing them into one [Session] would have made that a
+    // matter of remembering; two sets of keys makes it a matter of which method
+    // is called.
+
+    override val diarySession: Flow<DiarySession?> =
+        preferences.map { it.toDiarySession() }.distinctUntilChanged()
+
+    override suspend fun currentDiarySession(): DiarySession? =
+        preferences.first().toDiarySession()
+
+    override suspend fun writeDiarySession(value: DiarySession) {
+        dataStore.edit { prefs ->
+            prefs[KEY_DIARY_TOKEN] = value.token
+            prefs[KEY_DIARY_LOGIN] = value.login
+        }
+    }
+
+    /** Clears the diary and only the diary; [clearSession] is its counterpart. */
+    override suspend fun clearDiarySession() {
+        dataStore.edit { prefs ->
+            prefs.remove(KEY_DIARY_TOKEN)
+            prefs.remove(KEY_DIARY_LOGIN)
         }
     }
 
@@ -165,6 +207,18 @@ internal class LessonsPreferences(context: Context) {
      */
     fun tokenBlocking(): String? = runBlocking { currentSession()?.token }
 
+    /**
+     * The diary bearer, for `DiaryAuthInterceptor`.
+     *
+     * A second method rather than a parameter on [tokenBlocking], because the
+     * two tokens are not two values of one thing: one of them can be present
+     * while the other is absent, and a caller that took the wrong one would
+     * send a class token to a family's diary.
+     *
+     * @see tokenBlocking
+     */
+    fun diaryTokenBlocking(): String? = runBlocking { currentDiarySession()?.token }
+
     /** @see tokenBlocking */
     fun baseUrlBlocking(): String = runBlocking { currentSettings().baseUrl }
 
@@ -202,6 +256,12 @@ internal class LessonsPreferences(context: Context) {
             school = this[KEY_SCHOOL],
             token = token,
         )
+    }
+
+    /** `null` unless a diary sign-in has actually stored a token. */
+    private fun Preferences.toDiarySession(): DiarySession? {
+        val token = this[KEY_DIARY_TOKEN]?.takeIf { it.isNotBlank() } ?: return null
+        return DiarySession(login = this[KEY_DIARY_LOGIN].orEmpty(), token = token)
     }
 
     /**
@@ -279,6 +339,9 @@ internal class LessonsPreferences(context: Context) {
         val KEY_CLASS_ID = longPreferencesKey("session_class_id")
         val KEY_CLASS_NAME = stringPreferencesKey("session_class_name")
         val KEY_SCHOOL = stringPreferencesKey("session_school")
+
+        val KEY_DIARY_TOKEN = stringPreferencesKey("diary_token")
+        val KEY_DIARY_LOGIN = stringPreferencesKey("diary_login")
 
         val KEY_DEBUG_MODE = booleanPreferencesKey("settings_debug_mode")
         val KEY_ONBOARDING_DONE = booleanPreferencesKey("settings_onboarding_done")

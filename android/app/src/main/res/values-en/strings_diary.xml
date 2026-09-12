@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Petersburg electronic diary, in English.
+
+  The mirror of values/strings_diary.xml. Every name, every format argument and
+  every plural form has to match the Russian file, which ResourceTranslationTest
+  checks - a string missing from here does not disappear, it comes back in
+  Russian in the middle of an English page.
+-->
+<resources>
+
+    <!-- Settings section -->
+    <string name="diary_title">Diary</string>
+    <string name="diary_section_summary">Timetable, homework and marks from the Petersburg electronic diary</string>
+
+    <!-- Sign-in -->
+    <string name="diary_sign_in_title">Sign in to the diary</string>
+    <string name="diary_sign_in_subtitle">The same login and password as on the Petersburg diary website</string>
+    <string name="diary_login_label">Login</string>
+    <string name="diary_password_label">Password</string>
+    <string name="diary_password_reveal">Show the password</string>
+    <string name="diary_password_hide">Hide the password</string>
+    <string name="diary_sign_in_action">Sign in</string>
+    <string name="diary_password_notice">The password is stored nowhere. It is used for exactly one request - signing in to the diary - and then forgotten by both this phone and the server. When the diary session eventually ends, the app will ask for it again.</string>
+
+    <!-- Re-authentication, when the diary session died upstream -->
+    <string name="diary_reauth_title">The diary session has ended</string>
+    <string name="diary_reauth_message">The diary closed the session for %1$s. The login is still known - only the password is needed.</string>
+
+    <!-- Failures -->
+    <string name="diary_failure_title">That did not work</string>
+    <string name="diary_error_credentials">Wrong login or password</string>
+    <string name="diary_error_signed_out">This diary sign-in is no longer valid. Please sign in again.</string>
+    <string name="diary_error_unavailable">The diary is not answering. Try again later.</string>
+    <string name="diary_error_unreadable">The diary answered in a way the server could not read: the service changed, and that is fixed on the server rather than in the app.</string>
+    <string name="diary_error_offline">No connection to the server. Check the network and the server address under “Sync”.</string>
+    <string name="diary_error_range">That date range is too wide - the diary serves at most 62 days at a time.</string>
+    <string name="diary_error_student">This account has no such pupil.</string>
+    <string name="diary_error_unknown">It did not work: %1$s</string>
+    <string name="diary_retry">Try again</string>
+
+    <!-- Pupils -->
+    <string name="diary_students_section">Pupil</string>
+    <string name="diary_students_empty_title">No pupils in this account</string>
+    <string name="diary_students_empty_text">The diary returned no children for this login. Check that this is the right account.</string>
+
+    <!-- Tabs -->
+    <string name="diary_tab_schedule">Timetable</string>
+    <string name="diary_tab_grades">Marks</string>
+
+    <!-- Timetable -->
+    <string name="diary_schedule_empty_title">Nothing this week</string>
+    <string name="diary_schedule_empty_text">The diary returned no lessons for these seven days. Step through the weeks with the arrows.</string>
+    <string name="diary_homework_section">Homework</string>
+    <string name="diary_lesson_topic">Topic: %1$s</string>
+    <string name="diary_lesson_no_time">No time given</string>
+    <string name="diary_lesson_room">room %1$s</string>
+
+    <!-- Marks -->
+    <string name="diary_grades_empty_title">No marks yet</string>
+    <string name="diary_grades_empty_text">Nothing has been entered in the register for this period.</string>
+    <string name="diary_grades_range">From %1$s to %2$s</string>
+    <string name="diary_average">Average %1$s</string>
+    <string name="diary_no_average">No average</string>
+    <plurals name="diary_marks_count">
+        <item quantity="one">%1$d mark</item>
+        <item quantity="other">%1$d marks</item>
+    </plurals>
+
+    <!-- Kinds of register entry -->
+    <string name="diary_kind_grade">Mark</string>
+    <string name="diary_kind_absence">Absence</string>
+    <string name="diary_kind_late">Late</string>
+    <string name="diary_kind_remark">Remark</string>
+    <string name="diary_kind_other">Entry</string>
+
+    <!-- Signing out -->
+    <string name="diary_sign_out">Sign out of the diary</string>
+    <string name="diary_sign_out_title">Sign out of the diary?</string>
+    <string name="diary_sign_out_message">The class, its timetable and its notifications stay where they are: these are two separate accounts. Coming back to the diary needs the login and password again.</string>
+    <string name="diary_signed_in_as">Signed in as %1$s</string>
+
+</resources>

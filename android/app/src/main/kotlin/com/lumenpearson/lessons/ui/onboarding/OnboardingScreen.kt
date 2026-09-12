@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Vibration
@@ -59,6 +60,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealAnchor
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.appSlideMotionBlur
+import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.ui.join.JoinScreen
 import com.lumenpearson.lessons.ui.settings.PermissionCard
@@ -119,6 +121,15 @@ fun OnboardingScreen(
     viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Saveable, not remembered, and the language picker on the first step is
+    // what makes that load-bearing rather than tidy. Below API 33 choosing a
+    // language recreates the activity — that is the only way to replace a base
+    // context — and a `remember` here would have put the user back on the
+    // welcome screen every time they touched it. `recreate()` saves and
+    // restores instance state exactly as a rotation does, so the step, the
+    // latched "show the introduction" decision in `LessonsApp` and the settings
+    // view model (retained with the ViewModelStore) all come back as they were;
+    // only the slide animation is lost, which is the right thing to lose.
     var step by rememberSaveable { mutableStateOf(OnboardingStep.WELCOME) }
 
     fun goTo(next: OnboardingStep) {
@@ -223,10 +234,19 @@ fun OnboardingScreen(
  * Step one: the mark, the name, and the one preference worth setting before the
  * user has seen a single screen.
  *
- * Essentials puts its language picker here. This app ships in one language, so
- * the slot goes to the theme instead — the other setting whose effect is visible
- * on the very next frame, and the one a user opening an app at night wants
- * before they are three screens deep in it.
+ * Essentials puts its language picker here, and so does this — now that there
+ * is a second language to put in it. It shares the step with the theme, the
+ * other setting whose effect is visible on the very next frame and the one a
+ * user opening an app at night wants before they are three screens deep in it.
+ *
+ * The language belongs on *this* step and not on [OnboardingStep.PREFERENCES]
+ * two screens later, because everything between the two is prose: the
+ * acknowledgement step is four paragraphs saying what the timetable is and what
+ * it is not, and it is the single most useful thing a new user reads. Somebody
+ * who does not read Russian has to be able to change the language before that,
+ * not after it. It is the same setter the settings page uses and the same
+ * strings, so what is set here is already stored by the time the flow ends and
+ * the row reads identically in both places.
  */
 @Composable
 private fun WelcomeStep(
@@ -274,6 +294,22 @@ private fun WelcomeStep(
                     labelProvider = { mode -> stringResource(mode.labelRes) },
                 )
             }
+            // In the same card as the theme rather than a card of its own: the
+            // two are one question — "how should this look and read to me" —
+            // asked before anything else, and a second card would give a screen
+            // whose whole job is a mark and a greeting two separate blocks to
+            // read. No subtitle either, unlike the settings page: «Системный» is
+            // one of the three labels right beside it, so the sentence that
+            // explains it there would only be repeating a word that is visible.
+            GroupSegmentedItem(
+                title = stringResource(R.string.settings_language),
+                icon = Icons.Rounded.Language,
+                tone = accentTone(1),
+                items = AppLanguage.entries,
+                selectedItem = state.settings.language,
+                onItemSelected = viewModel::setLanguage,
+                labelProvider = { language -> stringResource(language.labelRes) },
+            )
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -538,6 +574,24 @@ private fun PermissionsStep(
         Spacer(Modifier.height(24.dp))
     }
 }
+
+/**
+ * Label of a language in the first-run picker.
+ *
+ * A copy of the settings page's mapping rather than a shared one, because the
+ * settings page's is `private` to its own file and this file may not change it —
+ * but it is a copy of three `when` branches over the same `R.string` names, not
+ * of the strings themselves. `settings_language_*` already exists in `values/`
+ * and `values-en/`; a first-run set beside it would be four more names for the
+ * translation test to keep in step and four more chances for the same word to
+ * end up spelled two ways.
+ */
+private val AppLanguage.labelRes: Int
+    get() = when (this) {
+        AppLanguage.SYSTEM -> R.string.settings_language_system
+        AppLanguage.RUSSIAN -> R.string.settings_language_russian
+        AppLanguage.ENGLISH -> R.string.settings_language_english
+    }
 
 /** The two answers to "may the app keep a crash report", in picker order. */
 private val CrashReportChoices = listOf(false, true)

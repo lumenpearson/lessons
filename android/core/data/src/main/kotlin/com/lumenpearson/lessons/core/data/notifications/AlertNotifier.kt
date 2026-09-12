@@ -14,6 +14,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import com.lumenpearson.lessons.core.data.R
+import com.lumenpearson.lessons.core.data.locale.AppLocale
 import com.lumenpearson.lessons.core.model.DeepLink
 import com.lumenpearson.lessons.core.model.LessonAlertDetail
 import com.lumenpearson.lessons.core.model.SchoolAlert
@@ -32,6 +33,16 @@ import java.time.format.DateTimeFormatter
  * deleted, or because the user revoked the notification permission between the
  * alarm being armed and it ringing, takes the process down with it — and this
  * one runs while the app is not on screen, so nobody would ever see why.
+ *
+ * Every entry point starts by putting the context into the app's own language
+ * through [AppLocale] and then uses nothing else. Below Android 13 the language
+ * a user chose is a property of a `Context` and of nothing wider, and the
+ * context a notification is built from is the application's — reached from an
+ * alarm broadcast, with no activity alive to have wrapped anything. Without
+ * this, a pupil reading the app in English was told «Через 10 минут» by it. The
+ * wrap is one stored-preference read per notification, not per string: it
+ * happens once at the top and the wrapped context is what every `getString`
+ * below is handed.
  */
 internal object AlertNotifier {
 
@@ -65,8 +76,17 @@ internal object AlertNotifier {
      * that exists is a no-op that does *not* overwrite the user's own choices
      * for it — which is exactly why importance is set here once and never
      * adjusted afterwards.
+     *
+     * The name and the description are the exception: they are the app's to
+     * change, and the system does take the new ones. That is what makes the
+     * three channels follow a language change at all — they are strings the
+     * system stored once and shows in its own settings, and they are rewritten
+     * in the chosen language the next time anything posts.
      */
-    fun ensureChannels(context: Context) {
+    fun ensureChannels(context: Context) = ensureChannelsIn(AppLocale.localized(context))
+
+    /** @param context already in the app's language; see [ensureChannels]. */
+    private fun ensureChannelsIn(context: Context) {
         val manager = context.getSystemService<NotificationManager>() ?: return
         manager.createNotificationChannel(
             channel(
@@ -98,9 +118,12 @@ internal object AlertNotifier {
     }
 
     /** Posts [alert], or does nothing if the user has not granted the permission. */
-    fun post(context: Context, alert: SchoolAlert) {
+    fun post(context: Context, alert: SchoolAlert) = postIn(AppLocale.localized(context), alert)
+
+    /** @param context already in the app's language; see [post]. */
+    private fun postIn(context: Context, alert: SchoolAlert) {
         if (!canPost(context)) return
-        ensureChannels(context)
+        ensureChannelsIn(context)
 
         when (alert) {
             is SchoolAlert.LessonSoon -> show(
@@ -163,9 +186,12 @@ internal object AlertNotifier {
      * The one alert with no planned time: the schedule moved under the user's
      * feet and they are being told within seconds of the sync that found it.
      */
-    fun postScheduleChanged(context: Context) {
+    fun postScheduleChanged(context: Context) = postScheduleChangedIn(AppLocale.localized(context))
+
+    /** @param context already in the app's language; see [postScheduleChanged]. */
+    private fun postScheduleChangedIn(context: Context) {
         if (!canPost(context)) return
-        ensureChannels(context)
+        ensureChannelsIn(context)
         show(
             context = context,
             id = ID_CHANGES,

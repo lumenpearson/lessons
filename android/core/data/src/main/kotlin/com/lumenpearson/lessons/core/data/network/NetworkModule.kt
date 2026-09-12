@@ -12,7 +12,8 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
  *
  * There is no DI framework in this app (see `di.Graph` for why), so this object
  * is the factory: [DefaultLessonsContainer][com.lumenpearson.lessons.core.data.di.DefaultLessonsContainer]
- * calls [lessonsApi] once and everything else takes the resulting [LessonsApi].
+ * calls [apis] once and everything else takes the resulting [LessonsApi] and
+ * [DiaryApi].
  */
 internal object NetworkModule {
 
@@ -38,9 +39,12 @@ internal object NetworkModule {
     }
 
     /**
-     * @param tokenProvider blocking read of the stored bearer token, or `null`
+     * @param tokenProvider blocking read of the stored class bearer, or `null`
      * before the device has joined a class.
      * @param baseUrlProvider blocking read of the configured server address.
+     * @param diaryTokenProvider blocking read of the stored diary bearer, or
+     * `null` while nobody is signed in to a diary. A different token from
+     * [tokenProvider] and never a substitute for it.
      *
      * Timeouts are short enough that the widget's sync worker cannot hang on a
      * dead school server for minutes, and long enough for a slow mobile network
@@ -49,16 +53,25 @@ internal object NetworkModule {
     fun okHttpClient(
         tokenProvider: () -> String?,
         baseUrlProvider: () -> String,
+        diaryTokenProvider: () -> String? = { null },
     ): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
         .callTimeout(60, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
-        // Order matters: the URL is rewritten first so the auth interceptor sees
-        // the real path when it decides whether the call needs a token.
+        // Order matters: the URL is rewritten first so the auth interceptors see
+        // the real path when they decide whether the call is theirs to sign.
         .addInterceptor(BaseUrlInterceptor(baseUrlProvider))
+        // Two bearers, one client. The class token and the diary token are
+        // independent — either can exist without the other, and signing out of
+        // one must not disturb the other — so each has an interceptor that
+        // knows which paths belong to it: [AuthInterceptor] skips
+        // `/api/v1/diary`, [DiaryAuthInterceptor] touches only it. One client
+        // rather than two because they talk to the same host and there is no
+        // reason to pay for a second connection pool and dispatcher.
         .addInterceptor(AuthInterceptor(tokenProvider))
+        .addInterceptor(DiaryAuthInterceptor(diaryTokenProvider))
         .build()
 
     /** Retrofit configured for kotlinx.serialization; see [PLACEHOLDER_BASE_URL]. */
@@ -71,12 +84,28 @@ internal object NetworkModule {
         .addConverterFactory(json.asConverterFactory(JSON_MEDIA_TYPE))
         .build()
 
-    /** The one call sites use. */
-    fun lessonsApi(
+    /**
+     * The stack every call site shares: one client, one Retrofit, two APIs.
+     *
+     * Built as a pair rather than through two factories because the client is
+     * the expensive part and both interfaces want the same one — the same
+     * pool, the same timeouts and the same base-URL rewrite.
+     */
+    fun apis(
         tokenProvider: () -> String?,
         baseUrlProvider: () -> String,
-    ): LessonsApi = retrofit(
-        client = okHttpClient(tokenProvider, baseUrlProvider),
-        json = json(),
-    ).create(LessonsApi::class.java)
+        diaryTokenProvider: () -> String?,
+    ): Apis {
+        val retrofit = retrofit(
+            client = okHttpClient(tokenProvider, baseUrlProvider, diaryTokenProvider),
+            json = json(),
+        )
+        return Apis(
+            lessons = retrofit.create(LessonsApi::class.java),
+            diary = retrofit.create(DiaryApi::class.java),
+        )
+    }
+
+    /** @see apis */
+    data class Apis(val lessons: LessonsApi, val diary: DiaryApi)
 }

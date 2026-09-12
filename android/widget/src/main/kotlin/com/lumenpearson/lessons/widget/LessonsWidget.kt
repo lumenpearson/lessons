@@ -3,8 +3,10 @@ package com.lumenpearson.lessons.widget
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.glance.GlanceId
 import androidx.glance.GlanceTheme
+import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.Action
 import androidx.glance.action.actionStartActivity
@@ -13,6 +15,8 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.provideContent
 import com.lumenpearson.lessons.core.data.di.Graph
+import com.lumenpearson.lessons.core.data.locale.AppLocale
+import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.DeepLink
 import com.lumenpearson.lessons.core.model.ScheduleEngine
@@ -40,6 +44,16 @@ import kotlinx.coroutines.flow.first
  * **The clock is read exactly once per render.** Reading `LocalDateTime.now()`
  * in several places within one draw can straddle a bell and produce a widget
  * that says "Урок" above a countdown to the same lesson's start.
+ *
+ * The same holds for the language. Below Android 13 the app's chosen language
+ * lives in a `Context` and in nothing wider, and the context a widget is
+ * rendered from is the application's — which nothing has wrapped, because there
+ * may be no activity alive and the render often happens in another process's
+ * wake-up of ours. So the choice is read once, with the rest of the snapshot
+ * that one render is built from, the context is wrapped once, and it is
+ * published as Glance's own [LocalContext] — which is where every `getString`
+ * in the tree below already reads its context from, so nothing else in the
+ * widget had to learn about languages at all.
  */
 class LessonsWidget : GlanceAppWidget() {
 
@@ -65,23 +79,31 @@ class LessonsWidget : GlanceAppWidget() {
                 homeworkDay = null,
                 week = emptyList(),
                 options = WidgetOptions(),
+                language = AppLanguage.SYSTEM,
             )
         }
 
+        // Once per render, not once per string: the stored choice came back with
+        // the snapshot above, and localized() hands the context straight back on
+        // API 33+ and on "системный", where there is nothing to override.
+        val localized = AppLocale.localized(context, snapshot.language)
+
         provideContent {
-            GlanceTheme {
-                LessonsWidgetBody(
-                    state = snapshot.state,
-                    signedIn = snapshot.signedIn,
-                    today = snapshot.today,
-                    homeworkDay = snapshot.homeworkDay,
-                    now = snapshot.now,
-                    size = WidgetSizeClass.of(LocalSize.current),
-                    week = snapshot.week,
-                    options = snapshot.options,
-                    onClick = openApp(context),
-                    onDayClick = { date -> openDay(context, date) },
-                )
+            CompositionLocalProvider(LocalContext provides localized) {
+                GlanceTheme {
+                    LessonsWidgetBody(
+                        state = snapshot.state,
+                        signedIn = snapshot.signedIn,
+                        today = snapshot.today,
+                        homeworkDay = snapshot.homeworkDay,
+                        now = snapshot.now,
+                        size = WidgetSizeClass.of(LocalSize.current),
+                        week = snapshot.week,
+                        options = snapshot.options,
+                        onClick = openApp(context),
+                        onDayClick = { date -> openDay(context, date) },
+                    )
+                }
             }
         }
     }
@@ -95,6 +117,10 @@ class LessonsWidget : GlanceAppWidget() {
      *   entered a class code yet, or a class was joined but nothing has synced —
      *   and the widget used to tell every one of those users to go and enter a
      *   code they had already entered.
+     * @property language the stored language choice, carried here rather than
+     *   read again at render time so that one snapshot means one preference
+     *   read. It is not a `WidgetOption`: the options decide *what* is drawn and
+     *   this decides which resources the drawing resolves through.
      */
     data class Snapshot(
         val now: LocalDateTime,
@@ -104,6 +130,7 @@ class LessonsWidget : GlanceAppWidget() {
         val homeworkDay: SchoolDay?,
         val week: List<DayLoad>,
         val options: WidgetOptions,
+        val language: AppLanguage,
     )
 
     private companion object {
@@ -173,6 +200,7 @@ class LessonsWidget : GlanceAppWidget() {
             },
             today = timetable?.day(now.toLocalDate()),
             homeworkDay = homeworkDayFor(state, timetable, now.toLocalDate()),
+            language = settings.language,
             options = WidgetOptions(
                 showProgress = settings.widgetShowProgress,
                 showTeacher = settings.showTeacher,

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Электронный дневник Петербурга.
+
+  Отдельный файл, а не ещё один блок в strings.xml: дневник — отдельный аккаунт
+  в чужом сервисе, и его тексты не имеют ничего общего с расписанием класса.
+  Пара к нему лежит в values-en/strings_diary.xml; ResourceTranslationTest
+  следит, чтобы обе половины совпадали по именам, аргументам и формам.
+-->
+<resources>
+
+    <!-- Раздел настроек -->
+    <string name="diary_title">Дневник</string>
+    <string name="diary_section_summary">Расписание, задания и оценки из электронного дневника Петербурга</string>
+
+    <!-- Вход -->
+    <string name="diary_sign_in_title">Вход в дневник</string>
+    <string name="diary_sign_in_subtitle">Те же логин и пароль, что на сайте электронного дневника Петербурга</string>
+    <string name="diary_login_label">Логин</string>
+    <string name="diary_password_label">Пароль</string>
+    <string name="diary_password_reveal">Показать пароль</string>
+    <string name="diary_password_hide">Скрыть пароль</string>
+    <string name="diary_sign_in_action">Войти</string>
+    <string name="diary_password_notice">Пароль нигде не сохраняется. Он нужен ровно на один запрос — вход в дневник, — после чего его забывают и телефон, и сервер. Когда сессия дневника всё-таки закончится, приложение спросит пароль ещё раз.</string>
+
+    <!-- Повторный вход, когда сессия дневника умерла на той стороне -->
+    <string name="diary_reauth_title">Сессия дневника закончилась</string>
+    <string name="diary_reauth_message">Дневник закрыл сессию для %1$s. Логин остался — нужен только пароль.</string>
+
+    <!-- Ошибки -->
+    <string name="diary_failure_title">Не получилось</string>
+    <string name="diary_error_credentials">Неверный логин или пароль</string>
+    <string name="diary_error_signed_out">Вход в дневник больше не действует. Войдите заново.</string>
+    <string name="diary_error_unavailable">Дневник не отвечает. Попробуйте позже.</string>
+    <string name="diary_error_unreadable">Дневник ответил непонятно: сервис изменился, и это чинится на сервере, а не в приложении.</string>
+    <string name="diary_error_offline">Нет связи с сервером. Проверьте интернет и адрес сервера в разделе «Синхронизация».</string>
+    <string name="diary_error_range">Слишком широкий промежуток дат — дневник отдаёт не больше 62 дней за раз.</string>
+    <string name="diary_error_student">Этого ученика нет в аккаунте.</string>
+    <string name="diary_error_unknown">Не получилось: %1$s</string>
+    <string name="diary_retry">Повторить</string>
+
+    <!-- Ученики -->
+    <string name="diary_students_section">Ученик</string>
+    <string name="diary_students_empty_title">В аккаунте нет учеников</string>
+    <string name="diary_students_empty_text">Дневник не вернул ни одного ребёнка для этого логина. Проверьте, тот ли это аккаунт.</string>
+
+    <!-- Вкладки -->
+    <string name="diary_tab_schedule">Расписание</string>
+    <string name="diary_tab_grades">Оценки</string>
+
+    <!-- Расписание -->
+    <string name="diary_schedule_empty_title">На этой неделе пусто</string>
+    <string name="diary_schedule_empty_text">Дневник не отдал ни одного урока за эти семь дней. Полистайте недели стрелками.</string>
+    <string name="diary_homework_section">Домашнее задание</string>
+    <string name="diary_lesson_topic">Тема: %1$s</string>
+    <string name="diary_lesson_no_time">Время не указано</string>
+    <string name="diary_lesson_room">каб. %1$s</string>
+
+    <!-- Оценки -->
+    <string name="diary_grades_empty_title">Оценок пока нет</string>
+    <string name="diary_grades_empty_text">За этот промежуток в журнале ничего не выставлено.</string>
+    <string name="diary_grades_range">С %1$s по %2$s</string>
+    <string name="diary_average">Средний %1$s</string>
+    <string name="diary_no_average">Без среднего</string>
+    <plurals name="diary_marks_count">
+        <item quantity="one">%1$d оценка</item>
+        <item quantity="few">%1$d оценки</item>
+        <item quantity="many">%1$d оценок</item>
+        <item quantity="other">%1$d оценки</item>
+    </plurals>
+
+    <!-- Виды записей в журнале -->
+    <string name="diary_kind_grade">Оценка</string>
+    <string name="diary_kind_absence">Пропуск</string>
+    <string name="diary_kind_late">Опоздание</string>
+    <string name="diary_kind_remark">Замечание</string>
+    <string name="diary_kind_other">Запись</string>
+
+    <!-- Выход -->
+    <string name="diary_sign_out">Выйти из дневника</string>
+    <string name="diary_sign_out_title">Выйти из дневника?</string>
+    <string name="diary_sign_out_message">Класс, расписание и уведомления останутся на месте: это два разных аккаунта. Чтобы вернуться в дневник, понадобятся логин и пароль.</string>
+    <string name="diary_signed_in_as">Вход выполнен: %1$s</string>
+
+</resources>

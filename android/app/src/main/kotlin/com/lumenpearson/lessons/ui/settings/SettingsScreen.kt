@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.BlurLinear
 import androidx.compose.material.icons.rounded.BlurOn
@@ -98,6 +99,7 @@ import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.navigation.labelRes
 import com.lumenpearson.lessons.ui.common.ServerUrlSheet
+import com.lumenpearson.lessons.ui.diary.DiaryScreen
 import com.lumenpearson.lessons.ui.common.SyncIntervalOptionsMinutes
 import com.lumenpearson.lessons.ui.common.asText
 import com.lumenpearson.lessons.ui.common.syncIntervalLabel
@@ -162,6 +164,23 @@ enum class SettingsSection(
         R.string.settings_class_summary,
         Icons.Rounded.School,
         1,
+    ),
+    /**
+     * The Petersburg diary: a second account, in a service this app does not
+     * own, that most installs will never have.
+     *
+     * It is a section rather than a fourth tab because a tab would show a
+     * sign-in wall in the bottom bar of everybody without such an account, for
+     * good — the toolbar never hides a destination. Next to «Класс» because
+     * the two rows are the same kind of thing: which account this phone is
+     * signed in to. The page it opens is not a list of preferences, which is
+     * why [SettingsSectionScreen] hands it over whole.
+     */
+    DIARY(
+        R.string.diary_title,
+        R.string.diary_section_summary,
+        Icons.AutoMirrored.Rounded.MenuBook,
+        4,
     ),
     UPDATES(
         R.string.settings_updates,
@@ -265,6 +284,15 @@ fun SettingsSectionScreen(
     onOpenSection: (SettingsSection) -> Unit = {},
     viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
 ) {
+    // The diary is a whole screen of its own rather than a list of rows: it has
+    // a sign-in, a week of a timetable and a register in it, and none of that
+    // is a preference. It still arrives as a section so that it inherits the
+    // shell's title, its back gesture and the slide that carries it in.
+    if (section == SettingsSection.DIARY) {
+        DiaryScreen(modifier = modifier)
+        return
+    }
+
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showServerSheet by rememberSaveable { mutableStateOf(false) }
     var showSignOutSheet by rememberSaveable { mutableStateOf(false) }
@@ -359,6 +387,8 @@ fun SettingsSectionScreen(
                 )
             }
             SettingsSection.PERMISSIONS -> permissionRows()
+            // Handled above, before this page's scaffold exists.
+            SettingsSection.DIARY -> Unit
         }
     }
 }

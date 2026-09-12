@@ -15,6 +15,8 @@ import com.lumenpearson.lessons.core.data.repository.TimetableRepositoryImpl
 import com.lumenpearson.lessons.core.data.github.GithubRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepositoryImpl
+import com.lumenpearson.lessons.core.data.repository.DiaryRepository
+import com.lumenpearson.lessons.core.data.repository.DiaryRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.GithubRepository
 import com.lumenpearson.lessons.core.data.repository.UpdateRepository
 import com.lumenpearson.lessons.core.data.sync.DataSyncBroadcast
@@ -36,6 +38,12 @@ interface LessonsContainer {
     val updateRepository: UpdateRepository
     val githubRepository: GithubRepository
     val deviceLinkRepository: DeviceLinkRepository
+
+    /**
+     * The Petersburg diary. Present whether or not anybody has signed in to
+     * one: it is the repository that knows, and the section asks it.
+     */
+    val diaryRepository: DiaryRepository
 }
 
 /**
@@ -70,12 +78,22 @@ class DefaultLessonsContainer(
 
     private val database: LessonsDatabase by lazy { LessonsDatabase.build(appContext) }
 
-    private val api: LessonsApi by lazy {
-        NetworkModule.lessonsApi(
+    /**
+     * One client, two interfaces, two bearers.
+     *
+     * The diary's token is read through its own provider — see
+     * `DiaryAuthInterceptor` — so that neither account can ever be signed with
+     * the other's credentials.
+     */
+    private val apis: NetworkModule.Apis by lazy {
+        NetworkModule.apis(
             tokenProvider = { preferences.tokenBlocking() },
             baseUrlProvider = { preferences.baseUrlBlocking() },
+            diaryTokenProvider = { preferences.diaryTokenBlocking() },
         )
     }
+
+    private val api: LessonsApi by lazy { apis.lessons }
 
     override val timetableRepository: TimetableRepository by lazy {
         TimetableRepositoryImpl(
@@ -114,6 +132,17 @@ class DefaultLessonsContainer(
 
     override val deviceLinkRepository: DeviceLinkRepository by lazy {
         DeviceLinkRepositoryImpl(api = api)
+    }
+
+    override val diaryRepository: DiaryRepository by lazy {
+        DiaryRepositoryImpl(
+            api = apis.diary,
+            // The preferences object is the store: it is the one thing in the
+            // process that may open the DataStore file, and the interface it
+            // implements is narrow enough that this repository cannot reach
+            // the class token through it.
+            store = preferences,
+        )
     }
 
     override val githubRepository: GithubRepository by lazy {

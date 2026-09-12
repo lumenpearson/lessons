@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.core.data.notifications
 
 import android.content.Context
 import com.lumenpearson.lessons.core.data.R
+import com.lumenpearson.lessons.core.data.locale.AppLocale
 import com.lumenpearson.lessons.core.model.AlertPreferences
 import com.lumenpearson.lessons.core.model.Lesson
 import com.lumenpearson.lessons.core.model.SchoolAlert
@@ -38,7 +39,14 @@ object AlertPreview {
      *   nothing.
      */
     fun post(context: Context, preferences: AlertPreferences): Boolean {
-        val appContext = context.applicationContext
+        // In the app's own language, like every other notification — and for a
+        // preview more visibly than for the rest, because the person looking at
+        // it is looking at it in order to judge the wording. [AlertNotifier.post]
+        // wraps again below; handing it a context that is already in the chosen
+        // language costs one cached preference read and no second configuration,
+        // because AppLocale.localized returns a context that already resolves in
+        // that language unchanged.
+        val appContext = AppLocale.localized(context.applicationContext)
         if (!AlertNotifier.canPost(appContext)) return false
 
         // Sat in the middle of a plausible school morning rather than at "now":

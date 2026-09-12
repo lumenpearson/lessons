@@ -392,6 +392,7 @@ internal fun WeekStrip(
     openDay: (LocalDate) -> Action,
     modifier: GlanceModifier = GlanceModifier,
 ) {
+    val context = LocalContext.current
     Row(modifier = modifier.fillMaxWidth()) {
         week.forEach { day ->
             val isToday = day.date == today
@@ -417,7 +418,7 @@ internal fun WeekStrip(
                     GlanceTheme.colors.onSurfaceVariant
                 }
                 Text(
-                    text = WidgetStrings.shortWeekday(day.date),
+                    text = WidgetStrings.shortWeekday(context, day.date),
                     maxLines = 1,
                     style = TextStyle(color = content, fontSize = (size.captionSp - 1f).sp),
                 )
