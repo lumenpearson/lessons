@@ -466,3 +466,191 @@ class TickOut(BaseModel):
     failed: int
     fsm_purged: int
     join_attempts_purged: int
+
+
+# ---------------------------------------------------------------------------
+# The electronic diary
+#
+# The wire shapes of ``/api/v1/diary``. Every one is built from a provider
+# model by its own ``of``, and that constructor is the seam: when the upstream
+# changes, the provider's mapper absorbs it, these classes do not move, and the
+# Android client never learns that anything happened.
+# ---------------------------------------------------------------------------
+
+
+class DiaryLoginIn(BaseModel):
+    """Credentials, used once and never stored.
+
+    ``login`` rather than ``email`` because the upstream accepts more than one
+    kind of identifier and calling it an email would be a promise this project
+    cannot keep.
+    """
+
+    login: str = Field(min_length=3, max_length=200)
+    password: str = Field(min_length=1, max_length=200)
+
+    @field_validator("login")
+    @classmethod
+    def _clean_login(cls, value: str) -> str:
+        cleaned = _strip_control_chars(value).strip()
+        if len(cleaned) < 3:
+            raise ValueError("login must contain at least 3 usable characters")
+        return cleaned
+
+
+class DiaryLoginOut(BaseModel):
+    token: str
+    login: str
+
+
+class DiaryStudentOut(BaseModel):
+    id: int
+    first_name: str
+    last_name: str
+    middle_name: str | None = None
+    full_name: str
+    school: str | None = None
+    class_name: str | None = None
+
+    @classmethod
+    def of(cls, student) -> DiaryStudentOut:
+        # Deliberately without ``education_id`` and ``group_id``: they are the
+        # upstream's handles, the server resolves them from the student id on
+        # every request, and a client that learned them would be a client that
+        # could be pointed at somebody else's child.
+        return cls(
+            id=student.id,
+            first_name=student.first_name,
+            last_name=student.last_name,
+            middle_name=student.middle_name,
+            full_name=student.full_name,
+            school=student.school,
+            class_name=student.class_name,
+        )
+
+
+class DiaryPeriodOut(BaseModel):
+    id: int
+    name: str
+    starts_on: Date | None = None
+    ends_on: Date | None = None
+    is_current: bool = False
+
+    @classmethod
+    def of(cls, period) -> DiaryPeriodOut:
+        return cls(
+            id=period.id,
+            name=period.name,
+            starts_on=period.starts_on,
+            ends_on=period.ends_on,
+            is_current=period.is_current,
+        )
+
+
+class DiarySubjectOut(BaseModel):
+    id: int | None = None
+    name: str
+
+    @classmethod
+    def of(cls, subject) -> DiarySubjectOut:
+        return cls(id=subject.id, name=subject.name)
+
+
+class DiaryTeacherOut(BaseModel):
+    id: int | None = None
+    name: str
+    position: str | None = None
+    subjects: list[str] = []
+
+    @classmethod
+    def of(cls, teacher) -> DiaryTeacherOut:
+        return cls(
+            id=teacher.id,
+            name=teacher.name,
+            position=teacher.position,
+            subjects=list(teacher.subjects),
+        )
+
+
+class DiaryMarkOut(BaseModel):
+    """One register entry.
+
+    ``value`` is what belongs in the cell and ``kind`` says what it means, so a
+    client can colour an absence differently without knowing that upstream it
+    was type code 30000.
+    """
+
+    id: int | None = None
+    subject_id: int | None = None
+    subject: str
+    date: Date | None = None
+    value: str
+    kind: str
+    reason: str | None = None
+    comment: str | None = None
+
+    @classmethod
+    def of(cls, mark) -> DiaryMarkOut:
+        return cls(
+            id=mark.id,
+            subject_id=mark.subject_id,
+            subject=mark.subject_name,
+            date=mark.date,
+            value=mark.value,
+            kind=mark.kind.value,
+            reason=mark.reason,
+            comment=mark.comment,
+        )
+
+
+class DiaryLessonOut(BaseModel):
+    date: Date
+    number: int | None = None
+    subject: str
+    starts_at: Time | None = None
+    ends_at: Time | None = None
+    room: str | None = None
+    teacher: str | None = None
+    homework: str | None = None
+    topic: str | None = None
+
+    @classmethod
+    def of(cls, lesson) -> DiaryLessonOut:
+        return cls(
+            date=lesson.date,
+            number=lesson.number,
+            subject=lesson.subject,
+            starts_at=lesson.starts_at,
+            ends_at=lesson.ends_at,
+            room=lesson.room,
+            teacher=lesson.teacher,
+            homework=lesson.homework,
+            topic=lesson.topic,
+        )
+
+
+class DiaryHomeworkOut(BaseModel):
+    id: int | None = None
+    due_date: Date
+    subject: str
+    text: str
+    teacher: str | None = None
+
+    @classmethod
+    def of(cls, item) -> DiaryHomeworkOut:
+        return cls(
+            id=item.id,
+            due_date=item.due_date,
+            subject=item.subject,
+            text=item.text,
+            teacher=item.teacher,
+        )
+
+
+class DiaryAttendanceOut(BaseModel):
+    at: datetime
+    direction: str
+
+    @classmethod
+    def of(cls, event) -> DiaryAttendanceOut:
+        return cls(at=event.at, direction=event.direction)

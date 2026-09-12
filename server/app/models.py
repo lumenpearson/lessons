@@ -571,6 +571,47 @@ class AuditEntry(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class DiarySession(Base):
+    """A signed-in session with the Petersburg electronic diary.
+
+    What is stored here is the upstream's own session token and nothing else.
+    Not the password: the reference implementations this integration was
+    modelled on keep it so they can silently re-authenticate once a day, and
+    that trade — a plaintext password for every family, sitting in a database,
+    to save one login screen — is not one worth making. When the upstream
+    session dies the app asks the person to sign in again, which is what every
+    other service does too.
+
+    The token is a bearer credential, so it is treated like one: it never
+    leaves the server, never reaches the Android client, and the client is
+    handed a token of ours instead (`token_hash`, hashed exactly like
+    :class:`DeviceToken`). One row is one browser-shaped session; a person
+    signing in twice gets two, and signing out drops one.
+    """
+
+    __tablename__ = "diary_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # Our token, as a hash. The plaintext is shown to the client once.
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    # The upstream's ``X-JWT-Token``. Refreshed in place whenever the upstream
+    # hands back a new one, which it does on most calls.
+    upstream_token: Mapped[str] = mapped_column(Text, nullable=False)
+    # Who signed in, for the "you are signed in as" line and nothing else.
+    login: Mapped[str] = mapped_column(String(200), nullable=False)
+    # The Telegram account this session belongs to, when it was created from a
+    # linked device. Null for a session created by login alone.
+    telegram_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # When the upstream refused us and the person has to sign in again.
+    expired_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    @property
+    def is_live(self) -> bool:
+        return self.expired_at is None
+
+
 DEFAULT_BELLS: list[tuple[int, time, time]] = [
     (1, time(8, 30), time(9, 15)),
     (2, time(9, 25), time(10, 10)),

@@ -12,6 +12,10 @@ dependencies = [
     "asyncpg>=0.29",
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
+    # The Petersburg diary provider talks to an upstream over HTTP. It was
+    # already here as a test dependency (httpx drives the ASGI client); this
+    # promotes it, because now a request path uses it.
+    "httpx>=0.27",
     # Schema changes. Not in requirements.txt: migrations are run from a
     # workstation against the database, never from inside a request, and the
     # function bundle is smaller without it.

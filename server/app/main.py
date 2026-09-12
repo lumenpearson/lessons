@@ -15,6 +15,7 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 
 from app.api.cron import router as cron_router
+from app.api.diary import router as diary_router
 from app.api.edit import router as edit_router
 from app.api.public import router as public_router
 from app.config import get_settings
@@ -67,6 +68,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if bot_task is not None:
             with contextlib.suppress(asyncio.CancelledError):
                 await bot_task
+        # The diary's HTTP client is process-wide and pooled; closing it is
+        # what returns its sockets rather than leaving them to a finaliser.
+        from app.providers.petersburg import close_client
+
+        await close_client()
 
 
 app = FastAPI(
@@ -76,6 +82,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(public_router)
+# The electronic diary of Saint Petersburg, behind its own bearer and its own
+# prefix. Mounted unconditionally: it needs no configuration of ours, only a
+# person's own account with the service, and an endpoint that answers 401
+# without one is honest about what it is.
+app.include_router(diary_router)
 app.include_router(edit_router)
 # Always mounted; the endpoint itself answers 404 until CRON_SECRET is set,
 # the same way the webhook does, and the aiogram import it needs is deferred
