@@ -27,8 +27,9 @@ from alembic import context, op
 
 from app.db import Base
 
-# Importing the models registers them on the metadata.
-from app import models  # noqa: F401  isort:skip
+# Importing the models registers them on the metadata - the FSM table too,
+# which is declared next to its storage rather than in models.py.
+from app import fsm_storage, models  # noqa: F401  isort:skip
 
 revision: str = "0001"
 down_revision: str | None = None

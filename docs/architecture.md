@@ -158,6 +158,65 @@ repositories from entry points Hilt does not inject cleanly, and Room already
 costs one KSP processor. `Graph` is a small hand-written container that a test
 can swap wholesale.
 
+## Слой сервисов, и почему телефон не логинится
+
+`server/app/services/` — восемь модулей чистых async-функций над сессией, и
+существуют они ровно потому, что у каждой функции продукта теперь два входа:
+бот и приложение. Домашка добавляется командой в чате и кнопкой на телефоне;
+замена, событие, особый день — тоже. Две реализации одного правила разошлись бы
+в первый же месяц, поэтому правило одно, а handler'ы и endpoint'ы — две тонкие
+оболочки над ним: журнал изменений, привязка устройств, личные задачи, отметки
+о сделанной домашке, напоминания и их идемпотентность, рассылка подписчикам,
+лента календаря, статистика, экспорт и импорт расписания.
+
+Прав у телефона своих нет — и это главное решение этого слоя. Устройство
+получает от сервера шестисимвольный код, человек отправляет его боту, и с этого
+момента токен устройства привязан к Telegram-аккаунту. Любая запись с телефона
+проверяется так: найти аккаунт по токену, спросить его роль **в этом классе в
+момент запроса** (`linking.effective_role`), сравнить с EDITOR. Ни роли, ни
+срока действия на устройстве не хранится, потому что хранить нечего: отозвали
+человека в боте — следующее нажатие в приложении получает 403. Отвязка
+устройства не трогает сам токен: приложение продолжает читать расписание, как
+читало до привязки.
+
+У сервера нет своих часов: на serverless между запросами не выполняется ничего.
+Поэтому сводки шлёт внешний тик (`/api/v1/cron/tick`, workflow каждые пять
+минут), который спрашивает у базы «что созрело по часам своего класса и ещё не
+отправлено сегодня». Отметка о отправке ставится **до** отправки: тик, упавший
+посередине, не рассылает сводку дважды, а опоздавший на десять минут — досылает.
+
+## Чужой сервис за одной дверью
+
+`server/app/providers/petersburg/` — интеграция с электронным дневником
+Санкт-Петербурга. Сервис не документирован: его адреса, имена параметров и
+формы ответов установлены по открытым клиентам, которые с ним разговаривают, и
+использованы как карта, а не скопированы. Из этого следует всё остальное в
+устройстве этого каталога.
+
+Граница проведена в трёх файлах и держится ими:
+
+| Файл | Знает |
+| --- | --- |
+| `client.py` | адреса, параметры, куку сессии, форматы дат |
+| `mapper.py` | как называются поля в ответах и что означает код 30000 |
+| `models.py` | ничего из перечисленного — это модели нашего приложения |
+
+Выше `models.py` никто не знает слов `p_educations[]`, `estimate_value_name`
+или `X-JWT-Token`. Когда наверху переименуют поле, чинится `mapper.py`; когда
+переедет endpoint — `client.py`. Публичный API и Android при этом не меняются,
+и ради этого всё и затевалось.
+
+Маппер намеренно снисходителен: поле ищется под всеми именами, под которыми
+оно встречалось, а строка, которую не удалось прочитать, выбрасывается, а не
+роняет запрос. Неделя оценок с одной нечитаемой записью полезнее страницы с
+ошибкой. Строгость — на выходе: урок без даты это не урок, и его нет.
+
+Пароль не хранится. Логин нужен на один запрос, дальше живёт сессия самого
+сервиса, которая обновляется из его же ответов. Когда она умирает, запрос
+отвечает `401` с `X-Diary-Reauth: required`, и приложение спрашивает пароль
+заново. Цена — фоновая синхронизация дневника не переживает сессию; плата за
+альтернативу — пароль каждой семьи в базе.
+
 ## Testing
 
 | Suite | What it covers | Runs where |
@@ -166,6 +225,11 @@ can swap wholesale.
 | `server/tests/test_api.py` | join, bundle, auth failures, revoked tokens, parameter validation | pytest + httpx ASGI |
 | `server/tests/test_roles.py` | the permission ladder, phone normalisation, invite claiming | pytest |
 | `server/tests/test_bot_handlers.py` | timetable and bell parsing, homework upsert, замена parsing, role-grant guards | pytest |
+| `server/tests/test_services.py` | task grammar, reminder idempotence across zones, ICS folding and escaping, timetable import/export, stats | pytest |
+| `server/tests/test_api_extended.py` | ETag and 304, device linking, write endpoints under every role, tasks scoped to their owner, the calendar feed, the cron tick | pytest + httpx ASGI |
+| `server/tests/test_bot_views.py` | week and "what next" rendering at fixed times, task grouping, reminder settings | pytest |
+| `server/tests/test_diary_mapper.py` | upstream shapes → domain models, the absence code, tolerant field names, unreadable rows dropped | pytest |
+| `server/tests/test_diary_api.py` | login, the password never stored, session refresh and expiry, another family's id refused, date formats | pytest + a fake upstream |
 | `server/tests/test_timezones.py` | all eleven Russian zones, ordering, bad-input fallback | pytest |
 | `android/core/model/.../ScheduleEngineTest.kt` | every `DayState`, boundary conditions, event precedence, next-transition scheduling | JVM JUnit |
 

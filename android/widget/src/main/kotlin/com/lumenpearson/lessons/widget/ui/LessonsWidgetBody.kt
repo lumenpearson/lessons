@@ -122,7 +122,13 @@ internal fun LessonsWidgetBody(
             .clickable(onClick)
             .padding(size.paddingDp.dp),
     ) {
-        if (state == null) {
+        // NoData is the same absence a null state is — there is no cached day
+        // for this date at all — and every layout below reads absence as
+        // emptiness: the timeline prints «Уроков больше нет» because it has no
+        // lessons, and the homework line «Ничего не задано» because it has no
+        // homework. Both are claims about a day the widget has never seen. The
+        // instruction underneath is the only thing it actually knows.
+        if (state == null || state is DayState.NoData) {
             EmptyBody(size = size, signedIn = signedIn)
         } else {
             when (size) {
@@ -159,9 +165,11 @@ internal fun LessonsWidgetBody(
 @Composable
 private fun EmptyBody(size: WidgetSizeClass, signedIn: Boolean) {
     val context = LocalContext.current
-    val compact = size == WidgetSizeClass.TINY ||
-        size == WidgetSizeClass.WIDE ||
-        size == WidgetSizeClass.SMALL
+    // By width, not by naming the sizes one at a time. The list was written when
+    // there were three narrow rungs and did not grow when two more arrived, so
+    // SMALL_TALL and NARROW were handed the long strings in a 110 dp column —
+    // and Glance text cannot ellipsize, so they were hard-clipped mid-word.
+    val compact = size.isNarrow || size == WidgetSizeClass.WIDE
     val text = when {
         !signedIn && compact -> R.string.widget_empty_short
         !signedIn -> R.string.widget_empty_title
@@ -569,10 +577,7 @@ private fun TodayHomeworkLine(
     size: WidgetSizeClass,
 ) {
     val context = LocalContext.current
-    val subjects = today?.homework.orEmpty()
-        .filter { it.text.isNotBlank() }
-        .map { it.subject }
-        .distinct()
+    val subjects = subjectsIn(today?.homework.orEmpty())
     Row(
         modifier = GlanceModifier.fillMaxWidth(),
         verticalAlignment = Alignment.Vertical.CenterVertically,
@@ -584,13 +589,13 @@ private fun TodayHomeworkLine(
         )
         HSpace(6)
         CaptionText(
-            text = if (subjects.isEmpty()) {
+            text = if (subjects == 0) {
                 context.getString(R.string.widget_homework_empty)
             } else {
-                WidgetStrings.subjectCount(context, subjects.size)
+                WidgetStrings.subjectCount(context, subjects)
             },
             size = size,
-            emphasised = subjects.isNotEmpty(),
+            emphasised = subjects > 0,
         )
     }
 }

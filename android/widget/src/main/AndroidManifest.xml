@@ -39,8 +39,16 @@
             android:label="@string/widget_provider_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <!-- Redraw when the system theme flips, so Material You colours follow. -->
-                <action android:name="android.intent.action.CONFIGURATION_CHANGED" />
+                <!--
+                  CONFIGURATION_CHANGED used to be listed here, to redraw on a
+                  theme flip. The platform never delivers it to a receiver
+                  declared in a manifest — only to one registered through
+                  Context.registerReceiver, which a widget with no running
+                  process cannot do — so the filter matched nothing and the
+                  branch behind it never ran. Night colours come from
+                  res/values-night instead, resolved by the launcher when it
+                  inflates the RemoteViews.
+                -->
                 <!-- :core:data fires this after every successful sync. -->
                 <action android:name="com.lumenpearson.lessons.action.DATA_SYNCED" />
             </intent-filter>

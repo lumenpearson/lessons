@@ -174,6 +174,7 @@ class ScheduleResolver:
             self._timetable.setdefault(entry.weekday, []).append(entry)
 
         self._subject_colors = {s.name: s.color for s in subjects if s.color}
+        self._subject_teachers = {s.name: s.teacher for s in subjects if s.teacher}
         self._day_overrides = {o.date: o for o in day_overrides}
 
         self._lesson_overrides: dict[Date, dict[int, LessonOverride]] = {}
@@ -269,13 +270,24 @@ class ScheduleResolver:
             subject = override.subject_name or (existing.subject if existing else None)
             if subject is None:
                 continue
+            # Room and teacher fall through from the template only while it is
+            # still the same subject - a room change, a different teacher for
+            # the same lesson. Once the subject itself is replaced the template
+            # row describes a lesson that is not happening, and carrying its
+            # teacher over pinned the физик's name on the история that took
+            # the slot. The subject dictionary knows who teaches the new one.
+            same_subject = existing is not None and existing.subject == subject
+            inherited_room = existing.room if same_subject else None
+            inherited_teacher = (
+                existing.teacher if same_subject else self._subject_teachers.get(subject)
+            )
             slots[index] = ResolvedLesson(
                 index=index,
                 subject=subject,
                 starts_at=period.starts_at,
                 ends_at=period.ends_at,
-                room=override.room or (existing.room if existing else None),
-                teacher=override.teacher or (existing.teacher if existing else None),
+                room=override.room or inherited_room,
+                teacher=override.teacher or inherited_teacher,
                 color=self._subject_colors.get(subject),
                 is_replaced=True,
                 note=override.note,

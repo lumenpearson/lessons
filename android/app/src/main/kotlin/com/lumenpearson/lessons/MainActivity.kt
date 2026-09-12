@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
@@ -16,9 +17,11 @@ import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealHost
 import com.lumenpearson.lessons.core.designsystem.theme.resolvesToDark
+import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.DeepLink
 import com.lumenpearson.lessons.navigation.LessonsApp
 import com.lumenpearson.lessons.ui.AppShellViewModel
+import com.lumenpearson.lessons.ui.common.AppLocales
 import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -43,6 +46,28 @@ class MainActivity : ComponentActivity() {
      * in between does not lose the request or replay it.
      */
     private val pendingDate = MutableStateFlow<LocalDate?>(null)
+
+    /**
+     * The language this instance was attached in, as opposed to the one stored
+     * now. Below API 33 they can differ for exactly as long as it takes the
+     * effect below to notice and recreate the activity.
+     */
+    private var attachedLanguage: AppLanguage = AppLanguage.SYSTEM
+
+    /**
+     * Where the app's own language is put on, below API 33.
+     *
+     * It has to be here and nowhere later: the base context is what every
+     * `Resources` in this activity — and therefore every `stringResource` in the
+     * composition — is resolved through, and by `onCreate` it is already fixed.
+     * On 33 and up [AppLocales.wrap] hands the context straight back, because
+     * the platform has applied the per-app locale before this line runs.
+     */
+    override fun attachBaseContext(newBase: Context) {
+        val language = AppLocales.storedLanguage()
+        attachedLanguage = language
+        super.attachBaseContext(AppLocales.wrap(newBase, language))
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -83,6 +108,20 @@ class MainActivity : ComponentActivity() {
                 CrashReporter.setEnabled(shell.settings.debugMode)
             }
 
+            // The stored language, applied to whatever this device can apply it
+            // with. Below 33 this recreates the activity — the base context is
+            // set once, in attachBaseContext, so there is no other way to change
+            // the language of a screen that is already drawn; on 33 and up the
+            // system does the restarting itself. Either way the user gets the
+            // new language without leaving the settings page.
+            LaunchedEffect(shell.settings.language) {
+                AppLocales.applyTo(
+                    activity = this@MainActivity,
+                    language = shell.settings.language,
+                    attached = attachedLanguage,
+                )
+            }
+
             // Which way to tint the clock, the battery and the gesture bar.
             //
             // `enableEdgeToEdge()` on its own reads the *system* night mode to
@@ -104,11 +143,13 @@ class MainActivity : ComponentActivity() {
                 themeMode = shell.settings.themeMode,
                 dynamicColor = shell.settings.dynamicColor,
                 pitchBlack = shell.settings.pitchBlack,
+                font = shell.settings.appFont,
+                textScale = shell.settings.textScale,
             ) {
                 // Wraps the app rather than living inside a screen: the circle
                 // has to cross the whole window, and the still it wipes away is
                 // a photograph of the whole window.
-                ThemeRevealHost {
+                ThemeRevealHost(enabled = shell.settings.themeReveal) {
                     LessonsApp(
                         signedIn = shell.signedIn,
                         settings = shell.settings,

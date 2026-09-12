@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    English mirror of res/values/strings.xml (which is the Russian original).
+
+    Not only a translation. `getQuantityString` picks the plural form with the
+    rules of the *device's* locale, never of the folder the string came from, so
+    while these plurals existed only in values/ an English phone chose between
+    "one" and "other" and applied the answer to Russian text: five minutes came
+    out as «Через 5 минуты». The mirror gives that phone a string whose forms
+    match the rules being applied to it.
+-->
+<resources>
+
+    <!-- Channels -->
+    <string name="alert_channel_lessons">Lessons</string>
+    <string name="alert_channel_lessons_description">A reminder a few minutes before a lesson starts.</string>
+    <string name="alert_channel_daily">Day\'s timetable</string>
+    <string name="alert_channel_daily_description">The morning summary and the evening homework reminder.</string>
+    <string name="alert_channel_changes">Changes</string>
+    <string name="alert_channel_changes_description">Replacements and cancellations that came from the school server.</string>
+
+    <!-- Lesson soon -->
+    <plurals name="alert_lesson_title">
+        <item quantity="one">In %1$d minute</item>
+        <item quantity="other">In %1$d minutes</item>
+    </plurals>
+    <string name="alert_lesson_room">%1$s, room %2$s</string>
+    <string name="alert_lesson_teacher">%1$s, %2$s</string>
+    <string name="alert_lesson_replaced">%1$s (replacement)</string>
+
+    <!-- Test notification: what a reminder looks like as configured -->
+    <string name="alert_sample_subject">Algebra</string>
+    <string name="alert_sample_room">214</string>
+    <string name="alert_sample_teacher">M. Ivanova</string>
+
+    <!-- Morning summary -->
+    <plurals name="alert_morning_title">
+        <item quantity="one">%1$d lesson today</item>
+        <item quantity="other">%1$d lessons today</item>
+    </plurals>
+    <string name="alert_morning_body">First — %1$s at %2$s. The last one ends at %3$s.</string>
+
+    <!-- Homework -->
+    <plurals name="alert_homework_title">
+        <item quantity="one">Homework for tomorrow in %1$d subject</item>
+        <item quantity="other">Homework for tomorrow in %1$d subjects</item>
+    </plurals>
+
+    <!-- Timetable changes -->
+    <string name="alert_changes_title">The timetable has changed</string>
+    <string name="alert_changes_body">The next few days were updated: check the replacements and cancellations.</string>
+
+</resources>

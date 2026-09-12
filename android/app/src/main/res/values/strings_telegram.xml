@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Class page: the Telegram link of this phone -->
+    <string name="telegram_group">Telegram</string>
+    <string name="telegram_checking">Проверяю привязку…</string>
+    <string name="telegram_check_failed">Не удалось проверить привязку</string>
+    <string name="telegram_retry">Повторить</string>
+    <string name="telegram_not_linked">Телефон не привязан</string>
+    <string name="telegram_not_linked_description">Привяжите телефон к своему Telegram, чтобы редактировать домашние задания и замены прямо из приложения. Права те же, что у вас в боте.</string>
+    <string name="telegram_code_title">Код привязки</string>
+    <string name="telegram_code_hint">Отправьте боту команду /link %1$s</string>
+    <string name="telegram_copy_code">Скопировать код</string>
+    <string name="telegram_clipboard_label">Код привязки</string>
+    <string name="telegram_open_bot">Открыть бота</string>
+    <string name="telegram_check_again">Проверить снова</string>
+    <string name="telegram_linked">Телефон привязан</string>
+    <string name="telegram_linked_can_edit">Роль: %1$s · можно редактировать</string>
+    <string name="telegram_linked_read_only">Роль: %1$s · только чтение. Попросить доступ: команда /request в боте</string>
+    <string name="telegram_linked_no_membership">Аккаунт больше не состоит в классе — только чтение</string>
+    <string name="telegram_unlink">Отвязать</string>
+    <string name="telegram_unlink_title">Отвязать телефон?</string>
+    <string name="telegram_unlink_message">Приложение снова будет только читать расписание. Привязать заново можно в любой момент — код появится здесь.</string>
+    <string name="role_viewer">Наблюдатель</string>
+    <string name="role_editor">Редактор</string>
+    <string name="role_admin">Администратор</string>
+    <string name="role_owner">Владелец</string>
+</resources>

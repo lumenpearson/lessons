@@ -25,6 +25,7 @@ from typing import Any
 from aiogram.fsm.state import State
 from aiogram.fsm.storage.base import BaseStorage, StorageKey
 from sqlalchemy import DateTime, String, Text, delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -75,29 +76,18 @@ class DatabaseStorage(BaseStorage):
 
     async def set_state(self, key: StorageKey, state: State | str | None = None) -> None:
         resolved = state.state if isinstance(state, State) else state
-        async with self._session_factory() as session:
-            record = await session.get(FsmRecord, _encode(key))
-            if record is None:
-                # No point storing a row that only says "no state".
-                if resolved is None:
-                    return
-                session.add(
-                    FsmRecord(
-                        key=_encode(key),
-                        state=resolved,
-                        data="{}",
-                        updated_at=datetime.utcnow(),
-                    )
-                )
-            else:
-                record.state = resolved
-                record.updated_at = datetime.utcnow()
-                # Clearing the state ends the conversation, so its data goes too.
-                # Leaving it behind is how a later flow picks up a stale key and
-                # acts on a date the user chose an hour ago for something else.
-                if resolved is None:
-                    record.data = "{}"
-            await session.commit()
+
+        def apply(record: FsmRecord) -> None:
+            record.state = resolved
+            record.updated_at = datetime.utcnow()
+            # Clearing the state ends the conversation, so its data goes too.
+            # Leaving it behind is how a later flow picks up a stale key and
+            # acts on a date the user chose an hour ago for something else.
+            if resolved is None:
+                record.data = "{}"
+
+        # No point storing a row that only says "no state".
+        await self._write(key, apply, create=resolved is not None, initial_state=resolved)
 
     async def get_state(self, key: StorageKey) -> str | None:
         async with self._session_factory() as session:
@@ -106,20 +96,55 @@ class DatabaseStorage(BaseStorage):
 
     async def set_data(self, key: StorageKey, data: dict[str, Any]) -> None:
         encoded = json.dumps(data, ensure_ascii=False)
+
+        def apply(record: FsmRecord) -> None:
+            record.data = encoded
+            record.updated_at = datetime.utcnow()
+
+        await self._write(key, apply, create=True, initial_data=encoded)
+
+    async def _write(
+        self,
+        key: StorageKey,
+        apply,
+        *,
+        create: bool,
+        initial_state: str | None = None,
+        initial_data: str = "{}",
+    ) -> None:
+        """Get-or-insert, then update - and survive losing the insert race.
+
+        Two updates for the same user can be in flight at once (a double tap,
+        or Telegram redelivering), each on its own serverless instance, each
+        seeing no row and each inserting the same primary key. The loser used
+        to raise IntegrityError out of the handler, which the webhook logged
+        and the user saw as a button that did nothing. Now the loser rolls
+        back, reads the row the winner made, and applies its change on top -
+        which is what would have happened had the two arrived a moment apart.
+        """
+        encoded = _encode(key)
         async with self._session_factory() as session:
-            record = await session.get(FsmRecord, _encode(key))
+            record = await session.get(FsmRecord, encoded)
             if record is None:
+                if not create:
+                    return
                 session.add(
                     FsmRecord(
-                        key=_encode(key),
-                        state=None,
-                        data=encoded,
+                        key=encoded,
+                        state=initial_state,
+                        data=initial_data,
                         updated_at=datetime.utcnow(),
                     )
                 )
-            else:
-                record.data = encoded
-                record.updated_at = datetime.utcnow()
+                try:
+                    await session.commit()
+                    return
+                except IntegrityError:
+                    await session.rollback()
+                    record = await session.get(FsmRecord, encoded)
+                    if record is None:  # pragma: no cover - the winner vanished again
+                        return
+            apply(record)
             await session.commit()
 
     async def get_data(self, key: StorageKey) -> dict[str, Any]:

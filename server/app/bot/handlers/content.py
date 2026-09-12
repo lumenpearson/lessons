@@ -1,4 +1,12 @@
-"""Day-to-day editing: homework, замены and events. This is what an EDITOR does."""
+"""Day-to-day editing: homework, замены and events. This is what an EDITOR does.
+
+Every write here does three things, in this order: it saves, it writes one
+line to the audit log in the same transaction, and only then it tells the
+subscribers. The order matters. A notification about a замена that failed to
+save would send thirty people to the wrong room, so nothing is announced
+before it is committed — and ``notify_subscribers`` swallows a single
+recipient's outage rather than failing the edit that caused it.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +20,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.handlers.tasks import homework_view
 from app.bot.keyboards import (
     EventAction,
     HomeworkAction,
@@ -23,7 +32,7 @@ from app.bot.keyboards import (
 from app.bot.keyboards import (
     OverrideAction as OverrideCB,
 )
-from app.bot.render import human_date, render_homework_digest, upcoming_dates
+from app.bot.render import human_date, relative_day_name, upcoming_dates
 from app.bot.states import AddEvent, AddHomework, AddOverride
 from app.config import get_settings
 from app.models import (
@@ -36,6 +45,7 @@ from app.models import (
     SchoolClass,
 )
 from app.schedule import ScheduleResolver
+from app.services import audit, notify
 
 router = Router(name="content")
 
@@ -56,6 +66,17 @@ def _today(school_class: SchoolClass | None = None) -> Date:
     """
     tz = school_class.tz if school_class is not None else get_settings().tz
     return datetime.now(tz).date()
+
+
+#: Homework text is free-form and can be a paragraph. A push notification
+#: that long is unreadable on a lock screen, so the announcement is cut while
+#: the stored задание keeps every word.
+NOTIFY_TEXT_MAX = 200
+
+
+def _shorten(text: str) -> str:
+    text = " ".join(text.split())
+    return text if len(text) <= NOTIFY_TEXT_MAX else text[: NOTIFY_TEXT_MAX - 1].rstrip() + "…"
 
 
 def _parse_time_range(raw: str) -> tuple[time, time] | None:
@@ -83,25 +104,18 @@ async def homework_root(
     school_class: SchoolClass | None,
     role: Role | None,
 ) -> None:
+    """The digest with this reader's own «сделал» ticks.
+
+    The same view the /homework command and the tick buttons render, from
+    ``handlers/tasks.py`` — one function, so a tick made from the menu and a
+    tick made from the command cannot disagree about what is done.
+    """
     if school_class is None or role is None:
         await callback.answer("Нет доступа", show_alert=True)
         return
 
-    today = _today(school_class)
-    days = await ScheduleResolver(session, school_class).resolve_range(today, 14)
-
-    extra = []
-    if role.at_least(Role.EDITOR):
-        extra.append(
-            [
-                InlineKeyboardButton(
-                    text="➕ Добавить ДЗ", callback_data=HomeworkAction(action="add").pack()
-                )
-            ]
-        )
-    await callback.message.edit_text(
-        render_homework_digest(days, today), reply_markup=back_to_menu(extra)
-    )
+    text, keyboard = await homework_view(session, school_class, callback.from_user.id, role)
+    await callback.message.edit_text(text, reply_markup=keyboard)
     await callback.answer()
 
 
@@ -232,13 +246,33 @@ async def homework_text(
             )
         )
         verb = "добавлено"
+
+    await audit.record(
+        session,
+        school_class.id,
+        message.from_user.id,
+        "homework.save",
+        f"{verb} ДЗ: {subject} на {due:%d.%m}",
+    )
     await session.commit()
     await state.clear()
 
+    today = _today(school_class)
     await message.answer(
         f"✅ Задание {verb}.\n\n<b>{escape(subject)}</b> "
-        f"{human_date(due, _today(school_class))}\n{escape(text)}",
+        f"{human_date(due, today)}\n{escape(text)}",
         reply_markup=back_to_menu(),
+    )
+    await notify.notify_subscribers(
+        session,
+        getattr(message, "bot", None),
+        school_class,
+        f"📝 {'Обновлено' if verb == 'обновлено' else 'Новое'} задание: "
+        f"<b>{escape(subject)}</b> {relative_day_name(due, today)} — "
+        f"{escape(_shorten(text))}",
+        kind="homework",
+        # The author already knows; they just typed it.
+        exclude=message.from_user.id,
     )
 
 
@@ -364,7 +398,8 @@ async def _save_override(
     existing.action = action
     existing.subject_name = subject
     existing.room = room
-    await session.commit()
+    # Staged, not committed: the caller commits it together with its audit
+    # line, so a замена and the record of who made it land as one fact.
 
 
 @router.message(AddOverride.subject)
@@ -398,11 +433,30 @@ async def override_subject(
         subject=subject.strip()[:120],
         room=(room.strip()[:32] or None),
     )
+    await audit.record(
+        session,
+        school_class.id,
+        message.from_user.id,
+        "override.replace",
+        f"замена {day:%d.%m}, урок №{index}: {subject.strip()}",
+    )
+    await session.commit()
     await state.clear()
+
+    today = _today(school_class)
     await message.answer(
-        f"✅ Замена сохранена: {human_date(day, _today(school_class))}, урок №{index} — "
+        f"✅ Замена сохранена: {human_date(day, today)}, урок №{index} — "
         f"<b>{escape(subject.strip())}</b>.",
         reply_markup=back_to_menu(),
+    )
+    await notify.notify_subscribers(
+        session,
+        getattr(message, "bot", None),
+        school_class,
+        f"🔄 Замена {relative_day_name(day, today)}, урок №{index} — "
+        f"<b>{escape(subject.strip())}</b>.",
+        kind="changes",
+        exclude=message.from_user.id,
     )
 
 
@@ -422,12 +476,30 @@ async def override_cancel(
     day = Date.fromisoformat(data["date"])
     index = int(data["index"])
     await _save_override(session, school_class.id, day, index, OverrideAction.CANCEL)
+    await audit.record(
+        session,
+        school_class.id,
+        callback.from_user.id,
+        "override.cancel",
+        f"отменён урок №{index} {day:%d.%m}",
+    )
+    await session.commit()
     await state.clear()
+
+    today = _today(school_class)
     await callback.message.edit_text(
-        f"🚫 Урок №{index} {human_date(day, _today(school_class))} отменён.",
+        f"🚫 Урок №{index} {human_date(day, today)} отменён.",
         reply_markup=back_to_menu(),
     )
     await callback.answer()
+    await notify.notify_subscribers(
+        session,
+        getattr(callback, "bot", None),
+        school_class,
+        f"🚫 Урок №{index} {relative_day_name(day, today)} отменён.",
+        kind="changes",
+        exclude=callback.from_user.id,
+    )
 
 
 @router.callback_query(AddOverride.subject, OverrideCB.filter(F.action == "clear"))
@@ -455,6 +527,13 @@ async def override_clear(
     )
     if existing is not None:
         await session.delete(existing)
+        await audit.record(
+            session,
+            school_class.id,
+            callback.from_user.id,
+            "override.clear",
+            f"урок №{index} {day:%d.%m} снова по расписанию",
+        )
         await session.commit()
 
     await state.clear()
@@ -462,6 +541,16 @@ async def override_clear(
         f"♻️ Урок №{index} снова идёт по расписанию.", reply_markup=back_to_menu()
     )
     await callback.answer()
+    if existing is not None:
+        await notify.notify_subscribers(
+            session,
+            getattr(callback, "bot", None),
+            school_class,
+            f"♻️ Урок №{index} {relative_day_name(day, _today(school_class))} "
+            "снова идёт по расписанию.",
+            kind="changes",
+            exclude=callback.from_user.id,
+        )
 
 
 # --------------------------------------------------------------------------
@@ -559,10 +648,11 @@ async def event_title(
 
     data = await state.get_data()
     kind = EventKind(data["kind"])
+    day = Date.fromisoformat(data["date"])
     session.add(
         DayEvent(
             class_id=school_class.id,
-            date=Date.fromisoformat(data["date"]),
+            date=day,
             starts_at=time.fromisoformat(data["start"]),
             ends_at=time.fromisoformat(data["end"]),
             title=title[:200],
@@ -571,12 +661,29 @@ async def event_title(
             covers_lesson=kind in {EventKind.EVENT, EventKind.TRIP},
         )
     )
+    await audit.record(
+        session,
+        school_class.id,
+        message.from_user.id,
+        "event.add",
+        f"событие {day:%d.%m} {data['start'][:5]}: {title[:200]}",
+    )
     await session.commit()
     await state.clear()
 
+    today = _today(school_class)
+    when = f"{data['start'][:5]}–{data['end'][:5]}"
     await message.answer(
         f"✅ Событие добавлено: <b>{escape(title)}</b> "
-        f"{human_date(Date.fromisoformat(data['date']), _today(school_class))}, "
-        f"{data['start'][:5]}–{data['end'][:5]}.",
+        f"{human_date(day, today)}, {when}.",
         reply_markup=back_to_menu(),
+    )
+    await notify.notify_subscribers(
+        session,
+        getattr(message, "bot", None),
+        school_class,
+        f"{EVENT_KIND_LABELS.get(kind, '🎉')} <b>{escape(title)}</b> "
+        f"{relative_day_name(day, today)}, {when}.",
+        kind="changes",
+        exclude=message.from_user.id,
     )

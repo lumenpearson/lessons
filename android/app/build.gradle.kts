@@ -63,6 +63,19 @@ val hasReleaseSigning: Boolean =
 val appVersionName = signingSecret("LESSONS_VERSION_NAME", "lessons.versionName") ?: "0.1.0"
 val appVersionCode = signingSecret("LESSONS_VERSION_CODE", "lessons.versionCode")?.toIntOrNull() ?: 1
 
+// The GitHub OAuth App the "sign in with GitHub" row talks to. Whoever builds
+// the app registers one (Settings → Developer settings → OAuth Apps, with
+// "Enable Device Flow" ticked) and passes its client id here. There is no
+// secret: the device flow does not use one, and an APK could not keep it
+// anyway. Empty means the row does not appear.
+val githubClientId = signingSecret("LESSONS_GITHUB_CLIENT_ID", "lessons.github.clientId") ?: ""
+
+// Where "отправить письмом" on the bug-report sheet goes. Not in the source
+// for the same reason the keystore is not: an address in a public repository
+// is an address on every spam list, and it is the builder's to give. Empty
+// hides the button.
+val contactEmail = signingSecret("LESSONS_CONTACT_EMAIL", "lessons.contactEmail") ?: ""
+
 android {
     namespace = "com.lumenpearson.lessons"
     compileSdk = 37
@@ -73,6 +86,8 @@ android {
         targetSdk = 37
         versionCode = appVersionCode
         versionName = appVersionName
+        buildConfigField("String", "GITHUB_CLIENT_ID", "\"$githubClientId\"")
+        buildConfigField("String", "CONTACT_EMAIL", "\"$contactEmail\"")
     }
 
     androidResources {

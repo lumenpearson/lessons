@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.BlurLinear
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.BugReport
@@ -24,18 +26,25 @@ import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.FormatSize
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.MotionPhotosOn
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Swipe
+import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.ViewAgenda
+import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -83,11 +92,14 @@ import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
+import com.lumenpearson.lessons.core.model.AppFont
+import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.navigation.labelRes
 import com.lumenpearson.lessons.ui.common.ServerUrlSheet
+import com.lumenpearson.lessons.ui.diary.DiaryScreen
 import com.lumenpearson.lessons.ui.common.SyncIntervalOptionsMinutes
 import com.lumenpearson.lessons.ui.common.asText
 import com.lumenpearson.lessons.ui.common.syncIntervalLabel
@@ -153,13 +165,56 @@ enum class SettingsSection(
         Icons.Rounded.School,
         1,
     ),
+    /**
+     * The Petersburg diary: a second account, in a service this app does not
+     * own, that most installs will never have.
+     *
+     * It is a section rather than a fourth tab because a tab would show a
+     * sign-in wall in the bottom bar of everybody without such an account, for
+     * good — the toolbar never hides a destination. Next to «Класс» because
+     * the two rows are the same kind of thing: which account this phone is
+     * signed in to. The page it opens is not a list of preferences, which is
+     * why [SettingsSectionScreen] hands it over whole.
+     */
+    DIARY(
+        R.string.diary_title,
+        R.string.diary_section_summary,
+        Icons.AutoMirrored.Rounded.MenuBook,
+        4,
+    ),
+    UPDATES(
+        R.string.settings_updates,
+        R.string.settings_updates_summary,
+        Icons.Rounded.SystemUpdate,
+        2,
+    ),
     ABOUT(
         R.string.settings_about,
         R.string.settings_about_summary,
         Icons.Rounded.Info,
         5,
     ),
+
+    /**
+     * Reached from the notifications page, never from the root list.
+     *
+     * It is a page about a fault, so it exists only while there is one: a
+     * permanent "Разрешения" row on the landing page would be one more thing to
+     * read past on every visit, and would say nothing on the phones — most of
+     * them — where everything is granted. [listedOnRoot] is what keeps it off.
+     */
+    PERMISSIONS(
+        R.string.permissions_title,
+        R.string.permissions_banner_description,
+        Icons.Rounded.Shield,
+        5,
+    ) {
+        override val listedOnRoot: Boolean = false
+    },
     ;
+
+    /** Whether the landing page offers a row for this section. */
+    open val listedOnRoot: Boolean = true
 
     companion object {
         /** `null` for anything this build does not have, including `null` itself. */
@@ -201,7 +256,7 @@ fun SettingsRootScreen(
             Column(modifier = Modifier.fillMaxWidth()) {
                 SectionHeader(title = stringResource(R.string.settings_sections))
                 RoundedCardContainer {
-                    SettingsSection.entries.forEach { section ->
+                    SettingsSection.entries.filter { it.listedOnRoot }.forEach { section ->
                         GroupLinkItem(
                             title = stringResource(section.titleRes),
                             subtitle = stringResource(section.subtitleRes),
@@ -226,11 +281,42 @@ fun SettingsRootScreen(
 fun SettingsSectionScreen(
     section: SettingsSection,
     modifier: Modifier = Modifier,
+    onOpenSection: (SettingsSection) -> Unit = {},
     viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
 ) {
+    // The diary is a whole screen of its own rather than a list of rows: it has
+    // a sign-in, a week of a timetable and a register in it, and none of that
+    // is a preference. It still arrives as a section so that it inherits the
+    // shell's title, its back gesture and the slide that carries it in.
+    if (section == SettingsSection.DIARY) {
+        DiaryScreen(modifier = modifier)
+        return
+    }
+
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showServerSheet by rememberSaveable { mutableStateOf(false) }
     var showSignOutSheet by rememberSaveable { mutableStateOf(false) }
+    var showUnlinkSheet by rememberSaveable { mutableStateOf(false) }
+
+    // The link is a fact about the token that only the server holds, so the
+    // class page asks on every visit. Keyed on the section: the same view
+    // model serves every page, and a visit to «Оформление» is not a visit here.
+    if (section == SettingsSection.ACCOUNT) {
+        LaunchedEffect(Unit) { viewModel.refreshDeviceLink() }
+    }
+
+    if (showUnlinkSheet) {
+        UnlinkSheet(
+            onDismiss = { showUnlinkSheet = false },
+            onConfirm = {
+                showUnlinkSheet = false
+                viewModel.unlinkDevice()
+            },
+        )
+    }
+    val sheets = rememberSupportSheets()
+
+    SupportSheets(sheets = sheets, state = state, viewModel = viewModel)
 
     if (showServerSheet) {
         ServerUrlSheet(
@@ -271,10 +357,38 @@ fun SettingsSectionScreen(
             SettingsSection.APPEARANCE -> appearanceRows(state, viewModel)
             SettingsSection.FEEL -> feelRows(state, viewModel)
             SettingsSection.CONTENT -> contentRows(state, viewModel)
-            SettingsSection.ALERTS -> notificationRows(state, viewModel)
+            SettingsSection.ALERTS -> notificationRows(state, viewModel, onOpenSection)
             SettingsSection.SYNC -> syncRows(state, viewModel) { showServerSheet = true }
-            SettingsSection.ACCOUNT -> accountRows(state) { showSignOutSheet = true }
-            SettingsSection.ABOUT -> aboutRows(state, viewModel)
+            SettingsSection.ACCOUNT -> {
+                accountRows(state) { showSignOutSheet = true }
+                telegramLinkRows(
+                    state = state.deviceLink,
+                    onRefresh = viewModel::refreshDeviceLink,
+                    onUnlink = { showUnlinkSheet = true },
+                )
+            }
+            SettingsSection.UPDATES -> updateRows(
+                state = state,
+                viewModel = viewModel,
+                onShowRelease = viewModel::showReleaseSheet,
+                onAskPrerelease = { sheets.prerelease = true },
+            )
+            SettingsSection.ABOUT -> {
+                aboutRows(state, viewModel)
+                supportRows(
+                    state = state,
+                    viewModel = viewModel,
+                    onReportBug = { sheets.bugReport = true },
+                    onSignIn = {
+                        sheets.signIn = true
+                        viewModel.signInWithGithub()
+                    },
+                    onShowLicenses = { sheets.licenses = true },
+                )
+            }
+            SettingsSection.PERMISSIONS -> permissionRows()
+            // Handled above, before this page's scaffold exists.
+            SettingsSection.DIARY -> Unit
         }
     }
 }
@@ -364,52 +478,151 @@ private fun ClassHeroCard(
     }
 }
 
+/**
+ * Typography lands here rather than in a section of its own.
+ *
+ * A third page called «Шрифт и движение» was the obvious move and the wrong one:
+ * it would have put the type on a page with the animation switches, which are
+ * the same decision as the ripple, the theme wipe and the two blurs — all of
+ * which live under «Взаимодействие». Splitting motion across two pages to keep
+ * the font company costs more than the font gains. So the face and its size go
+ * where everything else that repaints the whole app already is, and motion joins
+ * the effects it belongs with.
+ */
 private fun LazyListScope.appearanceRows(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
-) = item(key = "appearance") {
-    // Every row in this group repaints the whole app, so every row opens the
-    // circle from itself. The anchor is what makes the wavefront look like it
-    // came out from under the finger rather than from the middle of nowhere.
-    SettingsGroup(title = stringResource(R.string.settings_theme)) {
-        ThemeRevealAnchor { reveal ->
+) {
+    item(key = "appearance") {
+        // Every row in this group repaints the whole app, so every row opens the
+        // circle from itself. The anchor is what makes the wavefront look like it
+        // came out from under the finger rather than from the middle of nowhere.
+        SettingsGroup(title = stringResource(R.string.settings_theme)) {
+            ThemeRevealAnchor { reveal ->
+                GroupSegmentedItem(
+                    title = stringResource(R.string.settings_theme_mode),
+                    icon = Icons.Rounded.Contrast,
+                    tone = accentTone(4),
+                    items = ThemeMode.entries,
+                    selectedItem = state.settings.themeMode,
+                    onItemSelected = { mode -> reveal { viewModel.setThemeMode(mode) } },
+                    labelProvider = { mode -> stringResource(mode.labelRes) },
+                )
+            }
+            ThemeRevealAnchor { reveal ->
+                GroupSwitchItem(
+                    title = stringResource(R.string.settings_dynamic_color),
+                    subtitle = if (SupportsDynamicColor) {
+                        stringResource(R.string.settings_dynamic_color_description)
+                    } else {
+                        stringResource(R.string.settings_dynamic_color_unavailable)
+                    },
+                    icon = Icons.Rounded.Palette,
+                    tone = accentTone(0),
+                    checked = state.settings.dynamicColor && SupportsDynamicColor,
+                    enabled = SupportsDynamicColor,
+                    onCheckedChange = { on -> reveal { viewModel.setDynamicColor(on) } },
+                )
+            }
+            ThemeRevealAnchor { reveal ->
+                GroupSwitchItem(
+                    title = stringResource(R.string.settings_pitch_black),
+                    subtitle = stringResource(R.string.settings_pitch_black_description),
+                    icon = Icons.Rounded.DarkMode,
+                    tone = accentTone(5),
+                    checked = state.settings.pitchBlack,
+                    onCheckedChange = { on -> reveal { viewModel.setPitchBlack(on) } },
+                )
+            }
+        }
+    }
+
+    item(key = "typography") {
+        SettingsGroup(title = stringResource(R.string.settings_type_group)) {
             GroupSegmentedItem(
-                title = stringResource(R.string.settings_theme_mode),
-                icon = Icons.Rounded.Contrast,
+                title = stringResource(R.string.settings_font),
+                subtitle = stringResource(R.string.settings_font_description),
+                icon = Icons.Rounded.TextFields,
+                tone = accentTone(2),
+                items = AppFont.entries,
+                selectedItem = state.settings.appFont,
+                onItemSelected = viewModel::setAppFont,
+                labelProvider = { font -> stringResource(font.labelRes) },
+            )
+            // Four named steps rather than a slider: a size is something a
+            // person has to be able to put back, and "около одной целой семи"
+            // is not a place anybody can return to. The labels say what each
+            // step is for; the numbers behind them are in AppSettings.
+            GroupSegmentedItem(
+                title = stringResource(R.string.settings_text_size),
+                subtitle = stringResource(R.string.settings_text_size_description),
+                icon = Icons.Rounded.FormatSize,
                 tone = accentTone(4),
-                items = ThemeMode.entries,
-                selectedItem = state.settings.themeMode,
-                onItemSelected = { mode -> reveal { viewModel.setThemeMode(mode) } },
-                labelProvider = { mode -> stringResource(mode.labelRes) },
+                items = AppSettings.TEXT_SCALE_OPTIONS,
+                // Matched by value rather than by identity, and against the
+                // stored float rather than a remembered index: the store clamps
+                // what it reads, so a value from an older build lands on the
+                // nearest step instead of leaving every segment unselected.
+                selectedItem = nearestTextScale(state.settings.textScale),
+                onItemSelected = viewModel::setTextScale,
+                labelProvider = { scale -> stringResource(textScaleLabelRes(scale)) },
             )
         }
-        ThemeRevealAnchor { reveal ->
-            GroupSwitchItem(
-                title = stringResource(R.string.settings_dynamic_color),
-                subtitle = if (SupportsDynamicColor) {
-                    stringResource(R.string.settings_dynamic_color_description)
-                } else {
-                    stringResource(R.string.settings_dynamic_color_unavailable)
-                },
-                icon = Icons.Rounded.Palette,
-                tone = accentTone(0),
-                checked = state.settings.dynamicColor && SupportsDynamicColor,
-                enabled = SupportsDynamicColor,
-                onCheckedChange = { on -> reveal { viewModel.setDynamicColor(on) } },
-            )
-        }
-        ThemeRevealAnchor { reveal ->
-            GroupSwitchItem(
-                title = stringResource(R.string.settings_pitch_black),
-                subtitle = stringResource(R.string.settings_pitch_black_description),
-                icon = Icons.Rounded.DarkMode,
-                tone = accentTone(5),
-                checked = state.settings.pitchBlack,
-                onCheckedChange = { on -> reveal { viewModel.setPitchBlack(on) } },
+    }
+
+    // The language sits under the type rather than beside the theme: it is the
+    // other thing on this page that changes every word on every screen, and
+    // like the font it takes effect the moment it is tapped — below Android 13
+    // by recreating the activity, above it by the system restarting it for us.
+    item(key = "language") {
+        SettingsGroup(title = stringResource(R.string.settings_language_group)) {
+            GroupSegmentedItem(
+                title = stringResource(R.string.settings_language),
+                subtitle = stringResource(R.string.settings_language_description),
+                icon = Icons.Rounded.Language,
+                tone = accentTone(1),
+                items = AppLanguage.entries,
+                selectedItem = state.settings.language,
+                onItemSelected = viewModel::setLanguage,
+                labelProvider = { language -> stringResource(language.labelRes) },
             )
         }
     }
 }
+
+/** Label of a language in the segmented picker. */
+private val AppLanguage.labelRes: Int
+    get() = when (this) {
+        AppLanguage.SYSTEM -> R.string.settings_language_system
+        AppLanguage.RUSSIAN -> R.string.settings_language_russian
+        AppLanguage.ENGLISH -> R.string.settings_language_english
+    }
+
+/**
+ * The offered step closest to [scale].
+ *
+ * The picker has to have exactly one segment selected, and the stored value is
+ * a float that a previous build — or a clamp — may have left between two steps.
+ * Nearest is the only answer that never shows a picker with nothing chosen.
+ */
+private fun nearestTextScale(scale: Float): Float =
+    AppSettings.TEXT_SCALE_OPTIONS.minBy { kotlin.math.abs(it - scale) }
+
+/** Label of a text-size step; see `AppSettings.TEXT_SCALE_OPTIONS`. */
+@StringRes
+private fun textScaleLabelRes(scale: Float): Int = when (scale) {
+    AppSettings.TEXT_SCALE_OPTIONS[0] -> R.string.settings_text_size_small
+    AppSettings.TEXT_SCALE_OPTIONS[2] -> R.string.settings_text_size_large
+    AppSettings.TEXT_SCALE_OPTIONS[3] -> R.string.settings_text_size_huge
+    else -> R.string.settings_text_size_normal
+}
+
+/** Label of a typeface in the segmented picker. */
+private val AppFont.labelRes: Int
+    get() = when (this) {
+        AppFont.BUNDLED -> R.string.settings_font_bundled
+        AppFont.SYSTEM -> R.string.settings_font_system
+    }
 
 private fun LazyListScope.feelRows(
     state: SettingsUiState,
@@ -466,6 +679,35 @@ private fun LazyListScope.feelRows(
         }
     }
 
+    item(key = "motion") {
+        SettingsGroup(title = stringResource(R.string.settings_motion_group)) {
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_animations),
+                subtitle = stringResource(R.string.settings_animations_description),
+                icon = Icons.Rounded.Animation,
+                tone = accentTone(5),
+                checked = state.settings.animations,
+                onCheckedChange = viewModel::setAnimations,
+            )
+            // Hidden rather than disabled when animations are off: a speed for
+            // something that does not move is not a dimmed control, it is a
+            // question with no answer.
+            if (state.settings.animations) {
+                GroupSliderItem(
+                    title = stringResource(R.string.settings_motion_speed),
+                    subtitle = stringResource(R.string.settings_motion_speed_description),
+                    icon = Icons.Rounded.Speed,
+                    tone = accentTone(1),
+                    value = state.settings.motionSpeed,
+                    onValueChange = viewModel::setMotionSpeed,
+                    valueRange = AppSettings.MOTION_SPEED_RANGE,
+                    increment = 0.1f,
+                    valueFormatter = { speed -> "%.1f×".format(speed) },
+                )
+            }
+        }
+    }
+
     item(key = "effects") {
         SettingsGroup(title = stringResource(R.string.settings_effects_group)) {
             GroupSwitchItem(
@@ -502,6 +744,30 @@ private fun LazyListScope.feelRows(
                     valueFormatter = { amount -> "%.1f×".format(amount) },
                 )
             }
+            // The two whole-screen ornaments, each on its own switch. The
+            // ripple is a shader and shares the blur rows' availability; the
+            // wipe is a bitmap and runs on anything, so it is never disabled.
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_ripple),
+                subtitle = if (SupportsShaders) {
+                    stringResource(R.string.settings_ripple_description)
+                } else {
+                    stringResource(R.string.settings_blur_unavailable)
+                },
+                icon = Icons.Rounded.Waves,
+                tone = accentTone(2),
+                enabled = SupportsShaders,
+                checked = state.settings.rippleEffects && SupportsShaders,
+                onCheckedChange = viewModel::setRippleEffects,
+            )
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_theme_reveal),
+                subtitle = stringResource(R.string.settings_theme_reveal_description),
+                icon = Icons.Rounded.Contrast,
+                tone = accentTone(4),
+                checked = state.settings.themeReveal,
+                onCheckedChange = viewModel::setThemeReveal,
+            )
         }
     }
 }
@@ -586,36 +852,25 @@ private fun LazyListScope.accountRows(
 private fun LazyListScope.aboutRows(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
-) = item(key = "about") {
-    SettingsGroup(title = stringResource(R.string.settings_about_group)) {
-        GroupItem(
-            title = stringResource(R.string.app_name),
-            subtitle = stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
-            icon = Icons.Rounded.Info,
-            tone = accentTone(5),
-        )
-        GroupSwitchItem(
-            title = stringResource(R.string.settings_debug),
-            subtitle = stringResource(R.string.settings_debug_description),
-            icon = Icons.Rounded.BugReport,
-            tone = accentTone(2),
-            checked = state.settings.debugMode,
-            onCheckedChange = viewModel::setDebugMode,
-        )
-        GroupRow {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = stringResource(R.string.about_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = stringResource(R.string.about_design_credit),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+) {
+    item(key = "about") {
+        SettingsGroup(title = stringResource(R.string.settings_about_group)) {
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_debug),
+                subtitle = stringResource(R.string.settings_debug_description),
+                icon = Icons.Rounded.BugReport,
+                tone = accentTone(2),
+                checked = state.settings.debugMode,
+                onCheckedChange = viewModel::setDebugMode,
+            )
         }
+    }
+    // The last thing on the last page, which is where an about block belongs and
+    // where Essentials puts its own. It carries the version, the description and
+    // the design credit, so the three rows that used to state those separately
+    // are gone rather than repeated above it.
+    item(key = "about_card") {
+        AboutCard(modifier = Modifier.padding(horizontal = ScreenPadding))
     }
 }
 

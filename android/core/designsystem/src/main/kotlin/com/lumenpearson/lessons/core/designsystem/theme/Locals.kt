@@ -57,6 +57,57 @@ data class ScrollBlurSettings(
 /** @see ScrollBlurSettings */
 val LocalScrollBlur = staticCompositionLocalOf { ScrollBlurSettings() }
 
+/**
+ * Whether the app animates at all, and how fast.
+ *
+ * Published by the shell from the stored settings, next to [LocalScrollBlur] and
+ * for the same reason: the thing that has to act on the preference is a
+ * transition spec three layers below the screen that reads it.
+ *
+ * @property enabled off means *instant*, not fast. A transition run at ten times
+ *   the speed is still a transition, and the people who turn animations off are
+ *   the people for whom the movement itself is the problem — motion sickness, a
+ *   vestibular disorder, or a phone slow enough that every animation is a stutter.
+ * @property speed multiplies the pace: 2 is twice as quick, 0.5 half. Scaled
+ *   into durations by [durationMillis] rather than by each caller, so the
+ *   direction of the multiplication is decided once.
+ */
+@Immutable
+data class MotionSettings(
+    val enabled: Boolean = true,
+    val speed: Float = 1f,
+) {
+    /**
+     * [base] milliseconds at the chosen speed, or 0 when animations are off.
+     *
+     * [speed] is clamped away from zero before dividing: it arrives from a
+     * preferences file, and a stored 0 would otherwise produce an infinite
+     * duration — an animation that never finishes and a screen that never
+     * arrives.
+     */
+    fun durationMillis(base: Int): Int =
+        if (!enabled) 0 else (base / speed.coerceIn(MinMotionSpeed, MaxMotionSpeed)).toInt()
+
+    /**
+     * A spring's stiffness at the chosen speed.
+     *
+     * Multiplied, not divided: stiffness is the inverse of duration, so a faster
+     * setting means a stiffer spring. Damping is deliberately left alone — it is
+     * what decides whether the page overshoots, which is a matter of character
+     * rather than of pace.
+     */
+    fun stiffness(base: Float): Float = base * speed.coerceIn(MinMotionSpeed, MaxMotionSpeed)
+}
+
+/** Ends of the motion-speed range; see [MotionSettings.speed]. */
+const val MinMotionSpeed: Float = 0.5f
+
+/** @see MinMotionSpeed */
+const val MaxMotionSpeed: Float = 2f
+
+/** @see MotionSettings */
+val LocalMotion = staticCompositionLocalOf { MotionSettings() }
+
 /** Motion blur for a lazy list, wired to the user's setting. */
 fun Modifier.appScrollMotionBlur(state: LazyListState): Modifier = composed {
     val settings = LocalScrollBlur.current

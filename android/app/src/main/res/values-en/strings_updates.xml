@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English mirror of res/values/strings_updates.xml (which is the Russian original). -->
+<resources>
+
+    <!-- Update sheet: the state headlines -->
+    <string name="update_sheet_available_title">An update is available</string>
+    <string name="update_sheet_up_to_date_title">Up to date</string>
+    <string name="update_sheet_failed_title">Could not check</string>
+    <string name="update_sheet_failed_body">Check the connection and try once more.</string>
+    <string name="update_sheet_checking">Checking…</string>
+
+    <!-- The lines under the headline -->
+    <string name="update_version_label">v%1$s</string>
+    <string name="update_sheet_version_change">%1$s → %2$s</string>
+    <string name="update_sheet_installed">%1$s installed</string>
+    <string name="update_sheet_unknown_version">GitHub does not know about version %1$s yet</string>
+
+    <!-- The release notes card -->
+    <string name="update_sheet_whats_new">What is new in %1$s</string>
+    <string name="update_sheet_release_notes">Release notes for %1$s</string>
+    <string name="update_sheet_no_notes">No description</string>
+    <string name="update_notes_full_changelog">The full list of changes</string>
+
+    <!-- Buttons -->
+    <string name="update_sheet_view_on_github">View on GitHub</string>
+    <string name="update_sheet_later">Later</string>
+    <string name="update_sheet_update">Update</string>
+    <string name="update_sheet_update_with_size">Update · %1$s</string>
+    <string name="update_sheet_open_release">Open the release</string>
+    <string name="update_sheet_retry">Retry</string>
+
+    <!-- File size -->
+    <string name="update_size_mb">%1$s MB</string>
+    <string name="update_size_kb">%1$s KB</string>
+
+    <!-- Confirming pre-releases -->
+    <string name="prerelease_sheet_title">Turn on pre-releases?</string>
+    <string name="prerelease_sheet_body_risk">Pre-releases carry experimental features and may be unstable.</string>
+    <string name="prerelease_sheet_body_revert">They can be turned off at any time — the app will then offer stable releases only again.</string>
+    <string name="prerelease_sheet_note">Once it is on, the app checks straight away whether a newer test build exists.</string>
+    <string name="prerelease_sheet_cancel">Cancel</string>
+    <string name="prerelease_sheet_confirm">Turn on</string>
+
+</resources>

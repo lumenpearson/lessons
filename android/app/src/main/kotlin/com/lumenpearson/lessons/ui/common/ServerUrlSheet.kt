@@ -1,11 +1,14 @@
 package com.lumenpearson.lessons.ui.common
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -25,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
+import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 
 /**
  * Editor for `AppSettings.baseUrl`.
@@ -52,6 +56,10 @@ fun ServerUrlSheet(
 ) {
     var url by rememberSaveable(initialUrl) { mutableStateOf(initialUrl) }
     val trimmed = remember(url) { url.trim() }
+    // Held only to know whether the field has focus: the label is bold while
+    // it does, which is the one accent a text field gets.
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
 
     LessonsBottomSheet(
         onDismissRequest = onDismiss,
@@ -71,7 +79,13 @@ fun ServerUrlSheet(
                 .fillMaxWidth()
                 .padding(horizontal = ScreenPadding),
             singleLine = true,
-            label = { Text(text = stringResource(R.string.server_dialog_label)) },
+            interactionSource = interactionSource,
+            label = {
+                Text(
+                    text = stringResource(R.string.server_dialog_label),
+                    style = LocalTextStyle.current.emphasised(focused),
+                )
+            },
             placeholder = { Text(text = stringResource(R.string.server_dialog_placeholder)) },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Uri,

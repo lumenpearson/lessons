@@ -2,7 +2,16 @@
 
 from aiogram import Router
 
-from app.bot.handlers import access, content, start, timetable
+from app.bot.handlers import (
+    access,
+    content,
+    manage,
+    reminders,
+    start,
+    tasks,
+    timetable,
+    week,
+)
 
 
 def build_router() -> Router:
@@ -11,6 +20,10 @@ def build_router() -> Router:
     router.include_router(access.router)
     router.include_router(content.router)
     router.include_router(timetable.router)
+    router.include_router(week.router)
+    router.include_router(tasks.router)
+    router.include_router(reminders.router)
+    router.include_router(manage.router)
     return router
 
 

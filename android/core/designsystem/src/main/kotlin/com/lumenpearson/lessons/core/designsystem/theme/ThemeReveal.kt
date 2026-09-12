@@ -15,6 +15,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -34,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import com.lumenpearson.lessons.core.designsystem.modifier.LocalLiquidRipple
 import kotlin.math.hypot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -194,19 +196,26 @@ val LocalThemeReveal = staticCompositionLocalOf<ThemeRevealState?> { null }
 @Composable
 fun ThemeRevealHost(
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val view = LocalView.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Read through a state holder rather than captured: the host is remembered
+    // once per view and the setting changes underneath it, and a wipe that ran
+    // on the old value of a switch the user had just turned off would be the
+    // one wipe they specifically asked not to see.
+    val wanted = rememberUpdatedState(enabled)
+
     val state = remember(view) {
         ThemeRevealState(
             scope = scope,
             capture = { view.photograph(SnapshotScale) },
             // A user who has turned animations off system-wide has asked for
-            // exactly this not to happen.
-            enabled = { context.animatorsAreOn() },
+            // exactly this not to happen; so has one who turned it off here.
+            enabled = { wanted.value && context.animatorsAreOn() },
         )
     }
 
@@ -273,6 +282,7 @@ fun ThemeRevealAnchor(
     content: @Composable (reveal: (change: () -> Unit) -> Unit) -> Unit,
 ) {
     val host = LocalThemeReveal.current
+    val ripple = LocalLiquidRipple.current
     var centre by remember { mutableStateOf(Offset.Unspecified) }
 
     Box(
@@ -285,6 +295,13 @@ fun ThemeRevealAnchor(
         },
     ) {
         content { change ->
+            // The wave and the wipe start from the same point at the same
+            // moment, which is what makes them read as one event: the new
+            // theme spreading out with a ring of liquid ahead of it. The wave
+            // is fired whether or not the wipe runs — the ripple has its own
+            // switch, and a theme change with the wipe off still deserves
+            // some acknowledgement of where it came from.
+            ripple?.fire(centre)
             if (host == null) change() else host.reveal(centre, change)
         }
     }

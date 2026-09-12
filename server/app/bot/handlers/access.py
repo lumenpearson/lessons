@@ -1,6 +1,15 @@
-"""Access control: who is in the class, and adding people by phone number."""
+"""Access control: who is in the class, and adding people by phone number.
+
+Requests for a higher role («🙋 Запросы доступа») land at the top of this page
+rather than in a list of their own: the answer to «кто это вообще?» is the
+member list right underneath, and an admin deciding without it is deciding
+blind. The buttons carry ``RequestAction``, whose handlers live in
+``manage.py`` next to the rest of the request flow.
+"""
 
 from __future__ import annotations
+
+from html import escape
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
@@ -16,13 +25,20 @@ from app.bot.keyboards import (
     cancel_keyboard,
     role_picker,
 )
+from app.bot.manage_keyboards import RequestAction
+from app.bot.manage_render import person
 from app.bot.render import render_access_list
 from app.bot.roles import can_grant
 from app.bot.states import AddInvite
-from app.models import BotUser, PhoneInvite, Role, SchoolClass
+from app.models import AccessRequest, BotUser, PhoneInvite, Role, SchoolClass
 from app.security import normalise_phone
+from app.services import audit
 
 router = Router(name="access")
+
+#: Pending requests shown before the member list. More than this and the
+#: keyboard stops fitting on a phone; the rest appear as they are answered.
+PENDING_MAX = 5
 
 
 def _grantable_roles(actor: Role) -> list[Role]:
@@ -50,15 +66,59 @@ async def access_root(
     invites = list(
         await session.scalars(select(PhoneInvite).where(PhoneInvite.class_id == school_class.id))
     )
+    pending = list(
+        await session.scalars(
+            select(AccessRequest)
+            .where(AccessRequest.class_id == school_class.id, AccessRequest.status == "pending")
+            .order_by(AccessRequest.id)
+        )
+    )
+    by_id = {member.telegram_id: member for member in members}
 
-    extra = [
+    extra: list[list[InlineKeyboardButton]] = []
+    lines: list[str] = []
+    if pending:
+        lines.append("<b>🙋 Запросы доступа</b>")
+        for request in pending[:PENDING_MAX]:
+            member = by_id.get(request.telegram_id)
+            plain = (
+                (member.full_name or member.username or str(member.telegram_id))
+                if member is not None
+                else str(request.telegram_id)
+            )
+            who = person(
+                member.full_name if member else None,
+                member.username if member else None,
+                request.telegram_id,
+            )
+            note = f" — {escape(request.message)}" if request.message else ""
+            lines.append(f"⏳ {who} → <b>{request.requested_role.title_ru}</b>{note}")
+            extra.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"✅ {plain}"[:28],
+                        callback_data=RequestAction(
+                            action="approve", value=str(request.id)
+                        ).pack(),
+                    ),
+                    InlineKeyboardButton(
+                        text="✖️",
+                        callback_data=RequestAction(
+                            action="decline", value=str(request.id)
+                        ).pack(),
+                    ),
+                ]
+            )
+        lines.append("")
+
+    extra.append(
         [
             InlineKeyboardButton(
                 text="➕ Добавить по номеру",
                 callback_data=AccessAction(action="invite").pack(),
             )
         ]
-    ]
+    )
     if members:
         extra.append(
             [
@@ -69,9 +129,8 @@ async def access_root(
             ]
         )
 
-    await callback.message.edit_text(
-        render_access_list(members, invites), reply_markup=back_to_menu(extra)
-    )
+    body = "\n".join(lines) + render_access_list(members, invites)
+    await callback.message.edit_text(body, reply_markup=back_to_menu(extra))
     await callback.answer()
 
 
@@ -158,6 +217,13 @@ async def invite_role(
                 invited_by=callback.from_user.id,
             )
         )
+    await audit.record(
+        session,
+        school_class.id,
+        callback.from_user.id,
+        "access.invite",
+        f"приглашение +{phone} → {target.title_ru}",
+    )
     await session.commit()
     await state.clear()
 
@@ -275,8 +341,16 @@ async def apply_role(
         await callback.answer("Нельзя менять роль этого пользователя", show_alert=True)
         return
 
+    was = member.role
     member.role = target_role
     member.granted_by = callback.from_user.id
+    await audit.record(
+        session,
+        school_class.id,
+        callback.from_user.id,
+        "access.role",
+        f"{member.full_name or member.telegram_id}: {was.title_ru} → {target_role.title_ru}",
+    )
     await session.commit()
 
     await callback.message.edit_text(
@@ -310,6 +384,13 @@ async def revoke(
         await callback.answer("Нельзя убрать доступ этому пользователю", show_alert=True)
         return
 
+    await audit.record(
+        session,
+        school_class.id,
+        callback.from_user.id,
+        "access.revoke",
+        f"убран доступ: {member.full_name or member.telegram_id} ({member.role.title_ru})",
+    )
     await session.delete(member)
     await session.commit()
     await callback.message.edit_text("🚫 Доступ убран.", reply_markup=back_to_menu())

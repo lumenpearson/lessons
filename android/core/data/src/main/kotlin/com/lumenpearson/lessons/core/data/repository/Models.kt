@@ -1,6 +1,8 @@
 package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.model.AlertPreferences
+import com.lumenpearson.lessons.core.model.AppFont
+import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
@@ -28,6 +30,49 @@ data class Session(
 )
 
 /**
+ * The bot's role ladder, as the server names it.
+ *
+ * Mirrors `Role` in `server/app/models.py`, weakest first. The app never
+ * grants or compares these; it only shows the one the linked account holds and
+ * lets the server decide what a write is allowed to do.
+ */
+enum class ClassRole {
+    VIEWER,
+    EDITOR,
+    ADMIN,
+    OWNER,
+    ;
+
+    companion object {
+        /** `null` for an unknown or absent wire value, never a guess. */
+        fun fromWire(raw: String?): ClassRole? =
+            raw?.trim()?.uppercase()?.let { name -> entries.firstOrNull { it.name == name } }
+    }
+}
+
+/**
+ * Whether this phone is tied to a Telegram account, and what that buys it.
+ *
+ * A device starts unlinked and read-only. Linking it — typing [linkCode] into
+ * the bot, or opening [botDeepLink] — ties the token to the account, and from
+ * then on the server derives every write permission from that account's role
+ * in the class at the moment of the request. There is no second permission
+ * system on the phone: [canEdit] is what the server said last time we asked.
+ *
+ * @property role `null` while unlinked, and also for a linked account that is
+ *   no longer a member of the class — in which case the server says linked
+ *   but nothing can be edited.
+ */
+data class DeviceLink(
+    val deviceName: String?,
+    val linked: Boolean,
+    val role: ClassRole?,
+    val canEdit: Boolean,
+    val linkCode: String?,
+    val botDeepLink: String?,
+)
+
+/**
  * Everything the user can change.
  *
  * [baseUrl] is a setting rather than a build constant because every school hosts
@@ -52,6 +97,40 @@ data class AppSettings(
     val pitchBlack: Boolean = false,
     val hapticsEnabled: Boolean = true,
     val hapticStrength: HapticStrength = HapticStrength.SUBTLE,
+    /**
+     * The typeface the app is set in. [AppFont.BUNDLED] is the design's own
+     * face; the alternative is whatever the phone reads in everywhere else.
+     */
+    val appFont: AppFont = AppFont.BUNDLED,
+    /**
+     * The language the app is read in.
+     *
+     * Stored here rather than left to the platform alone because the platform
+     * only has somewhere to put it from API 33 onwards, and this app starts at
+     * 26. One field, two mechanisms above it: see `AppLocales` in `:app`.
+     */
+    val language: AppLanguage = AppLanguage.SYSTEM,
+    /**
+     * Multiplies every size in the type scale.
+     *
+     * One of [TEXT_SCALE_OPTIONS] rather than any float, and stored as the
+     * number rather than as an enum so that a future step between two of these
+     * does not orphan what people already chose. It multiplies the *system's*
+     * font size rather than replacing it: a phone already set to large type
+     * stays large, and this moves from there.
+     */
+    val textScale: Float = DEFAULT_TEXT_SCALE,
+    /**
+     * Whether the app animates at all.
+     *
+     * Off makes transitions instant rather than quick — see
+     * `MotionSettings.enabled`. Separate from the ripple and the theme wipe,
+     * which are ornaments a person may want gone while still wanting the app to
+     * move; this one is the movement itself.
+     */
+    val animations: Boolean = true,
+    /** How fast it moves when it does; see `AppSettings.MOTION_SPEED_RANGE`. */
+    val motionSpeed: Float = DEFAULT_MOTION_SPEED,
     val swipeTabs: Boolean = true,
     val defaultTab: HomeTab = HomeTab.TODAY,
     val motionBlur: Boolean = false,
@@ -88,6 +167,32 @@ data class AppSettings(
      * field by field.
      */
     val alerts: AlertPreferences = AlertPreferences(),
+    /**
+     * The liquid ripple over the whole screen — on the debug switch, on a theme
+     * change, on an update decision. A full-screen runtime shader for a second
+     * and a half, and the one ornament here that a cheap phone can feel, so it
+     * can be turned off on its own.
+     */
+    val rippleEffects: Boolean = true,
+    /**
+     * The circular wipe from the old theme to the new one. Without it the
+     * colours simply swap in a frame, which is what a phone with reduced
+     * motion asks for and what some people prefer regardless.
+     */
+    val themeReveal: Boolean = true,
+    /**
+     * Ask GitHub for a newer release when the app opens. One request, once
+     * per launch, and only when the last one was long enough ago.
+     */
+    val autoCheckUpdates: Boolean = true,
+    /** Whether a release GitHub flags as pre-release may be offered. */
+    val includePrerelease: Boolean = false,
+    /**
+     * Raise the release sheet by itself when the automatic check finds one.
+     * Off, the check still runs and the settings row shows the verdict, but
+     * nothing interrupts.
+     */
+    val notifyNewUpdates: Boolean = true,
 ) {
     companion object {
         /**
@@ -112,6 +217,36 @@ data class AppSettings(
 
         /** Ends of the motion-blur slider, straight from the Essentials settings screen. */
         val MOTION_BLUR_SCALE_RANGE: ClosedFloatingPointRange<Float> = 0.5f..2.5f
+
+        /** The designed size; every other option is named against it. */
+        const val DEFAULT_TEXT_SCALE: Float = 1f
+
+        /**
+         * The four text sizes offered, as a picker rather than a slider.
+         *
+         * A slider would let somebody land on 1.07 and have no way back to the
+         * size the app was drawn at. Four named steps is a choice a person can
+         * undo, and four is as many as fit a segmented picker on a 360 dp
+         * screen once the labels are Russian.
+         */
+        val TEXT_SCALE_OPTIONS: List<Float> = listOf(0.85f, 1f, 1.15f, 1.3f)
+
+        /** Clamped to this on read; the picker only ever offers the four steps. */
+        val TEXT_SCALE_RANGE: ClosedFloatingPointRange<Float> =
+            TEXT_SCALE_OPTIONS.first()..TEXT_SCALE_OPTIONS.last()
+
+        /** Neutral speed: the transitions as they were tuned. */
+        const val DEFAULT_MOTION_SPEED: Float = 1f
+
+        /**
+         * Ends of the animation-speed slider.
+         *
+         * Half speed is slow enough to watch a transition and not so slow that
+         * the app feels stuck; double is quick enough to feel immediate while
+         * still showing which way the page went. Anything outside that is
+         * better served by the switch above it.
+         */
+        val MOTION_SPEED_RANGE: ClosedFloatingPointRange<Float> = 0.5f..2f
     }
 }
 

@@ -245,10 +245,24 @@ internal fun homeworkOf(
         header = WidgetStrings.homeworkHeader(context, label, short = false),
         shortHeader = WidgetStrings.homeworkHeader(context, label, short = true),
         items = items,
-        subjectCount = WidgetStrings.subjectCount(context, items.size),
+        subjectCount = WidgetStrings.subjectCount(context, subjectsIn(items)),
         isKnown = true,
     )
 }
+
+/**
+ * How many *subjects* a homework list covers.
+ *
+ * The word beside this number is "предмет", so the number has to be a count of
+ * subjects and not of entries. A teacher who files the reading and the exercises
+ * for one lesson separately made the TINY widget say "2 предмета" where the line
+ * on the larger sizes — which has always counted distinct subjects — said one,
+ * and the two were visible side by side on the same home screen.
+ */
+internal fun subjectsIn(homework: List<HomeworkItem>): Int = homework
+    .filter { it.text.isNotBlank() }
+    .distinctBy { it.subject }
+    .size
 
 /**
  * The lessons still to come today, in timeline order, for the LARGE/XLARGE

@@ -3,6 +3,12 @@
 Entering a whole week through inline buttons is miserable, so the timetable is
 edited by pasting one message per weekday. That is the fastest input method
 Telegram offers and it survives copy-paste from a class chat.
+
+The line grammar lives in ``services.timetable_io`` and nowhere else. It used
+to be duplicated here, which is how the day editor came to understand a line
+the week import and «Экспорт» did not: a lesson that alternates weeks
+(«3. История [чис]») parsed here as a subject literally called «История [чис]»
+and went into the template under that name. One parser, one meaning.
 """
 
 from __future__ import annotations
@@ -27,6 +33,7 @@ from app.bot.keyboards import (
 )
 from app.bot.states import EditBells, EditTimetable
 from app.models import BellPeriod, BellSchedule, Role, SchoolClass, TimetableEntry, WeekParity
+from app.services import audit, timetable_io
 
 router = Router(name="timetable")
 
@@ -34,8 +41,12 @@ TIMETABLE_HELP = (
     "Пришлите расписание одним сообщением, по строке на урок:\n\n"
     "<code>1. Алгебра, 214\n"
     "2. Физика, 305, Иванова И.И.\n"
-    "3. История</code>\n\n"
+    "3. История [чис]\n"
+    "3. Обществознание [знам]</code>\n\n"
     "Формат строки: <b>номер. предмет[, кабинет[, учитель]]</b>.\n"
+    "Если урок идёт через неделю, допишите <code>[чис]</code> или "
+    "<code>[знам]</code> — тогда под одним номером живут два предмета. "
+    "Строка без пометки заменяет оба варианта.\n"
     "Пустое сообщение (<code>-</code>) очистит этот день."
 )
 
@@ -46,7 +57,6 @@ BELLS_HELP = (
     "3. 10:25-11:10</code>"
 )
 
-LESSON_LINE = re.compile(r"^\s*(\d{1,2})\s*[.)]?\s*(.+)$")
 BELL_LINE = re.compile(
     r"^\s*(\d{1,2})\s*[.)]?\s*(\d{1,2}[:.]\d{2})\s*[-–—]\s*(\d{1,2}[:.]\d{2})\s*$"
 )
@@ -54,6 +64,23 @@ BELL_LINE = re.compile(
 
 def _parse_time(raw: str) -> time:
     return time.fromisoformat(raw.replace(".", ":"))
+
+
+def _conflicts(rows: list, candidate) -> bool:
+    """Whether ``candidate`` collides with a line already accepted.
+
+    A slot holds either one lesson for every week, or one числитель and one
+    знаменатель. Anything else is a repeat: (day, number, parity) is a unique
+    key, so the second one would abort the whole save — after the weekday had
+    already been deleted on its way through.
+    """
+    index, parity = candidate[0], candidate[4]
+    for other in rows:
+        if other[0] != index:
+            continue
+        if parity is WeekParity.ANY or other[4] is WeekParity.ANY or other[4] is parity:
+            return True
+    return False
 
 
 def _weekday_or_none(raw: str) -> int | None:
@@ -120,15 +147,14 @@ async def timetable_pick_day(
         await session.scalars(
             select(TimetableEntry)
             .where(TimetableEntry.class_id == school_class.id, TimetableEntry.weekday == weekday)
-            .order_by(TimetableEntry.index)
+            .order_by(TimetableEntry.index, TimetableEntry.parity)
         )
     )
     if entries:
+        # Rendered by the same function «Экспорт» uses, so what is shown is
+        # exactly what may be pasted back — parity suffix included.
         current = "\n".join(
-            f"{entry.index}. {escape(entry.subject_name)}"
-            + (f", {escape(entry.room)}" if entry.room else "")
-            + (f", {escape(entry.teacher)}" if entry.teacher else "")
-            for entry in entries
+            escape(timetable_io.format_lesson_line(entry)) for entry in entries
         )
         body = f"<b>{WEEKDAY_FULL[weekday - 1]}</b>\n\n<code>{current}</code>\n\n{TIMETABLE_HELP}"
     else:
@@ -168,6 +194,13 @@ async def timetable_apply(
                 TimetableEntry.class_id == school_class.id, TimetableEntry.weekday == weekday
             )
         )
+        await audit.record(
+            session,
+            school_class.id,
+            message.from_user.id,
+            "timetable.clear",
+            f"{WEEKDAY_FULL[weekday - 1]}: расписание очищено",
+        )
         await session.commit()
         await state.clear()
         await message.answer(
@@ -177,35 +210,16 @@ async def timetable_apply(
 
     # Parse the whole message before touching the database: a paste that turns
     # out to be unusable must not have wiped the weekday on its way through.
-    parsed: list[tuple[int, str, str | None, str | None]] = []
+    parsed: list = []
     rejected: list[str] = []
-    seen: set[int] = set()
     for line in raw.splitlines():
         if not line.strip():
             continue
-        match = LESSON_LINE.match(line)
-        if match is None:
+        row = timetable_io.parse_lesson_line(line)
+        if row is None or _conflicts(parsed, row):
             rejected.append(line.strip())
             continue
-
-        index = int(match.group(1))
-        parts = [part.strip() for part in match.group(2).split(",")]
-        subject = parts[0][:120]
-        # Lesson numbers start at 1, and the unique key is (day, number): a zero
-        # or a repeated number used to abort the whole save with an IntegrityError.
-        if not subject or index < 1 or index in seen:
-            rejected.append(line.strip())
-            continue
-        seen.add(index)
-
-        parsed.append(
-            (
-                index,
-                subject,
-                (parts[1][:32] if len(parts) > 1 and parts[1] else None),
-                (parts[2][:120] if len(parts) > 2 and parts[2] else None),
-            )
-        )
+        parsed.append(row)
 
     if not parsed:
         # Same rule as the bells: a bad paste never erases what is stored.
@@ -224,25 +238,33 @@ async def timetable_apply(
             TimetableEntry.class_id == school_class.id, TimetableEntry.weekday == weekday
         )
     )
-    for index, subject, room, teacher in parsed:
-        session.add(
-            TimetableEntry(
-                class_id=school_class.id,
-                weekday=weekday,
-                index=index,
-                subject_name=subject,
-                room=room,
-                teacher=teacher,
-                parity=WeekParity.ANY,
-            )
+    created: list[TimetableEntry] = []
+    for index, subject, room, teacher, parity in parsed:
+        entry = TimetableEntry(
+            class_id=school_class.id,
+            weekday=weekday,
+            index=index,
+            subject_name=subject,
+            room=room,
+            teacher=teacher,
+            parity=parity,
         )
+        session.add(entry)
+        created.append(entry)
 
+    await audit.record(
+        session,
+        school_class.id,
+        message.from_user.id,
+        "timetable.set",
+        f"{WEEKDAY_FULL[weekday - 1]}: уроков {len(parsed)}",
+    )
     await session.commit()
     await state.clear()
 
     lines = [f"✅ {WEEKDAY_FULL[weekday - 1]}: сохранено уроков — {len(parsed)}."]
     lines.append("")
-    lines.extend(f"{index}. {escape(subject)}" for index, subject, _, _ in parsed)
+    lines.extend(escape(timetable_io.format_lesson_line(entry)) for entry in created)
     if rejected:
         lines.append("")
         lines.append("⚠️ Не разобрал строки:")
@@ -342,6 +364,13 @@ async def bells_apply(
         session.add(
             BellPeriod(schedule_id=schedule.id, index=index, starts_at=start, ends_at=end)
         )
+    await audit.record(
+        session,
+        school_class.id,
+        message.from_user.id,
+        "bells.edit",
+        f"звонки «{schedule.name}»: {len(parsed)} уроков",
+    )
     await session.commit()
     await state.clear()
 

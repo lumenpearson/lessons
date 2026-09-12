@@ -99,7 +99,7 @@ fun SchoolBell(
                     // Half the swing about the vertical axis, which is what turns
                     // a rocking picture into an object with a far side.
                     rotationY = angle * DepthRatio
-                    cameraDistance = CameraDistance * density
+                    cameraDistance = CameraDistance
                 },
         ) {
             drawBell(color = tone.content, clapperShift = clapperShift)
@@ -120,8 +120,23 @@ private const val SwingDegrees = 16f
 /** How much of the swing is rotation away from the viewer rather than across it. */
 private const val DepthRatio = 0.55f
 
-/** Shorter than the Compose default, so the perspective divide is actually visible. */
-private const val CameraDistance = 12f
+/**
+ * How far the camera sits from the plane the bell is drawn on.
+ *
+ * Three quarters of Compose's own default of 8, so the perspective divide is
+ * actually visible rather than the near-orthographic projection a distant camera
+ * gives — the whole reason this component rotates about Y at all.
+ *
+ * The unit is *not* pixels, which is why nothing here scales it by the density:
+ * `GraphicsLayerScope.cameraDistance` is passed straight to `RenderNode`, whose
+ * camera distance is density-independent (the View layer divides by `densityDpi`
+ * on the way in, and its default of `1280 * density` px is exactly this 8). It
+ * used to be multiplied by the density anyway, which on a three-times screen put
+ * the camera at 36 — four and a half times further away than the default instead
+ * of a quarter closer — and flattened the depth this component is built around,
+ * differently on every phone.
+ */
+private const val CameraDistance = 6f
 
 /** Half a period; the spec reverses, so a full swing is twice this. */
 private const val SwingMillis = 620

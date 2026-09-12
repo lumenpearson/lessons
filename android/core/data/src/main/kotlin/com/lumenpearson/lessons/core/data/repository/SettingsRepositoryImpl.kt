@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
+import com.lumenpearson.lessons.core.model.AppLanguage
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +28,8 @@ internal class SettingsRepositoryImpl(
 ) : SettingsRepository {
 
     override val settings: Flow<AppSettings> = preferences.settings
+
+    override fun languageBlocking(): AppLanguage = preferences.languageBlocking()
 
     override suspend fun update(transform: (AppSettings) -> AppSettings) {
         val before = preferences.currentSettings().alerts

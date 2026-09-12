@@ -113,3 +113,62 @@ def test_describe_never_leaks_the_password():
     assert "secret" not in rendered
     assert "neon.tech" in rendered
     assert "sslmode" not in rendered
+
+
+# ---- the documented form, and the verify-* modes ---------------------------
+
+
+def test_a_url_that_already_names_asyncpg_is_still_normalised():
+    """docs/deploy.md tells the operator to set ``postgresql+asyncpg://``; that
+    form used to skip every rewrite, pooler cache handling included."""
+    pooled = NEON_POOLED.replace("postgresql://", "postgresql+asyncpg://", 1)
+    url, args = normalise_database_url(pooled)
+    assert url.startswith("postgresql+asyncpg://")
+    assert "sslmode" not in url
+    assert args["ssl"] == "require"
+    assert args["statement_cache_size"] == 0
+    assert "prepared_statement_cache_size=0" in url
+
+
+def test_other_drivers_are_left_alone():
+    url, args = normalise_database_url("postgresql+psycopg://u:p@host/db?sslmode=require")
+    assert url == "postgresql+psycopg://u:p@host/db?sslmode=require"
+    assert args == {}
+
+
+@pytest.mark.parametrize(
+    ("mode", "check_hostname"), [("verify-full", True), ("verify-ca", False)]
+)
+def test_verify_modes_get_a_context_that_verifies(mode, check_hostname):
+    """asyncpg's "require" trusts any certificate; verify-* must not be
+    quietly downgraded to it."""
+    import ssl
+
+    _, args = normalise_database_url(f"postgresql://u:p@host/db?sslmode={mode}")
+    context = args["ssl"]
+    assert isinstance(context, ssl.SSLContext)
+    assert context.verify_mode is ssl.CERT_REQUIRED
+    assert context.check_hostname is check_hostname
+
+
+def test_an_unloadable_sslrootcert_fails_loudly_and_names_itself(tmp_path):
+    """Better a startup error naming the parameter than an SSLError on the
+    first query, from a stack frame that never mentions the URL."""
+    missing = tmp_path / "nope.crt"
+    with pytest.raises(ValueError, match="sslrootcert"):
+        normalise_database_url(
+            f"postgresql://u:p@host/db?sslmode=verify-full&sslrootcert={missing}"
+        )
+
+
+def test_sslrootcert_never_reaches_the_driver_url():
+    url, args = normalise_database_url("postgresql://u:p@host/db?sslmode=verify-ca")
+    assert "sslrootcert" not in url
+    assert "sslmode" not in url
+    assert args["ssl"].check_hostname is False
+
+
+def test_supabase_transaction_pooler_is_recognised():
+    assert is_pooled("aws-0-eu-central-1.pooler.supabase.com")
+    assert is_pooled("AWS-0-EU-CENTRAL-1.POOLER.SUPABASE.COM")
+    assert not is_pooled("db.abcdefghijkl.supabase.co")

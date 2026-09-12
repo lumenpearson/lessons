@@ -20,10 +20,33 @@ from app.fsm_storage import DatabaseStorage
 
 log = logging.getLogger(__name__)
 
+# Shown by BotFather in this order, so the everyday ones come first and the
+# admin ones last. Every command listed here has a handler; the list is not
+# filtered by role because Telegram shows one list per bot, and a command a
+# viewer cannot use answers with a polite refusal rather than silence.
 COMMANDS = [
     BotCommand(command="start", description="Главное меню"),
-    BotCommand(command="today", description="Расписание на сегодня"),
-    BotCommand(command="code", description="Код класса для приложения"),
+    BotCommand(command="today", description="Сегодня"),
+    BotCommand(command="tomorrow", description="Завтра"),
+    BotCommand(command="week", description="Неделя"),
+    BotCommand(command="next", description="Что дальше"),
+    BotCommand(command="homework", description="Домашнее задание"),
+    BotCommand(command="tasks", description="Мои задачи"),
+    BotCommand(command="remind", description="Напоминания"),
+    BotCommand(command="find", description="Поиск по ДЗ"),
+    BotCommand(command="subjects", description="Предметы"),
+    BotCommand(command="holidays", description="Каникулы и особые дни"),
+    BotCommand(command="bells", description="Звонки"),
+    BotCommand(command="devices", description="Устройства"),
+    BotCommand(command="log", description="Журнал изменений"),
+    BotCommand(command="class", description="Настройки класса"),
+    BotCommand(command="export", description="Экспорт расписания"),
+    BotCommand(command="import", description="Импорт расписания"),
+    BotCommand(command="stats", description="Статистика"),
+    BotCommand(command="calendar", description="Календарь"),
+    BotCommand(command="link", description="Привязать телефон"),
+    BotCommand(command="request", description="Запросить доступ"),
+    BotCommand(command="code", description="Код класса"),
     BotCommand(command="help", description="Справка"),
 ]
 

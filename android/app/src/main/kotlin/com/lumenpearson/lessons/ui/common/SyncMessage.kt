@@ -33,6 +33,9 @@ sealed interface SyncMessage {
      *   it is usually more specific than anything this app could invent.
      */
     data class Failed(val detail: String?) : SyncMessage
+
+    /** A bug report did not reach GitHub. Not a sync, but the same snackbar. */
+    data object IssueFailed : SyncMessage
 }
 
 /**
@@ -54,4 +57,5 @@ fun SyncMessage.asText(): String = when (this) {
     is SyncMessage.Failed ->
         detail?.let { stringResource(R.string.sync_error_failed, it) }
             ?: stringResource(R.string.sync_error_generic)
+    SyncMessage.IssueFailed -> stringResource(R.string.issue_error_failed)
 }

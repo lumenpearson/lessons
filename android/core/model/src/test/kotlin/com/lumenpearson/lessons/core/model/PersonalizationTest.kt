@@ -15,6 +15,8 @@ class PersonalizationTest {
         ThemeMode.entries.forEach { assertEquals(it, ThemeMode.fromName(it.name)) }
         HapticStrength.entries.forEach { assertEquals(it, HapticStrength.fromName(it.name)) }
         HomeTab.entries.forEach { assertEquals(it, HomeTab.fromName(it.name)) }
+        AppFont.entries.forEach { assertEquals(it, AppFont.fromName(it.name)) }
+        LessonAlertDetail.entries.forEach { assertEquals(it, LessonAlertDetail.fromName(it.name)) }
     }
 
     @Test
@@ -22,6 +24,11 @@ class PersonalizationTest {
         assertEquals(ThemeMode.SYSTEM, ThemeMode.fromName(null))
         assertEquals(HapticStrength.SUBTLE, HapticStrength.fromName(null))
         assertEquals(HomeTab.TODAY, HomeTab.fromName(null))
+        assertEquals(AppFont.BUNDLED, AppFont.fromName(null))
+        // FULL, because it is what the reminder said before there was a choice:
+        // a phone upgrading into this setting must not find its notifications
+        // quietly shortened.
+        assertEquals(LessonAlertDetail.FULL, LessonAlertDetail.fromName(null))
     }
 
     /**
@@ -33,6 +40,8 @@ class PersonalizationTest {
         assertEquals(ThemeMode.SYSTEM, ThemeMode.fromName("AMOLED"))
         assertEquals(HapticStrength.SUBTLE, HapticStrength.fromName("TICK"))
         assertEquals(HomeTab.TODAY, HomeTab.fromName("MARKS"))
+        assertEquals(AppFont.BUNDLED, AppFont.fromName("SERIF"))
+        assertEquals(LessonAlertDetail.FULL, LessonAlertDetail.fromName("SUBJECT_AND_ROOM"))
     }
 
     /** Names are matched exactly; a lower-case name is not the same value. */

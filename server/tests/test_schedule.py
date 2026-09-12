@@ -231,3 +231,82 @@ async def test_resolve_range_returns_exactly_the_requested_days(session, school_
     assert len(resolved) == days
     assert resolved[0].date == MONDAY
     assert resolved[-1].date == MONDAY.fromordinal(MONDAY.toordinal() + days - 1)
+
+
+async def test_a_replacement_subject_does_not_inherit_the_old_teacher(session, school_class):
+    """Monday lesson 2 is Физика. Replacing it with История must not pin the
+    physics teacher on the history lesson; the subject dictionary knows who
+    teaches history, and when it does not, nobody is better than the wrong one."""
+    from sqlalchemy import select
+
+    from app.models import LessonOverride, OverrideAction, Subject, TimetableEntry
+
+    physics = await session.scalar(
+        select(TimetableEntry).where(
+            TimetableEntry.class_id == school_class.id,
+            TimetableEntry.weekday == 1,
+            TimetableEntry.index == 2,
+        )
+    )
+    physics.teacher = "Иванова И.И."
+    session.add(Subject(class_id=school_class.id, name="История", teacher="Петров П.П."))
+    session.add(
+        LessonOverride(
+            class_id=school_class.id,
+            date=MONDAY,
+            index=2,
+            action=OverrideAction.REPLACE,
+            subject_name="История",
+        )
+    )
+    session.add(
+        LessonOverride(
+            class_id=school_class.id,
+            date=MONDAY,
+            index=1,
+            action=OverrideAction.REPLACE,
+            subject_name="Обществознание",
+        )
+    )
+    await session.commit()
+
+    day = (await ScheduleResolver(session, school_class).resolve_range(MONDAY, 1))[0]
+    by_index = {lesson.index: lesson for lesson in day.lessons}
+    assert by_index[2].subject == "История"
+    assert by_index[2].teacher == "Петров П.П."
+    assert by_index[2].room is None
+    # No dictionary entry: unknown rather than the algebra teacher's room.
+    assert by_index[1].teacher is None
+    assert by_index[1].room is None
+
+
+async def test_a_room_change_for_the_same_subject_keeps_the_teacher(session, school_class):
+    from sqlalchemy import select
+
+    from app.models import LessonOverride, OverrideAction, TimetableEntry
+
+    physics = await session.scalar(
+        select(TimetableEntry).where(
+            TimetableEntry.class_id == school_class.id,
+            TimetableEntry.weekday == 1,
+            TimetableEntry.index == 2,
+        )
+    )
+    physics.teacher = "Иванова И.И."
+    session.add(
+        LessonOverride(
+            class_id=school_class.id,
+            date=MONDAY,
+            index=2,
+            action=OverrideAction.REPLACE,
+            subject_name="Физика",
+            room="101",
+        )
+    )
+    await session.commit()
+
+    day = (await ScheduleResolver(session, school_class).resolve_range(MONDAY, 1))[0]
+    lesson = next(item for item in day.lessons if item.index == 2)
+    assert lesson.room == "101"
+    assert lesson.teacher == "Иванова И.И."
+    assert lesson.is_replaced

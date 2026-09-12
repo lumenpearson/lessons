@@ -10,6 +10,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import com.lumenpearson.lessons.core.model.AppFont
 import com.lumenpearson.lessons.core.model.ThemeMode
 
 /**
@@ -28,12 +29,19 @@ import com.lumenpearson.lessons.core.model.ThemeMode
  *   Off falls back to [LessonsLightColorScheme] / [LessonsDarkColorScheme].
  * @param pitchBlack flatten dark surfaces to true black for OLED panels. Has no
  *   effect in light mode, so callers can bind it straight to a setting.
+ * @param font which typeface the app is set in.
+ * @param textScale multiplies every size in the type scale; 1 is the designed
+ *   one. It is a multiplier on top of the system's own font-size setting rather
+ *   than a replacement for it — somebody who has already enlarged type
+ *   everywhere keeps that, and this moves from there.
  */
 @Composable
 fun LessonsTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     dynamicColor: Boolean = true,
     pitchBlack: Boolean = false,
+    font: AppFont = AppFont.BUNDLED,
+    textScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -57,6 +65,13 @@ fun LessonsTheme(
         if (darkTheme && pitchBlack) base.toPitchBlack() else base
     }
 
+    // Remembered for the same reason the colour scheme is: this builds fifteen
+    // TextStyles, and both of its inputs change about twice in the life of an
+    // install while the composition around them runs every frame.
+    val typography = remember(font, textScale) {
+        lessonsTypography(family = fontFamilyOf(font), scale = textScale)
+    }
+
     MaterialExpressiveTheme(
         colorScheme = colorScheme,
         // If MotionScheme.expressive() moved, the stable fallback is
@@ -64,7 +79,7 @@ fun LessonsTheme(
         // because MaterialExpressiveTheme defaults every parameter to null.
         motionScheme = MotionScheme.expressive(),
         shapes = LessonsShapes,
-        typography = LessonsTypography,
+        typography = typography,
         content = content,
     )
 }

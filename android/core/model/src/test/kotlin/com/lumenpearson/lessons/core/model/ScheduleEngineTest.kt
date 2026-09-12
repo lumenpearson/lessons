@@ -258,6 +258,28 @@ class SchoolZoneTest {
         assertEquals(LocalTime.of(3, 30), moscow.toLocalTime())
     }
 
+    /**
+     * The ticking screens read the clock in one place and derive the state in
+     * another, and the instant is what has to cross between them: whatever is
+     * handed over has to still be convertible into the school's wall time.
+     */
+    @Test
+    fun `atSchool answers for an instant the caller already holds`() {
+        val instant = java.time.Instant.parse("2026-09-07T00:30:00Z")
+
+        val now = timetableIn(vladivostok).atSchool(instant)
+        assertEquals(LocalDate.of(2026, 9, 7), now.toLocalDate())
+        assertEquals(LocalTime.of(10, 30), now.toLocalTime())
+
+        // The same instant, so the same answer as the clock-reading form.
+        val clock = java.time.Clock.fixed(instant, java.time.ZoneOffset.UTC)
+        assertEquals(timetableIn(vladivostok).nowAtSchool(clock), now)
+
+        // ...and a different school is a different wall time for it.
+        val moscow = timetableIn(vladivostok.copy(timeZoneId = "Europe/Moscow")).atSchool(instant)
+        assertEquals(LocalTime.of(3, 30), moscow.toLocalTime())
+    }
+
     @Test
     fun `an unknown zone falls back instead of throwing`() {
         val broken = SchoolClassInfo(id = 1, name = "9А", timeZoneId = "Mars/Olympus")

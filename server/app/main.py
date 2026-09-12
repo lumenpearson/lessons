@@ -14,13 +14,24 @@ from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 
+from app.api.cron import router as cron_router
+from app.api.diary import router as diary_router
+from app.api.edit import router as edit_router
 from app.api.public import router as public_router
-from app.api.telegram import router as telegram_router
 from app.config import get_settings
 from app.db import engine, init_db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
+
+
+def _report_bot_exit(task: asyncio.Task) -> None:
+    """Log why the polling task stopped, if it stopped on its own."""
+    if task.cancelled():
+        return
+    failure = task.exception()
+    if failure is not None:
+        log.error("Telegram polling stopped: %s", failure, exc_info=failure)
 
 
 @contextlib.asynccontextmanager
@@ -41,6 +52,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         from app.bot.bot import run_polling
 
         bot_task = asyncio.create_task(run_polling(stop_event))
+        # Nothing awaits this task until shutdown, so without a callback a
+        # failure before aiogram's own retry loop takes over - a malformed
+        # token, a 401 from set_my_commands, no network at boot - is stored in
+        # the task and never seen. The bot is then simply silent for the life
+        # of the process, with a clean log.
+        bot_task.add_done_callback(_report_bot_exit)
     else:
         log.warning("Telegram bot disabled (RUN_BOT=false or BOT_TOKEN unset)")
 
@@ -51,6 +68,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if bot_task is not None:
             with contextlib.suppress(asyncio.CancelledError):
                 await bot_task
+        # The diary's HTTP client is process-wide and pooled; closing it is
+        # what returns its sockets rather than leaving them to a finaliser.
+        from app.providers.petersburg import close_client
+
+        await close_client()
 
 
 app = FastAPI(
@@ -60,10 +82,31 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(public_router)
+# The electronic diary of Saint Petersburg, behind its own bearer and its own
+# prefix. Mounted unconditionally: it needs no configuration of ours, only a
+# person's own account with the service, and an endpoint that answers 401
+# without one is honest about what it is.
+app.include_router(diary_router)
+app.include_router(edit_router)
+# Always mounted; the endpoint itself answers 404 until CRON_SECRET is set,
+# the same way the webhook does, and the aiogram import it needs is deferred
+# until a tick actually runs.
+app.include_router(cron_router)
 
 # Only mounted when a webhook secret is configured. On a long-polling
 # deployment the endpoint would be dead weight and one more thing to secure.
+#
+# Imported here rather than at the top of the file, because importing the module
+# costs about four seconds of aiogram before anything else can run, and a
+# serverless cold start pays it on the way to the first response. It used to be
+# paid on *every* cold start, including the free-tier deployment this project
+# documents, where the webhook is unmounted and aiogram is then imported purely
+# to be told it is not wanted. The heavy `app.bot.bot` import inside
+# `app/api/telegram.py` is already deferred the same way and for the same
+# reason; this is the outer half of it.
 if get_settings().webhook_enabled:
+    from app.api.telegram import router as telegram_router
+
     app.include_router(telegram_router, prefix="/api/v1")
     log.info("Telegram webhook mounted at /api/v1/telegram/webhook")
 else:

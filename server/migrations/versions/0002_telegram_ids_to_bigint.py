@@ -59,7 +59,7 @@ def _widen(to: type[sa.types.TypeEngine], frm: type[sa.types.TypeEngine]) -> Non
                 (c for c in inspector.get_columns(table) if c["name"] == column),
                 None,
             )
-            if current is None or isinstance(current["type"], to):
+            if current is None or _already(current["type"], to):
                 continue
         op.alter_column(
             table,
@@ -68,6 +68,18 @@ def _widen(to: type[sa.types.TypeEngine], frm: type[sa.types.TypeEngine]) -> Non
             type_=to(),
             existing_nullable=nullable,
         )
+
+
+def _already(current: sa.types.TypeEngine, to: type[sa.types.TypeEngine]) -> bool:
+    """Whether the reflected column is already the target width.
+
+    Not a bare ``isinstance``: ``BigInteger`` subclasses ``Integer``, so on the
+    way down every BIGINT column passed ``isinstance(current, Integer)`` and the
+    downgrade skipped all five while still recording itself as applied.
+    """
+    if to is sa.Integer:
+        return not isinstance(current, sa.BigInteger)
+    return isinstance(current, to)
 
 
 def upgrade() -> None:

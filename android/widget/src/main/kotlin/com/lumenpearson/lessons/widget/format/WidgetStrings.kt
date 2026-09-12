@@ -78,11 +78,26 @@ internal object WidgetStrings {
      *
      * From java.time rather than a string array, which is how the app does it
      * too: java.time already knows the correctly abbreviated weekday for the
-     * device's locale, and a hand-written table gets the declensions wrong.
+     * chosen locale, and a hand-written table gets the declensions wrong.
+     *
+     * The locale comes from [context] rather than from `Locale.getDefault()`,
+     * which is the one difference between this and the app's own version and
+     * the reason it takes a context at all. Below Android 13 the app's chosen
+     * language is a property of a `Context` and the process default is still
+     * the phone's — so an English widget drew six English words and then "пн
+     * вт ср" underneath them. On 33+ the two agree, because the platform sets
+     * the process default too.
      */
-    fun shortWeekday(date: java.time.LocalDate): String = date.dayOfWeek
-        .getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault())
-        .lowercase(java.util.Locale.getDefault())
+    fun shortWeekday(context: Context, date: java.time.LocalDate): String {
+        val locale = locale(context)
+        return date.dayOfWeek
+            .getDisplayName(java.time.format.TextStyle.SHORT, locale)
+            .lowercase(locale)
+    }
+
+    /** What [context] resolves resources through; the phone's own as a fallback. */
+    private fun locale(context: Context): Locale =
+        context.resources.configuration.locales.get(0) ?: Locale.getDefault()
 
     fun eventLabel(context: Context, kind: EventKind): String = context.getString(
         when (kind) {
@@ -189,10 +204,14 @@ internal object WidgetStrings {
      * five subjects half-read beats seeing one in full.
      */
     fun homeworkLine(context: Context, item: HomeworkItem, maxChars: Int): String =
+        homeworkLine(context, item.subject, item.text, maxChars)
+
+    /** @see homeworkLine */
+    fun homeworkLine(context: Context, subject: String, text: String, maxChars: Int): String =
         context.getString(
             R.string.widget_homework_line,
-            item.subject,
-            item.text.collapseWhitespace(),
+            subject,
+            text.collapseWhitespace(),
         ).ellipsize(maxChars)
 
     /** "5 предметов" — Russian needs one/few/many, so this goes through plurals. */
@@ -268,7 +287,12 @@ internal object WidgetStrings {
  */
 internal fun String.ellipsize(maxChars: Int): String {
     if (maxChars <= 1 || length <= maxChars) return this
-    return take(maxChars - 1).trimEnd().trimEnd(',', ';', '.', '\u2013', '-') + "\u2026"
+    // One back if the cut landed between the halves of a surrogate pair. A
+    // `Char` is a UTF-16 code unit, not a character, so an emoji straddling the
+    // boundary otherwise leaves its leading half behind \u2014 which `trimEnd` does
+    // not consider whitespace and the widget draws as a tofu box.
+    val end = (maxChars - 1).let { if (this[it - 1].isHighSurrogate()) it - 1 else it }
+    return take(end).trimEnd().trimEnd(',', ';', '.', '\u2013', '-') + "\u2026"
 }
 
 /**

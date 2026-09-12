@@ -33,16 +33,30 @@ import androidx.compose.ui.unit.dp
  * | [MEDIUM]     | 250 × 110dp | 4×2   | + a "Дальше" column                   |
  * | [MEDIUM_TALL]| 250 × 180dp | 4×3   | + the rest of the day                 |
  * | [LARGE]      | 250 × 250dp | 4×4   | + the week strip                      |
+ * | [LARGE_TALL] | 250 × 400dp | 4×6   | + homework, in a four-cell column     |
  * | [XLARGE]     | 320 × 320dp | 5×5   | + homework                            |
  * | [TALL]       | 320 × 400dp | 5×6   | + the next school day and its homework|
  * | [HUGE]       | 320 × 560dp | 5×8   | + more of all of it                   |
  *
  * The widths are the three that matter: 110dp is two cells on a typical 4- or
  * 5-column launcher grid, 250dp is four, 320dp is five or a tablet column. The
- * heights step 40 → 60 → 110 → 190 → 250 → 300 → 320 → 400 because those are
- * roughly one through six rows; between them the launcher picks the largest
- * breakpoint that fits, which is exactly the behaviour we want: grow the widget,
- * get more.
+ * heights step 40 → 60 → 110 → 190 → 250 → 300 → 320 → 400 → 560 because those
+ * are roughly one through eight rows.
+ *
+ * ### How a real size becomes a rung, and why it matters which rungs exist
+ *
+ * Not "the largest breakpoint that fits", which is what this comment used to
+ * say. Both the framework (API 31+, `RemoteViews` with a size map) and Glance's
+ * own `findBestSize` keep the breakpoints that fit inside the real size and then
+ * take the one at the smallest *squared distance* from it — nearest, not
+ * largest. A rung missing from one branch of the ladder is therefore not merely
+ * an unused size: it hands its widgets to a rung on another branch. With nothing
+ * above [LARGE] at 250dp wide, a four-cell widget taller than about 471dp was
+ * closer to [NARROW]'s 110 × 300 than to [LARGE]'s 250 × 250 — so the largest
+ * widget on a four-column home screen drew the two-cell column layout: no week
+ * strip, five timeline rows, and homework clipped to the 24 characters that fit
+ * in 110dp, in more than twice that width. [LARGE_TALL] is the rung that band
+ * was missing.
  *
  * 40dp is the floor because it is the smallest height in which a 13sp label and
  * a 13sp countdown still clear the launcher's own widget padding.
@@ -273,6 +287,34 @@ enum class WidgetSizeClass(
         paddingDp = 14f,
     ),
 
+    /**
+     * Four cells wide and most of a screen tall.
+     *
+     * Everything [LARGE] says plus the homework block, which is what the extra
+     * 150dp of height is for: on a four-column launcher this is the biggest the
+     * widget can get, and without this rung it was the one size that fell
+     * through to the narrow column. Narrower rows than [XLARGE], because 250dp
+     * is 70dp less to spend on a subject and a room number.
+     */
+    LARGE_TALL(
+        breakpoint = DpSize(250.dp, 400.dp),
+        timelineRows = 6,
+        homeworkItems = 5,
+        homeworkChars = 56,
+        showsSubject = true,
+        showsMeta = true,
+        showsProgressBar = true,
+        showsNextUp = false,
+        showsTodayHomework = true,
+        showsWeekStrip = true,
+        showsHomework = true,
+        showsNextDay = false,
+        titleSp = 21f,
+        bodySp = 14f,
+        captionSp = 12f,
+        paddingDp = 14f,
+    ),
+
     /** Timeline *and* homework at once — the "I live on my home screen" size. */
     XLARGE(
         breakpoint = DpSize(320.dp, 320.dp),
@@ -379,6 +421,7 @@ enum class WidgetSizeClass(
                 w >= HUGE.breakpoint.width && h >= HUGE.breakpoint.height -> HUGE
                 w >= TALL.breakpoint.width && h >= TALL.breakpoint.height -> TALL
                 w >= XLARGE.breakpoint.width && h >= XLARGE.breakpoint.height -> XLARGE
+                w >= LARGE_TALL.breakpoint.width && h >= LARGE_TALL.breakpoint.height -> LARGE_TALL
                 w >= LARGE.breakpoint.width && h >= LARGE.breakpoint.height -> LARGE
                 w >= MEDIUM_TALL.breakpoint.width &&
                     h >= MEDIUM_TALL.breakpoint.height -> MEDIUM_TALL

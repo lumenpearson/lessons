@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English mirror of res/values/strings_telegram.xml (which is the Russian original). -->
+<resources>
+    <!-- Class page: the Telegram link of this phone -->
+    <string name="telegram_group">Telegram</string>
+    <string name="telegram_checking">Checking the link…</string>
+    <string name="telegram_check_failed">Could not check the link</string>
+    <string name="telegram_retry">Retry</string>
+    <string name="telegram_not_linked">The phone is not linked</string>
+    <string name="telegram_not_linked_description">Link the phone to your Telegram to edit homework and substitutions straight from the app. The rights are the same ones you have in the bot.</string>
+    <string name="telegram_code_title">Link code</string>
+    <string name="telegram_code_hint">Send the bot the command /link %1$s</string>
+    <string name="telegram_copy_code">Copy the code</string>
+    <string name="telegram_clipboard_label">Link code</string>
+    <string name="telegram_open_bot">Open the bot</string>
+    <string name="telegram_check_again">Check again</string>
+    <string name="telegram_linked">The phone is linked</string>
+    <string name="telegram_linked_can_edit">Role: %1$s · editing allowed</string>
+    <string name="telegram_linked_read_only">Role: %1$s · read only. To ask for access: the /request command in the bot</string>
+    <string name="telegram_linked_no_membership">The account is no longer in the class — read only</string>
+    <string name="telegram_unlink">Unlink</string>
+    <string name="telegram_unlink_title">Unlink the phone?</string>
+    <string name="telegram_unlink_message">The app will go back to only reading the timetable. It can be linked again at any time — the code will appear here.</string>
+    <string name="role_viewer">Viewer</string>
+    <string name="role_editor">Editor</string>
+    <string name="role_admin">Administrator</string>
+    <string name="role_owner">Owner</string>
+</resources>

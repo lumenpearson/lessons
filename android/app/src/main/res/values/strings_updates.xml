@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The update sheets: "доступно обновление", "всё актуально", and the question
+    asked before pre-releases are switched on. A file of their own rather than a
+    section of strings.xml, so the feature can be read — and removed — as one
+    thing. Russian only, like the rest of values/.
+-->
+<resources>
+
+    <!-- Лист обновления: заголовки состояний -->
+    <string name="update_sheet_available_title">Доступно обновление</string>
+    <string name="update_sheet_up_to_date_title">Всё актуально</string>
+    <string name="update_sheet_failed_title">Не удалось проверить</string>
+    <string name="update_sheet_failed_body">Проверьте соединение и попробуйте ещё раз.</string>
+    <string name="update_sheet_checking">Проверяем…</string>
+
+    <!-- Подписи под заголовком -->
+    <string name="update_version_label">v%1$s</string>
+    <string name="update_sheet_version_change">%1$s → %2$s</string>
+    <string name="update_sheet_installed">Установлена %1$s</string>
+    <string name="update_sheet_unknown_version">GitHub ещё не знает о версии %1$s</string>
+
+    <!-- Карточка заметок к выпуску -->
+    <string name="update_sheet_whats_new">Что нового в %1$s</string>
+    <string name="update_sheet_release_notes">Заметки к выпуску %1$s</string>
+    <string name="update_sheet_no_notes">Без описания</string>
+    <string name="update_notes_full_changelog">Полный список изменений</string>
+
+    <!-- Кнопки -->
+    <string name="update_sheet_view_on_github">Посмотреть на GitHub</string>
+    <string name="update_sheet_later">Позже</string>
+    <string name="update_sheet_update">Обновить</string>
+    <string name="update_sheet_update_with_size">Обновить · %1$s</string>
+    <string name="update_sheet_open_release">Открыть релиз</string>
+    <string name="update_sheet_retry">Повторить</string>
+
+    <!-- Размер файла -->
+    <string name="update_size_mb">%1$s МБ</string>
+    <string name="update_size_kb">%1$s КБ</string>
+
+    <!-- Подтверждение пре-релизов -->
+    <string name="prerelease_sheet_title">Включить пре-релизы?</string>
+    <string name="prerelease_sheet_body_risk">Пре-релизы содержат экспериментальные возможности и могут работать нестабильно.</string>
+    <string name="prerelease_sheet_body_revert">Их можно отключить в любой момент — тогда приложение снова будет предлагать только стабильные выпуски.</string>
+    <string name="prerelease_sheet_note">После включения приложение сразу проверит, есть ли более новая тестовая сборка.</string>
+    <string name="prerelease_sheet_cancel">Отмена</string>
+    <string name="prerelease_sheet_confirm">Включить</string>
+
+</resources>

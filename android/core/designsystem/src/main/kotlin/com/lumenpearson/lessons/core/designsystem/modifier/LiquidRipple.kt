@@ -13,12 +13,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.hypot
 import org.intellij.lang.annotations.Language
 
 /**
@@ -63,14 +65,22 @@ private const val LiquidRippleShader = """
     uniform float uFrequency;
     uniform float uDecay;
     uniform float uSpeed;
+    uniform float uReverse;
+    uniform float uFarthest;
 
     half4 main(float2 fragCoord) {
         float2 toward = fragCoord - uOrigin;
         float reach = length(toward);
 
+        // How far this pixel is along the front's path. Outward, that is its own
+        // distance from the origin, so near pixels move first. Inward, it is
+        // what is left to the far corner, so the order reverses and the ring
+        // closes on the origin instead of leaving it.
+        float travelled = mix(reach, uFarthest - reach, uReverse);
+
         // The wavefront has not arrived here yet while this is zero, which is
         // what makes the ring expand rather than the whole screen pulse at once.
-        float time = max(0.0, uTime - reach / uSpeed);
+        float time = max(0.0, uTime - travelled / uSpeed);
 
         float wave1 = uAmplitude * sin(uFrequency * time) * exp(-uDecay * time);
 
@@ -82,7 +92,10 @@ private const val LiquidRippleShader = """
 
         // Guarded at a pixel: at the origin itself this is very nearly zero, so
         // that pixel is left where it is instead of being normalized by nothing.
-        float2 direction = toward / max(reach, 1.0);
+        // Also flipped when the front runs inward, so pixels are pulled toward
+        // the origin rather than pushed away from it.
+        float2 outward = toward / max(reach, 1.0);
+        float2 direction = mix(outward, -outward, uReverse);
         float2 samplePos = clamp(fragCoord + totalWave * direction, float2(0.0), uResolution);
 
         half4 color = inputShader.eval(samplePos);
@@ -126,7 +139,10 @@ private const val RippleMillis = 1500
  * @param amplitude how far a pixel is pushed at the crest of the first wave.
  * @param frequency crests per second at the origin.
  * @param decay how fast a crest dies; larger is a shorter, sharper ring.
- * @param speed how fast the front travels outward.
+ * @param speed how fast the front travels.
+ * @param reverse runs the front inward instead of outward: it starts at the far
+ *   corners and closes on [origin], pulling pixels toward it rather than pushing
+ *   them away. For answering "no" with the same gesture played backwards.
  */
 fun Modifier.liquidRipple(
     trigger: Int,
@@ -137,6 +153,7 @@ fun Modifier.liquidRipple(
     frequency: Float = 12f,
     decay: Float = 4.5f,
     speed: Dp = 1400.dp,
+    reverse: Boolean = false,
 ): Modifier = composed {
     if (!enabled || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
         return@composed Modifier
@@ -145,8 +162,16 @@ fun Modifier.liquidRipple(
     val seconds = durationMillis / 1000f
     val time = remember { Animatable(0f) }
 
+    // The counter as it already stood when this modifier entered the
+    // composition. [LiquidRippleState] outlives the modifier — the shell owns
+    // one and hands it down — so re-entering with a counter already above zero
+    // is not a new tap: switching the effect back on in settings, or a layer
+    // being re-created, replayed the last wave from an origin belonging to
+    // whatever was tapped minutes ago, somewhere else on the screen.
+    val enteredAt = remember { trigger }
+
     LaunchedEffect(trigger) {
-        if (trigger <= 0) return@LaunchedEffect
+        if (!firesWave(trigger, enteredAt)) return@LaunchedEffect
         time.snapTo(0f)
         // Linear on purpose: the shader's own `exp` is the shape of the thing.
         // An eased clock would be a second curve fighting the first.
@@ -162,8 +187,28 @@ fun Modifier.liquidRipple(
         frequency = frequency,
         decay = decay,
         speedPx = with(density) { speed.toPx() },
+        reverse = reverse,
     )
 }
+
+/**
+ * Whether [trigger] is a wave to play, rather than one already spent.
+ *
+ * @param enteredAt the counter when the modifier entered the composition. Zero
+ *   and below never fire at all, so the effect does not run itself on first
+ *   composition; anything equal to [enteredAt] is a wave that was fired before
+ *   this modifier existed and has either already been drawn or was never meant
+ *   for it.
+ */
+internal fun firesWave(trigger: Int, enteredAt: Int): Boolean = trigger > 0 && trigger != enteredAt
+
+/** Distance from [from] to the furthest corner of a box of [size]. */
+private fun farthestCorner(from: Offset, size: Size): Float = maxOf(
+    hypot(from.x, from.y),
+    hypot(size.width - from.x, from.y),
+    hypot(from.x, size.height - from.y),
+    hypot(size.width - from.x, size.height - from.y),
+)
 
 /** The graphics layer itself, kept behind an API guard lint can see. */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -178,6 +223,7 @@ private object LiquidRippleLayer {
         frequency: Float,
         decay: Float,
         speedPx: Float,
+        reverse: Boolean,
     ): Modifier {
         // Compiled once, and survivable if it does not compile. A `RuntimeShader`
         // built from source that some driver's SkSL rejects throws from its
@@ -205,6 +251,12 @@ private object LiquidRippleLayer {
                 shader.setFloatUniform("uFrequency", frequency)
                 shader.setFloatUniform("uDecay", decay)
                 shader.setFloatUniform("uSpeed", speedPx)
+                shader.setFloatUniform("uReverse", if (reverse) 1f else 0f)
+                // The distance the inward front has to cover before it reaches
+                // the origin. Measured rather than assumed, because the layer is
+                // whatever size it is and a front that starts short of the
+                // corner leaves them untouched.
+                shader.setFloatUniform("uFarthest", farthestCorner(centre, size))
                 RenderEffect.createRuntimeShaderEffect(shader, "inputShader")
                     .asComposeRenderEffect()
             } else {

@@ -1,13 +1,6 @@
 package com.lumenpearson.lessons.ui.settings
 
-import android.Manifest
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
-import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -15,15 +8,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.Notes
+import androidx.compose.material.icons.rounded.BeachAccess
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.EditCalendar
 import androidx.compose.material.icons.rounded.NotificationsActive
-import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,21 +29,21 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.notifications.AlertPreview
 import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupRow
+import com.lumenpearson.lessons.core.designsystem.component.GroupSegmentedItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupSwitchItem
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
+import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 import com.lumenpearson.lessons.core.model.AlertPreferences
+import com.lumenpearson.lessons.core.model.LessonAlertDetail
 
 /**
  * The notifications page.
@@ -63,13 +58,29 @@ import com.lumenpearson.lessons.core.model.AlertPreferences
  * permission — turning a switch on while notifications are blocked at the system
  * level would store a preference that silently does nothing, which is the worst
  * possible answer to "why is it not working".
+ *
+ * Under the four switches are two groups that are not about a kind of alert at
+ * all. «Когда молчать» holds the rules that apply to every kind — the quiet
+ * window and the holidays — because they are one decision and four copies of it
+ * would be four ways to get it wrong. «Проверка» posts one sample, which is the
+ * only way to find out what all of this actually looks like on a lock screen
+ * without waiting until tomorrow morning.
  */
 internal fun LazyListScope.notificationRows(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
+    onOpenSection: (SettingsSection) -> Unit,
 ) {
+    // One row for every permission this app needs rather than the one it used
+    // to name, because notifications arriving late is as broken as notifications
+    // not arriving, and only one of those two was ever reported here.
     item(key = "notifications-permission") {
-        NotificationPermissionRow()
+        val missing = rememberMissingPermissionCount()
+        MissingPermissionsRow(
+            missing = missing,
+            onOpen = { onOpenSection(SettingsSection.PERMISSIONS) },
+            modifier = Modifier.padding(horizontal = ScreenPadding),
+        )
     }
 
     item(key = "notifications-lessons") {
@@ -86,6 +97,16 @@ internal fun LazyListScope.notificationRows(
                 LeadMinutesRow(
                     selected = state.settings.alerts.lessonLeadMinutes,
                     onSelect = { minutes -> viewModel.setAlerts { it.copy(lessonLeadMinutes = minutes) } },
+                )
+                GroupSegmentedItem(
+                    title = stringResource(R.string.settings_alert_detail),
+                    subtitle = stringResource(R.string.settings_alert_detail_description),
+                    icon = Icons.AutoMirrored.Rounded.Notes,
+                    tone = accentTone(1),
+                    items = LessonAlertDetail.entries,
+                    selectedItem = state.settings.alerts.lessonDetail,
+                    onItemSelected = { detail -> viewModel.setAlerts { it.copy(lessonDetail = detail) } },
+                    labelProvider = { detail -> stringResource(detail.labelRes) },
                 )
             }
         }
@@ -108,6 +129,17 @@ internal fun LazyListScope.notificationRows(
                     tone = accentTone(4),
                     selectedMinutes = state.settings.alerts.morningAtMinutes,
                     onSelect = { minutes -> viewModel.setAlerts { it.copy(morningAtMinutes = minutes) } },
+                )
+                WeekdayRow(
+                    selected = state.settings.alerts.morningWeekdays,
+                    onToggle = { day ->
+                        viewModel.setAlerts { alerts ->
+                            val days = alerts.morningWeekdays
+                            alerts.copy(
+                                morningWeekdays = if (day in days) days - day else days + day,
+                            )
+                        }
+                    },
                 )
             }
             GroupSwitchItem(
@@ -142,78 +174,161 @@ internal fun LazyListScope.notificationRows(
             )
         }
     }
+
+    // Rules about *whether* to interrupt rather than about what to say, which is
+    // why they are one group below the four switches instead of being repeated
+    // inside each of them: a quiet hour is quiet for every kind of alert, and
+    // four copies of it would be four ways to get it wrong.
+    item(key = "notifications-quiet") {
+        SettingsGroup(title = stringResource(R.string.settings_alerts_quiet_group)) {
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_alert_quiet),
+                subtitle = stringResource(R.string.settings_alert_quiet_description),
+                icon = Icons.Rounded.Bedtime,
+                tone = accentTone(0),
+                checked = state.settings.alerts.quietHours,
+                onCheckedChange = { on -> viewModel.setAlerts { it.copy(quietHours = on) } },
+            )
+            if (state.settings.alerts.quietHours) {
+                QuietHourRow(
+                    title = stringResource(R.string.settings_alert_quiet_from),
+                    selectedMinutes = state.settings.alerts.quietFromMinutes,
+                    onSelect = { minutes -> viewModel.setAlerts { it.copy(quietFromMinutes = minutes) } },
+                )
+                QuietHourRow(
+                    title = stringResource(R.string.settings_alert_quiet_to),
+                    selectedMinutes = state.settings.alerts.quietToMinutes,
+                    onSelect = { minutes -> viewModel.setAlerts { it.copy(quietToMinutes = minutes) } },
+                )
+            }
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_alert_holidays),
+                subtitle = stringResource(R.string.settings_alert_holidays_description),
+                icon = Icons.Rounded.BeachAccess,
+                tone = accentTone(3),
+                checked = state.settings.alerts.skipHolidays,
+                onCheckedChange = { on -> viewModel.setAlerts { it.copy(skipHolidays = on) } },
+            )
+        }
+    }
+
+    item(key = "notifications-test") {
+        TestAlertGroup(alerts = state.settings.alerts)
+    }
 }
 
 /**
- * Shown only while notifications cannot actually be posted.
+ * "Проверить" — one sample notification, posted now.
  *
- * Two different blocks look the same from the app's side: the Android 13
- * runtime permission was never granted, and the user switched the app's
- * notifications off in system settings. The first can be asked for in place; the
- * second can only be undone where it was done, so the row opens that page.
+ * The last thing on the page, and the only row here that does something rather
+ * than storing something, which is where the sync page puts its own «обновить
+ * сейчас» and for the same reason.
+ *
+ * The outcome is shown in the row's own subtitle rather than in a snackbar: the
+ * interesting failure — notifications switched off for the app — needs to stay
+ * on screen next to the permission row that fixes it, and a snackbar is gone in
+ * four seconds.
  */
 @Composable
-private fun NotificationPermissionRow() {
+private fun TestAlertGroup(alerts: AlertPreferences) {
     val context = LocalContext.current
-    var granted by remember { mutableStateOf(canPostNotifications(context)) }
+    // Null until the button has been pressed: a row that opens by announcing
+    // "отправлено" would be lying about something that has not happened.
+    var posted by remember { mutableStateOf<Boolean?>(null) }
 
-    // Re-read on every return to the screen. Both remedies leave the app —
-    // the permission dialog is a separate window, system settings a separate
-    // task — so a row that only checked once would still be telling the user to
-    // grant something they had just granted.
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) granted = canPostNotifications(context)
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    val request = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { result -> granted = result || canPostNotifications(context) }
-
-    if (granted) return
-
-    SettingsGroup(title = stringResource(R.string.settings_alerts_blocked_group)) {
+    SettingsGroup(title = stringResource(R.string.settings_alerts_test_group)) {
         GroupItem(
-            title = stringResource(R.string.settings_alerts_blocked),
-            subtitle = stringResource(R.string.settings_alerts_blocked_description),
-            icon = Icons.Rounded.NotificationsOff,
-            tone = errorTone(),
-            onClick = {
-                // Ask in place where the platform still allows it; otherwise the
-                // only thing left is the page where it was switched off.
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                    ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.POST_NOTIFICATIONS,
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    request.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else {
-                    openNotificationSettings(context)
-                }
+            title = stringResource(R.string.settings_alert_test),
+            subtitle = when (posted) {
+                null -> stringResource(R.string.settings_alert_test_description)
+                true -> stringResource(R.string.settings_alert_test_sent)
+                false -> stringResource(R.string.settings_alert_test_blocked)
             },
+            icon = Icons.Rounded.NotificationsActive,
+            tone = if (posted == false) errorTone() else accentTone(2),
+            onClick = { posted = AlertPreview.post(context, alerts) },
         )
     }
 }
 
-/** Whether a notification posted right now would actually be shown. */
-private fun canPostNotifications(context: Context): Boolean {
-    val permitted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-        PackageManager.PERMISSION_GRANTED
-    return permitted && NotificationManagerCompat.from(context).areNotificationsEnabled()
+/** Label of a detail level in the segmented picker. */
+private val LessonAlertDetail.labelRes: Int
+    get() = when (this) {
+        LessonAlertDetail.SUBJECT -> R.string.settings_alert_detail_subject
+        LessonAlertDetail.FULL -> R.string.settings_alert_detail_full
+    }
+
+/**
+ * Which mornings the summary may arrive on.
+ *
+ * Seven chips rather than seven switches: they are one decision with seven
+ * parts, and a column of seven rows would be the tallest thing on the page for
+ * the setting that matters least.
+ *
+ * Turning every day off is allowed and is not the same as turning the summary
+ * off — the summary stays on with nothing to fire on, which reads as broken.
+ * The subtitle says so rather than the code preventing it, because a picker
+ * that refuses to let go of the last chip is worse than one that explains.
+ */
+@Composable
+private fun WeekdayRow(
+    selected: Set<Int>,
+    onToggle: (Int) -> Unit,
+) {
+    ChipRow(
+        title = stringResource(R.string.settings_alert_morning_days),
+        subtitle = if (selected.isEmpty()) {
+            stringResource(R.string.settings_alert_morning_days_none)
+        } else {
+            null
+        },
+        icon = Icons.Rounded.CalendarMonth,
+        tone = accentTone(4),
+    ) {
+        AlertPreferences.Weekdays.forEach { day ->
+            PillChip(
+                text = stringResource(weekdayLabelRes(day)),
+                selected = day in selected,
+                onClick = { onToggle(day) },
+            )
+        }
+    }
 }
 
-/** Opens this app's page in the system notification settings, or does nothing. */
-private fun openNotificationSettings(context: Context) {
-    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    runCatching { context.startActivity(intent) }
+/** ISO-8601 weekday number to its two-letter Russian abbreviation. */
+@StringRes
+private fun weekdayLabelRes(day: Int): Int = when (day) {
+    1 -> R.string.weekday_short_monday
+    2 -> R.string.weekday_short_tuesday
+    3 -> R.string.weekday_short_wednesday
+    4 -> R.string.weekday_short_thursday
+    5 -> R.string.weekday_short_friday
+    6 -> R.string.weekday_short_saturday
+    else -> R.string.weekday_short_sunday
+}
+
+/**
+ * One end of the quiet window.
+ *
+ * Every hour of the day, unlike [HourRow]: a quiet window routinely starts at
+ * 23:00 and ends at 06:00, and both of those are outside the hours a summary
+ * would ever be set to.
+ */
+@Composable
+private fun QuietHourRow(
+    title: String,
+    selectedMinutes: Int,
+    onSelect: (Int) -> Unit,
+) {
+    ChipRow(title = title, icon = Icons.Rounded.Bedtime, tone = accentTone(0)) {
+        AlertPreferences.QuietHourOptions.forEach { hour ->
+            PillChip(
+                text = stringResource(R.string.settings_alert_hour_value, hour),
+                selected = hour * MinutesPerHour == selectedMinutes,
+                onClick = { onSelect(hour * MinutesPerHour) },
+            )
+        }
+    }
 }
 
 /** How long before the bell, as chips: the choices are not a continuum. */
@@ -271,6 +386,7 @@ private fun ChipRow(
     title: String,
     icon: ImageVector,
     tone: AccentTone,
+    subtitle: String? = null,
     content: @Composable () -> Unit,
 ) {
     GroupRow(verticalAlignment = Alignment.Top) {
@@ -284,6 +400,13 @@ private fun ChipRow(
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),

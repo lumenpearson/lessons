@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Vibration
@@ -59,16 +60,19 @@ import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealAnchor
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.appSlideMotionBlur
+import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.ui.join.JoinScreen
+import com.lumenpearson.lessons.ui.settings.PermissionCard
 import com.lumenpearson.lessons.ui.settings.SettingsUiState
 import com.lumenpearson.lessons.ui.settings.SettingsViewModel
 import com.lumenpearson.lessons.ui.settings.SupportsDynamicColor
 import com.lumenpearson.lessons.ui.settings.SupportsShaders
 import com.lumenpearson.lessons.ui.settings.labelRes
+import com.lumenpearson.lessons.ui.settings.rememberPermissionPrompts
 
 /**
- * The four screens a new install opens with, in order.
+ * The five screens a new install opens with, in order.
  *
  * The order is Essentials' own and it is not arbitrary: say what this is, say
  * what it is not and let the user opt out of the one thing it records, let them
@@ -76,11 +80,22 @@ import com.lumenpearson.lessons.ui.settings.labelRes
  * formed a habit, and only then ask for something. Putting the class-code field
  * first — which is what the app did before — asks a stranger for a credential on
  * a screen that has not yet said what the credential is for.
+ *
+ * [PERMISSIONS] goes last before [JOIN], for two reasons. It is the first time
+ * the app hands the user over to the system, and everything the three
+ * permissions are *for* — a bell in ten minutes, a replacement lesson, a
+ * morning summary — is about the timetable that arrives on the very next
+ * screen, so the ask sits as close to its payoff as the flow allows; put before
+ * [PREFERENCES] it would interrupt a run of in-app switches with two system
+ * dialogs. And [JOIN] is where `onboardingDone` is written, so a step in front
+ * of it leaves that rule — reaching the last step is what counts as "seen" —
+ * exactly as it was.
  */
 enum class OnboardingStep {
     WELCOME,
     ACKNOWLEDGEMENT,
     PREFERENCES,
+    PERMISSIONS,
     JOIN,
 }
 
@@ -106,6 +121,15 @@ fun OnboardingScreen(
     viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Saveable, not remembered, and the language picker on the first step is
+    // what makes that load-bearing rather than tidy. Below API 33 choosing a
+    // language recreates the activity — that is the only way to replace a base
+    // context — and a `remember` here would have put the user back on the
+    // welcome screen every time they touched it. `recreate()` saves and
+    // restores instance state exactly as a rotation does, so the step, the
+    // latched "show the introduction" decision in `LessonsApp` and the settings
+    // view model (retained with the ViewModelStore) all come back as they were;
+    // only the slide animation is lost, which is the right thing to lose.
     var step by rememberSaveable { mutableStateOf(OnboardingStep.WELCOME) }
 
     fun goTo(next: OnboardingStep) {
@@ -116,8 +140,16 @@ fun OnboardingScreen(
     // The system gesture walks the same path as the button, so the flow has one
     // way back rather than two that disagree. On the first step it is left
     // alone, which lets it do what it means there: leave the app.
+    //
+    // Bounded rather than trusting `enabled` to have caught up. That flag
+    // reaches the callback in a SideEffect, after the composition is applied,
+    // while the write below lands in the snapshot at once — so two back events
+    // drained in one input pass both see it true, and the second asks for the
+    // step before the first. Reachable by tapping back twice during the slide,
+    // which is exactly where this screen is slowest, and a crash writes no
+    // saved state, so it restarted the whole introduction.
     BackHandler(enabled = step != OnboardingStep.WELCOME) {
-        step = OnboardingStep.entries[step.ordinal - 1]
+        OnboardingStep.entries.getOrNull(step.ordinal - 1)?.let { step = it }
     }
 
     Surface(
@@ -181,11 +213,16 @@ fun OnboardingScreen(
                         state = state,
                         viewModel = viewModel,
                         onBack = { goTo(OnboardingStep.ACKNOWLEDGEMENT) },
+                        onNext = { goTo(OnboardingStep.PERMISSIONS) },
+                    )
+
+                    OnboardingStep.PERMISSIONS -> PermissionsStep(
+                        onBack = { goTo(OnboardingStep.PREFERENCES) },
                         onNext = { goTo(OnboardingStep.JOIN) },
                     )
 
                     OnboardingStep.JOIN -> JoinScreen(
-                        onBack = { goTo(OnboardingStep.PREFERENCES) },
+                        onBack = { goTo(OnboardingStep.PERMISSIONS) },
                     )
                 }
             }
@@ -197,10 +234,19 @@ fun OnboardingScreen(
  * Step one: the mark, the name, and the one preference worth setting before the
  * user has seen a single screen.
  *
- * Essentials puts its language picker here. This app ships in one language, so
- * the slot goes to the theme instead — the other setting whose effect is visible
- * on the very next frame, and the one a user opening an app at night wants
- * before they are three screens deep in it.
+ * Essentials puts its language picker here, and so does this — now that there
+ * is a second language to put in it. It shares the step with the theme, the
+ * other setting whose effect is visible on the very next frame and the one a
+ * user opening an app at night wants before they are three screens deep in it.
+ *
+ * The language belongs on *this* step and not on [OnboardingStep.PREFERENCES]
+ * two screens later, because everything between the two is prose: the
+ * acknowledgement step is four paragraphs saying what the timetable is and what
+ * it is not, and it is the single most useful thing a new user reads. Somebody
+ * who does not read Russian has to be able to change the language before that,
+ * not after it. It is the same setter the settings page uses and the same
+ * strings, so what is set here is already stored by the time the flow ends and
+ * the row reads identically in both places.
  */
 @Composable
 private fun WelcomeStep(
@@ -248,6 +294,22 @@ private fun WelcomeStep(
                     labelProvider = { mode -> stringResource(mode.labelRes) },
                 )
             }
+            // In the same card as the theme rather than a card of its own: the
+            // two are one question — "how should this look and read to me" —
+            // asked before anything else, and a second card would give a screen
+            // whose whole job is a mark and a greeting two separate blocks to
+            // read. No subtitle either, unlike the settings page: «Системный» is
+            // one of the three labels right beside it, so the sentence that
+            // explains it there would only be repeating a word that is visible.
+            GroupSegmentedItem(
+                title = stringResource(R.string.settings_language),
+                icon = Icons.Rounded.Language,
+                tone = accentTone(1),
+                items = AppLanguage.entries,
+                selectedItem = state.settings.language,
+                onItemSelected = viewModel::setLanguage,
+                labelProvider = { language -> stringResource(language.labelRes) },
+            )
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -449,6 +511,87 @@ private fun PreferencesStep(
         Spacer(Modifier.height(24.dp))
     }
 }
+
+/**
+ * Step four: the three things the app needs from the system, asked one at a
+ * time.
+ *
+ * Each permission gets a card of its own rather than a shared group, because
+ * each is a separate question with a separate answer, and a group reads as one
+ * block to be dealt with in one go — which is exactly the "allow everything"
+ * habit this step should not be training. The cards themselves are the settings
+ * page's, from [PermissionCard]: the same button, the same wording, and the
+ * same handling of a dialog the platform has stopped offering.
+ *
+ * Nothing here blocks [OnboardingStep.JOIN]. The action moves on whatever the
+ * answers were — «Потом» while something is missing, «Дальше» once nothing is —
+ * and it is never disabled, because a pupil who refuses all three still gets a
+ * timetable, a week view and a widget; what they lose is being told about them.
+ *
+ * The step is not skipped when everything is already granted either. Skipping
+ * forward would make the back gesture from [OnboardingStep.JOIN] land here and
+ * be thrown straight forward again, which is a flow with no way back rather
+ * than a shortcut.
+ */
+@Composable
+private fun PermissionsStep(
+    onBack: () -> Unit,
+    onNext: () -> Unit,
+) {
+    val prompts = rememberPermissionPrompts()
+    val settled = prompts.missing == 0
+
+    StepScaffold(
+        actions = {
+            OnboardingActions(
+                label = stringResource(
+                    if (settled) {
+                        R.string.onboarding_action_continue
+                    } else {
+                        R.string.onboarding_action_later
+                    },
+                ),
+                icon = if (settled) Icons.Rounded.Check else Icons.AutoMirrored.Rounded.ArrowForward,
+                onBack = onBack,
+                onClick = onNext,
+            )
+        },
+    ) {
+        Spacer(Modifier.height(24.dp))
+        OnboardingTitle(
+            title = stringResource(R.string.onboarding_permissions_title),
+            subtitle = stringResource(R.string.onboarding_permissions_subtitle),
+        )
+        Spacer(Modifier.height(24.dp))
+
+        prompts.states.forEachIndexed { index, state ->
+            if (index > 0) Spacer(Modifier.height(GroupSpacing))
+            RoundedCardContainer {
+                PermissionCard(state = state, onAct = { prompts.act(state) })
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+/**
+ * Label of a language in the first-run picker.
+ *
+ * A copy of the settings page's mapping rather than a shared one, because the
+ * settings page's is `private` to its own file and this file may not change it —
+ * but it is a copy of three `when` branches over the same `R.string` names, not
+ * of the strings themselves. `settings_language_*` already exists in `values/`
+ * and `values-en/`; a first-run set beside it would be four more names for the
+ * translation test to keep in step and four more chances for the same word to
+ * end up spelled two ways.
+ */
+private val AppLanguage.labelRes: Int
+    get() = when (this) {
+        AppLanguage.SYSTEM -> R.string.settings_language_system
+        AppLanguage.RUSSIAN -> R.string.settings_language_russian
+        AppLanguage.ENGLISH -> R.string.settings_language_english
+    }
 
 /** The two answers to "may the app keep a crash report", in picker order. */
 private val CrashReportChoices = listOf(false, true)

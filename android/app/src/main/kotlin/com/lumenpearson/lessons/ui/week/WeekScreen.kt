@@ -46,7 +46,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -66,6 +65,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
+import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
@@ -372,9 +372,10 @@ private fun WeekdayTile(
         )
         Text(
             text = dayOfMonth,
-            style = MaterialTheme.typography.titleMedium,
+            // Bold for the day in view and for today, which has no fill of its
+            // own in the strip and would otherwise carry no mark at all.
+            style = MaterialTheme.typography.titleMedium.emphasised(selected || isToday),
             color = if (selected) scheme.onPrimary else scheme.onSurface,
-            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
         )
         LoadDots(
             count = lessonCount,
@@ -509,9 +510,8 @@ private fun MonthCell(
     ) {
         Text(
             text = day.date.dayOfMonth.toString(),
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium.emphasised(selected || day.isToday),
             color = content,
-            fontWeight = if (day.isToday) FontWeight.Bold else FontWeight.Normal,
         )
         LoadDots(
             count = day.day?.activeLessons?.size ?: 0,
@@ -594,6 +594,7 @@ private fun DayChips(
         if (isToday) {
             PillChip(
                 text = stringResource(R.string.day_today),
+                selected = true,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             )

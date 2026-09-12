@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -17,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.state.formatTimeRange
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import com.lumenpearson.lessons.core.designsystem.theme.neutralTone
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
@@ -69,7 +71,11 @@ fun LessonRow(
         ) {
             Text(
                 text = lesson.subject,
-                style = MaterialTheme.typography.titleMedium,
+                // The running lesson is the one bold row of the day. Its
+                // neighbours keep the scale's Medium rather than dropping to
+                // Normal, so they still match every other row title in the app.
+                style = MaterialTheme.typography.titleMedium
+                    .emphasised(isCurrent, resting = FontWeight.Medium),
                 color = if (lesson.isCancelled) scheme.onSurfaceVariant else scheme.onSurface,
                 textDecoration = if (lesson.isCancelled) TextDecoration.LineThrough else null,
                 maxLines = 1,
@@ -103,6 +109,7 @@ fun LessonRow(
 
             isCurrent -> PillChip(
                 text = stringResource(R.string.ds_lesson_now),
+                selected = true,
                 containerColor = tone.content,
                 contentColor = tone.container,
             )

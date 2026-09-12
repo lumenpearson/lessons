@@ -21,6 +21,13 @@ import java.util.Locale
  * Weekday and month names come from [Locale.getDefault], not from strings.xml:
  * java.time already has correctly declined Russian month names ("8 сентября",
  * not "8 сентябрь"), and hand-written string arrays get that wrong.
+ *
+ * That default is the app's language and not the phone's because `AppLocale`
+ * sets it alongside every context it wraps, which matters only below Android 13
+ * — above it the platform does the same thing itself. Without that, an English
+ * app on a Russian phone would draw English screens with Russian month names,
+ * because `createConfigurationContext` moves resource lookup and leaves
+ * java.time where it was.
  */
 
 /** 24-hour clock. Russian schools never write 8:30 AM. */

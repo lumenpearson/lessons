@@ -34,12 +34,17 @@ object Graph {
      * receiver may run in a process where `Application.onCreate` has already
      * done this, or - after a process restart triggered by WorkManager - be the
      * first thing to touch it.
+     *
+     * @param githubClientId passed by the application, which is the one caller
+     *   that runs first in the process and the one that has the constant. A
+     *   receiver or worker calling this later without it changes nothing,
+     *   because by then the graph already exists.
      */
-    fun init(context: Context) {
+    fun init(context: Context, githubClientId: String = "") {
         if (instance != null) return
         synchronized(this) {
             if (instance == null) {
-                instance = DefaultLessonsContainer(context.applicationContext)
+                instance = DefaultLessonsContainer(context.applicationContext, githubClientId)
             }
         }
     }

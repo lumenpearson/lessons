@@ -53,6 +53,26 @@ if engine.dialect.name == "sqlite":
         finally:
             cursor.close()
 
+        # SQLite's built-in ``lower()`` folds ASCII and nothing else, so
+        # «Алгебра» did not match «алгебра» in the bot's homework search -
+        # on the development file only, because Postgres folds Cyrillic
+        # properly and production is Postgres. A search that behaves one way
+        # for the developer and another for the class is a search nobody can
+        # reason about, so the builtin is replaced with Python's, which knows
+        # the whole alphabet. SQLite allows overriding it; the cost is a
+        # Python call per row, and the rows here are one class's homework.
+        dbapi_connection.create_function("lower", 1, _unicode_lower)
+        dbapi_connection.create_function("upper", 1, _unicode_upper)
+
+
+def _unicode_lower(value):
+    """``None`` in, ``None`` out - SQL semantics, not Python's."""
+    return value.lower() if isinstance(value, str) else value
+
+
+def _unicode_upper(value):
+    return value.upper() if isinstance(value, str) else value
+
 
 async def init_db() -> None:
     """Create tables that do not exist yet.
@@ -60,7 +80,13 @@ async def init_db() -> None:
     The schema is small and additive; if it ever needs destructive changes,
     introduce Alembic rather than extending this function.
     """
-    from app import models  # noqa: F401  (import registers the mappers)
+    # Both imports register mappers. The FSM table lives beside the storage
+    # that uses it rather than in models.py, and importing only models here
+    # meant a fresh Postgres bootstrapped by scripts.init_db had every table
+    # but fsm_states - so the first multi-step conversation in the bot died
+    # on "relation does not exist". The tests never saw it because collecting
+    # test_fsm_storage.py imported the module before create_all ran.
+    from app import fsm_storage, models  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

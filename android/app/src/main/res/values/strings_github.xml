@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The three support sheets on the about page: licences, the bug report and
+    the GitHub sign-in. Kept apart from strings.xml because they arrived as one
+    piece and are read as one piece; the file is Russian-first like the rest.
+-->
+<resources>
+
+    <!-- Лицензии и благодарности -->
+    <string name="licences_title">Лицензии и благодарности</string>
+    <string name="licences_subtitle">Открытый код и люди, благодаря которым приложение существует</string>
+    <string name="licences_expand">Развернуть</string>
+    <string name="licences_collapse">Свернуть</string>
+    <string name="licence_mit">Лицензия MIT</string>
+    <string name="licence_apache">Лицензия Apache 2.0</string>
+    <string name="credit_essentials">Essentials</string>
+    <string name="credit_essentials_note">Sameera Wijerathna. Язык оформления, экраны первого запуска, рябь при нажатии и модификаторы размытия перенесены отсюда.</string>
+    <string name="credit_compose">Jetpack Compose и Material 3</string>
+    <string name="credit_compose_note">Каждый экран приложения собран из его компонентов, движения и типографики.</string>
+    <string name="credit_glance">Glance</string>
+    <string name="credit_glance_note">Виджет на главном экране нарисован им.</string>
+    <string name="credit_square">Retrofit и OkHttp</string>
+    <string name="credit_square_note">Square. Сетевой слой, по которому приходит расписание.</string>
+    <string name="credit_kotlinx">kotlinx.serialization и kotlinx.coroutines</string>
+    <string name="credit_kotlinx_note">JetBrains. Разбор ответов сервера и всё, что происходит в фоне.</string>
+    <string name="credit_jetpack_storage">Room и DataStore</string>
+    <string name="credit_jetpack_storage_note">Копия расписания и настройки на устройстве.</string>
+    <string name="credit_material_symbols">Material Symbols</string>
+    <string name="credit_material_symbols_note">Все значки в приложении и виджете.</string>
+
+    <!-- Сообщить об ошибке -->
+    <string name="bug_report_title">Сообщить об ошибке</string>
+    <string name="bug_report_device">Об устройстве</string>
+    <string name="bug_report_description_label">Опишите проблему или предложение…</string>
+    <string name="bug_report_email_label">Почта для связи (необязательно)</string>
+    <string name="bug_report_send">Отправить</string>
+    <string name="bug_report_send_signed_out">Войдите через GitHub, чтобы отправить</string>
+    <string name="bug_report_or">Или</string>
+    <string name="bug_report_open_issue">Открыть issue на GitHub</string>
+    <string name="bug_report_email">Отправить письмом</string>
+
+    <!-- Вход через GitHub -->
+    <string name="github_sign_in_title">Вход через GitHub</string>
+    <string name="github_requesting">Запрашиваем код…</string>
+    <string name="github_step_copy">1. Скопируйте код:</string>
+    <string name="github_copy">Скопировать</string>
+    <string name="github_copied">Скопировано</string>
+    <string name="github_clipboard_label">Код GitHub</string>
+    <string name="github_step_paste">2. Вставьте код на GitHub:</string>
+    <string name="github_open_login">Открыть страницу входа</string>
+    <string name="github_waiting">Ждём подтверждения…</string>
+    <string name="github_code_valid">Код действует ещё %1$d мин</string>
+    <string name="github_code_expiring">Код вот-вот истечёт</string>
+    <string name="github_signed_in_as">Вы вошли как @%1$s</string>
+    <string name="github_done">Готово</string>
+    <string name="github_failed_title">Не получилось войти</string>
+    <string name="github_failed_expired">Код истёк — запросите новый.</string>
+    <string name="github_failed_denied">Вход отклонён на GitHub.</string>
+    <string name="github_failed_generic">Проверьте соединение и попробуйте ещё раз.</string>
+    <string name="github_retry">Попробовать снова</string>
+
+</resources>

@@ -336,9 +336,17 @@ internal fun HomeworkRow(
 ) {
     val context = LocalContext.current
     BodyText(
-        text = context
-            .getString(R.string.widget_homework_line, subject, text)
-            .ellipsize(size.homeworkChars * maxLines),
+        // Through the formatter rather than the raw string: homework is
+        // free-form teacher input and regularly carries a newline, and a Glance
+        // Text at maxLines = 1 shows what is before it and silently drops the
+        // rest with no ellipsis. `homeworkLine` exists for exactly this and was
+        // not being called from anywhere.
+        text = WidgetStrings.homeworkLine(
+            context = context,
+            subject = subject,
+            text = text,
+            maxChars = size.homeworkChars * maxLines,
+        ),
         size = size,
         maxLines = maxLines,
         modifier = modifier.fillMaxWidth(),
@@ -384,6 +392,7 @@ internal fun WeekStrip(
     openDay: (LocalDate) -> Action,
     modifier: GlanceModifier = GlanceModifier,
 ) {
+    val context = LocalContext.current
     Row(modifier = modifier.fillMaxWidth()) {
         week.forEach { day ->
             val isToday = day.date == today
@@ -409,7 +418,7 @@ internal fun WeekStrip(
                     GlanceTheme.colors.onSurfaceVariant
                 }
                 Text(
-                    text = WidgetStrings.shortWeekday(day.date),
+                    text = WidgetStrings.shortWeekday(context, day.date),
                     maxLines = 1,
                     style = TextStyle(color = content, fontSize = (size.captionSp - 1f).sp),
                 )

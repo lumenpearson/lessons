@@ -44,3 +44,11 @@ class EditTimetable(StatesGroup):
 
 class EditBells(StatesGroup):
     rows = State()
+
+
+class AddTask(StatesGroup):
+    text = State()
+
+
+class SetReminderTime(StatesGroup):
+    kind = State()

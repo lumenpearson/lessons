@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.core.data.datastore
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -10,11 +11,17 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lumenpearson.lessons.core.data.repository.AppSettings
+import com.lumenpearson.lessons.core.data.repository.DiarySession
+import com.lumenpearson.lessons.core.data.repository.DiarySessionStore
 import com.lumenpearson.lessons.core.data.repository.Session
 import com.lumenpearson.lessons.core.model.AlertPreferences
+import com.lumenpearson.lessons.core.model.AppFont
+import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.HapticStrength
+import com.lumenpearson.lessons.core.model.LessonAlertDetail
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
 import java.io.IOException
@@ -32,6 +39,13 @@ import kotlinx.coroutines.runBlocking
  */
 private val Context.lessonsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "lessons",
+    // The read side degrades a corrupt file to defaults, but every `edit` reads
+    // the file first and rethrows, so without this a single truncated write —
+    // the phone losing power mid-fsync — left a store that could never be
+    // written to again: no sign-in, no settings, no sign-out, for the life of
+    // the install. Replacing the file loses what was in it, which is what a
+    // corrupt file has already done.
+    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
 )
 
 /**
@@ -41,7 +55,7 @@ private val Context.lessonsDataStore: DataStore<Preferences> by preferencesDataS
  * screens, they are both tiny, and a single file means a single fsync and a
  * single flow to observe.
  */
-internal class LessonsPreferences(context: Context) {
+internal class LessonsPreferences(context: Context) : DiarySessionStore {
 
     private val dataStore = context.applicationContext.lessonsDataStore
 
@@ -71,13 +85,64 @@ internal class LessonsPreferences(context: Context) {
         }
     }
 
-    /** Clears identity only; the server address stays so re-joining is one field. */
+    /**
+     * Clears identity only; the server address stays so re-joining is one field.
+     *
+     * The diary keys are not in here on purpose. Leaving a class is not leaving
+     * the diary: they are two accounts, and the one being signed out of is the
+     * one the user pressed a button about. [clearDiarySession] is the other
+     * half, and it is just as narrow.
+     */
     suspend fun clearSession() {
         dataStore.edit { prefs ->
+            // Written on the way out, because the token this is about to remove
+            // is what the read side uses to recognise somebody who predates the
+            // introduction flag. To be here at all you were in a class, and to
+            // have been in a class you got past the join screen.
+            prefs[KEY_ONBOARDING_DONE] = true
             prefs.remove(KEY_TOKEN)
             prefs.remove(KEY_CLASS_ID)
             prefs.remove(KEY_CLASS_NAME)
             prefs.remove(KEY_SCHOOL)
+            // The fingerprint describes the shape of *that* class's schedule, so
+            // keeping it means the first sync after joining a different one
+            // compares two unrelated timetables, finds them different, and
+            // announces that the schedule changed seconds after joining —
+            // exactly the noise the baseline rule exists to prevent.
+            prefs.remove(KEY_SCHEDULE_FINGERPRINT)
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // The diary's own session
+    // ---------------------------------------------------------------------
+    //
+    // Separate keys, separate reads, separate writes, and nothing below touches
+    // the pair above. The two accounts are independent on the server — see
+    // `current_diary` in `server/app/api/diary.py` — so leaving a class must
+    // not sign a parent out of the diary, and signing out of the diary must not
+    // unjoin the class. Writing them into one [Session] would have made that a
+    // matter of remembering; two sets of keys makes it a matter of which method
+    // is called.
+
+    override val diarySession: Flow<DiarySession?> =
+        preferences.map { it.toDiarySession() }.distinctUntilChanged()
+
+    override suspend fun currentDiarySession(): DiarySession? =
+        preferences.first().toDiarySession()
+
+    override suspend fun writeDiarySession(value: DiarySession) {
+        dataStore.edit { prefs ->
+            prefs[KEY_DIARY_TOKEN] = value.token
+            prefs[KEY_DIARY_LOGIN] = value.login
+        }
+    }
+
+    /** Clears the diary and only the diary; [clearSession] is its counterpart. */
+    override suspend fun clearDiarySession() {
+        dataStore.edit { prefs ->
+            prefs.remove(KEY_DIARY_TOKEN)
+            prefs.remove(KEY_DIARY_LOGIN)
         }
     }
 
@@ -91,6 +156,11 @@ internal class LessonsPreferences(context: Context) {
             prefs[KEY_PITCH_BLACK] = updated.pitchBlack
             prefs[KEY_HAPTICS] = updated.hapticsEnabled
             prefs[KEY_HAPTIC_STRENGTH] = updated.hapticStrength.name
+            prefs[KEY_APP_FONT] = updated.appFont.name
+            prefs[KEY_LANGUAGE] = updated.language.name
+            prefs[KEY_TEXT_SCALE] = updated.textScale.coerceIn(AppSettings.TEXT_SCALE_RANGE)
+            prefs[KEY_ANIMATIONS] = updated.animations
+            prefs[KEY_MOTION_SPEED] = updated.motionSpeed.coerceIn(AppSettings.MOTION_SPEED_RANGE)
             prefs[KEY_SWIPE_TABS] = updated.swipeTabs
             prefs[KEY_DEFAULT_TAB] = updated.defaultTab.name
             prefs[KEY_MOTION_BLUR] = updated.motionBlur
@@ -108,8 +178,23 @@ internal class LessonsPreferences(context: Context) {
             prefs[KEY_ALERT_HOMEWORK] = updated.alerts.homeworkReminder
             prefs[KEY_ALERT_HOMEWORK_AT] = updated.alerts.homeworkAtMinutes
             prefs[KEY_ALERT_CHANGES] = updated.alerts.scheduleChanges
+            prefs[KEY_ALERT_LESSON_DETAIL] = updated.alerts.lessonDetail.name
+            // Stored as a set of decimal weekday numbers. An empty set is a
+            // real answer — "не показывать ни в один день" — and DataStore
+            // keeps an empty set as a present key, so it survives the read
+            // below rather than falling back to all seven.
+            prefs[KEY_ALERT_MORNING_DAYS] = updated.alerts.morningWeekdays.map(Int::toString).toSet()
+            prefs[KEY_ALERT_QUIET] = updated.alerts.quietHours
+            prefs[KEY_ALERT_QUIET_FROM] = updated.alerts.quietFromMinutes
+            prefs[KEY_ALERT_QUIET_TO] = updated.alerts.quietToMinutes
+            prefs[KEY_ALERT_SKIP_HOLIDAYS] = updated.alerts.skipHolidays
             prefs[KEY_SYNC_INTERVAL] = updated.syncIntervalMinutes
                 .coerceAtLeast(AppSettings.MIN_SYNC_INTERVAL_MINUTES)
+            prefs[KEY_RIPPLE_EFFECTS] = updated.rippleEffects
+            prefs[KEY_THEME_REVEAL] = updated.themeReveal
+            prefs[KEY_AUTO_CHECK_UPDATES] = updated.autoCheckUpdates
+            prefs[KEY_INCLUDE_PRERELEASE] = updated.includePrerelease
+            prefs[KEY_NOTIFY_UPDATES] = updated.notifyNewUpdates
         }
     }
 
@@ -122,8 +207,31 @@ internal class LessonsPreferences(context: Context) {
      */
     fun tokenBlocking(): String? = runBlocking { currentSession()?.token }
 
+    /**
+     * The diary bearer, for `DiaryAuthInterceptor`.
+     *
+     * A second method rather than a parameter on [tokenBlocking], because the
+     * two tokens are not two values of one thing: one of them can be present
+     * while the other is absent, and a caller that took the wrong one would
+     * send a class token to a family's diary.
+     *
+     * @see tokenBlocking
+     */
+    fun diaryTokenBlocking(): String? = runBlocking { currentDiarySession()?.token }
+
     /** @see tokenBlocking */
     fun baseUrlBlocking(): String = runBlocking { currentSettings().baseUrl }
+
+    /**
+     * The stored language, read the only way the caller can read it.
+     *
+     * `Activity.attachBaseContext` is where a per-app locale has to be applied
+     * below API 33, and it cannot suspend and cannot wait for a flow: the base
+     * context is already needed by the time the activity exists. The file is a
+     * few hundred bytes and DataStore serves every read after the first from
+     * memory, so this costs one disk read per process.
+     */
+    fun languageBlocking(): AppLanguage = runBlocking { currentSettings().language }
 
     /**
      * The shape of the cached schedule as of the previous sync.
@@ -150,6 +258,12 @@ internal class LessonsPreferences(context: Context) {
         )
     }
 
+    /** `null` unless a diary sign-in has actually stored a token. */
+    private fun Preferences.toDiarySession(): DiarySession? {
+        val token = this[KEY_DIARY_TOKEN]?.takeIf { it.isNotBlank() } ?: return null
+        return DiarySession(login = this[KEY_DIARY_LOGIN].orEmpty(), token = token)
+    }
+
     /**
      * Enums are stored by name rather than by ordinal, and unknown names fall
      * back to the default instead of throwing: reordering an enum must not be
@@ -163,6 +277,13 @@ internal class LessonsPreferences(context: Context) {
         pitchBlack = this[KEY_PITCH_BLACK] ?: false,
         hapticsEnabled = this[KEY_HAPTICS] ?: true,
         hapticStrength = HapticStrength.fromName(this[KEY_HAPTIC_STRENGTH]),
+        appFont = AppFont.fromName(this[KEY_APP_FONT]),
+        language = AppLanguage.fromName(this[KEY_LANGUAGE]),
+        textScale = (this[KEY_TEXT_SCALE] ?: AppSettings.DEFAULT_TEXT_SCALE)
+            .coerceIn(AppSettings.TEXT_SCALE_RANGE),
+        animations = this[KEY_ANIMATIONS] ?: true,
+        motionSpeed = (this[KEY_MOTION_SPEED] ?: AppSettings.DEFAULT_MOTION_SPEED)
+            .coerceIn(AppSettings.MOTION_SPEED_RANGE),
         swipeTabs = this[KEY_SWIPE_TABS] ?: true,
         defaultTab = HomeTab.fromName(this[KEY_DEFAULT_TAB]),
         motionBlur = this[KEY_MOTION_BLUR] ?: false,
@@ -172,7 +293,17 @@ internal class LessonsPreferences(context: Context) {
         showTeacher = this[KEY_SHOW_TEACHER] ?: true,
         widgetShowProgress = this[KEY_WIDGET_SHOW_PROGRESS] ?: true,
         debugMode = this[KEY_DEBUG_MODE] ?: false,
-        onboardingDone = this[KEY_ONBOARDING_DONE] ?: false,
+        // False only for a genuinely fresh install. The key arrived with the
+        // introduction, so on every phone that had the app before it there is
+        // no value here — and a plain `?: false` therefore promised four
+        // screens of introduction to everyone who had been using the app all
+        // term, the first time they signed out.
+        //
+        // A stored class token is the sentinel because it cannot be there by
+        // accident: it is only written after a successful join, which is the
+        // screen the introduction ends on. Someone holding one has been past
+        // it, whatever else they have or have not touched.
+        onboardingDone = this[KEY_ONBOARDING_DONE] ?: (this[KEY_TOKEN] != null),
         alerts = AlertPreferences(
             lessonSoon = this[KEY_ALERT_LESSON] ?: false,
             lessonLeadMinutes = this[KEY_ALERT_LEAD] ?: AlertPreferences.DefaultLeadMinutes,
@@ -181,9 +312,26 @@ internal class LessonsPreferences(context: Context) {
             homeworkReminder = this[KEY_ALERT_HOMEWORK] ?: false,
             homeworkAtMinutes = this[KEY_ALERT_HOMEWORK_AT] ?: AlertPreferences.DefaultHomeworkMinutes,
             scheduleChanges = this[KEY_ALERT_CHANGES] ?: false,
+            lessonDetail = LessonAlertDetail.fromName(this[KEY_ALERT_LESSON_DETAIL]),
+            // Anything unparseable is dropped rather than defaulted: a set that
+            // half survived an older build should lose the bad entries, not the
+            // days the user actually picked.
+            morningWeekdays = this[KEY_ALERT_MORNING_DAYS]
+                ?.mapNotNull { it.toIntOrNull()?.takeIf { day -> day in 1..7 } }
+                ?.toSet()
+                ?: AlertPreferences.AllWeekdays,
+            quietHours = this[KEY_ALERT_QUIET] ?: false,
+            quietFromMinutes = this[KEY_ALERT_QUIET_FROM] ?: AlertPreferences.DefaultQuietFromMinutes,
+            quietToMinutes = this[KEY_ALERT_QUIET_TO] ?: AlertPreferences.DefaultQuietToMinutes,
+            skipHolidays = this[KEY_ALERT_SKIP_HOLIDAYS] ?: true,
         ),
         syncIntervalMinutes = (this[KEY_SYNC_INTERVAL] ?: AppSettings.DEFAULT_SYNC_INTERVAL_MINUTES)
             .coerceAtLeast(AppSettings.MIN_SYNC_INTERVAL_MINUTES),
+        rippleEffects = this[KEY_RIPPLE_EFFECTS] ?: true,
+        themeReveal = this[KEY_THEME_REVEAL] ?: true,
+        autoCheckUpdates = this[KEY_AUTO_CHECK_UPDATES] ?: true,
+        includePrerelease = this[KEY_INCLUDE_PRERELEASE] ?: false,
+        notifyNewUpdates = this[KEY_NOTIFY_UPDATES] ?: true,
     )
 
     private companion object {
@@ -191,6 +339,9 @@ internal class LessonsPreferences(context: Context) {
         val KEY_CLASS_ID = longPreferencesKey("session_class_id")
         val KEY_CLASS_NAME = stringPreferencesKey("session_class_name")
         val KEY_SCHOOL = stringPreferencesKey("session_school")
+
+        val KEY_DIARY_TOKEN = stringPreferencesKey("diary_token")
+        val KEY_DIARY_LOGIN = stringPreferencesKey("diary_login")
 
         val KEY_DEBUG_MODE = booleanPreferencesKey("settings_debug_mode")
         val KEY_ONBOARDING_DONE = booleanPreferencesKey("settings_onboarding_done")
@@ -202,6 +353,12 @@ internal class LessonsPreferences(context: Context) {
         val KEY_ALERT_HOMEWORK = booleanPreferencesKey("alert_homework")
         val KEY_ALERT_HOMEWORK_AT = intPreferencesKey("alert_homework_at_minutes")
         val KEY_ALERT_CHANGES = booleanPreferencesKey("alert_schedule_changes")
+        val KEY_ALERT_LESSON_DETAIL = stringPreferencesKey("alert_lesson_detail")
+        val KEY_ALERT_MORNING_DAYS = stringSetPreferencesKey("alert_morning_weekdays")
+        val KEY_ALERT_QUIET = booleanPreferencesKey("alert_quiet_hours")
+        val KEY_ALERT_QUIET_FROM = intPreferencesKey("alert_quiet_from_minutes")
+        val KEY_ALERT_QUIET_TO = intPreferencesKey("alert_quiet_to_minutes")
+        val KEY_ALERT_SKIP_HOLIDAYS = booleanPreferencesKey("alert_skip_holidays")
         val KEY_SCHEDULE_FINGERPRINT = stringPreferencesKey("alert_schedule_fingerprint")
 
         val KEY_BASE_URL = stringPreferencesKey("settings_base_url")
@@ -210,6 +367,11 @@ internal class LessonsPreferences(context: Context) {
         val KEY_PITCH_BLACK = booleanPreferencesKey("settings_pitch_black")
         val KEY_HAPTICS = booleanPreferencesKey("settings_haptics_enabled")
         val KEY_HAPTIC_STRENGTH = stringPreferencesKey("settings_haptic_strength")
+        val KEY_APP_FONT = stringPreferencesKey("settings_app_font")
+        val KEY_LANGUAGE = stringPreferencesKey("settings_language")
+        val KEY_TEXT_SCALE = floatPreferencesKey("settings_text_scale")
+        val KEY_ANIMATIONS = booleanPreferencesKey("settings_animations")
+        val KEY_MOTION_SPEED = floatPreferencesKey("settings_motion_speed")
         val KEY_SWIPE_TABS = booleanPreferencesKey("settings_swipe_tabs")
         val KEY_DEFAULT_TAB = stringPreferencesKey("settings_default_tab")
         val KEY_MOTION_BLUR = booleanPreferencesKey("settings_motion_blur")
@@ -218,5 +380,10 @@ internal class LessonsPreferences(context: Context) {
         val KEY_SHOW_TEACHER = booleanPreferencesKey("settings_show_teacher")
         val KEY_WIDGET_SHOW_PROGRESS = booleanPreferencesKey("settings_widget_show_progress")
         val KEY_SYNC_INTERVAL = intPreferencesKey("settings_sync_interval_minutes")
+        val KEY_RIPPLE_EFFECTS = booleanPreferencesKey("settings_ripple_effects")
+        val KEY_THEME_REVEAL = booleanPreferencesKey("settings_theme_reveal")
+        val KEY_AUTO_CHECK_UPDATES = booleanPreferencesKey("settings_auto_check_updates")
+        val KEY_INCLUDE_PRERELEASE = booleanPreferencesKey("settings_include_prerelease")
+        val KEY_NOTIFY_UPDATES = booleanPreferencesKey("settings_notify_updates")
     }
 }
