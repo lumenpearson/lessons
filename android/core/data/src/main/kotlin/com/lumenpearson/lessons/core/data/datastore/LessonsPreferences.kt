@@ -24,6 +24,8 @@ import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.LessonAlertDetail
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
+import com.lumenpearson.lessons.core.model.TodayLayout
+import com.lumenpearson.lessons.core.model.WeekStart
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -169,6 +171,17 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
             prefs[KEY_EDGE_BLUR] = updated.edgeBlur
             prefs[KEY_SHOW_TEACHER] = updated.showTeacher
             prefs[KEY_WIDGET_SHOW_PROGRESS] = updated.widgetShowProgress
+            prefs[KEY_TODAY_SHOW_HERO] = updated.todayShowHero
+            prefs[KEY_TODAY_LAYOUT] = updated.todayLayout.name
+            prefs[KEY_TODAY_WHOLE_DAY] = updated.todayWholeDay
+            prefs[KEY_TODAY_HOMEWORK_PREVIEW] =
+                AppSettings.nearestHomeworkPreview(updated.todayHomeworkPreview)
+            prefs[KEY_TODAY_SHOW_EVENTS] = updated.todayShowEvents
+            prefs[KEY_WEEK_START] = updated.weekStart.name
+            prefs[KEY_WEEK_WEEKENDS] = updated.weekShowWeekends
+            prefs[KEY_WEEK_LOAD] = updated.weekShowLoad
+            prefs[KEY_WEEK_EVENTS] = updated.weekShowEvents
+            prefs[KEY_WEEK_HOMEWORK] = updated.weekShowHomework
             prefs[KEY_DEBUG_MODE] = updated.debugMode
             prefs[KEY_ONBOARDING_DONE] = updated.onboardingDone
             prefs[KEY_ALERT_LESSON] = updated.alerts.lessonSoon
@@ -292,6 +305,18 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         edgeBlur = this[KEY_EDGE_BLUR] ?: true,
         showTeacher = this[KEY_SHOW_TEACHER] ?: true,
         widgetShowProgress = this[KEY_WIDGET_SHOW_PROGRESS] ?: true,
+        todayShowHero = this[KEY_TODAY_SHOW_HERO] ?: true,
+        todayLayout = TodayLayout.fromName(this[KEY_TODAY_LAYOUT]),
+        todayWholeDay = this[KEY_TODAY_WHOLE_DAY] ?: false,
+        todayHomeworkPreview = AppSettings.nearestHomeworkPreview(
+            this[KEY_TODAY_HOMEWORK_PREVIEW] ?: AppSettings.DEFAULT_HOMEWORK_PREVIEW,
+        ),
+        todayShowEvents = this[KEY_TODAY_SHOW_EVENTS] ?: true,
+        weekStart = WeekStart.fromName(this[KEY_WEEK_START]),
+        weekShowWeekends = this[KEY_WEEK_WEEKENDS] ?: true,
+        weekShowLoad = this[KEY_WEEK_LOAD] ?: true,
+        weekShowEvents = this[KEY_WEEK_EVENTS] ?: true,
+        weekShowHomework = this[KEY_WEEK_HOMEWORK] ?: true,
         debugMode = this[KEY_DEBUG_MODE] ?: false,
         // False only for a genuinely fresh install. The key arrived with the
         // introduction, so on every phone that had the app before it there is
@@ -379,6 +404,16 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         val KEY_EDGE_BLUR = booleanPreferencesKey("settings_edge_blur")
         val KEY_SHOW_TEACHER = booleanPreferencesKey("settings_show_teacher")
         val KEY_WIDGET_SHOW_PROGRESS = booleanPreferencesKey("settings_widget_show_progress")
+        val KEY_TODAY_SHOW_HERO = booleanPreferencesKey("settings_today_show_hero")
+        val KEY_TODAY_LAYOUT = stringPreferencesKey("settings_today_layout")
+        val KEY_TODAY_WHOLE_DAY = booleanPreferencesKey("settings_today_whole_day")
+        val KEY_TODAY_HOMEWORK_PREVIEW = intPreferencesKey("settings_today_homework_preview")
+        val KEY_TODAY_SHOW_EVENTS = booleanPreferencesKey("settings_today_show_events")
+        val KEY_WEEK_START = stringPreferencesKey("settings_week_start")
+        val KEY_WEEK_WEEKENDS = booleanPreferencesKey("settings_week_weekends")
+        val KEY_WEEK_LOAD = booleanPreferencesKey("settings_week_load")
+        val KEY_WEEK_EVENTS = booleanPreferencesKey("settings_week_events")
+        val KEY_WEEK_HOMEWORK = booleanPreferencesKey("settings_week_homework")
         val KEY_SYNC_INTERVAL = intPreferencesKey("settings_sync_interval_minutes")
         val KEY_RIPPLE_EFFECTS = booleanPreferencesKey("settings_ripple_effects")
         val KEY_THEME_REVEAL = booleanPreferencesKey("settings_theme_reveal")

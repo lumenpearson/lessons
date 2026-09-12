@@ -17,6 +17,8 @@ class PersonalizationTest {
         HomeTab.entries.forEach { assertEquals(it, HomeTab.fromName(it.name)) }
         AppFont.entries.forEach { assertEquals(it, AppFont.fromName(it.name)) }
         LessonAlertDetail.entries.forEach { assertEquals(it, LessonAlertDetail.fromName(it.name)) }
+        TodayLayout.entries.forEach { assertEquals(it, TodayLayout.fromName(it.name)) }
+        WeekStart.entries.forEach { assertEquals(it, WeekStart.fromName(it.name)) }
     }
 
     @Test
@@ -29,6 +31,11 @@ class PersonalizationTest {
         // a phone upgrading into this setting must not find its notifications
         // quietly shortened.
         assertEquals(LessonAlertDetail.FULL, LessonAlertDetail.fromName(null))
+        // Both defaults are the behaviour the two screens had before they were
+        // a choice: an install that upgrades into these settings must not find
+        // its home screen reordered or its week strip starting somewhere new.
+        assertEquals(TodayLayout.AUTOMATIC, TodayLayout.fromName(null))
+        assertEquals(WeekStart.MONDAY, WeekStart.fromName(null))
     }
 
     /**
@@ -42,6 +49,27 @@ class PersonalizationTest {
         assertEquals(HomeTab.TODAY, HomeTab.fromName("MARKS"))
         assertEquals(AppFont.BUNDLED, AppFont.fromName("SERIF"))
         assertEquals(LessonAlertDetail.FULL, LessonAlertDetail.fromName("SUBJECT_AND_ROOM"))
+        assertEquals(TodayLayout.AUTOMATIC, TodayLayout.fromName("EVENTS_FIRST"))
+        assertEquals(WeekStart.MONDAY, WeekStart.fromName("SUNDAY"))
+    }
+
+    /**
+     * The home screen's own rule, which is also the widget's: the timetable
+     * leads while school is on, homework leads once it is over.
+     */
+    @Test
+    fun `the automatic order follows the school day`() {
+        assertEquals(false, TodayLayout.AUTOMATIC.homeworkLeads(schoolIsOver = false))
+        assertEquals(true, TodayLayout.AUTOMATIC.homeworkLeads(schoolIsOver = true))
+    }
+
+    /** The other two are answers, not preferences about when to ask. */
+    @Test
+    fun `a chosen order ignores the clock`() {
+        listOf(false, true).forEach { over ->
+            assertEquals(false, TodayLayout.LESSONS_FIRST.homeworkLeads(schoolIsOver = over))
+            assertEquals(true, TodayLayout.HOMEWORK_FIRST.homeworkLeads(schoolIsOver = over))
+        }
     }
 
     /** Names are matched exactly; a lower-case name is not the same value. */

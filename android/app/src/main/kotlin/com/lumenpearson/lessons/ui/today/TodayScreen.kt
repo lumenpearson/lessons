@@ -54,19 +54,18 @@ import com.lumenpearson.lessons.ui.common.asText
 import com.lumenpearson.lessons.ui.common.syncedAtLabel
 import com.lumenpearson.lessons.ui.common.timeRange
 
-/** How many homework items the home screen previews before deferring to the tab. */
-private const val HomeworkPreviewCount = 3
-
 /** Accent slot of the "ещё N заданий" row; violet, unused by any event kind. */
 private const val HomeworkMoreSlot = 5
 
 /**
  * The home screen: one glance answers "what now?".
  *
- * Section order is not fixed. While school is on, the day leads; once the last
- * bell has rung — or on a day off — homework is promoted to the top, which is
- * the same rule the widget follows, so the two never disagree about what matters
- * at 16:00.
+ * Section order is not fixed. By default, while school is on, the day leads;
+ * once the last bell has rung — or on a day off — homework is promoted to the
+ * top, which is the same rule the widget follows, so the two never disagree
+ * about what matters at 16:00. Everything the settings can move about this page
+ * arrives as a field of [TodayUiState] rather than as a second source of truth
+ * read here, so the order and the blocks are decided in one place.
  *
  * @param onOpenHomework opens the homework tab from the preview's footer.
  */
@@ -119,8 +118,10 @@ fun TodayScreen(
                     )
                 }
 
-                item(key = "hero") {
-                    state.state?.let { dayState -> StateHeroCard(state = dayState) }
+                if (state.showHero) {
+                    item(key = "hero") {
+                        state.state?.let { dayState -> StateHeroCard(state = dayState) }
+                    }
                 }
 
                 if (state.homeworkFirst) {
@@ -159,12 +160,19 @@ fun TodayScreen(
 /**
  * Remaining lessons, or an explanation of why there are none.
  *
- * Only the rest of the day is listed: a pupil looking at their phone during the
- * fourth lesson does not need the first three re-read to them.
+ * Only the rest of the day is listed unless the user asked otherwise: a pupil
+ * looking at their phone during the fourth lesson does not need the first three
+ * re-read to them. The title follows the choice, because "Оставшиеся уроки"
+ * over the whole day would be a lie about the list under it.
  */
 private fun LazyListScope.lessonsSection(state: TodayUiState) {
     item(key = "lessons") {
-        SectionHeaderedGroup(title = stringResource(R.string.today_lessons_remaining)) {
+        val title = if (state.wholeDay) {
+            stringResource(R.string.today_lessons_all)
+        } else {
+            stringResource(R.string.today_lessons_remaining)
+        }
+        SectionHeaderedGroup(title = title) {
             when {
                 // A shimmering copy of the group rather than a spinner: the page
                 // keeps its shape when the real rows land.
@@ -197,7 +205,7 @@ private fun LazyListScope.lessonsSection(state: TodayUiState) {
 
 /** Линейка, столовая, экскурсия — today's non-lesson entries, in time order. */
 private fun LazyListScope.eventsSection(state: TodayUiState) {
-    if (state.events.isEmpty()) return
+    if (!state.showEvents || state.events.isEmpty()) return
 
     item(key = "events") {
         SectionHeaderedGroup(title = stringResource(R.string.today_events)) {
@@ -235,16 +243,16 @@ private fun LazyListScope.homeworkSection(state: TodayUiState, onOpenHomework: (
         )
         SectionHeaderedGroup(title = title) {
             RoundedCardContainer {
-                day.homework.take(HomeworkPreviewCount).forEach { homework ->
+                day.homework.take(state.homeworkPreview).forEach { homework ->
                     HomeworkRow(item = homework)
                 }
                 // The "ещё N" affordance is a row of the group rather than a
                 // button under it: it is one more thing to read, in the same list.
-                if (day.homework.size > HomeworkPreviewCount) {
+                if (day.homework.size > state.homeworkPreview) {
                     GroupItem(
                         title = stringResource(
                             R.string.today_homework_more,
-                            day.homework.size - HomeworkPreviewCount,
+                            day.homework.size - state.homeworkPreview,
                         ),
                         icon = Icons.AutoMirrored.Rounded.ArrowForward,
                         tone = accentTone(HomeworkMoreSlot),

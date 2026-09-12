@@ -71,6 +71,7 @@
     <!-- Сегодня -->
     <string name="today_title">Сегодня</string>
     <string name="today_lessons_remaining">Оставшиеся уроки</string>
+    <string name="today_lessons_all">Уроки на сегодня</string>
     <string name="today_events">События</string>
 
     <!-- Календарь -->
@@ -175,6 +176,8 @@
     <string name="settings_navigation_group">Навигация</string>
     <string name="settings_effects_group">Эффекты</string>
     <string name="settings_content_group">Списки и виджет</string>
+    <string name="settings_home_group">Главная</string>
+    <string name="settings_calendar_group">Календарь</string>
     <string name="settings_sync_group">Обновление</string>
     <string name="settings_class_group">Ваш класс</string>
     <string name="settings_about_group">Приложение</string>
@@ -250,6 +253,31 @@
     <string name="settings_show_teacher_description">Имя учителя в строке урока.</string>
     <string name="settings_widget_progress">Прогресс в виджете</string>
     <string name="settings_widget_progress_description">Полоса, показывающая, сколько осталось до конца урока.</string>
+    <string name="settings_today_hero">Карточка «сейчас»</string>
+    <string name="settings_today_hero_description">Крупная карточка с обратным отсчётом наверху главной.</string>
+    <string name="settings_today_layout">Что показывать первым</string>
+    <string name="settings_today_layout_description">«Авто» — уроки днём, домашнее задание после последнего звонка.</string>
+    <string name="settings_today_layout_auto">Авто</string>
+    <string name="settings_today_layout_lessons">Уроки</string>
+    <string name="settings_today_layout_homework">Домашка</string>
+    <string name="settings_today_whole_day">Весь день</string>
+    <string name="settings_today_whole_day_description">Показывать все уроки дня, а не только оставшиеся.</string>
+    <string name="settings_today_homework_count">Заданий на главной</string>
+    <string name="settings_today_homework_count_description">Сколько строк показать, прежде чем отправить во вкладку.</string>
+    <string name="settings_today_events">События дня</string>
+    <string name="settings_today_events_description">Линейки, экскурсии и всё, что не урок.</string>
+    <string name="settings_week_start">Начало недели</string>
+    <string name="settings_week_start_description">С понедельника или семь дней от выбранного дня.</string>
+    <string name="settings_week_start_monday">Понедельник</string>
+    <string name="settings_week_start_today">С сегодня</string>
+    <string name="settings_week_weekends">Выходные</string>
+    <string name="settings_week_weekends_description">Суббота и воскресенье в полосе недели. В месяце они всегда.</string>
+    <string name="settings_week_load">Точки загрузки</string>
+    <string name="settings_week_load_description">До трёх точек под датой — сколько в этот день уроков.</string>
+    <string name="settings_week_events">События под расписанием</string>
+    <string name="settings_week_events_description">События выбранного дня под его уроками.</string>
+    <string name="settings_week_homework">Домашка под расписанием</string>
+    <string name="settings_week_homework_description">Задания выбранного дня под его уроками.</string>
     <string name="settings_sync">Синхронизация</string>
     <string name="settings_sync_interval">Как часто обновлять</string>
     <string name="settings_server_url">Адрес сервера</string>

@@ -125,6 +125,8 @@ fun WeekScreen(
             day = day,
             date = date,
             showTeacher = state.showTeacher,
+            showEvents = state.showEvents,
+            showHomework = state.showHomework,
             onLessonClick = { lesson ->
                 openDay = null
                 openLesson = lesson
@@ -185,12 +187,14 @@ fun WeekScreen(
                     ScheduleView.WEEK -> WeekdaySelector(
                         days = state.days,
                         selected = state.selected,
+                        showLoad = state.showLoad,
                         onSelect = viewModel::select,
                     )
 
                     ScheduleView.MONTH -> MonthGrid(
                         days = state.days,
                         selected = state.selected,
+                        showLoad = state.showLoad,
                         onSelect = viewModel::select,
                         onOpen = { date -> openDay = date },
                     )
@@ -205,6 +209,8 @@ fun WeekScreen(
                 day = selected,
                 date = state.selected,
                 nowAt = state.nowAt,
+                showEvents = state.showEvents,
+                showHomework = state.showHomework,
                 onLessonClick = { lesson -> openLesson = lesson },
             )
 
@@ -212,6 +218,8 @@ fun WeekScreen(
                 day = selected,
                 date = state.selected,
                 showTeacher = state.showTeacher,
+                showEvents = state.showEvents,
+                showHomework = state.showHomework,
                 onLessonClick = { lesson -> openLesson = lesson },
                 onOpenDay = { openDay = state.selected },
             )
@@ -230,13 +238,19 @@ private val ScheduleView.labelRes: Int
         ScheduleView.DAY -> R.string.schedule_view_day
     }
 
-/** What the header says the screen is showing. */
+/**
+ * What the header says the screen is showing.
+ *
+ * The week names its first and last *drawn* date rather than the period's ends,
+ * so a strip with weekends hidden is headed "8 – 12 сентября" instead of
+ * promising a Sunday that is not on it.
+ */
 @Composable
 private fun ScheduleUiState.periodLabel(): String = when (view) {
     ScheduleView.WEEK -> stringResource(
         R.string.week_range,
-        periodStart.asDayMonth(),
-        periodEnd.asDayMonth(),
+        (days.firstOrNull()?.date ?: periodStart).asDayMonth(),
+        (days.lastOrNull()?.date ?: periodEnd).asDayMonth(),
     )
 
     ScheduleView.MONTH -> anchor.asMonthYear()
@@ -298,16 +312,18 @@ private fun ScheduleHeader(
 }
 
 /**
- * The Mon–Sun strip.
+ * The week strip.
  *
  * Seven tiles need about 400 dp and a phone has 360, so the last day or two
  * start off-screen; without the scroll-to below, the row never moved and the
- * selected chip could not be seen at all.
+ * selected chip could not be seen at all. Five tiles — weekends hidden — fit,
+ * and the scroll-to costs nothing when there is nowhere to scroll.
  */
 @Composable
 private fun WeekdaySelector(
     days: List<WeekDayUi>,
     selected: LocalDate,
+    showLoad: Boolean,
     onSelect: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -327,7 +343,7 @@ private fun WeekdaySelector(
             WeekdayTile(
                 weekday = day.date.asShortWeekday(),
                 dayOfMonth = day.date.dayOfMonth.toString(),
-                lessonCount = day.day?.activeLessons?.size ?: 0,
+                lessonCount = if (showLoad) day.day?.activeLessons?.size ?: 0 else 0,
                 selected = day.date == selected,
                 isToday = day.isToday,
                 onClick = { onSelect(day.date) },
@@ -433,6 +449,7 @@ private val DotSize: Dp = 4.dp
 private fun MonthGrid(
     days: List<WeekDayUi>,
     selected: LocalDate,
+    showLoad: Boolean,
     onSelect: (LocalDate) -> Unit,
     onOpen: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
@@ -464,6 +481,7 @@ private fun MonthGrid(
                     MonthCell(
                         day = day,
                         selected = day.date == selected,
+                        showLoad = showLoad,
                         onClick = {
                             if (day.date == selected) onOpen(day.date) else onSelect(day.date)
                         },
@@ -482,6 +500,7 @@ private const val DaysPerRow = 7
 private fun MonthCell(
     day: WeekDayUi,
     selected: Boolean,
+    showLoad: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -514,7 +533,7 @@ private fun MonthCell(
             color = content,
         )
         LoadDots(
-            count = day.day?.activeLessons?.size ?: 0,
+            count = if (showLoad) day.day?.activeLessons?.size ?: 0 else 0,
             color = if (selected) scheme.onPrimary else scheme.primary,
         )
     }
@@ -526,6 +545,8 @@ private fun DayPanel(
     day: WeekDayUi?,
     date: LocalDate,
     showTeacher: Boolean,
+    showEvents: Boolean,
+    showHomework: Boolean,
     onLessonClick: (Lesson) -> Unit,
     onOpenDay: () -> Unit,
     modifier: Modifier = Modifier,
@@ -574,7 +595,11 @@ private fun DayPanel(
             )
         }
 
-        DayExtras(day = schoolDay)
+        DayExtras(
+            day = schoolDay,
+            showEvents = showEvents,
+            showHomework = showHomework,
+        )
     }
 }
 
@@ -629,6 +654,8 @@ private fun HourTimeline(
     day: WeekDayUi?,
     date: LocalDate,
     nowAt: java.time.LocalTime?,
+    showEvents: Boolean,
+    showHomework: Boolean,
     onLessonClick: (Lesson) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -734,7 +761,11 @@ private fun HourTimeline(
             }
         }
 
-        DayExtras(day = schoolDay)
+        DayExtras(
+            day = schoolDay,
+            showEvents = showEvents,
+            showHomework = showHomework,
+        )
     }
 }
 

@@ -9,12 +9,10 @@ import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
 import com.lumenpearson.lessons.core.model.SchoolDay
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
-import java.time.temporal.TemporalAdjusters
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,9 +22,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
-
-/** Days per row; the school week is shown Monday through Sunday. */
-private const val DaysInWeek = 7
 
 /**
  * How much of the timetable the screen shows at once.
@@ -61,7 +56,12 @@ data class WeekDayUi(
 /**
  * @property anchor a date inside the shown period; stepping moves this.
  * @property selected the day whose detail is shown under the week or month.
- * @property days every date the current view draws, in order.
+ * @property days every date the current view draws, in order — which is not
+ *   every date of the period: with weekends hidden the week strip draws five of
+ *   its seven.
+ * @property showLoad draw the lesson-count dots under each date.
+ * @property showEvents draw the selected day's events under its lessons.
+ * @property showHomework draw the selected day's homework under its lessons.
  */
 data class ScheduleUiState(
     val isLoading: Boolean = true,
@@ -73,13 +73,24 @@ data class ScheduleUiState(
     val periodEnd: LocalDate = today,
     val days: List<WeekDayUi> = emptyList(),
     val showTeacher: Boolean = true,
+    val showLoad: Boolean = true,
+    val showEvents: Boolean = true,
+    val showHomework: Boolean = true,
     val nowAt: LocalTime? = null,
 ) {
     /** The day the detail panel and the hour ruler render. */
     val selectedDay: WeekDayUi? get() = days.firstOrNull { it.date == selected }
 
-    /** Whether "back to today" would do anything. */
-    val canReturnToToday: Boolean get() = today !in periodStart..periodEnd || selected != today
+    /**
+     * Whether "back to today" would do anything.
+     *
+     * Today has to be *drawn* for the second half to be worth offering: with
+     * weekends hidden, a Saturday is in the period and not on screen, and the
+     * button would light up for the whole weekend and do nothing when pressed.
+     */
+    val canReturnToToday: Boolean
+        get() = today !in periodStart..periodEnd ||
+            (selected != today && days.any { it.date == today })
 }
 
 /**
@@ -129,18 +140,19 @@ class WeekViewModel(
         val anchorDate = storedAnchor ?: today
         val selectedDate = storedSelection ?: today
 
-        val (start, end) = view.periodOf(anchorDate)
-        val dates = view.datesOf(start, end)
+        val (start, end) = view.periodOf(anchorDate, settings.weekStart)
+        val dates = view.datesOf(start, end, settings.weekShowWeekends)
+        // A selection outside the drawn dates would leave the detail panel
+        // rendering a day the grid does not contain; stepping the period
+        // therefore drags the selection with it.
+        val selection = clampSelection(dates, selectedDate)
 
         ScheduleUiState(
             isLoading = false,
             view = view,
             today = today,
             anchor = anchorDate,
-            // A selection outside the shown period would leave the detail panel
-            // rendering a day the grid does not contain; stepping the period
-            // therefore drags the selection with it.
-            selected = selectedDate.takeIf { it in start..end } ?: start,
+            selected = selection,
             periodStart = start,
             periodEnd = end,
             days = dates.map { date ->
@@ -152,9 +164,12 @@ class WeekViewModel(
                 )
             },
             showTeacher = settings.showTeacher,
+            showLoad = settings.weekShowLoad,
+            showEvents = settings.weekShowEvents,
+            showHomework = settings.weekShowHomework,
             // Only for the day whose ruler could show it; every other day's
             // timeline has no "now" on it and drawing one would be a lie.
-            nowAt = now.toLocalTime().takeIf { selectedDate == today },
+            nowAt = now.toLocalTime().takeIf { selection == today },
         )
     }.stateIn(
         scope = viewModelScope,
@@ -213,30 +228,4 @@ class WeekViewModel(
             }
         }
     }
-}
-
-/** First and last date the view draws for an anchor inside it. */
-private fun ScheduleView.periodOf(anchor: LocalDate): Pair<LocalDate, LocalDate> = when (this) {
-    ScheduleView.WEEK -> {
-        val start = anchor.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        start to start.plusDays((DaysInWeek - 1).toLong())
-    }
-
-    // The whole grid, not the whole month: a month that starts on a Thursday
-    // needs the three days before it to fill its first row, and a cell that is
-    // blank is a cell nobody can tap.
-    ScheduleView.MONTH -> {
-        val first = anchor.withDayOfMonth(1)
-        val last = anchor.with(TemporalAdjusters.lastDayOfMonth())
-        first.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) to
-            last.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
-    }
-
-    ScheduleView.DAY -> anchor to anchor
-}
-
-/** Every date from [start] to [end] inclusive. */
-private fun ScheduleView.datesOf(start: LocalDate, end: LocalDate): List<LocalDate> {
-    val span = (end.toEpochDay() - start.toEpochDay()).toInt()
-    return (0..span).map { offset -> start.plusDays(offset.toLong()) }
 }
