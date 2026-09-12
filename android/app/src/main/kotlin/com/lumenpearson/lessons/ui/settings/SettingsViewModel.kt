@@ -9,6 +9,8 @@ import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.DeviceFlow
 import com.lumenpearson.lessons.core.data.repository.GithubAccount
+import com.lumenpearson.lessons.core.data.repository.DeviceLink
+import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
 import com.lumenpearson.lessons.core.data.repository.GithubRepository
 import com.lumenpearson.lessons.core.data.repository.IssueDraft
 import com.lumenpearson.lessons.core.data.repository.IssueResult
@@ -47,6 +49,8 @@ data class SettingsUiState(
     val update: UpdateCheck = UpdateCheck.Idle,
     /** The signed-in GitHub account, or `null`. */
     val github: GithubAccount? = null,
+    /** Where the Telegram link of this phone stands; see [DeviceLinkState]. */
+    val deviceLink: DeviceLinkState = DeviceLinkState.Idle,
     /** Whether this build can sign in at all; the row hides otherwise. */
     val githubConfigured: Boolean = false,
     /** The device flow, for the sign-in sheet. */
@@ -77,6 +81,7 @@ class SettingsViewModel(
     private val timetableRepository: TimetableRepository,
     private val updateRepository: UpdateRepository,
     private val githubRepository: GithubRepository,
+    private val deviceLinkRepository: DeviceLinkRepository,
 ) : ViewModel() {
 
     private val refreshing = MutableStateFlow(false)
@@ -113,7 +118,9 @@ class SettingsViewModel(
         Remote(update, account, signIn, filing, sheet)
     }
 
-    val uiState: StateFlow<SettingsUiState> = combine(local, remote) { state, remote ->
+    private val deviceLink = MutableStateFlow<DeviceLinkState>(DeviceLinkState.Idle)
+
+    val uiState: StateFlow<SettingsUiState> = combine(local, remote, deviceLink) { state, remote, link ->
         state.copy(
             update = remote.update,
             github = remote.account,
@@ -121,12 +128,42 @@ class SettingsViewModel(
             signIn = remote.signIn,
             isFilingIssue = remote.filing,
             showReleaseSheet = remote.sheet,
+            deviceLink = link,
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
         initialValue = SettingsUiState(),
     )
+
+    /**
+     * Asks the server whether this phone is tied to a Telegram account.
+     *
+     * Called when the class page opens. Cheap to repeat: the server hands out
+     * the same link code until it is used, so opening the page twice does not
+     * invalidate the code the user is halfway through typing into the bot.
+     */
+    fun refreshDeviceLink() {
+        if (deviceLink.value is DeviceLinkState.Loading) return
+        val known = (deviceLink.value as? DeviceLinkState.Ready)?.link
+        deviceLink.value = DeviceLinkState.Loading(known)
+        viewModelScope.launch {
+            deviceLinkRepository.refresh()
+                .onSuccess { deviceLink.value = DeviceLinkState.Ready(it) }
+                .onFailure { deviceLink.value = DeviceLinkState.Failed(it, known) }
+        }
+    }
+
+    /** Unties the phone from its Telegram account; read-only afterwards. */
+    fun unlinkDevice() {
+        val known = (deviceLink.value as? DeviceLinkState.Ready)?.link
+        deviceLink.value = DeviceLinkState.Loading(known)
+        viewModelScope.launch {
+            deviceLinkRepository.unlink()
+                .onSuccess { deviceLink.value = DeviceLinkState.Ready(it) }
+                .onFailure { deviceLink.value = DeviceLinkState.Failed(it, known) }
+        }
+    }
 
     /** Light, dark, or whatever the system is doing. */
     fun setThemeMode(mode: ThemeMode) = update { it.copy(themeMode = mode) }
@@ -349,6 +386,7 @@ class SettingsViewModel(
                     timetableRepository = Graph.container.timetableRepository,
                     updateRepository = Graph.container.updateRepository,
                     githubRepository = Graph.container.githubRepository,
+                    deviceLinkRepository = Graph.container.deviceLinkRepository,
                 )
             }
         }
@@ -363,3 +401,21 @@ private data class Remote(
     val filing: Boolean,
     val sheet: Boolean,
 )
+
+/**
+ * The Telegram link as the class page sees it.
+ *
+ * [Loading] and [Failed] carry the last good answer so a refresh that is in
+ * flight, or one that failed, does not blank a card that was showing a code
+ * the user may be typing into the bot right now.
+ */
+sealed interface DeviceLinkState {
+    /** Nobody has asked yet; the page asks when it opens. */
+    data object Idle : DeviceLinkState
+
+    data class Loading(val known: DeviceLink?) : DeviceLinkState
+
+    data class Ready(val link: DeviceLink) : DeviceLinkState
+
+    data class Failed(val cause: Throwable, val known: DeviceLink?) : DeviceLinkState
+}

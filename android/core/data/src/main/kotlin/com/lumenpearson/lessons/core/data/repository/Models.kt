@@ -28,6 +28,49 @@ data class Session(
 )
 
 /**
+ * The bot's role ladder, as the server names it.
+ *
+ * Mirrors `Role` in `server/app/models.py`, weakest first. The app never
+ * grants or compares these; it only shows the one the linked account holds and
+ * lets the server decide what a write is allowed to do.
+ */
+enum class ClassRole {
+    VIEWER,
+    EDITOR,
+    ADMIN,
+    OWNER,
+    ;
+
+    companion object {
+        /** `null` for an unknown or absent wire value, never a guess. */
+        fun fromWire(raw: String?): ClassRole? =
+            raw?.trim()?.uppercase()?.let { name -> entries.firstOrNull { it.name == name } }
+    }
+}
+
+/**
+ * Whether this phone is tied to a Telegram account, and what that buys it.
+ *
+ * A device starts unlinked and read-only. Linking it — typing [linkCode] into
+ * the bot, or opening [botDeepLink] — ties the token to the account, and from
+ * then on the server derives every write permission from that account's role
+ * in the class at the moment of the request. There is no second permission
+ * system on the phone: [canEdit] is what the server said last time we asked.
+ *
+ * @property role `null` while unlinked, and also for a linked account that is
+ *   no longer a member of the class — in which case the server says linked
+ *   but nothing can be edited.
+ */
+data class DeviceLink(
+    val deviceName: String?,
+    val linked: Boolean,
+    val role: ClassRole?,
+    val canEdit: Boolean,
+    val linkCode: String?,
+    val botDeepLink: String?,
+)
+
+/**
  * Everything the user can change.
  *
  * [baseUrl] is a setting rather than a build constant because every school hosts

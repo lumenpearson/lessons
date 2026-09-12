@@ -261,6 +261,24 @@ fun SettingsSectionScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showServerSheet by rememberSaveable { mutableStateOf(false) }
     var showSignOutSheet by rememberSaveable { mutableStateOf(false) }
+    var showUnlinkSheet by rememberSaveable { mutableStateOf(false) }
+
+    // The link is a fact about the token that only the server holds, so the
+    // class page asks on every visit. Keyed on the section: the same view
+    // model serves every page, and a visit to «Оформление» is not a visit here.
+    if (section == SettingsSection.ACCOUNT) {
+        LaunchedEffect(Unit) { viewModel.refreshDeviceLink() }
+    }
+
+    if (showUnlinkSheet) {
+        UnlinkSheet(
+            onDismiss = { showUnlinkSheet = false },
+            onConfirm = {
+                showUnlinkSheet = false
+                viewModel.unlinkDevice()
+            },
+        )
+    }
     val sheets = rememberSupportSheets()
 
     SupportSheets(sheets = sheets, state = state, viewModel = viewModel)
@@ -306,7 +324,14 @@ fun SettingsSectionScreen(
             SettingsSection.CONTENT -> contentRows(state, viewModel)
             SettingsSection.ALERTS -> notificationRows(state, viewModel, onOpenSection)
             SettingsSection.SYNC -> syncRows(state, viewModel) { showServerSheet = true }
-            SettingsSection.ACCOUNT -> accountRows(state) { showSignOutSheet = true }
+            SettingsSection.ACCOUNT -> {
+                accountRows(state) { showSignOutSheet = true }
+                telegramLinkRows(
+                    state = state.deviceLink,
+                    onRefresh = viewModel::refreshDeviceLink,
+                    onUnlink = { showUnlinkSheet = true },
+                )
+            }
             SettingsSection.UPDATES -> updateRows(
                 state = state,
                 viewModel = viewModel,

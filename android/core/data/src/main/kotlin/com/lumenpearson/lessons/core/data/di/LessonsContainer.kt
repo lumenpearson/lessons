@@ -13,6 +13,8 @@ import com.lumenpearson.lessons.core.data.repository.SettingsRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepositoryImpl
 import com.lumenpearson.lessons.core.data.github.GithubRepositoryImpl
+import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
+import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.GithubRepository
 import com.lumenpearson.lessons.core.data.repository.UpdateRepository
 import com.lumenpearson.lessons.core.data.sync.DataSyncBroadcast
@@ -33,6 +35,7 @@ interface LessonsContainer {
     val settingsRepository: SettingsRepository
     val updateRepository: UpdateRepository
     val githubRepository: GithubRepository
+    val deviceLinkRepository: DeviceLinkRepository
 }
 
 /**
@@ -107,6 +110,10 @@ class DefaultLessonsContainer(
 
     override val updateRepository: UpdateRepository by lazy {
         UpdateRepositoryImpl(appContext)
+    }
+
+    override val deviceLinkRepository: DeviceLinkRepository by lazy {
+        DeviceLinkRepositoryImpl(api = api)
     }
 
     override val githubRepository: GithubRepository by lazy {

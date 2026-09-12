@@ -115,6 +115,12 @@ class SchoolClass(Base):
     # to the deployment. Null means "use the server default".
     timezone: Mapped[str | None] = mapped_column(String(64))
     join_code: Mapped[str] = mapped_column(String(16), unique=True, index=True, nullable=False)
+    # Secret path segment of the class's iCal feed. Separate from the join code
+    # on purpose: a calendar subscription URL ends up in Google Calendar's
+    # settings, a family laptop and the odd screenshot, and none of those
+    # should be able to mint device tokens. Null until somebody asks for the
+    # feed; rotated from the bot by an admin.
+    calendar_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
     # use_alter breaks the classes <-> bell_schedules cycle so the metadata can
     # be created and dropped in a deterministic order on SQLite.
     bell_schedule_id: Mapped[int | None] = mapped_column(
@@ -410,6 +416,159 @@ class DeviceToken(Base):
     revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # The Telegram account this device belongs to, once its owner has sent the
+    # bot ``/link <link_code>``. Null for an unlinked device, which is the
+    # common case and the read-only one. Every write endpoint derives its
+    # permission from the linked account's role in ``class_id`` at request
+    # time - there is no second permission system for devices, and revoking
+    # someone in the bot revokes their phone in the same instant.
+    telegram_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
+    # Short code the app shows and the user types into the bot. Cleared once
+    # used; a device that is unlinked again gets a fresh one on request.
+    link_code: Mapped[str | None] = mapped_column(String(16), unique=True, index=True)
+    linked_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    @property
+    def is_linked(self) -> bool:
+        return self.telegram_id is not None
+
+
+class TaskPriority(enum.IntEnum):
+    """Three levels is what fits on a phone keyboard; anything finer is noise."""
+
+    LOW = 0
+    NORMAL = 1
+    HIGH = 2
+
+
+class PersonalTask(Base):
+    """One person's to-do item: «купить тетрадь», «сдать реферат до пятницы».
+
+    Personal, not shared: ``telegram_id`` scopes every query. A task may point
+    at a homework row (``homework_id``) when it was created from one, so that
+    ticking it off in the bot and ticking the homework off in the app are the
+    same fact - but it survives the homework being deleted, because the
+    person's plan is theirs, not the editor's.
+
+    Times are class wall time like everything else in this schema; ``remind_at``
+    is compared against the class's own clock by the reminder tick.
+    """
+
+    __tablename__ = "personal_tasks"
+    __table_args__ = (Index("ix_task_owner", "class_id", "telegram_id", "done", "due_date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    class_id: Mapped[int] = mapped_column(
+        ForeignKey("classes.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    telegram_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    subject_name: Mapped[str | None] = mapped_column(String(120))
+    due_date: Mapped[Date | None] = mapped_column(SADate)
+    due_time: Mapped[Time | None] = mapped_column(SATime)
+    priority: Mapped[int] = mapped_column(Integer, default=int(TaskPriority.NORMAL), nullable=False)
+    done: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    done_at: Mapped[datetime | None] = mapped_column(DateTime)
+    homework_id: Mapped[int | None] = mapped_column(ForeignKey("homework.id", ondelete="SET NULL"))
+    # Class wall time at which to nudge the owner once. Cleared after sending.
+    remind_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class HomeworkDone(Base):
+    """«Сделал»: one person's tick on one homework row.
+
+    Kept apart from ``Homework`` because the homework is the class's and the
+    tick is the pupil's; thirty pupils marking the same задание must not write
+    to the same row.
+    """
+
+    __tablename__ = "homework_done"
+    __table_args__ = (UniqueConstraint("homework_id", "telegram_id", name="uq_homework_done"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    homework_id: Mapped[int] = mapped_column(
+        ForeignKey("homework.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    telegram_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    done_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class ReminderSettings(Base):
+    """What the bot may message this person about, and when.
+
+    All three times are class wall time. ``last_*_sent`` is the date (in the
+    class's zone) of the last digest of that kind, which is what makes the
+    reminder tick idempotent: a tick that runs twice in the same minute, or
+    fifteen minutes late, sends each digest once per day and never twice.
+    """
+
+    __tablename__ = "reminder_settings"
+    __table_args__ = (UniqueConstraint("class_id", "telegram_id", name="uq_reminder_owner"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    class_id: Mapped[int] = mapped_column(
+        ForeignKey("classes.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    telegram_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    # Today's lessons, замены and events, sent in the morning.
+    morning_at: Mapped[Time | None] = mapped_column(SATime)
+    # Homework due on the next school day, sent the evening before.
+    evening_at: Mapped[Time | None] = mapped_column(SATime)
+    # Immediate messages when an editor adds a замена / event for the next days.
+    notify_changes: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Immediate messages when homework is added or changed.
+    notify_homework: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    last_morning_sent: Mapped[Date | None] = mapped_column(SADate)
+    last_evening_sent: Mapped[Date | None] = mapped_column(SADate)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class AccessRequest(Base):
+    """«Хочу редактировать»: a member asking the admins for a higher role.
+
+    Raised from the bot or from a linked phone; answered by an admin in the bot.
+    One open request per person per class - a second one replaces the first.
+    """
+
+    __tablename__ = "access_requests"
+    __table_args__ = (Index("ix_access_request_lookup", "class_id", "status"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    class_id: Mapped[int] = mapped_column(
+        ForeignKey("classes.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    telegram_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    requested_role: Mapped[Role] = mapped_column(SAEnum(Role, native_enum=False), nullable=False)
+    # pending | approved | declined
+    status: Mapped[str] = mapped_column(String(16), default="pending", nullable=False)
+    message: Mapped[str | None] = mapped_column(String(300))
+    decided_by: Mapped[int | None] = mapped_column(BigInteger)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class AuditEntry(Base):
+    """Who changed what. Written by every bot handler and API endpoint that
+    writes class data, read from «⚙️ Класс → 📜 Журнал»."""
+
+    __tablename__ = "audit_log"
+    __table_args__ = (Index("ix_audit_lookup", "class_id", "created_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    class_id: Mapped[int] = mapped_column(
+        ForeignKey("classes.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    telegram_id: Mapped[int | None] = mapped_column(BigInteger)
+    # Short machine tag: homework.add, override.cancel, timetable.replace, ...
+    action: Mapped[str] = mapped_column(String(64), nullable=False)
+    # One human line, already safe to show (escaped at render time, not here).
+    summary: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
 DEFAULT_BELLS: list[tuple[int, time, time]] = [

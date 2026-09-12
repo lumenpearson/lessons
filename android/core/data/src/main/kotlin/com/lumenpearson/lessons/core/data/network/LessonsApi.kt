@@ -1,17 +1,19 @@
 package com.lumenpearson.lessons.core.data.network
 
 import com.lumenpearson.lessons.core.data.network.dto.BundleDto
+import com.lumenpearson.lessons.core.data.network.dto.DeviceMeDto
 import com.lumenpearson.lessons.core.data.network.dto.HealthDto
 import com.lumenpearson.lessons.core.data.network.dto.JoinRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.JoinResponseDto
+import com.lumenpearson.lessons.core.data.network.dto.UnlinkResponseDto
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Query
 
 /**
- * The entire server surface the app uses. Three calls, all read-only apart from
- * the one that mints a device token.
+ * The entire server surface the app uses. Read-only apart from the call that
+ * mints a device token and the one that unties it from a Telegram account.
  *
  * Paths are relative (no leading slash) so that a base URL with a path prefix -
  * `https://school.example/lessons/` behind a reverse proxy - keeps working.
@@ -49,4 +51,23 @@ internal interface LessonsApi {
      */
     @GET("api/v1/health")
     suspend fun health(): HealthDto
+
+    /**
+     * What the server knows about this device: whether it is tied to a
+     * Telegram account, the role that account holds in the class, and — while
+     * it is not tied — the code that ties it.
+     *
+     * Asking is what mints the code: the server issues one on the first call
+     * and repeats it on every later one until it is used, so this is safe to
+     * call every time the settings page opens.
+     */
+    @GET("api/v1/me")
+    suspend fun me(): DeviceMeDto
+
+    /**
+     * Unties this device from its Telegram account. The token stays valid and
+     * read-only; the next [me] call hands out a fresh code.
+     */
+    @POST("api/v1/me/unlink")
+    suspend fun unlink(): UnlinkResponseDto
 }
