@@ -1,5 +1,5 @@
 """Personal tasks, homework ticks, reminders, access requests, audit log,
-device linking and the calendar feed token.
+device linking, the calendar feed token - and the FSM table where it is missing.
 
 Revision ID: 0003
 Revises: 0002
@@ -51,6 +51,19 @@ def _lacks_column(inspector, table: str, column: str) -> bool:
 
 def upgrade() -> None:
     inspector = _inspector()
+
+    # Not new, but missing wherever 0001 ran before the FSM table was part of
+    # the metadata it created from: bootstrap and baseline imported only
+    # models.py, and fsm_states is declared in fsm_storage.py. A database
+    # already at 0002 never re-runs 0001, so it is created here if absent.
+    if _has_table(inspector, "fsm_states"):
+        op.create_table(
+            "fsm_states",
+            sa.Column("key", sa.String(200), primary_key=True),
+            sa.Column("state", sa.String(200), nullable=True),
+            sa.Column("data", sa.Text(), nullable=False, server_default="{}"),
+            sa.Column("updated_at", sa.DateTime(), nullable=False),
+        )
 
     if _lacks_column(inspector, "classes", "calendar_token"):
         op.add_column("classes", sa.Column("calendar_token", sa.String(64), nullable=True))

@@ -11,6 +11,7 @@ step everyone gets wrong once, this module rewrites it.
 
 from __future__ import annotations
 
+import ssl
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -30,7 +31,26 @@ _LIBPQ_ONLY = {
     "sslkey",
 }
 
-_SSL_REQUIRED = {"require", "verify-ca", "verify-full"}
+_SSL_REQUIRED = {"require"}
+_SSL_VERIFIED = {"verify-ca", "verify-full"}
+
+
+def _verifying_context(rootcert: str | None, *, check_hostname: bool) -> ssl.SSLContext:
+    """An SSL context that actually verifies, the way libpq's verify-* modes do.
+
+    A root certificate that cannot be loaded is a configuration error and is
+    reported as one, at import time, naming the parameter - not as an
+    ``SSLError`` deep inside the first connection attempt.
+    """
+    try:
+        context = ssl.create_default_context(cafile=rootcert or None)
+    except (OSError, ssl.SSLError) as failure:
+        raise ValueError(
+            f"DATABASE_URL: sslrootcert={rootcert!r} could not be loaded: {failure}"
+        ) from failure
+    context.check_hostname = check_hostname
+    context.verify_mode = ssl.CERT_REQUIRED
+    return context
 
 
 def normalise_database_url(raw: str) -> tuple[str, dict[str, Any]]:
@@ -50,20 +70,33 @@ def normalise_database_url(raw: str) -> tuple[str, dict[str, Any]]:
       already exists" under load, not at startup, which makes it a genuinely
       nasty thing to debug in production.
 
-    SQLite and anything already carrying a driver are returned untouched.
+    SQLite and any non-asyncpg driver are returned untouched. A URL that
+    already says ``postgresql+asyncpg://`` is *not* left alone: that is the
+    exact form docs/deploy.md tells the operator to set, and it used to skip
+    every rewrite above - so the documented configuration got the pooler's
+    prepared-statement failures and a raw ``sslmode`` handed to a driver that
+    does not know the word.
     """
-    if not raw or "+" in raw.split("://", 1)[0]:
+    if not raw:
         return raw, {}
 
     parts = urlsplit(raw)
-    if parts.scheme not in {"postgresql", "postgres"}:
+    if parts.scheme not in {"postgresql", "postgres", "postgresql+asyncpg"}:
         return raw, {}
 
     query = dict(parse_qsl(parts.query, keep_blank_values=True))
     connect_args: dict[str, Any] = {}
 
     sslmode = query.get("sslmode", "").lower()
-    if sslmode in _SSL_REQUIRED:
+    if sslmode in _SSL_VERIFIED:
+        # asyncpg's "require" encrypts but trusts any certificate unless a
+        # root.crt happens to sit in the home directory. An operator who wrote
+        # verify-ca or verify-full asked for more than that, so they get a
+        # real context: the system roots, or the file they named.
+        connect_args["ssl"] = _verifying_context(
+            query.get("sslrootcert"), check_hostname=sslmode == "verify-full"
+        )
+    elif sslmode in _SSL_REQUIRED:
         connect_args["ssl"] = "require"
     elif sslmode in {"disable", "allow"}:
         connect_args["ssl"] = False
@@ -88,7 +121,11 @@ def is_pooled(host: str) -> bool:
     signal. A false negative only costs the caching that a direct connection can
     safely keep, so erring toward "not pooled" is the safe direction.
     """
-    return "-pooler" in host or host.startswith("pooler.")
+    host = host.lower()
+    # Neon: "ep-...-pooler.<region>.aws.neon.tech". Supabase: the transaction
+    # pooler is "aws-0-<region>.pooler.supabase.com" - "pooler." in the middle,
+    # not at the front, which the prefix test alone did not see.
+    return "-pooler" in host or host.startswith("pooler.") or ".pooler." in host
 
 
 def describe(raw: str) -> str:

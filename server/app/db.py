@@ -60,7 +60,13 @@ async def init_db() -> None:
     The schema is small and additive; if it ever needs destructive changes,
     introduce Alembic rather than extending this function.
     """
-    from app import models  # noqa: F401  (import registers the mappers)
+    # Both imports register mappers. The FSM table lives beside the storage
+    # that uses it rather than in models.py, and importing only models here
+    # meant a fresh Postgres bootstrapped by scripts.init_db had every table
+    # but fsm_states - so the first multi-step conversation in the bot died
+    # on "relation does not exist". The tests never saw it because collecting
+    # test_fsm_storage.py imported the module before create_all ran.
+    from app import fsm_storage, models  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

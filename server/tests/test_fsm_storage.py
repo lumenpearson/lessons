@@ -151,3 +151,59 @@ async def test_purge_removes_only_abandoned_conversations():
     assert removed == 1
     assert await store.get_data(key(user=1)) == {"fresh": True}
     assert await store.get_data(key(user=2)) == {}
+
+
+async def test_losing_the_insert_race_applies_the_change_instead_of_raising():
+    """Two instances see no row, both insert; the loser must land its update
+    on the winner's row rather than surface IntegrityError to the handler."""
+    from unittest.mock import patch
+
+    storage = DatabaseStorage(SessionLocal)
+    key = StorageKey(bot_id=1, chat_id=99, user_id=99)
+
+    original_get = SessionLocal.class_.get
+    calls = {"n": 0}
+
+    async def racing_get(self, entity, ident, *args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            # The first read sees nothing - and between it and our insert
+            # somebody else inserts the same key.
+            async with SessionLocal() as other:
+                other.add(
+                    FsmRecord(
+                        key=ident, state="Other:step", data='{"x": 1}',
+                        updated_at=datetime.utcnow(),
+                    )
+                )
+                await other.commit()
+            return None
+        return await original_get(self, entity, ident, *args, **kwargs)
+
+    with patch.object(SessionLocal.class_, "get", racing_get):
+        await storage.set_data(key, {"y": 2})
+
+    assert await storage.get_data(key) == {"y": 2}
+    assert await storage.get_state(key) == "Other:step"
+
+
+def test_bootstrap_creates_the_fsm_table_in_a_fresh_interpreter(tmp_path):
+    """``scripts.init_db`` runs in a process that has never imported the tests
+    or the bot; create_all there has to know about fsm_states by itself."""
+    import os
+    import subprocess
+    import sys
+
+    script = (
+        "import asyncio, sqlite3\n"
+        "from app.db import init_db\n"
+        "asyncio.run(init_db())\n"
+        f"names = [r[0] for r in sqlite3.connect({str(tmp_path / 'boot.db')!r})"
+        ".execute(\"select name from sqlite_master where type='table'\")]\n"
+        "print('fsm_states' in names)\n"
+    )
+    env = dict(os.environ, DATABASE_URL=f"sqlite+aiosqlite:///{tmp_path / 'boot.db'}")
+    result = subprocess.run(
+        [sys.executable, "-c", script], env=env, capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip() == "True", result.stderr

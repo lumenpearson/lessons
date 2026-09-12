@@ -15,7 +15,7 @@ from app.db import Base, engine
 
 # Importing the models is what registers them on the metadata; without it
 # autogenerate would see an empty schema and propose dropping everything.
-from app import models  # noqa: F401  isort:skip
+from app import fsm_storage, models  # noqa: F401  isort:skip
 
 config = context.config
 target_metadata = Base.metadata
