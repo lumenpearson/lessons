@@ -29,6 +29,13 @@ CHUNK_LIMIT = 4000
 #: half; past that the reader scrolls instead of reading.
 LIST_MAX = 20
 
+#: What one message may grow to. Telegram's ceiling is 4096 characters *after*
+#: entity parsing; the margin covers the tags. Every list here is already
+#: capped by row count, but a row carries free text — a note, a задание, an
+#: audit summary — and thirty long ones would overrun a limit that no row
+#: count can express.
+MESSAGE_LIMIT = 3900
+
 
 def _utcnow() -> datetime:
     """Naive UTC, matching the naive ``DateTime`` columns the model declares."""
@@ -38,7 +45,8 @@ def _utcnow() -> datetime:
 def time_ago(moment: datetime | None, now: datetime | None = None) -> str:
     """«только что» / «5 мин назад» / «2 ч назад» / «3 дн назад».
 
-    ``moment`` is a naive UTC column value, like every timestamp in the schema.
+    ``moment`` is a naive UTC column value, like every timestamp in the schema;
+    ``None`` - a device that has never phoned home - is «никогда».
 
     The units are abbreviated on purpose. «мин», «ч» and «дн» do not inflect,
     so the line is grammatical for every count - which a full word would not be
@@ -47,7 +55,7 @@ def time_ago(moment: datetime | None, now: datetime | None = None) -> str:
     a fact anyone can hold.
     """
     if moment is None:
-        return "не выходило на связь"
+        return "никогда"
 
     delta = (now or _utcnow()) - moment
     seconds = delta.total_seconds()
@@ -90,6 +98,32 @@ def person(name: str | None, username: str | None, telegram_id: int | None) -> s
 def more_line(total: int, shown: int) -> list[str]:
     hidden = total - shown
     return [f"… и ещё {hidden}"] if hidden > 0 else []
+
+
+def clamp(lines: list[str], limit: int = MESSAGE_LIMIT) -> str:
+    """Join lines, dropping the tail that would not fit and saying how many.
+
+    Cutting from the end rather than shortening every line: the rows are
+    ordered by what matters most (the nearest date, the newest change), so the
+    ones that survive are the ones worth reading.
+    """
+    kept: list[str] = []
+    used = 0
+    for position, line in enumerate(lines):
+        cost = len(line) + 1
+        if used + cost > limit:
+            rest = len(lines) - position
+            kept.append("… и ещё " + plural(rest, "строка", "строки", "строк"))
+            break
+        kept.append(line)
+        used += cost
+    return "\n".join(kept)
+
+
+def cut(text: str, limit: int) -> str:
+    """One long free-text value, shortened for a list where it is one row."""
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
 def split_text(text: str, limit: int = CHUNK_LIMIT) -> list[str]:
@@ -135,7 +169,7 @@ def render_subjects(subjects: list) -> str:
         lines.append("<i>Список пуст. «🔄 Собрать из расписания» создаст его по урокам.</i>")
         return "\n".join(lines)
 
-    for subject in subjects[:LIST_MAX * 2]:
+    for subject in subjects[: LIST_MAX * 2]:
         parts = [f"<b>{escape(subject.name)}</b>"]
         if subject.short_name:
             parts.append(escape(subject.short_name))
@@ -144,7 +178,7 @@ def render_subjects(subjects: list) -> str:
         parts.append(swatch(subject.color))
         lines.append("• " + " · ".join(parts))
     lines.extend(more_line(len(subjects), LIST_MAX * 2))
-    return "\n".join(lines)
+    return clamp(lines)
 
 
 def render_subject_card(subject) -> str:
@@ -190,7 +224,7 @@ def render_holidays(overrides: list[DayOverride], schedules: dict[int, str], tod
             row += " · сегодня"
         lines.append(row)
     lines.extend(more_line(len(overrides), LIST_MAX))
-    return "\n".join(lines)
+    return clamp(lines)
 
 
 def render_period_result(first: Date, last: Date, created: int) -> str:
@@ -225,7 +259,7 @@ def render_bells(schedules: list, default_id: int | None) -> str:
         lines.extend(more_line(len(periods), 12))
         lines.append("")
     lines.append("⭐ — основное расписание класса.")
-    return "\n".join(lines)
+    return clamp(lines)
 
 
 def render_bell_rows(schedule) -> str:
@@ -264,9 +298,14 @@ def render_devices(devices: list, owners: dict[int, tuple[str, Role | None]]) ->
             who, role = owners.get(device.telegram_id, (str(device.telegram_id), None))
             suffix = f" ({role.title_ru})" if role is not None else " (без роли в классе)"
             link = f"привязан: {who}{suffix}"
-        lines.append(f"📱 <b>{name}</b> · {link} · был {time_ago(device.last_seen_at)}")
+        seen = (
+            "ещё не выходил на связь"
+            if device.last_seen_at is None
+            else f"был {time_ago(device.last_seen_at)}"
+        )
+        lines.append(f"📱 <b>{name}</b> · {link} · {seen}")
     lines.extend(more_line(len(devices), LIST_MAX))
-    return "\n".join(lines)
+    return clamp(lines)
 
 
 # --------------------------------------------------------------------------
@@ -295,8 +334,8 @@ def render_audit(entries: list, names: dict[int, str], tz, offset: int = 0) -> s
         else:
             when = "—"
         who = names.get(entry.telegram_id, str(entry.telegram_id or "система"))
-        lines.append(f"<code>{when}</code> · {who} · {escape(entry.summary)}")
-    return "\n".join(lines)
+        lines.append(f"<code>{when}</code> · {who} · {escape(cut(entry.summary, 160))}")
+    return clamp(lines)
 
 
 # --------------------------------------------------------------------------
@@ -351,9 +390,9 @@ def render_search(needle: str, rows: list, today: Date) -> str:
             when = "завтра"
         lines.append(
             f"• <b>{escape(item.subject_name)}</b> ({when}, {WEEKDAYS[day.weekday()]}): "
-            f"{escape(item.text)}"
+            f"{escape(cut(item.text, 200))}"
         )
-    return "\n".join(lines)
+    return clamp(lines)
 
 
 def render_import_preview(days: dict[int, list], rejected: list[str]) -> str:
@@ -380,7 +419,7 @@ def render_import_preview(days: dict[int, list], rejected: list[str]) -> str:
         lines.append(
             "«Применить» заменит эти дни целиком. Остальные дни недели останутся как есть."
         )
-    return "\n".join(lines)
+    return clamp(lines)
 
 
 def render_calendar(url: str | None, rotated: bool = False) -> str:

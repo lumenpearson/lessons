@@ -24,6 +24,7 @@ few strings built here are escaped in place for the same reason.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date as Date
 from datetime import datetime, timedelta
@@ -41,7 +42,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot import manage_render as mr
 from app.bot.keyboards import (
     WEEKDAY_FULL,
-    Menu,
     back_to_menu,
     cancel_keyboard,
     date_picker,
@@ -106,6 +106,8 @@ from app.services import audit, linking, timetable_io
 from app.services import calendar as calendar_service
 from app.services import stats as stats_service
 from app.timezones import label_for
+
+log = logging.getLogger(__name__)
 
 router = Router(name="manage")
 
@@ -1589,3 +1591,1190 @@ async def bells_delete(
     text, keyboard = await _bells_view(session, school_class)
     await callback.message.edit_text(text, reply_markup=keyboard)
     await callback.answer(f"Удалено: {name}"[:200])
+
+
+# --------------------------------------------------------------------------
+# 📱 Устройства
+# --------------------------------------------------------------------------
+#
+# A device token is read-only until its owner links it to a Telegram account;
+# from then on it writes with whatever role that account holds *right now*
+# (``linking.effective_role``). Which is why this page shows the role as a
+# lookup and not as something stored on the row: revoking somebody in «Доступ»
+# has already revoked their phone by the time this page is drawn.
+
+
+async def _device_view(session: AsyncSession, school_class: SchoolClass):
+    devices = await linking.devices_of(session, school_class.id)
+    owners: dict[int, tuple[str, Role | None]] = {}
+    names = await _member_names(session, school_class.id)
+    for device in devices:
+        if device.telegram_id is None or device.telegram_id in owners:
+            continue
+        owners[device.telegram_id] = (
+            names.get(device.telegram_id, str(device.telegram_id)),
+            await linking.effective_role(session, device),
+        )
+    return mr.render_devices(devices, owners), device_keyboard(devices)
+
+
+async def _device_by_id(
+    session: AsyncSession, school_class: SchoolClass, raw: str
+) -> DeviceToken | None:
+    device_id = _int_or_none(raw)
+    if device_id is None:
+        return None
+    return await session.scalar(
+        select(DeviceToken).where(
+            DeviceToken.id == device_id, DeviceToken.class_id == school_class.id
+        )
+    )
+
+
+@router.message(Command("devices"))
+async def cmd_devices(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await message.answer(_refusal(role, Role.ADMIN))
+        return
+    await state.clear()
+    text, keyboard = await _device_view(session, school_class)
+    await message.answer(text, reply_markup=keyboard)
+
+
+@router.callback_query(DeviceAction.filter(F.action == "list"))
+async def devices_list(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+    await state.clear()
+    text, keyboard = await _device_view(session, school_class)
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.answer()
+
+
+@router.callback_query(DeviceAction.filter(F.action == "revoke"))
+async def device_revoke(
+    callback: CallbackQuery,
+    callback_data: DeviceAction,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """Revoked, not deleted: the row is what the API checks a token against,
+    and keeping it is what makes the refusal instant and permanent."""
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+
+    device = await _device_by_id(session, school_class, callback_data.value)
+    if device is None:
+        await callback.answer("Устройство не найдено", show_alert=True)
+        return
+
+    device.revoked = True
+    name = device.device_name or f"Устройство {device.id}"
+    await audit.record(
+        session, school_class.id, callback.from_user.id, "device.revoke",
+        f"отключено устройство «{name}»",
+    )
+    await session.commit()
+
+    text, keyboard = await _device_view(session, school_class)
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.answer(f"Отключено: {name}"[:200])
+
+
+@router.callback_query(DeviceAction.filter(F.action == "unlink"))
+async def device_unlink(
+    callback: CallbackQuery,
+    callback_data: DeviceAction,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """Back to read-only without taking the phone off the class."""
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+
+    device = await _device_by_id(session, school_class, callback_data.value)
+    if device is None:
+        await callback.answer("Устройство не найдено", show_alert=True)
+        return
+    if device.telegram_id is None:
+        await callback.answer("Устройство и так не привязано", show_alert=True)
+        return
+
+    name = device.device_name or f"Устройство {device.id}"
+    await linking.unlink_device(session, device)
+    await audit.record(
+        session, school_class.id, callback.from_user.id, "device.unlink",
+        f"отвязано устройство «{name}» — снова только чтение",
+    )
+    await session.commit()
+
+    text, keyboard = await _device_view(session, school_class)
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.answer("Отвязано — теперь только чтение")
+
+
+# --------------------------------------------------------------------------
+# 📜 Журнал
+# --------------------------------------------------------------------------
+
+
+async def _audit_view(session: AsyncSession, school_class: SchoolClass, offset: int):
+    entries = await audit.recent(session, school_class.id, limit=AUDIT_PAGE + 1, offset=offset)
+    more = len(entries) > AUDIT_PAGE
+    entries = entries[:AUDIT_PAGE]
+    names = await _member_names(session, school_class.id)
+    return (
+        mr.render_audit(entries, names, school_class.tz, offset),
+        audit_keyboard(offset, more),
+    )
+
+
+@router.message(Command("log"))
+async def cmd_log(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await message.answer(_refusal(role, Role.ADMIN))
+        return
+    await state.clear()
+    text, keyboard = await _audit_view(session, school_class, 0)
+    await message.answer(text, reply_markup=keyboard)
+
+
+@router.callback_query(AuditAction.filter(F.action == "page"))
+async def audit_page(
+    callback: CallbackQuery,
+    callback_data: AuditAction,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+
+    offset = _int_or_none(callback_data.value) or 0
+    # A negative offset is not a page; SQL would take it as "no offset" and
+    # quietly show page one under a heading that says otherwise.
+    offset = max(0, offset)
+
+    await state.clear()
+    text, keyboard = await _audit_view(session, school_class, offset)
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.answer()
+
+
+# --------------------------------------------------------------------------
+# ⚙️ Класс
+# --------------------------------------------------------------------------
+
+
+async def _class_card(
+    session: AsyncSession, school_class: SchoolClass, role: Role, telegram_id: int
+):
+    memberships = await list_memberships(session, telegram_id)
+    members = int(
+        await session.scalar(
+            select(func.count()).select_from(BotUser).where(BotUser.class_id == school_class.id)
+        )
+        or 0
+    )
+    devices = int(
+        await session.scalar(
+            select(func.count())
+            .select_from(DeviceToken)
+            .where(DeviceToken.class_id == school_class.id, DeviceToken.revoked.is_(False))
+        )
+        or 0
+    )
+    pending = len(await _pending_requests(session, school_class.id))
+
+    text = mr.render_class_card(
+        school_class,
+        zone_label=label_for(school_class.timezone_name),
+        feed_ready=bool(school_class.calendar_token),
+        members=members,
+        devices=devices,
+        pending=pending,
+    )
+    keyboard = class_menu(
+        is_owner=role.at_least(Role.OWNER),
+        # The button only appears for somebody who actually has somewhere to
+        # switch to; one membership is the overwhelmingly common case.
+        many_classes=len(memberships) > 1,
+        pending=pending,
+    )
+    return text, keyboard
+
+
+@router.message(Command("class"))
+async def cmd_class(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await message.answer(_refusal(role, Role.ADMIN))
+        return
+    await state.clear()
+    text, keyboard = await _class_card(session, school_class, role, message.from_user.id)
+    await message.answer(text, reply_markup=keyboard)
+
+
+@router.callback_query(ManageAction.filter(F.action == "root"))
+async def class_root(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+    await state.clear()
+    text, keyboard = await _class_card(session, school_class, role, callback.from_user.id)
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.answer()
+
+
+#: field tag -> (column, prompt, limit). Only these three are typed; the zone
+#: and the join code have pickers of their own in ``start.py``.
+_CLASS_FIELDS = {
+    "rename": ("name", "Новое название класса:", 64),
+    "school": ("school", "Название школы («-» — убрать):", 200),
+    "city": ("city", "Город («-» — убрать):", 120),
+}
+
+
+@router.callback_query(ManageAction.filter(F.action.in_({"rename", "school", "city"})))
+async def class_field_prompt(
+    callback: CallbackQuery,
+    callback_data: ManageAction,
+    state: FSMContext,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+
+    target = _CLASS_FIELDS.get(callback_data.action)
+    if target is None:  # pragma: no cover - the filter already narrowed it
+        await callback.answer("Неизвестное поле", show_alert=True)
+        return
+
+    _, prompt, _ = target
+    await state.set_state(EditClassField.value)
+    await state.update_data(field=callback_data.action)
+    await callback.message.edit_text(prompt, reply_markup=cancel_keyboard())
+    await callback.answer()
+
+
+@router.message(EditClassField.value)
+async def class_field_apply(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await state.clear()
+        return
+
+    data = await state.get_data()
+    target = _CLASS_FIELDS.get(str(data.get("field", "")))
+    if target is None:
+        await state.clear()
+        await message.answer("Начните заново: /class", reply_markup=back_to_menu())
+        return
+    column, prompt, limit = target
+
+    raw = " ".join((message.text or "").split())
+    if column == "name":
+        # The name is what every other message calls this class, and what the
+        # delete confirmation is typed against; it cannot be empty.
+        if not 1 <= len(raw) <= limit:
+            await message.answer(f"От 1 до {limit} символов. {prompt}")
+            return
+        value = raw
+    else:
+        value = None if raw in {"-", "—", ""} else raw[:limit]
+
+    setattr(school_class, column, value)
+    await audit.record(
+        session,
+        school_class.id,
+        message.from_user.id,
+        f"class.{column}",
+        f"{column}: {value or 'убрано'}",
+    )
+    await session.commit()
+    await state.clear()
+
+    text, keyboard = await _class_card(session, school_class, role, message.from_user.id)
+    await message.answer(text, reply_markup=keyboard)
+
+
+# --------------------------------------------------------------------------
+# 🔀 Смена класса
+# --------------------------------------------------------------------------
+
+
+@router.callback_query(ManageAction.filter(F.action == "switch"))
+async def class_switch(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.VIEWER):
+        await callback.answer(NO_ACCESS, show_alert=True)
+        return
+
+    memberships = await list_memberships(session, callback.from_user.id)
+    classes: list[SchoolClass] = []
+    for member in memberships:
+        found = await session.get(SchoolClass, member.class_id)
+        if found is not None:
+            classes.append(found)
+    if len(classes) < 2:
+        await callback.answer("Вы состоите только в одном классе", show_alert=True)
+        return
+
+    await callback.message.edit_text(
+        "🔀 <b>Сменить класс</b>\n\nВ каком классе работаем дальше?",
+        reply_markup=switch_keyboard(classes),
+    )
+    await callback.answer()
+
+
+@router.callback_query(ManageAction.filter(F.action == "switch_to"))
+async def class_switch_to(
+    callback: CallbackQuery,
+    callback_data: ManageAction,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """Remember which class this person is working in.
+
+    The preference is written to FSM storage — the database — under its own
+    key, and the middleware reads exactly that key on the next update. Nothing
+    is kept in the process: on Vercel the next message is a different one.
+
+    The membership is checked here and checked again by the middleware every
+    time it reads the preference, so a class somebody is later removed from
+    stops being their default by itself.
+    """
+    if school_class is None or role is None:
+        await callback.answer(NO_ACCESS, show_alert=True)
+        return
+
+    class_id = _int_or_none(callback_data.value)
+    memberships = await list_memberships(session, callback.from_user.id)
+    if class_id is None or not any(member.class_id == class_id for member in memberships):
+        await callback.answer("Вы не состоите в этом классе", show_alert=True)
+        return
+
+    target = await session.get(SchoolClass, class_id)
+    if target is None:
+        await callback.answer("Класс не найден", show_alert=True)
+        return
+
+    storage = DatabaseStorage(SessionLocal)
+    await storage.set_data(prefs_key(callback.from_user.id), {"class_id": class_id})
+
+    await state.clear()
+    await callback.message.edit_text(
+        f"✅ Текущий класс: <b>{escape(target.name)}</b>.\n\n"
+        "Все команды теперь про него. Открыть меню: /start",
+        reply_markup=back_to_menu(),
+    )
+    await callback.answer(f"Класс: {target.name}"[:200])
+
+
+# --------------------------------------------------------------------------
+# 🗑 Удаление класса
+# --------------------------------------------------------------------------
+
+
+@router.callback_query(ManageAction.filter(F.action == "delete"))
+async def class_delete_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.OWNER):
+        await callback.answer(NEED_OWNER, show_alert=True)
+        return
+
+    await state.set_state(DeleteClass.confirm)
+    await callback.message.edit_text(
+        f"🗑 <b>Удалить класс {escape(school_class.name)}?</b>\n\n"
+        "Вместе с ним исчезнут расписание, домашние задания, замены, события, "
+        "журнал и все привязанные устройства. Это нельзя отменить.\n\n"
+        f"Чтобы подтвердить, пришлите название класса точно так: "
+        f"<code>{escape(school_class.name)}</code>",
+        reply_markup=cancel_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.message(DeleteClass.confirm)
+async def class_delete_apply(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """Typing the name back is the confirmation, and the only one.
+
+    A «вы уверены?» button is pressed by the same thumb that pressed the one
+    before it. Nothing here writes an audit line: the log lives in the class
+    and goes with it.
+    """
+    if not _allowed(school_class, role, Role.OWNER):
+        await state.clear()
+        return
+
+    typed = (message.text or "").strip()
+    if typed != school_class.name:
+        await message.answer(
+            "Название не совпало — класс не тронут.\n"
+            f"Чтобы удалить, пришлите ровно: <code>{escape(school_class.name)}</code>"
+        )
+        return
+
+    name = school_class.name
+    await session.delete(school_class)
+    await session.commit()
+    await state.clear()
+    await message.answer(
+        f"🗑 Класс <b>{escape(name)}</b> удалён вместе со всеми данными."
+    )
+
+
+# --------------------------------------------------------------------------
+# 📅 Календарь
+# --------------------------------------------------------------------------
+
+
+async def _calendar_text(session: AsyncSession, school_class: SchoolClass, rotated: bool) -> str:
+    base = get_settings().public_base_url.rstrip("/")
+    if not base:
+        return mr.render_calendar(None)
+    if rotated:
+        token = await calendar_service.rotate_calendar_token(session, school_class)
+    else:
+        token = await calendar_service.ensure_calendar_token(session, school_class)
+    return mr.render_calendar(f"{base}/api/v1/calendar/{token}.ics", rotated=rotated)
+
+
+def _calendar_keyboard(role: Role):
+    rows: list[list[InlineKeyboardButton]] = []
+    if role.at_least(Role.ADMIN):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="🔁 Новая ссылка",
+                    callback_data=ManageAction(action="rotate_feed").pack(),
+                )
+            ]
+        )
+        rows.append(back_to("root"))
+    return back_to_menu(rows)
+
+
+@router.message(Command("calendar"))
+async def cmd_calendar(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """Any member may subscribe: the feed is read-only and its secret is not
+    the join code, so a calendar URL cannot be turned into write access."""
+    if not _allowed(school_class, role, Role.VIEWER):
+        await message.answer(NO_ACCESS)
+        return
+    await state.clear()
+    await message.answer(
+        await _calendar_text(session, school_class, rotated=False),
+        reply_markup=_calendar_keyboard(role),
+    )
+
+
+@router.callback_query(ManageAction.filter(F.action == "calendar"))
+async def calendar_card(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.VIEWER):
+        await callback.answer(NO_ACCESS, show_alert=True)
+        return
+    await callback.message.edit_text(
+        await _calendar_text(session, school_class, rotated=False),
+        reply_markup=_calendar_keyboard(role),
+    )
+    await callback.answer()
+
+
+@router.callback_query(ManageAction.filter(F.action == "rotate_feed"))
+async def calendar_rotate(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """Every existing subscription stops updating — that is the point."""
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+
+    text = await _calendar_text(session, school_class, rotated=True)
+    await audit.record(
+        session, school_class.id, callback.from_user.id, "calendar.rotate",
+        "выдана новая ссылка на календарь, старая отключена",
+    )
+    await session.commit()
+    await callback.message.edit_text(text, reply_markup=_calendar_keyboard(role))
+    await callback.answer("Ссылка обновлена")
+
+
+# --------------------------------------------------------------------------
+# 📤 Экспорт и 📥 импорт расписания
+# --------------------------------------------------------------------------
+
+
+@router.message(Command("export"))
+async def cmd_export(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """The whole template as text — which doubles as the backup.
+
+    It is sent in ``<code>`` blocks so Telegram offers a copy button, split at
+    4000 characters because the limit is 4096 and the header counts.
+    """
+    if not _allowed(school_class, role, Role.ADMIN):
+        await message.answer(_refusal(role, Role.ADMIN))
+        return
+    await state.clear()
+
+    entries = list(
+        await session.scalars(
+            select(TimetableEntry)
+            .where(TimetableEntry.class_id == school_class.id)
+            .order_by(TimetableEntry.weekday, TimetableEntry.index)
+        )
+    )
+    periods: list[BellPeriod] = []
+    if school_class.bell_schedule_id:
+        schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
+        if schedule is not None:
+            periods = list(schedule.periods)
+
+    body = timetable_io.export_timetable(entries, periods)
+    if not body:
+        await message.answer("Расписание пустое — экспортировать нечего.")
+        return
+
+    parts = mr.split_text(body)
+    for number, part in enumerate(parts, start=1):
+        header = f"📤 Экспорт, часть {number}/{len(parts)}\n" if len(parts) > 1 else ""
+        await message.answer(f"{header}<code>{escape(part)}</code>")
+
+
+IMPORT_HELP = (
+    "Пришлите расписание одним сообщением, с заголовком перед каждым днём:\n\n"
+    "<code>== Понедельник ==\n"
+    "1. Алгебра, 214\n"
+    "2. Физика, 305, Иванова И.И.\n"
+    "3. История [чис]\n"
+    "3. Обществознание [знам]\n\n"
+    "== Вторник ==\n"
+    "1. Химия, 118</code>\n\n"
+    "Подойдёт и текст из /export — можно раз в четверть сохранять его себе "
+    "и возвращать обратно.\n"
+    "Блок <code>== Звонки ==</code> обновит основное расписание звонков."
+)
+
+
+@router.message(Command("import"))
+async def cmd_import(
+    message: Message,
+    state: FSMContext,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await message.answer(_refusal(role, Role.ADMIN))
+        return
+    await state.set_state(ImportTimetable.paste)
+    await message.answer(f"📥 <b>Импорт расписания</b>\n\n{IMPORT_HELP}")
+
+
+@router.message(ImportTimetable.paste)
+async def import_preview(
+    message: Message,
+    state: FSMContext,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """Parse and show what would happen; nothing is written yet.
+
+    The paste is kept in FSM storage rather than parsed twice into a process
+    variable: «Применить» may well arrive at a different instance.
+    """
+    if not _allowed(school_class, role, Role.ADMIN):
+        await state.clear()
+        return
+
+    raw = message.text or ""
+    days, rejected = timetable_io.parse_timetable_block(raw)
+    bells, _ = timetable_io.parse_bells_block(raw)
+    if not days and not bells:
+        await message.answer(
+            "Не нашёл ни одного дня.\n\n" + IMPORT_HELP, reply_markup=cancel_keyboard()
+        )
+        return
+
+    await state.update_data(raw=raw)
+    preview = mr.render_import_preview(days, rejected)
+    if bells:
+        preview += f"\n• Звонки: {len(bells)} уроков"
+    await message.answer(preview, reply_markup=import_keyboard())
+
+
+@router.callback_query(ImportAction.filter(F.action == "cancel"))
+async def import_cancel(
+    callback: CallbackQuery,
+    state: FSMContext,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+    await state.clear()
+    await callback.message.edit_text("Импорт отменён — ничего не изменилось.")
+    await callback.answer()
+
+
+@router.callback_query(ImportAction.filter(F.action == "apply"))
+async def import_apply(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """Replace exactly the weekdays the paste named, in one transaction.
+
+    Days the paste did not mention are left alone, so importing a single day's
+    block is a legitimate thing to do. A day that appears with no lessons under
+    it is emptied — that is how a paste says «в четверг уроков нет».
+    """
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+
+    data = await state.get_data()
+    raw = str(data.get("raw", ""))
+    days, _ = timetable_io.parse_timetable_block(raw)
+    bells, _ = timetable_io.parse_bells_block(raw)
+    if not days and not bells:
+        await state.clear()
+        await callback.answer("Нечего применять — начните заново: /import", show_alert=True)
+        return
+
+    if days:
+        await session.execute(
+            sa_delete(TimetableEntry).where(
+                TimetableEntry.class_id == school_class.id,
+                TimetableEntry.weekday.in_(list(days)),
+            )
+        )
+    total = 0
+    for weekday, rows in days.items():
+        for index, subject, room, teacher, parity in rows:
+            session.add(
+                TimetableEntry(
+                    class_id=school_class.id,
+                    weekday=weekday,
+                    index=index,
+                    subject_name=subject,
+                    room=room,
+                    teacher=teacher,
+                    parity=parity,
+                )
+            )
+            total += 1
+
+    schedule = None
+    if bells:
+        if school_class.bell_schedule_id:
+            schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
+        if schedule is None:
+            schedule = BellSchedule(class_id=school_class.id, name="Обычное")
+            session.add(schedule)
+            await session.flush()
+            school_class.bell_schedule_id = schedule.id
+        await _write_periods(session, schedule, bells)
+
+    summary = f"импорт расписания: дней {len(days)}, уроков {total}"
+    if bells:
+        summary += f", звонков {len(bells)}"
+    await audit.record(
+        session, school_class.id, callback.from_user.id, "timetable.import", summary
+    )
+    await session.commit()
+    if schedule is not None:
+        await session.refresh(schedule, ["periods"])
+    await state.clear()
+
+    lines = [f"✅ Импорт применён: {len(days)} дн., уроков — {total}."]
+    for weekday in sorted(days):
+        lines.append(f"• {WEEKDAY_FULL[weekday - 1]}: {len(days[weekday])}")
+    if bells:
+        lines.append(f"• Звонки: {len(bells)}")
+    await callback.message.edit_text("\n".join(lines), reply_markup=back_to_menu())
+    await callback.answer("Готово")
+
+
+# --------------------------------------------------------------------------
+# 📊 Статистика и 🔎 поиск
+# --------------------------------------------------------------------------
+
+
+@router.message(Command("stats"))
+async def cmd_stats(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.EDITOR):
+        await message.answer(_refusal(role, Role.EDITOR))
+        return
+    await state.clear()
+    numbers = await stats_service.class_stats(session, school_class)
+    await message.answer(
+        stats_service.render_stats(numbers, school_class), reply_markup=back_to_menu()
+    )
+
+
+@router.message(Command("find"))
+async def cmd_find(
+    message: Message,
+    command: CommandObject,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """Search this class's homework. Any member may: it is the same text the
+    day view already shows them, only reachable by memory instead of by date."""
+    if not _allowed(school_class, role, Role.VIEWER):
+        await message.answer(NO_ACCESS)
+        return
+
+    needle = (command.args or "").strip()
+    if len(needle) < 2:
+        await message.answer(
+            "🔎 <b>Поиск по домашним заданиям</b>\n\n"
+            "Напишите, что искать: <code>/find параграф 12</code>.\n"
+            "Ищу по тексту задания и по названию предмета, "
+            "минимум два символа."
+        )
+        return
+
+    today = _today(school_class)
+    # ``lower().contains()`` rather than ILIKE: SQLite has no ILIKE, and the
+    # comparison has to behave the same on it and on Postgres.
+    pattern = needle.lower()
+    rows = list(
+        await session.scalars(
+            select(Homework)
+            .where(
+                Homework.class_id == school_class.id,
+                Homework.due_date >= today - timedelta(days=SEARCH_BACK_DAYS),
+                func.lower(Homework.text).contains(pattern)
+                | func.lower(Homework.subject_name).contains(pattern),
+            )
+            .order_by(Homework.due_date.desc(), Homework.id.desc())
+            .limit(SEARCH_MAX)
+        )
+    )
+    await message.answer(mr.render_search(needle, rows, today), reply_markup=back_to_menu())
+
+
+# --------------------------------------------------------------------------
+# 📱 /link и 🙋 /request
+# --------------------------------------------------------------------------
+
+
+@router.message(Command("link"))
+async def cmd_link(
+    message: Message,
+    command: CommandObject,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """Attach the phone showing ``code`` to this account.
+
+    No role check beyond membership: linking gives the phone *this* account's
+    role, whatever it is, so it can never be more than the person already has.
+    """
+    if not _allowed(school_class, role, Role.VIEWER):
+        await message.answer(NO_ACCESS)
+        return
+
+    code = (command.args or "").strip()
+    if not 1 <= len(code) <= 16:
+        await message.answer(
+            "📱 <b>Привязка телефона</b>\n\n"
+            "Откройте в приложении экран привязки и пришлите код: "
+            "<code>/link ABC123</code>."
+        )
+        return
+
+    device = await linking.link_device(session, code, message.from_user.id)
+    if device is None:
+        await message.answer(
+            "Код не подошёл. Он действует один раз — откройте экран привязки "
+            "в приложении ещё раз и пришлите новый."
+        )
+        return
+
+    device_role = await linking.effective_role(session, device)
+    name = escape(device.device_name or "Телефон")
+    if device_role is not None and device_role.at_least(Role.EDITOR):
+        tail = f"Ваша роль: <b>{device_role.title_ru}</b> — приложение может редактировать."
+    else:
+        title = device_role.title_ru if device_role is not None else "нет роли"
+        tail = (
+            f"Ваша роль: <b>{title}</b> — только чтение. "
+            "Запросить доступ редактора: /request"
+        )
+    await audit.record(
+        session,
+        device.class_id,
+        message.from_user.id,
+        "device.link",
+        f"привязано устройство «{device.device_name or device.id}»",
+    )
+    await session.commit()
+    await message.answer(f"📱 Устройство «{name}» привязано. {tail}")
+
+
+async def _create_request(
+    session: AsyncSession, school_class: SchoolClass, telegram_id: int, text: str | None
+) -> AccessRequest:
+    """One open request per person per class — a second one replaces the first,
+    so a nervous requester cannot fill an admin's screen."""
+    existing = await session.scalar(
+        select(AccessRequest).where(
+            AccessRequest.class_id == school_class.id,
+            AccessRequest.telegram_id == telegram_id,
+            AccessRequest.status == "pending",
+        )
+    )
+    if existing is None:
+        existing = AccessRequest(
+            class_id=school_class.id,
+            telegram_id=telegram_id,
+            requested_role=Role.EDITOR,
+            status="pending",
+        )
+        session.add(existing)
+    existing.requested_role = Role.EDITOR
+    existing.status = "pending"
+    existing.message = (text or None) and text[:300]
+    existing.decided_by = None
+    existing.decided_at = None
+    await session.flush()
+    return existing
+
+
+async def _notify_admins(
+    session: AsyncSession,
+    bot,
+    school_class: SchoolClass,
+    request: AccessRequest,
+    who: str,
+) -> None:
+    """Tell every admin, and let one bad recipient be nobody else's problem."""
+    if bot is None:
+        return
+
+    admins = await session.scalars(
+        select(BotUser).where(
+            BotUser.class_id == school_class.id,
+            BotUser.role.in_([Role.ADMIN, Role.OWNER]),
+        )
+    )
+    body = (
+        f"🙋 <b>Запрос доступа</b>\n\n"
+        f"{who} просит роль <b>{Role.EDITOR.title_ru}</b> "
+        f"в классе <b>{escape(school_class.name)}</b>."
+    )
+    if request.message:
+        body += f"\n\n<i>{escape(request.message)}</i>"
+
+    for admin in admins:
+        try:
+            await bot.send_message(
+                admin.telegram_id, body, reply_markup=request_keyboard(request.id)
+            )
+        except Exception:  # noqa: BLE001 - one blocked admin is not the requester's problem
+            log.warning("could not notify admin %s", admin.telegram_id, exc_info=True)
+
+
+@router.message(Command("request"))
+async def cmd_request(
+    message: Message,
+    command: CommandObject,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.VIEWER):
+        await message.answer(NO_ACCESS)
+        return
+    if role.at_least(Role.EDITOR):
+        await message.answer(
+            f"У вас уже роль <b>{role.title_ru}</b> — запрашивать нечего."
+        )
+        return
+
+    text = (command.args or "").strip()
+    if not text:
+        await state.set_state(RequestAccess.message)
+        await message.answer(
+            "🙋 <b>Запрос доступа редактора</b>\n\n"
+            "Напишите пару слов о себе — администратор увидит их вместе с запросом. "
+            "Или пришлите <code>-</code>, чтобы отправить без комментария.",
+            reply_markup=cancel_keyboard(),
+        )
+        return
+
+    await _submit_request(message, state, session, school_class, text)
+
+
+@router.message(RequestAccess.message)
+async def request_message(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.VIEWER) or role.at_least(Role.EDITOR):
+        await state.clear()
+        return
+    raw = " ".join((message.text or "").split())
+    await _submit_request(
+        message, state, session, school_class, None if raw in {"-", "—", ""} else raw
+    )
+
+
+async def _submit_request(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass,
+    text: str | None,
+) -> None:
+    request = await _create_request(session, school_class, message.from_user.id, text)
+    who = mr.person(message.from_user.full_name, message.from_user.username, message.from_user.id)
+    await audit.record(
+        session,
+        school_class.id,
+        message.from_user.id,
+        "access.request",
+        f"{message.from_user.full_name or message.from_user.id} просит роль редактора",
+    )
+    await session.commit()
+    await state.clear()
+
+    await _notify_admins(session, _bot_of(message), school_class, request, who)
+    await message.answer(
+        "✅ Запрос отправлен администраторам класса. Они ответят здесь же."
+    )
+
+
+async def _tell_requester(bot, telegram_id: int, text: str) -> None:
+    if bot is None:
+        return
+    try:
+        await bot.send_message(telegram_id, text)
+    except Exception:  # noqa: BLE001 - the decision stands whether or not it was delivered
+        log.warning("could not tell %s about the decision", telegram_id, exc_info=True)
+
+
+async def _request_by_id(
+    session: AsyncSession, school_class: SchoolClass, raw: str
+) -> AccessRequest | None:
+    request_id = _int_or_none(raw)
+    if request_id is None:
+        return None
+    return await session.scalar(
+        select(AccessRequest).where(
+            AccessRequest.id == request_id,
+            AccessRequest.class_id == school_class.id,
+            AccessRequest.status == "pending",
+        )
+    )
+
+
+@router.callback_query(RequestAction.filter(F.action == "approve"))
+async def request_approve(
+    callback: CallbackQuery,
+    callback_data: RequestAction,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """Grant the requested role through the same rules as «👥 Доступ».
+
+    ``can_grant`` is the single source of "may I hand out this role", and the
+    rank guard below is the same one ``access.py`` applies when changing an
+    existing member: nobody may raise somebody to their own level or touch a
+    peer.
+    """
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+
+    request = await _request_by_id(session, school_class, callback_data.value)
+    if request is None:
+        await callback.answer("Запрос уже закрыт", show_alert=True)
+        return
+
+    target_role = request.requested_role
+    if not can_grant(role, target_role):
+        await callback.answer("Нельзя выдать роль выше вашей", show_alert=True)
+        return
+
+    member = await session.scalar(
+        select(BotUser).where(
+            BotUser.class_id == school_class.id,
+            BotUser.telegram_id == request.telegram_id,
+        )
+    )
+    if member is not None and member.role.rank >= role.rank:
+        await callback.answer("Нельзя менять роль этого пользователя", show_alert=True)
+        return
+
+    if member is None:
+        member = BotUser(
+            telegram_id=request.telegram_id,
+            class_id=school_class.id,
+            role=target_role,
+            granted_by=callback.from_user.id,
+        )
+        session.add(member)
+    elif member.role.rank < target_role.rank:
+        member.role = target_role
+        member.granted_by = callback.from_user.id
+
+    request.status = "approved"
+    request.decided_by = callback.from_user.id
+    request.decided_at = datetime.utcnow()
+
+    name = mr.person(member.full_name, member.username, member.telegram_id)
+    await audit.record(
+        session,
+        school_class.id,
+        callback.from_user.id,
+        "access.approve",
+        f"выдана роль {target_role.title_ru}: {member.full_name or member.telegram_id}",
+    )
+    await session.commit()
+
+    await _tell_requester(
+        _bot_of(callback),
+        request.telegram_id,
+        f"✅ Доступ выдан: <b>{target_role.title_ru}</b> в классе "
+        f"<b>{escape(school_class.name)}</b>. Откройте /start.",
+    )
+    await callback.message.edit_text(
+        f"✅ {name} — теперь <b>{target_role.title_ru}</b>.", reply_markup=back_to_menu()
+    )
+    await callback.answer("Выдано")
+
+
+@router.callback_query(RequestAction.filter(F.action == "decline"))
+async def request_decline(
+    callback: CallbackQuery,
+    callback_data: RequestAction,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+
+    request = await _request_by_id(session, school_class, callback_data.value)
+    if request is None:
+        await callback.answer("Запрос уже закрыт", show_alert=True)
+        return
+
+    request.status = "declined"
+    request.decided_by = callback.from_user.id
+    request.decided_at = datetime.utcnow()
+    await audit.record(
+        session,
+        school_class.id,
+        callback.from_user.id,
+        "access.decline",
+        f"отклонён запрос доступа от {request.telegram_id}",
+    )
+    await session.commit()
+
+    await _tell_requester(
+        _bot_of(callback),
+        request.telegram_id,
+        f"✖️ Запрос доступа в классе <b>{escape(school_class.name)}</b> отклонён.",
+    )
+    await callback.message.edit_text("✖️ Запрос отклонён.", reply_markup=back_to_menu())
+    await callback.answer("Отклонено")

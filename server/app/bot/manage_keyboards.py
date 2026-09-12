@@ -20,14 +20,19 @@ class ManageAction(CallbackData, prefix="mg"):
     value: str = ""
 
 
-class SubjectAction(CallbackData, prefix="sub"):
+# ``sep="|"`` on the two payloads whose ``value`` is itself a pair -
+# «name:12», «2026-10-26:holiday». aiogram packs fields with its separator and
+# refuses a value that contains one, so with the default ':' every one of these
+# keyboards raised ValueError the moment it was built - a page that could not
+# be drawn at all. The pipe never appears in a date, an id or a colour.
+class SubjectAction(CallbackData, prefix="sub", sep="|"):
     action: str  # list | open | add | field | colour | delete | collect
-    value: str = ""
+    value: str = ""  # «field» and «colour» carry «<tag>:<id>» / «<id>:<hex>»
 
 
-class DayKindAction(CallbackData, prefix="dk"):
+class DayKindAction(CallbackData, prefix="dk", sep="|"):
     action: str  # list | add | pick_date | kind | bells | delete | period
-    value: str = ""
+    value: str = ""  # «kind» and «bells» carry «<iso date>:<kind|schedule id>»
 
 
 class BellsAction(CallbackData, prefix="bl"):
