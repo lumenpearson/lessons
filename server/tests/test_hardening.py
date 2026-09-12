@@ -214,6 +214,40 @@ def test_a_short_forwarded_header_falls_back_to_the_socket(monkeypatch):
     assert _client_bucket(_request({"X-Forwarded-For": "10.0.0.1"})) == client_bucket("127.0.0.1")
 
 
+def _repeated_request(lines: list[bytes], name: bytes = b"x-forwarded-for"):
+    """A request carrying ``name`` on several field lines, as a proxy that adds
+    its own line rather than extending the caller's leaves it."""
+    return SimpleNamespace(
+        headers=Headers(raw=[(name, line) for line in lines]),
+        client=SimpleNamespace(host="127.0.0.1"),
+    )
+
+
+def test_a_repeated_forwarded_header_is_the_one_list_it_means(monkeypatch):
+    """RFC 9110 §5.3: several lines of a comma-separated field are one list.
+
+    Read a line at a time, the first line is the caller's own - so a caller
+    behind a proxy that appends its own line picked its own bucket on every
+    request, which is the limit not existing by the route this whole function
+    exists to close.
+    """
+    settings = get_settings()
+    monkeypatch.setattr(settings, "trusted_proxy_hops", 1)
+
+    spoofed = _repeated_request([b"10.0.0.1", b"198.51.100.7"])
+    assert _client_bucket(spoofed) == client_bucket("198.51.100.7")
+
+
+def test_a_repeated_header_still_has_to_be_long_enough_for_the_proxies(monkeypatch):
+    """Two lines, two proxies: the entry two from the right is the caller's own
+    first line, not a third address nobody sent."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "trusted_proxy_hops", 3)
+
+    short = _repeated_request([b"10.0.0.1", b"198.51.100.7"])
+    assert _client_bucket(short) == client_bucket("127.0.0.1")
+
+
 def test_on_vercel_the_platform_header_wins_over_the_client_one(monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "vercel", "1")

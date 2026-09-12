@@ -385,3 +385,61 @@ async def test_the_session_cookie_is_sent_upstream_on_every_call(client, upstrea
 def test_the_dates_this_project_sends_are_the_ones_the_upstream_reads():
     assert provider_client.serialise_date(date(2026, 9, 7)) == "07.09.2026"
     assert provider_client.serialise_datetime_range(date(2026, 9, 7)) == "07.09.2026+00:00:00"
+
+
+# ---- the one shared upstream client ---------------------------------------
+
+
+async def _through_the_real_shared_client(monkeypatch, calls: list[str | None]):
+    """Drives the module's own ``shared_client`` against a mock transport.
+
+    The ``upstream`` fixture builds a fresh client per call, which is exactly
+    what hides anything the shared one accumulates between them - so this one
+    goes through the real constructor instead.
+    """
+    real = httpx.AsyncClient
+
+    def build(**kwargs):
+        return real(**kwargs, transport=httpx.MockTransport(handler))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.headers.get("cookie"))
+        return httpx.Response(
+            200,
+            json={"data": {"items": []}},
+            headers={"set-cookie": "X-JWT-Token=refreshed-for-the-first; Path=/"},
+        )
+
+    monkeypatch.setattr(provider_client.httpx, "AsyncClient", build)
+    await provider_client.close_client()
+
+
+async def test_one_family_s_session_never_travels_on_another_s_request(monkeypatch):
+    """The upstream refreshes its cookie on the way past every call.
+
+    httpx keeps what it sees on the *client*, and this client is one per
+    process, so without care the refreshed cookie is merged into the next
+    request - whosever it is.
+    """
+    calls: list[str | None] = []
+    await _through_the_real_shared_client(monkeypatch, calls)
+    try:
+        await provider_client.PetersburgClient("first-family").children()
+        await provider_client.PetersburgClient("second-family").children()
+    finally:
+        await provider_client.close_client()
+
+    assert calls == ["X-JWT-Token=first-family", "X-JWT-Token=second-family"]
+
+
+async def test_a_login_carries_no_session_at_all(monkeypatch):
+    """A login is the one call with nobody behind it yet."""
+    calls: list[str | None] = []
+    await _through_the_real_shared_client(monkeypatch, calls)
+    try:
+        await provider_client.PetersburgClient("first-family").children()
+        await provider_client.PetersburgClient().login("parent@example.com", "correct")
+    finally:
+        await provider_client.close_client()
+
+    assert calls[1] is None

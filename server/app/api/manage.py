@@ -809,13 +809,12 @@ async def timetable_import(
 # --------------------------------------------------------------------------
 
 
-async def _device_out(
-    session: AsyncSession,
+def _device_out(
     device: DeviceToken,
     school_class: SchoolClass,
     names: dict[int, str],
+    role: Role | None,
 ) -> ManagedDeviceOut:
-    role = await linking.effective_role(session, device)
     return ManagedDeviceOut(
         id=device.id,
         device_name=device.device_name,
@@ -858,7 +857,18 @@ async def devices_list(
     """
     devices = await linking.devices_of(session, school_class.id, include_revoked=include_revoked)
     names = await _member_names(session, school_class.id)
-    return [await _device_out(session, device, school_class, names) for device in devices]
+    # Once per owner, not once per phone: the role hangs off the account, and a
+    # class where everybody joined from their own phone was paying a round trip
+    # a row for an answer already in hand. «📱 Устройства» in the bot resolves
+    # it the same way.
+    roles: dict[int, Role | None] = {}
+    for device in devices:
+        if device.telegram_id is not None and device.telegram_id not in roles:
+            roles[device.telegram_id] = await linking.effective_role(session, device)
+    return [
+        _device_out(device, school_class, names, roles.get(device.telegram_id))
+        for device in devices
+    ]
 
 
 @router.post("/devices/{device_id}/revoke", response_model=ManagedDeviceOut)
@@ -879,8 +889,9 @@ async def device_revoke(
     """
     device = await _device_or_404(session, school_class, device_id)
     names = await _member_names(session, school_class.id)
+    role = await linking.effective_role(session, device)
     if device.revoked:
-        return await _device_out(session, device, school_class, names)
+        return _device_out(device, school_class, names, role)
 
     device.revoked = True
     name = device.device_name or f"Устройство {device.id}"
@@ -892,7 +903,7 @@ async def device_revoke(
         f"отключено устройство «{name}»",
     )
     await session.commit()
-    return await _device_out(session, device, school_class, names)
+    return _device_out(device, school_class, names, role)
 
 
 @router.post("/devices/{device_id}/unlink", response_model=ManagedDeviceOut)
@@ -924,7 +935,8 @@ async def device_unlink(
     )
     await session.commit()
     names = await _member_names(session, school_class.id)
-    return await _device_out(session, device, school_class, names)
+    role = await linking.effective_role(session, device)
+    return _device_out(device, school_class, names, role)
 
 
 # --------------------------------------------------------------------------

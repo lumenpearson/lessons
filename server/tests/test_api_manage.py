@@ -18,10 +18,11 @@ from typing import Any
 import httpx
 import pytest
 from httpx import ASGITransport
-from sqlalchemy import select
+from sqlalchemy import event, select
 
 from app.api import manage
 from app.config import get_settings
+from app.db import engine
 from app.fsm_storage import FsmRecord  # noqa: F401 - registers fsm_states before create_all
 from app.main import app
 from app.models import (
@@ -809,6 +810,47 @@ async def test_devices_list_shows_the_owner_and_the_role_it_borrows(
     assert linked["device_name"] == "pytest"
     unlinked = next(row for row in body if not row["linked"])
     assert unlinked["role"] is None and unlinked["owner"] is None
+
+
+async def test_the_device_list_asks_for_a_role_once_per_owner_not_once_per_phone(
+    client, session, school_class
+):
+    """A role belongs to the account, not to the phone.
+
+    «📱 Устройства» in the bot resolves it once per owner; the list here asked
+    per row, so a class where everybody has joined from their own phone paid a
+    round trip a phone for an answer it already had.
+    """
+    token = await _admin(client, session, school_class)
+
+    async def more_phones(count: int) -> None:
+        for number in range(count):
+            extra = await _token(client, f"телефон {number}")
+            me = await client.get("/api/v1/me", headers=_auth(extra))
+            await linking.link_device(session, me.json()["link_code"], ADMIN_ID)
+
+    async def list_devices() -> tuple[int, int]:
+        """(phones listed, times the class's members were read)."""
+        seen: list[str] = []
+
+        def record(conn, cursor, statement, parameters, context, executemany):
+            seen.append(statement)
+
+        event.listen(engine.sync_engine, "before_cursor_execute", record)
+        try:
+            response = await client.get("/api/v1/manage/devices", headers=_auth(token))
+        finally:
+            event.remove(engine.sync_engine, "before_cursor_execute", record)
+        assert response.status_code == 200, response.text
+        return len(response.json()), len([line for line in seen if "FROM bot_users" in line])
+
+    await more_phones(1)
+    two_phones, lookups_for_two = await list_devices()
+    await more_phones(8)
+    ten_phones, lookups_for_ten = await list_devices()
+
+    assert (two_phones, ten_phones) == (2, 10)
+    assert lookups_for_ten == lookups_for_two
 
 
 async def test_revoking_a_device_stops_its_token_at_once(client, session, school_class):
