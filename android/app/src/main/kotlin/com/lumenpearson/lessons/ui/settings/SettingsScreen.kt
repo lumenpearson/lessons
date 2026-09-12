@@ -114,6 +114,7 @@ import com.lumenpearson.lessons.ui.diary.DiaryScreen
 import com.lumenpearson.lessons.ui.common.SyncIntervalOptionsMinutes
 import com.lumenpearson.lessons.ui.common.asText
 import com.lumenpearson.lessons.ui.common.syncIntervalLabel
+import com.lumenpearson.lessons.ui.translate.translationRows
 
 /**
  * One page of the settings tree.
@@ -396,6 +397,12 @@ fun SettingsSectionScreen(
                     },
                     onShowLicenses = { sheets.licenses = true },
                 )
+                // Last on the page about the app itself, below the licences and
+                // the bug report: correcting a translation is the same kind of
+                // errand as reporting a typo, and a mode that changes what a
+                // long press does everywhere should not sit where somebody
+                // reaches by accident.
+                translationRows()
             }
             SettingsSection.PERMISSIONS -> permissionRows()
             // Handled above, before this page's scaffold exists.
