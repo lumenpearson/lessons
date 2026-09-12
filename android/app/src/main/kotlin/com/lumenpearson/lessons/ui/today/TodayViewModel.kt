@@ -17,7 +17,9 @@ import com.lumenpearson.lessons.core.model.Timetable
 import com.lumenpearson.lessons.core.model.homeworkFocus
 import com.lumenpearson.lessons.ui.common.SyncMessage
 import com.lumenpearson.lessons.ui.common.toMessageOrNull
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,10 +73,20 @@ class TodayViewModel(
     settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
-    /** Wall clock, re-emitted every [TICK_MILLIS]; the only source of "now". */
-    private val ticker: Flow<LocalDateTime> = flow {
+    /**
+     * The clock, re-emitted every [TICK_MILLIS]; the only source of "now".
+     *
+     * An [Instant] rather than a [LocalDateTime], because the wall time this
+     * screen works in belongs to the school and not to the device: the schedule
+     * is stored in the class's zone, and a parent in Moscow following a school
+     * in Vladivostok was shown their own clock against its bells — seven hours
+     * of a headline and a countdown that were simply about a different moment.
+     * The instant is the one form of "now" that survives the trip from here to
+     * [buildState], where the timetable that knows the zone is in hand.
+     */
+    private val ticker: Flow<Instant> = flow {
         while (true) {
-            emit(LocalDateTime.now())
+            emit(Instant.now())
             delay(TICK_MILLIS)
         }
     }
@@ -88,10 +100,10 @@ class TodayViewModel(
         settingsRepository.settings,
         refreshing,
         message,
-    ) { timetable, now, settings, isRefreshing, message ->
+    ) { timetable, instant, settings, isRefreshing, message ->
         buildState(
             timetable = timetable,
-            now = now,
+            instant = instant,
             showTeacher = settings.showTeacher,
             isRefreshing = isRefreshing,
             message = message,
@@ -120,22 +132,27 @@ class TodayViewModel(
 
     private fun buildState(
         timetable: Timetable?,
-        now: LocalDateTime,
+        instant: Instant,
         showTeacher: Boolean,
         isRefreshing: Boolean,
         message: SyncMessage?,
     ): TodayUiState {
         if (timetable == null) {
+            // No timetable, so no school zone to be in: the device's own is the
+            // only answer there is, and all it decides here is which date the
+            // "no data" card names.
+            val deviceNow = LocalDateTime.ofInstant(instant, ZoneId.systemDefault())
             return TodayUiState(
                 isLoading = false,
                 isRefreshing = isRefreshing,
-                now = now,
-                state = DayState.NoData(now.toLocalDate()),
+                now = deviceNow,
+                state = DayState.NoData(deviceNow.toLocalDate()),
                 showTeacher = showTeacher,
                 message = message,
             )
         }
 
+        val now = timetable.atSchool(instant)
         val today = timetable.day(now.toLocalDate())
         val dayState = ScheduleEngine.stateAt(timetable, now)
         // homeworkFocus is non-null exactly for the two "school is over" states,

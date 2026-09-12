@@ -11,8 +11,10 @@ import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.model.AlertPlanner
 import com.lumenpearson.lessons.core.model.AlertPreferences
+import com.lumenpearson.lessons.core.model.SchoolDay
 import com.lumenpearson.lessons.core.model.Timetable
 import java.time.Duration
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlinx.coroutines.runBlocking
@@ -27,9 +29,11 @@ import kotlinx.coroutines.runBlocking
  * is due, computes the next moment and arms for it.
  *
  * Nothing here remembers what it has already posted. It does not need to: the
- * planner is asked for a window around *now* and then for the next moment
- * strictly after that window, so an alert can only be posted twice if the clock
- * goes backwards, and a clock change re-arms the chain from scratch anyway.
+ * planner is asked for the window from the moment this alarm was armed for up to
+ * now, and then for the next moment strictly after that window, so the windows
+ * of consecutive firings abut rather than overlap. An alert can only be posted
+ * twice if the clock goes backwards, and a clock change re-arms the chain from
+ * scratch anyway.
  */
 object SchoolAlerts {
 
@@ -54,6 +58,30 @@ object SchoolAlerts {
      * alerts to one bad moment.
      */
     private val ReadRetry: Duration = Duration.ofMinutes(20)
+
+    /**
+     * How far back a late alarm may still publish what it was armed for.
+     *
+     * Without the exact-alarm permission the chain falls back to
+     * `setAndAllowWhileIdle`, which is explicitly allowed to arrive late — and
+     * [Tolerance] is ninety seconds, so a delivery any later than that used to
+     * find nothing due, arm for the alert after it, and lose the one it was
+     * woken for along with everything in between.
+     *
+     * Half an hour is the line between a reminder and a lie: "через 10 минут:
+     * Алгебра" is worth posting four minutes late and is not worth posting once
+     * the lesson has finished.
+     */
+    private val MaxCatchUp: Duration = Duration.ofMinutes(30)
+
+    /**
+     * Wall-clock moment the firing alarm was armed for, in the school's zone.
+     *
+     * Carried on the alarm rather than stored, because it is worth exactly one
+     * delivery: a `PendingIntent` rebuilt with `FLAG_UPDATE_CURRENT` replaces
+     * it, and nothing has to be cleaned up when the chain is cancelled.
+     */
+    private const val EXTRA_ARMED_FOR = "com.lumenpearson.lessons.extra.ARMED_FOR"
 
     /**
      * Recomputes everything from the cache and arms the next alarm.
@@ -87,7 +115,7 @@ object SchoolAlerts {
      * out by a preference changed since it was armed, still leaves a correct
      * alarm behind it instead of ending the chain silently.
      */
-    internal fun fire(context: Context) {
+    internal fun fire(context: Context, intent: Intent?) {
         val appContext = context.applicationContext
         val read = read(appContext)
         if (read == null) {
@@ -103,7 +131,8 @@ object SchoolAlerts {
         val (timetable, preferences) = read
 
         val now = timetable.nowAtSchool()
-        AlertPlanner.due(timetable, preferences, now, Tolerance).forEach { alert ->
+        val from = windowStart(now, armedFor(intent))
+        AlertPlanner.due(timetable, preferences, from = from, to = now.plus(Tolerance)).forEach { alert ->
             AlertNotifier.post(appContext, alert)
         }
         // Strictly after the window just published, so the next alarm cannot
@@ -136,7 +165,7 @@ object SchoolAlerts {
             cancel(context)
             return
         }
-        arm(context, next.at, timetable.schoolClass.zone)
+        arm(context, next.at, timetable.schoolClass.zone, armedFor = next.at)
     }
 
     /**
@@ -147,8 +176,35 @@ object SchoolAlerts {
      */
     private fun retryLater(context: Context) {
         val zone = ZoneId.systemDefault()
-        arm(context, LocalDateTime.now(zone).plus(ReadRetry), zone)
+        // No armed moment: this alarm stands for nothing in the timetable, and a
+        // device-zone moment read back as a school-zone one would widen the
+        // catch-up window by the difference between the two.
+        arm(context, LocalDateTime.now(zone).plus(ReadRetry), zone, armedFor = null)
     }
+
+    /**
+     * Where the window a firing alarm publishes begins.
+     *
+     * [armedFor] is what the alarm was set for; `null` when it carries no such
+     * claim. The result never reaches closer than [Tolerance] to [now] (so an
+     * alarm that arrives early still covers its own moment) and never further
+     * back than [MaxCatchUp].
+     */
+    internal fun windowStart(now: LocalDateTime, armedFor: LocalDateTime?): LocalDateTime {
+        val latest = now.minus(Tolerance)
+        val earliest = now.minus(MaxCatchUp)
+        val wanted = armedFor?.minus(Tolerance) ?: latest
+        return when {
+            wanted.isBefore(earliest) -> earliest
+            wanted.isAfter(latest) -> latest
+            else -> wanted
+        }
+    }
+
+    /** The moment the delivering alarm was armed for, if it said. */
+    private fun armedFor(intent: Intent?): LocalDateTime? = intent
+        ?.getStringExtra(EXTRA_ARMED_FOR)
+        ?.let { runCatching { LocalDateTime.parse(it) }.getOrNull() }
 
     /**
      * Compares the cached schedule against the shape it had at the previous
@@ -175,7 +231,7 @@ object SchoolAlerts {
                     if (current != null) {
                         val previous = preferences.scheduleFingerprint()
                         preferences.writeScheduleFingerprint(current)
-                        if (previous != null && previous != current) {
+                        if (ScheduleFingerprint.changed(previous, current)) {
                             AlertNotifier.postScheduleChanged(appContext)
                         }
                     }
@@ -238,10 +294,10 @@ object SchoolAlerts {
         }
     }.onFailure { error -> Log.w(TAG, "Could not read the schedule", error) }.getOrNull()
 
-    private fun arm(context: Context, at: LocalDateTime, zone: ZoneId) {
+    private fun arm(context: Context, at: LocalDateTime, zone: ZoneId, armedFor: LocalDateTime?) {
         val alarmManager = context.getSystemService<AlarmManager>() ?: return
         val triggerAt = at.atZone(zone).toInstant().toEpochMilli()
-        val operation = pendingIntent(context, create = true) ?: return
+        val operation = pendingIntent(context, create = true, armedFor = armedFor) ?: return
 
         try {
             if (canScheduleExact(alarmManager)) {
@@ -266,16 +322,22 @@ object SchoolAlerts {
     private fun canScheduleExact(alarmManager: AlarmManager): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
 
-    private fun pendingIntent(context: Context, create: Boolean): PendingIntent? {
+    private fun pendingIntent(
+        context: Context,
+        create: Boolean,
+        armedFor: LocalDateTime? = null,
+    ): PendingIntent? {
         val flags = (if (create) PendingIntent.FLAG_UPDATE_CURRENT else PendingIntent.FLAG_NO_CREATE) or
             PendingIntent.FLAG_IMMUTABLE
 
-        return PendingIntent.getBroadcast(
-            context,
-            REQUEST_CODE,
-            Intent(context, SchoolAlertReceiver::class.java).setAction(SchoolAlertReceiver.ACTION_ALERT),
-            flags,
-        )
+        // The extra is deliberately not part of what identifies this alarm:
+        // `Intent.filterEquals` ignores extras, so the cancel path still finds
+        // the standing alarm however it was armed.
+        val intent = Intent(context, SchoolAlertReceiver::class.java)
+            .setAction(SchoolAlertReceiver.ACTION_ALERT)
+        if (armedFor != null) intent.putExtra(EXTRA_ARMED_FOR, armedFor.toString())
+
+        return PendingIntent.getBroadcast(context, REQUEST_CODE, intent, flags)
     }
 }
 
@@ -286,30 +348,69 @@ object SchoolAlerts {
  * Only today and the next six days, and only the fields a pupil would call a
  * change: a re-sync that returns identical lessons with a new `syncedAt` must
  * not buzz anybody, and a lesson two weeks out being tidied up must not either.
+ *
+ * One hash **per day** rather than one over the whole window, and that is the
+ * whole point of the shape. The window is anchored on today, so it slides at
+ * every midnight: a single hash over it changed every night with nothing in the
+ * schedule having moved, and the first sync of the morning announced
+ * «Расписание изменилось» to everybody. Per day, [changed] can compare the days
+ * the two readings have in common and ignore the one that rolled off the back.
  */
 internal object ScheduleFingerprint {
 
     private const val Days = 7L
 
-    fun of(timetable: Timetable): String {
-        val today = timetable.nowAtSchool().toLocalDate()
-        return buildString {
-            for (offset in 0 until Days) {
-                val day = timetable.day(today.plusDays(offset)) ?: continue
-                append(day.date)
-                append(':')
-                append(day.kind)
-                day.lessons.forEach { lesson ->
-                    append('|')
-                    append(lesson.index)
-                    append(lesson.subject)
-                    append(lesson.startsAt)
-                    append(lesson.room.orEmpty())
-                    if (lesson.isCancelled) append('X')
-                    if (lesson.isReplaced) append('R')
-                }
-                append('\n')
-            }
-        }.hashCode().toString()
+    /** Separates a date from its day hash; neither can contain it. */
+    private const val Assign = '='
+
+    fun of(timetable: Timetable): String = of(timetable, timetable.nowAtSchool().toLocalDate())
+
+    /** @param today the anchor of the window, as the school reckons the date. */
+    fun of(timetable: Timetable, today: LocalDate): String = buildString {
+        for (offset in 0 until Days) {
+            val date = today.plusDays(offset)
+            val day = timetable.day(date) ?: continue
+            append(date)
+            append(Assign)
+            append(hashOf(day))
+            append('\n')
+        }
     }
+
+    /**
+     * Whether anything a pupil would call a change happened between the two
+     * readings.
+     *
+     * Only dates present in both count. A date in exactly one of them is either
+     * the window having slid or the cache having grown, and neither is news; a
+     * previous reading that cannot be parsed at all — the single-hash format
+     * this replaced — has no dates in common and so says nothing, which is the
+     * right first answer after an update.
+     */
+    fun changed(previous: String?, current: String): Boolean {
+        val before = parse(previous ?: return false)
+        val after = parse(current)
+        return before.any { (date, hash) -> after[date]?.let { it != hash } == true }
+    }
+
+    private fun parse(value: String): Map<String, String> = value
+        .lineSequence()
+        .mapNotNull { line ->
+            val split = line.indexOf(Assign)
+            if (split <= 0) null else line.substring(0, split) to line.substring(split + 1)
+        }
+        .toMap()
+
+    private fun hashOf(day: SchoolDay): Int = buildString {
+        append(day.kind)
+        day.lessons.forEach { lesson ->
+            append('|')
+            append(lesson.index)
+            append(lesson.subject)
+            append(lesson.startsAt)
+            append(lesson.room.orEmpty())
+            if (lesson.isCancelled) append('X')
+            if (lesson.isReplaced) append('R')
+        }
+    }.hashCode()
 }

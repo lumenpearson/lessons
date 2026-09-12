@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.core.data.update
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
@@ -24,6 +25,9 @@ import kotlinx.coroutines.flow.map
  */
 private val Context.updatesDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "updates",
+    // @see com.lumenpearson.lessons.core.data.datastore.lessonsDataStore - an
+    // `edit` on a corrupt file throws however forgiving the read side is.
+    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
 )
 
 /** The two things the update check remembers between launches. */

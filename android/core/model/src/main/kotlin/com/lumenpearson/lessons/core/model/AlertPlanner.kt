@@ -120,11 +120,31 @@ object AlertPlanner {
         preferences: AlertPreferences,
         now: LocalDateTime,
         tolerance: Duration,
+    ): List<SchoolAlert> = due(timetable, preferences, from = now.minus(tolerance), to = now.plus(tolerance))
+
+    /**
+     * Everything due in the closed window [from]..[to].
+     *
+     * The window is stated as two moments rather than as a radius because a
+     * caller woken by an inexact alarm knows something the radius cannot
+     * express: which moment it was *armed* for. `setAndAllowWhileIdle` may
+     * deliver minutes late, and a symmetric window around the late arrival
+     * contains neither the alert that was armed nor the ones it overran — so
+     * the scheduler asks from the armed moment to now instead, and nothing is
+     * dropped for having been delivered late.
+     */
+    fun due(
+        timetable: Timetable,
+        preferences: AlertPreferences,
+        from: LocalDateTime,
+        to: LocalDateTime,
     ): List<SchoolAlert> {
-        if (preferences.silent) return emptyList()
-        val from = now.minus(tolerance)
-        val to = now.plus(tolerance)
-        return candidates(timetable, preferences, now.toLocalDate().minusDays(1), days = 3)
+        if (preferences.silent || from > to) return emptyList()
+        // One day either side of the window, because a lead time can pull an
+        // alert back across midnight and the window itself can span two dates.
+        val start = from.toLocalDate().minusDays(1)
+        val days = Duration.between(start.atStartOfDay(), to).toDays().toInt() + 2
+        return candidates(timetable, preferences, start, days = days)
             .filter { it.at >= from && it.at <= to }
             .sortedBy { it.at }
     }

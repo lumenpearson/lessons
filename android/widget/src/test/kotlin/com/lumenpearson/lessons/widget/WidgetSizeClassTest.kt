@@ -40,6 +40,58 @@ class WidgetSizeClassTest {
         assertEquals(WidgetSizeClass.SMALL_TALL, WidgetSizeClass.of(DpSize(140.dp, 220.dp)))
     }
 
+    /**
+     * What the launcher actually does with the breakpoint set, reproduced here.
+     *
+     * Both the framework's sized `RemoteViews` (API 31+) and Glance's own
+     * `findBestSize` keep the breakpoints that fit inside the real size and then
+     * take the one at the smallest squared distance from it. Nearest, not
+     * largest — which is why the ladder has to be checked against this rule and
+     * not against [WidgetSizeClass.of] alone.
+     */
+    private fun launcherPicks(real: DpSize): WidgetSizeClass {
+        val chosen = WidgetSizeClass.breakpoints
+            .filter { it.width <= real.width && it.height <= real.height }
+            .minByOrNull {
+                val dw = (real.width - it.width).value
+                val dh = (real.height - it.height).value
+                dw * dw + dh * dh
+            }
+        return WidgetSizeClass.of(chosen ?: WidgetSizeClass.TINY.breakpoint)
+    }
+
+    /**
+     * A four-cell-wide widget must never be drawn as a two-cell column.
+     *
+     * It used to be, above about 471 dp of height: with no rung above [LARGE] at
+     * 250 dp wide, (110, 300) was nearer to (250, 480) than (250, 250) was, so
+     * the largest widget a four-column home screen can hold rendered the narrow
+     * layout — no week strip, and homework clipped to the 24 characters that fit
+     * in a width it did not have.
+     */
+    @Test
+    fun `a four-cell-wide widget never lands on the narrow column`() {
+        (WidgetSizeClass.LARGE.breakpoint.height.value.toInt()..700 step 5).forEach { height ->
+            val picked = launcherPicks(DpSize(250.dp, height.dp))
+            assertTrue("$height dp tall was drawn as ${picked.name}", !picked.isNarrow)
+        }
+    }
+
+    /** The same, one grid column wider, where the 320 dp rungs take over. */
+    @Test
+    fun `a five-cell-wide widget never lands on the narrow column`() {
+        (320..900 step 5).forEach { height ->
+            val picked = launcherPicks(DpSize(320.dp, height.dp))
+            assertTrue("$height dp tall was drawn as ${picked.name}", !picked.isNarrow)
+        }
+    }
+
+    /** And a genuinely narrow one still gets the column it was written for. */
+    @Test
+    fun `a two-cell-wide widget still lands on the narrow column`() {
+        assertEquals(WidgetSizeClass.NARROW, launcherPicks(DpSize(140.dp, 480.dp)))
+    }
+
     @Test
     fun `every declared breakpoint maps back to its own class`() {
         WidgetSizeClass.entries.forEach { expected ->

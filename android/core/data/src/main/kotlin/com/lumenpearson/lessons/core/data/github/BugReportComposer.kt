@@ -72,7 +72,19 @@ object BugReportComposer {
         "AppVersionName" to installedVersion,
     )
 
-    /** Cut a character short of the limit so the ellipsis fits inside it. */
-    private fun shorten(line: String): String =
-        if (line.length <= TITLE_LIMIT) line else line.take(TITLE_LIMIT - 1).trimEnd() + "…"
+    /**
+     * Cut a character short of the limit so the ellipsis fits inside it.
+     *
+     * One further back when the cut landed between the halves of a surrogate
+     * pair. A `Char` is a UTF-16 code unit, not a character, so a description
+     * opening with an emoji at the wrong offset — and a bug report about a
+     * layout is exactly where emoji turn up — left its leading half in the
+     * title, which GitHub renders as a replacement box. Internal so the rule can
+     * be tested on its own; the shape it produces has no other observer.
+     */
+    internal fun shorten(line: String): String {
+        if (line.length <= TITLE_LIMIT) return line
+        val end = (TITLE_LIMIT - 1).let { if (line[it - 1].isHighSurrogate()) it - 1 else it }
+        return line.take(end).trimEnd() + "…"
+    }
 }

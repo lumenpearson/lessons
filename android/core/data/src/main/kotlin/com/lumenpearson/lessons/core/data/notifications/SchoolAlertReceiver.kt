@@ -31,7 +31,10 @@ internal class SchoolAlertReceiver : BroadcastReceiver() {
         Thread {
             try {
                 when (action) {
-                    ACTION_ALERT -> SchoolAlerts.fire(appContext)
+                    // The intent goes through: it carries the moment this alarm
+                    // was armed for, which is the only way a late delivery can
+                    // tell what it was woken up to say.
+                    ACTION_ALERT -> SchoolAlerts.fire(appContext, intent)
 
                     // Nothing is due at a reboot or a clock change; what matters
                     // is that the chain is armed again from the new wall time.

@@ -162,8 +162,16 @@ fun Modifier.liquidRipple(
     val seconds = durationMillis / 1000f
     val time = remember { Animatable(0f) }
 
+    // The counter as it already stood when this modifier entered the
+    // composition. [LiquidRippleState] outlives the modifier — the shell owns
+    // one and hands it down — so re-entering with a counter already above zero
+    // is not a new tap: switching the effect back on in settings, or a layer
+    // being re-created, replayed the last wave from an origin belonging to
+    // whatever was tapped minutes ago, somewhere else on the screen.
+    val enteredAt = remember { trigger }
+
     LaunchedEffect(trigger) {
-        if (trigger <= 0) return@LaunchedEffect
+        if (!firesWave(trigger, enteredAt)) return@LaunchedEffect
         time.snapTo(0f)
         // Linear on purpose: the shader's own `exp` is the shape of the thing.
         // An eased clock would be a second curve fighting the first.
@@ -182,6 +190,17 @@ fun Modifier.liquidRipple(
         reverse = reverse,
     )
 }
+
+/**
+ * Whether [trigger] is a wave to play, rather than one already spent.
+ *
+ * @param enteredAt the counter when the modifier entered the composition. Zero
+ *   and below never fire at all, so the effect does not run itself on first
+ *   composition; anything equal to [enteredAt] is a wave that was fired before
+ *   this modifier existed and has either already been drawn or was never meant
+ *   for it.
+ */
+internal fun firesWave(trigger: Int, enteredAt: Int): Boolean = trigger > 0 && trigger != enteredAt
 
 /** Distance from [from] to the furthest corner of a box of [size]. */
 private fun farthestCorner(from: Offset, size: Size): Float = maxOf(

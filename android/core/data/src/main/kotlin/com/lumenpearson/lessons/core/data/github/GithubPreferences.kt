@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.core.data.github
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
@@ -24,6 +25,10 @@ import kotlinx.coroutines.flow.map
  */
 private val Context.githubDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "github",
+    // @see com.lumenpearson.lessons.core.data.datastore.lessonsDataStore - a
+    // corrupt file would otherwise make signing in again impossible, which is
+    // the one action that could have fixed it.
+    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
 )
 
 /** Typed access to the stored GitHub token and the profile it belongs to. */

@@ -122,7 +122,18 @@ data class Timetable(
      * coincidence.
      */
     fun nowAtSchool(clock: java.time.Clock = java.time.Clock.systemUTC()): LocalDateTime =
-        LocalDateTime.ofInstant(clock.instant(), schoolClass.zone)
+        atSchool(clock.instant())
+
+    /**
+     * [nowAtSchool] for a caller that already holds the instant.
+     *
+     * A screen that ticks has to read the clock somewhere other than where it
+     * derives the state — the ticker emits, the state is rebuilt from what it
+     * emitted — and the instant is the only form of "now" that can cross that
+     * gap without silently becoming the device's wall time on the way.
+     */
+    fun atSchool(instant: java.time.Instant): LocalDateTime =
+        LocalDateTime.ofInstant(instant, schoolClass.zone)
 
     /**
      * First day after [after] that has lessons. Falls back to [nextSchoolDay],

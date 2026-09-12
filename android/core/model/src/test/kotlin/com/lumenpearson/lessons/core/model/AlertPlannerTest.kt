@@ -215,4 +215,65 @@ class AlertPlannerTest {
 
         assertEquals(at(monday, "23:59"), next?.at)
     }
+
+    /**
+     * Without the exact-alarm permission the alarm is inexact and may arrive
+     * minutes after the moment it was armed for. A window centred on the arrival
+     * misses everything it was woken up to say — which is the whole feature,
+     * silently, on every device that does not grant exactness.
+     */
+    @Test
+    fun `a late delivery still finds what it was armed for`() {
+        val table = timetable(day(monday))
+        val armedFor = at(monday, "08:20")
+        val late = at(monday, "08:24")
+
+        // What the old symmetric window around the arrival would have found.
+        assertTrue(AlertPlanner.due(table, lessonsOnly, late, Duration.ofSeconds(90)).isEmpty())
+
+        val due = AlertPlanner.due(
+            table,
+            lessonsOnly,
+            from = armedFor.minusSeconds(90),
+            to = late.plusSeconds(90),
+        )
+
+        assertEquals(listOf(armedFor), due.map { it.at })
+    }
+
+    /**
+     * A delivery late enough to have overrun the alert after it announces both,
+     * in order, rather than dropping the first and arming past the second.
+     */
+    @Test
+    fun `a window that spans two alerts publishes both, earliest first`() {
+        val preferences = AlertPreferences(
+            lessonSoon = true,
+            lessonLeadMinutes = 10,
+            morningSummary = true,
+            morningAtMinutes = 8 * 60 + 15,
+        )
+        val table = timetable(day(monday))
+
+        val due = AlertPlanner.due(
+            table,
+            preferences,
+            from = at(monday, "08:14"),
+            to = at(monday, "09:20"),
+        )
+
+        assertEquals(listOf(at(monday, "08:15"), at(monday, "08:20"), at(monday, "09:15")), due.map { it.at })
+    }
+
+    /** A window the caller has inverted is empty, not a walk of the whole horizon. */
+    @Test
+    fun `a backwards window finds nothing`() {
+        val table = timetable(day(monday))
+
+        assertTrue(
+            AlertPlanner
+                .due(table, lessonsOnly, from = at(monday, "09:00"), to = at(monday, "08:00"))
+                .isEmpty(),
+        )
+    }
 }

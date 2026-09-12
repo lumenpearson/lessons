@@ -2,12 +2,17 @@ package com.lumenpearson.lessons.widget.tick
 
 import android.app.AlarmManager
 import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.content.getSystemService
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.model.ScheduleEngine
+import com.lumenpearson.lessons.core.model.Timetable
+import com.lumenpearson.lessons.widget.LessonsWidgetReceiver
+import java.time.Clock
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -36,6 +41,16 @@ object WidgetTickScheduler {
     private const val INEXACT_WINDOW_MILLIS = 60_000L
 
     /**
+     * When to wake, as an absolute instant.
+     *
+     * @property tick the moment in the school's wall time, and whether it is a
+     *   bell rather than a countdown refresh.
+     * @property triggerAtMillis the same moment as epoch millis, which is what
+     *   `AlarmManager` takes.
+     */
+    internal data class ArmedTick(val tick: WidgetTick, val triggerAtMillis: Long)
+
+    /**
      * Recomputes the next tick from the cached timetable and arms for it.
      *
      * Safe to call from anywhere and as often as you like — each call replaces
@@ -43,7 +58,17 @@ object WidgetTickScheduler {
      */
     fun reschedule(context: Context) {
         val appContext = context.applicationContext
-        val now = LocalDateTime.now()
+
+        // Nothing placed, nothing to wake up for. Every path into here is a
+        // broadcast that arrives whether or not a widget exists — a sync, a
+        // reboot, a timezone change — so without this check the cancel done by
+        // `onDisabled` was undone by the next one of them, and a phone with no
+        // widget on it kept waking every fifteen minutes for a countdown that
+        // had nowhere to be drawn.
+        if (!hasWidgets(appContext)) {
+            cancel(appContext)
+            return
+        }
 
         // A blocking read is acceptable here: this runs on a broadcast worker
         // thread inside goAsync, and it is one indexed Room query.
@@ -53,11 +78,7 @@ object WidgetTickScheduler {
             }
         }.getOrNull()
 
-        val state = timetable?.let { ScheduleEngine.stateAt(it, now) }
-        val transition = timetable?.let { ScheduleEngine.nextTransition(it, now) }
-        val tick = TickCadence.nextWakeUp(state = state, transition = transition, now = now)
-
-        arm(appContext, tick)
+        arm(appContext, plan(timetable))
     }
 
     /** Cancels the pending alarm, if any. */
@@ -70,14 +91,47 @@ object WidgetTickScheduler {
         }
     }
 
-    private fun arm(context: Context, tick: WidgetTick) {
+    /**
+     * The pure half: which moment to wake at, and what instant that moment is.
+     *
+     * Both halves have to agree about the zone. The widget renders from
+     * [Timetable.nowAtSchool] — the schedule is stored as the school's wall
+     * time, and Russia is eleven zones wide — so the state and the next bell are
+     * derived in that zone, and the alarm is converted back out of it. Reading
+     * `LocalDateTime.now()` here and arming through `ZoneId.systemDefault()`
+     * instead lined a Moscow phone up against a Vladivostok school by seven
+     * hours: every tick was computed for the wrong instant and armed for another
+     * wrong one, so the widget redrew in the middle of lessons and stood still
+     * through the bells.
+     */
+    internal fun plan(timetable: Timetable?, clock: Clock = Clock.systemUTC()): ArmedTick {
+        // With no cache there is no school and no zone to be wrong about, so the
+        // device's own is the only answer available.
+        val zone = timetable?.schoolClass?.zone ?: ZoneId.systemDefault()
+        val now = timetable?.atSchool(clock.instant()) ?: LocalDateTime.now(clock.withZone(zone))
+
+        val state = timetable?.let { ScheduleEngine.stateAt(it, now) }
+        val transition = timetable?.let { ScheduleEngine.nextTransition(it, now) }
+        val tick = TickCadence.nextWakeUp(state = state, transition = transition, now = now)
+
+        return ArmedTick(tick = tick, triggerAtMillis = tick.at.atZone(zone).toInstant().toEpochMilli())
+    }
+
+    /** Whether the launcher still holds at least one instance of the widget. */
+    private fun hasWidgets(context: Context): Boolean = runCatching {
+        AppWidgetManager.getInstance(context)
+            .getAppWidgetIds(ComponentName(context, LessonsWidgetReceiver::class.java))
+            .isNotEmpty()
+    }.getOrDefault(true)
+
+    private fun arm(context: Context, armed: ArmedTick) {
         val alarmManager = context.getSystemService<AlarmManager>() ?: return
-        val triggerAt = tick.at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val triggerAt = armed.triggerAtMillis
         val operation = pendingIntent(context, mutable = false, create = true) ?: return
 
         // setExactAndAllowWhileIdle is reserved for bells, and only when the OS
         // is willing. Everything else is a window, which Doze can batch.
-        val wantsExact = tick.isBoundary && canScheduleExact(alarmManager)
+        val wantsExact = armed.tick.isBoundary && canScheduleExact(alarmManager)
         try {
             if (wantsExact) {
                 alarmManager.setExactAndAllowWhileIdle(

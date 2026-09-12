@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.core.data.datastore
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -32,6 +33,13 @@ import kotlinx.coroutines.runBlocking
  */
 private val Context.lessonsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "lessons",
+    // The read side degrades a corrupt file to defaults, but every `edit` reads
+    // the file first and rethrows, so without this a single truncated write —
+    // the phone losing power mid-fsync — left a store that could never be
+    // written to again: no sign-in, no settings, no sign-out, for the life of
+    // the install. Replacing the file loses what was in it, which is what a
+    // corrupt file has already done.
+    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
 )
 
 /**
