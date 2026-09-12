@@ -34,9 +34,7 @@ from aiogram import F, Router
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
-from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
-from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
@@ -97,13 +95,12 @@ from app.models import (
     DayOverride,
     DeviceToken,
     Homework,
-    LessonOverride,
     Role,
     SchoolClass,
     Subject,
     TimetableEntry,
 )
-from app.services import audit, linking, timetable_io
+from app.services import audit, linking, structure, timetable_io
 from app.services import calendar as calendar_service
 from app.services import stats as stats_service
 from app.timezones import label_for
@@ -396,31 +393,6 @@ async def _subject_from_state(
     return await _subject_by_id(session, school_class, str(data.get("subject_id", "")))
 
 
-async def _rename_subject(
-    session: AsyncSession, class_id: int, subject: Subject, new_name: str
-) -> int:
-    """Rename the dictionary entry and every row that spells the old name.
-
-    The timetable, the homework and the замены store the subject as text, not
-    as a foreign key - deliberately, so a lesson keeps its name when a subject
-    is deleted. The price is that a rename has to be a cascade, and it has to
-    happen in the caller's transaction: a half-applied rename would leave the
-    class with two subjects where it had one and no way to tell which rows
-    belong to which.
-    """
-    old_name = subject.name
-    moved = 0
-    for model in (TimetableEntry, Homework, LessonOverride):
-        result = await session.execute(
-            sa_update(model)
-            .where(model.class_id == class_id, model.subject_name == old_name)
-            .values(subject_name=new_name)
-        )
-        moved += result.rowcount or 0
-    subject.name = new_name
-    return moved
-
-
 @router.message(EditSubject.name)
 async def subject_rename(
     message: Message,
@@ -460,7 +432,7 @@ async def subject_rename(
         return
 
     old_name = subject.name
-    moved = await _rename_subject(session, school_class.id, subject, name)
+    moved = await structure.rename_subject(session, school_class.id, subject, name)
     await audit.record(
         session,
         school_class.id,
@@ -1289,20 +1261,6 @@ async def _bells_view(session: AsyncSession, school_class: SchoolClass):
     )
 
 
-async def _write_periods(session: AsyncSession, schedule: BellSchedule, rows: list) -> None:
-    """Replace a schedule's rows wholesale.
-
-    The delete is a bulk statement, which goes round the ORM, so the eagerly
-    loaded ``periods`` collection is stale afterwards and every caller
-    refreshes it before rendering the result.
-    """
-    await session.execute(sa_delete(BellPeriod).where(BellPeriod.schedule_id == schedule.id))
-    for index, start, end in rows:
-        session.add(
-            BellPeriod(schedule_id=schedule.id, index=index, starts_at=start, ends_at=end)
-        )
-
-
 @router.message(Command("bells"))
 async def cmd_bells(
     message: Message,
@@ -1393,7 +1351,7 @@ async def bells_rows_apply(
         )
         return
 
-    await _write_periods(session, schedule, rows)
+    await structure.write_bell_periods(session, schedule, rows)
     await audit.record(
         session,
         school_class.id,
@@ -1487,7 +1445,7 @@ async def bells_new_rows(
     schedule = BellSchedule(class_id=school_class.id, name=name[:64])
     session.add(schedule)
     await session.flush()
-    await _write_periods(session, schedule, rows)
+    await structure.write_bell_periods(session, schedule, rows)
     await audit.record(
         session,
         school_class.id,
@@ -2328,39 +2286,7 @@ async def import_apply(
         await callback.answer("Нечего применять — начните заново: /import", show_alert=True)
         return
 
-    if days:
-        await session.execute(
-            sa_delete(TimetableEntry).where(
-                TimetableEntry.class_id == school_class.id,
-                TimetableEntry.weekday.in_(list(days)),
-            )
-        )
-    total = 0
-    for weekday, rows in days.items():
-        for index, subject, room, teacher, parity in rows:
-            session.add(
-                TimetableEntry(
-                    class_id=school_class.id,
-                    weekday=weekday,
-                    index=index,
-                    subject_name=subject,
-                    room=room,
-                    teacher=teacher,
-                    parity=parity,
-                )
-            )
-            total += 1
-
-    schedule = None
-    if bells:
-        if school_class.bell_schedule_id:
-            schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
-        if schedule is None:
-            schedule = BellSchedule(class_id=school_class.id, name="Обычное")
-            session.add(schedule)
-            await session.flush()
-            school_class.bell_schedule_id = schedule.id
-        await _write_periods(session, schedule, bells)
+    total, schedule = await structure.apply_timetable(session, school_class, days, bells)
 
     summary = f"импорт расписания: дней {len(days)}, уроков {total}"
     if bells:

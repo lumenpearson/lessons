@@ -17,6 +17,7 @@ from fastapi import FastAPI
 from app.api.cron import router as cron_router
 from app.api.diary import router as diary_router
 from app.api.edit import router as edit_router
+from app.api.manage import router as manage_router
 from app.api.public import router as public_router
 from app.config import get_settings
 from app.db import engine, init_db
@@ -88,6 +89,10 @@ app.include_router(public_router)
 # without one is honest about what it is.
 app.include_router(diary_router)
 app.include_router(edit_router)
+# The management surface: what the bot's /subjects, /bells, /class, /devices,
+# /log, /stats, /export, /import and access requests do, for a class admin
+# holding a phone instead of the bot. Same roles, same audit log.
+app.include_router(manage_router)
 # Always mounted; the endpoint itself answers 404 until CRON_SECRET is set,
 # the same way the webhook does, and the aiogram import it needs is deferred
 # until a tick actually runs.
