@@ -185,4 +185,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
+    // The management view model is a coroutine state holder: its tests need a
+    // main dispatcher and a scheduler they can step, which is all this is for.
+    testImplementation(libs.kotlinx.coroutines.test)
 }

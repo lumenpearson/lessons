@@ -294,7 +294,22 @@ class ManagementViewModel(
 
     // -- export and import --------------------------------------------------
 
-    fun loadTimetable() = read({ it.copy(timetable = it.timetable.copy(loading = true, failure = null)) }) {
+    /**
+     * Reads the export — and drops any consent that was waiting on it.
+     *
+     * This is the read «📥 Импорт» makes when it opens, and a [pendingImport] is
+     * an agreement about a paste that lives in the sheet's own text box. The
+     * box goes when the sheet does; the agreement used to stay, so reopening
+     * the sheet landed on «Заменить» offering to delete a week on behalf of
+     * text nowhere on screen. The two calls that import something clear it
+     * themselves before reloading, so nothing live is thrown away here.
+     */
+    fun loadTimetable() = read({
+        it.copy(
+            pendingImport = null,
+            timetable = it.timetable.copy(loading = true, failure = null),
+        )
+    }) {
         val result = repository.timetable()
         finish(result) { current, value, failure ->
             current.copy(timetable = Remote(value ?: current.timetable.value, false, failure))
@@ -373,7 +388,17 @@ class ManagementViewModel(
         }) {
             val result = repository.devices(includeRevoked)
             finish(result) { current, value, failure ->
-                current.copy(devices = Remote(value ?: current.devices.value, false, failure))
+                // Dropped when the switch has moved on since this was asked.
+                // «Показывать отключённые» is the one control on this page that
+                // changes what a read *asks for*, so flipping it twice leaves
+                // two answers racing, and the loser is the one the user changed
+                // their mind about — it would list a revoked phone under a
+                // switch that says revoked phones are hidden.
+                if (current.showRevokedDevices != includeRevoked) {
+                    current
+                } else {
+                    current.copy(devices = Remote(value ?: current.devices.value, false, failure))
+                }
             }
         }
 
@@ -528,8 +553,15 @@ class ManagementViewModel(
         apply: (ManagementUiState, T?, ManageFailure?) -> ManagementUiState,
     ) {
         val failure = result.exceptionOrNull()?.let(ManageFailure::of)
-        val ends = note(failure)
-        state.update { apply(it, result.getOrNull(), failure.takeUnless { ends }) }
+        note(failure)
+        // Nothing is written once the page has gone — whether this very failure
+        // took it away or one that landed while this read was in flight. A read
+        // started under the old role answers about a class that is no longer
+        // this user's, and [note] having emptied the state would be undone by
+        // the answer arriving a moment behind it: invisible until «Проверить
+        // снова» succeeded, at which point the page came back holding the
+        // previous administrator's subjects.
+        state.update { if (it.gone != null) it else apply(it, result.getOrNull(), failure) }
     }
 
     /**

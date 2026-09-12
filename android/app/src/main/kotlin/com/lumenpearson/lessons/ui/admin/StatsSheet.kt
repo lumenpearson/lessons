@@ -24,7 +24,7 @@ import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
-import java.time.format.DateTimeFormatter
+import com.lumenpearson.lessons.ui.common.asDayMonth
 
 /**
  * «📊 Статистика»: the numbers, without the sentence around them.
@@ -67,7 +67,7 @@ fun StatsSheet(
 
 @Composable
 private fun StatsBody(stats: ClassStats) {
-    stats.today?.let { SheetNote(text = stringResource(R.string.admin_stats_today, it.format(DayFormatter))) }
+    stats.today?.let { SheetNote(text = stringResource(R.string.admin_stats_today, it.asDayMonth())) }
 
     RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
         NumberRow(
@@ -187,6 +187,3 @@ private fun NumberRow(
  */
 private fun Double.asHours(): String =
     if (this % 1.0 == 0.0) toInt().toString() else "%.1f".format(this)
-
-/** "12 сентября", declined by java.time as everywhere else in the app. */
-private val DayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMMM")
