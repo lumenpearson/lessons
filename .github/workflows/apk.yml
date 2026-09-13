@@ -43,6 +43,10 @@ jobs:
   build:
     name: Build APK
     runs-on: ubuntu-latest
+    # A stuck Gradle daemon or a runner that loses its network would otherwise
+    # sit here for the six hours GitHub allows, on a workflow somebody is
+    # waiting on.
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: android
@@ -108,10 +112,8 @@ jobs:
 
       # The tag path used to go straight from checkout to `gh release create`,
       # so `git push --tags` on a commit that never saw a pull request shipped a
-      # public release whose unit tests had never been run.
-      - name: Unit tests
-        run: ./gradlew --no-daemon test
-
+      # public release whose unit tests had never been run. They now run inside
+      # the build step below, in the same Gradle invocation.
       - name: Build
         env:
           LESSONS_KEYSTORE_FILE: ${{ steps.keystore.outputs.signed == 'true' && format('{0}/release.jks', runner.temp) || '' }}
@@ -127,8 +129,18 @@ jobs:
             both)    TASKS="assembleDebug assembleRelease" ;;
             *)       TASKS="assembleRelease" ;;
           esac
-          echo "Running: $TASKS"
-          ./gradlew --no-daemon $TASKS
+          echo "Running: test $TASKS"
+          # The tests run in the same invocation as the assemble, not in a step
+          # of their own: one JVM, one configuration phase, one task graph for
+          # Gradle to parallelise. The gate is unchanged. `assemble` does not
+          # depend on `test`, so a parallel build may well finish an APK before
+          # the failing test is reported — but the invocation fails, the job
+          # fails with it, and every step that uploads or publishes is skipped.
+          # What the APK is never allowed to be is published untested.
+          #
+          # The daemon is left on. Gradle recommends it for CI, and the flag
+          # that turned it off bought a cold JVM and nothing else.
+          ./gradlew test $TASKS
 
       # Deleted before anything is uploaded, so a misconfigured glob cannot
       # publish the signing key.

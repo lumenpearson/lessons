@@ -18,9 +18,82 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Which halves of the repository this change can possibly have broken.
+  #
+  # The Android job is ten minutes and the server job is two; a commit that
+  # edits only `docs/` used to pay both. This job costs about fifteen seconds
+  # and decides which of them has anything to do.
+  #
+  # It fails open on purpose. If the range cannot be worked out — a force push,
+  # a first push of a branch, a re-run after history moved — both halves run.
+  # A wasted ten minutes is an annoyance; a change that skipped the build that
+  # would have caught it is a bad release.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      android: ${{ steps.filter.outputs.android }}
+      server: ${{ steps.filter.outputs.server }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # A pull request needs its base to diff against; a push needs the
+          # commit before it. Both are cheap on a repository this size.
+          fetch-depth: 0
+
+      - id: filter
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+
+          range=""
+          if [ -n "${BASE_REF:-}" ]; then
+            git fetch --no-tags --depth=200 origin "$BASE_REF" || true
+            if git rev-parse --verify -q FETCH_HEAD >/dev/null; then
+              range="FETCH_HEAD...HEAD"
+            fi
+          elif [ -n "${BEFORE:-}" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            if git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              range="$BEFORE..HEAD"
+            fi
+          fi
+
+          if [ -z "$range" ]; then
+            echo "::notice::Change range unknown; building everything."
+            echo "android=true" >> "$GITHUB_OUTPUT"
+            echo "server=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files=$(git diff --name-only "$range")
+          echo "Changed files:"
+          echo "$files"
+
+          # The workflow files themselves count as both: a change to how the
+          # build runs has to be proved by running it.
+          android=false
+          server=false
+          while IFS= read -r file; do
+            case "$file" in
+              android/*|.github/workflows/*) android=true ;;
+            esac
+            case "$file" in
+              server/*|api/*|requirements.txt|.github/workflows/*) server=true ;;
+            esac
+          done <<< "$files"
+
+          echo "android=$android" >> "$GITHUB_OUTPUT"
+          echo "server=$server" >> "$GITHUB_OUTPUT"
+
   server:
     name: Server (API + bot)
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: server
@@ -40,7 +113,10 @@ jobs:
 
   android:
     name: Android
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: android
@@ -52,17 +128,42 @@ jobs:
           java-version: "21"
       - uses: android-actions/setup-android@v4
       - uses: gradle/actions/setup-gradle@v6
-      - name: Unit tests
-        run: ./gradlew --no-daemon test
-      - name: Assemble debug
-        run: ./gradlew --no-daemon assembleDebug
 
+      # One invocation, not three.
+      #
+      # Every `./gradlew` starts a JVM, reads the settings and build scripts and
+      # builds a task graph before it runs anything. Asking for the three
+      # outcomes separately paid that three times and let Gradle schedule only
+      # a third of the work at once; asking for them together gives it one graph
+      # to parallelise across the runner's cores, and the library modules'
+      # compilation is shared rather than repeated.
+      #
       # Release is built on every run, not only at release time. R8 and resource
       # shrinking are the classic source of "worked in debug, broken in the APK
       # people install", and finding that on a pull request costs minutes rather
       # than a bad release.
-      - name: Assemble release
-        run: ./gradlew --no-daemon assembleRelease
+      #
+      # `assemble` does not depend on `test`, so a parallel build can finish an
+      # APK before a failing test is reported. The invocation still fails and
+      # the job with it; the APK uploads below are skipped.
+      #
+      # No `--no-daemon`: the daemon is Gradle's own recommendation for CI and
+      # the flag costs a cold JVM for nothing. `setup-gradle` stops it at the
+      # end of the job, and the job ends with the runner anyway.
+      - name: Test and assemble
+        run: ./gradlew test assembleDebug assembleRelease
+
+      # `always()`, because the report is worth most exactly when the step
+      # before it failed: it names the test and shows the assertion without a
+      # second ten-minute run.
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: android/**/build/reports/tests/**
+          if-no-files-found: ignore
+          retention-days: 7
 
       - uses: actions/upload-artifact@v7
         with:
