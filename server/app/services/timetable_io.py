@@ -83,6 +83,32 @@ def split_parity(text: str) -> tuple[str, WeekParity]:
     return text[: match.start()].strip(), _parity_of(token)
 
 
+def split_lesson_body(text: str) -> tuple[str | None, str | None, str | None]:
+    """«Физика, 305, Петров П.П.» → the three parts, or ``(None, None, None)``.
+
+    The half of a lesson line that is not its number. Split out so that the
+    button editor, which already knows which lesson it is editing, reads a
+    typed subject by exactly the rule a pasted line does — the alternative is
+    two comma conventions, and the one people learn is whichever they hit
+    first.
+
+    A parity suffix is stripped and ignored here: in the button editor the
+    week is chosen by the button, and leaving «[чис]» in would put it in the
+    subject *name*, which is the bug that made the day editor and the week
+    import disagree once already.
+    """
+    rest, _ = split_parity(text)
+    parts = [part.strip() for part in rest.split(",")]
+    subject = parts[0][:SUBJECT_MAX]
+    # «12.» on its own: the optional separator backtracks and the dot becomes
+    # the subject. A subject with no letter or digit in it is not one.
+    if not any(char.isalnum() for char in subject):
+        return None, None, None
+    room = parts[1][:ROOM_MAX] if len(parts) > 1 and parts[1] else None
+    teacher = parts[2][:TEACHER_MAX] if len(parts) > 2 and parts[2] else None
+    return subject, room, teacher
+
+
 def parse_lesson_line(line: str) -> LessonRow | None:
     """One lesson, or ``None`` for a line that is not one.
 
@@ -98,14 +124,9 @@ def parse_lesson_line(line: str) -> LessonRow | None:
         return None
 
     rest, parity = split_parity(match.group(2))
-    parts = [part.strip() for part in rest.split(",")]
-    subject = parts[0][:SUBJECT_MAX]
-    # «12.» on its own: the optional separator backtracks and the dot becomes
-    # the subject. A subject with no letter or digit in it is not one.
-    if not any(char.isalnum() for char in subject):
+    subject, room, teacher = split_lesson_body(rest)
+    if subject is None:
         return None
-    room = parts[1][:ROOM_MAX] if len(parts) > 1 and parts[1] else None
-    teacher = parts[2][:TEACHER_MAX] if len(parts) > 2 and parts[2] else None
     return index, subject, room, teacher, parity
 
 

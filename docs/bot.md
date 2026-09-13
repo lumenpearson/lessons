@@ -119,8 +119,50 @@ which is the context an admin needs to answer them.
 
 ## Editing the timetable
 
-Cell-by-cell button editing is miserable on a phone, so the weekly template is
-edited by pasting one message per weekday:
+**⚙️ → 🧩 Расписание** opens one message you stay inside. It lists the day's
+lessons as buttons, pages Понедельник–Суббота with `‹` `›` (Суббота wraps to
+Понедельник rather than dead-ending on an always-empty Воскресенье), and keeps
+a strip of the whole week under the heading — `Пн 6 · Вт 5 · …` — so «а во
+вторник сколько?» is answered without stepping onto Вторник.
+
+Tapping a lesson opens its card: **▲ Выше / ▼ Ниже** to reorder, **✏️ Изменить**
+to retype it, **✂️ По неделям** to split it into числитель and знаменатель (and
+«Оставить чис / знам» to collapse it back), **🗑 Удалить урок** to remove it.
+
+Three rules the buttons enforce that a paste could not:
+
+* **A number is a slot, and a slot holds both weeks.** Moving lesson 3 moves
+  числитель and знаменатель together. Any other rule and one week's third lesson
+  becomes the other week's second — and the bells, which are keyed on the number
+  alone, are then right for one week and wrong for the other.
+* **Deleting closes the gap.** A day numbered 1, 2, 4 reads as a *lost* lesson
+  rather than a deleted one, and hands lesson 4 the fourth bell when it is now
+  the third thing that happens.
+* **A viewer sees the template and is offered nothing that would refuse them.**
+  «Какой третий урок в среду» is a question anybody in the class may ask; the
+  editing buttons simply are not drawn, and tapping a lesson answers with its
+  card as an alert.
+
+**⏱ Перемены** turns on the times and the gaps between them — `08:30–09:15`,
+then `⏸ перемена · 10 минут`. It is off by default because it doubles the line
+count of a day you are usually reading to check which subject is third, and the
+switch travels with the `‹` `›` arrows, so checking three days' перемены is one
+press and not three. A break is never stored: it is the gap between bell N's end
+and bell N+1's start, so it can only ever be derived.
+
+**🍽 Столовая** marks which break lunch falls on. It is stored on the *bell
+schedule* (`bell_schedules.canteen_after_index`), not on a date and not as a
+recurring event: it is the same перемена every day that schedule is in force,
+and it moves with the bells when a shortened day moves them. The last lesson is
+not offered — there is no break after it.
+
+Every write goes in the журнал, and all of it is ADMIN-only; замены and события
+stay an editor's business.
+
+### Pasting a whole day
+
+The button editor changes one lesson. Entering a term is still fastest as a
+paste, so **📋 Вставить день** sits on the day it would overwrite:
 
 ```
 1. Алгебра, 214
@@ -142,8 +184,12 @@ parity — `[чис]`/`[знам]`, `(чис)`/`(знам)`, `[1]`/`[2]`, or a b
   nothing at all.
 
 The grammar lives in one place, `services/timetable_io.py`, and the day editor,
-the week import and «Экспорт» all speak it. The current day is listed back in
-exactly the format it accepts, parity included.
+the button editor, the week import and «Экспорт» all speak it. The current day is
+listed back in exactly the format it accepts, parity included. A subject typed
+into the button editor goes through the same splitter
+(`split_lesson_body`) — including the part that strips a `[чис]` suffix rather
+than letting it become the subject's *name*, which is the bug that made the day
+editor and the week import disagree once already.
 
 ## Экспорт и импорт — `/export`, `/import`
 

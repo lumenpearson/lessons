@@ -32,7 +32,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 669 tests, about two and a half minutes
+- **`python -m pytest -q`** — 702 tests, about two and a half minutes
 - `python -m pytest -q tests/test_schedule.py -k parity` — one file, one test
 - `python -m uvicorn app.main:app --reload` — run it; add `--host 0.0.0.0` for a phone to
   reach it
@@ -70,7 +70,12 @@ Server modules:
   it must stay that way: that is why its tests run in seconds
 - `api/` — `public.py` (read), `edit.py` and `manage.py` (write), `diary.py`, `cron.py`,
   `telegram.py` (webhook), `deps.py` (device-token auth)
-- `bot/` — aiogram routers, roles, keyboards, renderers
+- `bot/` — aiogram routers, roles, keyboards, renderers. The weekly template has **two**
+  editors and both are wanted: `handlers/timetable.py` pastes a whole weekday (fastest way
+  to enter a term), `handlers/editor.py` changes one lesson with buttons. They share one
+  grammar (`services/timetable_io.py`) and one set of mutations
+  (`services/timetable_edit.py`) — the editor's ‹ › pager and «⏱ Перемены» switch live in
+  the callback payload, never in FSM state
 - `providers/petersburg/` — the one foreign service, behind `client.py` / `mapper.py` /
   `models.py`; nothing above `models.py` knows the words `p_educations[]` or `X-JWT-Token`
 
@@ -143,9 +148,9 @@ points Hilt does not inject cleanly.
   other, and one token meaning both would have to be re-minted whenever either half changed.
   They go in the same `Authorization: Bearer` header on different endpoint families — check
   which one an endpoint depends on before moving it.
-- **Migrations are Alembic and production is already at `0004`.** `0001` is a guarded
+- **Migrations are Alembic and production is already at `0005`.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
-  `0004` adds diary sessions. Nothing after `0001` may use `create_all`. A model change needs
+  `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`. Nothing after `0001` may use `create_all`. A model change needs
   a revision — a live database will not grow a column on its own, and lifespan `create_all`
   runs only for local SQLite.
 - **Time is naive local wall time, in the class's zone, not the server's.** A bell rings at

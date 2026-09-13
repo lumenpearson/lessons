@@ -147,7 +147,7 @@ def main_menu(role: Role) -> InlineKeyboardMarkup:
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="🧩 Расписание", callback_data=Menu(action="timetable").pack()
+                    text="🧩 Расписание", callback_data=Menu(action="editor").pack()
                 ),
                 InlineKeyboardButton(text="👥 Доступ", callback_data=Menu(action="access").pack()),
             ]

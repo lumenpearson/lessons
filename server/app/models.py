@@ -170,6 +170,12 @@ class BellSchedule(Base):
         ForeignKey("classes.id", ondelete="CASCADE"), index=True, nullable=False
     )
     name: Mapped[str] = mapped_column(String(64), nullable=False)
+    #: Which break the столовая falls on: lunch is after lesson N. Kept on the
+    #: schedule rather than as a weekly event because that is what it actually
+    #: is — the same break every day this schedule is in force, moving with the
+    #: bells when a shortened day moves them. A recurring DayEvent would have
+    #: to be re-derived every time a bell row shifted by five minutes.
+    canteen_after_index: Mapped[int | None] = mapped_column(Integer)
 
     periods: Mapped[list[BellPeriod]] = relationship(
         back_populates="schedule",
