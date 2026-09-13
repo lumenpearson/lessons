@@ -161,6 +161,13 @@ points Hilt does not inject cleanly.
   door rather than falling back to plaintext, because a silent fallback is invisible and
   deployments stay in that state for years. `tests/conftest.py` sets one; a test that wants
   the feature *off* patches it away.
+- **Run the migration BEFORE the merge that needs it.** A merge to `main` deploys itself;
+  `alembic upgrade head` is run by hand. Between them is a window where the code knows a
+  column the database does not, and that window has already taken production down: the new
+  columns on `classes` landed first, nothing failed at startup, and the first ORM read of a
+  class did — which for the bot is the middleware, so every update died. Every revision
+  after `0001` is additive, so applying it to the *running* code is safe; the other order
+  never is.
 - **Migrations are Alembic and production is already at `0006`.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
