@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 from test_bot_handlers import FakeState
 
+from app.bot.button_style import DANGER, PRIMARY, SUCCESS
 from app.bot.calendar_keyboard import (
     CalendarAction,
     clamp_month,
@@ -117,8 +118,35 @@ def test_the_grid_names_the_month_labels_the_weekdays_and_marks_today():
 
     assert [button.text for button in rows[0]] == ["Сентябрь 2026"]
     assert [button.text for button in rows[1]] == ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-    assert "«13»" in labels(keyboard)
-    assert "13" not in labels(keyboard)
+
+    # Today is the green one and is written like every other day. It used to be
+    # the one in guillemets, which cost the cell a character of width in a grid
+    # whose columns are supposed to line up.
+    greens = {button.text for row in rows for button in row if button.style == SUCCESS}
+    assert greens == {"13", "Сегодня"}
+    assert "«13»" not in labels(keyboard)
+
+
+def test_the_grid_paints_the_arrows_and_the_way_out_and_leaves_the_rest_alone():
+    """Colour only separates while most of the keyboard is plain.
+
+    A month is forty-odd buttons; if the days were painted, the one that is
+    today would be found by reading rather than by looking, which is the whole
+    thing the colour was added to do. So: blue moves the month, green is now,
+    red leaves, and the thirty days that are merely dates stay grey.
+    """
+    rows = month_keyboard("day", 2026, 10, TODAY).inline_keyboard
+    styles = [button.style for row in rows for button in row]
+
+    assert {button.text for row in rows for button in row if button.style == PRIMARY} == {
+        "‹",
+        "›",
+    }
+    assert {button.text for row in rows for button in row if button.style == DANGER} == {
+        "✖️ Отмена"
+    }
+    assert styles.count(SUCCESS) == 1  # «Сегодня»; October holds no today
+    assert styles.count(None) > len(styles) - 10
 
 
 def test_a_day_button_opens_the_card_and_the_homework_grid_reuses_its_handler():
@@ -128,7 +156,7 @@ def test_a_day_button_opens_the_card_and_the_homework_grid_reuses_its_handler():
         button
         for row in month_keyboard("day", 2026, 9, TODAY).inline_keyboard
         for button in row
-        if button.text == "«13»"
+        if button.text == "13"
     )
     assert CalendarAction.unpack(card_day.callback_data).action == "card"
 
@@ -136,7 +164,7 @@ def test_a_day_button_opens_the_card_and_the_homework_grid_reuses_its_handler():
         button
         for row in month_keyboard("hw", 2026, 9, TODAY).inline_keyboard
         for button in row
-        if button.text == "«13»"
+        if button.text == "13"
     )
     unpacked = HomeworkAction.unpack(homework_day.callback_data)
     assert (unpacked.action, unpacked.value) == ("pick_day", "2026-09-13")
@@ -323,7 +351,7 @@ async def test_the_day_command_opens_the_calendar_at_the_current_month(
 
     assert "Календарь" in message.last
     assert "Сентябрь 2026" in labels(message.keyboard)
-    assert "«13»" in labels(message.keyboard)
+    assert "13" in labels(message.keyboard)
 
 
 @pytest.mark.parametrize("payload", ["000001", "000000", "999913", "00ab12"])

@@ -12,6 +12,7 @@ from __future__ import annotations
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from app.bot.button_style import DANGER, PRIMARY, SUCCESS
 from app.bot.keyboards import Menu, back_to_menu
 
 
@@ -145,7 +146,9 @@ def class_menu(*, is_owner: bool, many_classes: bool, pending: int) -> InlineKey
             [
                 InlineKeyboardButton(text="🔁 Сменить код", callback_data="cls:rotate_code:"),
                 InlineKeyboardButton(
-                    text="🗑 Удалить класс", callback_data=ManageAction(action="delete").pack()
+                    text="🗑 Удалить класс",
+                    callback_data=ManageAction(action="delete").pack(),
+                    style=DANGER,
                 ),
             ]
         )
@@ -177,7 +180,9 @@ def subject_list_keyboard(
     if can_edit:
         actions.append(
             InlineKeyboardButton(
-                text="➕ Добавить", callback_data=SubjectAction(action="add").pack()
+                text="➕ Добавить",
+                callback_data=SubjectAction(action="add").pack(),
+                style=SUCCESS,
             )
         )
     if can_collect:
@@ -220,6 +225,7 @@ def subject_card_keyboard(subject_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text="🗑 Удалить",
                 callback_data=SubjectAction(action="delete", value=sid).pack(),
+                style=DANGER,
             )
         ],
         [
@@ -278,6 +284,7 @@ def holiday_list_keyboard(
                     callback_data=DayKindAction(
                         action="delete", value=override.date.isoformat()
                     ).pack(),
+                    style=DANGER,
                 )
             ]
         )
@@ -285,13 +292,17 @@ def holiday_list_keyboard(
     if can_edit:
         actions.append(
             InlineKeyboardButton(
-                text="➕ Добавить", callback_data=DayKindAction(action="add").pack()
+                text="➕ Добавить",
+                callback_data=DayKindAction(action="add").pack(),
+                style=SUCCESS,
             )
         )
     if can_period:
         actions.append(
             InlineKeyboardButton(
-                text="📆 Период", callback_data=DayKindAction(action="period").pack()
+                text="📆 Период",
+                callback_data=DayKindAction(action="period").pack(),
+                style=PRIMARY,
             )
         )
     if actions:
@@ -312,6 +323,10 @@ def day_kind_keyboard(iso_date: str) -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text=label,
                 callback_data=DayKindAction(action="kind", value=f"{iso_date}:{kind}").pack(),
+                # Only «обычный день» is green: it is the one answer here that
+                # puts the day back the way it was, and the three above it are
+                # each a different exception rather than degrees of one.
+                style=SUCCESS if kind == "normal" else None,
             )
         ]
         for label, kind in kinds
@@ -353,6 +368,12 @@ def bells_list_keyboard(schedules: list, default_id: int | None) -> InlineKeyboa
             InlineKeyboardButton(
                 text=f"✏️ {schedule.name}"[:32],
                 callback_data=BellsAction(action="edit", value=sid).pack(),
+                # The default one is green, and ⭐ — «сделать основным» — is
+                # left plain on the others: green says which row is in force,
+                # the same thing it says about today in the calendar, and only
+                # one of the two can have it without the page having a colour
+                # that means «current» and one that means «make current».
+                style=SUCCESS if schedule.id == default_id else None,
             )
         ]
         if schedule.id != default_id:
@@ -363,7 +384,9 @@ def bells_list_keyboard(schedules: list, default_id: int | None) -> InlineKeyboa
             )
             row.append(
                 InlineKeyboardButton(
-                    text="🗑", callback_data=BellsAction(action="delete", value=sid).pack()
+                    text="🗑",
+                    callback_data=BellsAction(action="delete", value=sid).pack(),
+                    style=DANGER,
                 )
             )
         rows.append(row)
@@ -372,6 +395,7 @@ def bells_list_keyboard(schedules: list, default_id: int | None) -> InlineKeyboa
             InlineKeyboardButton(
                 text="➕ Новое расписание звонков",
                 callback_data=BellsAction(action="create").pack(),
+                style=SUCCESS,
             )
         ]
     )
@@ -387,6 +411,7 @@ def device_keyboard(devices: list) -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text=f"🚫 {device.device_name or device.id}"[:28],
                 callback_data=DeviceAction(action="revoke", value=did).pack(),
+                style=DANGER,
             )
         ]
         if device.telegram_id is not None:
@@ -409,10 +434,12 @@ def request_keyboard(request_id: int) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="✅ Одобрить",
                     callback_data=RequestAction(action="approve", value=rid).pack(),
+                    style=SUCCESS,
                 ),
                 InlineKeyboardButton(
                     text="✖️ Отклонить",
                     callback_data=RequestAction(action="decline", value=rid).pack(),
+                    style=DANGER,
                 ),
             ]
         ]
@@ -427,6 +454,7 @@ def audit_keyboard(offset: int, more: bool) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="Ещё ›",
                     callback_data=AuditAction(action="page", value=str(offset + 30)).pack(),
+                    style=PRIMARY,
                 )
             ]
         )
@@ -439,10 +467,14 @@ def import_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="✅ Применить", callback_data=ImportAction(action="apply").pack()
+                    text="✅ Применить",
+                    callback_data=ImportAction(action="apply").pack(),
+                    style=SUCCESS,
                 ),
                 InlineKeyboardButton(
-                    text="✖️ Отмена", callback_data=ImportAction(action="cancel").pack()
+                    text="✖️ Отмена",
+                    callback_data=ImportAction(action="cancel").pack(),
+                    style=DANGER,
                 ),
             ]
         ]
