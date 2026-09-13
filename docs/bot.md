@@ -19,11 +19,17 @@ on every page of the bot:
 |---|---|
 | **красная** | takes something away or throws away what you were doing — удалить, отменить, отклонить, убрать доступ, отвязать, выключить. A toggle carrying both halves in one label («🔄 Замены: выключить») is painted by what pressing it does, so the same button reading «включить» is plain |
 | **зелёная** | commits, or marks the one row that is the current state — одобрить, применить, добавить, today in the calendar, a ticked task, the default расписание звонков |
-| **голубая** | a span of time and the way between spans — `‹` `›`, недели, периоды, the weekday picker, «Ещё ›» |
+| **голубая** | a span of time — «завтра», недели, периоды, the weekday picker, «Ещё ›», reminder offsets |
 
 Everything else stays uncoloured, and most of every keyboard does. Colour only
 separates while the majority is plain: paint half a keyboard and the three
 meanings above become decoration, which costs a glance and buys nothing.
+
+The bare `‹` `›` arrows are the clearest case. They were blue — they do move a
+span, which is what blue is for — and in a month grid of forty grey cells the
+pair under the thumb was the loudest thing on a screen whose point is the green
+day. They are grey now. «Отмена» likewise dropped its ✖️: the button is already
+red and already says «Отмена», and the cross was a third way of saying it.
 
 There are two deliberate exceptions to «отмена красная». In a destructive
 confirmation the red button is the one that deletes, so the escape beside it

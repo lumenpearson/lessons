@@ -439,7 +439,7 @@ def request_keyboard(request_id: int) -> InlineKeyboardMarkup:
                     style=SUCCESS,
                 ),
                 InlineKeyboardButton(
-                    text="✖️ Отклонить",
+                    text="Отклонить",
                     callback_data=RequestAction(action="decline", value=rid).pack(),
                     style=DANGER,
                 ),
@@ -474,7 +474,7 @@ def import_keyboard() -> InlineKeyboardMarkup:
                     style=SUCCESS,
                 ),
                 InlineKeyboardButton(
-                    text="✖️ Отмена",
+                    text="Отмена",
                     callback_data=ImportAction(action="cancel").pack(),
                     style=DANGER,
                 ),
