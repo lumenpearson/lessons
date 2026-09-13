@@ -21,7 +21,7 @@ from datetime import date as Date
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from app.bot.button_style import DANGER, PRIMARY, SUCCESS
+from app.bot.button_style import DANGER, SUCCESS
 from app.bot.keyboards import EventAction, HomeworkAction, Menu, back_to_menu
 from app.bot.keyboards import OverrideAction as OverrideCB
 from app.bot.manage_keyboards import DayKindAction
@@ -181,7 +181,6 @@ def month_keyboard(flow: str, year: int, month: int, today: Date) -> InlineKeybo
             callback_data=CalendarAction(
                 action="nav", flow=flow, value=f"{target:%Y%m}"
             ).pack(),
-            style=PRIMARY,
         )
 
     previous, following = _shift_month(anchor, -1), _shift_month(anchor, 1)
@@ -201,7 +200,7 @@ def month_keyboard(flow: str, year: int, month: int, today: Date) -> InlineKeybo
     rows.append(
         [
             InlineKeyboardButton(
-                text="✖️ Отмена",
+                text="Отмена",
                 callback_data=Menu(action="root").pack(),
                 style=DANGER,
             )

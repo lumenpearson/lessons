@@ -19,11 +19,17 @@ on every page of the bot:
 |---|---|
 | **красная** | takes something away or throws away what you were doing — удалить, отменить, отклонить, убрать доступ, отвязать, выключить. A toggle carrying both halves in one label («🔄 Замены: выключить») is painted by what pressing it does, so the same button reading «включить» is plain |
 | **зелёная** | commits, or marks the one row that is the current state — одобрить, применить, добавить, today in the calendar, a ticked task, the default расписание звонков |
-| **голубая** | a span of time and the way between spans — `‹` `›`, недели, периоды, the weekday picker, «Ещё ›» |
+| **голубая** | a span of time — «завтра», недели, периоды, the weekday picker, «Ещё ›», reminder offsets |
 
 Everything else stays uncoloured, and most of every keyboard does. Colour only
 separates while the majority is plain: paint half a keyboard and the three
 meanings above become decoration, which costs a glance and buys nothing.
+
+The bare `‹` `›` arrows are the clearest case. They were blue — they do move a
+span, which is what blue is for — and in a month grid of forty grey cells the
+pair under the thumb was the loudest thing on a screen whose point is the green
+day. They are grey now. «Отмена» likewise dropped its ✖️: the button is already
+red and already says «Отмена», and the cross was a third way of saying it.
 
 There are two deliberate exceptions to «отмена красная». In a destructive
 confirmation the red button is the one that deletes, so the escape beside it
@@ -113,8 +119,50 @@ which is the context an admin needs to answer them.
 
 ## Editing the timetable
 
-Cell-by-cell button editing is miserable on a phone, so the weekly template is
-edited by pasting one message per weekday:
+**⚙️ → 🧩 Расписание** opens one message you stay inside. It lists the day's
+lessons as buttons, pages Понедельник–Суббота with `‹` `›` (Суббота wraps to
+Понедельник rather than dead-ending on an always-empty Воскресенье), and keeps
+a strip of the whole week under the heading — `Пн 6 · Вт 5 · …` — so «а во
+вторник сколько?» is answered without stepping onto Вторник.
+
+Tapping a lesson opens its card: **▲ Выше / ▼ Ниже** to reorder, **✏️ Изменить**
+to retype it, **✂️ По неделям** to split it into числитель and знаменатель (and
+«Оставить чис / знам» to collapse it back), **🗑 Удалить урок** to remove it.
+
+Three rules the buttons enforce that a paste could not:
+
+* **A number is a slot, and a slot holds both weeks.** Moving lesson 3 moves
+  числитель and знаменатель together. Any other rule and one week's third lesson
+  becomes the other week's second — and the bells, which are keyed on the number
+  alone, are then right for one week and wrong for the other.
+* **Deleting closes the gap.** A day numbered 1, 2, 4 reads as a *lost* lesson
+  rather than a deleted one, and hands lesson 4 the fourth bell when it is now
+  the third thing that happens.
+* **A viewer sees the template and is offered nothing that would refuse them.**
+  «Какой третий урок в среду» is a question anybody in the class may ask; the
+  editing buttons simply are not drawn, and tapping a lesson answers with its
+  card as an alert.
+
+**⏱ Перемены** turns on the times and the gaps between them — `08:30–09:15`,
+then `⏸ перемена · 10 минут`. It is off by default because it doubles the line
+count of a day you are usually reading to check which subject is third, and the
+switch travels with the `‹` `›` arrows, so checking three days' перемены is one
+press and not three. A break is never stored: it is the gap between bell N's end
+and bell N+1's start, so it can only ever be derived.
+
+**🍽 Столовая** marks which break lunch falls on. It is stored on the *bell
+schedule* (`bell_schedules.canteen_after_index`), not on a date and not as a
+recurring event: it is the same перемена every day that schedule is in force,
+and it moves with the bells when a shortened day moves them. The last lesson is
+not offered — there is no break after it.
+
+Every write goes in the журнал, and all of it is ADMIN-only; замены and события
+stay an editor's business.
+
+### Pasting a whole day
+
+The button editor changes one lesson. Entering a term is still fastest as a
+paste, so **📋 Вставить день** sits on the day it would overwrite:
 
 ```
 1. Алгебра, 214
@@ -136,8 +184,12 @@ parity — `[чис]`/`[знам]`, `(чис)`/`(знам)`, `[1]`/`[2]`, or a b
   nothing at all.
 
 The grammar lives in one place, `services/timetable_io.py`, and the day editor,
-the week import and «Экспорт» all speak it. The current day is listed back in
-exactly the format it accepts, parity included.
+the button editor, the week import and «Экспорт» all speak it. The current day is
+listed back in exactly the format it accepts, parity included. A subject typed
+into the button editor goes through the same splitter
+(`split_lesson_body`) — including the part that strips a `[чис]` suffix rather
+than letting it become the subject's *name*, which is the bug that made the day
+editor and the week import disagree once already.
 
 ## Экспорт и импорт — `/export`, `/import`
 
@@ -319,6 +371,51 @@ name — from a month back and forward, newest due first, fifteen results. Any
 member may: it is the same text the day view already shows them, reachable by
 memory instead of by date. Case folding is SQL's `lower()`, which on SQLite
 covers Latin only.
+
+## Электронный дневник — «📒 Мой дневник»
+
+An admin binds the class in **⚙️ Класс → 📒 Привязать дневник**. Binding gives
+the class *nothing*: it puts one button on every member's menu, and behind that
+button is each member's own dnevnik2 account. Nobody in the class sees anybody
+else's child.
+
+That is enforced rather than asserted. Every lookup in `handlers/diary.py`
+starts from `callback.from_user.id`, and a session is found by
+`(telegram_id, class_id)` and nothing else — so a crafted payload reaches the
+presser's own diary or nothing at all. The class half matters too: a parent in
+two classes must not read one child's diary from the other class's screen.
+
+**The password never enters Telegram.** «🔐 Войти в дневник» hands out a link to
+`/diary/signin/<ticket>`, a page this app serves itself. The password goes from
+that browser straight to dnevnik2 and is written down nowhere — not in the chat
+history, not on Telegram's servers, not in the notification on a locked screen,
+not in the phone's backup. A ticket is worth **one** sign-in for fifteen
+minutes for one Telegram account in one class; a GET checks it without spending
+it (Telegram fetches link previews by itself), a POST spends it before
+attempting the sign-in, and a malformed form does not spend it at all.
+
+The session is stored encrypted (`DIARY_SECRET`, `app/crypto.py`). Without that
+key the whole feature refuses at the door rather than falling back to
+plaintext. Without `PUBLIC_BASE_URL` the bot says there is nowhere to point the
+link, instead of printing one that would 404.
+
+Four views, paged with `‹` `›`: **📅 День**, **🗓 Неделя**, **📝 Задания** (grouped
+by the day they are *due*), **📊 Оценки** (last 30 days, averaged over digits
+only — «Н» and «Б» are attendance codes in the same column). A parent account
+with several children is asked once, in **👥 Ребёнок**, and the answer is kept on
+the session. **Выйти** drops the session; the upstream is not told, because it
+has no logout that can be called without a browser.
+
+An empty answer is always said, never drawn as a blank: the upstream returns
+nothing for каникулы, for a day it has no data for, and for a journal a teacher
+has not filled, and one blank screen makes a parent refresh four times.
+
+## Публичный и закрытый класс
+
+**⚙️ Класс → 🔓 Открыть класс** decides whether the join code alone is enough.
+Closed is the default and stays it: a class that became public by accident is a
+roster handed to whoever screenshotted the code, and that is not a mistake
+anybody notices until afterwards.
 
 ## Подписка на календарь — `/calendar`
 

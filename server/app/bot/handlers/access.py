@@ -104,7 +104,7 @@ async def access_root(
                         style=SUCCESS,
                     ),
                     InlineKeyboardButton(
-                        text="✖️",
+                        text="Отклонить",
                         callback_data=RequestAction(
                             action="decline", value=str(request.id)
                         ).pack(),

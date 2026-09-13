@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 from test_bot_handlers import FakeState
 
-from app.bot.button_style import DANGER, PRIMARY, SUCCESS
+from app.bot.button_style import DANGER, SUCCESS
 from app.bot.calendar_keyboard import (
     CalendarAction,
     clamp_month,
@@ -127,26 +127,25 @@ def test_the_grid_names_the_month_labels_the_weekdays_and_marks_today():
     assert "«13»" not in labels(keyboard)
 
 
-def test_the_grid_paints_the_arrows_and_the_way_out_and_leaves_the_rest_alone():
+def test_the_only_paint_on_a_month_is_now_and_the_way_out():
     """Colour only separates while most of the keyboard is plain.
 
-    A month is forty-odd buttons; if the days were painted, the one that is
-    today would be found by reading rather than by looking, which is the whole
-    thing the colour was added to do. So: blue moves the month, green is now,
-    red leaves, and the thirty days that are merely dates stay grey.
+    A month is forty-odd buttons. The arrows are deliberately *not* among the
+    painted ones: they sit under the thumb in a grid where every other cell is
+    grey, and a blue pair there was the loudest thing on a screen whose point
+    is the green day. Which leaves two — green for now, red for the way out —
+    and forty buttons of background to read them against.
     """
     rows = month_keyboard("day", 2026, 10, TODAY).inline_keyboard
     styles = [button.style for row in rows for button in row]
 
-    assert {button.text for row in rows for button in row if button.style == PRIMARY} == {
-        "‹",
-        "›",
-    }
     assert {button.text for row in rows for button in row if button.style == DANGER} == {
-        "✖️ Отмена"
+        "Отмена"
     }
     assert styles.count(SUCCESS) == 1  # «Сегодня»; October holds no today
-    assert styles.count(None) > len(styles) - 10
+    arrows = [button for row in rows for button in row if button.text in ("‹", "›")]
+    assert len(arrows) == 2
+    assert all(button.style is None for button in arrows)
 
 
 def test_a_day_button_opens_the_card_and_the_homework_grid_reuses_its_handler():

@@ -23,7 +23,7 @@ from app.config import get_settings
 from app.db import SessionLocal, get_session
 from app.models import DeviceToken, DiarySession, JoinAttempt
 from app.schemas import TickOut
-from app.services import reminders
+from app.services import diary_link, reminders
 
 router = APIRouter(prefix="/api/v1", tags=["cron"])
 
@@ -161,12 +161,17 @@ async def tick(
     join_purged = await _purge_join_attempts(session)
     diary_purged = await _purge_diary_sessions(session)
     device_purged = await _purge_device_tokens(session)
+    # Sign-in tickets. Swept here for the same reason as everything above it:
+    # on Vercel nothing runs between requests, so whatever gets cleaned up is
+    # cleaned up by something arriving from outside.
+    links_purged = await diary_link.purge(session)
     return TickOut(
         **counts,
         fsm_purged=fsm_purged,
         join_attempts_purged=join_purged,
         diary_sessions_purged=diary_purged,
         device_tokens_purged=device_purged,
+        diary_links_purged=links_purged,
     )
 
 

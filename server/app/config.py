@@ -56,6 +56,18 @@ class Settings(BaseSettings):
     # round trip per cold start for a value that never changes.
     bot_username: str = ""
 
+    # Key for the one credential that has to be stored recoverably: the
+    # Petersburg diary's upstream session token, which is replayed on every
+    # call and so cannot be a hash like everything else here.
+    #
+    # Empty disables the diary outright rather than falling back to plaintext.
+    # A fallback would be invisible — the feature keeps answering and the only
+    # difference is a column nobody looks at — and deployments stay in that
+    # state for years. Generate one with:
+    #
+    #     python -c "import secrets; print(secrets.token_urlsafe(48))"
+    diary_secret: str = ""
+
     # Public origin of this deployment ("https://lessons.example.com"), for the
     # calendar feed URL the bot shows. Configured rather than read off a
     # request: behind Vercel the function sees an internal host, and the bot

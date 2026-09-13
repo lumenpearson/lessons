@@ -94,7 +94,7 @@ class ReminderAction(CallbackData, prefix="rem"):
     value: str = ""
 
 
-def main_menu(role: Role) -> InlineKeyboardMarkup:
+def main_menu(role: Role, diary_provider: str | None = None) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
         [
             InlineKeyboardButton(
@@ -134,6 +134,18 @@ def main_menu(role: Role) -> InlineKeyboardMarkup:
             ),
         ]
     )
+    # Offered to every role, because it is not the class's data and no role in
+    # the class grants any of it: the button opens *your* diary or offers you
+    # the door to it, and a наблюдатель has exactly as much right to their own
+    # child's marks as the owner has.
+    if diary_provider:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="📒 Мой дневник", callback_data=Menu(action="diary").pack()
+                )
+            ]
+        )
     if role.at_least(Role.EDITOR):
         rows.append(
             [
@@ -147,7 +159,7 @@ def main_menu(role: Role) -> InlineKeyboardMarkup:
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="🧩 Расписание", callback_data=Menu(action="timetable").pack()
+                    text="🧩 Расписание", callback_data=Menu(action="editor").pack()
                 ),
                 InlineKeyboardButton(text="👥 Доступ", callback_data=Menu(action="access").pack()),
             ]
@@ -169,13 +181,13 @@ def day_nav(offset: int) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="‹", callback_data=DayNav(offset=offset - 1).pack(), style=PRIMARY
+                    text="‹", callback_data=DayNav(offset=offset - 1).pack()
                 ),
                 InlineKeyboardButton(
                     text="Сегодня", callback_data=DayNav(offset=0).pack(), style=SUCCESS
                 ),
                 InlineKeyboardButton(
-                    text="›", callback_data=DayNav(offset=offset + 1).pack(), style=PRIMARY
+                    text="›", callback_data=DayNav(offset=offset + 1).pack()
                 ),
             ],
             [InlineKeyboardButton(text="‹ Меню", callback_data=Menu(action="root").pack())],
@@ -197,7 +209,7 @@ def cancel_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="✖️ Отмена",
+                    text="Отмена",
                     callback_data=Menu(action="root").pack(),
                     style=DANGER,
                 )
@@ -218,7 +230,7 @@ def role_picker(available: list[Role], target: str = "") -> InlineKeyboardMarkup
     rows.append(
         [
             InlineKeyboardButton(
-                text="✖️ Отмена", callback_data=Menu(action="root").pack(), style=DANGER
+                text="Отмена", callback_data=Menu(action="root").pack(), style=DANGER
             )
         ]
     )
@@ -275,13 +287,13 @@ def week_nav(offset: int) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="‹", callback_data=WeekNav(offset=offset - 1).pack(), style=PRIMARY
+                    text="‹", callback_data=WeekNav(offset=offset - 1).pack()
                 ),
                 InlineKeyboardButton(
                     text="Сегодня", callback_data=WeekNav(offset=0).pack(), style=SUCCESS
                 ),
                 InlineKeyboardButton(
-                    text="›", callback_data=WeekNav(offset=offset + 1).pack(), style=PRIMARY
+                    text="›", callback_data=WeekNav(offset=offset + 1).pack()
                 ),
             ],
             [InlineKeyboardButton(text="‹ Меню", callback_data=Menu(action="root").pack())],

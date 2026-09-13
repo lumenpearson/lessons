@@ -43,6 +43,17 @@ class EditBells(StatesGroup):
     rows = State()
 
 
+class EditorLesson(StatesGroup):
+    """The button editor's one typed prompt — adding or renaming a lesson.
+
+    A single state, because the cursor it belongs to (day, lesson, view) rides
+    in the FSM *data* rather than in the state name: the editor has one text
+    question and six screens that can ask it.
+    """
+
+    text = State()
+
+
 class AddTask(StatesGroup):
     text = State()
 

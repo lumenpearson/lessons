@@ -20,6 +20,7 @@ from app.api import diary as diary_api
 from app.main import app
 from app.models import DiarySession
 from app.providers.petersburg import client as provider_client
+from app.services import diary as service
 
 LOGIN_PATH = "/api/user/auth/login"
 
@@ -118,9 +119,11 @@ async def test_login_returns_a_token_of_ours_and_never_the_upstream_one(
     assert token != "cookie-token"
 
     row = await session.scalar(select(DiarySession))
-    # Ours is stored hashed, exactly like a device token; theirs is stored as
-    # it is, because it has to be sent back to them.
-    assert row.upstream_token == "cookie-token"
+    # Ours is stored hashed, exactly like a device token. Theirs cannot be
+    # hashed — it is replayed upstream on every call — so it is sealed instead,
+    # and comes back only through the one function that opens one.
+    assert row.upstream_token != "cookie-token"
+    assert service.upstream_of(row) == "cookie-token"
     assert row.login == "parent@example.com"
 
 
@@ -142,7 +145,7 @@ async def test_the_cookie_wins_over_the_body_when_they_disagree(client, upstream
     one later calls accept."""
     await sign_in(client, upstream)
     row = await session.scalar(select(DiarySession))
-    assert row.upstream_token == "cookie-token"
+    assert service.upstream_of(row) == "cookie-token"
 
 
 async def test_a_wrong_password_is_401_and_opens_no_session(client, upstream, session):
@@ -358,7 +361,8 @@ async def test_a_refreshed_upstream_token_is_kept(client, upstream, session):
 
     row = await session.scalar(select(DiarySession))
     await session.refresh(row)
-    assert row.upstream_token == "second-token"
+    assert service.upstream_of(row) == "second-token"
+    assert row.upstream_token != "second-token"
 
 
 async def test_signing_out_forgets_the_session(client, upstream, session):
