@@ -253,6 +253,7 @@ def colour_keyboard(subject_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text="🚫 Без цвета",
                 callback_data=SubjectAction(action="colour", value=f"{subject_id}:none").pack(),
+                style=DANGER,
             )
         ]
     )
@@ -419,6 +420,7 @@ def device_keyboard(devices: list) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="🔗 Отвязать",
                     callback_data=DeviceAction(action="unlink", value=did).pack(),
+                    style=DANGER,
                 )
             )
         rows.append(row)

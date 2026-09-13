@@ -13,8 +13,13 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from app.bot.button_style import DANGER, PRIMARY, SUCCESS
-from app.bot.keyboards import main_menu, task_delete_confirm, task_list_keyboard
-from app.bot.manage_keyboards import bells_list_keyboard
+from app.bot.keyboards import (
+    main_menu,
+    reminder_keyboard,
+    task_delete_confirm,
+    task_list_keyboard,
+)
+from app.bot.manage_keyboards import bells_list_keyboard, colour_keyboard, device_keyboard
 from app.models import Role
 
 
@@ -92,3 +97,45 @@ def test_the_menu_paints_the_three_buttons_about_when_and_nothing_else():
         "📆 Календарь": PRIMARY,
         "🗓 Неделя": PRIMARY,
     }
+
+
+def test_a_toggle_is_painted_by_what_pressing_it_does_not_by_the_state_it_shows():
+    """«🔄 Замены: выключить» and «🔄 Замены: включить» are one button.
+
+    It carries both halves in its label, so the state cannot be the thing the
+    colour reports — green on a button reading «выключить» would be an
+    invitation to press it. What is left is the effect: red while the press
+    takes напоминания away, plain while it gives them back.
+    """
+    on = SimpleNamespace(
+        morning_at=None, evening_at=None, notify_changes=True, notify_homework=False
+    )
+    off = SimpleNamespace(
+        morning_at=None, evening_at=None, notify_changes=False, notify_homework=True
+    )
+
+    by_text = {button.text: button.style for button in buttons(reminder_keyboard(on))}
+    assert by_text["🔄 Замены: выключить"] == DANGER
+    assert by_text["📝 Задания: включить"] is None
+    assert by_text["🔕 Выключить всё"] == DANGER
+
+    flipped = {button.text: button.style for button in buttons(reminder_keyboard(off))}
+    assert flipped["🔄 Замены: включить"] is None
+    assert flipped["📝 Задания: выключить"] == DANGER
+
+
+def test_taking_a_phone_or_a_colour_away_is_red_even_when_it_reads_gently():
+    """Neither button says «удалить», and both take something away: one cuts a
+    phone loose from the Telegram account that linked it, the other strips a
+    subject of the colour the timetable draws it with."""
+    devices = [SimpleNamespace(id=3, device_name="Пиксель", telegram_id=42)]
+    device_row = device_keyboard(devices).inline_keyboard[0]
+    assert [button.text for button in device_row] == ["🚫 Пиксель", "🔗 Отвязать"]
+    assert [button.style for button in device_row] == [DANGER, DANGER]
+
+    swatches = buttons(colour_keyboard(subject_id=5))
+    none_button = next(button for button in swatches if button.text == "🚫 Без цвета")
+    assert none_button.style == DANGER
+    # The eight presets stay unpainted: they already are colours, and a red
+    # tile beside «🔴 Красный» would be a second colour saying something else.
+    assert all(button.style is None for button in swatches if button.text.endswith("Синий"))

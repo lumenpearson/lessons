@@ -17,7 +17,7 @@ on every page of the bot:
 
 | | |
 |---|---|
-| **красная** | takes something away or throws away what you were doing — удалить, отменить, отклонить, убрать доступ, выключить |
+| **красная** | takes something away or throws away what you were doing — удалить, отменить, отклонить, убрать доступ, отвязать, выключить. A toggle carrying both halves in one label («🔄 Замены: выключить») is painted by what pressing it does, so the same button reading «включить» is plain |
 | **зелёная** | commits, or marks the one row that is the current state — одобрить, применить, добавить, today in the calendar, a ticked task, the default расписание звонков |
 | **голубая** | a span of time and the way between spans — `‹` `›`, недели, периоды, the weekday picker, «Ещё ›» |
 

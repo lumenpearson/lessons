@@ -477,21 +477,24 @@ def reminder_keyboard(settings) -> InlineKeyboardMarkup:
             )
         return row
 
+    def _toggle(label: str, flag: str, on: bool) -> list[InlineKeyboardButton]:
+        # Painted by what pressing it does, not by the state it reports: these
+        # two carry both halves in one label, so «Замены: выключить» is red
+        # because pressing it switches замены off, and the same button reading
+        # «включить» is plain because pressing it takes nothing away.
+        return [
+            InlineKeyboardButton(
+                text=f"{label}: " + ("выключить" if on else "включить"),
+                callback_data=ReminderAction(action="toggle", value=flag).pack(),
+                style=DANGER if on else None,
+            )
+        ]
+
     rows = [
         _digest_row("morning", "☀️", settings.morning_at is not None),
         _digest_row("evening", "🌙", settings.evening_at is not None),
-        [
-            InlineKeyboardButton(
-                text="🔄 Замены: " + ("выключить" if settings.notify_changes else "включить"),
-                callback_data=ReminderAction(action="toggle", value="changes").pack(),
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text="📝 Задания: " + ("выключить" if settings.notify_homework else "включить"),
-                callback_data=ReminderAction(action="toggle", value="homework").pack(),
-            )
-        ],
+        _toggle("🔄 Замены", "changes", settings.notify_changes),
+        _toggle("📝 Задания", "homework", settings.notify_homework),
         [
             InlineKeyboardButton(
                 text="🔕 Выключить всё",
