@@ -39,7 +39,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 745 tests, about two and a half minutes
+- **`python -m pytest -q`** — 752 tests, about two and a half minutes
 - `python -m pytest -q tests/test_schedule.py -k parity` — one file, one test
 - `python -m uvicorn app.main:app --reload` — run it; add `--host 0.0.0.0` for a phone to
   reach it
@@ -167,7 +167,10 @@ points Hilt does not inject cleanly.
   columns on `classes` landed first, nothing failed at startup, and the first ORM read of a
   class did — which for the bot is the middleware, so every update died. Every revision
   after `0001` is additive, so applying it to the *running* code is safe; the other order
-  never is.
+  never is. `GET /api/v1/warmup` answers `{"status": "degraded", ...}` when the database is
+  behind and names both revisions (`app/db.py:EXPECTED_REVISION`, pinned to the real head by
+  `tests/test_schema_version.py`). `/api/v1/health` deliberately opens no connection, so it
+  cannot tell you this.
 - **Migrations are Alembic and production is already at `0006`.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`

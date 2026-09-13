@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class, current_device
 from app.config import get_settings
-from app.db import get_session
+from app.db import EXPECTED_REVISION, current_revision, get_session
 from app.models import (
     DeviceToken,
     Homework,
@@ -210,7 +210,32 @@ async def warmup(session: AsyncSession = Depends(get_session)) -> dict[str, obje
     mitigation for both.
     """
     await session.execute(text("SELECT 1"))
-    return {"status": "ok", "api_version": API_VERSION}
+
+    # And, since the connection is open anyway, whether the schema is the one
+    # this code was written against.
+    #
+    # Worth the extra query because of how the mismatch presents without it: a
+    # deploy that lands before its migration does not fail at startup, it fails
+    # on the first ORM read of whatever gained a column — for the bot that is
+    # the middleware, so *every* update dies, and the cause is an
+    # UndefinedColumnError forty frames down a traceback. Saying it here turns
+    # that into one line in whatever already pings this endpoint.
+    revision = await current_revision(session)
+    schema_ok = revision == EXPECTED_REVISION
+    body: dict[str, object] = {
+        "status": "ok" if schema_ok else "degraded",
+        "api_version": API_VERSION,
+        "schema": revision or "unknown",
+    }
+    if not schema_ok:
+        body["expected_schema"] = EXPECTED_REVISION
+        body["detail"] = (
+            "База отстала от кода. Запустите «alembic upgrade head» "
+            "с рабочим DATABASE_URL — до следующего деплоя, а не после."
+            if revision is not None
+            else "В базе нет таблицы alembic_version: схему создавали не миграциями."
+        )
+    return body
 
 
 @router.post("/join", response_model=JoinResponse)
