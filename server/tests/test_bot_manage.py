@@ -162,11 +162,11 @@ def test_management_callbacks_do_not_collide_with_the_everyday_ones():
     feature's button into another feature's handler."""
     from aiogram.filters.callback_data import CallbackData
 
-    from app.bot import keyboards, manage_keyboards
+    from app.bot import calendar_keyboard, keyboards, manage_keyboards
 
     prefixes: dict[str, str] = {}
     seen: set[type] = set()
-    for module in (keyboards, manage_keyboards):
+    for module in (keyboards, manage_keyboards, calendar_keyboard):
         for name in dir(module):
             value = getattr(module, name)
             if (
@@ -198,6 +198,15 @@ def test_management_callbacks_do_not_collide_with_the_everyday_ones():
     colour_keyboard(12)
     day_kind_keyboard("2026-10-26")
     bells_pick_keyboard([SimpleNamespace(id=3, name="Сокращённое")], "2026-10-26")
+
+    # The calendar builds a keyboard per flow out of three payload classes it
+    # does not own, so a separator added to any of them surfaces here.
+    from datetime import date
+
+    from app.bot.calendar_keyboard import month_keyboard
+
+    for flow in ("day", "hw", "ovr", "ev", "dk"):
+        month_keyboard(flow, 2026, 10, date(2026, 10, 26))
 
 
 # --------------------------------------------------------------------------

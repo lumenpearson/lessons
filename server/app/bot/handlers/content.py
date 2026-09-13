@@ -20,6 +20,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.handlers.calendar import open_month
 from app.bot.handlers.tasks import homework_view
 from app.bot.keyboards import (
     EventAction,
@@ -27,12 +28,11 @@ from app.bot.keyboards import (
     Menu,
     back_to_menu,
     cancel_keyboard,
-    date_picker,
 )
 from app.bot.keyboards import (
     OverrideAction as OverrideCB,
 )
-from app.bot.render import human_date, relative_day_name, upcoming_dates
+from app.bot.render import human_date, relative_day_name
 from app.bot.states import AddEvent, AddHomework, AddOverride
 from app.config import get_settings
 from app.models import (
@@ -130,26 +130,29 @@ async def homework_add(
         await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
+    # No state: from here the date travels in the callback payload, which is
+    # what lets the same button sit on the day card as well as under this
+    # question. A step that depended on the state set here would refuse the
+    # card's button for no reason the person pressing it could see.
+    await state.clear()
     await callback.message.edit_text(
         "На какой день задано?",
-        reply_markup=date_picker(
-            HomeworkAction, "pick_day", upcoming_dates(_today(school_class), 7)
-        ),
+        reply_markup=open_month("hw", _today(school_class)),
     )
-    await state.set_state(AddHomework.date)
     await callback.answer()
 
 
-@router.callback_query(AddHomework.date, HomeworkAction.filter(F.action == "pick_day"))
+@router.callback_query(HomeworkAction.filter(F.action == "pick_day"))
 async def homework_pick_day(
     callback: CallbackQuery,
     callback_data: HomeworkAction,
     state: FSMContext,
     session: AsyncSession,
     school_class: SchoolClass | None,
+    role: Role | None,
 ) -> None:
-    if school_class is None:
-        await callback.answer("Нет доступа", show_alert=True)
+    if school_class is None or role is None or not role.at_least(Role.EDITOR):
+        await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
     due = Date.fromisoformat(callback_data.value)
@@ -321,26 +324,25 @@ async def overrides_root(
         await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
+    await state.clear()
     await callback.message.edit_text(
         "🔄 <b>Замены</b>\n\nВыберите день:",
-        reply_markup=date_picker(
-            OverrideCB, "pick_day", upcoming_dates(_today(school_class), 7)
-        ),
+        reply_markup=open_month("ovr", _today(school_class)),
     )
-    await state.set_state(AddOverride.date)
     await callback.answer()
 
 
-@router.callback_query(AddOverride.date, OverrideCB.filter(F.action == "pick_day"))
+@router.callback_query(OverrideCB.filter(F.action == "pick_day"))
 async def override_pick_day(
     callback: CallbackQuery,
     callback_data: OverrideCB,
     state: FSMContext,
     session: AsyncSession,
     school_class: SchoolClass | None,
+    role: Role | None,
 ) -> None:
-    if school_class is None:
-        await callback.answer("Нет доступа", show_alert=True)
+    if school_class is None or role is None or not role.at_least(Role.EDITOR):
+        await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
     target = Date.fromisoformat(callback_data.value)
@@ -598,22 +600,26 @@ async def events_root(
         await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
+    await state.clear()
     await callback.message.edit_text(
         "🎉 <b>События</b>\n\nНа какой день добавляем?",
-        reply_markup=date_picker(
-            EventAction, "pick_day", upcoming_dates(_today(school_class), 7)
-        ),
+        reply_markup=open_month("ev", _today(school_class)),
     )
-    await state.set_state(AddEvent.date)
     await callback.answer()
 
 
-@router.callback_query(AddEvent.date, EventAction.filter(F.action == "pick_day"))
+@router.callback_query(EventAction.filter(F.action == "pick_day"))
 async def event_pick_day(
     callback: CallbackQuery,
     callback_data: EventAction,
     state: FSMContext,
+    school_class: SchoolClass | None,
+    role: Role | None,
 ) -> None:
+    if school_class is None or role is None or not role.at_least(Role.EDITOR):
+        await callback.answer("Нужна роль редактора", show_alert=True)
+        return
+
     await state.update_data(date=callback_data.value)
     rows = [
         [

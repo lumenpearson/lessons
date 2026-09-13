@@ -12,7 +12,6 @@ class CreateClass(StatesGroup):
 
 
 class AddHomework(StatesGroup):
-    date = State()
     subject = State()
     text = State()
 
@@ -24,14 +23,12 @@ class AddInvite(StatesGroup):
 
 
 class AddOverride(StatesGroup):
-    date = State()
     index = State()
     subject = State()
     room = State()
 
 
 class AddEvent(StatesGroup):
-    date = State()
     kind = State()
     time = State()
     title = State()

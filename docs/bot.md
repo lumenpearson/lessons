@@ -7,7 +7,7 @@ password reset flow.
 Everything below is what the code in `server/app/bot/` actually does. Handlers
 live in `handlers/`, the structural half of them in `handlers/manage.py`; the
 wording lives in `render.py` and `manage_render.py`; the buttons in
-`keyboards.py` and `manage_keyboards.py`.
+`keyboards.py`, `manage_keyboards.py` and `calendar_keyboard.py`.
 
 ## Setup
 
@@ -157,7 +157,7 @@ A day that is not a normal school day: **каникулы / выходной**, 
 **обычный день**, which deletes the mark — «normal» is the absence of a row, not
 a kind of row.
 
-Pick a date from the next fourteen days or type `12.09` / `12.09.2026`. A bare
+Pick the date in the calendar (below) or type `12.09` / `12.09.2026`. A bare
 day and month is read in the year that is coming, because a school year straddles
 New Year. A note can be attached («осенние каникулы»).
 
@@ -225,10 +225,50 @@ it: предметы, особые дни, звонки, устройства, �
   exactly. Nothing else is accepted: a «вы уверены?» button is pressed by the
   same thumb that pressed the one before it.
 
+## Календарь — `/day`
+
+Every «на какой день?» in the bot is answered in the same month grid: a heading
+(`Сентябрь 2026`), the weekday initials `Пн … Вс`, the weeks as rows of seven
+with blank cells for the padding, today marked `«13»`, and `‹ Сегодня ›` at the
+bottom. It replaced a list of the next seven days, which put two ordinary things
+out of reach: **a day that has already happened** — homework is written down
+after the lesson at least as often as before it — and anything more than a week
+out.
+
+`‹` and `›` move one month and stop at the ends of **the school year today falls
+in**, 1 September to 31 August. Beyond it there is nothing to plan: in June the
+timetable for September does not exist yet, and a date in the year that ended
+cannot be taught again. A month button from a message left open across the
+boundary draws the nearest month it may rather than refusing.
+
+Opening the calendar from the menu or with `/day` and picking a date gives the
+**day card**: what that day already is — its lessons, its replacements, its
+events, its homework, and whether it is каникулы, a shortened or a remote
+day — rendered by the same function `/today` uses. Under it, for whoever has
+the role:
+
+| Button | Who | Goes to |
+| --- | --- | --- |
+| **📝 Задать ДЗ** | editor+ | the homework flow, at «по какому предмету?» |
+| **🔄 Замена** | editor+ | the замены flow, at «какой урок меняем?» |
+| **🎉 Событие** | editor+ | the события flow, at «что это за событие?» |
+| **🏖 Тип дня** | editor+ | особые дни, at «что это за день?» |
+
+A наблюдатель gets the card and the two navigation rows, and no button that
+would only answer with a refusal.
+
+Those buttons carry the date into each flow's **own** handler — the one the
+flow's own menu entry reaches — so «добавить ДЗ» exists once, not twice. The
+payload is the prefix, a short tag and digits: the longest one the calendar can
+build is 23 bytes against Telegram's ceiling of 64, and a test says so, because
+this project has already shipped a payload that was counted in characters and
+overflowed in Cyrillic.
+
 ## Day-to-day editing
 
-* **📝 Домашнее задание** — pick a day, pick a subject from that day's actual
-  lessons (or type one), send the text. Re-sending for the same day and subject
+* **📝 Домашнее задание** — pick a day in the calendar (any day, past ones
+  included), pick a subject from that day's actual lessons (or type one), send
+  the text. Re-sending for the same day and subject
   updates the existing entry instead of duplicating it. The digest shows each
   reader's own «сделал» ticks.
 * **🔄 Замены** — pick a day and a lesson, then either send the replacement
@@ -252,9 +292,10 @@ member may: it is the same text the day view already shows them, reachable by
 memory instead of by date. Case folding is SQL's `lower()`, which on SQLite
 covers Latin only.
 
-## Календарь — `/calendar`
+## Подписка на календарь — `/calendar`
 
-The class as an iCalendar feed, for Google Calendar, Apple Calendar and the rest.
+Not to be confused with `/day`, which is the month grid. This one is the class
+as an iCalendar feed, for Google Calendar, Apple Calendar and the rest.
 The bot prints the subscription URL and two lines on how to add it. The feed's
 secret is **not** the join code: a subscription URL ends up in calendar settings,
 on a family laptop and in the odd screenshot, and none of those should be able to
@@ -288,6 +329,7 @@ server's.
 | `/start` | anyone | menu, or onboarding |
 | `/help` | anyone | commands, grouped by what you may do |
 | `/today`, `/tomorrow`, `/week`, `/next` | members | the schedule |
+| `/day` | members | the calendar: any day, and what may be added to it |
 | `/homework` | members | digest with «сделал» ticks |
 | `/find <текст>` | members | search the homework |
 | `/tasks`, `/task <текст>` | members | personal to-do list |

@@ -508,6 +508,7 @@ async def test_a_long_subject_name_does_not_break_the_day_picker(session, school
         state,
         session,
         school_class,
+        Role.EDITOR,
     )
 
     assert "По какому предмету?" in callback.message.last
