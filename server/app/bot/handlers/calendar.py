@@ -48,10 +48,22 @@ def _today(school_class: SchoolClass | None = None) -> Date:
 
 
 def _month_or_none(raw: str) -> tuple[int, int] | None:
+    """``YYYYMM`` as numbers, or ``None`` for anything that is not one.
+
+    Built by constructing the date rather than range-checking the parts, for
+    the same reason [_date_or_none] does: the bounds are `datetime`'s and it
+    knows them. Checking only ``1 <= month <= 12`` left the year alone, and
+    «000001» - six digits, month one - reached `clamp_month`, which built
+    ``Date(0, 1, 1)`` and raised. A callback payload is whatever the client
+    sends, not only what this bot put on a button.
+    """
     if len(raw) != 6 or not raw.isdigit():
         return None
-    year, month = int(raw[:4]), int(raw[4:])
-    return (year, month) if 1 <= month <= 12 else None
+    try:
+        first = Date(int(raw[:4]), int(raw[4:]), 1)
+    except ValueError:
+        return None
+    return first.year, first.month
 
 
 def _date_or_none(raw: str) -> Date | None:

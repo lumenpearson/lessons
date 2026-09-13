@@ -450,8 +450,16 @@ class PersonalTask(Base):
     same fact - but it survives the homework being deleted, because the
     person's plan is theirs, not the editor's.
 
-    Times are class wall time like everything else in this schema; ``remind_at``
-    is compared against the class's own clock by the reminder tick.
+    Two clocks, and which column is on which one matters. ``due_date``,
+    ``due_time`` and ``remind_at`` are class wall time like the rest of this
+    schema - a task due "at 15:00" is due at three o'clock where the school is,
+    and the reminder tick compares ``remind_at`` against the class's own clock.
+    ``done_at``, ``created_at`` and ``updated_at`` are naive UTC, because they
+    record *when something happened* rather than a time somebody wrote down: an
+    instant is the same instant in every zone, and the ICS export's
+    ``COMPLETED:`` is a UTC stamp for exactly that reason. Reading one of the
+    three as wall time would be wrong by the class's offset, which in this
+    project reaches twelve hours.
     """
 
     __tablename__ = "personal_tasks"

@@ -304,10 +304,12 @@ class TaskOut(BaseModel):
     due_time: Time | None = None
     priority: int
     done: bool
+    # UTC: an instant, not a time anybody wrote down. See `PersonalTask`.
     done_at: datetime | None = None
     homework_id: int | None = None
-    # Class wall time, like every other clock on this surface.
+    # Class wall time, unlike the three around it.
     remind_at: datetime | None = None
+    # UTC, with `done_at`.
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

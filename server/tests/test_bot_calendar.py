@@ -11,6 +11,7 @@ from datetime import date
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
 from test_bot_handlers import FakeState
 
 from app.bot.calendar_keyboard import (
@@ -22,9 +23,11 @@ from app.bot.calendar_keyboard import (
     school_year_bounds,
 )
 from app.bot.handlers import calendar as handlers
-from app.bot.handlers.calendar import calendar_card, calendar_nav, cmd_day
+from app.bot.handlers import content
+from app.bot.handlers.calendar import calendar_card, calendar_nav, calendar_open, cmd_day
 from app.bot.handlers.content import homework_pick_day
-from app.bot.keyboards import HomeworkAction
+from app.bot.keyboards import EventAction, HomeworkAction
+from app.bot.keyboards import OverrideAction as OverrideCB
 from app.models import DayKind, DayOverride, Role
 
 # A Sunday in the middle of the 2026/27 school year, so every month of that
@@ -321,3 +324,93 @@ async def test_the_day_command_opens_the_calendar_at_the_current_month(
     assert "Календарь" in message.last
     assert "Сентябрь 2026" in labels(message.keyboard)
     assert "«13»" in labels(message.keyboard)
+
+
+@pytest.mark.parametrize("payload", ["000001", "000000", "999913", "00ab12"])
+async def test_a_month_nobody_could_have_pressed_is_refused_not_raised(
+    payload, session, school_class, monkeypatch
+):
+    """Callback data is whatever the client sends, not only what we put on a button.
+
+    «000001» is six digits with a month of one, which is as far as the check
+    used to go: the year went through untouched, `clamp_month` built
+    ``Date(0, 1, 1)`` and the handler died with a ValueError - «Что-то пошло не
+    так. Начните заново» on a keyboard that looks perfectly ordinary. The same
+    shape as the long-subject payload this project has already been bitten by,
+    and the same answer: parse it by building the date, and refuse what will
+    not build.
+    """
+    monkeypatch.setattr(handlers, "_today", lambda *_: TODAY)
+    callback = FakeCallback()
+
+    await calendar_nav(
+        callback,
+        CalendarAction(action="nav", flow="day", value=payload),
+        school_class,
+        Role.VIEWER,
+    )
+
+    assert callback.alerted
+    assert [text for text, _ in callback.answers] == ["Непонятный месяц"]
+    # And the grid the reader was looking at is left exactly as it was.
+    assert callback.message.markups == []
+
+
+async def test_the_same_payload_on_the_way_back_falls_through_to_this_month(
+    session, school_class, monkeypatch
+):
+    """`open` has no refusal to give - it is the «‹ Календарь» button on a day
+    card, and there is always a right answer for it: the month today is in."""
+    monkeypatch.setattr(handlers, "_today", lambda *_: TODAY)
+    callback = FakeCallback()
+
+    await calendar_open(
+        callback,
+        CalendarAction(action="open", flow="day", value="000001"),
+        school_class,
+        Role.VIEWER,
+    )
+
+    assert "Сентябрь 2026" in labels(callback.message.keyboard)
+
+
+@pytest.mark.parametrize(
+    "flow, factory, action",
+    [
+        ("hw", HomeworkAction, "pick_day"),
+        ("ovr", OverrideCB, "pick_day"),
+        ("ev", EventAction, "pick_day"),
+    ],
+)
+async def test_a_day_payload_that_is_not_a_date_is_refused_not_raised(
+    flow, factory, action, session, school_class, monkeypatch
+):
+    """The three flows the calendar hands a date to, at their boundary.
+
+    `manage.py` and `timetable.py` had guarded theirs; these three called
+    ``Date.fromisoformat`` on the payload, which is right for every button this
+    bot builds and an unhandled ValueError for anything else. «Событие» was the
+    worst of the three: it stored the value unparsed and raised three questions
+    later, at the step that finally read it, so the failure looked like it
+    belonged to whatever the user had just typed.
+    """
+    monkeypatch.setattr(content, "_today", lambda *_: TODAY)
+    callback = FakeCallback()
+    handler = {
+        "hw": content.homework_pick_day,
+        "ovr": content.override_pick_day,
+        "ev": content.event_pick_day,
+    }[flow]
+
+    state = FakeState()
+    payload = factory(action=action, value="не-дата")
+    if flow == "ev":
+        await handler(callback, payload, state, school_class, Role.EDITOR)
+    else:
+        await handler(callback, payload, state, session, school_class, Role.EDITOR)
+
+    assert [text for text, _ in callback.answers] == [content.BAD_DATE]
+    assert callback.message.markups == []
+    # Nothing was written down, so the next tap starts clean rather than on a
+    # half-filled flow whose date is a string that will not parse.
+    assert await state.get_data() == {}

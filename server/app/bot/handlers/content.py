@@ -79,6 +79,28 @@ def _shorten(text: str) -> str:
     return text if len(text) <= NOTIFY_TEXT_MAX else text[: NOTIFY_TEXT_MAX - 1].rstrip() + "…"
 
 
+#: The answer a day picker gives to a date it cannot read.
+BAD_DATE = "Непонятная дата. Откройте календарь заново."
+
+
+def _date_or_none(raw: str) -> Date | None:
+    """A date out of a callback payload, or ``None``.
+
+    Every «на какой день?» in this module used to call
+    ``Date.fromisoformat(callback_data.value)`` straight, which is correct for
+    every payload this bot builds and an unhandled ``ValueError`` for every
+    other one — and a callback payload is whatever the client sends, not only
+    what was put on a button. The three handlers below are the boundary: past
+    them the date travels in the FSM state and the five places that read it
+    back can go on trusting it. `manage.py` and `timetable.py` already did this;
+    this is the same guard under the same name.
+    """
+    try:
+        return Date.fromisoformat(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def _parse_time_range(raw: str) -> tuple[time, time] | None:
     """Accepts "12:30-13:15" or "12:30 13:15"."""
     parts = raw.replace("—", "-").replace("–", "-").replace("-", " ").split()
@@ -155,7 +177,10 @@ async def homework_pick_day(
         await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
-    due = Date.fromisoformat(callback_data.value)
+    due = _date_or_none(callback_data.value)
+    if due is None:
+        await callback.answer(BAD_DATE, show_alert=True)
+        return
     await state.update_data(due=callback_data.value)
 
     days = await ScheduleResolver(session, school_class).resolve_range(due, 1)
@@ -345,7 +370,10 @@ async def override_pick_day(
         await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
-    target = Date.fromisoformat(callback_data.value)
+    target = _date_or_none(callback_data.value)
+    if target is None:
+        await callback.answer(BAD_DATE, show_alert=True)
+        return
     await state.update_data(date=callback_data.value)
 
     days = await ScheduleResolver(session, school_class).resolve_range(target, 1)
@@ -618,6 +646,14 @@ async def event_pick_day(
 ) -> None:
     if school_class is None or role is None or not role.at_least(Role.EDITOR):
         await callback.answer("Нужна роль редактора", show_alert=True)
+        return
+
+    # Parsed here even though nothing needs the value until the last step:
+    # otherwise an unreadable date is carried through three questions and then
+    # raises out of the handler that finally reads it, which looks to the user
+    # like the answer they just typed was the problem.
+    if _date_or_none(callback_data.value) is None:
+        await callback.answer(BAD_DATE, show_alert=True)
         return
 
     await state.update_data(date=callback_data.value)
