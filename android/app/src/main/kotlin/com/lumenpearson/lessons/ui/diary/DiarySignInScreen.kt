@@ -62,13 +62,19 @@ import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
  *
  * @param reauth true when the session died upstream and only the password is
  *   being asked for; [knownLogin] is then shown rather than typed.
+ * @param failed whether the last attempt was refused — the fields go red and
+ *   nothing else. *What* went wrong is said by the pop-up the caller hosts, not
+ *   here: a line of text below two fields and above a button is under the
+ *   keyboard on a phone, which is the one place it was guaranteed not to be
+ *   read. The red outline is worth keeping anyway, because it is the half that
+ *   survives dismissing the pop-up and says which form the answer was about.
  */
 @Composable
 fun DiarySignInScreen(
     reauth: Boolean,
     knownLogin: String,
     busy: Boolean,
-    failure: DiaryFailure?,
+    failed: Boolean,
     onSignIn: (login: String, password: String) -> Unit,
     modifier: Modifier = Modifier,
     onEdited: () -> Unit = {},
@@ -123,7 +129,7 @@ fun DiarySignInScreen(
                     // already known, and a field that can be changed there
                     // invites signing in as somebody else by accident.
                     enabled = !reauth && !busy,
-                    isError = failure != null,
+                    isError = failed,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Next,
@@ -142,7 +148,7 @@ fun DiarySignInScreen(
                     label = { Text(stringResource(R.string.diary_password_label)) },
                     singleLine = true,
                     enabled = !busy,
-                    isError = failure != null,
+                    isError = failed,
                     visualTransformation = if (revealed) {
                         VisualTransformation.None
                     } else {
@@ -174,16 +180,6 @@ fun DiarySignInScreen(
                 )
             }
 
-            if (failure != null) {
-                GroupRow {
-                    Text(
-                        text = failure.asSignInText(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-
             GroupActionItem(
                 label = stringResource(R.string.diary_sign_in_action),
                 icon = Icons.AutoMirrored.Rounded.Login,
@@ -210,7 +206,7 @@ fun DiarySignInScreen(
 }
 
 /**
- * What a failure says on the sign-in form.
+ * What a failure says about a sign-in attempt.
  *
  * [DiaryFailure.SignInRequired] means "the diary refused these credentials"
  * *here* and "your session is gone" everywhere else, which is the one place the
@@ -218,7 +214,7 @@ fun DiarySignInScreen(
  * than one shared sentence.
  */
 @Composable
-private fun DiaryFailure.asSignInText(): String = when (this) {
+internal fun DiaryFailure.asSignInText(): String = when (this) {
     DiaryFailure.SignInRequired -> stringResource(R.string.diary_error_credentials)
     else -> asText()
 }

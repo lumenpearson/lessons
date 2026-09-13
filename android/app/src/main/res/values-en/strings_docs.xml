@@ -119,7 +119,7 @@
 
     <!-- "The Petersburg diary" -->
     <string name="docs_diary_intro">A separate thing with a separate account: the class timetable lives in the bot, while the diary is the St Petersburg city service that holds marks, absences and the homework the school itself sets. In the app it is Settings → Diary.</string>
-    <string name="docs_diary_sign_in">Sign in with the same login and password as on the diary site.</string>
+    <string name="docs_diary_sign_in">Signing in takes the same login and password as the diary\'s own site. What the attempt came to is said in a pop-up: “Signed in”, naming the account, or “Could not sign in” with the reason - wrong pair, diary not answering, no connection. Those are different things and they need different fixes.</string>
     <string name="docs_diary_password_note">The password is never stored: it is needed for exactly one request, after which both the phone and the server forget it. Only the diary\'s own session is kept, and it lives as long as the service renews it. When it ends the app asks for the password again — the login stays where it was.</string>
     <string name="docs_diary_inside">Inside are two tabs — Timetable and Marks — and a child picker if the account sees more than one. Diary homework appears under the lessons of the day it is due on. An absence, a late arrival and a remark all arrive in the same list as the marks, but the app tells them apart and shows them differently.</string>
     <string name="docs_diary_foreign_note">The service belongs to somebody else and is undocumented. If it answers in a way the app cannot read, the app says so: that is fixed on the server, not in the app.</string>
