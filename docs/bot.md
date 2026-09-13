@@ -9,6 +9,34 @@ live in `handlers/`, the structural half of them in `handlers/manage.py`; the
 wording lives in `render.py` and `manage_render.py`; the buttons in
 `keyboards.py`, `manage_keyboards.py` and `calendar_keyboard.py`.
 
+## Цвета кнопок
+
+Bot API 9.3 lets an inline button be coloured, and `app/bot/button_style.py`
+decides once what each colour means, so that a red button means the same thing
+on every page of the bot:
+
+| | |
+|---|---|
+| **красная** | takes something away or throws away what you were doing — удалить, отменить, отклонить, убрать доступ, отвязать, выключить. A toggle carrying both halves in one label («🔄 Замены: выключить») is painted by what pressing it does, so the same button reading «включить» is plain |
+| **зелёная** | commits, or marks the one row that is the current state — одобрить, применить, добавить, today in the calendar, a ticked task, the default расписание звонков |
+| **голубая** | a span of time and the way between spans — `‹` `›`, недели, периоды, the weekday picker, «Ещё ›» |
+
+Everything else stays uncoloured, and most of every keyboard does. Colour only
+separates while the majority is plain: paint half a keyboard and the three
+meanings above become decoration, which costs a glance and buys nothing.
+
+There are two deliberate exceptions to «отмена красная». In a destructive
+confirmation the red button is the one that deletes, so the escape beside it
+stays plain — otherwise the pair is told apart by its labels alone, which is
+the reading the colour exists to save. And on **🔔 Звонки** the green row is the
+default schedule rather than the ⭐ that would make another one default: green
+says *which one is in force*, the same thing it says about today in the
+calendar, and a page cannot have one colour for «current» and the same colour
+for «make current».
+
+A Telegram client too old for `style` draws a plain button. Nothing here is load
+bearing — the label still says what the button does.
+
 ## Setup
 
 1. Create a bot with [@BotFather](https://t.me/BotFather) and copy the token.
@@ -229,7 +257,7 @@ it: предметы, особые дни, звонки, устройства, �
 
 Every «на какой день?» in the bot is answered in the same month grid: a heading
 (`Сентябрь 2026`), the weekday initials `Пн … Вс`, the weeks as rows of seven
-with blank cells for the padding, today marked `«13»`, and `‹ Сегодня ›` at the
+with blank cells for the padding, today painted green, and `‹ Сегодня ›` at the
 bottom. It replaced a list of the next seven days, which put two ordinary things
 out of reach: **a day that has already happened** — homework is written down
 after the lesson at least as often as before it — and anything more than a week

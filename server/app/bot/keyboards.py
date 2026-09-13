@@ -10,6 +10,7 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
 )
 
+from app.bot.button_style import DANGER, PRIMARY, SUCCESS
 from app.models import Role
 
 WEEKDAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
@@ -96,8 +97,12 @@ class ReminderAction(CallbackData, prefix="rem"):
 def main_menu(role: Role) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
         [
-            InlineKeyboardButton(text="📅 Сегодня", callback_data=DayNav(offset=0).pack()),
-            InlineKeyboardButton(text="🗓 Завтра", callback_data=DayNav(offset=1).pack()),
+            InlineKeyboardButton(
+                text="📅 Сегодня", callback_data=DayNav(offset=0).pack(), style=SUCCESS
+            ),
+            InlineKeyboardButton(
+                text="🗓 Завтра", callback_data=DayNav(offset=1).pack(), style=PRIMARY
+            ),
         ],
         [
             InlineKeyboardButton(
@@ -107,11 +112,17 @@ def main_menu(role: Role) -> InlineKeyboardMarkup:
         # Next to «сегодня» and «завтра» on purpose: it is the same question
         # asked about any other day, and it is where a viewer looks up a past
         # day as readily as an editor plans a future one.
-        [InlineKeyboardButton(text="📆 Календарь", callback_data=Menu(action="day").pack())],
+        [
+            InlineKeyboardButton(
+                text="📆 Календарь", callback_data=Menu(action="day").pack(), style=PRIMARY
+            )
+        ],
     ]
     rows.append(
         [
-            InlineKeyboardButton(text="🗓 Неделя", callback_data=Menu(action="week").pack()),
+            InlineKeyboardButton(
+                text="🗓 Неделя", callback_data=Menu(action="week").pack(), style=PRIMARY
+            ),
             InlineKeyboardButton(text="⏭ Что дальше", callback_data=Menu(action="next").pack()),
         ]
     )
@@ -157,9 +168,15 @@ def day_nav(offset: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="‹", callback_data=DayNav(offset=offset - 1).pack()),
-                InlineKeyboardButton(text="Сегодня", callback_data=DayNav(offset=0).pack()),
-                InlineKeyboardButton(text="›", callback_data=DayNav(offset=offset + 1).pack()),
+                InlineKeyboardButton(
+                    text="‹", callback_data=DayNav(offset=offset - 1).pack(), style=PRIMARY
+                ),
+                InlineKeyboardButton(
+                    text="Сегодня", callback_data=DayNav(offset=0).pack(), style=SUCCESS
+                ),
+                InlineKeyboardButton(
+                    text="›", callback_data=DayNav(offset=offset + 1).pack(), style=PRIMARY
+                ),
             ],
             [InlineKeyboardButton(text="‹ Меню", callback_data=Menu(action="root").pack())],
         ]
@@ -178,7 +195,13 @@ def request_contact() -> ReplyKeyboardMarkup:
 def cancel_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="✖️ Отмена", callback_data=Menu(action="root").pack())]
+            [
+                InlineKeyboardButton(
+                    text="✖️ Отмена",
+                    callback_data=Menu(action="root").pack(),
+                    style=DANGER,
+                )
+            ]
         ]
     )
 
@@ -192,7 +215,13 @@ def role_picker(available: list[Role], target: str = "") -> InlineKeyboardMarkup
         ]
         for role in available
     ]
-    rows.append([InlineKeyboardButton(text="✖️ Отмена", callback_data=Menu(action="root").pack())])
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="✖️ Отмена", callback_data=Menu(action="root").pack(), style=DANGER
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -205,6 +234,7 @@ def weekday_picker(callback_factory: type[CallbackData], action: str) -> InlineK
                 InlineKeyboardButton(
                     text=WEEKDAY_NAMES[i],
                     callback_data=callback_factory(action=action, value=str(i + 1)).pack(),
+                    style=PRIMARY,
                 )
                 for i in range(chunk_start, chunk_start + 3)
             ]
@@ -244,9 +274,15 @@ def week_nav(offset: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="‹", callback_data=WeekNav(offset=offset - 1).pack()),
-                InlineKeyboardButton(text="Сегодня", callback_data=WeekNav(offset=0).pack()),
-                InlineKeyboardButton(text="›", callback_data=WeekNav(offset=offset + 1).pack()),
+                InlineKeyboardButton(
+                    text="‹", callback_data=WeekNav(offset=offset - 1).pack(), style=PRIMARY
+                ),
+                InlineKeyboardButton(
+                    text="Сегодня", callback_data=WeekNav(offset=0).pack(), style=SUCCESS
+                ),
+                InlineKeyboardButton(
+                    text="›", callback_data=WeekNav(offset=offset + 1).pack(), style=PRIMARY
+                ),
             ],
             [InlineKeyboardButton(text="‹ Меню", callback_data=Menu(action="root").pack())],
         ]
@@ -290,15 +326,26 @@ def task_list_keyboard(tasks: list, show_done: bool) -> InlineKeyboardMarkup:
                     callback_data=TaskAction(
                         action="done", value=str(task.id), show_done=flag
                     ).pack(),
+                    # Green is the state, not the button's effect: pressing a
+                    # green one un-ticks the task. ✅ against a green row is
+                    # the same fact said twice, which is what a tick list
+                    # wants — the eye finds the done ones by colour and only
+                    # then reads them.
+                    style=SUCCESS if task.done else None,
                 )
             ]
         )
     rows.append(
         [
-            InlineKeyboardButton(text="➕ Добавить", callback_data=TaskAction(action="add").pack()),
+            InlineKeyboardButton(
+                text="➕ Добавить",
+                callback_data=TaskAction(action="add").pack(),
+                style=SUCCESS,
+            ),
             InlineKeyboardButton(
                 text="Скрыть сделанные" if show_done else "🗂 Показать сделанные",
                 callback_data=TaskAction(action="list", show_done=0 if show_done else 1).pack(),
+                style=PRIMARY,
             ),
         ]
     )
@@ -308,6 +355,7 @@ def task_list_keyboard(tasks: list, show_done: bool) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="🗑 Удалить…",
                     callback_data=TaskAction(action="delete_pick", show_done=flag).pack(),
+                    style=DANGER,
                 )
             ]
         )
@@ -324,6 +372,7 @@ def task_delete_picker(tasks: list, show_done: bool) -> InlineKeyboardMarkup:
                 callback_data=TaskAction(
                     action="delete", value=str(task.id), show_done=flag
                 ).pack(),
+                style=DANGER,
             )
         ]
         for task in tasks[:TASK_BUTTONS_MAX]
@@ -348,7 +397,13 @@ def task_delete_confirm(task_id: int, show_done: bool) -> InlineKeyboardMarkup:
                     callback_data=TaskAction(
                         action="delete_confirm", value=str(task_id), show_done=flag
                     ).pack(),
+                    style=DANGER,
                 ),
+                # Deliberately plain, though «отмена» is red everywhere else:
+                # the red button in this pair is the one that deletes, and a
+                # second red button beside it would leave the two telling each
+                # other apart on their labels alone — which is the reading the
+                # colour was added to save.
                 InlineKeyboardButton(
                     text="Отмена", callback_data=TaskAction(action="list", show_done=flag).pack()
                 ),
@@ -360,12 +415,17 @@ def task_delete_confirm(task_id: int, show_done: bool) -> InlineKeyboardMarkup:
 def task_remind_keyboard(task_id: int, has_time: bool) -> InlineKeyboardMarkup:
     """Offered right after a dated task is saved. «за час» needs a due time."""
     rows: list[list[InlineKeyboardButton]] = []
+    # The three offsets are blue together and «без напоминания» is not: within
+    # the group the colour separates nothing, which is right — they are three
+    # answers to one question — and between the group and the way out of it, it
+    # separates the only thing here worth separating.
     if has_time:
         rows.append(
             [
                 InlineKeyboardButton(
                     text="⏰ За час",
                     callback_data=TaskAction(action="remind", value=f"{task_id}_hour").pack(),
+                    style=PRIMARY,
                 )
             ]
         )
@@ -374,6 +434,7 @@ def task_remind_keyboard(task_id: int, has_time: bool) -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text="⏰ Утром в 8:00 в день срока",
                 callback_data=TaskAction(action="remind", value=f"{task_id}_morning").pack(),
+                style=PRIMARY,
             )
         ]
     )
@@ -382,6 +443,7 @@ def task_remind_keyboard(task_id: int, has_time: bool) -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text="⏰ Накануне в 20:00",
                 callback_data=TaskAction(action="remind", value=f"{task_id}_eve").pack(),
+                style=PRIMARY,
             )
         ]
     )
@@ -410,28 +472,34 @@ def reminder_keyboard(settings) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=f"{icon} Выключить",
                     callback_data=ReminderAction(action="clear_time", value=kind).pack(),
+                    style=DANGER,
                 )
             )
         return row
 
+    def _toggle(label: str, flag: str, on: bool) -> list[InlineKeyboardButton]:
+        # Painted by what pressing it does, not by the state it reports: these
+        # two carry both halves in one label, so «Замены: выключить» is red
+        # because pressing it switches замены off, and the same button reading
+        # «включить» is plain because pressing it takes nothing away.
+        return [
+            InlineKeyboardButton(
+                text=f"{label}: " + ("выключить" if on else "включить"),
+                callback_data=ReminderAction(action="toggle", value=flag).pack(),
+                style=DANGER if on else None,
+            )
+        ]
+
     rows = [
         _digest_row("morning", "☀️", settings.morning_at is not None),
         _digest_row("evening", "🌙", settings.evening_at is not None),
+        _toggle("🔄 Замены", "changes", settings.notify_changes),
+        _toggle("📝 Задания", "homework", settings.notify_homework),
         [
             InlineKeyboardButton(
-                text="🔄 Замены: " + ("выключить" if settings.notify_changes else "включить"),
-                callback_data=ReminderAction(action="toggle", value="changes").pack(),
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text="📝 Задания: " + ("выключить" if settings.notify_homework else "включить"),
-                callback_data=ReminderAction(action="toggle", value="homework").pack(),
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text="🔕 Выключить всё", callback_data=ReminderAction(action="off").pack()
+                text="🔕 Выключить всё",
+                callback_data=ReminderAction(action="off").pack(),
+                style=DANGER,
             )
         ],
         [InlineKeyboardButton(text="‹ Меню", callback_data=Menu(action="root").pack())],

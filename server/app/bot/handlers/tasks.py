@@ -24,6 +24,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.button_style import SUCCESS
 from app.bot.keyboards import (
     HomeworkAction,
     HomeworkTick,
@@ -476,6 +477,7 @@ def homework_tick_keyboard(
                     InlineKeyboardButton(
                         text=f"{mark} {cut(item.subject, 20)} · {_day_short(day.date, today)}",
                         callback_data=HomeworkTick(action="toggle", value=str(homework_id)).pack(),
+                        style=SUCCESS if key in done else None,
                     )
                 ]
             )
@@ -507,7 +509,9 @@ async def homework_view(
         extra.append(
             [
                 InlineKeyboardButton(
-                    text="➕ Добавить ДЗ", callback_data=HomeworkAction(action="add").pack()
+                    text="➕ Добавить ДЗ",
+                    callback_data=HomeworkAction(action="add").pack(),
+                    style=SUCCESS,
                 )
             ]
         )

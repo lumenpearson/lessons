@@ -21,6 +21,7 @@ from datetime import date as Date
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from app.bot.button_style import DANGER, PRIMARY, SUCCESS
 from app.bot.keyboards import EventAction, HomeworkAction, Menu, back_to_menu
 from app.bot.keyboards import OverrideAction as OverrideCB
 from app.bot.manage_keyboards import DayKindAction
@@ -108,7 +109,12 @@ def month_grid(year: int, month: int) -> list[list[int | None]]:
 
 
 def _day_button(flow: str, day: Date, today: Date) -> InlineKeyboardButton:
-    label = f"«{day.day}»" if day == today else str(day.day)
+    # Today is green and otherwise written like every other day. It used to be
+    # «13» — the only mark a keyboard had for «this one is now» before buttons
+    # could be coloured, and a poor one: guillemets are quotation marks, they
+    # made the cell a character wider than its neighbours, and in a grid where
+    # width is alignment that is the row that looks wrong rather than the day
+    # that looks current.
     if flow in DAY_PAYLOADS:
         factory, action = DAY_PAYLOADS[flow]
         payload = factory(action=action, value=day.isoformat()).pack()
@@ -116,7 +122,11 @@ def _day_button(flow: str, day: Date, today: Date) -> InlineKeyboardButton:
         payload = CalendarAction(
             action="card", flow=flow, value=f"{day:%Y%m%d}"
         ).pack()
-    return InlineKeyboardButton(text=label, callback_data=payload)
+    return InlineKeyboardButton(
+        text=str(day.day),
+        callback_data=payload,
+        style=SUCCESS if day == today else None,
+    )
 
 
 def _blank(flow: str) -> InlineKeyboardButton:
@@ -171,6 +181,7 @@ def month_keyboard(flow: str, year: int, month: int, today: Date) -> InlineKeybo
             callback_data=CalendarAction(
                 action="nav", flow=flow, value=f"{target:%Y%m}"
             ).pack(),
+            style=PRIMARY,
         )
 
     previous, following = _shift_month(anchor, -1), _shift_month(anchor, 1)
@@ -182,12 +193,19 @@ def month_keyboard(flow: str, year: int, month: int, today: Date) -> InlineKeybo
                 callback_data=CalendarAction(
                     action="nav", flow=flow, value=f"{today:%Y%m}"
                 ).pack(),
+                style=SUCCESS,
             ),
             _arrow("›", following, following <= last),
         ]
     )
     rows.append(
-        [InlineKeyboardButton(text="✖️ Отмена", callback_data=Menu(action="root").pack())]
+        [
+            InlineKeyboardButton(
+                text="✖️ Отмена",
+                callback_data=Menu(action="root").pack(),
+                style=DANGER,
+            )
+        ]
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

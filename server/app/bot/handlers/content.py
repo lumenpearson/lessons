@@ -20,6 +20,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.button_style import DANGER
 from app.bot.handlers.calendar import open_month
 from app.bot.handlers.tasks import homework_view
 from app.bot.keyboards import (
@@ -415,6 +416,7 @@ async def override_pick_index(
             InlineKeyboardButton(
                 text="🚫 Отменить урок",
                 callback_data=OverrideCB(action="cancel_lesson").pack(),
+                style=DANGER,
             )
         ],
         [

@@ -6,7 +6,11 @@ requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.141.1",
     "uvicorn[standard]>=0.30",
-    "aiogram>=3.13",
+    # 3.31 is the floor, not a preference: it is the first release to carry
+    # Bot API 9.3's ``InlineKeyboardButton.style``, and on anything older every
+    # coloured keyboard in ``app/bot/button_style.py`` raises at construction
+    # rather than quietly drawing grey. requirements.txt already said 3.31.
+    "aiogram>=3.31",
     "sqlalchemy[asyncio]>=2.0.30",
     "aiosqlite>=0.20",
     "asyncpg>=0.29",

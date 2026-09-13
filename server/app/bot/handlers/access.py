@@ -17,6 +17,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.button_style import DANGER, SUCCESS
 from app.bot.keyboards import (
     AccessAction,
     Menu,
@@ -100,12 +101,14 @@ async def access_root(
                         callback_data=RequestAction(
                             action="approve", value=str(request.id)
                         ).pack(),
+                        style=SUCCESS,
                     ),
                     InlineKeyboardButton(
                         text="✖️",
                         callback_data=RequestAction(
                             action="decline", value=str(request.id)
                         ).pack(),
+                        style=DANGER,
                     ),
                 ]
             )
@@ -116,6 +119,7 @@ async def access_root(
             InlineKeyboardButton(
                 text="➕ Добавить по номеру",
                 callback_data=AccessAction(action="invite").pack(),
+                style=SUCCESS,
             )
         ]
     )
@@ -302,6 +306,7 @@ async def set_role_prompt(
             InlineKeyboardButton(
                 text="🚫 Убрать доступ",
                 callback_data=AccessAction(action="revoke", value=callback_data.value).pack(),
+                style=DANGER,
             )
         ]
     )
