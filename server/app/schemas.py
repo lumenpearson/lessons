@@ -486,6 +486,7 @@ class TickOut(BaseModel):
     fsm_purged: int
     join_attempts_purged: int
     diary_sessions_purged: int = 0
+    device_tokens_purged: int = 0
 
 
 # ---------------------------------------------------------------------------

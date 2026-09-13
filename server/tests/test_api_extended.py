@@ -1083,6 +1083,7 @@ async def test_cron_tick_delivers_a_morning_digest_once(
         "fsm_purged": 0,
         "join_attempts_purged": 0,
         "diary_sessions_purged": 0,
+        "device_tokens_purged": 0,
     }
     assert len(tick_bot.sent) == 1
     recipient, text = tick_bot.sent[0]
@@ -1169,6 +1170,49 @@ async def test_cron_tick_sweeps_dead_and_forgotten_diary_sessions(
 
     left = await session.scalars(select(DiarySession.login))
     assert sorted(left) == ["b@e", "e@e"]
+
+
+async def test_cron_tick_sweeps_the_phones_that_stopped_asking(
+    client, session, school_class, monkeypatch, tick_bot
+):
+    """A join mints a row and nothing ever removed one.
+
+    A pupil who reinstalls, clears the app's data or re-enters the code leaves
+    the previous token behind — live, able to read the class for as long as the
+    class exists, and on the admin's list forever. The cut-off is deliberately
+    far past каникулы: a phone silent since the end of May must still work in
+    September.
+    """
+    _configure_cron(monkeypatch)
+    now = datetime.utcnow()
+    session.add_all([
+        DeviceToken(
+            token_hash="f" * 64, class_id=school_class.id, device_name="старый",
+            last_seen_at=now - timedelta(days=200),
+        ),
+        DeviceToken(
+            token_hash="g" * 64, class_id=school_class.id, device_name="через каникулы",
+            last_seen_at=now - timedelta(days=100),
+        ),
+        DeviceToken(
+            token_hash="h" * 64, class_id=school_class.id, device_name="никогда не заходил",
+            created_at=now - timedelta(days=200),
+        ),
+        DeviceToken(
+            token_hash="i" * 64, class_id=school_class.id, device_name="в работе",
+            last_seen_at=now,
+        ),
+    ])
+    await session.commit()
+
+    response = await client.get("/api/v1/cron/tick", headers={"X-Cron-Secret": CRON_SECRET})
+    assert response.status_code == 200
+    assert response.json()["device_tokens_purged"] == 2
+
+    left = await session.scalars(
+        select(DeviceToken.device_name).where(DeviceToken.class_id == school_class.id)
+    )
+    assert sorted(name for name in left if name) == ["в работе", "через каникулы"]
 
 
 def test_current_device_is_what_the_class_dependency_builds_on():

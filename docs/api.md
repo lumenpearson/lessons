@@ -704,12 +704,25 @@ minutes, with the `X-Cron-Secret` header set to the deployment's
 | `404` | `CRON_SECRET` is unset: the endpoint does not exist, like the webhook without its secret |
 | `403` | Wrong or missing header (constant-time comparison) |
 | `503` | `BOT_TOKEN` is unset: nothing to send with |
-| `200` | `{"morning": 1, "evening": 0, "tasks": 2, "failed": 0, "fsm_purged": 0, "join_attempts_purged": 3}` |
+| `200` | `{"morning": 1, "evening": 0, "tasks": 2, "failed": 0, "fsm_purged": 0, "join_attempts_purged": 3, "diary_sessions_purged": 0, "device_tokens_purged": 0}` |
 
 What is due is decided from each class's own clock and from what was already
 sent today, never from when the last tick ran - so a tick that runs twice in
-a minute or an hour late sends each digest once. The tick also sweeps
-abandoned bot conversations and expired join-attempt counters.
+a minute or an hour late sends each digest once.
+
+Этот же тик подметает таблицы, которые растут между вызовами — ничто другое
+в этом развёртывании не работает между запросами:
+
+| Что | Когда удаляется | Почему |
+| --- | --- | --- |
+| Брошенные диалоги бота (`fsm_states`) | спустя сутки | `fsm_purged` |
+| Счётчики неудачных попыток входа (`join_attempts`) | через час | `join_attempts_purged` |
+| Сессии дневника (`diary_sessions`) | через сутки после отказа сервера, через 30 дней без использования | внутри лежит живой токен чужого сервиса |
+| Токены устройств (`device_tokens`) | через 180 дней молчания | каждый `POST /join` создаёт строку; переустановка приложения оставляет старую навсегда |
+
+180 дней — это заведомо больше летних каникул: телефон, молчавший с конца мая,
+в сентябре должен работать. Устройство, которым пользуются, отмечается не реже
+раза в 15 минут при любом чтении.
 
 ## `GET /api/v1/health`
 

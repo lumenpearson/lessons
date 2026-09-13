@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db import SessionLocal, get_session
-from app.models import DiarySession, JoinAttempt
+from app.models import DeviceToken, DiarySession, JoinAttempt
 from app.schemas import TickOut
 from app.services import reminders
 
@@ -45,6 +45,22 @@ DIARY_SESSION_TTL = timedelta(days=30)
 # for the app still holding our token to come back and be told to sign in
 # again, rather than be handed a 401 it cannot explain.
 DIARY_EXPIRED_TTL = timedelta(days=1)
+
+# A phone that has not asked for the timetable in half a year is gone, and its
+# token with it. Every ``POST /join`` mints a row, so a pupil who reinstalls the
+# app, clears its data or re-enters the code leaves the old one behind - live,
+# able to read the class for as long as the class exists, and on the admin's
+# «📱 Устройства» page forever. Nothing else removes one: ``revoked`` is
+# deliberately a tombstone rather than a delete, and a lost phone is revoked by
+# hand, not swept.
+#
+# Half a year, because the quiet stretch this must not cut through is каникулы:
+# a pupil who does not open the app between the end of May and September is
+# silent for about a hundred days, and being signed out in September - by a
+# rule they cannot see, needing a code an admin has to hand out again - is a
+# far worse failure than a row too many. Anything actually in use is touched at
+# least every fifteen minutes it is read (``deps._touch_last_seen``).
+DEVICE_TOKEN_TTL = timedelta(days=180)
 
 
 def _build_bot() -> Any:
@@ -95,6 +111,23 @@ async def _purge_diary_sessions(session: AsyncSession) -> int:
     return result.rowcount or 0
 
 
+async def _purge_device_tokens(session: AsyncSession) -> int:
+    """Drop the phones that stopped asking. See [DEVICE_TOKEN_TTL].
+
+    Judged by ``created_at`` when a device never came back at all after
+    joining, which is the commonest stale row there is: a code typed into a
+    phone that was then handed to somebody else.
+    """
+    cutoff = datetime.now(UTC).replace(tzinfo=None) - DEVICE_TOKEN_TTL
+    result = await session.execute(
+        delete(DeviceToken).where(
+            func.coalesce(DeviceToken.last_seen_at, DeviceToken.created_at) <= cutoff
+        )
+    )
+    await session.commit()
+    return result.rowcount or 0
+
+
 async def tick(
     x_cron_secret: str | None = Header(default=None),
     session: AsyncSession = Depends(get_session),
@@ -127,11 +160,13 @@ async def tick(
     fsm_purged = await _purge_fsm()
     join_purged = await _purge_join_attempts(session)
     diary_purged = await _purge_diary_sessions(session)
+    device_purged = await _purge_device_tokens(session)
     return TickOut(
         **counts,
         fsm_purged=fsm_purged,
         join_attempts_purged=join_purged,
         diary_sessions_purged=diary_purged,
+        device_tokens_purged=device_purged,
     )
 
 
