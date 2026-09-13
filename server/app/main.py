@@ -16,6 +16,7 @@ from fastapi import FastAPI
 
 from app.api.cron import router as cron_router
 from app.api.diary import router as diary_router
+from app.api.diary_web import router as diary_web_router
 from app.api.edit import router as edit_router
 from app.api.manage import router as manage_router
 from app.api.public import router as public_router
@@ -88,6 +89,10 @@ app.include_router(public_router)
 # person's own account with the service, and an endpoint that answers 401
 # without one is honest about what it is.
 app.include_router(diary_router)
+# The sign-in form. Not under /api/v1: it is a page a person opens, not an
+# endpoint a client calls, and it is the one HTML this project serves — see
+# app/api/diary_web.py for why a password may not be typed into a chat.
+app.include_router(diary_web_router)
 app.include_router(edit_router)
 # The management surface: what the bot's /subjects, /bells, /class, /devices,
 # /log, /stats, /export, /import and access requests do, for a class admin

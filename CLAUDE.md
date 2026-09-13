@@ -19,8 +19,15 @@ api/         thin Vercel entry point that re-exports server/app/main.py
 docs/        eight documents plus an index (docs/README.md), all current
 ```
 
-There is no npm, no Node and no web frontend. `requirements.txt` at the root exists only
-because Vercel's Python builder does not read `pyproject.toml` from a subdirectory.
+There is no npm, no Node and no web frontend — with **one** deliberate exception:
+`server/app/api/diary_web.py` serves a single server-rendered sign-in form at `/diary/signin`,
+because a password typed into a Telegram chat is in the chat history, on Telegram's servers
+and in that phone's backup, and deleting the message undoes none of it. No JavaScript, no
+cookie, no build step. Do not grow it into a second admin surface: anything the bot can
+express belongs in the bot.
+
+`requirements.txt` at the root exists only because Vercel's Python builder does not read
+`pyproject.toml` from a subdirectory — and it must stay level with it.
 
 ## Commands
 
@@ -32,7 +39,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 702 tests, about two and a half minutes
+- **`python -m pytest -q`** — 726 tests, about two and a half minutes
 - `python -m pytest -q tests/test_schedule.py -k parity` — one file, one test
 - `python -m uvicorn app.main:app --reload` — run it; add `--host 0.0.0.0` for a phone to
   reach it
@@ -148,9 +155,17 @@ points Hilt does not inject cleanly.
   other, and one token meaning both would have to be re-minted whenever either half changed.
   They go in the same `Authorization: Bearer` header on different endpoint families — check
   which one an endpoint depends on before moving it.
-- **Migrations are Alembic and production is already at `0005`.** `0001` is a guarded
+- **The diary needs `DIARY_SECRET` or it does not run.** The Petersburg session token is
+  the one stored credential that cannot be a hash (it is replayed upstream on every call),
+  so it is sealed with Fernet — `app/crypto.py`. No key means the feature refuses at the
+  door rather than falling back to plaintext, because a silent fallback is invisible and
+  deployments stay in that state for years. `tests/conftest.py` sets one; a test that wants
+  the feature *off* patches it away.
+- **Migrations are Alembic and production is already at `0006`.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
-  `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`. Nothing after `0001` may use `create_all`. A model change needs
+  `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
+  encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
+  the per-member diary columns. Nothing after `0001` may use `create_all`. A model change needs
   a revision — a live database will not grow a column on its own, and lifespan `create_all`
   runs only for local SQLite.
 - **Time is naive local wall time, in the class's zone, not the server's.** A bell rings at
