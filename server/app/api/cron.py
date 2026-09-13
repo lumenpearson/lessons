@@ -16,12 +16,12 @@ from hmac import compare_digest
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
-from sqlalchemy import delete
+from sqlalchemy import delete, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db import SessionLocal, get_session
-from app.models import JoinAttempt
+from app.models import DiarySession, JoinAttempt
 from app.schemas import TickOut
 from app.services import reminders
 
@@ -31,6 +31,20 @@ router = APIRouter(prefix="/api/v1", tags=["cron"])
 # The limiter prunes them itself on every failure it records; this sweep is
 # for the quiet weeks in which nobody mistypes a code and nothing prunes.
 JOIN_ATTEMPT_TTL = timedelta(hours=1)
+
+# A diary session nobody has used for a month is gone, and so is the upstream
+# bearer token inside it. Nothing else ever removes one: signing out drops a
+# row, but a phone that is reinstalled, lost or simply never opened again
+# leaves its session behind, and that row holds a live credential for somebody
+# else's service. The upstream's own token will not have outlived the month
+# either, so the only thing thrown away is a string that no longer opens
+# anything.
+DIARY_SESSION_TTL = timedelta(days=30)
+
+# One that the upstream has already refused is kept a day, no more: long enough
+# for the app still holding our token to come back and be told to sign in
+# again, rather than be handed a 401 it cannot explain.
+DIARY_EXPIRED_TTL = timedelta(days=1)
 
 
 def _build_bot() -> Any:
@@ -56,6 +70,27 @@ async def _purge_fsm() -> int:
 async def _purge_join_attempts(session: AsyncSession) -> int:
     cutoff = datetime.now(UTC).replace(tzinfo=None) - JOIN_ATTEMPT_TTL
     result = await session.execute(delete(JoinAttempt).where(JoinAttempt.created_at <= cutoff))
+    await session.commit()
+    return result.rowcount or 0
+
+
+async def _purge_diary_sessions(session: AsyncSession) -> int:
+    """Drop the sessions that are dead and the ones that have gone quiet.
+
+    A session with no ``last_used_at`` at all is judged by ``created_at``,
+    which every row has: one created and never used again is exactly the case
+    the sweep is for.
+    """
+    now = datetime.now(UTC).replace(tzinfo=None)
+    result = await session.execute(
+        delete(DiarySession).where(
+            or_(
+                DiarySession.expired_at <= now - DIARY_EXPIRED_TTL,
+                func.coalesce(DiarySession.last_used_at, DiarySession.created_at)
+                <= now - DIARY_SESSION_TTL,
+            )
+        )
+    )
     await session.commit()
     return result.rowcount or 0
 
@@ -91,7 +126,13 @@ async def tick(
 
     fsm_purged = await _purge_fsm()
     join_purged = await _purge_join_attempts(session)
-    return TickOut(**counts, fsm_purged=fsm_purged, join_attempts_purged=join_purged)
+    diary_purged = await _purge_diary_sessions(session)
+    return TickOut(
+        **counts,
+        fsm_purged=fsm_purged,
+        join_attempts_purged=join_purged,
+        diary_sessions_purged=diary_purged,
+    )
 
 
 # GitHub's scheduler and a curl from a terminal both speak GET; a cron

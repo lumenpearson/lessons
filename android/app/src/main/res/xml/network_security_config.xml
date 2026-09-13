@@ -10,7 +10,7 @@
   private network - which public CAs do not issue - so the practical effect
   would not be "encrypted", it would be "the app does not work".
 
-  The exposure is bounded by what actually crosses the wire: a six-character
+  The exposure is bounded by what actually crosses the wire: an eight-character
   class code and a read-only timetable token, carrying a school timetable and
   homework. No credentials, no personal data, nothing that identifies a pupil.
 

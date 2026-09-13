@@ -49,8 +49,6 @@
                   res/values-night instead, resolved by the launcher when it
                   inflates the RemoteViews.
                 -->
-                <!-- :core:data fires this after every successful sync. -->
-                <action android:name="com.lumenpearson.lessons.action.DATA_SYNCED" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -63,6 +61,16 @@
           the provider above because GlanceAppWidgetReceiver already consumes
           goAsync() for the actions it handles, and a BroadcastReceiver can only
           hand out its PendingResult once.
+
+          The sync broadcast is handled here rather than on the provider above
+          for the export: an app-widget provider has to be exported for the
+          launcher to bind to it, and an exported receiver accepts the action
+          from anybody, not only from :core:data. Nothing could be injected
+          through it — the redraw reads the local cache and the broadcast
+          carries no extras — but any app on the device could have made this one
+          redraw on a loop, which on a widget means the battery. Everything this
+          receiver does for a tick is what a sync needs anyway: redraw, then
+          re-arm from the new state.
         -->
         <receiver
             android:name="com.lumenpearson.lessons.widget.tick.WidgetTickReceiver"
@@ -73,6 +81,8 @@
                 <!-- A manual clock or timezone change invalidates every armed alarm. -->
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <!-- :core:data fires this after every successful sync. -->
+                <action android:name="com.lumenpearson.lessons.action.DATA_SYNCED" />
             </intent-filter>
         </receiver>
 

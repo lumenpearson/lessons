@@ -1,14 +1,10 @@
 package com.lumenpearson.lessons.widget
 
-// updateAll is an extension on GlanceAppWidget, not a member.
 import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver.PendingResult
 import android.content.Context
-import android.content.Intent
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
-import androidx.glance.appwidget.updateAll
-import com.lumenpearson.lessons.core.data.sync.DataSyncBroadcast
 import com.lumenpearson.lessons.core.data.sync.SyncScheduler
 import com.lumenpearson.lessons.widget.tick.WidgetTickScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -19,9 +15,14 @@ import kotlinx.coroutines.launch
 /**
  * The app-widget provider the launcher talks to.
  *
- * Beyond Glance's own `APPWIDGET_UPDATE` handling this reacts to one thing: the
- * sync broadcast from `:core:data`, so new homework appears the moment it lands
- * rather than up to fifteen minutes later.
+ * Beyond Glance's own `APPWIDGET_UPDATE` handling it does one thing: re-arm the
+ * tick alarm on the placements and restores that silently drop it.
+ *
+ * It is the one receiver in this module that has to be exported — the launcher
+ * is another process — which is why it is also the one that listens for as
+ * little as possible. The sync broadcast from `:core:data` used to be answered
+ * here; it is answered by [com.lumenpearson.lessons.widget.tick.WidgetTickReceiver]
+ * instead, where the filter is not open to every app on the device.
  *
  * It used to listen for `ACTION_CONFIGURATION_CHANGED` as well, to redraw on a
  * theme flip. That never ran: the platform does not deliver that broadcast to
@@ -35,14 +36,6 @@ class LessonsWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = LessonsWidget()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
-    override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
-
-        when (intent.action) {
-            DataSyncBroadcast.ACTION -> redrawAll(context)
-        }
-    }
 
     override fun onUpdate(
         context: Context,
@@ -97,36 +90,6 @@ class LessonsWidgetReceiver : GlanceAppWidgetReceiver() {
                 android.util.Log.w(TAG, "Rescheduling failed", error)
             } finally {
                 pendingResult?.finish()
-            }
-        }
-    }
-
-    /**
-     * Redraws every placed instance.
-     *
-     * `goAsync` is what keeps the process alive past `onReceive` returning; a
-     * plain `launch` would be killed mid-render. Glance's own actions already
-     * consume this receiver's `PendingResult` for the intents it handles, which
-     * is why the tick alarm lives in a separate receiver rather than here.
-     */
-    private fun redrawAll(context: Context) {
-        val appContext = context.applicationContext
-        val pendingResult = goAsync()
-        scope.launch {
-            try {
-                glanceAppWidget.updateAll(appContext)
-            } catch (error: Exception) {
-                // A redraw failure must never crash the launcher's broadcast.
-                android.util.Log.w(TAG, "Widget redraw failed", error)
-            } finally {
-                // Re-arming lives in `finally`, because it is the only thing
-                // that keeps the chain alive. After `updateAll`, one throw — a
-                // transient Room error, a RemoteViews payload over the binder
-                // limit — meant no alarm was ever armed again, and with
-                // updatePeriodMillis at 0 nothing else re-arms it. The widget
-                // froze on its last frame until a reboot.
-                WidgetTickScheduler.reschedule(appContext)
-                pendingResult.finish()
             }
         }
     }

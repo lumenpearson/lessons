@@ -11,7 +11,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * Receives the tick alarm and the system events that invalidate it.
+ * Receives the tick alarm, the sync broadcast, and the system events that
+ * invalidate the alarm.
  *
  * Separate from [com.lumenpearson.lessons.widget.LessonsWidgetReceiver] because
  * a `BroadcastReceiver` can hand out its `PendingResult` only once, and Glance's
@@ -20,6 +21,13 @@ import kotlinx.coroutines.launch
  * Reboot, package replacement, a manual clock change and a timezone change all
  * silently drop pending alarms, so each of them has to re-arm. A widget frozen
  * on yesterday's lesson is the most visible way this feature can fail.
+ *
+ * `DATA_SYNCED` from `:core:data` lands here too, and needs no branch: fresh
+ * homework wants exactly what a tick wants — redraw, then work out the next
+ * wake-up from what is now on screen. It is answered here rather than on the
+ * provider because that one must be exported for the launcher and would take
+ * the action from any app on the device; this one is exported="false", so the
+ * only sender is the app itself.
  */
 class WidgetTickReceiver : BroadcastReceiver() {
 

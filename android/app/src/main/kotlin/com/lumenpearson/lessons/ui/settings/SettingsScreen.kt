@@ -159,9 +159,9 @@ enum class SettingsSection(
         Icons.Rounded.ViewAgenda,
         3,
     ),
-    // There are six accent slots and seven sections, so one hue is used twice.
-    // It is shared with "О приложении", three rows further down, which is as far
-    // apart as the list allows.
+    // There are six accent slots and nine rows on the landing page, so three
+    // hues are used twice. Each pair is put as far apart as the list allows:
+    // this one shares slot 5 with "О приложении", last of the nine.
     ALERTS(
         R.string.settings_alerts,
         R.string.settings_alerts_summary,

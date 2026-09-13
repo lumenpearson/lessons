@@ -9,13 +9,14 @@ tests pin what this project does with each answer, not what the service does.
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import UTC, date, datetime
 
 import httpx
 import pytest
 from httpx import ASGITransport
 from sqlalchemy import select
 
+from app.api import diary as diary_api
 from app.main import app
 from app.models import DiarySession
 from app.providers.petersburg import client as provider_client
@@ -385,6 +386,32 @@ async def test_the_session_cookie_is_sent_upstream_on_every_call(client, upstrea
 def test_the_dates_this_project_sends_are_the_ones_the_upstream_reads():
     assert provider_client.serialise_date(date(2026, 9, 7)) == "07.09.2026"
     assert provider_client.serialise_datetime_range(date(2026, 9, 7)) == "07.09.2026+00:00:00"
+
+
+def test_the_diary_s_today_is_the_city_s_today_not_the_server_s(monkeypatch):
+    """Vercel runs in UTC; the diary is Saint Petersburg's, three hours ahead.
+
+    Between nine in the evening and midnight there the two dates disagree, and
+    that is exactly the stretch a pupil is most likely to be looking at
+    tomorrow's lessons in. `date.today()` - the server's own clock - handed
+    them a window that opened yesterday.
+    """
+
+    class FrozenJustAfterMidnightInMoscow(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            # 21:30 UTC on the 7th is 00:30 on the 8th in Moscow. The two
+            # calendars disagree, which is the only instant worth testing.
+            moment = datetime(2026, 9, 7, 21, 30, tzinfo=UTC)
+            return moment.astimezone(tz) if tz is not None else moment
+
+    monkeypatch.setattr(provider_client, "datetime", FrozenJustAfterMidnightInMoscow)
+
+    assert provider_client.today() == date(2026, 9, 8)
+    # And the window the API opens by default follows it, rather than the
+    # server's date, which is still the 7th at that moment.
+    start, _ = diary_api._range(None, None)
+    assert start == date(2026, 9, 8)
 
 
 # ---- the one shared upstream client ---------------------------------------

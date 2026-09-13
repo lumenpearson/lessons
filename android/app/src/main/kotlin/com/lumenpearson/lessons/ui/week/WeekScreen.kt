@@ -76,6 +76,7 @@ import com.lumenpearson.lessons.ui.common.asFullWeekday
 import com.lumenpearson.lessons.ui.common.asMonthYear
 import com.lumenpearson.lessons.ui.common.asShortWeekday
 import java.time.LocalDate
+import java.util.Locale
 
 /**
  * The calendar tab: the same timetable at three scales.
@@ -698,7 +699,10 @@ private fun HourTimeline(
             Column(modifier = Modifier.width(HourGutterWidth)) {
                 repeat(hours) { offset ->
                     Text(
-                        text = "%02d:00".format(firstHour + offset),
+                        // Locale.ROOT: the gutter is a clock, and a clock is
+                        // read the same in every language this app is drawn in.
+                        // See `BellsSheet.asBellClock`.
+                        text = String.format(Locale.ROOT, "%02d:00", firstHour + offset),
                         style = MaterialTheme.typography.labelSmall,
                         color = scheme.outline,
                         modifier = Modifier.height(HourHeight),

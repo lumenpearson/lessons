@@ -28,10 +28,26 @@ def _strip_control_chars(value: str) -> str:
 
 
 def _clean_optional_text(value: str | None) -> str | None:
+    """One line, single-spaced, or ``None``.
+
+    Runs of whitespace are collapsed, not merely trimmed at the ends, because
+    the bot has always done exactly that - ``" ".join(text.split())`` on every
+    name it is typed - and a name is compared as text in three places that
+    cannot see each other: the uniqueness check that makes the subject
+    dictionary a dictionary, the rename that carries the timetable, the
+    homework and the замены along by name, and the widget's own matching. A
+    class where «Алгебра и начала» was added from the phone and «Алгебра  и
+    начала» from the bot has two subjects that look like one, and a rename of
+    either moves none of the other's lessons.
+
+    Every whitespace character becomes a space first, so a tab is a word break
+    rather than something ``_strip_control_chars`` silently deletes - it is
+    neither a space nor printable, so «а\tб» used to be stored as «аб».
+    """
     if value is None:
         return None
-    cleaned = _strip_control_chars(value.replace("\n", " ")).strip()
-    return cleaned or None
+    spaced = "".join(" " if ch.isspace() else ch for ch in value)
+    return " ".join(_strip_control_chars(spaced).split()) or None
 
 
 def _clean_notes(value: str | None) -> str | None:
@@ -467,6 +483,7 @@ class TickOut(BaseModel):
     failed: int
     fsm_purged: int
     join_attempts_purged: int
+    diary_sessions_purged: int = 0
 
 
 # ---------------------------------------------------------------------------

@@ -23,7 +23,9 @@ import asyncio
 import http.cookiejar
 import logging
 from datetime import date as Date
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -37,6 +39,22 @@ from app.providers.petersburg.exceptions import (
 log = logging.getLogger(__name__)
 
 BASE_URL = "https://dnevnik2.petersburgedu.ru"
+
+#: The zone the diary's own days are cut at.
+#:
+#: Every other "today" in this project comes from ``SchoolClass.timezone``,
+#: because the project serves schools across eleven zones. A diary session has
+#: no class behind it and needs none: this upstream is one city's, and that
+#: city keeps Moscow time. Asking the server's own clock instead put a pupil
+#: opening the diary after nine in the evening - Vercel runs in UTC - into
+#: yesterday, which is the half of the day they are most likely to be checking
+#: tomorrow's lessons in.
+TIMEZONE = ZoneInfo("Europe/Moscow")
+
+
+def today() -> Date:
+    """The date it is in the city whose diary this is."""
+    return datetime.now(TIMEZONE).date()
 
 #: The cookie the upstream keeps its session in, and hands back refreshed on
 #: most calls. Not a header, despite the name.

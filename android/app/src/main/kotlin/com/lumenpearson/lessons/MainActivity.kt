@@ -64,7 +64,11 @@ class MainActivity : ComponentActivity() {
      * the platform has applied the per-app locale before this line runs.
      */
     override fun attachBaseContext(newBase: Context) {
-        val language = AppLocales.storedLanguage()
+        val language = AppLocales.languageToAttach()
+        if (language == null) {
+            super.attachBaseContext(newBase)
+            return
+        }
         attachedLanguage = language
         super.attachBaseContext(AppLocales.wrap(newBase, language))
     }

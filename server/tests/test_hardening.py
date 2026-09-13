@@ -24,6 +24,7 @@ from app.api.public import (
 from app.config import get_settings
 from app.main import app
 from app.models import BellPeriod, BellSchedule, DeviceToken, Role, SchoolClass, TimetableEntry
+from app.schemas import _clean_optional_text
 from app.security import JoinThrottle, client_bucket
 
 
@@ -338,6 +339,30 @@ async def test_a_device_name_of_only_control_characters_becomes_null(client, ses
     ).status_code == 200
     device = await session.scalar(select(DeviceToken))
     assert device.device_name is None
+
+
+# --------------------------------------------------------------------------
+# The bot and the API have to spell a name the same way, or the dictionary that
+# makes a subject unique stops making it unique.
+# --------------------------------------------------------------------------
+
+
+def test_a_name_is_single_spaced_the_way_the_bot_single_spaces_it():
+    """``" ".join(text.split())`` is what every bot handler does to a typed name.
+
+    The API used to trim the ends and leave the middle alone, so «Алгебра  и
+    начала» went into the database with the two spaces it was sent with. Nothing
+    shows the difference: it is one subject to the eye and two to every
+    comparison - the uniqueness check, the rename cascade that matches lessons
+    and homework by name, and the widget.
+    """
+    assert _clean_optional_text("Алгебра  и   начала") == "Алгебра и начала"
+    assert _clean_optional_text("  Физика ") == "Физика"
+    # A tab is neither a space nor printable, so stripping control characters
+    # first used to glue the words together rather than break them.
+    assert _clean_optional_text("Основы\tбезопасности") == "Основы безопасности"
+    assert _clean_optional_text("первая\nвторая") == "первая вторая"
+    assert _clean_optional_text("   ") is None
 
 
 # --------------------------------------------------------------------------

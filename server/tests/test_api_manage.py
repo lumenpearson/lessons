@@ -920,6 +920,66 @@ async def test_unlinking_a_device_puts_it_back_to_read_only(client, session, sch
     assert await _actions(session, school_class) == ["device.unlink"]
 
 
+async def test_the_same_subject_typed_two_ways_is_one_subject(client, session, school_class):
+    """The dictionary is only a dictionary if the two writers spell alike.
+
+    The bot single-spaces every name it is typed; the API used to trim the ends
+    and leave the middle alone. A class that added «Алгебра и начала» from the
+    bot and «Алгебра  и  начала» from the phone had two subjects that look like
+    one, and a rename of either carried none of the other's lessons.
+    """
+    token = await _admin(client, session, school_class)
+
+    created = await client.post(
+        "/api/v1/manage/subjects",
+        json={"name": "Алгебра  и  начала"},
+        headers=_auth(token),
+    )
+    assert created.status_code == 201
+    assert created.json()["subject"]["name"] == "Алгебра и начала"
+
+    duplicate = await client.post(
+        "/api/v1/manage/subjects", json={"name": "Алгебра и начала"}, headers=_auth(token)
+    )
+    assert duplicate.status_code == 409
+
+
+async def test_a_failed_log_line_leaves_the_phone_linked(
+    client, session, school_class, monkeypatch
+):
+    """The unlink and its audit line are one transaction, or neither happens.
+
+    The log is the only way an admin sees that another admin unlinked somebody,
+    so "phone unlinked, nothing written down" is the one outcome worth ruling
+    out. It used to be reachable: the unlink committed itself and the log line
+    was inserted afterwards, on a second commit that could fail on its own.
+    """
+    admin_token = await _admin(client, session, school_class)
+    await _linked_token(
+        client, session, school_class, EDITOR_ID, Role.EDITOR, "телефон редактора"
+    )
+    device = await session.scalar(
+        select(DeviceToken).where(DeviceToken.device_name == "телефон редактора")
+    )
+    device_id = device.id
+    class_id = school_class.id
+
+    async def explode(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("the log is full")
+
+    monkeypatch.setattr(manage.audit, "record", explode)
+    with pytest.raises(RuntimeError):
+        await client.post(
+            f"/api/v1/manage/devices/{device.id}/unlink", headers=_auth(admin_token)
+        )
+
+    await session.rollback()
+    again = await session.scalar(select(DeviceToken).where(DeviceToken.id == device_id))
+    assert again.telegram_id == EDITOR_ID
+    logged = await session.scalars(select(AuditEntry).where(AuditEntry.class_id == class_id))
+    assert list(logged) == []
+
+
 async def test_a_device_of_another_class_is_a_404(client, session, school_class):
     other = SchoolClass(name="10Б", join_code="OTHER1")
     session.add(other)

@@ -47,8 +47,18 @@ object AppLocale {
         runCatching { Graph.container.settingsRepository.languageBlocking() }
             .getOrDefault(AppLanguage.SYSTEM)
 
-    /** [base] in the stored language. @see localized */
-    fun localized(base: Context): Context = localized(base, storedLanguage())
+    /**
+     * [base] in the stored language.
+     *
+     * The version check comes *before* [storedLanguage] rather than inside
+     * [localized]: on API 33+ the answer is discarded, and this is called once
+     * per widget redraw and once per alert broadcast, so a discarded answer is
+     * a DataStore read per redraw for nothing.
+     *
+     * @see localized
+     */
+    fun localized(base: Context): Context =
+        if (platformAppliesLocale(Build.VERSION.SDK_INT)) base else localized(base, storedLanguage())
 
     /**
      * [base], resolving resources in [language].
@@ -67,7 +77,7 @@ object AppLocale {
     // to guard against.
     @SuppressLint("AppBundleLocaleChanges")
     fun localized(base: Context, language: AppLanguage): Context {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return base
+        if (platformAppliesLocale(Build.VERSION.SDK_INT)) return base
         val current = base.resources.configuration
         val tags = localeOverrideFor(language, current.localeTags())
         // Done on the way past, override or not: the process default is wrong
