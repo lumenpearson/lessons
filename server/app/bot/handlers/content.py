@@ -20,6 +20,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.handlers.calendar import open_month
 from app.bot.handlers.tasks import homework_view
 from app.bot.keyboards import (
     EventAction,
@@ -27,12 +28,11 @@ from app.bot.keyboards import (
     Menu,
     back_to_menu,
     cancel_keyboard,
-    date_picker,
 )
 from app.bot.keyboards import (
     OverrideAction as OverrideCB,
 )
-from app.bot.render import human_date, relative_day_name, upcoming_dates
+from app.bot.render import human_date, relative_day_name
 from app.bot.states import AddEvent, AddHomework, AddOverride
 from app.config import get_settings
 from app.models import (
@@ -77,6 +77,28 @@ NOTIFY_TEXT_MAX = 200
 def _shorten(text: str) -> str:
     text = " ".join(text.split())
     return text if len(text) <= NOTIFY_TEXT_MAX else text[: NOTIFY_TEXT_MAX - 1].rstrip() + "…"
+
+
+#: The answer a day picker gives to a date it cannot read.
+BAD_DATE = "Непонятная дата. Откройте календарь заново."
+
+
+def _date_or_none(raw: str) -> Date | None:
+    """A date out of a callback payload, or ``None``.
+
+    Every «на какой день?» in this module used to call
+    ``Date.fromisoformat(callback_data.value)`` straight, which is correct for
+    every payload this bot builds and an unhandled ``ValueError`` for every
+    other one — and a callback payload is whatever the client sends, not only
+    what was put on a button. The three handlers below are the boundary: past
+    them the date travels in the FSM state and the five places that read it
+    back can go on trusting it. `manage.py` and `timetable.py` already did this;
+    this is the same guard under the same name.
+    """
+    try:
+        return Date.fromisoformat(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 def _parse_time_range(raw: str) -> tuple[time, time] | None:
@@ -130,42 +152,64 @@ async def homework_add(
         await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
+    # No state: from here the date travels in the callback payload, which is
+    # what lets the same button sit on the day card as well as under this
+    # question. A step that depended on the state set here would refuse the
+    # card's button for no reason the person pressing it could see.
+    await state.clear()
     await callback.message.edit_text(
         "На какой день задано?",
-        reply_markup=date_picker(
-            HomeworkAction, "pick_day", upcoming_dates(_today(school_class), 7)
-        ),
+        reply_markup=open_month("hw", _today(school_class)),
     )
-    await state.set_state(AddHomework.date)
     await callback.answer()
 
 
-@router.callback_query(AddHomework.date, HomeworkAction.filter(F.action == "pick_day"))
+@router.callback_query(HomeworkAction.filter(F.action == "pick_day"))
 async def homework_pick_day(
     callback: CallbackQuery,
     callback_data: HomeworkAction,
     state: FSMContext,
     session: AsyncSession,
     school_class: SchoolClass | None,
+    role: Role | None,
 ) -> None:
-    if school_class is None:
-        await callback.answer("Нет доступа", show_alert=True)
+    if school_class is None or role is None or not role.at_least(Role.EDITOR):
+        await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
-    due = Date.fromisoformat(callback_data.value)
+    due = _date_or_none(callback_data.value)
+    if due is None:
+        await callback.answer(BAD_DATE, show_alert=True)
+        return
     await state.update_data(due=callback_data.value)
 
     days = await ScheduleResolver(session, school_class).resolve_range(due, 1)
-    subjects = [lesson.subject for lesson in days[0].lessons if not lesson.is_cancelled]
+    subjects = list(
+        dict.fromkeys(lesson.subject for lesson in days[0].lessons if not lesson.is_cancelled)
+    )
+
+    # The button carries the subject's position in this list, not its name.
+    #
+    # Telegram allows a callback payload 64 *bytes* long. The name used to be
+    # cut to 48 *characters*, which is the same thing only in Latin: every
+    # Cyrillic letter is two bytes, so «Основы безопасности жизнедеятельности»
+    # packed to 88 bytes and aiogram refused to build the keyboard at all. The
+    # exception landed on the step before — the day was chosen, the error said
+    # «начните заново», and no subject with a long name could ever be picked.
+    #
+    # The list is put in the FSM data, which is a database row and has no such
+    # limit, so the payload is now one or two digits whatever the subject is
+    # called.
+    await state.update_data(subjects=subjects)
 
     rows = [
         [
             InlineKeyboardButton(
                 text=subject,
-                callback_data=HomeworkAction(action="pick_subject", value=subject[:48]).pack(),
+                callback_data=HomeworkAction(action="pick_subject", value=str(index)).pack(),
             )
         ]
-        for subject in dict.fromkeys(subjects)
+        for index, subject in enumerate(subjects)
     ]
     prompt = (
         "По какому предмету?"
@@ -183,9 +227,22 @@ async def homework_pick_subject(
     callback_data: HomeworkAction,
     state: FSMContext,
 ) -> None:
-    await state.update_data(subject=callback_data.value)
+    data = await state.get_data()
+    subjects: list[str] = data.get("subjects") or []
+
+    # An index that no longer names anything is a button from a keyboard older
+    # than the flow it belongs to — a message left open while the day was
+    # chosen again. Saying so beats writing homework for whatever subject
+    # happens to sit at that position now.
+    index = int(callback_data.value) if callback_data.value.isdigit() else -1
+    if not 0 <= index < len(subjects):
+        await callback.answer("Список устарел. Выберите день заново.", show_alert=True)
+        return
+
+    subject = subjects[index]
+    await state.update_data(subject=subject)
     await callback.message.edit_text(
-        f"Предмет: <b>{escape(callback_data.value)}</b>\n\nТеперь пришлите текст задания:",
+        f"Предмет: <b>{escape(subject)}</b>\n\nТеперь пришлите текст задания:",
         reply_markup=cancel_keyboard(),
     )
     await state.set_state(AddHomework.text)
@@ -292,29 +349,31 @@ async def overrides_root(
         await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
+    await state.clear()
     await callback.message.edit_text(
         "🔄 <b>Замены</b>\n\nВыберите день:",
-        reply_markup=date_picker(
-            OverrideCB, "pick_day", upcoming_dates(_today(school_class), 7)
-        ),
+        reply_markup=open_month("ovr", _today(school_class)),
     )
-    await state.set_state(AddOverride.date)
     await callback.answer()
 
 
-@router.callback_query(AddOverride.date, OverrideCB.filter(F.action == "pick_day"))
+@router.callback_query(OverrideCB.filter(F.action == "pick_day"))
 async def override_pick_day(
     callback: CallbackQuery,
     callback_data: OverrideCB,
     state: FSMContext,
     session: AsyncSession,
     school_class: SchoolClass | None,
+    role: Role | None,
 ) -> None:
-    if school_class is None:
-        await callback.answer("Нет доступа", show_alert=True)
+    if school_class is None or role is None or not role.at_least(Role.EDITOR):
+        await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
-    target = Date.fromisoformat(callback_data.value)
+    target = _date_or_none(callback_data.value)
+    if target is None:
+        await callback.answer(BAD_DATE, show_alert=True)
+        return
     await state.update_data(date=callback_data.value)
 
     days = await ScheduleResolver(session, school_class).resolve_range(target, 1)
@@ -569,22 +628,34 @@ async def events_root(
         await callback.answer("Нужна роль редактора", show_alert=True)
         return
 
+    await state.clear()
     await callback.message.edit_text(
         "🎉 <b>События</b>\n\nНа какой день добавляем?",
-        reply_markup=date_picker(
-            EventAction, "pick_day", upcoming_dates(_today(school_class), 7)
-        ),
+        reply_markup=open_month("ev", _today(school_class)),
     )
-    await state.set_state(AddEvent.date)
     await callback.answer()
 
 
-@router.callback_query(AddEvent.date, EventAction.filter(F.action == "pick_day"))
+@router.callback_query(EventAction.filter(F.action == "pick_day"))
 async def event_pick_day(
     callback: CallbackQuery,
     callback_data: EventAction,
     state: FSMContext,
+    school_class: SchoolClass | None,
+    role: Role | None,
 ) -> None:
+    if school_class is None or role is None or not role.at_least(Role.EDITOR):
+        await callback.answer("Нужна роль редактора", show_alert=True)
+        return
+
+    # Parsed here even though nothing needs the value until the last step:
+    # otherwise an unreadable date is carried through three questions and then
+    # raises out of the handler that finally reads it, which looks to the user
+    # like the answer they just typed was the problem.
+    if _date_or_none(callback_data.value) is None:
+        await callback.answer(BAD_DATE, show_alert=True)
+        return
+
     await state.update_data(date=callback_data.value)
     rows = [
         [

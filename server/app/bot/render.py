@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from datetime import date as Date
-from datetime import datetime, timedelta
+from datetime import datetime
 from datetime import time as Time
 from html import escape
 
@@ -28,6 +28,23 @@ MONTHS_GENITIVE = [
     "октября",
     "ноября",
     "декабря",
+]
+
+#: Nominative, for a heading that names the month rather than a date in it:
+#: «Сентябрь 2026», not «сентября».
+MONTHS_NOMINATIVE = [
+    "Январь",
+    "Февраль",
+    "Март",
+    "Апрель",
+    "Май",
+    "Июнь",
+    "Июль",
+    "Август",
+    "Сентябрь",
+    "Октябрь",
+    "Ноябрь",
+    "Декабрь",
 ]
 
 WEEKDAYS = [
@@ -162,16 +179,6 @@ def render_role_help(role: Role) -> str:
         ),
         Role.OWNER: "У вас полный доступ, включая назначение администраторов.",
     }[role]
-
-
-def upcoming_dates(today: Date, count: int = 7) -> list[tuple[str, str]]:
-    """(label, iso) pairs used to build date-picker keyboards."""
-    result: list[tuple[str, str]] = []
-    for offset in range(count):
-        day = today + timedelta(days=offset)
-        prefix = {0: "Сегодня", 1: "Завтра"}.get(offset, WEEKDAYS[day.weekday()].capitalize())
-        result.append((f"{prefix}, {day.day} {MONTHS_GENITIVE[day.month - 1]}", day.isoformat()))
-    return result
 
 
 # --------------------------------------------------------------------------

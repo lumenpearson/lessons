@@ -39,6 +39,8 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
+import com.lumenpearson.lessons.core.designsystem.component.LessonsDialog
+import com.lumenpearson.lessons.core.designsystem.component.LessonsSuccessDialog
 import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.component.SegmentedPicker
@@ -90,6 +92,16 @@ fun DiaryScreen(
         )
     }
 
+    // Above the `when` below rather than inside the sign-in branch, because the
+    // success case has to survive the branch it was produced in: the moment the
+    // session lands, `state.session` stops being null and the form is gone. A
+    // dialog hosted inside it would be taken off screen in the same frame that
+    // gave it something to say.
+    DiarySignInOutcomeDialog(
+        outcome = state.signInOutcome,
+        onDismiss = viewModel::consumeSignInOutcome,
+    )
+
     when {
         // Never the sign-in form before the stored session has been read:
         // that frame would be a login page shown to somebody already signed in.
@@ -101,7 +113,7 @@ fun DiaryScreen(
             reauth = state.reauth,
             knownLogin = state.session?.login.orEmpty(),
             busy = state.signingIn,
-            failure = state.signInError,
+            failed = state.signInError != null,
             onSignIn = viewModel::signIn,
             onEdited = viewModel::clearSignInError,
             modifier = modifier,
@@ -292,6 +304,48 @@ internal fun DiaryFailure.asText(): String = when (this) {
         R.string.diary_error_unknown,
         reason.message?.takeIf { it.isNotBlank() } ?: message.orEmpty(),
     )
+}
+
+/**
+ * The pop-up that says how the last sign-in attempt went.
+ *
+ * Both outcomes, which is the point. The diary used to answer a wrong password
+ * with a line of red text below two fields and above a button — off the bottom
+ * of the screen on a phone with the keyboard up — and a correct one with
+ * nothing at all: the form simply went away, which is also what happens when
+ * the screen is left. Neither told the one thing the person wanted to know.
+ *
+ * `null` draws nothing, so the caller can hold this at the top of the screen
+ * and let the state decide.
+ */
+@Composable
+private fun DiarySignInOutcomeDialog(
+    outcome: DiarySignInOutcome?,
+    onDismiss: () -> Unit,
+) {
+    when (outcome) {
+        null -> Unit
+
+        is DiarySignInOutcome.Succeeded -> LessonsSuccessDialog(
+            title = stringResource(R.string.diary_sign_in_ok_title),
+            // The login is echoed back because the commonest wrong answer to
+            // «правильно ли я ввёл?» is a typo in an address that was accepted.
+            message = stringResource(R.string.diary_sign_in_ok_message, outcome.login),
+            confirmLabel = stringResource(R.string.diary_dialog_dismiss),
+            onDismiss = onDismiss,
+        )
+
+        is DiarySignInOutcome.Failed -> LessonsDialog(
+            title = stringResource(R.string.diary_sign_in_failed_title),
+            // `asSignInText`, not `asText`: on this one call a 401 means "the
+            // diary refused these credentials", and everywhere else it means
+            // "your session is gone". Saying the second here would send
+            // somebody to sign in again on the screen they are already on.
+            message = outcome.failure.asSignInText(),
+            confirmLabel = stringResource(R.string.diary_dialog_dismiss),
+            onDismiss = onDismiss,
+        )
+    }
 }
 
 /** The label of a tab in the segmented picker. */

@@ -107,6 +107,7 @@ object WidgetTickScheduler {
     internal fun plan(timetable: Timetable?, clock: Clock = Clock.systemUTC()): ArmedTick {
         // With no cache there is no school and no zone to be wrong about, so the
         // device's own is the only answer available.
+        // device clock: the fallback, and the paragraph above is about exactly it.
         val zone = timetable?.schoolClass?.zone ?: ZoneId.systemDefault()
         val now = timetable?.atSchool(clock.instant()) ?: LocalDateTime.now(clock.withZone(zone))
 

@@ -8,8 +8,11 @@ import com.lumenpearson.lessons.core.data.repository.DiaryMark
 import com.lumenpearson.lessons.core.data.repository.DiaryMarkKind
 import com.lumenpearson.lessons.core.data.repository.DiaryPeriod
 import com.lumenpearson.lessons.core.data.repository.DiaryRepository
+import java.time.Clock
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 
 /**
@@ -40,6 +43,27 @@ data class DiaryDayUi(
     val lessons: List<DiaryLesson>,
     val homework: List<DiaryHomework>,
 )
+
+/**
+ * The zone the diary's own days are cut at.
+ *
+ * Every other date in this app comes from the class's zone, because the project
+ * serves schools across eleven of them. The diary has no class behind it and
+ * needs none: it is one city's service, and that city keeps Moscow time. The
+ * server cuts the same boundary in `providers/petersburg`, and the two have to
+ * agree - a phone that highlighted a different day as today than the server
+ * served the week for would look like the diary had lost a day.
+ */
+val DiaryZone: ZoneId = ZoneId.of("Europe/Moscow")
+
+/**
+ * The date it is in the city whose diary this is.
+ *
+ * Not `LocalDate.now()`: a pupil travelling east, or a phone left on another
+ * zone, would otherwise open the diary on a day the diary has not reached.
+ */
+fun diaryToday(clock: Clock = Clock.systemUTC()): LocalDate =
+    LocalDateTime.ofInstant(clock.instant(), DiaryZone).toLocalDate()
 
 /** Monday of the week [date] falls in; the week view's anchor. */
 fun diaryWeekStart(date: LocalDate): LocalDate =

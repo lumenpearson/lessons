@@ -41,14 +41,24 @@ data class DiaryUiState(
     val reauth: Boolean = false,
     val signingIn: Boolean = false,
     val signInError: DiaryFailure? = null,
+    /**
+     * What the last sign-in attempt came to, waiting to be shown once.
+     *
+     * Separate from [signInError] because the two answer different questions
+     * and live for different lengths of time. [signInError] is the state of the
+     * form — it paints the fields red and is cleared by the next keystroke.
+     * This is an event: it is shown in a pop-up, acknowledged, and gone, and it
+     * carries the success case too, which the form has nothing to say about
+     * because the form is no longer on screen by then.
+     */
+    val signInOutcome: DiarySignInOutcome? = null,
     val signingOut: Boolean = false,
     val students: List<DiaryStudent> = emptyList(),
     val studentsLoading: Boolean = false,
     val studentsError: DiaryFailure? = null,
     val selectedStudentId: Long? = null,
     val tab: DiaryTab = DiaryTab.SCHEDULE,
-    val today: LocalDate = LocalDate.now(),
-    val weekStart: LocalDate = diaryWeekStart(LocalDate.now()),
+    val weekStart: LocalDate = diaryWeekStart(diaryToday()),
     val scheduleLoading: Boolean = false,
     val scheduleError: DiaryFailure? = null,
     val days: List<DiaryDayUi> = emptyList(),
@@ -57,6 +67,17 @@ data class DiaryUiState(
     val subjects: List<DiarySubjectMarks> = emptyList(),
     val gradeRange: DiaryRange? = null,
 ) {
+    /**
+     * The date it is in the city whose diary this is.
+     *
+     * Read on every access rather than frozen into the state, because the
+     * state object is built once when the screen opens and carried forward by
+     * `copy` from then on: a value stored here was whatever the date was when
+     * the pupil first opened the diary, and a phone left on the screen
+     * overnight kept offering «на этой неделе» for the week that had ended.
+     */
+    val today: LocalDate get() = diaryToday()
+
     val student: DiaryStudent? get() = students.firstOrNull { it.id == selectedStudentId }
 
     /** Signed in and not being asked for the password again. */
@@ -67,6 +88,23 @@ data class DiaryUiState(
 
     /** Whether stepping back to this week would move anything. */
     val canReturnToThisWeek: Boolean get() = weekStart != diaryWeekStart(today)
+}
+
+/**
+ * The result of one sign-in attempt, for the pop-up that reports it.
+ *
+ * Both cases are worth saying out loud. «Не удалось войти» because the reason
+ * matters — a wrong password and a diary that is down need different things
+ * from the person reading; «Вход выполнен» because a form that answers a
+ * correct password with silence is a form you cannot tell you have finished
+ * with.
+ */
+sealed interface DiarySignInOutcome {
+
+    /** @param login the account, echoed back so it can be checked for typos. */
+    data class Succeeded(val login: String) : DiarySignInOutcome
+
+    data class Failed(val failure: DiaryFailure) : DiarySignInOutcome
 }
 
 /**
@@ -123,12 +161,18 @@ class DiaryViewModel(
         viewModelScope.launch {
             state.update { it.copy(signingIn = true, signInError = null) }
             val result = repository.signIn(login, password)
-            val failure = result.exceptionOrNull()
+            val failure = result.exceptionOrNull()?.let(DiaryFailure::of)
             state.update {
                 it.copy(
                     signingIn = false,
-                    signInError = failure?.let(DiaryFailure::of),
+                    signInError = failure,
                     reauth = if (failure == null) false else it.reauth,
+                    signInOutcome = failure?.let(DiarySignInOutcome::Failed)
+                        // The login as it was typed, not as the server echoed
+                        // it: the session row arrives moments later through the
+                        // repository's flow, and the pop-up is about the
+                        // attempt that has just finished.
+                        ?: DiarySignInOutcome.Succeeded(login),
                 )
             }
             if (failure == null) {
@@ -151,7 +195,6 @@ class DiaryViewModel(
             state.update {
                 DiaryUiState(
                     ready = true,
-                    today = it.today,
                     weekStart = diaryWeekStart(it.today),
                 )
             }
@@ -190,6 +233,11 @@ class DiaryViewModel(
     /** Dismisses the inline sign-in error so the next keystroke starts clean. */
     fun clearSignInError() {
         if (state.value.signInError != null) state.update { it.copy(signInError = null) }
+    }
+
+    /** Called once the pop-up has been acknowledged, so it is not shown twice. */
+    fun consumeSignInOutcome() {
+        if (state.value.signInOutcome != null) state.update { it.copy(signInOutcome = null) }
     }
 
     private fun moveWeek(direction: Long) {

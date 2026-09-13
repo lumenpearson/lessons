@@ -175,6 +175,7 @@ object SchoolAlerts {
      * that the school is precisely what could not be read.
      */
     private fun retryLater(context: Context) {
+        // device clock: on purpose — the KDoc above this function is about it.
         val zone = ZoneId.systemDefault()
         // No armed moment: this alarm stands for nothing in the timetable, and a
         // device-zone moment read back as a school-zone one would widen the

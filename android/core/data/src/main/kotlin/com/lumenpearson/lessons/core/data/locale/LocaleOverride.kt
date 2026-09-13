@@ -67,3 +67,21 @@ fun localeOverrideFor(language: AppLanguage, deviceLocales: List<String>): List<
  */
 fun processLocaleFor(override: List<String>?, systemDefault: Locale): Locale =
     override?.firstOrNull()?.let(Locale::forLanguageTag) ?: systemDefault
+
+/**
+ * Whether the platform itself applies the per-app locale, given an SDK level.
+ *
+ * From Android 13 the system reads the per-app locale before the process draws
+ * anything and applies it to every context and to [Locale.getDefault], so the
+ * whole mechanism above is dead code there: [localeOverrideFor] would be asked
+ * a question whose answer is thrown away.
+ *
+ * It is a function of the number rather than three copies of the same `>=`
+ * because of what the callers do *before* they ask. Reaching the comparison
+ * costs a blocking DataStore read — `MainActivity.attachBaseContext` runs on
+ * the cold-start path ahead of the first frame, and the widget and the alert
+ * notifier ask once per render and once per broadcast — and on 13 and up the
+ * value that read returns is never used for anything. Asking this first is what
+ * lets the read be skipped rather than merely ignored.
+ */
+fun platformAppliesLocale(sdkInt: Int): Boolean = sdkInt >= 33

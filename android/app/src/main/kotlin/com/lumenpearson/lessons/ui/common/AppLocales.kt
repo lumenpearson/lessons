@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Build
 import android.os.LocaleList
 import com.lumenpearson.lessons.core.data.locale.AppLocale
+import com.lumenpearson.lessons.core.data.locale.platformAppliesLocale
 import com.lumenpearson.lessons.core.model.AppLanguage
 
 /**
@@ -38,10 +39,20 @@ import com.lumenpearson.lessons.core.model.AppLanguage
 internal object AppLocales {
 
     /**
-     * The stored choice, read synchronously because `attachBaseContext` cannot
-     * wait for anything.
+     * The language to attach this activity in, or `null` where there is nothing
+     * to attach.
+     *
+     * `null` is the answer on API 33+, and it is the answer *without reading
+     * the preference*. Both things the stored value is used for there are
+     * no-ops — [wrap] hands the context straight back, and [applyTo]'s 33+
+     * branch never looks at `attached` — but the read itself is a blocking
+     * DataStore load on the cold-start path, ahead of the first frame. Below
+     * 33 the read has to happen here and cannot be awaited: the base context is
+     * fixed before the activity exists, so there is nothing yet to collect the
+     * settings flow with.
      */
-    fun storedLanguage(): AppLanguage = AppLocale.storedLanguage()
+    fun languageToAttach(): AppLanguage? =
+        if (platformAppliesLocale(Build.VERSION.SDK_INT)) null else AppLocale.storedLanguage()
 
     /**
      * [base], in [language]. A no-op on API 33+, where the platform has already

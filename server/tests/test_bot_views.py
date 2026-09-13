@@ -913,6 +913,7 @@ async def test_help_is_grouped_by_role():
 
 def test_main_menu_has_the_new_rows_for_everyone():
     labels = buttons(main_menu(Role.VIEWER))
-    assert ["🗓 Неделя", "⏭ Что дальше", "✅ Мои задачи", "🔔 Напоминания"] == labels[3:7]
+    assert "📆 Календарь" in labels
+    assert ["🗓 Неделя", "⏭ Что дальше", "✅ Мои задачи", "🔔 Напоминания"] == labels[4:8]
     assert "⚙️ Класс" not in labels
     assert "⚙️ Класс" in buttons(main_menu(Role.ADMIN))

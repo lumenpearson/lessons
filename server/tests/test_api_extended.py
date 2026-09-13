@@ -29,6 +29,7 @@ from app.models import (
     DayEvent,
     DayOverride,
     DeviceToken,
+    DiarySession,
     EventKind,
     Homework,
     JoinAttempt,
@@ -1081,6 +1082,8 @@ async def test_cron_tick_delivers_a_morning_digest_once(
         "failed": 0,
         "fsm_purged": 0,
         "join_attempts_purged": 0,
+        "diary_sessions_purged": 0,
+        "device_tokens_purged": 0,
     }
     assert len(tick_bot.sent) == 1
     recipient, text = tick_bot.sent[0]
@@ -1115,6 +1118,101 @@ async def test_cron_tick_sweeps_stale_rows(client, session, school_class, monkey
     assert response.status_code == 200
     assert response.json()["fsm_purged"] == 1
     assert response.json()["join_attempts_purged"] == 1
+
+
+async def test_cron_tick_sweeps_dead_and_forgotten_diary_sessions(
+    client, session, school_class, monkeypatch, tick_bot
+):
+    """A diary session holds somebody else's live bearer token.
+
+    Nothing removed one before this sweep: signing out drops a row, but a phone
+    that is reinstalled, wiped or simply never opened again leaves its session
+    behind for good, and the row keeps the upstream credential in it. The two
+    cutoffs are deliberately different - a session the upstream has already
+    refused is worthless the moment it is marked, and is kept only long enough
+    to answer the app still holding our token.
+    """
+    _configure_cron(monkeypatch)
+    now = datetime.utcnow()
+    rows = {
+        # Refused by the upstream two days ago: gone.
+        "dead": DiarySession(
+            token_hash="a" * 64, upstream_token="x", login="a@e", last_used_at=now,
+            expired_at=now - timedelta(days=2),
+        ),
+        # Refused an hour ago: kept, so the app is told to sign in again rather
+        # than handed a 401 it cannot explain.
+        "just-expired": DiarySession(
+            token_hash="b" * 64, upstream_token="x", login="b@e", last_used_at=now,
+            expired_at=now - timedelta(hours=1),
+        ),
+        # Alive, but untouched for two months.
+        "forgotten": DiarySession(
+            token_hash="c" * 64, upstream_token="x", login="c@e",
+            last_used_at=now - timedelta(days=60),
+        ),
+        # Created and never used - judged by created_at, which every row has.
+        "never-used": DiarySession(
+            token_hash="d" * 64, upstream_token="x", login="d@e",
+            created_at=now - timedelta(days=60),
+        ),
+        "in-use": DiarySession(
+            token_hash="e" * 64, upstream_token="x", login="e@e", last_used_at=now
+        ),
+    }
+    for row in rows.values():
+        session.add(row)
+    await session.commit()
+
+    response = await client.get("/api/v1/cron/tick", headers={"X-Cron-Secret": CRON_SECRET})
+    assert response.status_code == 200
+    assert response.json()["diary_sessions_purged"] == 3
+
+    left = await session.scalars(select(DiarySession.login))
+    assert sorted(left) == ["b@e", "e@e"]
+
+
+async def test_cron_tick_sweeps_the_phones_that_stopped_asking(
+    client, session, school_class, monkeypatch, tick_bot
+):
+    """A join mints a row and nothing ever removed one.
+
+    A pupil who reinstalls, clears the app's data or re-enters the code leaves
+    the previous token behind — live, able to read the class for as long as the
+    class exists, and on the admin's list forever. The cut-off is deliberately
+    far past каникулы: a phone silent since the end of May must still work in
+    September.
+    """
+    _configure_cron(monkeypatch)
+    now = datetime.utcnow()
+    session.add_all([
+        DeviceToken(
+            token_hash="f" * 64, class_id=school_class.id, device_name="старый",
+            last_seen_at=now - timedelta(days=200),
+        ),
+        DeviceToken(
+            token_hash="g" * 64, class_id=school_class.id, device_name="через каникулы",
+            last_seen_at=now - timedelta(days=100),
+        ),
+        DeviceToken(
+            token_hash="h" * 64, class_id=school_class.id, device_name="никогда не заходил",
+            created_at=now - timedelta(days=200),
+        ),
+        DeviceToken(
+            token_hash="i" * 64, class_id=school_class.id, device_name="в работе",
+            last_seen_at=now,
+        ),
+    ])
+    await session.commit()
+
+    response = await client.get("/api/v1/cron/tick", headers={"X-Cron-Secret": CRON_SECRET})
+    assert response.status_code == 200
+    assert response.json()["device_tokens_purged"] == 2
+
+    left = await session.scalars(
+        select(DeviceToken.device_name).where(DeviceToken.class_id == school_class.id)
+    )
+    assert sorted(name for name in left if name) == ["в работе", "через каникулы"]
 
 
 def test_current_device_is_what_the_class_dependency_builds_on():

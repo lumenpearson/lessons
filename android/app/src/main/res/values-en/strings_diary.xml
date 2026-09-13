@@ -39,6 +39,14 @@
     <string name="diary_error_unknown">It did not work: %1$s</string>
     <string name="diary_retry">Try again</string>
 
+    <!-- The outcome of a sign-in attempt. A pop-up rather than a line in the
+         form: with the keyboard up the bottom of the form is off-screen, and
+         the answer could not be seen. -->
+    <string name="diary_sign_in_failed_title">Could not sign in</string>
+    <string name="diary_sign_in_ok_title">Signed in</string>
+    <string name="diary_sign_in_ok_message">You are signed in to the diary as %1$s.</string>
+    <string name="diary_dialog_dismiss">Got it</string>
+
     <!-- Pupils -->
     <string name="diary_students_section">Pupil</string>
     <string name="diary_students_empty_title">No pupils in this account</string>

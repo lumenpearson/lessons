@@ -55,6 +55,8 @@ import kotlinx.coroutines.launch
 data class TodayUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
+    // device clock: the placeholder for the frame before the first emission,
+    // while isLoading is still true. `buildState` reads the school's.
     val now: LocalDateTime = LocalDateTime.now(),
     val className: String? = null,
     val state: DayState? = null,
@@ -153,6 +155,7 @@ class TodayViewModel(
             // No timetable, so no school zone to be in: the device's own is the
             // only answer there is, and all it decides here is which date the
             // "no data" card names.
+            // device clock: deliberate, and the comment above says why.
             val deviceNow = LocalDateTime.ofInstant(instant, ZoneId.systemDefault())
             return TodayUiState(
                 isLoading = false,

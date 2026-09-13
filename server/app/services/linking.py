@@ -98,11 +98,17 @@ async def link_device(session: AsyncSession, code: str, telegram_id: int) -> Dev
 
 
 async def unlink_device(session: AsyncSession, device: DeviceToken) -> None:
-    """Back to read-only. A fresh code is issued on the next request."""
+    """Back to read-only. A fresh code is issued on the next request.
+
+    Leaves the transaction open, unlike the functions above it, because two of
+    the three callers write an audit line straight afterwards and the line has
+    to land with the unlink or not at all. Committing here made "phone unlinked,
+    nothing in the log" a possible outcome of one failed insert - and the log is
+    the only place an admin can see that somebody else did it.
+    """
     device.telegram_id = None
     device.linked_at = None
     device.link_code = None
-    await session.commit()
 
 
 async def devices_of(

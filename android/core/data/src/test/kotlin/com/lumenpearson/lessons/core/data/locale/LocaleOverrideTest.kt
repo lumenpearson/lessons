@@ -2,7 +2,9 @@ package com.lumenpearson.lessons.core.data.locale
 
 import com.lumenpearson.lessons.core.model.AppLanguage
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Locale
 
@@ -98,6 +100,26 @@ class LocaleOverrideTest {
             Locale.forLanguageTag("en"),
             processLocaleFor(listOf("en", "ru"), RussianPhone),
         )
+    }
+
+    @Test
+    fun `below Android 13 the app applies the locale itself`() {
+        // minSdk is 26, so every rung from there up to 32 is a phone this build
+        // actually runs on and a phone where nothing but this code sets the
+        // language.
+        assertFalse(platformAppliesLocale(26))
+        assertFalse(platformAppliesLocale(31))
+        assertFalse(platformAppliesLocale(32))
+    }
+
+    @Test
+    fun `from Android 13 the platform has already applied it`() {
+        // The boundary is the whole value of the function: one off in this
+        // direction and API 33 pays a blocking preference read before the first
+        // frame for an answer nothing reads; one off in the other and an
+        // Android 12 phone silently loses the language setting altogether.
+        assertTrue(platformAppliesLocale(33))
+        assertTrue(platformAppliesLocale(37))
     }
 
     private companion object {

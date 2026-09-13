@@ -30,6 +30,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 import java.time.LocalTime
+import java.util.Locale
 
 /** What the bells sheet is doing. */
 private sealed interface BellsMode {
@@ -355,5 +356,15 @@ private fun LocalTime.minutes(): Int = hour * 60 + minute
 private fun minutesToTime(minutes: Int): LocalTime =
     LocalTime.of(minutes / 60 % 24, minutes % 60)
 
-/** "8:30", the same clock the rest of the app reads a bell on. */
-private fun LocalTime.asBellClock(): String = "%02d:%02d".format(hour, minute)
+/**
+ * "08:30", the same clock the rest of the app reads a bell on.
+ *
+ * [Locale.ROOT], not the default: `"…".format(…)` formats through
+ * `Locale.getDefault()`, which on a phone whose locale asks for Eastern Arabic
+ * numerals turns a bell into «٠٨:٣٠» in the middle of a Russian sheet. A bell is
+ * a number the school wrote down, not a quantity to be spelled in the reader's
+ * language — `WidgetStrings.time` has said the same thing since the widget was
+ * written.
+ */
+private fun LocalTime.asBellClock(): String =
+    String.format(Locale.ROOT, "%02d:%02d", hour, minute)

@@ -29,6 +29,9 @@ from app.providers.petersburg import (
     UnexpectedResponse,
     UpstreamUnavailable,
 )
+from app.providers.petersburg import (
+    today as diary_today,
+)
 from app.schemas import (
     DiaryAttendanceOut,
     DiaryHomeworkOut,
@@ -53,8 +56,8 @@ DEFAULT_RANGE_DAYS = 14
 
 
 def _range(date_from: Date | None, date_to: Date | None) -> tuple[Date, Date]:
-    today = Date.today()
-    start = date_from or today
+    # The diary's own day, not the server's: see `petersburg.TIMEZONE`.
+    start = date_from or diary_today()
     end = date_to or start + timedelta(days=DEFAULT_RANGE_DAYS)
     if end < start:
         raise HTTPException(

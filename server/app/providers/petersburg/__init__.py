@@ -6,7 +6,12 @@ its cookie or its field spellings. What leaves here are the models in
 :mod:`app.providers.petersburg.exceptions`.
 """
 
-from app.providers.petersburg.client import PetersburgClient, close_client
+from app.providers.petersburg.client import (
+    TIMEZONE,
+    PetersburgClient,
+    close_client,
+    today,
+)
 from app.providers.petersburg.exceptions import (
     BadCredentials,
     PetersburgError,
@@ -16,6 +21,7 @@ from app.providers.petersburg.exceptions import (
 )
 
 __all__ = [
+    "TIMEZONE",
     "BadCredentials",
     "PetersburgClient",
     "PetersburgError",
@@ -23,4 +29,5 @@ __all__ = [
     "UnexpectedResponse",
     "UpstreamUnavailable",
     "close_client",
+    "today",
 ]

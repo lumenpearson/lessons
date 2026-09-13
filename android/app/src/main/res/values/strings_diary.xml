@@ -39,6 +39,13 @@
     <string name="diary_error_unknown">Не получилось: %1$s</string>
     <string name="diary_retry">Повторить</string>
 
+    <!-- Итог попытки входа. Всплывающее окно, а не строчка в форме: с открытой
+         клавиатурой низ формы уезжает за край экрана, и ответ было не видно. -->
+    <string name="diary_sign_in_failed_title">Не удалось войти</string>
+    <string name="diary_sign_in_ok_title">Вход выполнен</string>
+    <string name="diary_sign_in_ok_message">Вы вошли в дневник как %1$s.</string>
+    <string name="diary_dialog_dismiss">Понятно</string>
+
     <!-- Ученики -->
     <string name="diary_students_section">Ученик</string>
     <string name="diary_students_empty_title">В аккаунте нет учеников</string>

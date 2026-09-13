@@ -38,12 +38,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
+from app.bot.handlers.calendar import open_month
 from app.bot.keyboards import (
     WEEKDAY_FULL,
     Menu,
     back_to_menu,
     cancel_keyboard,
-    date_picker,
 )
 from app.bot.manage_keyboards import (
     COLOUR_PRESETS,
@@ -81,7 +81,6 @@ from app.bot.manage_states import (
     RequestAccess,
 )
 from app.bot.middlewares import prefs_key
-from app.bot.render import upcoming_dates
 from app.bot.roles import can_grant, list_memberships
 from app.config import get_settings
 from app.db import SessionLocal
@@ -870,9 +869,7 @@ async def holiday_add(
     await state.set_state(AddHoliday.date)
     await callback.message.edit_text(
         f"🏖 <b>Особый день</b>\n\n{HOLIDAY_DATE_HELP}",
-        reply_markup=date_picker(
-            DayKindAction, "pick_date", upcoming_dates(_today(school_class), 14)
-        ),
+        reply_markup=open_month("dk", _today(school_class)),
     )
     await callback.answer()
 

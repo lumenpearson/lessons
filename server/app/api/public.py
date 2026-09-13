@@ -440,6 +440,7 @@ async def unlink(
     """Back to read-only. Idempotent: unlinking an unlinked device is fine."""
     if device.is_linked:
         await linking.unlink_device(session, device)
+        await session.commit()
     return UnlinkOut(linked=False)
 
 

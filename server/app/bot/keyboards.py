@@ -104,6 +104,10 @@ def main_menu(role: Role) -> InlineKeyboardMarkup:
                 text="📝 Домашнее задание", callback_data=Menu(action="homework").pack()
             )
         ],
+        # Next to «сегодня» and «завтра» on purpose: it is the same question
+        # asked about any other day, and it is where a viewer looks up a past
+        # day as readily as an editor plans a future one.
+        [InlineKeyboardButton(text="📆 Календарь", callback_data=Menu(action="day").pack())],
     ]
     rows.append(
         [
@@ -206,22 +210,6 @@ def weekday_picker(callback_factory: type[CallbackData], action: str) -> InlineK
             ]
         )
     rows.append([InlineKeyboardButton(text="‹ Меню", callback_data=Menu(action="root").pack())])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
-def date_picker(
-    callback_factory: type[CallbackData], action: str, dates: list[tuple[str, str]]
-) -> InlineKeyboardMarkup:
-    """``dates`` is a list of (label, iso-date) pairs."""
-    rows = [
-        [
-            InlineKeyboardButton(
-                text=label, callback_data=callback_factory(action=action, value=iso).pack()
-            )
-        ]
-        for label, iso in dates
-    ]
-    rows.append([InlineKeyboardButton(text="✖️ Отмена", callback_data=Menu(action="root").pack())])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 

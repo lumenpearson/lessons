@@ -68,6 +68,8 @@ internal object WireFormats {
             OffsetDateTime.parse(text).toInstant().toEpochMilli()
         } catch (_: DateTimeParseException) {
             try {
+                // device clock: the fallback for a server that sent no offset; the KDoc
+                // above says why the device's reading is the least surprising one.
                 LocalDateTime.parse(text).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
             } catch (_: DateTimeParseException) {
                 null

@@ -40,7 +40,6 @@ import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.ui.common.asRelativeDayLabel
 import com.lumenpearson.lessons.ui.common.asText
 import com.lumenpearson.lessons.ui.translate.Correctable
-import java.time.LocalDate
 
 /**
  * Every piece of homework the cache knows about, grouped by the day it is due.
@@ -64,7 +63,9 @@ fun HomeworkScreen(
     // "Все" threw the reader back to the top of a list they had scrolled.
     val listState = rememberLazyListState()
     ReportScrollOffset(listState)
-    val today = LocalDate.now()
+    // The school's, from the same state the filter cut the list with. See
+    // `HomeworkUiState.today`.
+    val today = state.today
 
     state.message?.let { message ->
         val text = message.asText()
