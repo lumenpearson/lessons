@@ -172,3 +172,65 @@ enum class LessonAlertDetail {
             entries.firstOrNull { it.name == name } ?: FULL
     }
 }
+
+/**
+ * In what order the home screen stacks its two big blocks.
+ *
+ * [AUTOMATIC] is the behaviour the screen has always had and the one the widget
+ * follows: while school is on, the timetable leads; once the last bell has rung,
+ * homework is what the screen is about. It is right for most people most days,
+ * and wrong for the two who know exactly what they open the app for — a pupil
+ * who only ever checks the next lesson, and one who only ever checks what is
+ * set. Those two get to say so instead of reading past a block that moves.
+ */
+enum class TodayLayout {
+    /** Homework leads once the school day is over, and not before. */
+    AUTOMATIC,
+
+    /** The timetable always leads, even at ten at night. */
+    LESSONS_FIRST,
+
+    /** Homework always leads, even during the second lesson. */
+    HOMEWORK_FIRST,
+    ;
+
+    /**
+     * @param schoolIsOver the last bell has rung, or it is a day off — which is
+     *   the only thing [AUTOMATIC] looks at.
+     */
+    fun homeworkLeads(schoolIsOver: Boolean): Boolean = when (this) {
+        AUTOMATIC -> schoolIsOver
+        LESSONS_FIRST -> false
+        HOMEWORK_FIRST -> true
+    }
+
+    companion object {
+        fun fromName(name: String?): TodayLayout =
+            entries.firstOrNull { it.name == name } ?: AUTOMATIC
+    }
+}
+
+/**
+ * Which date the calendar's week strip begins on.
+ *
+ * [TODAY] is not a different first weekday, it is a different idea of a week:
+ * seven days forward from wherever you are. A pupil looking at their phone on
+ * Friday afternoon is asking about Monday, and a Monday-aligned strip answers
+ * that by putting the four days they have already lived through in front of it.
+ *
+ * The month grid ignores this and stays Monday-aligned: its rows are seven
+ * columns wide by construction, and a grid whose first column moved with the
+ * date would be a different shape every day.
+ */
+enum class WeekStart {
+    /** The calendar week, as a Russian school timetable is printed. */
+    MONDAY,
+
+    /** A rolling seven days, starting with the date in view. */
+    TODAY,
+    ;
+
+    companion object {
+        fun fromName(name: String?): WeekStart = entries.firstOrNull { it.name == name } ?: MONDAY
+    }
+}

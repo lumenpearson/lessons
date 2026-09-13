@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English mirror of res/values/strings_translate.xml (which is the Russian original). -->
+<resources>
+
+    <!-- Settings rows -->
+    <string name="translation_group">Translation</string>
+    <string name="translation_mode">Correction mode</string>
+    <string name="translation_mode_description">Long-press any text to fix it. The mode ends when the app is closed</string>
+    <string name="translation_session">Corrections</string>
+    <string name="translation_session_description">The list of fixes, to copy or to send</string>
+
+    <!-- The sheet holding the session -->
+    <string name="translation_session_title">Translation corrections</string>
+    <string name="translation_session_empty">Nothing has been corrected yet</string>
+    <string name="translation_session_clear">Clear all</string>
+    <string name="translation_session_copy">Copy XML</string>
+    <string name="translation_session_share">Share</string>
+    <string name="translation_session_remove">Drop this fix</string>
+    <string name="translation_edit_subtitle">%1$s · was: %2$s</string>
+
+    <!-- The editor for one string -->
+    <string name="translation_editor_title">Fix this string</string>
+    <string name="translation_editor_key">Key</string>
+    <string name="translation_editor_file">File</string>
+    <string name="translation_editor_current">Now</string>
+    <string name="translation_editor_label">What it should say</string>
+    <string name="translation_editor_save">Save</string>
+    <string name="translation_editor_revert">Restore the original</string>
+
+    <string name="translation_clipboard_label">Translation corrections</string>
+
+</resources>

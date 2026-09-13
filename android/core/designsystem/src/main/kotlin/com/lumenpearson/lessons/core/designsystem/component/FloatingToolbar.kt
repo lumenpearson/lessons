@@ -13,6 +13,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -45,6 +47,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,8 +57,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -67,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 
@@ -160,6 +162,8 @@ private val TitleWidthRange = 100.dp..250.dp
  * @param items tabbed mode: pass these and [selectedIndex].
  * @param title standard mode: pass this with [onBackClick].
  * @param expanded false collapses every unselected item into the selected one.
+ * @param scrollableItems for a caller whose destinations do not fit on a phone;
+ *   see [scrollingItemsMaxWidth].
  * @param action the button beside the pill — Essentials' `fabAction`. It is
  *   outside the pill rather than in it because it is not a peer of what is
  *   inside: in tabbed mode the pill is where you are and the button is where you
@@ -179,6 +183,7 @@ fun LessonsFloatingToolbar(
     scrollBehavior: FloatingToolbarScrollBehavior? = null,
     action: ToolbarAction? = null,
     floatingActionButton: (@Composable () -> Unit)? = null,
+    scrollableItems: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
     val fontScale = LocalDensity.current.fontScale
@@ -248,20 +253,19 @@ fun LessonsFloatingToolbar(
                 },
                 label = "toolbar_mode",
             ) { backMode ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (backMode) {
+                if (backMode) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         BackAndTitle(title = title, onBackClick = onBackClick ?: {})
-                    } else {
-                        items.forEachIndexed { index, item ->
-                            ToolbarTab(
-                                item = item,
-                                selected = index == selectedIndex,
-                                isLast = index == items.lastIndex,
-                                expanded = expanded,
-                                hideLabel = hideLabel,
-                            )
-                        }
                     }
+                } else {
+                    ToolbarItems(
+                        items = items,
+                        selectedIndex = selectedIndex,
+                        expanded = expanded,
+                        hideLabel = hideLabel,
+                        scrollable = scrollableItems,
+                        hasAction = actionButton != null,
+                    )
                 }
             }
         }
@@ -293,6 +297,102 @@ fun LessonsFloatingToolbar(
         }
     }
 }
+
+/**
+ * The row of destinations inside the pill, optionally able to scroll.
+ *
+ * A phone fits about three items beside the action button — see
+ * [CompactScreenWidthDp] — and the documentation has eight sections, all of
+ * which the bar is the only way to reach. The alternatives were both worse than
+ * scrolling: a window that slid across the list would move a destination out
+ * from under the finger that was about to press it, and hiding the overflow
+ * behind a "more" item would make "which sections are there" a question the
+ * reader has to navigate to answer.
+ *
+ * The width cap is what makes this safe rather than clever. `horizontalScroll`
+ * measures its child unbounded and then takes whatever width it is *allowed*,
+ * so without a ceiling the pill would ask for eight items' worth and leave the
+ * button beside it nowhere to go.
+ */
+@Composable
+private fun ToolbarItems(
+    items: List<ToolbarItem>,
+    selectedIndex: Int,
+    expanded: Boolean,
+    hideLabel: Boolean,
+    scrollable: Boolean,
+    hasAction: Boolean,
+) {
+    val scrollState = rememberScrollState()
+
+    // Put the current destination in view before the bar is first drawn.
+    //
+    // Not an animation, and not a nicety: the caller that scrolls draws a fresh
+    // bar for every page — each one is a different slot of the shell's own
+    // `AnimatedContent` — so this runs on first composition every time, and an
+    // animated scroll would be a bar visibly sliding to where it should already
+    // have been, underneath a page that is itself still sliding.
+    //
+    // The offset is approximate, because the exact one depends on which item is
+    // wearing its label. One item early is the right way to be wrong: it leaves
+    // the destination before the current one visible, which is the one a reader
+    // is most likely to want next.
+    if (scrollable) {
+        val density = LocalDensity.current
+        LaunchedEffect(selectedIndex) {
+            if (selectedIndex < 0) return@LaunchedEffect
+            val target = with(density) { ((ItemSize + ItemGap) * (selectedIndex - 1)).toPx() }
+            scrollState.scrollTo(target.coerceAtLeast(0f).toInt())
+        }
+    }
+
+    Row(
+        modifier = if (scrollable) {
+            Modifier
+                .widthIn(max = scrollingItemsMaxWidth(hasAction))
+                .horizontalScroll(scrollState)
+        } else {
+            Modifier
+        },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        items.forEachIndexed { index, item ->
+            ToolbarTab(
+                item = item,
+                selected = index == selectedIndex,
+                isLast = index == items.lastIndex,
+                expanded = expanded,
+                hideLabel = hideLabel,
+            )
+        }
+    }
+}
+
+/**
+ * The widest the scrolling row may be before the button beside it is pushed off
+ * the screen.
+ *
+ * Measured from the window rather than from the parent's constraints because it
+ * has to be known *before* the row is measured: the row is the thing being
+ * capped. Every term is deliberately generous — the pill's own content padding
+ * and the gap to the button are Material's and not ours — since the cost of
+ * over-reserving is one fewer icon visible, and the cost of under-reserving is
+ * a toolbar wider than the phone.
+ */
+@Composable
+private fun scrollingItemsMaxWidth(hasAction: Boolean): Dp {
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val reserved = ToolbarSideMargin * 2 +
+        PillContentPadding * 2 +
+        if (hasAction) ItemSize + ItemGap * 2 else 0.dp
+    return (screenWidth - reserved).coerceAtLeast(ItemSize)
+}
+
+/** The [LessonsFloatingToolbar] Box's own horizontal padding. */
+private val ToolbarSideMargin: Dp = 16.dp
+
+/** A generous estimate of Material's own padding inside the pill. */
+private val PillContentPadding: Dp = 16.dp
 
 /** One tab: an icon that grows into an inverted pill with a label when selected. */
 @Composable
@@ -405,13 +505,7 @@ private fun ToolbarActionButton(action: ToolbarAction) {
             LessonsHaptics.press(view)
             action.onClick(centre)
         },
-        modifier = Modifier.onGloballyPositioned { coordinates ->
-            val corner = coordinates.positionInRoot()
-            centre = Offset(
-                x = corner.x + coordinates.size.width / 2f,
-                y = corner.y + coordinates.size.height / 2f,
-            )
-        },
+        modifier = Modifier.centreInRoot { centre = it },
         containerColor = scheme.primaryContainer,
         contentColor = scheme.onPrimaryContainer,
         shape = MaterialTheme.shapes.large,

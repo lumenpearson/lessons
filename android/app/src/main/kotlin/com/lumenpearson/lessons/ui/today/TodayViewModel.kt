@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.core.data.di.Graph
+import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
 import com.lumenpearson.lessons.core.model.DayState
@@ -39,8 +40,15 @@ import kotlinx.coroutines.launch
  *   home screen deliberately does not re-list the morning at 15:00.
  * @property homeworkDay the day whose homework is worth reading right now: the
  *   next school day once lessons are over, otherwise today.
- * @property homeworkFirst promote homework above the timeline. Mirrors the
- *   widget: after the last bell, homework *is* the screen.
+ * @property homeworkFirst promote homework above the timeline. Under
+ *   [com.lumenpearson.lessons.core.model.TodayLayout.AUTOMATIC] this mirrors
+ *   the widget: after the last bell, homework *is* the screen.
+ * @property showHero draw the countdown card; a user setting.
+ * @property wholeDay [remainingLessons] holds the whole day rather than the
+ *   rest of it, which is also what the section is titled from.
+ * @property homeworkPreview how many homework rows to draw before deferring to
+ *   the tab.
+ * @property showEvents draw [events] at all; a user setting.
  * @property syncedAtEpochMillis drives the "обновлено в …" footer so a stale
  *   timetable is visibly stale.
  */
@@ -56,6 +64,10 @@ data class TodayUiState(
     val homeworkDay: SchoolDay? = null,
     val homeworkFirst: Boolean = false,
     val showTeacher: Boolean = true,
+    val showHero: Boolean = true,
+    val wholeDay: Boolean = false,
+    val homeworkPreview: Int = AppSettings.DEFAULT_HOMEWORK_PREVIEW,
+    val showEvents: Boolean = true,
     val syncedAtEpochMillis: Long = 0L,
     val message: SyncMessage? = null,
 )
@@ -104,7 +116,7 @@ class TodayViewModel(
         buildState(
             timetable = timetable,
             instant = instant,
-            showTeacher = settings.showTeacher,
+            settings = settings,
             isRefreshing = isRefreshing,
             message = message,
         )
@@ -133,7 +145,7 @@ class TodayViewModel(
     private fun buildState(
         timetable: Timetable?,
         instant: Instant,
-        showTeacher: Boolean,
+        settings: AppSettings,
         isRefreshing: Boolean,
         message: SyncMessage?,
     ): TodayUiState {
@@ -147,7 +159,11 @@ class TodayViewModel(
                 isRefreshing = isRefreshing,
                 now = deviceNow,
                 state = DayState.NoData(deviceNow.toLocalDate()),
-                showTeacher = showTeacher,
+                showTeacher = settings.showTeacher,
+                showHero = settings.todayShowHero,
+                wholeDay = settings.todayWholeDay,
+                homeworkPreview = settings.todayHomeworkPreview,
+                showEvents = settings.todayShowEvents,
                 message = message,
             )
         }
@@ -156,7 +172,8 @@ class TodayViewModel(
         val today = timetable.day(now.toLocalDate())
         val dayState = ScheduleEngine.stateAt(timetable, now)
         // homeworkFocus is non-null exactly for the two "school is over" states,
-        // which is also exactly when homework should lead the screen.
+        // which is also exactly when homework should lead the screen — unless
+        // the user has taken the decision away from the clock.
         val focus = dayState.homeworkFocus
 
         return TodayUiState(
@@ -166,13 +183,19 @@ class TodayViewModel(
             className = timetable.schoolClass.name,
             state = dayState,
             today = today,
-            remainingLessons = today
-                ?.let { ScheduleEngine.remainingLessons(it, now.toLocalTime()) }
-                .orEmpty(),
+            remainingLessons = when {
+                today == null -> emptyList()
+                settings.todayWholeDay -> today.activeLessons
+                else -> ScheduleEngine.remainingLessons(today, now.toLocalTime())
+            },
             events = today?.events?.sortedBy { it.startsAt }.orEmpty(),
             homeworkDay = focus ?: today?.takeIf { it.homework.isNotEmpty() },
-            homeworkFirst = focus != null,
-            showTeacher = showTeacher,
+            homeworkFirst = settings.todayLayout.homeworkLeads(schoolIsOver = focus != null),
+            showTeacher = settings.showTeacher,
+            showHero = settings.todayShowHero,
+            wholeDay = settings.todayWholeDay,
+            homeworkPreview = settings.todayHomeworkPreview,
+            showEvents = settings.todayShowEvents,
             syncedAtEpochMillis = timetable.syncedAtEpochMillis,
             message = message,
         )

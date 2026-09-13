@@ -12,8 +12,8 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
  *
  * There is no DI framework in this app (see `di.Graph` for why), so this object
  * is the factory: [DefaultLessonsContainer][com.lumenpearson.lessons.core.data.di.DefaultLessonsContainer]
- * calls [apis] once and everything else takes the resulting [LessonsApi] and
- * [DiaryApi].
+ * calls [apis] once and everything else takes the resulting [LessonsApi],
+ * [DiaryApi] and [ManageApi].
  */
 internal object NetworkModule {
 
@@ -85,11 +85,11 @@ internal object NetworkModule {
         .build()
 
     /**
-     * The stack every call site shares: one client, one Retrofit, two APIs.
+     * The stack every call site shares: one client, one Retrofit, three APIs.
      *
-     * Built as a pair rather than through two factories because the client is
-     * the expensive part and both interfaces want the same one — the same
-     * pool, the same timeouts and the same base-URL rewrite.
+     * Built as one object rather than through three factories because the
+     * client is the expensive part and all three interfaces want the same one —
+     * the same pool, the same timeouts and the same base-URL rewrite.
      */
     fun apis(
         tokenProvider: () -> String?,
@@ -103,9 +103,17 @@ internal object NetworkModule {
         return Apis(
             lessons = retrofit.create(LessonsApi::class.java),
             diary = retrofit.create(DiaryApi::class.java),
+            manage = retrofit.create(ManageApi::class.java),
         )
     }
 
-    /** @see apis */
-    data class Apis(val lessons: LessonsApi, val diary: DiaryApi)
+    /**
+     * @property manage the management surface. It carries no bearer of its own:
+     *   `/api/v1/manage` is signed by the ordinary class token like the rest of
+     *   [LessonsApi], and the role behind that token is looked up per request on
+     *   the server.
+     *
+     * @see apis
+     */
+    data class Apis(val lessons: LessonsApi, val diary: DiaryApi, val manage: ManageApi)
 }

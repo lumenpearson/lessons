@@ -9,6 +9,7 @@ import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.DeviceFlow
 import com.lumenpearson.lessons.core.data.repository.GithubAccount
+import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.DeviceLink
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
 import com.lumenpearson.lessons.core.data.repository.GithubRepository
@@ -26,6 +27,8 @@ import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
+import com.lumenpearson.lessons.core.model.TodayLayout
+import com.lumenpearson.lessons.core.model.WeekStart
 import com.lumenpearson.lessons.ui.common.DefaultAppSettings
 import com.lumenpearson.lessons.ui.common.SyncMessage
 import com.lumenpearson.lessons.ui.common.toMessageOrNull
@@ -222,6 +225,36 @@ class SettingsViewModel(
 
     /** Whether the widget draws the lesson progress bar. */
     fun setWidgetShowProgress(enabled: Boolean) = update { it.copy(widgetShowProgress = enabled) }
+
+    /** The countdown card at the top of the home screen. */
+    fun setTodayShowHero(enabled: Boolean) = update { it.copy(todayShowHero = enabled) }
+
+    /** Which of the home screen's two big blocks leads; see [TodayLayout]. */
+    fun setTodayLayout(layout: TodayLayout) = update { it.copy(todayLayout = layout) }
+
+    /** Whether the home screen lists the whole day or only what is left of it. */
+    fun setTodayWholeDay(enabled: Boolean) = update { it.copy(todayWholeDay = enabled) }
+
+    /** One of `AppSettings.HOMEWORK_PREVIEW_OPTIONS`; anything else is clamped on read. */
+    fun setTodayHomeworkPreview(count: Int) = update { it.copy(todayHomeworkPreview = count) }
+
+    /** Whether the home screen lists today's events. */
+    fun setTodayShowEvents(enabled: Boolean) = update { it.copy(todayShowEvents = enabled) }
+
+    /** Which date the calendar's week strip begins on; see [WeekStart]. */
+    fun setWeekStart(start: WeekStart) = update { it.copy(weekStart = start) }
+
+    /** Whether Saturday and Sunday appear in the week strip. */
+    fun setWeekShowWeekends(enabled: Boolean) = update { it.copy(weekShowWeekends = enabled) }
+
+    /** The lesson-count dots under each date in the calendar. */
+    fun setWeekShowLoad(enabled: Boolean) = update { it.copy(weekShowLoad = enabled) }
+
+    /** Whether the calendar shows a day's events under its lessons. */
+    fun setWeekShowEvents(enabled: Boolean) = update { it.copy(weekShowEvents = enabled) }
+
+    /** Whether the calendar shows a day's homework under its lessons. */
+    fun setWeekShowHomework(enabled: Boolean) = update { it.copy(weekShowHomework = enabled) }
 
     /**
      * Whether a crash leaves a report behind.
@@ -441,3 +474,20 @@ sealed interface DeviceLinkState {
 
     data class Failed(val cause: Throwable, val known: DeviceLink?) : DeviceLinkState
 }
+
+/**
+ * The role the server last reported, whatever the state is doing right now.
+ *
+ * A refresh in flight and a refresh that failed both still know who this phone
+ * is, from the answer before — which is what keeps the management page from
+ * flickering out of the list every time the page reloads, or the moment the
+ * train goes into a tunnel. It is `null` only when nothing has ever been
+ * answered, or when the phone is tied to no account at all.
+ */
+val DeviceLinkState.role: ClassRole?
+    get() = when (this) {
+        DeviceLinkState.Idle -> null
+        is DeviceLinkState.Loading -> known?.role
+        is DeviceLinkState.Ready -> link.role
+        is DeviceLinkState.Failed -> known?.role
+    }

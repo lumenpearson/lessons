@@ -145,12 +145,18 @@ fun LessonSheet(
  * hands over to [LessonSheet] rather than nesting a second sheet on top of this
  * one — two stacked scrims is a dead end a back gesture has to be used twice to
  * escape.
+ *
+ * The sheet honours the same two switches as the panel it was opened from: a
+ * block hidden under the week reappearing inside this sheet would read as the
+ * setting having failed rather than as a deliberate second chance.
  */
 @Composable
 fun DaySheet(
     day: WeekDayUi?,
     date: LocalDate,
     showTeacher: Boolean,
+    showEvents: Boolean,
+    showHomework: Boolean,
     onLessonClick: (Lesson) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -213,6 +219,8 @@ fun DaySheet(
 
         DayExtras(
             day = schoolDay,
+            showEvents = showEvents,
+            showHomework = showHomework,
             modifier = Modifier.padding(horizontal = ScreenPadding),
         )
         Spacer(Modifier.height(8.dp))
@@ -225,23 +233,34 @@ fun DaySheet(
  * Both are optional and both were invisible before: the calendar drew lessons
  * and nothing else, so a class trip that replaces a lesson, and the homework set
  * for a day you are looking at, existed in the cache and nowhere on screen.
+ *
+ * @param showEvents a user setting; a school that never holds an event has
+ *   nothing to gain from the switch, which is why it is not the same one as
+ *   below.
+ * @param showHomework a user setting. Separate from [showEvents] because for
+ *   anybody who reads homework in its own tab this block is a duplicate, and
+ *   that is a different complaint from "we have no events".
  */
 @Composable
 fun DayExtras(
     day: SchoolDay?,
+    showEvents: Boolean,
+    showHomework: Boolean,
     modifier: Modifier = Modifier,
 ) {
     if (day == null) return
-    if (day.events.isEmpty() && day.homework.isEmpty()) return
+    val events = if (showEvents) day.events else emptyList()
+    val homework = if (showHomework) day.homework else emptyList()
+    if (events.isEmpty() && homework.isEmpty()) return
 
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        if (day.events.isNotEmpty()) {
+        if (events.isNotEmpty()) {
             SectionHeader(title = stringResource(R.string.schedule_events))
             RoundedCardContainer {
-                day.events.forEach { event ->
+                events.forEach { event ->
                     GroupItem(
                         title = event.title,
                         subtitle = listOfNotNull(
@@ -255,10 +274,10 @@ fun DayExtras(
             }
         }
 
-        if (day.homework.isNotEmpty()) {
+        if (homework.isNotEmpty()) {
             SectionHeader(title = stringResource(R.string.schedule_homework))
             RoundedCardContainer {
-                day.homework.forEach { item -> HomeworkRow(item = item) }
+                homework.forEach { item -> HomeworkRow(item = item) }
             }
         }
     }

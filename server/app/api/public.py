@@ -89,6 +89,18 @@ CALENDAR_DAYS = 60
 join_limiter = JoinThrottle(limit=30, window=900.0)
 
 
+def _forwarded_list(request: Request, name: str) -> str:
+    """Every line of a repeated list header, joined back into the one list.
+
+    RFC 9110 §5.3: several field lines of a comma-separated field mean the same
+    as one line with the values joined. ``headers.get`` hands back only the
+    first line, and behind a proxy that adds its own line rather than extending
+    the caller's, the first line is the caller's - so counting from the right
+    within it landed on an address the caller chose.
+    """
+    return ", ".join(request.headers.getlist(name))
+
+
 def _forwarded_entry(header: str | None, hops: int) -> str | None:
     """The address the outermost *trusted* proxy put into a forwarding header.
 
@@ -127,13 +139,13 @@ def _client_bucket(request: Request) -> str:
     settings = get_settings()
 
     if settings.behind_vercel:
-        vercel = _forwarded_entry(request.headers.get("x-vercel-forwarded-for"), 1)
+        vercel = _forwarded_entry(_forwarded_list(request, "x-vercel-forwarded-for"), 1)
         if vercel:
             return client_bucket(vercel)
 
     hops = settings.trusted_proxy_hops
     if hops > 0:
-        forwarded = _forwarded_entry(request.headers.get("x-forwarded-for"), hops)
+        forwarded = _forwarded_entry(_forwarded_list(request, "x-forwarded-for"), hops)
         if forwarded:
             return client_bucket(forwarded)
 

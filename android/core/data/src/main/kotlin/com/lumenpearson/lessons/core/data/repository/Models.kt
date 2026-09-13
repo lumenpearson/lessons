@@ -6,6 +6,8 @@ import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
+import com.lumenpearson.lessons.core.model.TodayLayout
+import com.lumenpearson.lessons.core.model.WeekStart
 
 /**
  * Value types of the data layer's public API.
@@ -138,6 +140,45 @@ data class AppSettings(
     val edgeBlur: Boolean = true,
     val showTeacher: Boolean = true,
     val widgetShowProgress: Boolean = true,
+    /**
+     * The countdown card at the top of the home screen.
+     *
+     * Off leaves the screen a plain list. It is the one block up there that is
+     * about the next five minutes rather than about the day, so somebody who
+     * opens the app in the evening to read homework is looking past it every
+     * time — and it is the tallest thing on the page.
+     */
+    val todayShowHero: Boolean = true,
+    /** Which of the home screen's two big blocks leads; see [TodayLayout]. */
+    val todayLayout: TodayLayout = TodayLayout.AUTOMATIC,
+    /**
+     * List the whole day rather than only what is left of it.
+     *
+     * Off — the screen's own rule — a pupil in the fourth lesson is not
+     * re-read the first three. On is for the people who use the home screen as
+     * the timetable and find a list that shrinks through the day disorienting.
+     */
+    val todayWholeDay: Boolean = false,
+    /** How many homework rows the home screen previews; see [HOMEWORK_PREVIEW_OPTIONS]. */
+    val todayHomeworkPreview: Int = DEFAULT_HOMEWORK_PREVIEW,
+    /** Today's non-lesson entries — линейка, столовая, экскурсия — on the home screen. */
+    val todayShowEvents: Boolean = true,
+    /** Which date the calendar's week strip begins on; see [WeekStart]. */
+    val weekStart: WeekStart = WeekStart.MONDAY,
+    /**
+     * Keep Saturday and Sunday in the week strip.
+     *
+     * Off drops them from the strip only. The month grid keeps all seven
+     * columns whatever this says: a month whose rows were five days wide would
+     * no longer line up with any calendar the user has ever seen.
+     */
+    val weekShowWeekends: Boolean = true,
+    /** The dots under each date that say how many lessons it holds. */
+    val weekShowLoad: Boolean = true,
+    /** The day's events, under whatever drew its lessons. */
+    val weekShowEvents: Boolean = true,
+    /** The day's homework, under whatever drew its lessons. */
+    val weekShowHomework: Boolean = true,
     val syncIntervalMinutes: Int = DEFAULT_SYNC_INTERVAL_MINUTES,
     /**
      * Whether the app keeps a crash report when it dies.
@@ -247,6 +288,31 @@ data class AppSettings(
          * better served by the switch above it.
          */
         val MOTION_SPEED_RANGE: ClosedFloatingPointRange<Float> = 0.5f..2f
+
+        /** What the home screen previewed before the count was a choice. */
+        const val DEFAULT_HOMEWORK_PREVIEW: Int = 3
+
+        /**
+         * The homework preview lengths offered.
+         *
+         * One is "there is something to do"; three is the shipped preview; five
+         * is most of a school day's worth, which is as much as belongs above a
+         * tab that exists to hold the rest. Anything longer is the homework tab
+         * with a different title.
+         */
+        val HOMEWORK_PREVIEW_OPTIONS: List<Int> = listOf(1, 3, 5)
+
+        /**
+         * The offered length closest to [count].
+         *
+         * Applied when the number is read and when it is written, so what is on
+         * disk is always one of the three steps and the picker always has a
+         * segment to light. Without it a four — from a hand-edited file, or from
+         * a build that offered a fourth step — would draw a picker with nothing
+         * selected and no way to find out which value was in force.
+         */
+        fun nearestHomeworkPreview(count: Int): Int =
+            HOMEWORK_PREVIEW_OPTIONS.minBy { kotlin.math.abs(it - count) }
     }
 }
 

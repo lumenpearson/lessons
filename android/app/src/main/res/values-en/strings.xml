@@ -79,6 +79,7 @@ The access key you were given and a copy of the timetable stay on the device, so
     <!-- Today -->
     <string name="today_title">Today</string>
     <string name="today_lessons_remaining">Lessons left</string>
+    <string name="today_lessons_all">Today’s lessons</string>
     <string name="today_events">Events</string>
 
     <!-- Calendar -->
@@ -180,6 +181,8 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="settings_navigation_group">Navigation</string>
     <string name="settings_effects_group">Effects</string>
     <string name="settings_content_group">Lists and widget</string>
+    <string name="settings_home_group">Home</string>
+    <string name="settings_calendar_group">Calendar</string>
     <string name="settings_sync_group">Updating</string>
     <string name="settings_class_group">Your class</string>
     <string name="settings_about_group">App</string>
@@ -255,6 +258,31 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="settings_show_teacher_description">The teacher\'s name in the lesson row.</string>
     <string name="settings_widget_progress">Progress in the widget</string>
     <string name="settings_widget_progress_description">A bar showing how much of the lesson is left.</string>
+    <string name="settings_today_hero">The “now” card</string>
+    <string name="settings_today_hero_description">The big countdown card at the top of the home screen.</string>
+    <string name="settings_today_layout">What comes first</string>
+    <string name="settings_today_layout_description">“Auto” leads with lessons during the day and with homework after the last bell.</string>
+    <string name="settings_today_layout_auto">Auto</string>
+    <string name="settings_today_layout_lessons">Lessons</string>
+    <string name="settings_today_layout_homework">Homework</string>
+    <string name="settings_today_whole_day">The whole day</string>
+    <string name="settings_today_whole_day_description">List every lesson of the day, not only the ones still to come.</string>
+    <string name="settings_today_homework_count">Homework on the home screen</string>
+    <string name="settings_today_homework_count_description">How many rows to show before sending you to the tab.</string>
+    <string name="settings_today_events">Today’s events</string>
+    <string name="settings_today_events_description">Assemblies, trips and anything else that is not a lesson.</string>
+    <string name="settings_week_start">The week starts on</string>
+    <string name="settings_week_start_description">Monday, or seven days from the date in view.</string>
+    <string name="settings_week_start_monday">Monday</string>
+    <string name="settings_week_start_today">Today</string>
+    <string name="settings_week_weekends">Weekends</string>
+    <string name="settings_week_weekends_description">Saturday and Sunday in the week strip. The month always keeps them.</string>
+    <string name="settings_week_load">Load dots</string>
+    <string name="settings_week_load_description">Up to three dots under a date for how many lessons it holds.</string>
+    <string name="settings_week_events">Events under the timetable</string>
+    <string name="settings_week_events_description">The chosen day’s events, below its lessons.</string>
+    <string name="settings_week_homework">Homework under the timetable</string>
+    <string name="settings_week_homework_description">The chosen day’s assignments, below its lessons.</string>
     <string name="settings_sync">Sync</string>
     <string name="settings_sync_interval">How often to update</string>
     <string name="settings_server_url">Server address</string>
@@ -293,7 +321,6 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="settings_alert_homework">Homework reminder</string>
     <string name="settings_alert_homework_description">In the evening — which subjects have homework for tomorrow</string>
     <string name="settings_alert_homework_at">Reminder time</string>
-    <string name="settings_alert_hour_value">%1$d:00</string>
     <string name="settings_alerts_quiet_group">When to stay quiet</string>
     <string name="settings_alert_quiet">Quiet hours</string>
     <string name="settings_alert_quiet_description">Nothing arrives during this stretch. What was missed is not delivered later</string>

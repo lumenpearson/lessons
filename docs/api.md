@@ -400,6 +400,297 @@ Marks a whole date. `kind: "normal"` deletes the mark, so a day never carries a
 row that says nothing. `bell_schedule_id` (for `shortened` days) must be one
 of this class's bell schedules - `422` otherwise. Answers the stored row.
 
+## Managing the class
+
+Everything the bot's `/class`, `/subjects`, `/bells`, `/devices`, `/log`,
+`/stats`, `/export`, `/import` and access requests do, under
+`/api/v1/manage`, so a class admin can run the class from the phone. The bot
+is the authority: the same minimum role guards the same operation on both
+surfaces, the same rows move when a subject is renamed, and the same line
+lands in the audit log. An admin who changes something in the app and then
+opens the bot finds the class in the state the app said it was in.
+
+Authorisation is server-side and per request: the bearer token names a device,
+the device names the Telegram account it was linked to, and that account's
+role in the class *right now* decides. Nothing the client sends about itself
+is consulted, and revoking somebody in the bot revokes their phone in the same
+instant.
+
+| Method | Path | Role | Does |
+| --- | --- | --- | --- |
+| `GET` | `/manage/class` | admin | The class card |
+| `PATCH` | `/manage/class` | admin | Rename, re-home, change time zone |
+| `DELETE` | `/manage/class` | owner | Delete the class and everything in it |
+| `GET` | `/manage/subjects` | editor | The dictionary, with ids |
+| `POST` | `/manage/subjects` | admin | Add a subject → `201` |
+| `PATCH` | `/manage/subjects/{id}` | admin | Rename / short name / teacher / colour |
+| `DELETE` | `/manage/subjects/{id}` | admin | Remove the dictionary entry |
+| `GET` | `/manage/bells` | admin | Every bell schedule, default marked |
+| `POST` | `/manage/bells` | admin | New schedule → `201` |
+| `PATCH` | `/manage/bells/{id}` | admin | Rename, or make it the class default |
+| `PUT` | `/manage/bells/{id}/periods` | admin | Replace its rows |
+| `DELETE` | `/manage/bells/{id}` | admin | Remove a schedule nothing uses |
+| `GET` | `/manage/timetable` | admin | Export the template as text |
+| `POST` | `/manage/timetable/import` | admin | Import the same text |
+| `GET` | `/manage/devices` | admin | Linked phones |
+| `POST` | `/manage/devices/{id}/revoke` | admin | Switch a phone off |
+| `POST` | `/manage/devices/{id}/unlink` | admin | Back to read-only |
+| `GET` | `/manage/log` | admin | The audit log, paginated |
+| `GET` | `/manage/stats` | editor | The numbers `/stats` shows |
+| `GET` | `/manage/requests` | admin | Who is waiting for a role |
+| `POST` | `/manage/requests/{id}/approve` | admin | Grant the role |
+| `POST` | `/manage/requests/{id}/decline` | admin | Say no |
+
+Refusals are the two the app already knows, with the role named:
+`403 device is not linked` and `403 editor|admin|owner role required`. A
+`404` is a row that is not this class's - ids are re-scoped by the query that
+reads them, so one naming another class's subject finds nothing rather than
+editing it. A `409` is a request that is well formed and refused by the
+class's own state: a subject name already taken, a bell schedule days still
+point at, a device that is not linked.
+
+Every mutation writes one audit line per field changed, under the linked
+account, with the same tags the bot writes (`subject.rename`, `bells.edit`,
+`class.name`, `timetable.import`, …). Timestamps in responses here are **class
+wall time**, like every other clock on this API: an admin in Vladivostok
+reading a Moscow server's log should not see yesterday evening against this
+morning's change.
+
+Days, замены, events and homework are not on this surface. They are the
+day-to-day writes and they already live under [writing class
+data](#writing-class-data) at the editor's role - `PUT /api/v1/days` is the
+API's «🏖 Особые дни».
+
+### The class card
+
+`GET /manage/class`:
+
+```json
+{
+  "id": 1,
+  "name": "9А",
+  "school": "Демо-школа",
+  "city": "Санкт-Петербург",
+  "timezone": "Europe/Moscow",
+  "timezone_label": "МСК (UTC+3) · Москва, Санкт-Петербург",
+  "join_code": "DEMO24",
+  "members": 12,
+  "devices": 9,
+  "pending_requests": 1,
+  "bell_schedule_id": 3,
+  "calendar_ready": true
+}
+```
+
+`PATCH /manage/class` takes any of `name`, `school`, `city`, `timezone` and
+answers the card. Only the fields present change; `null` clears `school` or
+`city`. `name` and `timezone` may not be null or blank, and `timezone` must be
+one of the eleven Russian zones the bot offers (`422 unknown timezone`
+otherwise). Changing the zone moves no stored time - a bell rings at 08:30
+whatever the zone says - it changes which instant the class calls "now".
+
+`DELETE /manage/class` is the owner's alone and takes the confirmation the bot
+asks for:
+
+```json
+{ "confirm_name": "9А" }
+```
+
+The name must match exactly, or `422`; a sheet in the app is not the check,
+because the endpoint is reachable without the sheet. The class, its timetable,
+homework, замены, events, log and every device token go with it - including
+the caller's own, so the next request from that phone is a `401`. Answers
+`{"id": 1, "deleted": true}`.
+
+### Subjects
+
+The dictionary is what keeps «Алгебра», «алгебра» and «Алг.» from being three
+subjects in the timetable, the homework and the app's colours. `GET` answers
+`[{ "id": 4, "name": "Алгебра", "short_name": "Алг", "teacher": "Иванова А. П.", "color": "#5B6ABF" }]`,
+sorted by name; an editor may read it.
+
+`POST` takes `name` (required) and any of `short_name`, `teacher`, `color`.
+`PATCH` takes the same fields, changing only those present; `null` clears
+`short_name`, `teacher` and `color`. Colours are written as `#RRGGBB` in any
+case, with or without the `#`, and stored upper-case; anything else is `422`.
+Both answer:
+
+```json
+{ "subject": { "id": 4, "name": "Алгебра и начала анализа", "short_name": null, "teacher": null, "color": null }, "moved": 12 }
+```
+
+`moved` is the point of `PATCH name`. The timetable, the homework and the
+замены store the subject as **text**, not as a foreign key - deliberately, so
+a lesson keeps its name when a subject is deleted - so a rename is a cascade,
+and all of it happens in one transaction. `moved` is how many of those rows
+went with it. Renaming onto a name the class already uses is `409`: merging
+two subjects is a different operation, and doing it by accident cannot be
+undone.
+
+`DELETE` removes the dictionary entry and **leaves the lessons alone**: the
+timetable keeps the name and loses only the colour and the teacher, which is
+what an admin cleaning up a duplicate means.
+
+### Bell schedules
+
+A class keeps several - «Обычное», «Сокращённое», «Суббота» - and one of them
+is the default the day view uses when nothing says otherwise.
+
+```json
+{ "id": 3, "name": "Обычное", "is_default": true,
+  "periods": [ { "index": 1, "starts_at": "08:30:00", "ends_at": "09:15:00" } ] }
+```
+
+`POST /manage/bells` takes `name` and an optional `periods`; a new schedule is
+never made the default, because one is created in order to be pointed at by
+particular days. `PATCH` takes `name` and `is_default`; `is_default: false` is
+`422` - a class with no default has no times for an ordinary day, so the way
+to stop using one is to make another the default.
+
+`PUT /manage/bells/{id}/periods` replaces the rows wholesale, because that is
+what editing bells is: move one lesson and every lesson after it shifts.
+Between one and twenty rows, `index` 1-20 and unique, `ends_at` after
+`starts_at`; an empty list is `422`, the same refusal as the bot's «пустой
+присылкой звонки не стереть».
+
+`DELETE` refuses the class default and any schedule a special day still points
+at (`409`, with the count). Both are a `SET NULL` in the database, which would
+silently move those days onto the default schedule - a change nobody asked
+for, on dates an admin is not looking at.
+
+### Timetable export and import
+
+`GET /manage/timetable` answers `{ "text": "== Понедельник ==\n1. Алгебра, 214\n…", "lessons": 18 }`
+- byte for byte what «📤 Экспорт» sends, so a text saved out of the bot can be
+imported by the app and the other way round. An empty timetable is an empty
+string, not a `404`.
+
+`POST /manage/timetable/import`:
+
+```json
+{ "text": "== Понедельник ==\n1. Химия, 118\n2. Биология\n\n== Звонки ==\n1. 09:00-09:40", "replace": false }
+```
+
+```json
+{
+  "applied": false,
+  "days": [1],
+  "lessons": 2,
+  "bells": 1,
+  "conflicts": [ { "weekday": 1, "existing": 3, "incoming": 2 } ],
+  "rejected": ["не строка"]
+}
+```
+
+The bot shows a preview and asks «Применить». An API has no screen to show one
+on, so **the preview is the refusal**: if a weekday in the paste already has
+lessons, nothing is written and the response says what stands to be
+overwritten. Sending it again with `replace: true` is the second tap, and then
+`applied` is `true` and `lessons` counts what was written.
+
+Only the weekdays the paste names are touched, so a Tuesday block against a
+Monday-only timetable is not a conflict at all, and a day named with nothing
+under it is emptied - that is how a paste says «в четверг уроков нет».
+`rejected` echoes the lines the parser could not read, so an admin can fix the
+two that were typos rather than re-reading the whole paste. A paste with no
+weekday header and no bells block in it is `422`. A `== Звонки ==` block
+replaces the default schedule's rows outright, as it does in the bot: it is a
+schedule, not a day, and nothing else points at it.
+
+### Devices
+
+`GET /manage/devices?include_revoked=false`:
+
+```json
+[ { "id": 7, "device_name": "Pixel 8", "linked": true, "owner": "@anna", "role": "editor",
+    "revoked": false, "created_at": "2026-09-01T18:22:04", "last_seen_at": "2026-09-12T07:55:10",
+    "linked_at": "2026-09-01T18:24:31" } ]
+```
+
+Oldest first. `role` is a lookup, not a stored field - a device acts with
+whatever role its owner holds right now - and `owner` is a display name; the
+Telegram id a device is linked to is never on the wire.
+
+`POST /manage/devices/{id}/revoke` switches a phone off: revoked, not deleted,
+because the row is what a token is checked against and keeping it is what makes
+the refusal instant and permanent. It is idempotent and logs once. An admin may
+revoke the phone they are holding, and then the next request from it is a `401`
+- that is how a lost phone is dealt with from the one still in a pocket.
+
+`POST /manage/devices/{id}/unlink` puts a phone back to read-only without
+taking it off the class: it keeps reading the timetable and loses the role it
+borrowed. A device that is not linked is `409`.
+
+### The audit log
+
+`GET /manage/log?limit=30&offset=0` (`limit` 1-100):
+
+```json
+{
+  "entries": [ { "id": 412, "action": "subject.rename", "summary": "предмет «Алгебра» → «Алгебра и начала анализа», строк обновлено: 12", "who": "@anna", "at": "2026-09-12T14:05:33" } ],
+  "limit": 30,
+  "offset": 0,
+  "has_more": true
+}
+```
+
+Newest first. `has_more` rather than a total: the log is append-only and
+unbounded, and counting it would be a full scan on every page turn. `who` is a
+display name, `null` for a line the system wrote. `summary` is plain text -
+the bot escapes it at render time, and so must a client that puts it in HTML.
+
+### Stats
+
+`GET /manage/stats`, readable by an editor, because it says whether the
+timetable is complete and whether homework is being entered - which is what
+the person entering it wants to know.
+
+```json
+{
+  "today": "2026-09-12",
+  "lessons_per_week": 32.5,
+  "subjects_count": 14,
+  "subjects": [ { "name": "Алгебра", "hours": 4.0 } ],
+  "homework_open": 6,
+  "homework_total": 141,
+  "members_by_role": { "owner": 1, "admin": 2, "editor": 4, "viewer": 5 },
+  "devices_active": 9,
+  "overrides_upcoming": 3,
+  "events_upcoming": 2
+}
+```
+
+A lesson that alternates weeks counts as half, which is how a school's own
+paperwork writes «часов в неделю». `subjects` is ordered by hours, then name.
+
+### Access requests
+
+Someone with a read-only phone asks for a role with `/request` in the bot;
+the admins answer here or there.
+
+`GET /manage/requests` lists the pending ones, oldest first:
+
+```json
+[ { "id": 5, "who": "@petya", "requested_role": "editor", "message": "я староста", "created_at": "2026-09-11T19:02:44" } ]
+```
+
+`POST /manage/requests/{id}/approve` grants it. The body is optional;
+`{ "role": "admin" }` grants something other than what was asked for. Answers
+`{ "id": 5, "status": "approved", "role": "editor", "who": "@petya" }`.
+
+Two guards, the bot's own: nobody may grant a role at or above their own
+(`403 cannot grant a role at or above your own`, and `owner` is granted by the
+deployment's `OWNER_IDS` alone, never through this endpoint), and nobody may
+change the role of a peer or a senior (`403 cannot change this member's
+role`). Without both, an admin could promote a friend to admin and be demoted
+by them a moment later.
+
+`POST /manage/requests/{id}/decline` closes it with `status: "declined"` and
+`role: null`. Either way the requester is told in Telegram, because that is
+where they asked; a decision stands whether or not the message was delivered.
+A request that has already been answered is a `404`, so two admins tapping at
+once cannot grant twice.
+
 ## `GET|POST /api/v1/cron/tick`
 
 Not for clients. A serverless deployment has no scheduler, so the morning and

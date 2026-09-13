@@ -20,9 +20,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -35,6 +40,8 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.modifier.LocalControlCentre
+import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
 import com.lumenpearson.lessons.core.designsystem.modifier.fadingEdges
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
@@ -80,6 +87,10 @@ fun <T> SegmentedPicker(
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     val view = rememberHapticView()
+    // Which segment was pressed, for whatever starts an effect where the finger
+    // landed: three of them share one row, so the row's own middle is the right
+    // answer for at most one of the three. See ControlCentre.
+    val controlCentre = LocalControlCentre.current
 
     Row(
         modifier = modifier
@@ -90,14 +101,17 @@ fun <T> SegmentedPicker(
     ) {
         items.forEachIndexed { index, item ->
             val selected = item == selectedItem
+            var centre by remember { mutableStateOf(Offset.Unspecified) }
             ToggleButton(
                 checked = selected,
                 onCheckedChange = {
                     LessonsHaptics.tap(view)
+                    if (centre.isSpecified) controlCentre?.report(centre)
                     onItemSelected(item)
                 },
                 modifier = Modifier
                     .weight(1f)
+                    .centreInRoot { centre = it }
                     .semantics { role = Role.RadioButton },
                 shapes = when (index) {
                     0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()

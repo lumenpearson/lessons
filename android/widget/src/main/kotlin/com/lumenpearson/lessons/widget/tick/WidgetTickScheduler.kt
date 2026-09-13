@@ -156,10 +156,18 @@ object WidgetTickScheduler {
     }
 
     /**
-     * API 31 made exact alarms a user-grantable permission, and this app
-     * deliberately does not request it — a school diary is not a clock app, and
-     * Play restricts the permission accordingly. A one-minute window at a bell
-     * is invisible in practice.
+     * API 31 made exact alarms a user-grantable permission.
+     *
+     * This app does request it — `:app`'s manifest declares `SCHEDULE_EXACT_ALARM`
+     * and `USE_EXACT_ALARM`, because it is distributed as an APK inside a school
+     * rather than through Play, where the policy reserving the second of those
+     * for clock and calendar apps would apply. An earlier version of this
+     * comment claimed the opposite and was wrong; the manifest is the authority
+     * and the widget's own manifest already says so.
+     *
+     * The check stays because the grant can be absent on a sideloaded build or
+     * revoked by the user, and a bell degraded to a one-minute window is barely
+     * visible while a crashed receiver stops the chain for good.
      */
     private fun canScheduleExact(alarmManager: AlarmManager): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()

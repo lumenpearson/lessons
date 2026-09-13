@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,13 +30,14 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import com.lumenpearson.lessons.core.designsystem.modifier.ControlCentre
+import com.lumenpearson.lessons.core.designsystem.modifier.LocalControlCentre
 import com.lumenpearson.lessons.core.designsystem.modifier.LocalLiquidRipple
+import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
 import kotlin.math.hypot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -284,25 +286,24 @@ fun ThemeRevealAnchor(
     val host = LocalThemeReveal.current
     val ripple = LocalLiquidRipple.current
     var centre by remember { mutableStateOf(Offset.Unspecified) }
+    // Filled in by whichever control inside was pressed, and preferred over the
+    // box's own middle: an anchor wraps a whole settings row, and the switch it
+    // holds is against the right edge of one. See ControlCentre.
+    val control = remember { ControlCentre() }
 
-    Box(
-        modifier = modifier.onGloballyPositioned { coordinates ->
-            val corner = coordinates.positionInRoot()
-            centre = Offset(
-                x = corner.x + coordinates.size.width / 2f,
-                y = corner.y + coordinates.size.height / 2f,
-            )
-        },
-    ) {
-        content { change ->
-            // The wave and the wipe start from the same point at the same
-            // moment, which is what makes them read as one event: the new
-            // theme spreading out with a ring of liquid ahead of it. The wave
-            // is fired whether or not the wipe runs — the ripple has its own
-            // switch, and a theme change with the wipe off still deserves
-            // some acknowledgement of where it came from.
-            ripple?.fire(centre)
-            if (host == null) change() else host.reveal(centre, change)
+    Box(modifier = modifier.centreInRoot { centre = it }) {
+        CompositionLocalProvider(LocalControlCentre provides control) {
+            content { change ->
+                // The wave and the wipe start from the same point at the same
+                // moment, which is what makes them read as one event: the new
+                // theme spreading out with a ring of liquid ahead of it. The
+                // wave is fired whether or not the wipe runs — the ripple has
+                // its own switch, and a theme change with the wipe off still
+                // deserves some acknowledgement of where it came from.
+                val from = if (control.offset.isSpecified) control.offset else centre
+                ripple?.fire(from)
+                if (host == null) change() else host.reveal(from, change)
+            }
         }
     }
 }

@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The English twin of strings_admin.xml. Every key here exists there too. -->
+<resources>
+    <string name="settings_admin">Management</string>
+    <string name="settings_admin_summary">The class, devices, the log and debugging</string>
+
+    <string name="admin_role_admin">You are an administrator of this class</string>
+    <string name="admin_role_owner">You own this class</string>
+    <string name="admin_role_description">Only you and other administrators see this page. The server checks permissions on every action.</string>
+
+    <string name="admin_tools_group">Tools</string>
+    <string name="admin_debug">Debugging</string>
+    <string name="admin_debug_description">Crash reports, the log and detailed error messages</string>
+
+    <!-- Running the class -->
+    <string name="admin_manage_group">The class</string>
+
+    <string name="admin_class_title">Class card</string>
+    <string name="admin_class_description">Name, school, city, time zone</string>
+    <string name="admin_subjects_title">Subjects</string>
+    <string name="admin_subjects_description">The class\'s subject dictionary</string>
+    <string name="admin_bells_title">Bells</string>
+    <string name="admin_bells_description">Bell schedules and the lessons in them</string>
+    <string name="admin_timetable_title">Timetable</string>
+    <string name="admin_timetable_description">Export and import the weekly template</string>
+    <string name="admin_devices_title">Devices</string>
+    <string name="admin_devices_description">Phones on this class\'s list</string>
+    <string name="admin_log_title">Log</string>
+    <string name="admin_log_description">Who changed what</string>
+    <string name="admin_stats_title">Statistics</string>
+    <string name="admin_stats_description">The numbers for this class</string>
+    <string name="admin_requests_title">Access requests</string>
+    <string name="admin_requests_description">Who is waiting for a role</string>
+
+    <!-- The role changed under your feet -->
+    <string name="admin_gone_title">This page is no longer yours</string>
+    <string name="admin_gone_signed_out">The server no longer accepts this device\'s token. Open “Class” in settings and sign in again.</string>
+    <string name="admin_gone_not_linked">This device is not linked to Telegram, so it holds no role. Link it on the “Class” page.</string>
+    <string name="admin_gone_role">Your account no longer holds the “%1$s” role in this class. It looks as though it was changed in the bot.</string>
+    <string name="admin_gone_role_unknown">Your account no longer holds the role this page needs. It looks as though it was changed in the bot.</string>
+    <string name="admin_gone_recheck">Check again</string>
+
+    <!-- Refusals -->
+    <string name="admin_error_title">That did not work</string>
+    <string name="admin_error_signed_out">The server no longer accepts this device\'s token.</string>
+    <string name="admin_error_not_linked">This device is not linked to Telegram.</string>
+    <string name="admin_error_role_lost">Your account no longer holds the role this needs.</string>
+    <string name="admin_error_not_allowed">The server did not allow your role to do this.</string>
+    <string name="admin_error_not_found">That row is no longer in this class — somebody may have just deleted it.</string>
+    <string name="admin_error_refused">This cannot be done right now.</string>
+    <string name="admin_error_invalid">The server would not accept these values.</string>
+    <string name="admin_error_offline">The server is not answering. Check the network and the server address.</string>
+    <string name="admin_error_unknown">The server answered in a way this app did not expect (%1$s).</string>
+    <string name="admin_error_detail">Server: %1$s</string>
+    <string name="admin_retry">Try again</string>
+
+    <!-- What is wrong with the form -->
+    <string name="admin_form_name_blank">The name cannot be empty</string>
+    <string name="admin_form_name_long">The name is too long</string>
+    <string name="admin_form_short_name_long">The short name is too long</string>
+    <string name="admin_form_teacher_long">The teacher\'s name is too long</string>
+    <string name="admin_form_school_long">The school name is too long</string>
+    <string name="admin_form_city_long">The city name is too long</string>
+    <string name="admin_form_colour">A colour is six hexadecimal digits, as in #5B6ABF</string>
+    <string name="admin_form_no_periods">A bell schedule needs at least one lesson</string>
+    <string name="admin_form_too_many_periods">There cannot be more than twenty lessons</string>
+    <string name="admin_form_period_repeated">Lesson numbers must not repeat</string>
+    <string name="admin_form_period_range">A lesson number runs from 1 to 20</string>
+    <string name="admin_form_period_backwards">A lesson cannot end before it starts</string>
+    <string name="admin_form_paste_empty">Paste the timetable text</string>
+    <string name="admin_form_paste_long">The text is too long</string>
+    <string name="admin_form_name_mismatch">The name does not match</string>
+
+    <!-- The class card -->
+    <string name="admin_class_join_code">Join code</string>
+    <string name="admin_class_school_empty">No school set</string>
+    <string name="admin_class_city_empty">No city set</string>
+    <string name="admin_class_members">Members</string>
+    <string name="admin_class_devices">Devices</string>
+    <string name="admin_class_requests">Waiting for access</string>
+    <string name="admin_class_calendar">Calendar</string>
+    <string name="admin_class_calendar_ready">Connected</string>
+    <string name="admin_class_calendar_missing">Not connected</string>
+    <string name="admin_class_edit">Edit</string>
+    <string name="admin_class_edit_title">Edit the class</string>
+    <string name="admin_class_name_label">Class name</string>
+    <string name="admin_class_school_label">School</string>
+    <string name="admin_class_city_label">City</string>
+    <string name="admin_class_timezone_label">Time zone</string>
+    <string name="admin_class_timezone_note">The time zone moves no stored time: a bell at 08:30 stays at 08:30. It decides which instant the class calls “now”.</string>
+    <string name="admin_class_saved">The class was saved</string>
+    <string name="admin_class_delete">Delete the class</string>
+    <string name="admin_class_delete_title">Delete the class</string>
+    <string name="admin_class_delete_message">The timetable, homework, substitutions, events, the log and every linked device go with the class — this one included. It cannot be undone.</string>
+    <string name="admin_class_delete_confirm">Type “%1$s” to confirm</string>
+    <string name="admin_class_owner_only">Only the owner can delete the class.</string>
+    <string name="admin_class_deleted_title">The class is gone</string>
+    <string name="admin_class_deleted_message">The class no longer exists, and this device\'s token went with it. Close settings — the app will ask you to join again.</string>
+
+    <!-- Subjects -->
+    <string name="admin_subjects_empty_title">No subjects yet</string>
+    <string name="admin_subjects_empty_text">The dictionary is what keeps “Алгебра”, “алгебра” and “Алг.” one subject — in the timetable, in the homework and in the app\'s colours.</string>
+    <string name="admin_subject_add">Add a subject</string>
+    <string name="admin_subject_add_title">New subject</string>
+    <string name="admin_subject_edit_title">Subject</string>
+    <string name="admin_subject_name_label">Name</string>
+    <string name="admin_subject_short_label">Short name</string>
+    <string name="admin_subject_teacher_label">Teacher</string>
+    <string name="admin_subject_colour_label">Colour</string>
+    <string name="admin_subject_colour_hint">#5B6ABF</string>
+    <string name="admin_subject_rename_note">The timetable, the homework and the substitutions store a subject as text, so a rename carries all of them with it — and says how many rows it carried.</string>
+    <string name="admin_subject_delete">Delete the subject</string>
+    <string name="admin_subject_delete_title">Delete “%1$s”?</string>
+    <string name="admin_subject_delete_message">The lessons stay where they are: the timetable keeps the name and loses only the colour and the teacher.</string>
+    <string name="admin_subject_added">Subject “%1$s” added</string>
+    <string name="admin_subject_saved">Subject “%1$s” saved</string>
+    <string name="admin_subject_renamed">“%1$s”: rows moved — %2$d</string>
+    <string name="admin_subject_deleted">Subject “%1$s” deleted</string>
+
+    <!-- Bells -->
+    <string name="admin_bells_empty_title">No bell schedules</string>
+    <string name="admin_bells_empty_text">A class keeps several — an ordinary one, a shortened one, a Saturday one — and one of them is the default.</string>
+    <string name="admin_bells_add">New schedule</string>
+    <string name="admin_bells_add_title">New bell schedule</string>
+    <string name="admin_bells_name_label">Name</string>
+    <string name="admin_bells_default">default</string>
+    <string name="admin_bells_make_default">Make it the default</string>
+    <string name="admin_bells_rename">Rename</string>
+    <string name="admin_bells_rename_title">Rename the schedule</string>
+    <string name="admin_bells_periods">Lessons</string>
+    <string name="admin_bells_periods_title">Bells for “%1$s”</string>
+    <string name="admin_bells_periods_note">The rows are replaced wholesale: move one lesson and every lesson after it moves with it.</string>
+    <string name="admin_bells_add_period">Add a lesson</string>
+    <string name="admin_bells_remove_period">Remove the last</string>
+    <string name="admin_bells_period">Lesson %1$d</string>
+    <string name="admin_bells_period_start">starts</string>
+    <string name="admin_bells_period_end">ends</string>
+    <string name="admin_bells_lessons">lessons: %1$d</string>
+    <string name="admin_bells_delete">Delete the schedule</string>
+    <string name="admin_bells_delete_title">Delete “%1$s”?</string>
+    <string name="admin_bells_delete_message">The server refuses to delete the class default, and any schedule a special day still points at.</string>
+    <string name="admin_bells_saved">Bells “%1$s” saved</string>
+    <string name="admin_bells_default_set">Default bells: “%1$s”</string>
+    <string name="admin_bells_deleted">Schedule “%1$s” deleted</string>
+
+    <!-- The timetable: export and import -->
+    <string name="admin_timetable_export">Export</string>
+    <string name="admin_timetable_export_empty">The timetable is empty — there is nothing to carry over.</string>
+    <string name="admin_timetable_lessons">Lessons: %1$d</string>
+    <string name="admin_timetable_copy">Copy</string>
+    <string name="admin_timetable_copied">Copied to the clipboard</string>
+    <string name="admin_timetable_import">Import</string>
+    <string name="admin_timetable_paste_label">Paste the timetable text</string>
+    <string name="admin_timetable_paste_note">The same format both ways: a text from the bot reads here, and this one reads there. Only the days the text names are touched.</string>
+    <string name="admin_timetable_apply">Apply</string>
+    <string name="admin_timetable_conflicts_title">These days would be overwritten</string>
+    <string name="admin_timetable_conflicts_summary">Days: %1$d, lessons now: %2$d, would become: %3$d</string>
+    <string name="admin_timetable_conflict_line">%1$s: now %2$d, after %3$d</string>
+    <string name="admin_timetable_conflicts_note">Nothing has been written yet. “Replace” overwrites only the days listed here; the rest stay as they are.</string>
+    <string name="admin_timetable_replace">Replace</string>
+    <string name="admin_timetable_rejected_title">These lines could not be read</string>
+    <string name="admin_timetable_imported">Imported — days: %1$d, lessons: %2$d, bells: %3$d</string>
+    <string name="admin_timetable_weekday_unknown">Day %1$d</string>
+
+    <!-- Devices -->
+    <string name="admin_devices_empty_title">No devices</string>
+    <string name="admin_devices_empty_text">Every phone that joined this class with the code appears here.</string>
+    <string name="admin_devices_show_revoked">Show switched-off devices</string>
+    <string name="admin_device_unnamed">Device %1$d</string>
+    <string name="admin_device_not_linked">not linked</string>
+    <string name="admin_device_revoked">switched off</string>
+    <string name="admin_device_seen">last seen %1$s</string>
+    <string name="admin_device_never_seen">never been in touch</string>
+    <string name="admin_device_revoke">Switch off</string>
+    <string name="admin_device_unlink">Unlink</string>
+    <string name="admin_device_revoke_title">Switch this device off?</string>
+    <string name="admin_device_revoke_message">Its token stops working at once and for good. If this is the phone in your hand, the app on it will ask you to join again.</string>
+    <string name="admin_device_unlink_title">Unlink this device?</string>
+    <string name="admin_device_unlink_message">The phone stays in the class and keeps reading the timetable, but loses the role it borrowed from its owner\'s account.</string>
+    <string name="admin_device_revoked_notice">The device was switched off</string>
+    <string name="admin_device_unlinked_notice">The device was unlinked — read-only again</string>
+
+    <!-- The log -->
+    <string name="admin_log_empty_title">The log is empty</string>
+    <string name="admin_log_empty_text">Every change lands here — from the bot and from the app alike.</string>
+    <string name="admin_log_system">the system</string>
+    <string name="admin_log_page">Entries %1$d to %2$d</string>
+    <string name="admin_log_newer">Newer</string>
+    <string name="admin_log_older">Older</string>
+    <string name="admin_log_meta">%1$s · %2$s</string>
+
+    <!-- Statistics -->
+    <string name="admin_stats_empty_title">Nothing to count yet</string>
+    <string name="admin_stats_empty_text">The numbers appear as soon as the class has a timetable.</string>
+    <string name="admin_stats_today">Today is %1$s</string>
+    <string name="admin_stats_lessons_per_week">Lessons a week</string>
+    <string name="admin_stats_subjects_count">Subjects</string>
+    <string name="admin_stats_homework">Homework</string>
+    <string name="admin_stats_homework_value">open: %1$d of %2$d</string>
+    <string name="admin_stats_devices">Active devices</string>
+    <string name="admin_stats_overrides">Special days ahead</string>
+    <string name="admin_stats_events">Events ahead</string>
+    <string name="admin_stats_members">Members</string>
+    <string name="admin_stats_hours_section">Hours a week</string>
+    <string name="admin_stats_hours">%1$s h</string>
+
+    <!-- Access requests -->
+    <string name="admin_requests_empty_title">Nobody is waiting</string>
+    <string name="admin_requests_empty_text">A request arrives when somebody asks for a role with /request in the bot.</string>
+    <string name="admin_request_asked">asks for the “%1$s” role</string>
+    <string name="admin_request_approve">Grant</string>
+    <string name="admin_request_decline">Decline</string>
+    <string name="admin_request_role_title">Which role to grant</string>
+    <string name="admin_request_role_asked">As asked — “%1$s”</string>
+    <string name="admin_request_none_grantable">Your role cannot hand out roles: nobody may grant a role at or above their own.</string>
+    <string name="admin_request_approved">%1$s: granted the “%2$s” role</string>
+    <string name="admin_request_approved_plain">%1$s: access granted</string>
+    <string name="admin_request_declined">%1$s: declined</string>
+
+    <!-- Roles, as the bot names them -->
+    <string name="admin_role_name_viewer">viewer</string>
+    <string name="admin_role_name_editor">editor</string>
+    <string name="admin_role_name_admin">administrator</string>
+    <string name="admin_role_name_owner">owner</string>
+    <string name="admin_role_name_unknown">unknown role</string>
+    <string name="admin_clipboard_label">Class timetable</string>
+    <string name="admin_request_decline_message">They keep whatever role they already had, and are told in Telegram — which is where they asked.</string>
+</resources>

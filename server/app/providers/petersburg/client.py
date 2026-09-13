@@ -20,6 +20,7 @@ of a page.
 from __future__ import annotations
 
 import asyncio
+import http.cookiejar
 import logging
 from datetime import date as Date
 from typing import Any
@@ -61,6 +62,22 @@ _client: httpx.AsyncClient | None = None
 _client_lock = asyncio.Lock()
 
 
+class _NoCookieJar(http.cookiejar.CookieJar):
+    """A jar that keeps nothing it is handed.
+
+    httpx stores every ``Set-Cookie`` it sees on the *client* and merges what
+    it holds into each outgoing request. The upstream refreshes the session
+    cookie on the way past nearly every call, so with one client per process
+    the first family's refreshed session was merged into the second family's
+    next request - two cookies of the same name in one header, theirs first -
+    and onto a login, which must carry none at all. The session is passed per
+    request, so there is nothing here worth remembering.
+    """
+
+    def extract_cookies(self, response, request) -> None:
+        return None
+
+
 async def shared_client() -> httpx.AsyncClient:
     """The one client, built on first use.
 
@@ -77,6 +94,7 @@ async def shared_client() -> httpx.AsyncClient:
                     base_url=BASE_URL,
                     timeout=_TIMEOUT,
                     limits=_LIMITS,
+                    cookies=_NoCookieJar(),
                     headers={
                         "user-agent": USER_AGENT,
                         "accept": "application/json",

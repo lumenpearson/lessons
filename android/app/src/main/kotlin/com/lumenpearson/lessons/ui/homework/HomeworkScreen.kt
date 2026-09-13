@@ -39,6 +39,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.ui.common.asRelativeDayLabel
 import com.lumenpearson.lessons.ui.common.asText
+import com.lumenpearson.lessons.ui.translate.Correctable
 import java.time.LocalDate
 
 /**
@@ -98,7 +99,13 @@ fun HomeworkScreen(
                 verticalArrangement = Arrangement.spacedBy(GroupSpacing),
             ) {
                 item(key = "header") {
-                    ScreenHeader(title = stringResource(R.string.homework_title))
+                    // Two of this screen's strings are wrapped as a worked
+                    // example of correction mode reaching ordinary UI: the
+                    // header renders whatever the reader has corrected the
+                    // title to, and a long press on it opens the editor.
+                    Correctable(R.string.homework_title) { title ->
+                        ScreenHeader(title = title)
+                    }
                 }
 
                 item(key = "filter") {
@@ -113,14 +120,16 @@ fun HomeworkScreen(
                     item(key = "skeleton") { SkeletonGroup() }
                 } else if (state.groups.isEmpty()) {
                     item(key = "empty") {
-                        EmptyState(
-                            title = stringResource(R.string.homework_empty_title),
-                            description = if (state.onlyUpcoming && state.hiddenCount > 0) {
-                                stringResource(R.string.homework_empty_filtered_description)
-                            } else {
-                                stringResource(R.string.homework_empty_description)
-                            },
-                        )
+                        Correctable(R.string.homework_empty_title) { title ->
+                            EmptyState(
+                                title = title,
+                                description = if (state.onlyUpcoming && state.hiddenCount > 0) {
+                                    stringResource(R.string.homework_empty_filtered_description)
+                                } else {
+                                    stringResource(R.string.homework_empty_description)
+                                },
+                            )
+                        }
                     }
                 } else {
                     items(

@@ -18,6 +18,8 @@ import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.DiaryRepository
 import com.lumenpearson.lessons.core.data.repository.DiaryRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.GithubRepository
+import com.lumenpearson.lessons.core.data.repository.ManageRepository
+import com.lumenpearson.lessons.core.data.repository.ManageRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.UpdateRepository
 import com.lumenpearson.lessons.core.data.sync.DataSyncBroadcast
 import com.lumenpearson.lessons.core.data.update.UpdateRepositoryImpl
@@ -44,6 +46,13 @@ interface LessonsContainer {
      * one: it is the repository that knows, and the section asks it.
      */
     val diaryRepository: DiaryRepository
+
+    /**
+     * Running the class. Present on every install, because whether this phone
+     * may use it is the server's answer and not a fact the graph could hold:
+     * the role is looked up per request from the linked Telegram account.
+     */
+    val manageRepository: ManageRepository
 }
 
 /**
@@ -143,6 +152,10 @@ class DefaultLessonsContainer(
             // the class token through it.
             store = preferences,
         )
+    }
+
+    override val manageRepository: ManageRepository by lazy {
+        ManageRepositoryImpl(api = apis.manage)
     }
 
     override val githubRepository: GithubRepository by lazy {

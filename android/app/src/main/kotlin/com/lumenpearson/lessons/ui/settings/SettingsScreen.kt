@@ -16,35 +16,44 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.EventNote
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.BlurLinear
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.CalendarViewWeek
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.FormatSize
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.MotionPhotosOn
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Reorder
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Swipe
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.ViewAgenda
+import androidx.compose.material.icons.rounded.ViewDay
 import androidx.compose.material.icons.rounded.Waves
+import androidx.compose.material.icons.rounded.Weekend
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -83,6 +92,7 @@ import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
+import com.lumenpearson.lessons.core.designsystem.modifier.LiquidRippleAnchor
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
@@ -97,12 +107,17 @@ import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
+import com.lumenpearson.lessons.core.model.TodayLayout
+import com.lumenpearson.lessons.core.model.WeekStart
 import com.lumenpearson.lessons.navigation.labelRes
 import com.lumenpearson.lessons.ui.common.ServerUrlSheet
 import com.lumenpearson.lessons.ui.diary.DiaryScreen
 import com.lumenpearson.lessons.ui.common.SyncIntervalOptionsMinutes
 import com.lumenpearson.lessons.ui.common.asText
 import com.lumenpearson.lessons.ui.common.syncIntervalLabel
+import com.lumenpearson.lessons.ui.admin.adminRows
+import com.lumenpearson.lessons.ui.admin.isClassManager
+import com.lumenpearson.lessons.ui.translate.translationRows
 
 /**
  * One page of the settings tree.
@@ -196,6 +211,23 @@ enum class SettingsSection(
     ),
 
     /**
+     * The pages only an administrator or the owner of the class has.
+     *
+     * Kept off the root list by [listedOnRoot] and put back by the root page
+     * itself once the server has said who this phone belongs to — the same
+     * shape as [PERMISSIONS], for a different reason: that one appears when
+     * something is wrong, this one when somebody is allowed.
+     */
+    ADMIN(
+        R.string.settings_admin,
+        R.string.settings_admin_summary,
+        Icons.Rounded.AdminPanelSettings,
+        1,
+    ) {
+        override val listedOnRoot: Boolean = false
+    },
+
+    /**
      * Reached from the notifications page, never from the root list.
      *
      * It is a page about a fault, so it exists only while there is one: a
@@ -237,6 +269,15 @@ fun SettingsRootScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // One `/me` on the way in, because the landing page is where the class
+    // management row has to decide whether it exists. The refresh is a no-op
+    // while one is already in flight, and a failure leaves the previous answer
+    // standing, so opening settings repeatedly costs one request and never
+    // takes the row away again.
+    LaunchedEffect(Unit) { viewModel.refreshDeviceLink() }
+
+    val manager = isClassManager(state.deviceLink.role)
+
     SettingsPage(
         modifier = modifier,
         message = state.message?.asText(),
@@ -256,7 +297,10 @@ fun SettingsRootScreen(
             Column(modifier = Modifier.fillMaxWidth()) {
                 SectionHeader(title = stringResource(R.string.settings_sections))
                 RoundedCardContainer {
-                    SettingsSection.entries.filter { it.listedOnRoot }.forEach { section ->
+                    val sections = SettingsSection.entries.filter {
+                        it.listedOnRoot || (it == SettingsSection.ADMIN && manager)
+                    }
+                    sections.forEach { section ->
                         GroupLinkItem(
                             title = stringResource(section.titleRes),
                             subtitle = stringResource(section.subtitleRes),
@@ -282,6 +326,7 @@ fun SettingsSectionScreen(
     section: SettingsSection,
     modifier: Modifier = Modifier,
     onOpenSection: (SettingsSection) -> Unit = {},
+    onOpenDocs: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
 ) {
     // The diary is a whole screen of its own rather than a list of rows: it has
@@ -374,7 +419,7 @@ fun SettingsSectionScreen(
                 onAskPrerelease = { sheets.prerelease = true },
             )
             SettingsSection.ABOUT -> {
-                aboutRows(state, viewModel)
+                aboutRows(state, viewModel, onOpenDocs)
                 supportRows(
                     state = state,
                     viewModel = viewModel,
@@ -385,7 +430,18 @@ fun SettingsSectionScreen(
                     },
                     onShowLicenses = { sheets.licenses = true },
                 )
+                // Last on the page about the app itself, below the licences and
+                // the bug report: correcting a translation is the same kind of
+                // errand as reporting a typo, and a mode that changes what a
+                // long press does everywhere should not sit where somebody
+                // reaches by accident.
+                translationRows()
             }
+            SettingsSection.ADMIN -> adminRows(
+                role = state.deviceLink.role,
+                debugEnabled = state.settings.debugMode,
+                onDebugEnabledChange = viewModel::setDebugMode,
+            )
             SettingsSection.PERMISSIONS -> permissionRows()
             // Handled above, before this page's scaffold exists.
             SettingsSection.DIARY -> Unit
@@ -747,19 +803,31 @@ private fun LazyListScope.feelRows(
             // The two whole-screen ornaments, each on its own switch. The
             // ripple is a shader and shares the blur rows' availability; the
             // wipe is a bitmap and runs on anything, so it is never disabled.
-            GroupSwitchItem(
-                title = stringResource(R.string.settings_ripple),
-                subtitle = if (SupportsShaders) {
-                    stringResource(R.string.settings_ripple_description)
-                } else {
-                    stringResource(R.string.settings_blur_unavailable)
-                },
-                icon = Icons.Rounded.Waves,
-                tone = accentTone(2),
-                enabled = SupportsShaders,
-                checked = state.settings.rippleEffects && SupportsShaders,
-                onCheckedChange = viewModel::setRippleEffects,
-            )
+            // Turning the wave on plays one, from the switch that turned it
+            // on. A setting whose whole subject is a visual effect can answer
+            // "what is this?" by doing it once, and the answer is only honest
+            // if it starts where the finger was — which is what the anchor is
+            // for. Switching it off plays nothing: the modifier is already
+            // disabled by the time the wave would be drawn, and a wave
+            // acknowledging its own removal would be a lie about the setting.
+            LiquidRippleAnchor { fire ->
+                GroupSwitchItem(
+                    title = stringResource(R.string.settings_ripple),
+                    subtitle = if (SupportsShaders) {
+                        stringResource(R.string.settings_ripple_description)
+                    } else {
+                        stringResource(R.string.settings_blur_unavailable)
+                    },
+                    icon = Icons.Rounded.Waves,
+                    tone = accentTone(2),
+                    enabled = SupportsShaders,
+                    checked = state.settings.rippleEffects && SupportsShaders,
+                    onCheckedChange = { on ->
+                        viewModel.setRippleEffects(on)
+                        if (on) fire()
+                    },
+                )
+            }
             GroupSwitchItem(
                 title = stringResource(R.string.settings_theme_reveal),
                 subtitle = stringResource(R.string.settings_theme_reveal_description),
@@ -772,29 +840,155 @@ private fun LazyListScope.feelRows(
     }
 }
 
+/**
+ * Three groups rather than one list of twelve rows.
+ *
+ * The first group is what every surface shares. The other two are one screen
+ * each, in the order the bottom bar draws them, so somebody who came here to
+ * change the home screen reads five titles about the home screen instead of
+ * twelve about everything.
+ */
 private fun LazyListScope.contentRows(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
-) = item(key = "content") {
-    SettingsGroup(title = stringResource(R.string.settings_content_group)) {
-        GroupSwitchItem(
-            title = stringResource(R.string.settings_show_teacher),
-            subtitle = stringResource(R.string.settings_show_teacher_description),
-            icon = Icons.Rounded.Person,
-            tone = accentTone(3),
-            checked = state.settings.showTeacher,
-            onCheckedChange = viewModel::setShowTeacher,
-        )
-        GroupSwitchItem(
-            title = stringResource(R.string.settings_widget_progress),
-            subtitle = stringResource(R.string.settings_widget_progress_description),
-            icon = Icons.Rounded.Widgets,
-            tone = accentTone(1),
-            checked = state.settings.widgetShowProgress,
-            onCheckedChange = viewModel::setWidgetShowProgress,
-        )
+) {
+    item(key = "content") {
+        SettingsGroup(title = stringResource(R.string.settings_content_group)) {
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_show_teacher),
+                subtitle = stringResource(R.string.settings_show_teacher_description),
+                icon = Icons.Rounded.Person,
+                tone = accentTone(3),
+                checked = state.settings.showTeacher,
+                onCheckedChange = viewModel::setShowTeacher,
+            )
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_widget_progress),
+                subtitle = stringResource(R.string.settings_widget_progress_description),
+                icon = Icons.Rounded.Widgets,
+                tone = accentTone(1),
+                checked = state.settings.widgetShowProgress,
+                onCheckedChange = viewModel::setWidgetShowProgress,
+            )
+        }
+    }
+
+    item(key = "content_home") {
+        SettingsGroup(title = stringResource(R.string.settings_home_group)) {
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_today_hero),
+                subtitle = stringResource(R.string.settings_today_hero_description),
+                icon = Icons.Rounded.Timer,
+                tone = accentTone(0),
+                checked = state.settings.todayShowHero,
+                onCheckedChange = viewModel::setTodayShowHero,
+            )
+            GroupSegmentedItem(
+                title = stringResource(R.string.settings_today_layout),
+                subtitle = stringResource(R.string.settings_today_layout_description),
+                icon = Icons.Rounded.Reorder,
+                tone = accentTone(2),
+                items = TodayLayout.entries,
+                selectedItem = state.settings.todayLayout,
+                onItemSelected = viewModel::setTodayLayout,
+                labelProvider = { layout -> stringResource(layout.labelRes) },
+            )
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_today_whole_day),
+                subtitle = stringResource(R.string.settings_today_whole_day_description),
+                icon = Icons.Rounded.ViewDay,
+                tone = accentTone(4),
+                checked = state.settings.todayWholeDay,
+                onCheckedChange = viewModel::setTodayWholeDay,
+            )
+            GroupSegmentedItem(
+                title = stringResource(R.string.settings_today_homework_count),
+                subtitle = stringResource(R.string.settings_today_homework_count_description),
+                icon = Icons.Rounded.EditNote,
+                tone = accentTone(5),
+                items = AppSettings.HOMEWORK_PREVIEW_OPTIONS,
+                // No nearest-match here, unlike the text-size picker above: the
+                // store snaps this number to one of the three steps on the way
+                // in and on the way out, so what it hands over is always one of
+                // the segments.
+                selectedItem = state.settings.todayHomeworkPreview,
+                onItemSelected = viewModel::setTodayHomeworkPreview,
+                labelProvider = { count -> count.toString() },
+            )
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_today_events),
+                subtitle = stringResource(R.string.settings_today_events_description),
+                icon = Icons.AutoMirrored.Rounded.EventNote,
+                tone = accentTone(1),
+                checked = state.settings.todayShowEvents,
+                onCheckedChange = viewModel::setTodayShowEvents,
+            )
+        }
+    }
+
+    item(key = "content_calendar") {
+        SettingsGroup(title = stringResource(R.string.settings_calendar_group)) {
+            GroupSegmentedItem(
+                title = stringResource(R.string.settings_week_start),
+                subtitle = stringResource(R.string.settings_week_start_description),
+                icon = Icons.Rounded.CalendarViewWeek,
+                tone = accentTone(3),
+                items = WeekStart.entries,
+                selectedItem = state.settings.weekStart,
+                onItemSelected = viewModel::setWeekStart,
+                labelProvider = { start -> stringResource(start.labelRes) },
+            )
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_week_weekends),
+                subtitle = stringResource(R.string.settings_week_weekends_description),
+                icon = Icons.Rounded.Weekend,
+                tone = accentTone(0),
+                checked = state.settings.weekShowWeekends,
+                onCheckedChange = viewModel::setWeekShowWeekends,
+            )
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_week_load),
+                subtitle = stringResource(R.string.settings_week_load_description),
+                icon = Icons.Rounded.MoreHoriz,
+                tone = accentTone(2),
+                checked = state.settings.weekShowLoad,
+                onCheckedChange = viewModel::setWeekShowLoad,
+            )
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_week_events),
+                subtitle = stringResource(R.string.settings_week_events_description),
+                icon = Icons.AutoMirrored.Rounded.EventNote,
+                tone = accentTone(4),
+                checked = state.settings.weekShowEvents,
+                onCheckedChange = viewModel::setWeekShowEvents,
+            )
+            GroupSwitchItem(
+                title = stringResource(R.string.settings_week_homework),
+                subtitle = stringResource(R.string.settings_week_homework_description),
+                icon = Icons.Rounded.EditNote,
+                tone = accentTone(5),
+                checked = state.settings.weekShowHomework,
+                onCheckedChange = viewModel::setWeekShowHomework,
+            )
+        }
     }
 }
+
+/** Label of a home-screen order in the segmented picker. */
+private val TodayLayout.labelRes: Int
+    get() = when (this) {
+        TodayLayout.AUTOMATIC -> R.string.settings_today_layout_auto
+        TodayLayout.LESSONS_FIRST -> R.string.settings_today_layout_lessons
+        TodayLayout.HOMEWORK_FIRST -> R.string.settings_today_layout_homework
+    }
+
+/** Label of a week start in the segmented picker. */
+private val WeekStart.labelRes: Int
+    get() = when (this) {
+        WeekStart.MONDAY -> R.string.settings_week_start_monday
+        WeekStart.TODAY -> R.string.settings_week_start_today
+    }
+
 
 private fun LazyListScope.syncRows(
     state: SettingsUiState,
@@ -852,7 +1046,23 @@ private fun LazyListScope.accountRows(
 private fun LazyListScope.aboutRows(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
+    onOpenDocs: () -> Unit,
 ) {
+    // First on the page, above the switch and the licences. The guide is the
+    // only row here somebody arrives *looking* for — everything else on this
+    // page is something you find — and a row you have to scroll to is a row a
+    // reader concludes does not exist.
+    item(key = "docs") {
+        SettingsGroup(title = stringResource(R.string.docs_group)) {
+            GroupLinkItem(
+                title = stringResource(R.string.docs_open),
+                subtitle = stringResource(R.string.docs_open_description),
+                icon = Icons.AutoMirrored.Rounded.MenuBook,
+                tone = accentTone(4),
+                onClick = onOpenDocs,
+            )
+        }
+    }
     item(key = "about") {
         SettingsGroup(title = stringResource(R.string.settings_about_group)) {
             GroupSwitchItem(

@@ -6,6 +6,7 @@ Field names are the contract. Anything renamed here must be renamed in
 
 from __future__ import annotations
 
+import re
 from datetime import date as Date
 from datetime import datetime
 from datetime import time as Time
@@ -654,3 +655,365 @@ class DiaryAttendanceOut(BaseModel):
     @classmethod
     def of(cls, event) -> DiaryAttendanceOut:
         return cls(at=event.at, direction=event.direction)
+
+
+# ---------------------------------------------------------------------------
+# Managing the class
+#
+# The phone's half of the bot's /class, /subjects, /bells, /devices, /log,
+# /stats, /export and /import. Nothing here carries the caller's own role or
+# class: both are derived server-side from the bearer token and the Telegram
+# account it is linked to, so what the client believes about itself has never
+# been part of this contract.
+#
+# Timestamps on this surface are class wall time, like every other clock the
+# app is given - the audit log is read by a person sitting in the class's own
+# zone, not by one sitting next to the server.
+# ---------------------------------------------------------------------------
+
+
+#: The bot's own spelling of a colour, so the two surfaces store one format.
+_COLOUR_RE = re.compile(r"^#?([0-9a-fA-F]{6})$")
+
+
+def _clean_colour(value: str | None) -> str | None:
+    """``#5b6abf`` / ``5B6ABF`` -> ``#5B6ABF``; a dash or blank clears it.
+
+    One spelling in the database is what lets the app compare a lesson's colour
+    against a palette entry without normalising first, and it is what the
+    bot's colour picker already writes.
+    """
+    if value is None:
+        return None
+    raw = value.strip()
+    if raw in {"", "-", "—"}:
+        return None
+    match = _COLOUR_RE.match(raw)
+    if match is None:
+        raise ValueError("colour must be six hex digits, as #5B6ABF")
+    return f"#{match.group(1).upper()}"
+
+
+class ManagedClassOut(BaseModel):
+    """The class card the bot draws under «⚙️ Класс», as data.
+
+    ``join_code`` is in here because the card shows it: this endpoint is
+    admin-only, and the code is what an admin reads out to the class.
+    """
+
+    id: int
+    name: str
+    school: str | None = None
+    city: str | None = None
+    timezone: str
+    # "МСК+2 (UTC+5) · Екатеринбург" - the same label the bot prints, so the
+    # app does not have to carry the table of Russian zones twice.
+    timezone_label: str
+    join_code: str
+    members: int
+    devices: int
+    pending_requests: int
+    bell_schedule_id: int | None = None
+    calendar_ready: bool = False
+
+
+class ClassPatch(BaseModel):
+    """Only the fields present are changed; ``null`` clears a nullable one.
+
+    ``name`` and ``timezone`` are not nullable: the name is what every message
+    calls this class and what the delete confirmation is typed against, and a
+    class with no zone would have no "today".
+    """
+
+    name: str | None = Field(default=None, min_length=1, max_length=64)
+    school: str | None = Field(default=None, max_length=200)
+    city: str | None = Field(default=None, max_length=120)
+    timezone: str | None = Field(default=None, max_length=64)
+
+    # An absent field is never validated, so these two run only on a value the
+    # client actually sent - which is how an explicit ``null`` is refused while
+    # "leave it alone" stays the default.
+    @field_validator("name", "timezone")
+    @classmethod
+    def _required_when_present(cls, value: str | None) -> str:
+        cleaned = _clean_optional_text(value)
+        if cleaned is None:
+            raise ValueError("must not be blank")
+        return cleaned
+
+    _clean_school = field_validator("school")(_clean_optional_text)
+    _clean_city = field_validator("city")(_clean_optional_text)
+
+
+class ClassDeleteIn(BaseModel):
+    """The class's own name, typed back.
+
+    The same confirmation the bot asks for, and for the same reason: a «вы
+    уверены?» button is pressed by the same thumb that pressed the one before
+    it, while a name has to be read off the screen first.
+    """
+
+    confirm_name: str = Field(min_length=1, max_length=64)
+
+
+class ManagedSubjectOut(SubjectOut):
+    """A subject with its id. The read-only dictionary in ``GET /subjects`` is
+    keyed by name because that is what a lesson stores; management addresses a
+    row, which needs the id."""
+
+    id: int
+
+
+class SubjectIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    short_name: str | None = Field(default=None, max_length=16)
+    teacher: str | None = Field(default=None, max_length=120)
+    color: str | None = Field(default=None, max_length=9)
+
+    @field_validator("name")
+    @classmethod
+    def _clean_name(cls, value: str) -> str:
+        cleaned = _clean_optional_text(value)
+        if cleaned is None:
+            raise ValueError("name must not be blank")
+        return cleaned
+
+    _clean_short = field_validator("short_name")(_clean_optional_text)
+    _clean_teacher = field_validator("teacher")(_clean_optional_text)
+    _clean_color = field_validator("color")(_clean_colour)
+
+
+class SubjectPatch(BaseModel):
+    """Only the fields present are changed; ``null`` clears a nullable one.
+    ``name`` is the rename, and it carries the timetable with it."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    short_name: str | None = Field(default=None, max_length=16)
+    teacher: str | None = Field(default=None, max_length=120)
+    color: str | None = Field(default=None, max_length=9)
+
+    # Sent, so it is validated; absent, so it is not. A subject with no name
+    # would be a lesson that cannot be spelled.
+    @field_validator("name")
+    @classmethod
+    def _name_when_present(cls, value: str | None) -> str:
+        cleaned = _clean_optional_text(value)
+        if cleaned is None:
+            raise ValueError("name must not be blank")
+        return cleaned
+
+    _clean_short = field_validator("short_name")(_clean_optional_text)
+    _clean_teacher = field_validator("teacher")(_clean_optional_text)
+    _clean_color = field_validator("color")(_clean_colour)
+
+
+class SubjectSavedOut(BaseModel):
+    """``moved`` is how many timetable, homework and замена rows a rename
+    carried with it - zero for every other kind of edit, and the number an
+    admin needs to believe the rename actually happened."""
+
+    subject: ManagedSubjectOut
+    moved: int = 0
+
+
+class BellPeriodIn(BaseModel):
+    index: int = Field(ge=1, le=20)
+    starts_at: Time
+    ends_at: Time
+
+    @model_validator(mode="after")
+    def _ends_after_start(self) -> BellPeriodIn:
+        if self.ends_at <= self.starts_at:
+            raise ValueError("ends_at must be after starts_at")
+        return self
+
+
+class BellPeriodOut(BaseModel):
+    index: int
+    starts_at: Time
+    ends_at: Time
+
+
+class BellScheduleOut(BaseModel):
+    id: int
+    name: str
+    # The one the class runs on when no day says otherwise.
+    is_default: bool = False
+    periods: list[BellPeriodOut] = []
+
+
+class BellPeriodsIn(BaseModel):
+    """At least one row, always.
+
+    The stored schedule is the thing a class runs on, and an empty list is far
+    more likely to be a client bug than somebody meaning "no bells at all" -
+    which is what the bot's «пустой присылкой звонки не стереть» says too.
+    """
+
+    periods: list[BellPeriodIn] = Field(min_length=1, max_length=20)
+
+    @model_validator(mode="after")
+    def _indexes_are_unique(self) -> BellPeriodsIn:
+        seen = {period.index for period in self.periods}
+        if len(seen) != len(self.periods):
+            raise ValueError("lesson numbers must not repeat")
+        return self
+
+
+class BellScheduleIn(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    # Optional here, unlike on the periods endpoint: a schedule may be created
+    # empty and filled in afterwards.
+    periods: list[BellPeriodIn] = Field(default=[], max_length=20)
+
+    @field_validator("name")
+    @classmethod
+    def _clean_name(cls, value: str) -> str:
+        cleaned = _clean_optional_text(value)
+        if cleaned is None:
+            raise ValueError("name must not be blank")
+        return cleaned
+
+    @model_validator(mode="after")
+    def _indexes_are_unique(self) -> BellScheduleIn:
+        seen = {period.index for period in self.periods}
+        if len(seen) != len(self.periods):
+            raise ValueError("lesson numbers must not repeat")
+        return self
+
+
+class BellSchedulePatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=64)
+    # ``true`` makes this the class default. ``false`` is refused rather than
+    # silently leaving the class with none: something has to be the default.
+    is_default: bool | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _name_when_present(cls, value: str | None) -> str:
+        cleaned = _clean_optional_text(value)
+        if cleaned is None:
+            raise ValueError("name must not be blank")
+        return cleaned
+
+
+class TimetableExportOut(BaseModel):
+    """The whole weekly template in the bot's paste format.
+
+    Byte-for-byte what «📤 Экспорт» sends, so a text saved from the bot can be
+    imported by the app and the other way round.
+    """
+
+    text: str
+    lessons: int
+
+
+class TimetableImportIn(BaseModel):
+    text: str = Field(min_length=1, max_length=20000)
+    # Whether to overwrite weekdays that already have lessons. Without it an
+    # import that would replace something answers with the conflicts instead.
+    replace: bool = False
+
+
+class ImportConflictOut(BaseModel):
+    """One weekday the paste would overwrite: what is there now, what would
+    replace it. Weekday is 1=Monday .. 7=Sunday, as everywhere else."""
+
+    weekday: int
+    existing: int
+    incoming: int
+
+
+class TimetableImportOut(BaseModel):
+    """``applied: false`` means nothing was written - either the paste held no
+    day the parser recognised, or it collided and ``replace`` was not set."""
+
+    applied: bool
+    days: list[int] = []
+    lessons: int = 0
+    bells: int = 0
+    conflicts: list[ImportConflictOut] = []
+    # Lines the parser could not read. Echoed back so an admin can fix the two
+    # that were typos rather than re-reading the whole paste.
+    rejected: list[str] = []
+
+
+class ManagedDeviceOut(BaseModel):
+    """One phone on the class's list.
+
+    ``owner`` is a display name, never the Telegram id: an admin needs to know
+    whose phone this is, and that is the whole of what they need.
+    """
+
+    id: int
+    device_name: str | None = None
+    linked: bool = False
+    owner: str | None = None
+    role: RoleName | None = None
+    revoked: bool = False
+    created_at: datetime | None = None
+    last_seen_at: datetime | None = None
+    linked_at: datetime | None = None
+
+
+class AuditEntryOut(BaseModel):
+    id: int
+    # Machine tag: homework.add, subject.rename, timetable.import, ...
+    action: str
+    summary: str
+    who: str | None = None
+    at: datetime | None = None
+
+
+class AuditPageOut(BaseModel):
+    """``has_more`` rather than a total: the log is append-only and unbounded,
+    and a count of it would be a full scan on every page turn."""
+
+    entries: list[AuditEntryOut] = []
+    limit: int
+    offset: int
+    has_more: bool = False
+
+
+class SubjectHoursOut(BaseModel):
+    """Lessons a week. A subject that alternates weeks counts a half, which is
+    how a school's own paperwork writes «часов в неделю»."""
+
+    name: str
+    hours: float
+
+
+class StatsOut(BaseModel):
+    today: Date
+    lessons_per_week: float
+    subjects_count: int
+    subjects: list[SubjectHoursOut] = []
+    homework_open: int
+    homework_total: int
+    members_by_role: dict[RoleName, int] = {}
+    devices_active: int
+    overrides_upcoming: int
+    events_upcoming: int
+
+
+class AccessRequestOut(BaseModel):
+    id: int
+    who: str
+    requested_role: RoleName
+    message: str | None = None
+    created_at: datetime | None = None
+
+
+class RequestDecisionIn(BaseModel):
+    """The role to grant. Absent means the one that was asked for, which is
+    what pressing «Выдать» in the bot does. Ignored when declining."""
+
+    role: RoleName | None = None
+
+
+class RequestDecisionOut(BaseModel):
+    id: int
+    status: Literal["approved", "declined"]
+    # The role actually granted, or ``null`` for a declined request.
+    role: RoleName | None = None
+    who: str

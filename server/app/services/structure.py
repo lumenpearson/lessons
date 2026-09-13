@@ -1,0 +1,153 @@
+"""Structural edits to a class: subject names, bell rows, the weekly template.
+
+The bot and the API both make these edits, and both have to make them the same
+way. A subject rename that moved the dictionary entry but not the timetable, or
+a bell rewrite that left half the old rows in place, leaves a class that no
+longer agrees with itself - and the second surface to implement the rule is the
+one that gets it subtly wrong.
+
+Nothing here commits. The caller's transaction owns the change, so the audit
+line describing it lands with it or not at all.
+"""
+
+from __future__ import annotations
+
+from datetime import time as Time
+
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import func, select
+from sqlalchemy import update as sa_update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import (
+    BellPeriod,
+    BellSchedule,
+    Homework,
+    LessonOverride,
+    SchoolClass,
+    Subject,
+    TimetableEntry,
+)
+
+#: What a schedule is called when a paste brings bell times to a class that has
+#: none at all. Named rather than left blank: it is about to be the class's
+#: default, and «Обычное» is what the day view will show under it.
+DEFAULT_SCHEDULE_NAME = "Обычное"
+
+#: One row of a bell schedule as the parsers hand it over.
+BellRow = tuple[int, Time, Time]
+
+
+async def rename_subject(
+    session: AsyncSession, class_id: int, subject: Subject, new_name: str
+) -> int:
+    """Rename the dictionary entry and every row that spells the old name.
+
+    The timetable, the homework and the замены store the subject as text, not
+    as a foreign key - deliberately, so a lesson keeps its name when a subject
+    is deleted. The price is that a rename has to be a cascade, and it has to
+    happen in the caller's transaction: a half-applied rename would leave the
+    class with two subjects where it had one and no way to tell which rows
+    belong to which. Returns how many rows moved.
+    """
+    old_name = subject.name
+    moved = 0
+    for model in (TimetableEntry, Homework, LessonOverride):
+        result = await session.execute(
+            sa_update(model)
+            .where(model.class_id == class_id, model.subject_name == old_name)
+            .values(subject_name=new_name)
+        )
+        moved += result.rowcount or 0
+    subject.name = new_name
+    return moved
+
+
+async def write_bell_periods(
+    session: AsyncSession, schedule: BellSchedule, rows: list[BellRow]
+) -> None:
+    """Replace a schedule's rows wholesale.
+
+    The delete is a bulk statement, which goes round the ORM, so the eagerly
+    loaded ``periods`` collection is stale afterwards and every caller
+    refreshes it before rendering the result.
+    """
+    await session.execute(sa_delete(BellPeriod).where(BellPeriod.schedule_id == schedule.id))
+    for index, start, end in rows:
+        session.add(
+            BellPeriod(schedule_id=schedule.id, index=index, starts_at=start, ends_at=end)
+        )
+
+
+async def lessons_per_weekday(
+    session: AsyncSession, class_id: int, weekdays: list[int]
+) -> dict[int, int]:
+    """How many lessons each of ``weekdays`` already carries.
+
+    An import replaces whole weekdays, so this is what stands to be overwritten
+    by one. The bot shows it as a preview screen before «Применить»; the API has
+    no screen to show, so it answers with these numbers instead of quietly
+    winning.
+    """
+    if not weekdays:
+        return {}
+    rows = await session.execute(
+        select(TimetableEntry.weekday, func.count())
+        .where(TimetableEntry.class_id == class_id, TimetableEntry.weekday.in_(weekdays))
+        .group_by(TimetableEntry.weekday)
+    )
+    return {int(weekday): int(count) for weekday, count in rows}
+
+
+async def apply_timetable(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    days: dict[int, list],
+    bells: list[BellRow],
+) -> tuple[int, BellSchedule | None]:
+    """Replace exactly the weekdays ``days`` names, and the bells if any came.
+
+    Days the paste did not mention are left alone, so importing a single day's
+    block is a legitimate thing to do. A day that appears with no lessons under
+    it is emptied - that is how a paste says «в четверг уроков нет».
+
+    Returns (lessons written, the schedule the bells went into). The schedule is
+    handed back rather than refreshed here because a bulk delete left its
+    ``periods`` stale and only the caller knows whether it is about to be read.
+    """
+    if days:
+        await session.execute(
+            sa_delete(TimetableEntry).where(
+                TimetableEntry.class_id == school_class.id,
+                TimetableEntry.weekday.in_(list(days)),
+            )
+        )
+
+    total = 0
+    for weekday, rows in days.items():
+        for index, subject, room, teacher, parity in rows:
+            session.add(
+                TimetableEntry(
+                    class_id=school_class.id,
+                    weekday=weekday,
+                    index=index,
+                    subject_name=subject,
+                    room=room,
+                    teacher=teacher,
+                    parity=parity,
+                )
+            )
+            total += 1
+
+    schedule: BellSchedule | None = None
+    if bells:
+        if school_class.bell_schedule_id:
+            schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
+        if schedule is None:
+            schedule = BellSchedule(class_id=school_class.id, name=DEFAULT_SCHEDULE_NAME)
+            session.add(schedule)
+            await session.flush()
+            school_class.bell_schedule_id = schedule.id
+        await write_bell_periods(session, schedule, bells)
+
+    return total, schedule

@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Страницы, которых нет у большинства.
+
+  Держатся отдельным файлом, потому что появляются только у администратора и
+  владельца класса: их проще читать и проверять, когда они не перемешаны с
+  тремястами строками, которые видят все.
+
+  Отказы сервера здесь говорятся словами и никогда не прячутся. Английский
+  текст, который присылает сервер, показывается отдельной строкой под нашей:
+  он часто единственное, что отличает «это основное расписание» от «на него
+  ещё ссылаются три особых дня».
+-->
+<resources>
+    <string name="settings_admin">Управление</string>
+    <string name="settings_admin_summary">Класс, устройства, журнал и отладка</string>
+
+    <string name="admin_role_admin">Вы администратор класса</string>
+    <string name="admin_role_owner">Вы владелец класса</string>
+    <string name="admin_role_description">Эта страница видна только вам и другим администраторам. Права проверяет сервер при каждом действии.</string>
+
+    <string name="admin_tools_group">Инструменты</string>
+    <string name="admin_debug">Отладка</string>
+    <string name="admin_debug_description">Отчёты о сбоях, журнал и подробные сообщения об ошибках</string>
+
+    <!-- Строки управления классом -->
+    <string name="admin_manage_group">Класс</string>
+
+    <string name="admin_class_title">Карточка класса</string>
+    <string name="admin_class_description">Название, школа, город, часовой пояс</string>
+    <string name="admin_subjects_title">Предметы</string>
+    <string name="admin_subjects_description">Справочник предметов класса</string>
+    <string name="admin_bells_title">Звонки</string>
+    <string name="admin_bells_description">Расписания звонков и уроки в них</string>
+    <string name="admin_timetable_title">Расписание</string>
+    <string name="admin_timetable_description">Экспорт и импорт недельного шаблона</string>
+    <string name="admin_devices_title">Устройства</string>
+    <string name="admin_devices_description">Телефоны, привязанные к классу</string>
+    <string name="admin_log_title">Журнал</string>
+    <string name="admin_log_description">Кто что изменил</string>
+    <string name="admin_stats_title">Статистика</string>
+    <string name="admin_stats_description">Числа по классу</string>
+    <string name="admin_requests_title">Запросы доступа</string>
+    <string name="admin_requests_description">Кто ждёт роль</string>
+
+    <!-- Права изменились под ногами -->
+    <string name="admin_gone_title">Страница больше не ваша</string>
+    <string name="admin_gone_signed_out">Сервер больше не принимает токен этого устройства. Откройте «Класс» в настройках и войдите заново.</string>
+    <string name="admin_gone_not_linked">Это устройство не привязано к Telegram, поэтому роли у него нет. Привязать можно на странице «Класс».</string>
+    <string name="admin_gone_role">Ваш аккаунт больше не имеет роли «%1$s» в этом классе. Похоже, её изменили в боте.</string>
+    <string name="admin_gone_role_unknown">Ваш аккаунт больше не имеет нужной роли в этом классе. Похоже, её изменили в боте.</string>
+    <string name="admin_gone_recheck">Проверить снова</string>
+
+    <!-- Отказы -->
+    <string name="admin_error_title">Не получилось</string>
+    <string name="admin_error_signed_out">Сервер больше не принимает токен этого устройства.</string>
+    <string name="admin_error_not_linked">Это устройство не привязано к Telegram.</string>
+    <string name="admin_error_role_lost">Нужной роли у вашего аккаунта больше нет.</string>
+    <string name="admin_error_not_allowed">Сервер не разрешил это действие вашей роли.</string>
+    <string name="admin_error_not_found">Этой записи в классе уже нет — возможно, её только что удалили.</string>
+    <string name="admin_error_refused">Сейчас так сделать нельзя.</string>
+    <string name="admin_error_invalid">Сервер не принял эти значения.</string>
+    <string name="admin_error_offline">Сервер не отвечает. Проверьте сеть и адрес сервера.</string>
+    <string name="admin_error_unknown">Непонятный ответ сервера (%1$s).</string>
+    <string name="admin_error_detail">Сервер: %1$s</string>
+    <string name="admin_retry">Повторить</string>
+
+    <!-- Что не так с формой -->
+    <string name="admin_form_name_blank">Название не может быть пустым</string>
+    <string name="admin_form_name_long">Название слишком длинное</string>
+    <string name="admin_form_short_name_long">Сокращение слишком длинное</string>
+    <string name="admin_form_teacher_long">Имя учителя слишком длинное</string>
+    <string name="admin_form_school_long">Название школы слишком длинное</string>
+    <string name="admin_form_city_long">Название города слишком длинное</string>
+    <string name="admin_form_colour">Цвет пишется шестью шестнадцатеричными цифрами, например #5B6ABF</string>
+    <string name="admin_form_no_periods">В расписании звонков должен быть хотя бы один урок</string>
+    <string name="admin_form_too_many_periods">Уроков не может быть больше двадцати</string>
+    <string name="admin_form_period_repeated">Номера уроков не должны повторяться</string>
+    <string name="admin_form_period_range">Номер урока — от 1 до 20</string>
+    <string name="admin_form_period_backwards">Урок не может кончаться раньше, чем начался</string>
+    <string name="admin_form_paste_empty">Вставьте текст расписания</string>
+    <string name="admin_form_paste_long">Текст слишком длинный</string>
+    <string name="admin_form_name_mismatch">Название не совпадает</string>
+
+    <!-- Карточка класса -->
+    <string name="admin_class_join_code">Код класса</string>
+    <string name="admin_class_school_empty">Школа не указана</string>
+    <string name="admin_class_city_empty">Город не указан</string>
+    <string name="admin_class_members">Участники</string>
+    <string name="admin_class_devices">Устройства</string>
+    <string name="admin_class_requests">Ждут доступа</string>
+    <string name="admin_class_calendar">Календарь</string>
+    <string name="admin_class_calendar_ready">Подключён</string>
+    <string name="admin_class_calendar_missing">Не подключён</string>
+    <string name="admin_class_edit">Изменить</string>
+    <string name="admin_class_edit_title">Изменить класс</string>
+    <string name="admin_class_name_label">Название класса</string>
+    <string name="admin_class_school_label">Школа</string>
+    <string name="admin_class_city_label">Город</string>
+    <string name="admin_class_timezone_label">Часовой пояс</string>
+    <string name="admin_class_timezone_note">Часовой пояс не двигает сохранённое время: звонок в 08:30 останется в 08:30. Он решает, какой момент класс называет «сейчас».</string>
+    <string name="admin_class_saved">Класс сохранён</string>
+    <string name="admin_class_delete">Удалить класс</string>
+    <string name="admin_class_delete_title">Удалить класс</string>
+    <string name="admin_class_delete_message">Вместе с классом исчезнут расписание, домашние задания, замены, события, журнал и все привязанные устройства — включая это. Отменить это нельзя.</string>
+    <string name="admin_class_delete_confirm">Введите «%1$s», чтобы подтвердить</string>
+    <string name="admin_class_owner_only">Удалить класс может только владелец.</string>
+    <string name="admin_class_deleted_title">Класс удалён</string>
+    <string name="admin_class_deleted_message">Этого класса больше нет, и токен этого устройства вместе с ним. Закройте настройки — приложение попросит войти заново.</string>
+
+    <!-- Предметы -->
+    <string name="admin_subjects_empty_title">Предметов ещё нет</string>
+    <string name="admin_subjects_empty_text">Справочник держит «Алгебру», «алгебру» и «Алг.» одним предметом — в расписании, в домашних заданиях и в цветах приложения.</string>
+    <string name="admin_subject_add">Добавить предмет</string>
+    <string name="admin_subject_add_title">Новый предмет</string>
+    <string name="admin_subject_edit_title">Предмет</string>
+    <string name="admin_subject_name_label">Название</string>
+    <string name="admin_subject_short_label">Сокращение</string>
+    <string name="admin_subject_teacher_label">Учитель</string>
+    <string name="admin_subject_colour_label">Цвет</string>
+    <string name="admin_subject_colour_hint">#5B6ABF</string>
+    <string name="admin_subject_rename_note">Расписание, домашние задания и замены хранят предмет текстом, поэтому переименование перенесёт их все — и скажет, сколько строк перенесло.</string>
+    <string name="admin_subject_delete">Удалить предмет</string>
+    <string name="admin_subject_delete_title">Удалить «%1$s»?</string>
+    <string name="admin_subject_delete_message">Уроки останутся на местах: расписание хранит название, а пропадут только цвет и учитель.</string>
+    <string name="admin_subject_added">Предмет «%1$s» добавлен</string>
+    <string name="admin_subject_saved">Предмет «%1$s» сохранён</string>
+    <string name="admin_subject_renamed">«%1$s»: обновлено строк — %2$d</string>
+    <string name="admin_subject_deleted">Предмет «%1$s» удалён</string>
+
+    <!-- Звонки -->
+    <string name="admin_bells_empty_title">Расписаний звонков нет</string>
+    <string name="admin_bells_empty_text">Класс держит несколько — «Обычное», «Сокращённое», «Суббота», — и одно из них основное.</string>
+    <string name="admin_bells_add">Новое расписание</string>
+    <string name="admin_bells_add_title">Новое расписание звонков</string>
+    <string name="admin_bells_name_label">Название</string>
+    <string name="admin_bells_default">основное</string>
+    <string name="admin_bells_make_default">Сделать основным</string>
+    <string name="admin_bells_rename">Переименовать</string>
+    <string name="admin_bells_rename_title">Переименовать расписание</string>
+    <string name="admin_bells_periods">Уроки</string>
+    <string name="admin_bells_periods_title">Звонки «%1$s»</string>
+    <string name="admin_bells_periods_note">Уроки заменяются целиком: сдвиньте один — и все следующие сдвинутся вместе с ним.</string>
+    <string name="admin_bells_add_period">Добавить урок</string>
+    <string name="admin_bells_remove_period">Убрать последний</string>
+    <string name="admin_bells_period">Урок %1$d</string>
+    <string name="admin_bells_period_start">начало</string>
+    <string name="admin_bells_period_end">конец</string>
+    <string name="admin_bells_lessons">уроков: %1$d</string>
+    <string name="admin_bells_delete">Удалить расписание</string>
+    <string name="admin_bells_delete_title">Удалить «%1$s»?</string>
+    <string name="admin_bells_delete_message">Основное расписание и то, на которое ещё ссылаются особые дни, сервер удалить не даст.</string>
+    <string name="admin_bells_saved">Звонки «%1$s» сохранены</string>
+    <string name="admin_bells_default_set">Основные звонки: «%1$s»</string>
+    <string name="admin_bells_deleted">Расписание «%1$s» удалено</string>
+
+    <!-- Расписание: экспорт и импорт -->
+    <string name="admin_timetable_export">Экспорт</string>
+    <string name="admin_timetable_export_empty">Расписание пустое — переносить нечего.</string>
+    <string name="admin_timetable_lessons">Уроков: %1$d</string>
+    <string name="admin_timetable_copy">Скопировать</string>
+    <string name="admin_timetable_copied">Текст скопирован</string>
+    <string name="admin_timetable_import">Импорт</string>
+    <string name="admin_timetable_paste_label">Вставьте текст расписания</string>
+    <string name="admin_timetable_paste_note">Тот же формат в обе стороны: текст из бота читается здесь, а этот — в боте. Тронуты будут только дни, которые названы в тексте.</string>
+    <string name="admin_timetable_apply">Применить</string>
+    <string name="admin_timetable_conflicts_title">Эти дни будут перезаписаны</string>
+    <string name="admin_timetable_conflicts_summary">Дней: %1$d, уроков сейчас: %2$d, станет: %3$d</string>
+    <string name="admin_timetable_conflict_line">%1$s: сейчас %2$d, станет %3$d</string>
+    <string name="admin_timetable_conflicts_note">Пока ничего не записано. «Заменить» перезапишет только перечисленные дни; остальные останутся как есть.</string>
+    <string name="admin_timetable_replace">Заменить</string>
+    <string name="admin_timetable_rejected_title">Эти строки прочитать не удалось</string>
+    <string name="admin_timetable_imported">Импортировано: дней %1$d, уроков %2$d, звонков %3$d</string>
+    <string name="admin_timetable_weekday_unknown">День %1$d</string>
+
+    <!-- Устройства -->
+    <string name="admin_devices_empty_title">Устройств нет</string>
+    <string name="admin_devices_empty_text">Сюда попадает каждый телефон, вошедший в класс по коду.</string>
+    <string name="admin_devices_show_revoked">Показывать отключённые</string>
+    <string name="admin_device_unnamed">Устройство %1$d</string>
+    <string name="admin_device_not_linked">не привязано</string>
+    <string name="admin_device_revoked">отключено</string>
+    <string name="admin_device_seen">был(а) %1$s</string>
+    <string name="admin_device_never_seen">ни разу не выходил на связь</string>
+    <string name="admin_device_revoke">Отключить</string>
+    <string name="admin_device_unlink">Отвязать</string>
+    <string name="admin_device_revoke_title">Отключить устройство?</string>
+    <string name="admin_device_revoke_message">Токен перестанет работать сразу и навсегда. Если это телефон в вашей руке, приложение на нём попросит войти заново.</string>
+    <string name="admin_device_unlink_title">Отвязать устройство?</string>
+    <string name="admin_device_unlink_message">Телефон останется в классе и будет читать расписание, но потеряет роль, которую занимал у аккаунта владельца.</string>
+    <string name="admin_device_revoked_notice">Устройство отключено</string>
+    <string name="admin_device_unlinked_notice">Устройство отвязано — снова только чтение</string>
+
+    <!-- Журнал -->
+    <string name="admin_log_empty_title">В журнале пусто</string>
+    <string name="admin_log_empty_text">Сюда попадает каждое изменение — и из бота, и из приложения.</string>
+    <string name="admin_log_system">система</string>
+    <string name="admin_log_page">Записи с %1$d по %2$d</string>
+    <string name="admin_log_newer">Новее</string>
+    <string name="admin_log_older">Старее</string>
+    <string name="admin_log_meta">%1$s · %2$s</string>
+
+    <!-- Статистика -->
+    <string name="admin_stats_empty_title">Считать пока нечего</string>
+    <string name="admin_stats_empty_text">Числа появятся, как только в классе будет расписание.</string>
+    <string name="admin_stats_today">Сегодня %1$s</string>
+    <string name="admin_stats_lessons_per_week">Уроков в неделю</string>
+    <string name="admin_stats_subjects_count">Предметов</string>
+    <string name="admin_stats_homework">Домашние задания</string>
+    <string name="admin_stats_homework_value">открыто: %1$d из %2$d</string>
+    <string name="admin_stats_devices">Активных устройств</string>
+    <string name="admin_stats_overrides">Особых дней впереди</string>
+    <string name="admin_stats_events">Событий впереди</string>
+    <string name="admin_stats_members">Участники</string>
+    <string name="admin_stats_hours_section">Часов в неделю</string>
+    <string name="admin_stats_hours">%1$s ч</string>
+
+    <!-- Запросы доступа -->
+    <string name="admin_requests_empty_title">Никто не ждёт</string>
+    <string name="admin_requests_empty_text">Запрос приходит, когда кто-то просит роль командой /request в боте.</string>
+    <string name="admin_request_asked">просит роль «%1$s»</string>
+    <string name="admin_request_approve">Выдать</string>
+    <string name="admin_request_decline">Отклонить</string>
+    <string name="admin_request_role_title">Какую роль выдать</string>
+    <string name="admin_request_role_asked">Как просили — «%1$s»</string>
+    <string name="admin_request_none_grantable">Ваша роль не позволяет выдавать роли: никто не может выдать роль на своём уровне или выше.</string>
+    <string name="admin_request_approved">%1$s: выдана роль «%2$s»</string>
+    <string name="admin_request_approved_plain">%1$s: доступ выдан</string>
+    <string name="admin_request_declined">%1$s: отказано</string>
+
+    <!-- Роли, как их называет бот -->
+    <string name="admin_role_name_viewer">читатель</string>
+    <string name="admin_role_name_editor">редактор</string>
+    <string name="admin_role_name_admin">администратор</string>
+    <string name="admin_role_name_owner">владелец</string>
+    <string name="admin_role_name_unknown">неизвестная роль</string>
+    <string name="admin_clipboard_label">Расписание класса</string>
+    <string name="admin_request_decline_message">Человек останется с той ролью, которая у него уже была, и узнает об отказе в Telegram — там, где спрашивал.</string>
+</resources>

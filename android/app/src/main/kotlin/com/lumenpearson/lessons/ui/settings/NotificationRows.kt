@@ -37,6 +37,7 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupRow
 import com.lumenpearson.lessons.core.designsystem.component.GroupSegmentedItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupSwitchItem
+import com.lumenpearson.lessons.core.designsystem.component.GroupTimeItem
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
@@ -123,12 +124,14 @@ internal fun LazyListScope.notificationRows(
                 onCheckedChange = { on -> viewModel.setAlerts { it.copy(morningSummary = on) } },
             )
             if (state.settings.alerts.morningSummary) {
-                HourRow(
+                GroupTimeItem(
                     title = stringResource(R.string.settings_alert_morning_at),
                     icon = Icons.Rounded.Schedule,
                     tone = accentTone(4),
-                    selectedMinutes = state.settings.alerts.morningAtMinutes,
-                    onSelect = { minutes -> viewModel.setAlerts { it.copy(morningAtMinutes = minutes) } },
+                    minutesOfDay = state.settings.alerts.morningAtMinutes,
+                    onMinutesOfDayChange = { minutes ->
+                        viewModel.setAlerts { it.copy(morningAtMinutes = minutes) }
+                    },
                 )
                 WeekdayRow(
                     selected = state.settings.alerts.morningWeekdays,
@@ -151,12 +154,14 @@ internal fun LazyListScope.notificationRows(
                 onCheckedChange = { on -> viewModel.setAlerts { it.copy(homeworkReminder = on) } },
             )
             if (state.settings.alerts.homeworkReminder) {
-                HourRow(
+                GroupTimeItem(
                     title = stringResource(R.string.settings_alert_homework_at),
                     icon = Icons.Rounded.Schedule,
                     tone = accentTone(3),
-                    selectedMinutes = state.settings.alerts.homeworkAtMinutes,
-                    onSelect = { minutes -> viewModel.setAlerts { it.copy(homeworkAtMinutes = minutes) } },
+                    minutesOfDay = state.settings.alerts.homeworkAtMinutes,
+                    onMinutesOfDayChange = { minutes ->
+                        viewModel.setAlerts { it.copy(homeworkAtMinutes = minutes) }
+                    },
                 )
             }
         }
@@ -190,15 +195,23 @@ internal fun LazyListScope.notificationRows(
                 onCheckedChange = { on -> viewModel.setAlerts { it.copy(quietHours = on) } },
             )
             if (state.settings.alerts.quietHours) {
-                QuietHourRow(
+                GroupTimeItem(
                     title = stringResource(R.string.settings_alert_quiet_from),
-                    selectedMinutes = state.settings.alerts.quietFromMinutes,
-                    onSelect = { minutes -> viewModel.setAlerts { it.copy(quietFromMinutes = minutes) } },
+                    icon = Icons.Rounded.Bedtime,
+                    tone = accentTone(0),
+                    minutesOfDay = state.settings.alerts.quietFromMinutes,
+                    onMinutesOfDayChange = { minutes ->
+                        viewModel.setAlerts { it.copy(quietFromMinutes = minutes) }
+                    },
                 )
-                QuietHourRow(
+                GroupTimeItem(
                     title = stringResource(R.string.settings_alert_quiet_to),
-                    selectedMinutes = state.settings.alerts.quietToMinutes,
-                    onSelect = { minutes -> viewModel.setAlerts { it.copy(quietToMinutes = minutes) } },
+                    icon = Icons.Rounded.Bedtime,
+                    tone = accentTone(0),
+                    minutesOfDay = state.settings.alerts.quietToMinutes,
+                    onMinutesOfDayChange = { minutes ->
+                        viewModel.setAlerts { it.copy(quietToMinutes = minutes) }
+                    },
                 )
             }
             GroupSwitchItem(
@@ -308,30 +321,14 @@ private fun weekdayLabelRes(day: Int): Int = when (day) {
 }
 
 /**
- * One end of the quiet window.
+ * How long before the bell, as chips.
  *
- * Every hour of the day, unlike [HourRow]: a quiet window routinely starts at
- * 23:00 and ends at 06:00, and both of those are outside the hours a summary
- * would ever be set to.
+ * The one row on this page that kept its buttons, and the reason is that it is
+ * the one row that is not asking for a time. "За 15 минут" is a length, and the
+ * instrument for a length is not a clock face — a dial that reads 00:15 invites
+ * the user to set 09:15 and be told about every lesson nine hours early. Four
+ * answers cover it, and they are not a continuum.
  */
-@Composable
-private fun QuietHourRow(
-    title: String,
-    selectedMinutes: Int,
-    onSelect: (Int) -> Unit,
-) {
-    ChipRow(title = title, icon = Icons.Rounded.Bedtime, tone = accentTone(0)) {
-        AlertPreferences.QuietHourOptions.forEach { hour ->
-            PillChip(
-                text = stringResource(R.string.settings_alert_hour_value, hour),
-                selected = hour * MinutesPerHour == selectedMinutes,
-                onClick = { onSelect(hour * MinutesPerHour) },
-            )
-        }
-    }
-}
-
-/** How long before the bell, as chips: the choices are not a continuum. */
 @Composable
 private fun LeadMinutesRow(
     selected: Int,
@@ -351,34 +348,6 @@ private fun LeadMinutesRow(
         }
     }
 }
-
-/**
- * An hour of the day, as chips.
- *
- * A time picker would be the obvious control and the wrong one: the app is
- * asking "roughly when", the answers worth giving are whole hours, and a picker
- * would offer 07:23 as though it meant something.
- */
-@Composable
-private fun HourRow(
-    title: String,
-    icon: ImageVector,
-    tone: AccentTone,
-    selectedMinutes: Int,
-    onSelect: (Int) -> Unit,
-) {
-    ChipRow(title = title, icon = icon, tone = tone) {
-        AlertPreferences.HourOptions.forEach { hour ->
-            PillChip(
-                text = stringResource(R.string.settings_alert_hour_value, hour),
-                selected = hour * MinutesPerHour == selectedMinutes,
-                onClick = { onSelect(hour * MinutesPerHour) },
-            )
-        }
-    }
-}
-
-private const val MinutesPerHour = 60
 
 /** Tile and title on one line, a wrapping row of chips under it. */
 @Composable
