@@ -20,6 +20,11 @@ dependencies = [
     # already here as a test dependency (httpx drives the ASGI client); this
     # promotes it, because now a request path uses it.
     "httpx>=0.28.1",
+    # Fernet, for the one credential that is stored recoverably rather than
+    # hashed — the diary's upstream session token (see app/crypto.py). It was
+    # already present as somebody's transitive dependency; a security floor is
+    # not something to inherit by accident.
+    "cryptography>=41.0",
     # Schema changes. Not in requirements.txt: migrations are run from a
     # workstation against the database, never from inside a request, and the
     # function bundle is smaller without it.

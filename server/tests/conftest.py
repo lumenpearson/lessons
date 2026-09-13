@@ -19,6 +19,10 @@ os.environ["RUN_BOT"] = "false"
 os.environ["BOT_TOKEN"] = ""
 os.environ["OWNER_IDS"] = "1000"
 os.environ["TIMEZONE"] = "Europe/Moscow"
+# The diary refuses to run without a key, on purpose (app/crypto.py). Tests
+# that exercise it therefore have to configure one; that the *absence* of one
+# switches the feature off is itself a test, in test_diary_crypto.py.
+os.environ["DIARY_SECRET"] = "test-secret-not-a-real-one-0123456789abcdef"
 
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.models import (  # noqa: E402

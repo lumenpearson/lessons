@@ -127,6 +127,20 @@ class SchoolClass(Base):
         ForeignKey("bell_schedules.id", ondelete="SET NULL", use_alter=True,
                    name="fk_class_bell_schedule")
     )
+    # Which electronic diary this class reads, or NULL for none. A string
+    # rather than a boolean because there is one provider today and the name of
+    # the column should not have to change when there are two.
+    #
+    # Binding a class does not give the class anything: the timetable, the
+    # homework and the замены stay the class's own. What it does is offer every
+    # *member* a way to sign in to their own account and read their own diary
+    # in the same chat — which is why nothing here holds a credential.
+    diary_provider: Mapped[str | None] = mapped_column(String(32))
+    # Whether anyone with the join code may read the class, or only people an
+    # admin let in. A public class is the honest default for a school whose
+    # timetable is on a wall anyway; a private one is for a class that treats
+    # its roster as its own business.
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     bell_schedule: Mapped[BellSchedule | None] = relationship(
@@ -608,14 +622,28 @@ class DiarySession(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     # Our token, as a hash. The plaintext is shown to the client once.
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
-    # The upstream's ``X-JWT-Token``. Refreshed in place whenever the upstream
-    # hands back a new one, which it does on most calls.
+    # The upstream's ``X-JWT-Token``, **sealed** — see ``app/crypto.py``. It is
+    # the one credential here that cannot be a hash, because it is replayed to
+    # the upstream on every call, so it is the one that is encrypted instead.
+    # Refreshed in place (and re-sealed) whenever the upstream hands back a new
+    # one, which it does on most calls.
     upstream_token: Mapped[str] = mapped_column(Text, nullable=False)
     # Who signed in, for the "you are signed in as" line and nothing else.
     login: Mapped[str] = mapped_column(String(200), nullable=False)
     # The Telegram account this session belongs to, when it was created from a
     # linked device. Null for a session created by login alone.
     telegram_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
+    # The class the session was opened from, when it was opened in the bot.
+    # Carried so that leaving a class can take its diary session with it, and
+    # so that «Дневник» in one class does not answer with a session opened in
+    # another. Null for the Android client, which has no class in this flow.
+    class_id: Mapped[int | None] = mapped_column(
+        ForeignKey("classes.id", ondelete="CASCADE"), index=True
+    )
+    # Which child this session is reading, once the person has chosen. A parent
+    # account can carry several; the bot asks once and remembers, because
+    # asking on every screen is a question with the same answer every time.
+    student_id: Mapped[int | None] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime)
     # When the upstream refused us and the person has to sign in again.
@@ -624,6 +652,41 @@ class DiarySession(Base):
     @property
     def is_live(self) -> bool:
         return self.expired_at is None
+
+
+class DiaryLinkCode(Base):
+    """A one-time ticket from a Telegram chat to the sign-in form.
+
+    The password is the whole confidentiality question, and the answer this
+    project gives is that it never enters Telegram at all. The bot hands out a
+    URL; the form is served over HTTPS by this same app; the password goes
+    from the browser straight to the upstream and is never written down. What
+    Telegram ever sees is this code, which is worth one sign-in, for fifteen
+    minutes, for one account.
+
+    Typing the password to the bot instead would put it in the chat history, on
+    Telegram's servers, in the notification that pops up on a locked screen and
+    in whatever backs that phone up — and deleting the message afterwards
+    undoes exactly none of those.
+
+    Stored as a hash like every other credential here: a leak of this table is
+    a list of tickets that cannot be used.
+    """
+
+    __tablename__ = "diary_link_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    class_id: Mapped[int] = mapped_column(
+        ForeignKey("classes.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    # Set the moment the form is submitted, successfully or not. One ticket is
+    # one attempt: a code that survived a wrong password would let whoever has
+    # the link keep guessing against the upstream from our address.
+    used_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 DEFAULT_BELLS: list[tuple[int, time, time]] = [

@@ -24,6 +24,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.crypto import diary_enabled, seal, unseal
 from app.models import DiarySession
 from app.providers.petersburg import (
     PetersburgClient,
@@ -50,6 +51,15 @@ log = logging.getLogger(__name__)
 LAST_USED_INTERVAL_SECONDS = 900
 
 
+class DiaryDisabled(RuntimeError):
+    """The deployment has no ``DIARY_SECRET``, so the diary does not run.
+
+    A distinct exception rather than a generic failure because the answer to
+    it is an operator's, not a user's: nothing the person types will help, and
+    the message they get should say so instead of «попробуйте позже».
+    """
+
+
 def _utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
@@ -62,13 +72,22 @@ async def sign_in(
     @return the token to hand the client - shown once, stored only as a hash -
         and the row behind it.
     """
+    # Checked before the upstream call, not after: without a key the result
+    # has nowhere to go, and sending someone's password to a third party to
+    # then throw the answer away is the one order of operations that is worse
+    # than refusing.
+    if not diary_enabled():
+        raise DiaryDisabled("DIARY_SECRET is not configured")
+
     client = PetersburgClient()
     upstream = await client.login(login.strip(), password)
 
     token = new_token()
     row = DiarySession(
         token_hash=hash_token(token),
-        upstream_token=upstream,
+        # Sealed before it is ever handed to the session, so there is no path
+        # through this function on which the plaintext reaches the ORM.
+        upstream_token=seal(upstream),
         login=login.strip(),
         telegram_id=telegram_id,
         last_used_at=_utcnow(),
@@ -78,12 +97,32 @@ async def sign_in(
     return token, row
 
 
+def upstream_of(row: DiarySession) -> str | None:
+    """The row's upstream credential, opened, or ``None`` if it cannot be.
+
+    One place where a stored credential is decrypted, so that «can this session
+    still be used» has one answer rather than one per caller. ``None`` covers a
+    rotated key and a row written before encryption alike, and both mean the
+    same thing to the person: sign in again.
+    """
+    return unseal(row.upstream_token)
+
+
 async def find_session(session: AsyncSession, token: str) -> DiarySession | None:
-    """The live session behind a token, or ``None``."""
+    """The live session behind a token, or ``None``.
+
+    A row whose credential will not open is expired here rather than handed on.
+    Letting it through would spend an upstream round trip to be told the same
+    thing, from an address the upstream rate-limits.
+    """
     row = await session.scalar(
         select(DiarySession).where(DiarySession.token_hash == hash_token(token))
     )
     if row is None or not row.is_live:
+        return None
+    if upstream_of(row) is None:
+        row.expired_at = _utcnow()
+        await session.commit()
         return None
     return row
 
@@ -103,12 +142,17 @@ class DiaryService:
     that should have lived for weeks dies in a day.
     """
 
-    __slots__ = ("session", "row", "client")
+    __slots__ = ("session", "row", "client", "_upstream")
 
     def __init__(self, session: AsyncSession, row: DiarySession) -> None:
         self.session = session
         self.row = row
-        self.client = PetersburgClient(row.upstream_token)
+        # The plaintext lives for the life of this object and nowhere else. An
+        # empty string when the seal will not open, which every call then turns
+        # into the upstream's own «signed out» — the same ending the person
+        # would reach a few days later anyway.
+        self._upstream = upstream_of(row) or ""
+        self.client = PetersburgClient(self._upstream)
 
     async def students(self) -> list[Student]:
         return await self._call(lambda: self.client.children(), m.to_students)
@@ -176,8 +220,9 @@ class DiaryService:
         """
         now = _utcnow()
         changed = False
-        if self.client.token and self.client.token != self.row.upstream_token:
-            self.row.upstream_token = self.client.token
+        if self.client.token and self.client.token != self._upstream:
+            self._upstream = self.client.token
+            self.row.upstream_token = seal(self.client.token)
             changed = True
         last = self.row.last_used_at
         if last is None or (now - last).total_seconds() >= LAST_USED_INTERVAL_SECONDS:
