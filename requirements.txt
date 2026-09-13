@@ -5,7 +5,7 @@
 # asyncpg only: the serverless database is Postgres, and aiosqlite would be
 # dead weight in the function bundle.
 fastapi>=0.115
-aiogram>=3.13
+aiogram>=3.31.0
 sqlalchemy[asyncio]>=2.0.30
 asyncpg>=0.29
 pydantic>=2.8
