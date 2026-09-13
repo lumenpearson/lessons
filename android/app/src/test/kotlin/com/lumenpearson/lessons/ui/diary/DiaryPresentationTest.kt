@@ -6,8 +6,11 @@ import com.lumenpearson.lessons.core.data.repository.DiaryLesson
 import com.lumenpearson.lessons.core.data.repository.DiaryMark
 import com.lumenpearson.lessons.core.data.repository.DiaryMarkKind
 import com.lumenpearson.lessons.core.data.repository.DiaryPeriod
+import java.time.Clock
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -184,6 +187,27 @@ class DiaryPresentationTest {
     fun `a week starts on the Monday of whatever day it is given`() {
         assertEquals(monday, diaryWeekStart(monday.plusDays(6)))
         assertEquals(monday, diaryWeekStart(monday))
+    }
+
+    @Test
+    fun `the diary's today is the city's, whatever the phone is set to`() {
+        // 21:30 UTC is already the next day in Saint Petersburg. A pupil who
+        // opens the diary at half past midnight there is asking about a day the
+        // device's own clock, on a phone left in another zone, has not reached —
+        // and the server cuts its default window at the same boundary, so a
+        // screen that disagreed would look like the diary had lost a day.
+        val justAfterMidnightThere = Clock.fixed(
+            LocalDateTime.of(2026, 9, 7, 21, 30).toInstant(ZoneOffset.UTC),
+            ZoneOffset.UTC,
+        )
+        assertEquals(LocalDate.of(2026, 9, 8), diaryToday(justAfterMidnightThere))
+
+        // And the hours on either side of it still resolve the ordinary way.
+        val teaTimeThere = Clock.fixed(
+            LocalDateTime.of(2026, 9, 7, 12, 0).toInstant(ZoneOffset.UTC),
+            ZoneOffset.UTC,
+        )
+        assertEquals(LocalDate.of(2026, 9, 7), diaryToday(teaTimeThere))
     }
 
     // -- the marks window ---------------------------------------------------

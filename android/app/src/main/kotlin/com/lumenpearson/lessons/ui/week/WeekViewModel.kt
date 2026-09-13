@@ -9,9 +9,11 @@ import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
 import com.lumenpearson.lessons.core.model.SchoolDay
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -66,6 +68,9 @@ data class WeekDayUi(
 data class ScheduleUiState(
     val isLoading: Boolean = true,
     val view: ScheduleView = ScheduleView.WEEK,
+    // device clock: the placeholder the grid is built on for the one frame
+    // before the first emission, while isLoading is still true and nothing
+    // reads it. Every later value comes from `Timetable.atSchool`.
     val today: LocalDate = LocalDate.now(),
     val anchor: LocalDate = today,
     val selected: LocalDate = today,
@@ -120,10 +125,17 @@ class WeekViewModel(
      * midnight is not a now line. A minute is as fine as this screen gets: the
      * state object is rebuilt when it ticks, so a shorter period would be
      * recomposition bought with nothing.
+     *
+     * An [Instant], not a `LocalDateTime`: the timetable is stored in the
+     * school's wall time, and the school's zone is known where the state is
+     * built, not here. `Timetable.atSchool` exists for exactly this crossing —
+     * emitting `LocalDateTime.now()` instead silently made every date on this
+     * screen the *device's*, so a phone an hour behind the class drew the wrong
+     * day as today on the strip and put the now line an hour out on the ruler.
      */
-    private val now: Flow<LocalDateTime> = flow {
+    private val now: Flow<Instant> = flow {
         while (true) {
-            emit(LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES))
+            emit(Instant.now().truncatedTo(ChronoUnit.MINUTES))
             delay(CLOCK_TICK_MILLIS)
         }
     }.distinctUntilChanged()
@@ -134,7 +146,12 @@ class WeekViewModel(
         view,
         combine(anchor, selected) { anchor, selected -> anchor to selected },
         settingsRepository.settings,
-    ) { timetable, now, view, focus, settings ->
+    ) { timetable, instant, view, focus, settings ->
+        // Without a timetable there is no school zone to be in, and the only
+        // thing the date decides is which week the empty grid is labelled with.
+        val now = timetable?.atSchool(instant)
+            // device clock: no timetable, so no school zone to be in — see above.
+            ?: LocalDateTime.ofInstant(instant, ZoneId.systemDefault())
         val today = now.toLocalDate()
         val (storedAnchor, storedSelection) = focus
         val anchorDate = storedAnchor ?: today
@@ -179,7 +196,7 @@ class WeekViewModel(
 
     /** Switches scale, keeping the day in focus rather than jumping to today. */
     fun setView(next: ScheduleView) {
-        val focus = selected.value ?: anchor.value ?: LocalDate.now()
+        val focus = selected.value ?: anchor.value ?: uiState.value.today
         anchor.value = focus
         selected.value = focus
         view.value = next
@@ -203,7 +220,12 @@ class WeekViewModel(
     }
 
     private fun step(direction: Long) {
-        val from = anchor.value ?: LocalDate.now()
+        // uiState.value.today, not LocalDate.now(): "today" on this screen is
+        // the school's, and stepping a week from the device's date lands on a
+        // different week for a phone in another zone than the one the strip is
+        // drawing. Only ever reached from the UI, which is collecting, so the
+        // state has the answer the grid was built from.
+        val from = anchor.value ?: uiState.value.today
         val moved = when (view.value) {
             ScheduleView.WEEK -> from.plusWeeks(direction)
             ScheduleView.MONTH -> from.plusMonths(direction)

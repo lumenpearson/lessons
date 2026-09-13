@@ -72,6 +72,8 @@ class LessonsWidget : GlanceAppWidget() {
         // have told the user what to do and offered them a tap to do it.
         val snapshot = runCatching { loadSnapshot(context) }.getOrElse {
             Snapshot(
+                // device clock: the read failed, so there is no timetable to take a zone
+                // from. The empty state this builds names no lesson and no time.
                 now = LocalDateTime.now(),
                 state = null,
                 signedIn = false,
@@ -186,6 +188,7 @@ class LessonsWidget : GlanceAppWidget() {
         // The school's wall clock, not the phone's. These differ whenever the
         // device has travelled, and permanently for anyone following a school
         // in another of Russia's eleven zones.
+        // device clock: only when there is no timetable at all.
         val now = timetable?.nowAtSchool() ?: LocalDateTime.now()
 
         val state = timetable?.let { ScheduleEngine.stateAt(it, now) }

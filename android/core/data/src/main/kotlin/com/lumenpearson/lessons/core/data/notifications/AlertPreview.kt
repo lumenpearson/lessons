@@ -66,7 +66,11 @@ object AlertPreview {
             alert = SchoolAlert.LessonSoon(
                 // Today, so that tapping the notification opens today rather
                 // than a date the user has no reason to be looking at.
+                // device clock: a sample notification, posted now, on this phone, so the
+                // reader can see what the настройки they just changed will look like. It
+                // belongs to no class and no timetable.
                 at = LocalDate.now().atTime(SampleStart).minusMinutes(preferences.lessonLeadMinutes.toLong()),
+                // device clock: same sample, same reason.
                 date = LocalDate.now(),
                 lesson = lesson,
                 leadMinutes = preferences.lessonLeadMinutes,

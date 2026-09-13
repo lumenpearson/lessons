@@ -80,9 +80,15 @@ internal fun LocalDate.asFullWeekday(locale: Locale = Locale.getDefault()): Stri
  *
  * Relative labels are worth the branch: on the home screen and in the homework
  * list, "завтра" is the answer to the question the user actually asked.
+ *
+ * @param today required rather than defaulted, because the only correct answer
+ *   is the school's date and this function cannot reach it. Both callers hold
+ *   it already — it is on the state their list was built from — and a default
+ *   of `LocalDate.now()` would have been the device's, silently, for whichever
+ *   caller forgot.
  */
 @Composable
-internal fun LocalDate.asRelativeDayLabel(today: LocalDate = LocalDate.now()): String = when (this) {
+internal fun LocalDate.asRelativeDayLabel(today: LocalDate): String = when (this) {
     today -> stringResource(R.string.day_today)
     today.plusDays(1) -> stringResource(R.string.day_tomorrow)
     today.minusDays(1) -> stringResource(R.string.day_yesterday)
@@ -96,6 +102,8 @@ internal fun LocalDate.asRelativeDayLabel(today: LocalDate = LocalDate.now()): S
  * it is stale without having to guess.
  */
 @Composable
+// device clock: unlike every other date in the app this one is about the phone,
+// not the school — "обновлено в 14:32" means the clock the reader is holding.
 internal fun syncedAtLabel(epochMillis: Long, zone: ZoneId = ZoneId.systemDefault()): String {
     if (epochMillis <= 0L) return stringResource(R.string.sync_never)
     val moment = Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalDateTime()

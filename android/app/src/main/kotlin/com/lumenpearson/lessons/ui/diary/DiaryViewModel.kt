@@ -47,8 +47,7 @@ data class DiaryUiState(
     val studentsError: DiaryFailure? = null,
     val selectedStudentId: Long? = null,
     val tab: DiaryTab = DiaryTab.SCHEDULE,
-    val today: LocalDate = LocalDate.now(),
-    val weekStart: LocalDate = diaryWeekStart(LocalDate.now()),
+    val weekStart: LocalDate = diaryWeekStart(diaryToday()),
     val scheduleLoading: Boolean = false,
     val scheduleError: DiaryFailure? = null,
     val days: List<DiaryDayUi> = emptyList(),
@@ -57,6 +56,17 @@ data class DiaryUiState(
     val subjects: List<DiarySubjectMarks> = emptyList(),
     val gradeRange: DiaryRange? = null,
 ) {
+    /**
+     * The date it is in the city whose diary this is.
+     *
+     * Read on every access rather than frozen into the state, because the
+     * state object is built once when the screen opens and carried forward by
+     * `copy` from then on: a value stored here was whatever the date was when
+     * the pupil first opened the diary, and a phone left on the screen
+     * overnight kept offering «на этой неделе» for the week that had ended.
+     */
+    val today: LocalDate get() = diaryToday()
+
     val student: DiaryStudent? get() = students.firstOrNull { it.id == selectedStudentId }
 
     /** Signed in and not being asked for the password again. */
@@ -151,7 +161,6 @@ class DiaryViewModel(
             state.update {
                 DiaryUiState(
                     ready = true,
-                    today = it.today,
                     weekStart = diaryWeekStart(it.today),
                 )
             }
