@@ -83,7 +83,14 @@ def back_to(action: str, label: str = "‹ Назад") -> list[InlineKeyboardBu
     return [InlineKeyboardButton(text=label, callback_data=ManageAction(action=action).pack())]
 
 
-def class_menu(*, is_owner: bool, many_classes: bool, pending: int) -> InlineKeyboardMarkup:
+def class_menu(
+    *,
+    is_owner: bool,
+    many_classes: bool,
+    pending: int,
+    diary_bound: bool = False,
+    is_public: bool = False,
+) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
         [
             InlineKeyboardButton(
@@ -124,6 +131,23 @@ def class_menu(*, is_owner: bool, many_classes: bool, pending: int) -> InlineKey
             ),
         ],
     ]
+    rows.append(
+        [
+            # Both painted by what pressing does, like every other toggle here:
+            # red while the press takes something away (unbinding the diary,
+            # closing the class), plain while it gives it back.
+            InlineKeyboardButton(
+                text="📒 Дневник: отвязать" if diary_bound else "📒 Привязать дневник",
+                callback_data=ManageAction(action="diary_bind").pack(),
+                style=DANGER if diary_bound else None,
+            ),
+            InlineKeyboardButton(
+                text="🔒 Закрыть класс" if is_public else "🔓 Открыть класс",
+                callback_data=ManageAction(action="openness").pack(),
+                style=DANGER if is_public else None,
+            ),
+        ]
+    )
     if pending:
         rows.append(
             [

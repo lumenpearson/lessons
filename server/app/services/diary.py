@@ -60,7 +60,7 @@ class DiaryDisabled(RuntimeError):
     """
 
 
-def _utcnow() -> datetime:
+def utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
@@ -90,7 +90,7 @@ async def sign_in(
         upstream_token=seal(upstream),
         login=login.strip(),
         telegram_id=telegram_id,
-        last_used_at=_utcnow(),
+        last_used_at=utcnow(),
     )
     session.add(row)
     await session.commit()
@@ -121,7 +121,7 @@ async def find_session(session: AsyncSession, token: str) -> DiarySession | None
     if row is None or not row.is_live:
         return None
     if upstream_of(row) is None:
-        row.expired_at = _utcnow()
+        row.expired_at = utcnow()
         await session.commit()
         return None
     return row
@@ -218,7 +218,7 @@ class DiaryService:
         read over, so a failure here is logged and swallowed - the answer the
         caller asked for has already been fetched.
         """
-        now = _utcnow()
+        now = utcnow()
         changed = False
         if self.client.token and self.client.token != self._upstream:
             self._upstream = self.client.token
@@ -239,7 +239,7 @@ class DiaryService:
     async def _expire(self) -> None:
         """Marks the session dead so the next request fails fast, with the
         answer that actually helps: sign in again."""
-        self.row.expired_at = _utcnow()
+        self.row.expired_at = utcnow()
         try:
             await self.session.commit()
         except Exception:  # noqa: BLE001

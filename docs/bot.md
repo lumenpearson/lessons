@@ -372,6 +372,51 @@ member may: it is the same text the day view already shows them, reachable by
 memory instead of by date. Case folding is SQL's `lower()`, which on SQLite
 covers Latin only.
 
+## Электронный дневник — «📒 Мой дневник»
+
+An admin binds the class in **⚙️ Класс → 📒 Привязать дневник**. Binding gives
+the class *nothing*: it puts one button on every member's menu, and behind that
+button is each member's own dnevnik2 account. Nobody in the class sees anybody
+else's child.
+
+That is enforced rather than asserted. Every lookup in `handlers/diary.py`
+starts from `callback.from_user.id`, and a session is found by
+`(telegram_id, class_id)` and nothing else — so a crafted payload reaches the
+presser's own diary or nothing at all. The class half matters too: a parent in
+two classes must not read one child's diary from the other class's screen.
+
+**The password never enters Telegram.** «🔐 Войти в дневник» hands out a link to
+`/diary/signin/<ticket>`, a page this app serves itself. The password goes from
+that browser straight to dnevnik2 and is written down nowhere — not in the chat
+history, not on Telegram's servers, not in the notification on a locked screen,
+not in the phone's backup. A ticket is worth **one** sign-in for fifteen
+minutes for one Telegram account in one class; a GET checks it without spending
+it (Telegram fetches link previews by itself), a POST spends it before
+attempting the sign-in, and a malformed form does not spend it at all.
+
+The session is stored encrypted (`DIARY_SECRET`, `app/crypto.py`). Without that
+key the whole feature refuses at the door rather than falling back to
+plaintext. Without `PUBLIC_BASE_URL` the bot says there is nowhere to point the
+link, instead of printing one that would 404.
+
+Four views, paged with `‹` `›`: **📅 День**, **🗓 Неделя**, **📝 Задания** (grouped
+by the day they are *due*), **📊 Оценки** (last 30 days, averaged over digits
+only — «Н» and «Б» are attendance codes in the same column). A parent account
+with several children is asked once, in **👥 Ребёнок**, and the answer is kept on
+the session. **Выйти** drops the session; the upstream is not told, because it
+has no logout that can be called without a browser.
+
+An empty answer is always said, never drawn as a blank: the upstream returns
+nothing for каникулы, for a day it has no data for, and for a journal a teacher
+has not filled, and one blank screen makes a parent refresh four times.
+
+## Публичный и закрытый класс
+
+**⚙️ Класс → 🔓 Открыть класс** decides whether the join code alone is enough.
+Closed is the default and stays it: a class that became public by accident is a
+roster handed to whoever screenshotted the code, and that is not a mistake
+anybody notices until afterwards.
+
 ## Подписка на календарь — `/calendar`
 
 Not to be confused with `/day`, which is the month grid. This one is the class

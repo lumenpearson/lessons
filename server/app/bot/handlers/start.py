@@ -53,7 +53,7 @@ async def _send_menu(message: Message, school_class: SchoolClass, role: Role) ->
         f"<b>{escape(school_class.name)}</b>"
         + (f" · {escape(school_class.school)}" if school_class.school else "")
         + f"\nВаша роль: <b>{role.title_ru}</b>. {render_role_help(role)}",
-        reply_markup=main_menu(role),
+        reply_markup=main_menu(role, school_class.diary_provider),
     )
 
 
@@ -266,7 +266,7 @@ async def create_class_timezone(
         f"Код для приложения: <code>{school_class.join_code}</code>\n"
         "Введите его в приложении на телефоне, чтобы подключить расписание.\n\n"
         "Дальше стоит заполнить расписание уроков в разделе «Расписание».",
-        reply_markup=main_menu(Role.OWNER),
+        reply_markup=main_menu(Role.OWNER, school_class.diary_provider),
     )
     await callback.answer()
 
@@ -284,7 +284,7 @@ async def back_root(
         return
     await callback.message.edit_text(
         f"<b>{escape(school_class.name)}</b>\nВаша роль: <b>{role.title_ru}</b>.",
-        reply_markup=main_menu(role),
+        reply_markup=main_menu(role, school_class.diary_provider),
     )
     await callback.answer()
 

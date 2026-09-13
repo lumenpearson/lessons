@@ -360,6 +360,8 @@ def render_class_card(
         f"🕒 Часовой пояс: {escape(zone_label)}",
         f"🔑 Код для приложения: <code>{escape(school_class.join_code)}</code>",
         f"📅 Календарь: {'ссылка выдана' if feed_ready else 'ссылка ещё не создавалась'}",
+        f"🔓 Тип класса: {'публичный' if school_class.is_public else 'закрытый'}",
+        f"📒 Дневник: {'Санкт-Петербург' if school_class.diary_provider else 'не привязан'}",
         "",
         f"👥 Участников: {members} · 📱 устройств: {devices}",
     ]

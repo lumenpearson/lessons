@@ -94,7 +94,7 @@ class ReminderAction(CallbackData, prefix="rem"):
     value: str = ""
 
 
-def main_menu(role: Role) -> InlineKeyboardMarkup:
+def main_menu(role: Role, diary_provider: str | None = None) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
         [
             InlineKeyboardButton(
@@ -134,6 +134,18 @@ def main_menu(role: Role) -> InlineKeyboardMarkup:
             ),
         ]
     )
+    # Offered to every role, because it is not the class's data and no role in
+    # the class grants any of it: the button opens *your* diary or offers you
+    # the door to it, and a наблюдатель has exactly as much right to their own
+    # child's marks as the owner has.
+    if diary_provider:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="📒 Мой дневник", callback_data=Menu(action="diary").pack()
+                )
+            ]
+        )
     if role.at_least(Role.EDITOR):
         rows.append(
             [
