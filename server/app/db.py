@@ -108,3 +108,32 @@ async def get_session() -> AsyncIterator[AsyncSession]:
     """FastAPI dependency."""
     async with SessionLocal() as session:
         yield session
+
+
+#: The Alembic revision this code needs the database to be at.
+#:
+#: Hardcoded rather than read from ``migrations/`` because that directory is
+#: not in the serverless bundle — alembic is deliberately absent from
+#: requirements.txt, since migrations are run from a workstation and never from
+#: inside a request. A constant that has to be kept in step by hand would rot,
+#: so ``tests/test_schema_version.py`` pins it to the real head and fails the
+#: build if a new revision lands without updating it.
+EXPECTED_REVISION = "0006"
+
+
+async def current_revision(session: AsyncSession) -> str | None:
+    """What revision the database actually reports, or ``None``.
+
+    ``None`` means the question could not be answered — most often a local
+    SQLite bootstrapped by ``create_all``, which never gets an
+    ``alembic_version`` table. That is a normal state for development, so it is
+    reported as «unknown» rather than treated as a fault.
+    """
+    from sqlalchemy import text as sa_text
+
+    try:
+        result = await session.execute(sa_text("SELECT version_num FROM alembic_version"))
+        row = result.first()
+    except Exception:  # noqa: BLE001 - a missing table is an answer, not a crash
+        return None
+    return str(row[0]) if row else None
