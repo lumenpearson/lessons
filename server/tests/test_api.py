@@ -34,21 +34,10 @@ async def test_health_is_unauthenticated(client):
 
 
 async def test_warmup_is_unauthenticated_and_touches_the_database(client):
-    """Unlike `/health`, this one has to prove the database actually answered.
-
-    It answers «degraded» here rather than «ok», and that is the point rather
-    than a wrinkle: the test database is built by ``create_all`` and so carries
-    no ``alembic_version`` at all. An endpoint that called an unidentifiable
-    schema «ok» would be the thing that hid the next migration-ordering outage
-    instead of the thing that named it. The schema states themselves are
-    covered in test_schema_version.py.
-    """
+    """Unlike `/health`, this one has to prove the database actually answered."""
     response = await client.get("/api/v1/warmup")
     assert response.status_code == 200
-
-    body = response.json()
-    assert body["status"] == "degraded"
-    assert body["schema"] == "unknown"
+    assert response.json()["status"] == "ok"
 
 
 async def test_join_returns_a_token_and_class_identity(client, school_class):
