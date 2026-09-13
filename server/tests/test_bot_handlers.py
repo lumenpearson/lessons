@@ -16,8 +16,15 @@ import pytest
 from sqlalchemy import select
 
 from app.bot.handlers.access import apply_role, invite_phone, invite_role
-from app.bot.handlers.content import _parse_time_range, homework_text, override_subject
+from app.bot.handlers.content import (
+    _parse_time_range,
+    homework_pick_day,
+    homework_pick_subject,
+    homework_text,
+    override_subject,
+)
 from app.bot.handlers.timetable import bells_apply, timetable_apply
+from app.bot.keyboards import HomeworkAction
 from app.models import (
     BellPeriod,
     BotUser,
@@ -465,3 +472,67 @@ async def test_a_failure_with_no_callback_is_still_handled():
     from app.bot.bot import _on_error
 
     assert await _on_error(_error_event(RuntimeError("boom"), None)) is True
+
+
+# --------------------------------------------------------------------------
+# Picking a day for homework
+# --------------------------------------------------------------------------
+
+
+async def test_a_long_subject_name_does_not_break_the_day_picker(session, school_class):
+    """Telegram counts callback payloads in bytes; Cyrillic costs two each.
+
+    The subject name used to go into the payload cut to 48 *characters*, so a
+    real Russian subject packed past the 64-byte ceiling and aiogram refused to
+    build the keyboard. The exception surfaced on the previous step — the user
+    chose a day and was told to start again — and no subject with a long name
+    could be given homework at all.
+    """
+    long_name = "Основы безопасности жизнедеятельности"
+    session.add(
+        TimetableEntry(
+            class_id=school_class.id,
+            weekday=1,
+            index=4,
+            subject_name=long_name,
+        )
+    )
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+
+    await homework_pick_day(
+        callback,
+        HomeworkAction(action="pick_day", value=MONDAY.isoformat()),
+        state,
+        session,
+        school_class,
+    )
+
+    assert "По какому предмету?" in callback.message.last
+    assert long_name in state.data["subjects"]
+    assert not callback.alerted
+
+
+async def test_the_chosen_subject_comes_from_the_list_it_was_offered_from(
+    session, school_class
+):
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(data={"subjects": ["Алгебра", "Основы безопасности жизнедеятельности"]})
+
+    await homework_pick_subject(callback, HomeworkAction(action="pick_subject", value="1"), state)
+
+    assert state.data["subject"] == "Основы безопасности жизнедеятельности"
+    assert "Основы безопасности жизнедеятельности" in callback.message.last
+
+
+async def test_a_button_from_a_stale_keyboard_is_refused(session, school_class):
+    """The index names a position in a list the flow has since replaced."""
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(data={"subjects": ["Алгебра"]})
+
+    await homework_pick_subject(callback, HomeworkAction(action="pick_subject", value="7"), state)
+
+    assert callback.alerted
+    assert "subject" not in state.data

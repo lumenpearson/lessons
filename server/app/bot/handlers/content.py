@@ -156,16 +156,32 @@ async def homework_pick_day(
     await state.update_data(due=callback_data.value)
 
     days = await ScheduleResolver(session, school_class).resolve_range(due, 1)
-    subjects = [lesson.subject for lesson in days[0].lessons if not lesson.is_cancelled]
+    subjects = list(
+        dict.fromkeys(lesson.subject for lesson in days[0].lessons if not lesson.is_cancelled)
+    )
+
+    # The button carries the subject's position in this list, not its name.
+    #
+    # Telegram allows a callback payload 64 *bytes* long. The name used to be
+    # cut to 48 *characters*, which is the same thing only in Latin: every
+    # Cyrillic letter is two bytes, so «Основы безопасности жизнедеятельности»
+    # packed to 88 bytes and aiogram refused to build the keyboard at all. The
+    # exception landed on the step before — the day was chosen, the error said
+    # «начните заново», and no subject with a long name could ever be picked.
+    #
+    # The list is put in the FSM data, which is a database row and has no such
+    # limit, so the payload is now one or two digits whatever the subject is
+    # called.
+    await state.update_data(subjects=subjects)
 
     rows = [
         [
             InlineKeyboardButton(
                 text=subject,
-                callback_data=HomeworkAction(action="pick_subject", value=subject[:48]).pack(),
+                callback_data=HomeworkAction(action="pick_subject", value=str(index)).pack(),
             )
         ]
-        for subject in dict.fromkeys(subjects)
+        for index, subject in enumerate(subjects)
     ]
     prompt = (
         "По какому предмету?"
@@ -183,9 +199,22 @@ async def homework_pick_subject(
     callback_data: HomeworkAction,
     state: FSMContext,
 ) -> None:
-    await state.update_data(subject=callback_data.value)
+    data = await state.get_data()
+    subjects: list[str] = data.get("subjects") or []
+
+    # An index that no longer names anything is a button from a keyboard older
+    # than the flow it belongs to — a message left open while the day was
+    # chosen again. Saying so beats writing homework for whatever subject
+    # happens to sit at that position now.
+    index = int(callback_data.value) if callback_data.value.isdigit() else -1
+    if not 0 <= index < len(subjects):
+        await callback.answer("Список устарел. Выберите день заново.", show_alert=True)
+        return
+
+    subject = subjects[index]
+    await state.update_data(subject=subject)
     await callback.message.edit_text(
-        f"Предмет: <b>{escape(callback_data.value)}</b>\n\nТеперь пришлите текст задания:",
+        f"Предмет: <b>{escape(subject)}</b>\n\nТеперь пришлите текст задания:",
         reply_markup=cancel_keyboard(),
     )
     await state.set_state(AddHomework.text)
