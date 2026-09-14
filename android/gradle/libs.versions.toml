@@ -12,7 +12,7 @@
 # okhttp 5.2.0, kotlinx-serialization-json 1.9.1) that do not exist in any
 # repository. Verify a version against its repository before adding it here.
 [versions]
-agp = "9.3.1"
+agp = "9.4.0"
 kotlin = "2.4.20"
 ksp = "2.3.12"
 
