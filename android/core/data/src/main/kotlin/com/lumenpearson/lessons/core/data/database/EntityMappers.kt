@@ -7,7 +7,10 @@ import com.lumenpearson.lessons.core.model.Lesson
 import com.lumenpearson.lessons.core.model.SchoolClassInfo
 import com.lumenpearson.lessons.core.model.SchoolDay
 import com.lumenpearson.lessons.core.model.SchoolEvent
+import com.lumenpearson.lessons.core.model.Term
+import com.lumenpearson.lessons.core.model.TermKind
 import com.lumenpearson.lessons.core.model.Timetable
+import java.time.LocalDate
 
 /**
  * Domain <-> entity conversion.
@@ -23,17 +26,54 @@ internal fun SchoolClassInfo.toEntity(syncedAtEpochMillis: Long): SchoolClassEnt
     SchoolClassEntity(
         id = id,
         name = name,
+        grade = grade,
+        letter = letter,
         school = school,
         timeZoneId = timeZoneId,
+        termKind = termKind.name.lowercase(),
+        terms = encodeTerms(terms),
         syncedAtEpochMillis = syncedAtEpochMillis,
     )
 
 internal fun SchoolClassEntity.toDomain(): SchoolClassInfo = SchoolClassInfo(
     id = id,
     name = name,
+    grade = grade,
+    letter = letter,
     school = school,
     timeZoneId = timeZoneId,
+    termKind = TermKind.fromWire(termKind),
+    terms = decodeTerms(terms),
 )
+
+/**
+ * `index|kind|start|end` per line, and a line that does not parse is dropped.
+ *
+ * Dropped rather than defaulted: a term with an invented date would shade the
+ * wrong weeks of the calendar and name the wrong четверть, and the cache is
+ * rebuilt from the server on the next sync anyway. Nothing here is the source
+ * of truth.
+ */
+internal fun decodeTerms(raw: String): List<Term> = raw.lineSequence()
+    .mapNotNull { line ->
+        val parts = line.split('|')
+        if (parts.size != 4) return@mapNotNull null
+        runCatching {
+            Term(
+                index = parts[0].toInt(),
+                kind = TermKind.fromWire(parts[1]),
+                startsOn = LocalDate.parse(parts[2]),
+                endsOn = LocalDate.parse(parts[3]),
+            )
+        }.getOrNull()
+    }
+    .sortedBy { it.index }
+    .toList()
+
+/** @see decodeTerms */
+internal fun encodeTerms(terms: List<Term>): String = terms.joinToString("\n") { term ->
+    "${term.index}|${term.kind.name.lowercase()}|${term.startsOn}|${term.endsOn}"
+}
 
 /**
  * Flattens a day into the rows that represent it.

@@ -20,7 +20,7 @@ import androidx.room.TypeConverters
         EventEntity::class,
         HomeworkEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(LessonsTypeConverters::class)

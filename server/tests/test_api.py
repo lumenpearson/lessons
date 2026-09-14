@@ -232,3 +232,54 @@ async def test_a_class_without_a_timezone_falls_back_to_the_server_default(clien
         await client.get("/api/v1/bundle", headers={"Authorization": f"Bearer {token}"})
     ).json()
     assert body["school_class"]["timezone"] == "Europe/Moscow"
+
+
+async def test_the_bundle_carries_the_class_number_and_its_terms(client, session, school_class):
+    """The app renders «2 четверть» and shades its calendar from these.
+
+    Recomputing the dates client-side would be a second implementation of a
+    rule the school is free to have moved — which is the whole reason terms are
+    rows rather than a formula.
+    """
+    school_class.grade = 9
+    school_class.letter = "А"
+    await session.commit()
+
+    token = await _token(client)
+    body = (
+        await client.get("/api/v1/bundle", headers={"Authorization": f"Bearer {token}"})
+    ).json()
+    out = body["school_class"]
+
+    assert (out["grade"], out["letter"]) == (9, "А")
+    assert out["term_kind"] == "quarter"
+    assert [term["index"] for term in out["terms"]] == [1, 2, 3, 4]
+    # Nose to tail, inside the school year, every date a real one.
+    assert out["terms"][0]["starts_on"] < out["terms"][0]["ends_on"]
+    assert out["terms"][-1]["ends_on"].endswith("-05-31")
+
+
+async def test_a_tenth_year_is_told_in_halves(client, session, school_class):
+    school_class.grade = 10
+    await session.commit()
+
+    token = await _token(client)
+    body = (
+        await client.get("/api/v1/bundle", headers={"Authorization": f"Bearer {token}"})
+    ).json()
+
+    assert body["school_class"]["term_kind"] == "semester"
+    assert len(body["school_class"]["terms"]) == 2
+
+
+async def test_a_class_with_no_number_still_answers(client, school_class):
+    """Every class made before the column existed. Its name is all there is,
+    and the terms it gets are the quarters a class is taught in by default."""
+    token = await _token(client)
+    out = (
+        await client.get("/api/v1/bundle", headers={"Authorization": f"Bearer {token}"})
+    ).json()["school_class"]
+
+    assert out["grade"] is None
+    assert out["name"] == "9А"
+    assert out["term_kind"] == "quarter"

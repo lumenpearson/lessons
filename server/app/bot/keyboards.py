@@ -67,6 +67,10 @@ class TimezonePick(CallbackData, prefix="tz"):
     zone: str
 
 
+class GradePick(CallbackData, prefix="grd"):
+    grade: int
+
+
 class ClassAction(CallbackData, prefix="cls"):
     action: str  # settings | rotate_code | rename | create | switch
     value: str = ""
@@ -252,6 +256,28 @@ def weekday_picker(callback_factory: type[CallbackData], action: str) -> InlineK
             ]
         )
     rows.append([InlineKeyboardButton(text="‹ Меню", callback_data=Menu(action="root").pack())])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def grade_picker() -> InlineKeyboardMarkup:
+    """Eleven numbers, four to a row.
+
+    A number rather than a free-text name because the rest of the app has to
+    reason about it — the term scheme follows the grade — and «9А» is not
+    something to parse: a class may be «9 инж» or «5-й Б», and a pattern over
+    that fails silently on the one class written differently. The letter is
+    asked for separately and may be skipped.
+    """
+    from app.services.terms import MAX_GRADE, MIN_GRADE
+
+    numbers = list(range(MIN_GRADE, MAX_GRADE + 1))
+    rows = [
+        [
+            InlineKeyboardButton(text=str(grade), callback_data=GradePick(grade=grade).pack())
+            for grade in numbers[start:start + 4]
+        ]
+        for start in range(0, len(numbers), 4)
+    ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 

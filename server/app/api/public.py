@@ -51,12 +51,14 @@ from app.schemas import (
     TaskIn,
     TaskOut,
     TaskPatch,
+    TermOut,
     UnlinkOut,
 )
 from app.security import JoinThrottle, client_bucket, hash_token, new_token
 from app.services import calendar as calendar_service
 from app.services import linking
 from app.services import tasks as task_service
+from app.services import terms as terms_service
 
 router = APIRouter(prefix="/api/v1", tags=["client"])
 
@@ -354,13 +356,33 @@ async def bundle(
     last_with_lessons = max((d.date for d in resolved if d.has_lessons), default=today)
     following = await ScheduleResolver(session, school_class).next_school_day(last_with_lessons)
 
+    # Seeded on read as well as on creation: a class made before terms existed
+    # has none, and the first person to open its calendar should see the
+    # conventional ones rather than nothing. `ensure` is idempotent, so this
+    # writes on exactly one request per class per year and reads on the rest.
+    year = terms_service.opening_year_of(today)
+    terms = await terms_service.ensure(session, school_class, year)
+    await session.commit()
+
     out = BundleOut(
         school_class=ClassOut(
             id=school_class.id,
             name=school_class.name,
+            grade=school_class.grade,
+            letter=school_class.letter,
             school=school_class.school,
             city=school_class.city,
             timezone=school_class.timezone_name,
+            term_kind=terms_service.scheme_of(school_class).value,
+            terms=[
+                TermOut(
+                    index=term.index,
+                    kind=term.kind.value,
+                    starts_on=term.starts_on,
+                    ends_on=term.ends_on,
+                )
+                for term in terms
+            ],
         ),
         generated_at=datetime.now(school_class.tz).isoformat(),
         days=[_to_day_out(day) for day in resolved],

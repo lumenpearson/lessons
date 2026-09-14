@@ -94,6 +94,20 @@ class DayKind(enum.StrEnum):
     REMOTE = "remote"  # дистанционное обучение
 
 
+class TermKind(enum.StrEnum):
+    """How a school year is cut up.
+
+    Younger classes are taught in four quarters; 10 and 11 are usually taught
+    in two semesters, because that is how the leaving exams are organised. The
+    scheme follows the grade by default and is editable, since a school is free
+    to do neither — and plenty do тримест­ры, which is why this is stored per
+    class rather than derived on every read.
+    """
+
+    QUARTER = "quarter"  # четверть
+    SEMESTER = "semester"  # полугодие
+
+
 class EventKind(enum.StrEnum):
     EVENT = "event"
     CANTEEN = "canteen"
@@ -108,7 +122,21 @@ class SchoolClass(Base):
     __tablename__ = "classes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # The display name ("9А"). Still the one field every screen renders, and
+    # still free-form for a class that calls itself something else — but it is
+    # now composed from grade + letter when those are known, rather than typed.
     name: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Which year of school this is, 1 to 11. Typed as a number rather than read
+    # out of the name because the rest of the app has to reason about it: the
+    # term scheme follows it, and "9А" is not something to parse — a class may
+    # be "9 инж", "11 ФМ" or "5-й Б", and a regular expression over that is a
+    # guess that fails silently on the one class that is written differently.
+    #
+    # Nullable: every class that existed before this column has a name and no
+    # number, and inventing one from the name is exactly the guess above.
+    grade: Mapped[int | None] = mapped_column(Integer)
+    # "А", "Б", … or whatever distinguishes two classes of the same year.
+    letter: Mapped[str | None] = mapped_column(String(8))
     school: Mapped[str | None] = mapped_column(String(200))
     city: Mapped[str | None] = mapped_column(String(120))
     # Russia spans eleven time zones, so this belongs to the class rather than
@@ -141,6 +169,11 @@ class SchoolClass(Base):
     # timetable is on a wall anyway; a private one is for a class that treats
     # its roster as its own business.
     is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Which scheme this class's year is cut into. Null means "follow the
+    # grade" — quarters up to 9, semesters at 10 and 11 — which is what
+    # `term_kind_for` resolves; storing the answer only once somebody has
+    # chosen it keeps "not decided" different from "deliberately quarters".
+    term_kind: Mapped[TermKind | None] = mapped_column(SAEnum(TermKind, native_enum=False))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     bell_schedule: Mapped[BellSchedule | None] = relationship(
@@ -274,6 +307,41 @@ class DayOverride(Base):
         ForeignKey("bell_schedules.id", ondelete="SET NULL")
     )
     note: Mapped[str | None] = mapped_column(Text)
+
+
+class Term(Base):
+    """One четверть or полугодие, as this class actually runs it.
+
+    Stored rather than computed because the dates are a school's own decision:
+    the конец четверти moves for каникулы, for a quarantine, for a region that
+    starts its spring break a week early. `app/services/terms.py` seeds a set
+    of conventional ones when a class is created, and every one of them is
+    meant to be edited afterwards — which is the whole reason they are rows.
+
+    ``index`` is 1-based and counts within the year: quarters 1..4, semesters
+    1..2. It is not derived from the dates, so a class that has not filled in
+    the third quarter yet still knows the fourth is the fourth.
+    """
+
+    __tablename__ = "terms"
+    __table_args__ = (
+        UniqueConstraint("class_id", "year", "index", name="uq_term_slot"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    class_id: Mapped[int] = mapped_column(
+        ForeignKey("classes.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    # The year the school year *opened* in — 2026 for 2026/27. One number
+    # rather than a span, so "which terms are this year's" is an equality
+    # rather than a range query over two columns that could disagree.
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[TermKind] = mapped_column(
+        SAEnum(TermKind, native_enum=False), default=TermKind.QUARTER, nullable=False
+    )
+    index: Mapped[int] = mapped_column(Integer, nullable=False)
+    starts_on: Mapped[Date] = mapped_column(SADate, nullable=False)
+    ends_on: Mapped[Date] = mapped_column(SADate, nullable=False)
 
 
 class LessonOverride(Base):

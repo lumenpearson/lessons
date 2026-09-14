@@ -161,6 +161,14 @@ ENDPOINTS: list[tuple[str, str, dict | None, str]] = [
     ("GET", "/api/v1/manage/requests", None, "admin"),
     ("POST", "/api/v1/manage/requests/1/approve", None, "admin"),
     ("POST", "/api/v1/manage/requests/1/decline", None, "admin"),
+    ("GET", "/api/v1/manage/terms", None, "admin"),
+    ("PUT", "/api/v1/manage/terms/scheme", {"kind": "semester"}, "admin"),
+    (
+        "PUT",
+        "/api/v1/manage/terms/1",
+        {"starts_on": "2026-09-01", "ends_on": "2026-10-20"},
+        "admin",
+    ),
 ]
 
 
@@ -1239,3 +1247,86 @@ async def test_a_decision_survives_a_deployment_with_no_bot(client, session, sch
     )
     assert response.status_code == 200
     assert await session.scalar(select(BotUser).where(BotUser.telegram_id == ASKER_ID)) is not None
+
+
+# --------------------------------------------------------------------------
+# Четверти и полугодия
+# --------------------------------------------------------------------------
+
+
+async def test_terms_are_seeded_on_first_read(client, session, school_class):
+    school_class.grade = 9
+    await session.commit()
+    headers = _auth(await _admin(client, session, school_class))
+
+    body = (await client.get("/api/v1/manage/terms", headers=headers)).json()
+
+    assert body["kind"] == "quarter"
+    assert [term["index"] for term in body["terms"]] == [1, 2, 3, 4]
+
+
+async def test_the_scheme_can_be_switched_from_the_phone(client, session, school_class):
+    school_class.grade = 9
+    await session.commit()
+    headers = _auth(await _admin(client, session, school_class))
+
+    body = (
+        await client.put(
+            "/api/v1/manage/terms/scheme", json={"kind": "semester"}, headers=headers
+        )
+    ).json()
+
+    assert body["kind"] == "semester"
+    assert len(body["terms"]) == 2
+    assert "class.term_kind" in await _actions(session, school_class)
+
+
+async def test_a_term_can_be_moved_from_the_phone(client, session, school_class):
+    school_class.grade = 9
+    await session.commit()
+    headers = _auth(await _admin(client, session, school_class))
+    year = (await client.get("/api/v1/manage/terms", headers=headers)).json()["year"]
+
+    response = await client.put(
+        "/api/v1/manage/terms/1",
+        json={"starts_on": f"{year}-09-01", "ends_on": f"{year}-10-20"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["terms"][0]["ends_on"] == f"{year}-10-20"
+
+
+async def test_an_overlapping_term_is_refused_with_the_reason(client, session, school_class):
+    """The rule is about the other rows, so the message names the one it hit —
+    a field-shaped error could not say which period is in the way."""
+    school_class.grade = 9
+    await session.commit()
+    headers = _auth(await _admin(client, session, school_class))
+    year = (await client.get("/api/v1/manage/terms", headers=headers)).json()["year"]
+
+    response = await client.put(
+        "/api/v1/manage/terms/1",
+        json={"starts_on": f"{year}-09-01", "ends_on": f"{year}-12-01"},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+    assert "ересекается" in response.json()["detail"]
+
+
+async def test_a_term_reaching_into_the_holidays_is_refused(client, session, school_class):
+    school_class.grade = 9
+    await session.commit()
+    headers = _auth(await _admin(client, session, school_class))
+    year = (await client.get("/api/v1/manage/terms", headers=headers)).json()["year"]
+
+    response = await client.put(
+        "/api/v1/manage/terms/4",
+        json={"starts_on": f"{year + 1}-04-01", "ends_on": f"{year + 1}-06-20"},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+    assert "учебный год" in response.json()["detail"]
+

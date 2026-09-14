@@ -27,6 +27,7 @@ from app.models import (
     OverrideAction,
     SchoolClass,
     Subject,
+    TermKind,
     TimetableEntry,
     WeekParity,
 )
@@ -84,6 +85,56 @@ def school_year_days(on: Date) -> int:
     """How many days the school year containing ``on`` spans, ends included."""
     start, end = school_year_bounds(on)
     return (end - start).days + 1
+
+
+# Where a grade stops being taught in quarters and starts being taught in
+# halves. 10 and 11 are the exam years and are organised around полугодия.
+FIRST_SEMESTER_GRADE = 10
+
+# The conventional ends of the terms, as (month, day). They are what a class is
+# seeded with and not what it is stuck with: каникулы move, a region shifts its
+# spring break, a quarantine eats a week. Every one of these becomes a row the
+# admin can edit — see `app/services/terms.py`.
+#
+# The starts are derived rather than listed: a term begins the day after the
+# previous one ended, and the first begins when the year does. Listing both
+# would let them contradict each other.
+QUARTER_ENDS: tuple[tuple[int, int], ...] = ((10, 31), (12, 31), (3, 22), (5, 31))
+SEMESTER_ENDS: tuple[tuple[int, int], ...] = ((12, 31), (5, 31))
+
+
+def term_kind_for(grade: int | None) -> TermKind:
+    """Which scheme a grade is taught in, when nobody has said otherwise."""
+    if grade is not None and grade >= FIRST_SEMESTER_GRADE:
+        return TermKind.SEMESTER
+    return TermKind.QUARTER
+
+
+def default_term_bounds(opening_year: int, kind: TermKind) -> list[tuple[Date, Date]]:
+    """Conventional (start, end) for each term of one school year.
+
+    A term runs from the day after the previous one ended through its own end
+    date, and the first runs from the day the year opens. The December and May
+    ends fall on the year boundary and on the end of the year itself, so no
+    term ever reaches outside the year it belongs to.
+    """
+    ends = SEMESTER_ENDS if kind is TermKind.SEMESTER else QUARTER_ENDS
+    year_start, year_end = school_year_start(opening_year), school_year_end(opening_year)
+
+    bounds: list[tuple[Date, Date]] = []
+    cursor = year_start
+    for month, day in ends:
+        # Months from September on belong to the opening year; January to May
+        # belong to the next one.
+        year = opening_year if month >= SCHOOL_YEAR_START_MONTH else opening_year + 1
+        end = min(Date(year, month, day), year_end)
+        # A school that ran a term short cannot make it end before it began.
+        if end < cursor:
+            end = cursor
+        bounds.append((cursor, end))
+        cursor = min(end + timedelta(days=1), year_end)
+    return bounds
+
 
 
 @dataclass(slots=True)

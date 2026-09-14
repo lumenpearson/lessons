@@ -14,11 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot.keyboards import (
     ClassAction,
     DayNav,
+    GradePick,
     Menu,
     TimezonePick,
     back_to_menu,
     cancel_keyboard,
     day_nav,
+    grade_picker,
     main_menu,
     request_contact,
     timezone_picker,
@@ -31,6 +33,8 @@ from app.models import DEFAULT_BELLS, BellPeriod, BellSchedule, BotUser, Role, S
 from app.schedule import ScheduleResolver
 from app.security import new_join_code
 from app.services import linking
+from app.services import terms as terms_service
+from app.services.terms import TermError, compose_name, normalise_letter, validate_grade
 from app.timezones import DEFAULT_TIMEZONE, is_supported, label_for
 
 router = Router(name="start")
@@ -121,10 +125,10 @@ async def cmd_start(
         if is_env_owner(message.from_user.id):
             await message.answer(
                 "👋 Классов ещё нет. Давайте создадим первый.\n\n"
-                "Введите название класса, например <code>9А</code>:",
-                reply_markup=cancel_keyboard(),
+                "Какой это класс?",
+                reply_markup=grade_picker(),
             )
-            await state.set_state(CreateClass.name)
+            await state.set_state(CreateClass.grade)
             return
         await message.answer(WELCOME_UNKNOWN, reply_markup=request_contact())
         return
@@ -179,13 +183,39 @@ async def on_contact(
     await _send_menu(message, school_class, role)
 
 
-@router.message(CreateClass.name)
-async def create_class_name(message: Message, state: FSMContext) -> None:
-    name = (message.text or "").strip()
-    if not 1 <= len(name) <= 64:
-        await message.answer("Название должно быть от 1 до 64 символов. Попробуйте ещё раз:")
+@router.callback_query(CreateClass.grade, GradePick.filter())
+async def create_class_grade(
+    callback: CallbackQuery,
+    callback_data: GradePick,
+    state: FSMContext,
+) -> None:
+    # The payload is attacker-controlled like any other, and the keyboard is
+    # the only thing that would otherwise keep it inside 1..11.
+    try:
+        grade = validate_grade(callback_data.grade)
+    except TermError as error:
+        await callback.answer(str(error), show_alert=True)
         return
-    await state.update_data(name=name)
+
+    await state.update_data(grade=grade)
+    await callback.message.edit_text(
+        f"Класс — <b>{grade}</b>.\n\n"
+        "Теперь буква: <code>А</code>, <code>Б</code>, <code>инж</code>… "
+        "или отправьте <code>-</code>, если буквы нет.",
+    )
+    await state.set_state(CreateClass.letter)
+    await callback.answer()
+
+
+@router.message(CreateClass.letter)
+async def create_class_letter(message: Message, state: FSMContext) -> None:
+    try:
+        letter = normalise_letter(message.text)
+    except TermError as error:
+        await message.answer(str(error))
+        return
+
+    await state.update_data(letter=letter)
     await message.answer(
         "Теперь введите название школы (или отправьте <code>-</code>, чтобы пропустить):",
         reply_markup=cancel_keyboard(),
@@ -222,15 +252,19 @@ async def create_class_timezone(
         return
 
     data = await state.get_data()
-    if "name" not in data:
+    if "grade" not in data:
         await state.clear()
         await callback.answer("Начните сначала: /start", show_alert=True)
         return
     zone = callback_data.zone if is_supported(callback_data.zone) else DEFAULT_TIMEZONE
 
     bells = BellSchedule(class_id=0, name="Обычное")
+    grade = data["grade"]
+    letter = data.get("letter")
     school_class = SchoolClass(
-        name=data["name"],
+        name=compose_name(grade, letter, fallback=str(grade)),
+        grade=grade,
+        letter=letter,
         school=data.get("school"),
         timezone=zone,
         join_code=new_join_code(),
@@ -248,6 +282,12 @@ async def create_class_timezone(
         )
 
     school_class.bell_schedule_id = bells.id
+    # Seeded here rather than lazily on first read so the class has четверти
+    # from the moment it exists — the scheme follows the grade that was just
+    # picked, and every date is editable afterwards.
+    await terms_service.ensure(
+        session, school_class, terms_service.opening_year_of(datetime.now(school_class.tz).date())
+    )
     session.add(
         BotUser(
             telegram_id=callback.from_user.id,

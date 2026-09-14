@@ -6,7 +6,10 @@ from aiogram.fsm.state import State, StatesGroup
 
 
 class CreateClass(StatesGroup):
-    name = State()
+    # The number first, then the letter: the number is a button and the letter
+    # is optional, so the step that cannot be skipped comes first.
+    grade = State()
+    letter = State()
     school = State()
     timezone = State()
 

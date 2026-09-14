@@ -9,6 +9,7 @@ import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
 import com.lumenpearson.lessons.core.model.SchoolDay
+import com.lumenpearson.lessons.core.model.Term
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -82,7 +83,18 @@ data class ScheduleUiState(
     val showEvents: Boolean = true,
     val showHomework: Boolean = true,
     val nowAt: LocalTime? = null,
+    /**
+     * The terms of the class's own year, as the school runs them.
+     *
+     * Carried rather than derived: the dates move — каникулы shift, a region
+     * starts its spring break early — so the server keeps rows an admin edits
+     * and the app reads them. Empty for a class whose server predates them.
+     */
+    val terms: List<Term> = emptyList(),
 ) {
+    /** The term the selected day falls in, or `null` during каникулы. */
+    val selectedTerm: Term? get() = terms.firstOrNull { selected in it }
+
     /** The day the detail panel and the hour ruler render. */
     val selectedDay: WeekDayUi? get() = days.firstOrNull { it.date == selected }
 
@@ -180,6 +192,7 @@ class WeekViewModel(
                     inPeriod = view != ScheduleView.MONTH || date.month == anchorDate.month,
                 )
             },
+            terms = timetable?.schoolClass?.terms.orEmpty(),
             showTeacher = settings.showTeacher,
             showLoad = settings.weekShowLoad,
             showEvents = settings.weekShowEvents,

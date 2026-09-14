@@ -56,6 +56,7 @@ from app.bot.manage_keyboards import (
     ManageAction,
     RequestAction,
     SubjectAction,
+    TermAction,
     audit_keyboard,
     back_to,
     bells_list_keyboard,
@@ -70,6 +71,7 @@ from app.bot.manage_keyboards import (
     subject_card_keyboard,
     subject_list_keyboard,
     switch_keyboard,
+    terms_menu,
 )
 from app.bot.manage_states import (
     AddHoliday,
@@ -77,6 +79,7 @@ from app.bot.manage_states import (
     EditBellRows,
     EditClassField,
     EditSubject,
+    EditTerm,
     ImportTimetable,
     NewBellSchedule,
     RequestAccess,
@@ -98,11 +101,13 @@ from app.models import (
     Role,
     SchoolClass,
     Subject,
+    TermKind,
     TimetableEntry,
 )
 from app.services import audit, linking, structure, timetable_io
 from app.services import calendar as calendar_service
 from app.services import stats as stats_service
+from app.services import terms as terms_service
 from app.timezones import label_for
 
 log = logging.getLogger(__name__)
@@ -2775,3 +2780,178 @@ async def request_decline(
     )
     await callback.message.edit_text("✖️ Запрос отклонён.", reply_markup=back_to_menu())
     await callback.answer("Отклонено")
+
+
+# --------------------------------------------------------------------------
+# 🗓 Четверти и полугодия
+#
+# The dates are a school's own: каникулы move, a region shifts its spring
+# break, a quarantine eats a week. So this is an editor rather than a display,
+# and the rules it edits against live in ``app/services/terms.py`` — the same
+# ones `/api/v1/manage` uses, because two implementations of "does this term
+# overlap" disagree within a month.
+# --------------------------------------------------------------------------
+
+
+def _term_year(school_class: SchoolClass) -> int:
+    """The school year in force *for this class*, in the class's own zone.
+
+    Not the server's: a class in Kamchatka turns the page on 1 September nine
+    hours before a class in Kaliningrad, and the server is in neither.
+    """
+    return terms_service.opening_year_of(datetime.now(school_class.tz).date())
+
+
+async def _terms_card(session: AsyncSession, school_class: SchoolClass):
+    year = _term_year(school_class)
+    rows = await terms_service.ensure(session, school_class, year)
+    await session.commit()
+
+    scheme = terms_service.scheme_of(school_class)
+    is_semester = scheme is TermKind.SEMESTER
+    heading = "полугодия" if is_semester else "четверти"
+    today = datetime.now(school_class.tz).date()
+    current = terms_service.term_at(rows, today)
+
+    lines = [
+        f"🗓 <b>{escape(school_class.name)}</b> — {heading} {year}/{year + 1}",
+        "",
+    ]
+    for term in rows:
+        mark = " ←" if current is not None and term.index == current.index else ""
+        lines.append(
+            f"<b>{term.index}.</b> {term.starts_on:%d.%m.%Y} — "
+            f"{term.ends_on:%d.%m.%Y} · {term.days} дн.{mark}"
+        )
+    if current is None:
+        lines.append("")
+        lines.append("Сейчас каникулы.")
+    lines.append("")
+    lines.append("Нажмите период, чтобы изменить его даты.")
+
+    return "\n".join(lines), terms_menu(rows, is_semester=is_semester)
+
+
+@router.callback_query(TermAction.filter(F.action == "list"))
+async def terms_list(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+    await state.clear()
+    text, keyboard = await _terms_card(session, school_class)
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.answer()
+
+
+@router.callback_query(TermAction.filter(F.action == "scheme"))
+async def terms_scheme(
+    callback: CallbackQuery,
+    callback_data: TermAction,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+
+    wanted = TermKind.SEMESTER if callback_data.value == "semester" else TermKind.QUARTER
+    year = _term_year(school_class)
+    await terms_service.set_scheme(session, school_class, wanted, year)
+    await audit.record(
+        session,
+        school_class.id,
+        callback.from_user.id,
+        "class.term_kind",
+        f"схема: {'полугодия' if wanted is TermKind.SEMESTER else 'четверти'}",
+    )
+    await session.commit()
+    await state.clear()
+
+    text, keyboard = await _terms_card(session, school_class)
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.answer("Схема изменена")
+
+
+@router.callback_query(TermAction.filter(F.action == "edit"))
+async def term_edit_prompt(
+    callback: CallbackQuery,
+    callback_data: TermAction,
+    state: FSMContext,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+
+    index = int(callback_data.value) if callback_data.value.isdigit() else 0
+    if index < 1:
+        await callback.answer("Неизвестный период", show_alert=True)
+        return
+
+    await state.set_state(EditTerm.span)
+    await state.update_data(term_index=index)
+    await callback.message.edit_text(
+        f"Период <b>{index}</b>. Пришлите обе даты одной строкой:\n\n"
+        "<code>01.09.2026 - 31.10.2026</code>",
+        reply_markup=cancel_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.message(EditTerm.span)
+async def term_edit_apply(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if not _allowed(school_class, role, Role.ADMIN):
+        await state.clear()
+        return
+
+    data = await state.get_data()
+    index = int(data.get("term_index", 0))
+    if index < 1:
+        await state.clear()
+        await message.answer("Начните заново: /class", reply_markup=back_to_menu())
+        return
+
+    span = terms_service.parse_span(message.text)
+    if span is None:
+        await message.answer(
+            "Не разобрал. Две даты через дефис:\n\n<code>01.09.2026 - 31.10.2026</code>"
+        )
+        return
+
+    try:
+        await terms_service.set_bounds(
+            session, school_class, _term_year(school_class), index, span[0], span[1]
+        )
+    except terms_service.TermError as error:
+        # The message is the rule, in Russian, and the prompt stays open: the
+        # admin has one date to correct, not a form to start again.
+        await message.answer(str(error))
+        return
+
+    await audit.record(
+        session,
+        school_class.id,
+        message.from_user.id,
+        "class.term",
+        f"период {index}: {span[0]:%d.%m.%Y} — {span[1]:%d.%m.%Y}",
+    )
+    await session.commit()
+    await state.clear()
+
+    text, keyboard = await _terms_card(session, school_class)
+    await message.answer(text, reply_markup=keyboard)

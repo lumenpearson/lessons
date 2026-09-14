@@ -23,6 +23,12 @@ class EditClassField(StatesGroup):
     value = State()
 
 
+class EditTerm(StatesGroup):
+    """Both dates of one четверть, typed as one line."""
+
+    span = State()
+
+
 class DeleteClass(StatesGroup):
     """Typing the class name back is the confirmation; nothing else is."""
 

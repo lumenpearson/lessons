@@ -24,8 +24,21 @@ import java.time.LocalTime
 internal data class SchoolClassEntity(
     @PrimaryKey @ColumnInfo(name = "id") val id: Long,
     @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "grade") val grade: Int? = null,
+    @ColumnInfo(name = "letter") val letter: String? = null,
     @ColumnInfo(name = "school") val school: String?,
     @ColumnInfo(name = "time_zone_id") val timeZoneId: String,
+    @ColumnInfo(name = "term_kind") val termKind: String? = null,
+    /**
+     * The terms, as `index|kind|start|end` lines.
+     *
+     * One column rather than a table of its own: there are two to four of
+     * them, they only ever travel with the class, and a sync replaces all of
+     * them at once — a table would buy a join and a delete for nothing. The
+     * cache is disposable anyway (`fallbackToDestructiveMigration`), so the
+     * format is free to change with the schema version.
+     */
+    @ColumnInfo(name = "terms") val terms: String = "",
     /** Server's `generated_at`, or arrival time; drives the "synced N ago" label. */
     @ColumnInfo(name = "synced_at_epoch_millis") val syncedAtEpochMillis: Long,
 )

@@ -25,8 +25,32 @@ internal data class BundleDto(
 internal data class SchoolClassDto(
     @SerialName("id") val id: Long,
     @SerialName("name") val name: String,
+    // 1..11 and the letter beside it. Null on a class made before the server
+    // had them, and defaulted here so an older server's payload still parses.
+    @SerialName("grade") val grade: Int? = null,
+    @SerialName("letter") val letter: String? = null,
     @SerialName("school") val school: String? = null,
     @SerialName("timezone") val timezone: String = "",
+    // A free-form wire string for the same reason `DayDto.kind` is one: a
+    // server that learns тримест­ры must not break a client that has not.
+    @SerialName("term_kind") val termKind: String? = null,
+    @SerialName("terms") val terms: List<TermDto> = emptyList(),
+)
+
+/**
+ * Mirrors `TermOut`: one четверть or полугодие as the class actually runs it.
+ *
+ * Carried rather than recomputed on the phone: the dates are the school's own
+ * and they move — каникулы shift, a region starts its spring break early — so
+ * a formula here would be a second answer to a question the server already
+ * answers from rows an admin edited.
+ */
+@Serializable
+internal data class TermDto(
+    @SerialName("index") val index: Int,
+    @SerialName("kind") val kind: String = "quarter",
+    @SerialName("starts_on") val startsOn: String,
+    @SerialName("ends_on") val endsOn: String,
 )
 
 /**
