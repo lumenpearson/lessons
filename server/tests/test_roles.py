@@ -116,3 +116,32 @@ async def test_an_unmatched_number_grants_nothing(session, school_class):
     granted = await claim_phone_invites(session, 555, "+79990000000", None, None)
     assert granted == []
     assert await get_role(session, 555, school_class.id) is None
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("123456789", [123456789]),
+        ("111,222,333", [111, 222, 333]),
+        ("111, 222, 333", [111, 222, 333]),
+        ("111;222;333", [111, 222, 333]),
+        ("111,222,", [111, 222]),
+        # The three that read as fewer owners than were written down. They are
+        # here because docs/deploy.md now prints this exact table, and a table
+        # that stops being true is worse than no table.
+        ("111 222 333", []),
+        ("111\n222\n333", []),
+        ("111,222x,333", [111, 333]),
+    ],
+)
+def test_the_owner_list_reads_only_commas(raw, expected):
+    """A separator that is not a comma loses the whole list, silently.
+
+    Nothing announces it: the bot starts, logs nothing, and simply has no owner
+    — or, for a typo in one id, has every owner but that one. Vercel's value
+    field is a textarea, so «one id per line» is the natural thing to type and
+    the one that yields an empty list.
+    """
+    from app.config import Settings
+
+    assert Settings(OWNER_IDS=raw).owner_id_list == expected
