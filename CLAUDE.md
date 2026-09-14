@@ -169,8 +169,20 @@ points Hilt does not inject cleanly.
   after `0001` is additive, so applying it to the *running* code is safe; the other order
   never is. `GET /api/v1/warmup` answers `{"status": "degraded", ...}` when the database is
   behind and names both revisions (`app/db.py:EXPECTED_REVISION`, pinned to the real head by
-  `tests/test_schema_version.py`). `/api/v1/health` deliberately opens no connection, so it
-  cannot tell you this.
+  `tests/test_schema_version.py`), and `{"status": "degraded", "detail": "База впереди
+  кода…"}` in the window the correct order creates. `/api/v1/health` deliberately opens no
+  connection, so it cannot tell you this.
+- **Apply migrations through the Neon connector, from here.** The owner does not run
+  `alembic upgrade head` by hand and this session has no `DATABASE_URL`; the project is
+  `proud-math-08001107` on the Neon MCP server, and `0005` through `0008` were all applied
+  that way. It is not alembic running — it is the revision's DDL executed as one
+  transaction, with `alembic_version` stamped in the same transaction — so three things
+  follow. Take the DDL from the model rather than writing it out: `CreateTable(...).compile(
+  dialect=postgresql.dialect())` prints exactly what `create_all` would build, which is what
+  the revision is supposed to produce. Read the database's state first and stamp it last, so
+  a half-applied revision cannot claim to be whole. And say what a revision destroys before
+  running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
+  sentence the owner needs *before* the transaction, not after.
 - **Migrations are Alembic and production is already at `0008`.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
