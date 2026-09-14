@@ -7,11 +7,13 @@ import com.lumenpearson.lessons.core.data.database.toRecord
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
 import com.lumenpearson.lessons.core.data.network.dto.toDomain
+import com.lumenpearson.lessons.core.model.SchoolYear
 import com.lumenpearson.lessons.core.model.Timetable
 import java.io.IOException
 import java.time.Clock
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -71,19 +73,38 @@ internal class TimetableRepositoryImpl(
     }
 
     override suspend fun refresh(days: Int): SyncResult = withContext(ioDispatcher) {
-        val window = days.coerceIn(MIN_DAYS, MAX_DAYS)
         try {
-            // The window starts on Monday of the current week, not today.
-            // Anchoring it to today means the days already past this week are
-            // never fetched — and `replaceAll` wipes the table on every sync, so
-            // they are actively destroyed. On a Friday the Week tab showed
-            // "Нет данных" for Monday through Thursday, and "Предыдущая неделя"
-            // was empty for everybody, always.
             val today = LocalDate.now(clock)
-            val start = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-            val span = (window + (today.toEpochDay() - start.toEpochDay()).toInt())
-                .coerceAtMost(MAX_DAYS)
-            val bundle = api.bundle(start = start.toString(), days = span)
+            // The school year, not a window measured from today.
+            //
+            // It used to be a rolling month anchored to Monday of the current
+            // week — the anchor because `replaceAll` wipes the table each sync,
+            // so days already past this week were being destroyed rather than
+            // merely not fetched. The month was the part that was wrong: the
+            // calendar draws a whole year, and every date past the window came
+            // out «Нет данных», which on screen is indistinguishable from "no
+            // lessons that day" and reads as a timetable that stops a month
+            // after the class was made.
+            //
+            // Resolving the year costs the server the same handful of queries
+            // as resolving a month: the weekly template is loaded once and the
+            // rest is arithmetic. What it costs is payload, once per sync.
+            val year = SchoolYear.boundsAt(today)
+            // The Monday anchor applies only inside the year. It exists so a
+            // sync mid-week does not destroy the days already past — `replaceAll`
+            // wipes the table — and inside the year it can only reach back as
+            // far as the Monday before 1 September, six days at most. Applied
+            // in the summer it would reach back to July and ask for some 320
+            // days, which is past what the server accepts, and the window would
+            // silently come back clipped in April.
+            val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            val start = if (today >= year.start) minOf(year.start, monday) else year.start
+            val span = (ChronoUnit.DAYS.between(start, year.endInclusive).toInt() + 1)
+                .coerceIn(MIN_DAYS, MAX_DAYS)
+            // `days` is honoured as a floor: a caller asking for more than the
+            // year has left still gets the year, and one asking for less still
+            // gets it, because a partial cache is what this is fixing.
+            val bundle = api.bundle(start = start.toString(), days = maxOf(span, days.coerceIn(MIN_DAYS, MAX_DAYS)))
             val timetable = bundle.toDomain(fallbackSyncedAtEpochMillis = clock.millis())
             dao.replaceAll(
                 schoolClass = timetable.schoolClass.toEntity(timetable.syncedAtEpochMillis),
@@ -116,7 +137,7 @@ internal class TimetableRepositoryImpl(
         const val MIN_DAYS = 1
 
         /** The server rejects anything larger (`MAX_BUNDLE_DAYS`). */
-        const val MAX_DAYS = 31
+        const val MAX_DAYS = 280
 
         const val HTTP_UNAUTHORISED = 401
     }

@@ -60,7 +60,17 @@ from app.services import tasks as task_service
 
 router = APIRouter(prefix="/api/v1", tags=["client"])
 
-MAX_BUNDLE_DAYS = 31
+# A whole school year, because that is the horizon the calendar draws. It used
+# to be 31, and 31 days is what the client cached: every date past the window
+# read «Нет данных», including the rest of the term, which looked like data
+# ending a month after the class was created rather than like a window.
+#
+# The widest year 1 September (or the Monday after) to 31 May can be is 274
+# days; the slack is for a client that anchors a little earlier than the year
+# opens. Widening it costs the server almost nothing — ScheduleResolver issues
+# the same handful of queries whatever the range, and resolves the rest in
+# Python from the weekly template it has already loaded.
+MAX_BUNDLE_DAYS = 280
 
 # ``start`` is arbitrary client input and the resolver does date arithmetic on
 # top of it (up to ``days`` forward, then another three weeks of look-ahead).

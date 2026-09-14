@@ -34,6 +34,57 @@ from app.models import (
 # How far ahead we are willing to look for "the next school day".
 MAX_LOOKAHEAD_DAYS = 21
 
+# The month the school year opens in, and the last month it runs through. June
+# is excluded deliberately: it is exams and then holidays, and a timetable that
+# kept repeating the weekly template through it would show lessons that nobody
+# is going to.
+SCHOOL_YEAR_START_MONTH = 9
+SCHOOL_YEAR_END_MONTH = 5
+
+
+def school_year_start(opening_year: int) -> Date:
+    """First teaching day of the year that opens in ``opening_year``.
+
+    The first of September unless it lands on a weekend, in which case teaching
+    starts on the Monday after — which is what Russian schools do, and what
+    makes a "year begins on the 1st" horizon wrong every few years.
+    """
+    first = Date(opening_year, SCHOOL_YEAR_START_MONTH, 1)
+    # Monday is 0. Saturday (5) skips two days, Sunday (6) skips one.
+    return first + timedelta(days={5: 2, 6: 1}.get(first.weekday(), 0))
+
+
+def school_year_end(opening_year: int) -> Date:
+    """Last day of the year that opened in ``opening_year``.
+
+    The last day of May, whatever its length — no leap-year special case,
+    because May has not got one.
+    """
+    return Date(opening_year + 1, SCHOOL_YEAR_END_MONTH, 31)
+
+
+def school_year_bounds(on: Date) -> tuple[Date, Date]:
+    """The school year ``on`` belongs to, as (first day, last day).
+
+    A date in the summer between two years belongs to the one that is about to
+    open rather than the one that has ended: in July the question "what is my
+    timetable" is about September, and answering it with last May's is answering
+    a question nobody asked.
+    """
+    opening = on.year if on.month >= SCHOOL_YEAR_START_MONTH else on.year - 1
+    start, end = school_year_start(opening), school_year_end(opening)
+    if on > end and on.month < SCHOOL_YEAR_START_MONTH:
+        # Between the end of May and the start of September.
+        opening = on.year
+        start, end = school_year_start(opening), school_year_end(opening)
+    return start, end
+
+
+def school_year_days(on: Date) -> int:
+    """How many days the school year containing ``on`` spans, ends included."""
+    start, end = school_year_bounds(on)
+    return (end - start).days + 1
+
 
 @dataclass(slots=True)
 class ResolvedLesson:
