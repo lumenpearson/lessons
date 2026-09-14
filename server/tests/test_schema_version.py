@@ -139,3 +139,40 @@ async def test_a_database_behind_the_code_names_both_revisions(session, behind):
     assert body["schema"] == behind
     assert body["expected_schema"] == EXPECTED_REVISION
     assert "alembic upgrade head" in body["detail"]
+
+
+async def test_a_database_ahead_of_the_code_is_not_told_to_migrate(session):
+    """The opposite direction, and it is the documented procedure, not a fault.
+
+    «Migrate, then merge» puts every correct deploy through a window where the
+    database is one revision ahead of the code that is still running. Reusing
+    the «behind» wording there sends the reader to run a migration they have
+    just run, and away from the only thing that could actually be wrong — a
+    deploy that never arrived.
+    """
+    ahead = f"{int(EXPECTED_REVISION) + 1:04d}"
+    await _stamp(session, ahead)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        body = (await client.get("/api/v1/warmup")).json()
+
+    assert body["status"] == "degraded"
+    assert body["schema"] == ahead
+    assert body["expected_schema"] == EXPECTED_REVISION
+    assert "alembic upgrade head" not in body["detail"]
+    assert "деплой" in body["detail"]
+
+
+async def test_a_revision_that_is_not_a_number_does_not_guess_a_direction(session):
+    """Nothing here produces one, but the comparison is integer-based and a
+    hash would make «ahead» and «behind» equally unfounded."""
+    await _stamp(session, "a1b2c3d4")
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        body = (await client.get("/api/v1/warmup")).json()
+
+    assert body["status"] == "degraded"
+    assert body["schema"] == "a1b2c3d4"
+    assert "расходятся" in body["detail"]

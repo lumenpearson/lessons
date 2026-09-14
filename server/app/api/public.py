@@ -229,13 +229,38 @@ async def warmup(session: AsyncSession = Depends(get_session)) -> dict[str, obje
     }
     if not schema_ok:
         body["expected_schema"] = EXPECTED_REVISION
-        body["detail"] = (
-            "База отстала от кода. Запустите «alembic upgrade head» "
-            "с рабочим DATABASE_URL — до следующего деплоя, а не после."
-            if revision is not None
-            else "В базе нет таблицы alembic_version: схему создавали не миграциями."
-        )
+        body["detail"] = _drift_detail(revision)
     return body
+
+
+def _drift_detail(revision: str | None) -> str:
+    """Which way the two disagree, because the two directions are opposites.
+
+    A database *behind* the code is the outage: the code reads a column that is
+    not there. A database *ahead* of it is the documented procedure working —
+    migrate, then merge — caught in the window between the two, and it closes
+    on its own when the deploy lands. Telling the second one to run a migration
+    it has already run sends the reader after a problem that is not there, and
+    past the one that is (a deploy that never arrived).
+
+    Every revision in this project is a zero-padded number, so comparing them
+    as integers is meaningful. Anything else — a hash, a branch label — falls
+    through to wording that does not guess a direction it cannot establish.
+    """
+    if revision is None:
+        return "В базе нет таблицы alembic_version: схему создавали не миграциями."
+    if revision.isdigit() and EXPECTED_REVISION.isdigit():
+        if int(revision) < int(EXPECTED_REVISION):
+            return (
+                "База отстала от кода. Запустите «alembic upgrade head» "
+                "с рабочим DATABASE_URL — до следующего деплоя, а не после."
+            )
+        return (
+            "База впереди кода: миграция применена, деплой ещё не доехал. "
+            "Это нормальное окно правильного порядка, и оно закроется само. "
+            "Если не закрылось — смотрите, дошёл ли деплой."
+        )
+    return "Схема базы и схема кода расходятся."
 
 
 @router.post("/join", response_model=JoinResponse)
