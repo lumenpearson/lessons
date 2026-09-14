@@ -475,7 +475,7 @@ async def test_due_digests_counts_today_in_the_class_zone(session, school_class)
     settings.morning_at = time(7, 30)
     await session.commit()
 
-    await reminders.mark_sent(session, settings, "morning", MONDAY)
+    assert await reminders.claim(session, settings, "morning", MONDAY) is True
     assert settings.last_morning_sent == MONDAY
     assert await reminders.due_digests(session, VLADIVOSTOK_0730) == []
 
@@ -487,7 +487,7 @@ async def test_due_digests_counts_today_in_the_class_zone(session, school_class)
     assert len(await reminders.due_digests(session, VLADIVOSTOK_0730 + timedelta(days=1))) == 1
 
     # Sent yesterday means due today.
-    await reminders.mark_sent(session, settings, "morning", MONDAY - timedelta(days=1))
+    await reminders.claim(session, settings, "morning", MONDAY - timedelta(days=1))
     assert len(await reminders.due_digests(session, VLADIVOSTOK_0730)) == 1
 
 
@@ -509,12 +509,33 @@ async def test_due_digests_evening_and_naive_utc(session, school_class):
     assert [kind for _, _, kind in due] == ["morning", "evening"]
 
 
-async def test_mark_sent_rejects_an_unknown_kind(session, school_class):
+async def test_claim_rejects_an_unknown_kind(session, school_class):
     settings = await reminders.settings_for(session, school_class.id, 42)
     with pytest.raises(ValueError):
-        await reminders.mark_sent(session, settings, "noon", MONDAY)
-    await reminders.mark_sent(session, settings, "evening", MONDAY)
+        await reminders.claim(session, settings, "noon", MONDAY)
+    assert await reminders.claim(session, settings, "evening", MONDAY) is True
     assert settings.last_evening_sent == MONDAY and settings.last_morning_sent is None
+
+
+async def test_only_one_of_two_overlapping_ticks_may_send(session, school_class):
+    """The claim is what stops a digest going out twice.
+
+    `due_digests` selects and `send_due` marks as it reaches each row, so a
+    tick that starts while another is still working used to select the same
+    rows and send them again. Marking before sending protects against a tick
+    that dies halfway, which is a different failure — and this deployment has
+    both, because `reminders.yml` timing `curl` out does not stop the
+    serverless invocation it started.
+    """
+    settings = await reminders.settings_for(session, school_class.id, 42)
+
+    assert await reminders.claim(session, settings, "morning", MONDAY) is True
+    # The second tick, holding the same row it selected a moment earlier.
+    assert await reminders.claim(session, settings, "morning", MONDAY) is False
+    # Tomorrow is a different claim and is still there to be taken.
+    assert await reminders.claim(
+        session, settings, "morning", MONDAY + timedelta(days=1)
+    ) is True
 
 
 async def test_due_task_reminders_compare_class_wall_time(session, school_class):

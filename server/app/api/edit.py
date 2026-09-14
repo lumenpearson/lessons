@@ -459,6 +459,18 @@ async def day_put(
                 detail="bell_schedule_id is not in this class",
             )
 
+    # «Сокращённые уроки» is a claim about the times, and the times come from a
+    # bell schedule. Without one the resolver falls back to the class default,
+    # so the day announces shortened lessons and then draws the normal ones —
+    # which is worse than not marking it at all, because somebody reads the
+    # label and packs for a short day. The bot's flow always asks which
+    # schedule to ring; this is the surface that could skip the question.
+    if payload.kind == "shortened" and payload.bell_schedule_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="a shortened day needs the bell schedule it rings",
+        )
+
     existing = await session.scalar(
         select(DayOverride).where(
             DayOverride.class_id == school_class.id, DayOverride.date == payload.date

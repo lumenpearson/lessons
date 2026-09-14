@@ -1020,6 +1020,17 @@ async def test_days_set_and_clear(client, session, school_class, recording_bot):
         headers=_auth(token),
     )
     assert shortened.json()["kind"] == "shortened"
+
+    # A shortened day with no schedule to ring is refused: the resolver would
+    # fall back to the class default, so the day would announce short lessons
+    # and draw the normal ones.
+    bare = await client.put(
+        "/api/v1/days",
+        json={"date": next_monday, "kind": "shortened"},
+        headers=_auth(token),
+    )
+    assert bare.status_code == 422
+    assert "bell schedule" in bare.json()["detail"]
     assert shortened.json()["bell_schedule_id"] == other_bells.id
     rows = list(
         await session.scalars(select(DayOverride).where(DayOverride.class_id == school_class.id))
