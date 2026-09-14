@@ -269,3 +269,26 @@ internal data class RequestDecisionDto(
     @SerialName("role") val role: String? = null,
     @SerialName("who") val who: String = "",
 )
+
+/** Mirrors `SchoolOut`: one row of the school directory. */
+@Serializable
+internal data class SchoolDto(
+    @SerialName("name") val name: String = "",
+    @SerialName("full_name") val fullName: String = "",
+    @SerialName("ogrn") val ogrn: String? = null,
+    @SerialName("inn") val inn: String? = null,
+    @SerialName("address") val address: String? = null,
+    @SerialName("city") val city: String? = null,
+    @SerialName("region") val region: String? = null,
+    @SerialName("active") val active: Boolean = true,
+)
+
+/** Mirrors `SchoolSearchOut`; see [SchoolPage] for what `truncated` is not. */
+@Serializable
+internal data class SchoolSearchDto(
+    @SerialName("items") val items: List<SchoolDto> = emptyList(),
+    @SerialName("page") val page: Int = 1,
+    @SerialName("pages") val pages: Int = 1,
+    @SerialName("total") val total: Int = 0,
+    @SerialName("truncated") val truncated: Boolean = false,
+)

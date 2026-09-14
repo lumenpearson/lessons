@@ -16,6 +16,7 @@ from app.bot.keyboards import (
     DayNav,
     GradePick,
     Menu,
+    SchoolPick,
     TimezonePick,
     back_to_menu,
     cancel_keyboard,
@@ -23,6 +24,8 @@ from app.bot.keyboards import (
     grade_picker,
     main_menu,
     request_contact,
+    school_fallback,
+    school_picker,
     timezone_picker,
 )
 from app.bot.render import render_day, render_role_help
@@ -30,9 +33,11 @@ from app.bot.roles import claim_phone_invites, get_role, is_env_owner
 from app.bot.states import CreateClass
 from app.config import get_settings
 from app.models import DEFAULT_BELLS, BellPeriod, BellSchedule, BotUser, Role, SchoolClass
+from app.providers import dadata
 from app.schedule import ScheduleResolver
 from app.security import new_join_code
 from app.services import linking
+from app.services import schools as schools_service
 from app.services import terms as terms_service
 from app.services.terms import TermError, compose_name, normalise_letter, validate_grade
 from app.timezones import DEFAULT_TIMEZONE, is_supported, label_for
@@ -216,17 +221,39 @@ async def create_class_letter(message: Message, state: FSMContext) -> None:
         return
 
     await state.update_data(letter=letter)
-    await message.answer(
-        "Теперь введите название школы (или отправьте <code>-</code>, чтобы пропустить):",
-        reply_markup=cancel_keyboard(),
-    )
-    await state.set_state(CreateClass.school)
+    await _ask_school(message, state)
 
 
-@router.message(CreateClass.school)
-async def create_class_school(message: Message, state: FSMContext) -> None:
-    school = (message.text or "").strip()
-    await state.update_data(school=None if school in {"-", ""} else school[:200])
+SKIP_ANSWERS = {"-", "—", ""}
+
+SEARCH_PROMPT = (
+    "Теперь школа. Напишите название или номер — «гимназия 3», "
+    "«школа 197 Санкт-Петербург» — и бот поищет её в реестре.\n\n"
+    "Или отправьте <code>-</code>, чтобы пропустить."
+)
+
+MANUAL_PROMPT = (
+    "Введите название школы так, как оно должно стоять в карточке класса "
+    "(или отправьте <code>-</code>, чтобы пропустить):"
+)
+
+
+async def _ask_school(message: Message, state: FSMContext) -> None:
+    """The school step, in whichever form this deployment can offer.
+
+    Without a directory key there is nothing to search, so the question
+    becomes the one it has always been — type the name. Said plainly rather
+    than by showing a search box that answers «не настроено» to everything.
+    """
+    if schools_service.available():
+        await message.answer(SEARCH_PROMPT, reply_markup=cancel_keyboard())
+        await state.set_state(CreateClass.school)
+    else:
+        await message.answer(MANUAL_PROMPT, reply_markup=cancel_keyboard())
+        await state.set_state(CreateClass.school_manual)
+
+
+async def _ask_timezone(message: Message, state: FSMContext) -> None:
     await message.answer(
         "В каком часовом поясе находится школа?\n\n"
         "Это влияет на то, когда приложение и виджет считают уроки идущими — "
@@ -234,6 +261,137 @@ async def create_class_school(message: Message, state: FSMContext) -> None:
         reply_markup=timezone_picker(),
     )
     await state.set_state(CreateClass.timezone)
+
+
+@router.message(CreateClass.school)
+async def create_class_school_search(message: Message, state: FSMContext) -> None:
+    """A search query, not a name. The name arrives from a button below."""
+    raw = (message.text or "").strip()
+    if raw in SKIP_ANSWERS:
+        await state.update_data(school=None)
+        await _ask_timezone(message, state)
+        return
+
+    try:
+        result = await schools_service.search(raw)
+    except schools_service.SearchError as error:
+        await message.answer(str(error))
+        return
+    except dadata.DirectoryError as error:
+        # The directory is somebody else's service and this is a class being
+        # created: typing the name has to stay possible on a day it is down.
+        await state.update_data(school_results=[])
+        await message.answer(error.message, reply_markup=school_fallback())
+        return
+
+    if not result.schools:
+        await state.update_data(school_results=[])
+        await message.answer(
+            f"По запросу «{escape(raw)}» ничего не нашлось.\n\n"
+            "Попробуйте номер школы и город, или введите название вручную.",
+            reply_markup=school_fallback(),
+        )
+        return
+
+    # The whole result set is kept, not the page: the upstream has no offset,
+    # so paging is local and a page turn must not cost a second search.
+    await state.update_data(
+        school_results=[school.model_dump() for school in result.schools],
+        school_truncated=result.truncated,
+    )
+    page = schools_service.page_of(result.schools, 1, truncated=result.truncated)
+    await message.answer(
+        _search_caption(page),
+        reply_markup=school_picker(page, page_size=schools_service.PAGE_SIZE),
+    )
+
+
+def _search_caption(page: dadata.SchoolPage) -> str:
+    head = f"Нашлось: <b>{page.total}</b>. Выберите свою школу:"
+    if page.truncated:
+        # Twenty is their ceiling, not the number of matches. Saying "первые
+        # 20" is the only thing that tells somebody their school may be in the
+        # part that never arrived, and that a longer query is the way to it.
+        head = (
+            "Показаны первые <b>20</b> совпадений — реестр больше за раз не "
+            "отдаёт. Если своей школы нет, добавьте в запрос город или номер.\n\n"
+            "Выберите школу:"
+        )
+    return head
+
+
+def _stored_schools(data: dict) -> list[dadata.School]:
+    raw = data.get("school_results") or []
+    return [dadata.School(**item) for item in raw if isinstance(item, dict)]
+
+
+@router.callback_query(CreateClass.school, SchoolPick.filter(F.action == "page"))
+async def create_class_school_page(
+    callback: CallbackQuery,
+    callback_data: SchoolPick,
+    state: FSMContext,
+) -> None:
+    data = await state.get_data()
+    schools = _stored_schools(data)
+    if not schools:
+        await callback.answer("Поиск устарел — отправьте запрос заново", show_alert=True)
+        return
+    page = schools_service.page_of(
+        schools, callback_data.value, truncated=bool(data.get("school_truncated"))
+    )
+    await callback.message.edit_text(
+        _search_caption(page),
+        reply_markup=school_picker(page, page_size=schools_service.PAGE_SIZE),
+    )
+    await callback.answer()
+
+
+@router.callback_query(CreateClass.school, SchoolPick.filter(F.action == "pick"))
+async def create_class_school_pick(
+    callback: CallbackQuery,
+    callback_data: SchoolPick,
+    state: FSMContext,
+) -> None:
+    schools = _stored_schools(await state.get_data())
+    # The payload is attacker-controlled like any other; the index is checked
+    # against the list rather than trusted to be one the keyboard drew.
+    if not 0 <= callback_data.value < len(schools):
+        await callback.answer("Поиск устарел — отправьте запрос заново", show_alert=True)
+        return
+
+    school = schools[callback_data.value]
+    await state.update_data(
+        school=schools_service.stored_name(school),
+        school_results=[],
+    )
+    await callback.message.edit_text(f"Школа: <b>{escape(school.name)}</b>")
+    await _ask_timezone(callback.message, state)
+    await callback.answer()
+
+
+@router.callback_query(CreateClass.school, SchoolPick.filter(F.action == "manual"))
+async def create_class_school_manual(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.update_data(school_results=[])
+    await callback.message.edit_text(MANUAL_PROMPT)
+    await state.set_state(CreateClass.school_manual)
+    await callback.answer()
+
+
+@router.callback_query(CreateClass.school, SchoolPick.filter(F.action == "skip"))
+async def create_class_school_skip(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.update_data(school=None, school_results=[])
+    await callback.message.edit_text("Школа не указана.")
+    await _ask_timezone(callback.message, state)
+    await callback.answer()
+
+
+@router.message(CreateClass.school_manual)
+async def create_class_school_typed(message: Message, state: FSMContext) -> None:
+    school = (message.text or "").strip()
+    await state.update_data(
+        school=None if school in SKIP_ANSWERS else school[: schools_service.MAX_NAME]
+    )
+    await _ask_timezone(message, state)
 
 
 @router.callback_query(CreateClass.timezone, TimezonePick.filter())

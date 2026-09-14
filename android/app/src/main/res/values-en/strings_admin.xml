@@ -49,6 +49,7 @@
     <string name="admin_error_not_found">That row is no longer in this class — somebody may have just deleted it.</string>
     <string name="admin_error_refused">This cannot be done right now.</string>
     <string name="admin_error_invalid">The server would not accept these values.</string>
+    <string name="admin_error_unavailable">This feature is not available right now</string>
     <string name="admin_error_offline">The server is not answering. Check the network and the server address.</string>
     <string name="admin_error_unknown">The server answered in a way this app did not expect (%1$s).</string>
     <string name="admin_error_detail">Server: %1$s</string>
@@ -85,6 +86,17 @@
     <string name="admin_class_edit_title">Edit the class</string>
     <string name="admin_class_name_label">Class name</string>
     <string name="admin_class_school_label">School</string>
+    <string name="admin_class_school_search_note">You can find the school in the register and fill the name in.</string>
+    <string name="admin_class_school_search_label">Search the register</string>
+    <string name="admin_class_school_search_hint">gymnasium 3 Kazan</string>
+    <string name="admin_class_school_search_action">Find the school</string>
+    <string name="admin_class_school_searching">Searching…</string>
+    <string name="admin_class_school_search_empty">Nothing found. Try the school number and the city.</string>
+    <string name="admin_class_school_search_found">Found: %1$d</string>
+    <string name="admin_class_school_search_truncated">The first 20 matches — the register returns no more at once. If yours is missing, add the city or the number.</string>
+    <string name="admin_class_school_closed">closed</string>
+    <string name="admin_class_school_page">Page %1$d of %2$d</string>
+    <string name="admin_class_school_next">Next</string>
     <string name="admin_class_city_label">City</string>
     <string name="admin_class_timezone_label">Time zone</string>
     <string name="admin_class_timezone_note">The time zone moves no stored time: a bell at 08:30 stays at 08:30. It decides which instant the class calls “now”.</string>

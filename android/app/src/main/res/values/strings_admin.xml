@@ -60,6 +60,7 @@
     <string name="admin_error_not_found">Этой записи в классе уже нет — возможно, её только что удалили.</string>
     <string name="admin_error_refused">Сейчас так сделать нельзя.</string>
     <string name="admin_error_invalid">Сервер не принял эти значения.</string>
+    <string name="admin_error_unavailable">Эта возможность сейчас недоступна</string>
     <string name="admin_error_offline">Сервер не отвечает. Проверьте сеть и адрес сервера.</string>
     <string name="admin_error_unknown">Непонятный ответ сервера (%1$s).</string>
     <string name="admin_error_detail">Сервер: %1$s</string>
@@ -96,6 +97,17 @@
     <string name="admin_class_edit_title">Изменить класс</string>
     <string name="admin_class_name_label">Название класса</string>
     <string name="admin_class_school_label">Школа</string>
+    <string name="admin_class_school_search_note">Можно найти школу в реестре и подставить название.</string>
+    <string name="admin_class_school_search_label">Поиск по реестру</string>
+    <string name="admin_class_school_search_hint">гимназия 3 Казань</string>
+    <string name="admin_class_school_search_action">Найти школу</string>
+    <string name="admin_class_school_searching">Ищем…</string>
+    <string name="admin_class_school_search_empty">Ничего не нашлось. Попробуйте номер школы и город.</string>
+    <string name="admin_class_school_search_found">Нашлось: %1$d</string>
+    <string name="admin_class_school_search_truncated">Показаны первые 20 совпадений — реестр больше за раз не отдаёт. Если своей школы нет, добавьте город или номер.</string>
+    <string name="admin_class_school_closed">закрыта</string>
+    <string name="admin_class_school_page">Страница %1$d из %2$d</string>
+    <string name="admin_class_school_next">Дальше</string>
     <string name="admin_class_city_label">Город</string>
     <string name="admin_class_timezone_label">Часовой пояс</string>
     <string name="admin_class_timezone_note">Часовой пояс не двигает сохранённое время: звонок в 08:30 останется в 08:30. Он решает, какой момент класс называет «сейчас».</string>

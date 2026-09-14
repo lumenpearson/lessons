@@ -39,7 +39,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 830 tests, about three minutes
+- **`python -m pytest -q`** — 884 tests, about four minutes
 - `python -m pytest -q tests/test_schedule.py -k parity` — one file, one test
 - `python -m uvicorn app.main:app --reload` — run it; add `--host 0.0.0.0` for a phone to
   reach it
@@ -83,8 +83,12 @@ Server modules:
   grammar (`services/timetable_io.py`) and one set of mutations
   (`services/timetable_edit.py`) — the editor's ‹ › pager and «⏱ Перемены» switch live in
   the callback payload, never in FSM state
-- `providers/petersburg/` — the one foreign service, behind `client.py` / `mapper.py` /
-  `models.py`; nothing above `models.py` knows the words `p_educations[]` or `X-JWT-Token`
+- `providers/` — the two foreign services, each behind `client.py` / `mapper.py` /
+  `models.py`. `petersburg/` is the electronic diary: nothing above `models.py` knows the
+  words `p_educations[]` or `X-JWT-Token`. `dadata/` is the school directory, a search over
+  ЕГРЮЛ because no downloadable register of Russian schools exists; without `DADATA_TOKEN`
+  it refuses at the door and the bot asks for the name to be typed, exactly as the diary
+  refuses without `DIARY_SECRET`
 
 Android modules (`android/settings.gradle.kts`):
 

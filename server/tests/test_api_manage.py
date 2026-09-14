@@ -169,6 +169,9 @@ ENDPOINTS: list[tuple[str, str, dict | None, str]] = [
         {"starts_on": "2026-09-01", "ends_on": "2026-10-20"},
         "admin",
     ),
+    # Read-only, and still admin: every call spends part of a daily allowance
+    # on somebody else's service, so the auth table is where that is enforced.
+    ("GET", "/api/v1/manage/schools?q=гимназия", None, "admin"),
 ]
 
 
@@ -1330,3 +1333,136 @@ async def test_a_term_reaching_into_the_holidays_is_refused(client, session, sch
     assert response.status_code == 422
     assert "учебный год" in response.json()["detail"]
 
+
+
+# --------------------------------------------------------------------------
+# The school directory
+# --------------------------------------------------------------------------
+
+
+async def test_the_school_search_says_it_is_unavailable_rather_than_broken(
+    client, session, school_class, monkeypatch
+):
+    """No key is not a 500. Nothing failed — the feature was never configured,
+    and the client's answer to that is to let the name be typed."""
+    monkeypatch.setattr(get_settings(), "dadata_token", "")
+    token = await _admin(client, session, school_class)
+
+    response = await client.get("/api/v1/manage/schools?q=гимназия", headers=_auth(token))
+    assert response.status_code == 503
+    assert "вручную" in response.json()["detail"]
+
+
+async def test_a_query_too_short_to_search_with_is_422_in_russian(
+    client, session, school_class, monkeypatch
+):
+    monkeypatch.setattr(get_settings(), "dadata_token", "test-key")
+    token = await _admin(client, session, school_class)
+
+    response = await client.get("/api/v1/manage/schools?q=шк", headers=_auth(token))
+    assert response.status_code == 422
+    assert "символа" in response.json()["detail"]
+
+
+async def test_the_search_returns_a_page_and_says_when_it_was_cut_short(
+    client, session, school_class, monkeypatch
+):
+    """Twenty is the directory's ceiling, not the number of matches, and
+    ``truncated`` is the only thing that says so."""
+    monkeypatch.setattr(get_settings(), "dadata_token", "test-key")
+
+    async def fake_suggest(query: str, *, region: str | None = None):
+        assert query == "гимназия 3"
+        return [
+            {
+                "value": f"ГИМНАЗИЯ № {i}",
+                "data": {
+                    "ogrn": f"102780000{i:04d}",
+                    "name": {"short_with_opf": f'МБОУ "ГИМНАЗИЯ № {i}"'},
+                    "state": {"status": "ACTIVE"},
+                    "address": {"value": "г Пермь", "data": {"city": "Пермь"}},
+                },
+            }
+            for i in range(20)
+        ]
+
+    monkeypatch.setattr("app.providers.dadata.suggest_schools", fake_suggest)
+    token = await _admin(client, session, school_class)
+
+    response = await client.get(
+        "/api/v1/manage/schools", params={"q": " гимназия  3 ", "page": 2}, headers=_auth(token)
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["page"] == 2
+    assert body["pages"] == 4
+    assert body["total"] == 20
+    assert body["truncated"] is True
+    assert [item["name"] for item in body["items"]] == [
+        f'МБОУ "Гимназия № {i}"' for i in range(5, 10)
+    ]
+    assert body["items"][0]["city"] == "Пермь"
+
+
+async def test_a_page_past_the_end_comes_back_as_the_last_one(
+    client, session, school_class, monkeypatch
+):
+    monkeypatch.setattr(get_settings(), "dadata_token", "test-key")
+
+    async def fake_suggest(query: str, *, region: str | None = None):
+        return [
+            {"value": "ШКОЛА № 1", "data": {"ogrn": "1", "state": {"status": "ACTIVE"}}},
+        ]
+
+    monkeypatch.setattr("app.providers.dadata.suggest_schools", fake_suggest)
+    token = await _admin(client, session, school_class)
+
+    response = await client.get(
+        "/api/v1/manage/schools", params={"q": "школа 1", "page": 99}, headers=_auth(token)
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["page"] == 1
+    assert response.json()["truncated"] is False
+
+
+async def test_asking_for_everything_at_once_costs_one_upstream_search(
+    client, session, school_class, monkeypatch
+):
+    """The directory has no offset, so each call searches again — a client that
+    pages should take all twenty and cut them up itself."""
+    monkeypatch.setattr(get_settings(), "dadata_token", "test-key")
+    searches: list[str] = []
+
+    async def fake_suggest(query: str, *, region: str | None = None):
+        searches.append(query)
+        return [
+            {"value": f"ШКОЛА {i}", "data": {"ogrn": str(i), "state": {"status": "ACTIVE"}}}
+            for i in range(20)
+        ]
+
+    monkeypatch.setattr("app.providers.dadata.suggest_schools", fake_suggest)
+    token = await _admin(client, session, school_class)
+
+    response = await client.get(
+        "/api/v1/manage/schools",
+        params={"q": "школа", "page_size": 20},
+        headers=_auth(token),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["pages"] == 1
+    assert len(response.json()["items"]) == 20
+    assert len(searches) == 1
+
+
+async def test_a_page_size_above_the_directorys_ceiling_is_refused(
+    client, session, school_class, monkeypatch
+):
+    monkeypatch.setattr(get_settings(), "dadata_token", "test-key")
+    token = await _admin(client, session, school_class)
+
+    response = await client.get(
+        "/api/v1/manage/schools",
+        params={"q": "школа", "page_size": 50},
+        headers=_auth(token),
+    )
+    assert response.status_code == 422

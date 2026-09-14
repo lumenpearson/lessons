@@ -53,6 +53,7 @@ from app.models import (
     TermKind,
     TimetableEntry,
 )
+from app.providers import dadata
 from app.schemas import (
     AccessRequestOut,
     AuditEntryOut,
@@ -71,6 +72,8 @@ from app.schemas import (
     ManagedSubjectOut,
     RequestDecisionIn,
     RequestDecisionOut,
+    SchoolOut,
+    SchoolSearchOut,
     StatsOut,
     SubjectHoursOut,
     SubjectIn,
@@ -85,6 +88,7 @@ from app.schemas import (
     TimetableImportOut,
 )
 from app.services import audit, linking, structure, timetable_io
+from app.services import schools as schools_service
 from app.services import stats as stats_service
 from app.services import terms as terms_service
 from app.timezones import is_supported, label_for
@@ -1280,3 +1284,58 @@ async def terms_set_bounds(
     await session.commit()
     rows = await terms_service.read(session, school_class.id, year)
     return _terms_out(school_class, year, rows)
+
+
+@router.get("/schools", response_model=SchoolSearchOut)
+async def schools_search(
+    q: str = Query(..., description="Название или номер школы"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(
+        schools_service.PAGE_SIZE,
+        ge=1,
+        le=dadata.MAX_SUGGESTIONS,
+        description="Строк на странице; 20 отдаёт всё найденное за один запрос",
+    ),
+    region: str | None = Query(None, max_length=120),
+    _: Actor = Depends(admin_actor),
+    __: SchoolClass = Depends(current_class),
+) -> SchoolSearchOut:
+    """Search the school directory, the same way «⚙️ Класс» does in the bot.
+
+    Reads nothing and writes nothing: it is a lookup the app needs before it
+    can `PATCH /class` with a school name, and the name is all that is stored.
+    Admin-only despite being read-only, because every call spends part of a
+    daily allowance somebody else pays for, and the class's own members are the
+    only people with a reason to spend it.
+
+    503 rather than 500 when the directory is not configured or not answering:
+    nothing here is broken, the feature is simply unavailable right now, and
+    the client's answer to that is to let the name be typed.
+
+    **Every call is one upstream search**, whatever ``page`` says — the
+    directory has no offset to page with, so there is nothing to resume. A
+    client that pages should therefore ask once with ``page_size=20`` and cut
+    the answer up itself, which is what the bot and the app both do; asking for
+    four pages of five is four searches for one question.
+    """
+    try:
+        result = await schools_service.search(q, region=region)
+    except schools_service.SearchError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
+        ) from error
+    except dadata.DirectoryError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=error.message
+        ) from error
+
+    found = schools_service.page_of(
+        result.schools, page, size=page_size, truncated=result.truncated
+    )
+    return SchoolSearchOut(
+        items=[SchoolOut(**school.model_dump()) for school in found.items],
+        page=found.page,
+        pages=found.pages,
+        total=found.total,
+        truncated=found.truncated,
+    )

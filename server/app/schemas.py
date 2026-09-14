@@ -778,6 +778,40 @@ class TermsOut(BaseModel):
     terms: list[TermOut] = Field(default_factory=list)
 
 
+class SchoolOut(BaseModel):
+    """One row of the school directory, as the picker shows it."""
+
+    name: str
+    full_name: str
+    #: ОГРН — thirteen digits, assigned once and never reused. Returned so a
+    #: client can tell two «Гимназия № 3» apart without parsing the address.
+    ogrn: str | None = None
+    inn: str | None = None
+    address: str | None = None
+    city: str | None = None
+    region: str | None = None
+    #: False for a school the register has closed. Shown rather than hidden:
+    #: a class created in May may belong to one merged over the summer.
+    active: bool = True
+
+
+class SchoolSearchOut(BaseModel):
+    """One page of results, and whether there is more behind it.
+
+    ``truncated`` is not «есть ещё страницы» — those are ``pages``. It means
+    the directory's own ceiling of twenty was reached, so this is the first
+    twenty of an unknown number and the way forward is a longer query, not a
+    next page. A client that ignores it will show «найдено 20» for a search
+    matching three hundred schools.
+    """
+
+    items: list[SchoolOut] = Field(default_factory=list)
+    page: int
+    pages: int
+    total: int
+    truncated: bool = False
+
+
 class ClassPatch(BaseModel):
     """Only the fields present are changed; ``null`` clears a nullable one.
 

@@ -10,7 +10,13 @@ class CreateClass(StatesGroup):
     # is optional, so the step that cannot be skipped comes first.
     grade = State()
     letter = State()
+    # Two school steps, because there are two ways to answer the question. The
+    # first takes a search query and shows what the directory found; the second
+    # takes the name itself, and is reached by «✏️ Ввести вручную» or when
+    # there is no directory to search. Keeping them apart is what stops a typed
+    # school name from being sent off as a query.
     school = State()
+    school_manual = State()
     timezone = State()
 
 

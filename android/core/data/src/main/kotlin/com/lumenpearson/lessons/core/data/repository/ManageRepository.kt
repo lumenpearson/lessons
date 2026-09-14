@@ -33,6 +33,20 @@ interface ManageRepository {
     suspend fun updateClass(before: ManagedClass, edit: ClassEdit): Result<ManagedClass>
 
     /**
+     * Searches the school directory for a name to put on the class.
+     *
+     * Everything it found, in one call, because the directory has no offset:
+     * the server searches again on every request whatever page is asked for, so
+     * four pages of five is four searches for one question. Twenty is the
+     * ceiling, and the answer says so in [SchoolPage.truncated].
+     *
+     * Fails with [ManageFailure.Unavailable] when this deployment has no
+     * directory key or the directory is not answering. That is not an error to
+     * report — it is the case where the name gets typed instead.
+     */
+    suspend fun searchSchools(query: String): Result<SchoolPage>
+
+    /**
      * Deletes the class and everything in it. Owner only.
      *
      * [confirmName] must be the class's name exactly. The sheet in the app is

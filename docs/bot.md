@@ -57,8 +57,19 @@ PUBLIC_BASE_URL=https://lessons.example.com
 
 4. Start the server. Send `/start` to your bot; because your id is in
    `OWNER_IDS`, it offers to create the first class. Creating a class asks for
-   its name, its school and its **time zone** — one of the eleven Russian zones,
-   from Kaliningrad (МСК−1) to Kamchatka (МСК+9).
+   the **year** (1–11, as buttons), the letter, the **school** and the **time
+   zone** — one of the eleven Russian zones, from Kaliningrad (МСК−1) to
+   Kamchatka (МСК+9). The year is a number rather than part of a typed name
+   because the term scheme follows it: 1–9 are taught in четверти and 10–11 in
+   полугодия, and every date is editable afterwards.
+
+   The school step searches the register when this deployment has a
+   `DADATA_TOKEN` — type «гимназия 3 Казань», pick from the results, five to a
+   page. Twenty is the register's own ceiling for one search, so the bot says
+   «показаны первые 20» rather than «найдено 20»: the way to a school that is
+   not in them is a longer query. Without a key, or on a day the register is
+   not answering, the same step asks for the name to be typed, which is what it
+   has always done.
 
 `PUBLIC_BASE_URL` is only needed for `/calendar`; without it the bot says so
 instead of printing a URL that would not resolve.

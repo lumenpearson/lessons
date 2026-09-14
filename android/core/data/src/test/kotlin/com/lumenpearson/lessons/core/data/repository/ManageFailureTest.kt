@@ -153,4 +153,25 @@ class ManageFailureTest {
         assertNull(ManageFailure.detailOf(null))
         assertNull(ManageFailure.detailOf("""{"error": "nope"}"""))
     }
+
+    // -- 503, which is not a failure of ours --------------------------------
+
+    @Test
+    fun `a 503 is the feature being off, and carries the server's own sentence`() {
+        val failure = ManageFailure.ofStatus(503, "Поиск по школам не настроен — введите вручную")
+        assertTrue(failure is ManageFailure.Unavailable)
+        assertEquals(
+            "Поиск по школам не настроен — введите вручную",
+            (failure as ManageFailure.Unavailable).detail,
+        )
+        // Nothing about a switched-off directory says this phone lost its role.
+        assertFalse(failure.endsTheSession)
+    }
+
+    @Test
+    fun `a 503 with no detail still says something`() {
+        val failure = ManageFailure.ofStatus(503) as ManageFailure.Unavailable
+        assertNull(failure.detail)
+        assertTrue(failure.message!!.isNotBlank())
+    }
 }

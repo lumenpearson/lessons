@@ -275,6 +275,12 @@ fun ManageFailure.asText(): String = when (this) {
     ManageFailure.NotFound -> stringResource(R.string.admin_error_not_found)
     is ManageFailure.Refused -> stringResource(R.string.admin_error_refused)
     is ManageFailure.Invalid -> stringResource(R.string.admin_error_invalid)
+    // The server's own sentence, not ours: a 503 here is a feature that is off
+    // on this deployment, and only the server knows which one and what to do
+    // instead. Falls back to a generic line for a body without a detail.
+    is ManageFailure.Unavailable ->
+        detail?.takeIf { it.isNotBlank() } ?: stringResource(R.string.admin_error_unavailable)
+
     is ManageFailure.Offline -> stringResource(R.string.admin_error_offline)
     is ManageFailure.Unexpected -> stringResource(
         R.string.admin_error_unknown,
@@ -289,6 +295,8 @@ fun ManageFailure.detailText(): String? {
         is ManageFailure.NotAllowed -> detail
         is ManageFailure.Refused -> detail
         is ManageFailure.Invalid -> detail
+        // Not repeated here: [asText] already *is* the server's sentence for
+        // this one, and the detail line underneath would say it twice.
         else -> null
     }
     return detail?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.admin_error_detail, it) }

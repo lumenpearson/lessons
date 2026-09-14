@@ -14,6 +14,7 @@ import com.lumenpearson.lessons.core.data.network.dto.ManagedDeviceDto
 import com.lumenpearson.lessons.core.data.network.dto.ManagedSubjectDto
 import com.lumenpearson.lessons.core.data.network.dto.RequestDecisionDto
 import com.lumenpearson.lessons.core.data.network.dto.RequestDecisionInDto
+import com.lumenpearson.lessons.core.data.network.dto.SchoolSearchDto
 import com.lumenpearson.lessons.core.data.network.dto.StatsDto
 import com.lumenpearson.lessons.core.data.network.dto.SubjectInDto
 import com.lumenpearson.lessons.core.data.network.dto.SubjectPatchDto
@@ -67,6 +68,21 @@ internal interface ManageApi {
      */
     @HTTP(method = "DELETE", path = "api/v1/manage/class", hasBody = true)
     suspend fun deleteClass(@Body body: ClassDeleteDto): DeletedDto
+
+    /**
+     * Searches the school directory the class card writes a name from.
+     *
+     * Admin, although it reads nothing of ours: every call spends part of a
+     * daily allowance on somebody else's service. A `503` here means the
+     * directory is not configured or not answering — not that anything broke —
+     * and the screen's answer to it is to let the name be typed.
+     */
+    @GET("api/v1/manage/schools")
+    suspend fun searchSchools(
+        @Query("q") query: String,
+        @Query("page_size") pageSize: Int,
+        @Query("region") region: String? = null,
+    ): SchoolSearchDto
 
     @GET("api/v1/manage/subjects")
     suspend fun subjects(): List<ManagedSubjectDto>

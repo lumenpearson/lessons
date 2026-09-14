@@ -12,6 +12,7 @@ from aiogram.types import (
 
 from app.bot.button_style import DANGER, PRIMARY, SUCCESS
 from app.models import Role
+from app.providers.dadata.models import SchoolPage
 
 WEEKDAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 WEEKDAY_FULL = [
@@ -69,6 +70,14 @@ class TimezonePick(CallbackData, prefix="tz"):
 
 class GradePick(CallbackData, prefix="grd"):
     grade: int
+
+
+class SchoolPick(CallbackData, prefix="sch"):
+    action: str  # pick | page | manual | skip | retry
+    # For "pick", the school's position in the whole result set, not in the
+    # page: the list is searched once and paged locally, so an index is stable
+    # while a page number is not.
+    value: int = 0
 
 
 class ClassAction(CallbackData, prefix="cls"):
@@ -279,6 +288,92 @@ def grade_picker() -> InlineKeyboardMarkup:
         for start in range(0, len(numbers), 4)
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def school_picker(
+    page: SchoolPage,
+    *,
+    page_size: int,
+    allow_skip: bool = True,
+) -> InlineKeyboardMarkup:
+    """The search results, one school per row, with a pager under them.
+
+    One per row because the names are long: two columns of «МБОУ "Средняя
+    общеобразовательная школа № 197"» is two columns of ellipsis. The pager
+    only appears when there is a second page, and its position rides in the
+    callback payload rather than in FSM state — the same rule the timetable
+    editor's ‹ › follows, and for the same reason: a stale state would page a
+    different search.
+    """
+    start = (page.page - 1) * page_size
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=school.label if school.active else f"{school.label} · закрыта",
+                callback_data=SchoolPick(action="pick", value=start + offset).pack(),
+            )
+        ]
+        for offset, school in enumerate(page.items)
+    ]
+
+    if page.pages > 1:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="‹",
+                    callback_data=SchoolPick(action="page", value=page.page - 1).pack(),
+                ),
+                InlineKeyboardButton(
+                    text=f"{page.page}/{page.pages}",
+                    # A label, not a button. Telegram has no inert button, so it
+                    # points at the page it is already on.
+                    callback_data=SchoolPick(action="page", value=page.page).pack(),
+                ),
+                InlineKeyboardButton(
+                    text="›",
+                    callback_data=SchoolPick(action="page", value=page.page + 1).pack(),
+                ),
+            ]
+        )
+
+    manual = [
+        InlineKeyboardButton(
+            text="✏️ Ввести вручную",
+            callback_data=SchoolPick(action="manual").pack(),
+        )
+    ]
+    if allow_skip:
+        manual.append(
+            InlineKeyboardButton(
+                text="Пропустить",
+                callback_data=SchoolPick(action="skip").pack(),
+            )
+        )
+    rows.append(manual)
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def school_fallback(*, allow_skip: bool = True) -> InlineKeyboardMarkup:
+    """What is offered when the directory found nothing or is not answering.
+
+    Typing the name is never taken away, at any point in this flow: the
+    directory is somebody else's service, and a class must be creatable on a
+    day it is down.
+    """
+    row = [
+        InlineKeyboardButton(
+            text="✏️ Ввести вручную",
+            callback_data=SchoolPick(action="manual").pack(),
+        )
+    ]
+    if allow_skip:
+        row.append(
+            InlineKeyboardButton(
+                text="Пропустить",
+                callback_data=SchoolPick(action="skip").pack(),
+            )
+        )
+    return InlineKeyboardMarkup(inline_keyboard=[row])
 
 
 def timezone_picker() -> InlineKeyboardMarkup:

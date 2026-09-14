@@ -68,6 +68,16 @@ class Settings(BaseSettings):
     #     python -c "import secrets; print(secrets.token_urlsafe(48))"
     diary_secret: str = ""
 
+    # Key for the school directory (DaData), which searches ЕГРЮЛ — the only
+    # register that actually has every Russian school in it, because every
+    # school is a legal entity. There is no official nationwide directory to
+    # ship with the project: Рособрнадзор's open-data endpoints answer 404.
+    #
+    # Empty disables the search and leaves manual entry, which is the same
+    # refusal-at-the-door as ``diary_secret``: a bundled snapshot would answer
+    # confidently with last year's schools and nothing would say which it was.
+    dadata_token: str = ""
+
     # Public origin of this deployment ("https://lessons.example.com"), for the
     # calendar feed URL the bot shows. Configured rather than read off a
     # request: behind Vercel the function sees an internal host, and the bot

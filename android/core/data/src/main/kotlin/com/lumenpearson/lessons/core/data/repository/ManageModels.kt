@@ -42,6 +42,40 @@ data class ManagedClass(
     val calendarReady: Boolean,
 )
 
+/** One school out of the directory, as the picker draws it. */
+data class School(
+    /** What goes on a button, and what is written to the class when it is picked. */
+    val name: String,
+    /** The register's own spelling — the only unambiguous name there is. */
+    val fullName: String,
+    val ogrn: String?,
+    val address: String?,
+    val city: String?,
+    val region: String?,
+    /** False for one the register has closed. Shown and marked, never hidden. */
+    val active: Boolean,
+) {
+    /** The name, and the city when there is one — two schools share a number. */
+    val label: String get() = city?.let { "$name · $it" } ?: name
+}
+
+/**
+ * One screenful of results.
+ *
+ * [truncated] is **not** «есть ещё страницы» — [pages] counts those. It means
+ * the directory's own ceiling of twenty rows was reached, so this is the first
+ * twenty of an unknown number and the way to the rest is a longer query, not a
+ * next page. A screen that shows «найдено 20» for a search matching three
+ * hundred schools has read [total] and ignored this.
+ */
+data class SchoolPage(
+    val items: List<School>,
+    val page: Int,
+    val pages: Int,
+    val total: Int,
+    val truncated: Boolean,
+)
+
 /**
  * The four fields of the class card that can be edited, as one intention.
  *
@@ -278,6 +312,18 @@ sealed class ManageFailure(message: String, cause: Throwable? = null) :
     data class Invalid(val detail: String?) :
         ManageFailure(detail ?: "The server could not accept these values")
 
+    /**
+     * `503`: the feature is switched off or its upstream is not answering.
+     *
+     * Its own case rather than an [Unexpected] because nothing is broken and
+     * the screen has somewhere to go: the school directory needs a key this
+     * deployment may not have, and the answer to that is to let the name be
+     * typed rather than to retry or to report a bug. [detail] is the server's
+     * own Russian sentence, which already says exactly that.
+     */
+    data class Unavailable(val detail: String?) :
+        ManageFailure(detail ?: "This feature is not available right now")
+
     /** No answer at all: no network, wrong address, a timeout. */
     data class Offline(val reason: Throwable) :
         ManageFailure("Could not reach the server", reason)
@@ -340,6 +386,7 @@ sealed class ManageFailure(message: String, cause: Throwable? = null) :
                 404 -> NotFound
                 409 -> Refused(said.ifBlank { null })
                 422 -> Invalid(said.ifBlank { null })
+                503 -> Unavailable(said.ifBlank { null })
                 else -> Unexpected(code = code, reason = null)
             }
         }

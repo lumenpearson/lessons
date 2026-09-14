@@ -64,6 +64,10 @@ internal class ManageRepositoryImpl(
     override suspend fun deleteClass(confirmName: String): Result<Unit> =
         call { api.deleteClass(ClassDeleteDto(confirmName = confirmName.trim())) }.map { }
 
+    override suspend fun searchSchools(query: String): Result<SchoolPage> = call {
+        api.searchSchools(query = query.trim(), pageSize = SCHOOL_SEARCH_LIMIT).toDomain()
+    }
+
     override suspend fun subjects(): Result<List<ManagedSubject>> = call {
         api.subjects().map { it.toDomain() }
     }
@@ -202,6 +206,12 @@ internal class ManageRepositoryImpl(
     }
 
     private companion object {
+        /**
+         * The directory's own ceiling, asked for explicitly so one search is
+         * one request. See [ManageRepository.searchSchools].
+         */
+        const val SCHOOL_SEARCH_LIMIT: Int = 20
+
         /**
          * `HH:mm:ss`, which is what a `datetime.time` accepts and what the
          * server sends back. [LocalTime.toString] drops the seconds on a whole

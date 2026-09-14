@@ -15,6 +15,7 @@ import com.lumenpearson.lessons.core.data.repository.ManagedClass
 import com.lumenpearson.lessons.core.data.repository.ManagedDevice
 import com.lumenpearson.lessons.core.data.repository.ManagedSubject
 import com.lumenpearson.lessons.core.data.repository.RequestDecision
+import com.lumenpearson.lessons.core.data.repository.SchoolPage
 import com.lumenpearson.lessons.core.data.repository.SubjectForm
 import com.lumenpearson.lessons.core.data.repository.SubjectSaved
 import com.lumenpearson.lessons.core.data.repository.TimetableExport
@@ -63,6 +64,14 @@ internal class FakeManageRepository : ManageRepository {
         before: ManagedClass,
         edit: ClassEdit,
     ): Result<ManagedClass> = park()
+
+    /** The query of each [searchSchools] call, in order. */
+    val schoolQueries: MutableList<String> = mutableListOf()
+
+    override suspend fun searchSchools(query: String): Result<SchoolPage> {
+        schoolQueries += query
+        return park()
+    }
 
     override suspend fun deleteClass(confirmName: String): Result<Unit> = park()
 

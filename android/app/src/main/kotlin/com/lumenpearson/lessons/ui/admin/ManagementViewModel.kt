@@ -20,6 +20,7 @@ import com.lumenpearson.lessons.core.data.repository.ManageRepository
 import com.lumenpearson.lessons.core.data.repository.ManagedClass
 import com.lumenpearson.lessons.core.data.repository.ManagedDevice
 import com.lumenpearson.lessons.core.data.repository.ManagedSubject
+import com.lumenpearson.lessons.core.data.repository.School
 import com.lumenpearson.lessons.core.data.repository.SubjectForm
 import com.lumenpearson.lessons.core.data.repository.TimetableExport
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -80,6 +81,44 @@ sealed interface ManagementNotice {
 }
 
 /**
+ * A school search, held between the typing and the tapping.
+ *
+ * The whole result set is kept and paged here rather than asked for a page at
+ * a time: the directory has no offset, so the server searches again on every
+ * request, and turning a page would be a second search for the same question.
+ *
+ * @property truncated the directory's ceiling of twenty rows was reached. Not
+ *   «есть ещё страницы» — [pages] counts those — but «это первые двадцать из
+ *   неизвестно скольких», whose only answer is a longer query.
+ * @property unavailable the directory is not configured on this server, or is
+ *   not answering. Carries the server's own sentence, which already says to
+ *   type the name instead.
+ */
+data class SchoolSearch(
+    val query: String = "",
+    val results: List<School> = emptyList(),
+    val page: Int = 1,
+    val total: Int = 0,
+    val truncated: Boolean = false,
+    val searching: Boolean = false,
+    /** A search ran and found nothing, as against one that has not run. */
+    val searched: Boolean = false,
+    val unavailable: String? = null,
+    val failure: ManageFailure? = null,
+) {
+    val pages: Int get() = maxOf(1, (results.size + PAGE - 1) / PAGE)
+
+    /** The rows of [page], clamped — the pager is a button pressed twice. */
+    val visible: List<School>
+        get() = results.drop((page.coerceIn(1, pages) - 1) * PAGE).take(PAGE)
+
+    companion object {
+        /** Five to a screen, the same as the bot's keyboard. */
+        const val PAGE: Int = 5
+    }
+}
+
+/**
  * The whole management page, as one state object.
  *
  * @property gone the refusal that took the page away — a dead token, an
@@ -106,6 +145,7 @@ data class ManagementUiState(
     val stats: Remote<ClassStats> = Remote(),
     val requests: Remote<List<AccessRequest>> = Remote(),
     val showRevokedDevices: Boolean = false,
+    val schoolSearch: SchoolSearch = SchoolSearch(),
     val pendingImport: PendingImport? = null,
     /**
      * Lines of the last paste the parser could not read.
@@ -181,6 +221,71 @@ class ManagementViewModel(
      * shown as "you were signed out" — true, but a strange thing to tell
      * somebody who has just deliberately deleted their class.
      */
+    // -- the school directory -----------------------------------------------
+
+    /**
+     * Searches, once, and keeps everything it found.
+     *
+     * Not a `write`: nothing of ours changes, and the page's one write flag is
+     * what stops two edits of the same class at once — a search that took it
+     * would grey out «Сохранить» while somebody was looking for their school.
+     */
+    fun searchSchools(query: String) {
+        if (state.value.gone != null) return
+        state.update {
+            it.copy(
+                schoolSearch = it.schoolSearch.copy(
+                    query = query,
+                    searching = true,
+                    failure = null,
+                    unavailable = null,
+                ),
+            )
+        }
+        viewModelScope.launch {
+            val result = repository.searchSchools(query)
+            val failure = result.exceptionOrNull()?.let(ManageFailure::of)
+            if (note(failure)) return@launch
+            val found = result.getOrNull()
+            state.update {
+                if (it.gone != null || it.schoolSearch.query != query) {
+                    // A later query is already on screen; this answer is about a
+                    // search the person has moved on from.
+                    it
+                } else {
+                    it.copy(
+                        schoolSearch = it.schoolSearch.copy(
+                            results = found?.items.orEmpty(),
+                            page = 1,
+                            total = found?.total ?: 0,
+                            truncated = found?.truncated == true,
+                            searching = false,
+                            searched = true,
+                            // A directory that is off is not a failure to draw
+                            // in red: it is the sentence telling somebody to
+                            // type the name, which is what the box above is for.
+                            unavailable = (failure as? ManageFailure.Unavailable)
+                                ?.let { off -> off.detail ?: off.message },
+                            failure = failure.takeIf { f -> f !is ManageFailure.Unavailable },
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    fun showSchoolPage(page: Int) {
+        state.update {
+            val search = it.schoolSearch
+            it.copy(schoolSearch = search.copy(page = page.coerceIn(1, search.pages)))
+        }
+    }
+
+    /** Forgets the last search — the sheet closed, or a school was chosen. */
+    fun clearSchoolSearch() {
+        state.update { it.copy(schoolSearch = SchoolSearch()) }
+    }
+
     fun deleteClass(confirmName: String) = write {
         val result = repository.deleteClass(confirmName)
         result.onSuccess { state.update { it.copy(classDeleted = true) } }
