@@ -21,6 +21,7 @@ import com.lumenpearson.lessons.core.data.repository.ManagedClass
 import com.lumenpearson.lessons.core.data.repository.ManagedDevice
 import com.lumenpearson.lessons.core.data.repository.ManagedSubject
 import com.lumenpearson.lessons.core.data.repository.School
+import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SubjectForm
 import com.lumenpearson.lessons.core.data.repository.TimetableExport
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -181,6 +182,7 @@ data class ManagementUiState(
 class ManagementViewModel(
     private val repository: ManageRepository,
     private val deviceLinks: DeviceLinkRepository,
+    private val session: SessionRepository,
 ) : ViewModel() {
 
     private val state = MutableStateFlow(ManagementUiState())
@@ -213,14 +215,6 @@ class ManagementViewModel(
         result
     }
 
-    /**
-     * Deletes the class, and with it this phone's own token.
-     *
-     * [classDeleted] is set rather than the page being reloaded: there is
-     * nothing left to load, and the next call would be a `401` that would be
-     * shown as "you were signed out" — true, but a strange thing to tell
-     * somebody who has just deliberately deleted their class.
-     */
     // -- the school directory -----------------------------------------------
 
     /**
@@ -286,10 +280,38 @@ class ManagementViewModel(
         state.update { it.copy(schoolSearch = SchoolSearch()) }
     }
 
+    /**
+     * Deletes the class, and with it this phone's own token.
+     *
+     * [classDeleted] is set rather than the page being reloaded: there is
+     * nothing left to load, and the next call would be a `401` that would be
+     * shown as "you were signed out" — true, but a strange thing to tell
+     * somebody who has just deliberately deleted their class.
+     *
+     * The session is *not* dropped here, so that the sheet can say what
+     * happened before the app leaves; [leaveDeletedClass] does it when that
+     * sheet is dismissed. Nothing depends on the user pressing the button
+     * though — the token is already gone server-side, so the next sync's `401`
+     * drops the session anyway.
+     */
     fun deleteClass(confirmName: String) = write {
         val result = repository.deleteClass(confirmName)
         result.onSuccess { state.update { it.copy(classDeleted = true) } }
         result
+    }
+
+    /**
+     * Leaves the class that was just deleted: token gone, cache gone.
+     *
+     * Without this the app kept the session and the whole cached timetable of
+     * a class that no longer existed — it said «класс удалён» and then went on
+     * drawing its lessons, never reached the join screen, and so never ran the
+     * wipe that joining a new class does on the way in. The old class was then
+     * still on screen after joining a new one.
+     */
+    fun leaveDeletedClass() {
+        if (!state.value.classDeleted) return
+        viewModelScope.launch { session.signOut() }
     }
 
     // -- subjects -----------------------------------------------------------
@@ -692,6 +714,7 @@ class ManagementViewModel(
                 ManagementViewModel(
                     repository = Graph.container.manageRepository,
                     deviceLinks = Graph.container.deviceLinkRepository,
+                    session = Graph.container.sessionRepository,
                 )
             }
         }

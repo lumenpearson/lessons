@@ -15,6 +15,8 @@ import com.lumenpearson.lessons.core.data.repository.ManagedClass
 import com.lumenpearson.lessons.core.data.repository.ManagedDevice
 import com.lumenpearson.lessons.core.data.repository.ManagedSubject
 import com.lumenpearson.lessons.core.data.repository.RequestDecision
+import com.lumenpearson.lessons.core.data.repository.Session
+import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SchoolPage
 import com.lumenpearson.lessons.core.data.repository.SubjectForm
 import com.lumenpearson.lessons.core.data.repository.SubjectSaved
@@ -161,3 +163,32 @@ internal class FakeDeviceLinkRepository(role: ClassRole?) : DeviceLinkRepository
 
 /** The refusal that means "this page is no longer yours". */
 internal val RoleLost: ManageFailure = ManageFailure.RoleLost("admin")
+
+/**
+ * A session that records whether it was dropped.
+ *
+ * The one question worth asking of it: after the class is deleted, does the app
+ * actually leave? It used to say «класс удалён» and keep both the token and the
+ * whole cached timetable of a class that no longer existed.
+ */
+internal class FakeSessionRepository : SessionRepository {
+
+    var signOuts: Int = 0
+        private set
+
+    private val state = MutableStateFlow<Session?>(
+        Session(classId = 1, className = "9А", school = null, token = "t"),
+    )
+
+    override val session: StateFlow<Session?> = state.asStateFlow()
+
+    override suspend fun current(): Session? = state.value
+
+    override suspend fun join(code: String, deviceName: String?): Result<Session> =
+        Result.failure(IllegalStateException("unused"))
+
+    override suspend fun signOut() {
+        signOuts++
+        state.value = null
+    }
+}

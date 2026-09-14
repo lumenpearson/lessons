@@ -38,6 +38,16 @@ import kotlinx.serialization.json.JsonPrimitive
 internal class ManageRepositoryImpl(
     private val api: ManageApi,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /**
+     * Called when the server refuses this device's token.
+     *
+     * Same bearer as the read API and therefore the same single answer: a
+     * `401` here means the token was revoked or the class was deleted — by
+     * this phone or from the bot — and the app must leave rather than keep a
+     * page of buttons that will all fail. Deliberately *not* wired to the
+     * `403`s: those say the role changed, and the device is still in the class.
+     */
+    private val onTokenRejected: suspend () -> Unit = {},
 ) : ManageRepository {
 
     override suspend fun classCard(): Result<ManagedClass> = call {
@@ -201,7 +211,9 @@ internal class ManageRepositoryImpl(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (failure: Exception) {
-            Result.failure(ManageFailure.of(failure))
+            val classified = ManageFailure.of(failure)
+            if (classified is ManageFailure.SignedOut) onTokenRejected()
+            Result.failure(classified)
         }
     }
 

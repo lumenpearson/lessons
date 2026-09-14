@@ -80,12 +80,20 @@ fun ClassCardSheet(
             // The class is gone and so is this phone's token. Nothing below
             // this line exists any more, so nothing below it is drawn.
             state.classDeleted -> {
+                // Closing this is what finally leaves: the sheet gets to say
+                // what happened, and then the session and the cached timetable
+                // of a class that no longer exists go with it. Both buttons do
+                // it, because there is no "cancel" left to mean anything.
+                val leave = {
+                    viewModel.leaveDeletedClass()
+                    onDismiss()
+                }
                 SheetSection(title = stringResource(R.string.admin_class_deleted_title))
                 SheetNote(text = stringResource(R.string.admin_class_deleted_message))
                 SheetButtons(
                     confirmLabel = stringResource(R.string.action_back),
-                    onConfirm = onDismiss,
-                    onCancel = onDismiss,
+                    onConfirm = leave,
+                    onCancel = leave,
                     cancelLabel = stringResource(R.string.action_cancel),
                 )
             }

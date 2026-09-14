@@ -116,6 +116,10 @@ class DefaultLessonsContainer(
                 DataSyncBroadcast.send(appContext)
                 SchoolAlerts.onDataChanged(appContext)
             },
+            // Resolved when it fires, not here: `sessionRepository` is a lazy
+            // in this same container and asking for it now would build it on
+            // the cold-start path of a class this device may not even be in.
+            onTokenRejected = { sessionRepository.signOut() },
         )
     }
 
@@ -155,7 +159,13 @@ class DefaultLessonsContainer(
     }
 
     override val manageRepository: ManageRepository by lazy {
-        ManageRepositoryImpl(api = apis.manage)
+        ManageRepositoryImpl(
+            api = apis.manage,
+            // The management surface carries the same class bearer, so a `401`
+            // there means the same thing it means on a sync — including the
+            // case an admin makes themselves by deleting the class.
+            onTokenRejected = { sessionRepository.signOut() },
+        )
     }
 
     override val githubRepository: GithubRepository by lazy {

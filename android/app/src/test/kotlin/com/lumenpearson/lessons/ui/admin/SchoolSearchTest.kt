@@ -42,7 +42,7 @@ class SchoolSearchTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = ManagementViewModel(repository, links)
+    private fun viewModel() = ManagementViewModel(repository, links, FakeSessionRepository())
 
     private fun schools(count: Int): List<School> = (0 until count).map {
         School(

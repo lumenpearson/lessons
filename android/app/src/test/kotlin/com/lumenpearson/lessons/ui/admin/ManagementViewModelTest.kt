@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.ui.admin
 
 import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.ImportConflict
+import com.lumenpearson.lessons.core.data.repository.ManageFailure
 import com.lumenpearson.lessons.core.data.repository.ManagedDevice
 import com.lumenpearson.lessons.core.data.repository.ManagedSubject
 import com.lumenpearson.lessons.core.data.repository.TimetableExport
@@ -13,6 +14,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -36,6 +38,7 @@ class ManagementViewModelTest {
 
     private val repository = FakeManageRepository()
     private val links = FakeDeviceLinkRepository(ClassRole.ADMIN)
+    private val session = FakeSessionRepository()
 
     @Before
     fun setUp() {
@@ -50,7 +53,7 @@ class ManagementViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun model() = ManagementViewModel(repository, links)
+    private fun model() = ManagementViewModel(repository, links, session)
 
     /**
      * A read in flight when the role is lost must not put its answer back.
@@ -240,4 +243,52 @@ class ManagementViewModelTest {
         lastSeenAt = null,
         linkedAt = null,
     )
+
+    // -- leaving a class that was just deleted ------------------------------
+
+    @Test
+    fun `deleting the class does not leave until the sheet is closed`() {
+        // The sheet has to be able to say what happened. Dropping the session
+        // on success would swap the whole shell for the join screen mid-word.
+        val model = model()
+        model.deleteClass("9А")
+        repository.answer(0, Result.success(Unit))
+
+        assertTrue(model.uiState.value.classDeleted)
+        assertEquals(0, session.signOuts)
+    }
+
+    @Test
+    fun `closing that sheet drops the token and the cache with it`() {
+        val model = model()
+        model.deleteClass("9А")
+        repository.answer(0, Result.success(Unit))
+
+        model.leaveDeletedClass()
+
+        assertEquals(1, session.signOuts)
+    }
+
+    @Test
+    fun `nothing leaves a class that was not deleted`() {
+        // The same call reaches this view model when the sheet is dismissed
+        // after an ordinary look at the class card.
+        val model = model()
+
+        model.leaveDeletedClass()
+
+        assertEquals(0, session.signOuts)
+    }
+
+    @Test
+    fun `a refused delete leaves the class alone`() {
+        val model = model()
+        model.deleteClass("не то имя")
+        repository.answer(0, Result.failure(ManageFailure.Invalid("confirm_name does not match")))
+
+        model.leaveDeletedClass()
+
+        assertFalse(model.uiState.value.classDeleted)
+        assertEquals(0, session.signOuts)
+    }
 }

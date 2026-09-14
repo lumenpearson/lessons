@@ -49,7 +49,7 @@ blocked client gets `429` with `Retry-After`.
 
 | Status | Meaning |
 | --- | --- |
-| `401` | Missing, malformed, unknown or revoked token |
+| `401` | Missing, malformed, unknown or revoked token — **the client must drop its session**, not merely report it |
 | `403` | The device is not linked, or its account lacks the role (`detail` says which) |
 | `404` | Join code, class, homework, task or event does not exist - or is not this class's |
 | `422` | Parameter out of range or body invalid |
@@ -523,6 +523,12 @@ because the endpoint is reachable without the sheet. The class, its timetable,
 homework, замены, events, log and every device token go with it - including
 the caller's own, so the next request from that phone is a `401`. Answers
 `{"id": 1, "deleted": true}`.
+
+A client that does not act on that `401` keeps a cached timetable of a class
+that no longer exists, and — because the wipe happens on the way *in* to a new
+class — carries it into the next one. The Android app drops its token and its
+cache on any `401` from this API family, on the delete it made itself and on
+one made from the bot alike; see `TokenRejectedTest`.
 
 ### Subjects
 

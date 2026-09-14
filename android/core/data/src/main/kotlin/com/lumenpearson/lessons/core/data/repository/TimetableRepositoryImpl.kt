@@ -45,6 +45,17 @@ internal class TimetableRepositoryImpl(
      * which made the one remedy a user would try look like it did nothing.
      */
     private val onDataChanged: () -> Unit = {},
+    /**
+     * Called when the server refuses this device's token.
+     *
+     * The session and the cache are not this class's to drop, and nothing else
+     * was dropping them: a `401` became a snackbar and the app carried on
+     * showing a class it had been thrown out of. It is the one failure with a
+     * single correct answer — the token is gone server-side and cannot come
+     * back — so the cure has to be automatic rather than a sentence asking the
+     * user to sign out by hand.
+     */
+    private val onTokenRejected: suspend () -> Unit = {},
 ) : TimetableRepository {
 
     /**
@@ -118,6 +129,10 @@ internal class TimetableRepositoryImpl(
             throw cancellation
         } catch (http: HttpException) {
             if (http.code() == HTTP_UNAUTHORISED) {
+                // Before returning, not after: the caller shows the message,
+                // and by the time it does the app must already be out of a
+                // class that no longer has this device in it.
+                onTokenRejected()
                 SyncResult.Unauthorised
             } else {
                 SyncResult.Failed("Server returned HTTP ${http.code()}")
