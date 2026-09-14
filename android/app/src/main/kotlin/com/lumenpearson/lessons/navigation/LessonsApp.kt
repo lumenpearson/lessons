@@ -68,6 +68,7 @@ import com.lumenpearson.lessons.core.designsystem.component.ToolbarAction
 import com.lumenpearson.lessons.core.designsystem.component.ToolbarItem
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.modifier.BottomBlurHeight
 import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurExtent
 import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurRadius
 import com.lumenpearson.lessons.core.designsystem.modifier.TopBlurRampPx
@@ -732,6 +733,15 @@ private fun ShellScaffold(
     var barHeight by remember { mutableStateOf(seedBarHeight) }
     val barHeightPx = with(density) { barHeight.toPx() }
 
+    // Essentials' distance, not the toolbar's height. The bar measures around
+    // 60 dp here, so a fade tied to it only began where the toolbar already
+    // covered the list — the rows arrived sharp and were cut off rather than
+    // dissolving into it. `coerceAtLeast` is the one thing not copied: it keeps
+    // the guarantee the measured height gave, that the fade is never shorter
+    // than the bar it has to reach behind, on a device whose gesture inset
+    // makes the toolbar taller than Essentials' 130 dp.
+    val bottomBlurPx = with(density) { BottomBlurHeight.toPx() }.coerceAtLeast(barHeightPx)
+
     // This page's own scroll drives this page's own fade. The shell used to pick
     // whichever screen was in front and hand one number to everybody, which the
     // page sliding away then wore for the length of the slide.
@@ -751,7 +761,7 @@ private fun ShellScaffold(
                     .progressiveBlur(
                         blurRadius = if (edgeBlur) StatusBarBlurRadius else 0f,
                         topHeight = statusBarHeightPx * StatusBarBlurExtent,
-                        bottomHeight = barHeightPx,
+                        bottomHeight = bottomBlurPx,
                         topFraction = topFraction,
                         showGradientOverlay = edgeBlur,
                     ),
