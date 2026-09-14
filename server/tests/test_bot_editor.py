@@ -210,6 +210,7 @@ async def test_a_typed_lesson_lands_on_the_day_it_was_asked_from(session, school
         ask,
         EditorAction(action="add", day=3, flags=BREAKS),
         state,
+        session,
         school_class,
         Role.ADMIN,
     )

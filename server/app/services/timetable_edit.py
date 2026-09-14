@@ -29,6 +29,7 @@ from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import TimetableEntry, WeekParity
+from app.services import subjects
 
 #: Where a row waits while another takes its number.
 #:
@@ -108,12 +109,17 @@ async def add_lesson(
         if index in used:
             await _shift(session, class_id, weekday, at_least=index, by=1)
 
+    # The dictionary decides the spelling, and hands back the row to point at:
+    # a lesson typed «алгебра» into a class that already has «Алгебра» joins it
+    # rather than founding a second subject with its own colour.
+    name, subject_id = await subjects.canonical(session, class_id, subject)
     session.add(
         TimetableEntry(
             class_id=class_id,
             weekday=weekday,
             index=index,
-            subject_name=subject,
+            subject_id=subject_id,
+            subject_name=name,
             room=room,
             teacher=teacher,
             parity=parity,
@@ -202,6 +208,7 @@ async def edit_lesson(
             TimetableEntry.parity == parity,
         )
     )
+    name, subject_id = await subjects.canonical(session, class_id, subject)
     if entry is None:
         used = await _indexes(session, class_id, weekday)
         if index not in used:
@@ -211,7 +218,8 @@ async def edit_lesson(
                 class_id=class_id,
                 weekday=weekday,
                 index=index,
-                subject_name=subject,
+                subject_id=subject_id,
+                subject_name=name,
                 room=room,
                 teacher=teacher,
                 parity=parity,
@@ -219,7 +227,8 @@ async def edit_lesson(
         )
         return True
 
-    entry.subject_name = subject
+    entry.subject_id = subject_id
+    entry.subject_name = name
     entry.room = room
     entry.teacher = teacher
     return True
@@ -253,6 +262,10 @@ async def split_parity(
             class_id=class_id,
             weekday=weekday,
             index=index,
+            # A copy, link included: the знаменатель is the same subject until
+            # somebody changes it, and a half that lost its colour on the way
+            # would look like two different lessons on alternate weeks.
+            subject_id=original.subject_id,
             subject_name=original.subject_name,
             room=original.room,
             teacher=original.teacher,

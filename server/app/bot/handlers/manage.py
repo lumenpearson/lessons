@@ -107,6 +107,7 @@ from app.models import (
 from app.services import audit, linking, structure, timetable_io
 from app.services import calendar as calendar_service
 from app.services import stats as stats_service
+from app.services import subjects as subjects_service
 from app.services import terms as terms_service
 from app.timezones import label_for
 
@@ -257,6 +258,11 @@ async def _subjects_of(session: AsyncSession, class_id: int) -> list[Subject]:
 
 
 async def _subject_view(session: AsyncSession, school_class: SchoolClass, role: Role):
+    # «📚 Предметы» adopts the timetable's names on the way in, so the list
+    # cannot be empty while the class has a full расписание. «Собрать из
+    # расписания» stays: it is now the button for «я только что вставил день и
+    # хочу увидеть предметы, не выходя отсюда», and it is still free to press.
+    await subjects_service.sync_from_timetable(session, school_class.id)
     subjects = await _subjects_of(session, school_class.id)
     return mr.render_subjects(subjects), subject_list_keyboard(
         subjects,

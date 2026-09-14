@@ -27,9 +27,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot.editor_keyboard import (
     BREAKS,
     EditorAction,
+    EditorSubject,
     canteen_keyboard,
     day_keyboard,
     slot_keyboard,
+    subject_picker,
 )
 from app.bot.editor_render import render_canteen, render_day, render_slot, slots
 from app.bot.keyboards import WEEKDAY_FULL, Menu, cancel_keyboard
@@ -39,10 +41,11 @@ from app.models import (
     BellSchedule,
     Role,
     SchoolClass,
+    Subject,
     TimetableEntry,
     WeekParity,
 )
-from app.services import audit, timetable_edit, timetable_io
+from app.services import audit, subjects, timetable_edit, timetable_io
 
 router = Router(name="editor")
 
@@ -383,6 +386,7 @@ async def editor_ask_lesson(
     callback: CallbackQuery,
     callback_data: EditorAction,
     state: FSMContext,
+    session: AsyncSession,
     school_class: SchoolClass | None,
     role: Role | None,
 ) -> None:
@@ -402,12 +406,75 @@ async def editor_ask_lesson(
     )
     await state.set_state(EditorLesson.text)
 
+    # The class's own subjects, offered as buttons. Drawn from the dictionary
+    # after it has adopted whatever the timetable already uses, so the list is
+    # never empty for a class that visibly teaches something — that emptiness
+    # was the whole complaint: «расписание не зависит от списка предметов».
+    await subjects.sync_from_timetable(session, school_class.id)
+    known = list(
+        await session.scalars(
+            select(Subject).where(Subject.class_id == school_class.id).order_by(Subject.name)
+        )
+    )
+
     what = "Новый урок" if callback_data.action == "add" else f"Урок {callback_data.index}"
     await callback.message.edit_text(
         f"<b>{what} · {WEEKDAY_FULL[callback_data.day - 1]}</b>\n\n"
-        "Пришлите предмет — можно с кабинетом и учителем через запятую:\n"
+        + ("Выберите предмет кнопкой или пришлите" if known else "Пришлите предмет")
+        + " текстом — можно с кабинетом и учителем через запятую:\n"
         "<code>Физика, 305, Петров П.П.</code>",
-        reply_markup=cancel_keyboard(),
+        reply_markup=(
+            subject_picker(known, callback_data.day, callback_data.flags)
+            if known
+            else cancel_keyboard()
+        ),
+    )
+    await callback.answer()
+
+
+@router.callback_query(EditorLesson.text, EditorSubject.filter())
+async def editor_pick_subject(
+    callback: CallbackQuery,
+    callback_data: EditorSubject,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """A subject chosen off the list instead of typed.
+
+    No room and no teacher: the button carries a subject and nothing else, and
+    the subject's own teacher now reaches the lesson through the dictionary
+    anyway. A room is a per-slot fact and is added by editing the lesson.
+    """
+    refusal = _guard(school_class, role, EDIT_MINIMUM)
+    if refusal:
+        await callback.answer(refusal, show_alert=True)
+        return
+
+    # Re-scoped by the query, like every other id on this surface: the payload
+    # is the user's to forge, and a subject id belonging to another class must
+    # find nothing rather than be written into this one's timetable.
+    subject = await session.scalar(
+        select(Subject).where(
+            Subject.id == callback_data.subject,
+            Subject.class_id == school_class.id,
+        )
+    )
+    if subject is None:
+        await callback.answer("Предмет не найден — начните сначала", show_alert=True)
+        return
+
+    await _write_lesson(
+        callback.message,
+        state,
+        session,
+        school_class,
+        subject=subject.name,
+        room=None,
+        teacher=None,
+        who=callback.from_user.id,
+        edit_in_place=True,
     )
     await callback.answer()
 
@@ -424,11 +491,6 @@ async def editor_take_lesson(
         await state.clear()
         return
 
-    data = await state.get_data()
-    day, index = int(data["day"]), int(data["index"])
-    flags, mode = int(data["flags"]), data["mode"]
-    parity = WeekParity.EVEN if data.get("parity") else WeekParity.ODD
-
     # The same grammar the paste editor speaks, minus the leading number: the
     # button already knows which lesson this is, and one parser means a typed
     # «Физика, 305» means here exactly what it means in a week paste.
@@ -436,6 +498,45 @@ async def editor_take_lesson(
     if not subject:
         await message.answer("Не понял предмет. Пришлите ещё раз:")
         return
+
+    await _write_lesson(
+        message,
+        state,
+        session,
+        school_class,
+        subject=subject,
+        room=room,
+        teacher=teacher,
+        who=message.from_user.id,
+        edit_in_place=False,
+    )
+
+
+async def _write_lesson(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+    school_class: SchoolClass,
+    *,
+    subject: str,
+    room: str | None,
+    teacher: str | None,
+    who: int,
+    edit_in_place: bool,
+) -> None:
+    """Put one lesson in the template and redraw the day.
+
+    Shared by the two ways of answering the same question — a typed line and a
+    tapped subject — because they differ in exactly two things: where the
+    subject came from, and whether the day is redrawn as a new message or in
+    place of the picker. Everything between (the cursor, the parity rule, the
+    audit line, the transaction) is one thing, and two copies of it would stop
+    being one within a month.
+    """
+    data = await state.get_data()
+    day, index = int(data["day"]), int(data["index"])
+    flags, mode = int(data["flags"]), data["mode"]
+    parity = WeekParity.EVEN if data.get("parity") else WeekParity.ODD
 
     if mode == "add":
         landed = await timetable_edit.add_lesson(
@@ -468,7 +569,7 @@ async def editor_take_lesson(
     await audit.record(
         session,
         school_class.id,
-        message.from_user.id,
+        who,
         action,
         f"{WEEKDAY_FULL[day - 1]}: {note}",
     )
@@ -478,14 +579,19 @@ async def editor_take_lesson(
     entries = await _entries(session, school_class.id, day)
     schedule, periods = await _bells(session, school_class)
     counts = await timetable_edit.day_counts(session, school_class.id)
-    await message.answer(
-        render_day(
-            day,
-            entries,
-            periods,
-            canteen_after=schedule.canteen_after_index if schedule else None,
-            show_breaks=bool(flags & BREAKS),
-            counts=counts,
-        ),
-        reply_markup=day_keyboard(day, flags, entries, can_edit=True),
+    text = render_day(
+        day,
+        entries,
+        periods,
+        canteen_after=schedule.canteen_after_index if schedule else None,
+        show_breaks=bool(flags & BREAKS),
+        counts=counts,
     )
+    keyboard = day_keyboard(day, flags, entries, can_edit=True)
+    # A typed answer is a new message and the day follows it; a tapped one
+    # replaces the picker, so that choosing a subject does not leave a dead
+    # keyboard above the day it just changed.
+    if edit_in_place:
+        await message.edit_text(text, reply_markup=keyboard)
+    else:
+        await message.answer(text, reply_markup=keyboard)

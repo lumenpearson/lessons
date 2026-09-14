@@ -353,7 +353,12 @@ class ScheduleResolver:
                 starts_at=period.starts_at,
                 ends_at=period.ends_at,
                 room=entry.room,
-                teacher=entry.teacher,
+                # The cell's own teacher wins — it is the specific answer, and
+                # the one a класс with two teachers for one subject relies on.
+                # The dictionary is the fallback, which is what makes filling
+                # «📚 Предметы» in show up on every lesson rather than only on
+                # замены, where it already did.
+                teacher=entry.teacher or self._subject_teachers.get(entry.subject_name),
                 color=self._subject_colors.get(entry.subject_name),
             )
 

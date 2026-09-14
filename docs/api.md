@@ -537,6 +537,21 @@ subjects in the timetable, the homework and the app's colours. `GET` answers
 `[{ "id": 4, "name": "Алгебра", "short_name": "Алг", "teacher": "Иванова А. П.", "color": "#5B6ABF" }]`,
 sorted by name; an editor may read it.
 
+**It is not a list somebody has to keep up by hand.** Every write that names a
+subject in the weekly template goes through the dictionary: the entry is found
+(ignoring case) or created, the lesson is linked to it by
+`timetable_entries.subject_id`, and the *dictionary's* spelling is what gets
+stored — so «АЛГЕБРА» in a paste joins the class's «Алгебра» instead of
+founding a second subject with its own colour. Reading this list, or the
+bundle, adopts anything a class typed before the link existed; that costs a
+count once the two agree.
+
+Which is why the dictionary is worth filling in. A colour set here reaches
+every lesson of that subject, and a teacher set here is the fallback for every
+lesson whose own cell names nobody — both on ordinary lessons and on замены.
+Before, an empty dictionary meant a timetable with no colours at all, whatever
+was typed into the template.
+
 `POST` takes `name` (required) and any of `short_name`, `teacher`, `color`.
 `PATCH` takes the same fields, changing only those present; `null` clears
 `short_name`, `teacher` and `color`. Colours are written as `#RRGGBB` in any
@@ -548,16 +563,20 @@ Both answer:
 ```
 
 `moved` is the point of `PATCH name`. The timetable, the homework and the
-замены store the subject as **text**, not as a foreign key - deliberately, so
-a lesson keeps its name when a subject is deleted - so a rename is a cascade,
-and all of it happens in one transaction. `moved` is how many of those rows
-went with it. Renaming onto a name the class already uses is `409`: merging
+замены store the subject as **text** as well - deliberately, so a lesson keeps
+its name when a subject is deleted - so a rename is still a cascade, and all of
+it happens in one transaction. `moved` is how many of those rows went with it.
+The template is matched on the link *and* on the old spelling: the link is the
+half that survives a row whose name drifted, the name is the half that catches
+rows written before the link existed. Renaming onto a name the class already uses is `409`: merging
 two subjects is a different operation, and doing it by accident cannot be
 undone.
 
 `DELETE` removes the dictionary entry and **leaves the lessons alone**: the
-timetable keeps the name and loses only the colour and the teacher, which is
-what an admin cleaning up a duplicate means.
+timetable keeps the name (the link goes to `null`) and loses only the colour
+and the teacher, which is what an admin cleaning up a duplicate means. The next
+read re-adopts the name, because the timetable still uses it — deleting a
+subject a class is still taught is not a way to stop being taught it.
 
 ### Bell schedules
 

@@ -348,7 +348,12 @@ async def test_subjects_list_is_open_to_an_editor(client, session, school_class)
     token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
 
     body = (await client.get("/api/v1/manage/subjects", headers=_auth(token))).json()
-    assert [row["name"] for row in body] == ["Алгебра", "Физика"]
+    # «История» is not one of the two rows this test added: it is the third
+    # lesson of the fixture's Monday, and the list adopts what the timetable
+    # already uses. A dictionary that answered «Алгебра, Физика» for a class
+    # visibly teaching three subjects is the bug this behaviour exists for.
+    assert [row["name"] for row in body] == ["Алгебра", "История", "Физика"]
+    assert next(row for row in body if row["name"] == "Алгебра")["teacher"] == "Иванова"
     assert body[0]["teacher"] == "Иванова" and body[0]["id"]
 
 

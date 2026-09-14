@@ -57,6 +57,7 @@ from app.schemas import (
 from app.security import JoinThrottle, client_bucket, hash_token, new_token
 from app.services import calendar as calendar_service
 from app.services import linking
+from app.services import subjects as subjects_service
 from app.services import tasks as task_service
 from app.services import terms as terms_service
 
@@ -362,6 +363,11 @@ async def bundle(
     # writes on exactly one request per class per year and reads on the rest.
     year = terms_service.opening_year_of(today)
     terms = await terms_service.ensure(session, school_class, year)
+    # Same reasoning for the subject dictionary: a class whose timetable was
+    # typed before the link existed has names in the template and nothing in
+    # «📚 Предметы», which on the phone is a timetable with no colours at all.
+    # Also idempotent, and free — a count — once everything is in step.
+    await subjects_service.sync_from_timetable(session, school_class.id)
     await session.commit()
 
     out = BundleOut(

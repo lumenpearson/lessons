@@ -28,6 +28,7 @@ from app.models import (
     Subject,
     TimetableEntry,
 )
+from app.services import subjects
 
 #: What a schedule is called when a paste brings bell times to a class that has
 #: none at all. Named rather than left blank: it is about to be the class's
@@ -52,13 +53,32 @@ async def rename_subject(
     """
     old_name = subject.name
     moved = 0
-    for model in (TimetableEntry, Homework, LessonOverride):
+
+    # The timetable is matched on the link first and the old spelling second.
+    # The link is the reliable half — it survives a row whose name drifted —
+    # and the name is what catches rows written before the link existed, which
+    # is every row in every class older than it.
+    result = await session.execute(
+        sa_update(TimetableEntry)
+        .where(
+            TimetableEntry.class_id == class_id,
+            (TimetableEntry.subject_id == subject.id)
+            | (TimetableEntry.subject_name == old_name),
+        )
+        .values(subject_name=new_name, subject_id=subject.id)
+    )
+    moved += result.rowcount or 0
+
+    # Homework and замены carry no link at all: a lesson keeps its name when a
+    # subject is deleted, and that is the whole reason they store text.
+    for model in (Homework, LessonOverride):
         result = await session.execute(
             sa_update(model)
             .where(model.class_id == class_id, model.subject_name == old_name)
             .values(subject_name=new_name)
         )
         moved += result.rowcount or 0
+
     subject.name = new_name
     return moved
 
@@ -126,12 +146,18 @@ async def apply_timetable(
     total = 0
     for weekday, rows in days.items():
         for index, subject, room, teacher, parity in rows:
+            # A paste is where a class's subjects usually come into existence,
+            # and where two spellings of one of them usually do too. The
+            # dictionary settles both: the name it already holds wins, and a
+            # name it does not hold is adopted rather than left unlinked.
+            name, subject_id = await subjects.canonical(session, school_class.id, subject)
             session.add(
                 TimetableEntry(
                     class_id=school_class.id,
                     weekday=weekday,
                     index=index,
-                    subject_name=subject,
+                    subject_id=subject_id,
+                    subject_name=name,
                     room=room,
                     teacher=teacher,
                     parity=parity,

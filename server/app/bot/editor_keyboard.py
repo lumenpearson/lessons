@@ -48,6 +48,18 @@ class EditorAction(CallbackData, prefix="ted"):
     arg: int = 0  # action-specific: «move» direction, «edit»/«merge» parity
 
 
+class EditorSubject(CallbackData, prefix="tes"):
+    """One subject of the class, picked instead of typed.
+
+    Only the subject travels. The cursor — which day, which lesson, add or
+    edit — is already in FSM data by the time this keyboard is drawn, put there
+    by the same handler that draws it, and that is the editor's existing rule
+    for the typed answer too.
+    """
+
+    subject: int
+
+
 def _cursor(action: str, day: int, flags: int, index: int = 0, arg: int = 0) -> str:
     """One button's payload.
 
@@ -58,6 +70,38 @@ def _cursor(action: str, day: int, flags: int, index: int = 0, arg: int = 0) -> 
     still a bit the next reader has to prove nothing reads.
     """
     return EditorAction(action=action, day=day, index=index, flags=flags, arg=arg).pack()
+
+
+def subject_picker(subjects: list, day: int, flags: int) -> InlineKeyboardMarkup:
+    """The class's own subjects, two to a row, above the typed prompt.
+
+    Typing still works — the state is set before this is shown — and it is
+    still the only way to give a room and a teacher in one go. This is for the
+    other case, which is most of them: the subject is one the class already
+    has, and picking it off a list is both faster and the only way to be sure
+    the spelling matches the one «📚 Предметы» holds.
+
+    An empty dictionary draws no buttons rather than an empty card: a class
+    whose timetable is being typed for the first time has nothing to offer yet.
+    """
+    buttons = [
+        InlineKeyboardButton(
+            text=subject.short_name or subject.name,
+            callback_data=EditorSubject(subject=subject.id).pack(),
+        )
+        for subject in subjects
+    ]
+    rows = [buttons[start : start + 2] for start in range(0, len(buttons), 2)]
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="Отмена",
+                callback_data=_cursor("day", day, flags),
+                style=DANGER,
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def day_keyboard(

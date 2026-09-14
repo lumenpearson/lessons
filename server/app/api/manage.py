@@ -90,6 +90,7 @@ from app.schemas import (
 from app.services import audit, linking, structure, timetable_io
 from app.services import schools as schools_service
 from app.services import stats as stats_service
+from app.services import subjects as subjects_service
 from app.services import terms as terms_service
 from app.timezones import is_supported, label_for
 
@@ -392,7 +393,14 @@ async def subjects_list(
     session: AsyncSession = Depends(get_session),
 ) -> list[ManagedSubjectOut]:
     """The dictionary with ids, for a screen that edits it. An editor may
-    read it - it is the same list ``GET /api/v1/subjects`` gives any device."""
+    read it - it is the same list ``GET /api/v1/subjects`` gives any device.
+
+    Adopts whatever the timetable already uses on the way, so this list is
+    never emptily lying about a class with thirty-five lessons in it. Free once
+    the two agree, which after the first read they do.
+    """
+    if await subjects_service.sync_from_timetable(session, school_class.id):
+        await session.commit()
     rows = await session.scalars(
         select(Subject).where(Subject.class_id == school_class.id).order_by(Subject.name)
     )

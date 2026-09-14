@@ -167,6 +167,14 @@ recurring event: it is the same перемена every day that schedule is in f
 and it moves with the bells when a shortened day moves them. The last lesson is
 not offered — there is no break after it.
 
+Adding or changing a lesson offers **the class's own subjects as buttons**,
+above the typed prompt. Typing still works and is still the only way to give a
+room and a teacher in one go — the button carries a subject and nothing else,
+and that subject's teacher reaches the lesson through the dictionary anyway.
+The list is the one «📚 Предметы» holds, after it has adopted whatever the
+timetable already uses, so it is empty only for a class whose расписание is
+being typed for the first time.
+
 Every write goes in the журнал, and all of it is ADMIN-only; замены and события
 stay an editor's business.
 
@@ -231,15 +239,27 @@ different subjects in the timetable, the homework and the app's colours. Each
 entry has a name, a short name, a teacher and a colour (eight presets, or type
 `#5B6ABF`).
 
-* **🔄 Собрать из расписания** creates an entry for every distinct subject name
-  the timetable already uses. An editor may run it: it invents nothing.
+* **The list keeps itself.** Every lesson written into the weekly template —
+  typed, tapped or pasted — goes through the dictionary: its subject is found
+  (ignoring case) or added, and the lesson is linked to it. Opening this screen
+  adopts anything a class typed before that was true. A class with a full
+  расписание therefore cannot have an empty «📚 Предметы», which is what it used
+  to have.
+* **🔄 Собрать из расписания** still exists, and is now the button for «я только
+  что вставил день и хочу увидеть его предметы, не выходя отсюда». An editor may
+  run it: it invents nothing.
+* **The dictionary is what gives a lesson its colour**, and its teacher when the
+  cell in the template names nobody. That is the reason to fill it in: before,
+  a colour set here reached only замены.
 * **Renaming an entry renames the subject everywhere** — `timetable_entries`,
   `homework` and `lesson_overrides` of that class, in the same transaction — and
-  the confirmation says how many rows moved. The tables store the name as text
-  on purpose (a lesson keeps its name when a subject is deleted), and this is
-  the price of that choice.
-* Deleting an entry leaves the lessons alone; the class only loses the colour
-  and the teacher.
+  the confirmation says how many rows moved. The homework and the замены store
+  the name as text on purpose (a lesson keeps its name when a subject is
+  deleted), and this is the price of that choice.
+* Deleting an entry leaves the lessons alone; the class loses the colour and the
+  teacher. The bare name comes back on the next read, because the timetable
+  still uses it — deleting a subject the class is still taught is not a way to
+  stop being taught it. Rename it instead.
 
 ## Особые дни — `/holidays`
 
