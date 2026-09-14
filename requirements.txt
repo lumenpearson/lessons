@@ -6,7 +6,7 @@
 # dead weight in the function bundle.
 fastapi>=0.141.1
 aiogram>=3.31.0
-sqlalchemy[asyncio]>=2.0.30
+sqlalchemy[asyncio]>=2.0.52
 asyncpg>=0.29
 pydantic>=2.8
 pydantic-settings>=2.15.0
