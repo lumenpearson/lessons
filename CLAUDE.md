@@ -171,11 +171,12 @@ points Hilt does not inject cleanly.
   behind and names both revisions (`app/db.py:EXPECTED_REVISION`, pinned to the real head by
   `tests/test_schema_version.py`). `/api/v1/health` deliberately opens no connection, so it
   cannot tell you this.
-- **Migrations are Alembic and production is already at `0006`.** `0001` is a guarded
+- **Migrations are Alembic and production is already at `0007`.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
-  the per-member diary columns. Nothing after `0001` may use `create_all`. A model change needs
+  the per-member diary columns, `0007` adds the two class foreign keys `0006` left out.
+  Nothing after `0001` may use `create_all`. A model change needs
   a revision — a live database will not grow a column on its own, and lifespan `create_all`
   runs only for local SQLite.
 - **Time is naive local wall time, in the class's zone, not the server's.** A bell rings at
