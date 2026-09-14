@@ -204,3 +204,87 @@ async def test_a_rename_moves_the_rows_and_keeps_the_link(session, school_class)
     row = next(e for e in await _entries(session, school_class.id) if e.index == 1)
     assert row.subject_name == "Алгебра и начала"
     assert row.subject_id == subject.id
+
+
+# ---- what the audit of this feature found ---------------------------------
+
+
+async def test_a_shouted_duplicate_cannot_be_founded(session, school_class):
+    """The uniqueness guard folds case, because the matcher does.
+
+    When it did not, «ФИЗИКА» was allowed in beside «Физика» — and then
+    `sync_from_timetable`, which folds, saw one subject where the dictionary
+    had two and rewrote every «Физика» lesson onto whichever row it happened to
+    keep. A read renaming a subject and dropping the colour of the one it
+    abandoned.
+    """
+    await subjects.sync_from_timetable(session, school_class.id)
+    await session.commit()
+
+    assert await subjects.clashing(session, school_class.id, "ФИЗИКА") is not None
+    assert await subjects.clashing(session, school_class.id, "  физика  ") is not None
+    assert await subjects.clashing(session, school_class.id, "Астрономия") is None
+
+    # A rename checking its own new name must not collide with itself.
+    physics = await subjects.find(session, school_class.id, "Физика")
+    assert await subjects.clashing(
+        session, school_class.id, "физика", besides=physics.id
+    ) is None
+
+
+async def test_the_oldest_spelling_wins_and_keeps_winning(session, school_class):
+    """A class that acquired two spellings before the guard folded case must
+    not have the survivor chosen afresh on every read: two phones polling a
+    minute apart would drag its lessons back and forth between the two rows."""
+    await subjects.sync_from_timetable(session, school_class.id)
+    original = await subjects.find(session, school_class.id, "Физика")
+    session.add(Subject(class_id=school_class.id, name="ФИЗИКА"))
+    await session.commit()
+
+    for _ in range(2):
+        await subjects.sync_from_timetable(session, school_class.id)
+        await session.commit()
+        rows = [e for e in await _entries(session, school_class.id) if e.subject_id == original.id]
+        assert rows and all(e.subject_name == original.name for e in rows)
+
+
+async def test_a_subject_the_timetable_uses_is_counted(session, school_class):
+    """What the delete guard asks before it refuses."""
+    await subjects.sync_from_timetable(session, school_class.id)
+    await session.commit()
+    algebra = await subjects.find(session, school_class.id, "Алгебра")
+    assert await subjects.lessons_using(session, school_class.id, algebra) >= 1
+
+    spare = Subject(class_id=school_class.id, name="Астрономия")
+    session.add(spare)
+    await session.commit()
+    assert await subjects.lessons_using(session, school_class.id, spare) == 0
+
+
+async def test_a_subject_is_counted_even_before_the_rows_are_linked(session, school_class):
+    """By link *or* by spelling: a class that predates the link has neither,
+    and the guard has to see it anyway."""
+    await session.execute(
+        TimetableEntry.__table__.update()
+        .where(TimetableEntry.class_id == school_class.id)
+        .values(subject_id=None)
+    )
+    algebra = await subjects.ensure(session, school_class.id, "Алгебра")
+    await session.commit()
+    assert await subjects.lessons_using(session, school_class.id, algebra) >= 1
+
+
+async def test_spelling_answers_with_the_class_s_own(session, school_class):
+    """Homework and замены carry a name and no link, so the spelling is the
+    whole of what can be agreed — and it is what the upsert key and the colour
+    lookup are both built on."""
+    await subjects.sync_from_timetable(session, school_class.id)
+    await session.commit()
+
+    assert await subjects.spelling(session, school_class.id, "алгебра") == "Алгебра"
+    assert await subjects.spelling(session, school_class.id, "  АЛГЕБРА ") == "Алгебра"
+    # Never founds an entry: a picker that grew a subject because somebody
+    # wrote down an assignment would be learning from the wrong half of the app.
+    before = await _names(session, school_class.id)
+    assert await subjects.spelling(session, school_class.id, "Астрономия") == "Астрономия"
+    assert await _names(session, school_class.id) == before

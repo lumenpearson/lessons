@@ -177,3 +177,31 @@ async def test_the_summer_belongs_to_no_term(session, school_class):
     seeded = await service.ensure(session, school_class, 2026)
 
     assert service.term_at(seeded, date(2027, 7, 1)) is None
+
+
+async def test_moving_a_class_up_a_grade_does_not_destroy_its_edited_terms(
+    session, school_class
+):
+    """`ensure` seeds, it does not replace — and the difference is a read path.
+
+    A 9-й класс keeps `term_kind` NULL, so the scheme is answered from the
+    grade. Promoting the class to 10 therefore made the *next bundle request
+    from any phone* delete four четверти whose dates an admin had corrected by
+    hand and write two conventional полугодия over them, with nothing asked and
+    no audit line. Only `set_scheme`, which passes `kind` explicitly, may throw
+    a set away.
+    """
+    school_class.grade = 9
+    seeded = await service.ensure(session, school_class, 2026)
+    edited = seeded[0]
+    edited.ends_on = edited.ends_on.replace(day=edited.ends_on.day - 1)
+    await session.commit()
+    moved_end = edited.ends_on
+
+    school_class.grade = 10
+    assert school_class.term_kind is None
+    kept = await service.ensure(session, school_class, 2026)
+
+    assert [t.index for t in kept] == [1, 2, 3, 4]
+    assert all(t.kind is TermKind.QUARTER for t in kept)
+    assert kept[0].ends_on == moved_end

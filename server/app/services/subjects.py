@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Subject, TimetableEntry
@@ -63,6 +64,33 @@ async def find(session: AsyncSession, class_id: int, name: str) -> Subject | Non
     )
 
 
+async def clashing(
+    session: AsyncSession, class_id: int, name: str, *, besides: int | None = None
+) -> Subject | None:
+    """The entry that would collide with ``name``, ignoring case.
+
+    The uniqueness check, kept here beside the matcher it has to agree with.
+    When the two disagree the damage is not a duplicate row: a guard that
+    compares exactly lets «ФИЗИКА» be created next to «Физика», and then
+    :func:`sync_from_timetable`, which folds case, sees one subject where the
+    dictionary has two and rewrites every «Физика» lesson onto whichever row it
+    happened to keep — a read quietly renaming a subject and dropping the
+    colour of the one it abandoned.
+
+    @param besides a row to ignore, for a rename checking its own new name.
+    """
+    cleaned = normalise(name)
+    if not cleaned:
+        return None
+    query = select(Subject).where(
+        Subject.class_id == class_id,
+        func.lower(Subject.name) == _fold(cleaned),
+    )
+    if besides is not None:
+        query = query.where(Subject.id != besides)
+    return await session.scalar(query)
+
+
 async def ensure(session: AsyncSession, class_id: int, name: str) -> Subject | None:
     """The dictionary entry for ``name``, created if the class has none.
 
@@ -94,9 +122,30 @@ async def ensure(session: AsyncSession, class_id: int, name: str) -> Subject | N
         )
         .limit(1)
     )
-    subject = Subject(class_id=class_id, name=normalise(in_use) or cleaned)
-    session.add(subject)
-    await session.flush()
+    return await _adopt(session, class_id, normalise(in_use) or cleaned)
+
+
+async def _adopt(session: AsyncSession, class_id: int, name: str) -> Subject | None:
+    """Insert one dictionary entry, conceding to whoever got there first.
+
+    In a savepoint rather than bare, because this is reached from the read
+    path: a class whose dictionary was never filled has every phone in it poll
+    the bundle on the same timer, so two requests both finding the name absent
+    is the ordinary case rather than a rare one. Without the savepoint the
+    loser of ``uq_subject_name`` takes the whole request down with it, and a
+    500 with no Russian sentence in it is what the class sees on exactly the
+    first read this healing exists for.
+
+    Nothing is committed — the savepoint is released into the caller's
+    transaction, which still owns the decision to keep it.
+    """
+    subject = Subject(class_id=class_id, name=name)
+    try:
+        async with session.begin_nested():
+            session.add(subject)
+            await session.flush()
+    except IntegrityError:
+        return await find(session, class_id, name)
     return subject
 
 
@@ -111,6 +160,51 @@ async def canonical(session: AsyncSession, class_id: int, name: str) -> tuple[st
     if subject is None:
         return normalise(name), None
     return subject.name, subject.id
+
+
+async def spelling(session: AsyncSession, class_id: int, name: str) -> str:
+    """The class's own spelling of ``name``, or ``name`` if it has none.
+
+    :func:`canonical` for the things that carry a subject's *name* without
+    belonging to the weekly template — домашнее задание and a замена. They have
+    no ``subject_id`` to link, so agreeing on the spelling is the whole of what
+    can be agreed, and it is enough for the three things that were wrong:
+
+    * homework upserts on ``(date, subject_name)``, so «алгебра» typed on a
+      phone founded a second задание beside the «Алгебра» already there, and
+      both went out in the evening digest;
+    * :func:`app.services.structure.rename_subject` moves homework by exact old
+      name, so the stray spelling survived a rename and then named a subject
+      the class no longer had;
+    * ``app/schedule.py`` looks a замена's colour up by exact name, so one
+      typed in the wrong case drew grey among coloured lessons.
+
+    Unlike :func:`canonical` this never founds a dictionary entry. Homework is
+    set for what the class already teaches; a picker that grew a subject
+    because somebody wrote down an assignment would be the dictionary learning
+    from the wrong half of the app.
+    """
+    subject = await find(session, class_id, name)
+    return subject.name if subject is not None else normalise(name)
+
+
+async def lessons_using(session: AsyncSession, class_id: int, subject: Subject) -> int:
+    """How many timetable rows this dictionary entry speaks for.
+
+    By link *or* by spelling: a class healed by :func:`sync_from_timetable` is
+    linked, one that predates the link is not, and both count. Without this the
+    caller cannot tell a subject that is merely listed from one the weekly
+    template is built out of.
+    """
+    return await session.scalar(
+        select(func.count())
+        .select_from(TimetableEntry)
+        .where(
+            TimetableEntry.class_id == class_id,
+            (TimetableEntry.subject_id == subject.id)
+            | (func.lower(TimetableEntry.subject_name) == _fold(subject.name)),
+        )
+    ) or 0
 
 
 async def sync_from_timetable(session: AsyncSession, class_id: int) -> int:
@@ -140,12 +234,16 @@ async def sync_from_timetable(session: AsyncSession, class_id: int) -> int:
     if not names:
         return 0
 
-    known = {
-        _fold(subject.name): subject
-        for subject in await session.scalars(
-            select(Subject).where(Subject.class_id == class_id)
-        )
-    }
+    # Oldest wins, and the order is stated rather than left to the database:
+    # a class that acquired two spellings of one subject before the uniqueness
+    # check folded case (see `clashing`) must not have the survivor chosen
+    # afresh on every read, or two phones polling a minute apart drag its
+    # lessons back and forth between the two rows.
+    known: dict[str, Subject] = {}
+    for subject in await session.scalars(
+        select(Subject).where(Subject.class_id == class_id).order_by(Subject.id)
+    ):
+        known.setdefault(_fold(subject.name), subject)
     missing = [name for name in sorted(set(names)) if _fold(name) not in known]
     unlinked = await session.scalar(
         select(func.count())
@@ -155,14 +253,18 @@ async def sync_from_timetable(session: AsyncSession, class_id: int) -> int:
     if not missing and not unlinked:
         return 0
 
+    created = 0
     for name in missing:
-        subject = Subject(class_id=class_id, name=name)
-        session.add(subject)
-        await session.flush()
+        subject = await _adopt(session, class_id, name)
+        if subject is None:
+            continue
+        created += 1
         known[_fold(name)] = subject
 
     for name in sorted(set(names)):
-        subject = known[_fold(name)]
+        subject = known.get(_fold(name))
+        if subject is None:
+            continue
         # Only the rows that are actually wrong. Settling the spelling at the
         # same time matters: two cases of one name in the template draw as two
         # subjects everywhere downstream, colours included.
@@ -177,4 +279,4 @@ async def sync_from_timetable(session: AsyncSession, class_id: int) -> int:
             )
             .values(subject_id=subject.id, subject_name=subject.name)
         )
-    return len(missing)
+    return created

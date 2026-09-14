@@ -128,7 +128,17 @@ class DefaultLessonsContainer(
             preferences = preferences,
             api = api,
             dao = database.timetableDao(),
-            onSignedOut = { SchoolAlerts.clear(appContext) },
+            // The broadcast as well as the alarms, because the widget redraws
+            // on exactly two things: this broadcast, and its own armed tick.
+            // Leaving a class at four on a Friday puts the state at
+            // `AfterSchool`, whose tick is midnight — so without this the home
+            // screen went on showing the lessons of a class the phone had been
+            // thrown out of for the next eight hours, and after a 401 nobody
+            // had even pressed anything.
+            onSignedOut = {
+                DataSyncBroadcast.send(appContext)
+                SchoolAlerts.clear(appContext)
+            },
         )
     }
 

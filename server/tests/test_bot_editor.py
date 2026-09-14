@@ -331,3 +331,24 @@ async def test_clearing_the_canteen_sends_it_back_to_being_a_break(session, scho
 )
 def test_a_break_is_the_gap_between_two_bells(earlier, later, expected):
     assert editor_render.gap_minutes(earlier, later) == expected
+
+
+def test_a_weekday_outside_the_week_does_not_unpack():
+    """The payload is whatever the sender typed into a button's data.
+
+    `day` is used both as an index into WEEKDAY_FULL and as the weekday written
+    onto a TimetableEntry, so `day=0` labelled itself «Воскресенье» off the end
+    of the list and then saved a lesson on weekday 0 — a row the resolver keys
+    on isoweekday() and can never return. The editor showed it, every phone did
+    not, and nothing said so.
+
+    Refusing to unpack is what aiogram reads as a filter that did not match, so
+    a forged payload costs a round trip instead of a lesson nobody can see.
+    """
+    for day in (0, -1, 7, 9):
+        packed = f"ted:add:{day}:0:0:0"
+        with pytest.raises(ValueError):
+            EditorAction.unpack(packed)
+
+    for day in (1, 3, 6):
+        assert EditorAction.unpack(f"ted:add:{day}:0:0:0").day == day

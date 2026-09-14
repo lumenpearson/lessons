@@ -11,10 +11,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -290,5 +292,53 @@ class ManagementViewModelTest {
 
         assertFalse(model.uiState.value.classDeleted)
         assertEquals(0, session.signOuts)
+    }
+
+    /**
+     * Signing out has to empty this state, because this object outlives the
+     * class it describes.
+     *
+     * There is one Activity and no nav graph, so the view model comes from the
+     * Activity's store: leaving a class only takes `HomeShell` out of
+     * composition. `classDeleted` then survived into the next class — and it is
+     * the first branch of the class card, ahead of the load, so the card opened
+     * on a class that existed and announced that it had been deleted. Both of
+     * its buttons call `leaveDeletedClass`, whose only guard is that same flag,
+     * so either one signed the user out of the class they had just joined.
+     */
+    @Test
+    fun `joining another class does not inherit the deleted one's state`() {
+        val model = model()
+        model.deleteClass("9А")
+        repository.answer(0, Result.success(Unit))
+        assertTrue(model.uiState.value.classDeleted)
+
+        model.leaveDeletedClass()
+        session.rejoin(classId = 2L, className = "9Б")
+
+        assertFalse(model.uiState.value.classDeleted)
+        assertEquals(1, session.signOuts)
+
+        // And the button that used to throw the user straight back out now
+        // finds nothing to act on.
+        model.leaveDeletedClass()
+        assertEquals(1, session.signOuts)
+    }
+
+    /**
+     * The quieter half of the same leak: the previous class's card is drawn for
+     * one round trip before `loadClass` answers, which on a shared phone is one
+     * class's join code shown to another.
+     */
+    @Test
+    fun `the previous class's card does not outlive it`() {
+        val model = model()
+        model.loadClass()
+        repository.answer(0, Result.success(FakeSessionRepository.CLASS_CARD))
+        assertNotNull(model.uiState.value.classCard.value)
+
+        runTest { session.signOut() }
+
+        assertNull(model.uiState.value.classCard.value)
     }
 }

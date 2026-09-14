@@ -13,6 +13,7 @@ import java.io.IOException
 import java.time.Clock
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import kotlinx.coroutines.CancellationException
@@ -36,6 +37,14 @@ import retrofit2.HttpException
 internal class TimetableRepositoryImpl(
     private val dao: TimetableDao,
     private val api: LessonsApi,
+    /**
+     * device clock: the seam tests pin "today" through, and the only zone
+     * available before this phone has cached a class to take one from.
+     *
+     * Nothing here reads a date off it directly. `todayAtSchool` re-zones it to
+     * the cached class first, and the one other use — `clock.millis()` — is an
+     * instant, which has no zone to be wrong about.
+     */
     private val clock: Clock = Clock.systemDefaultZone(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     /**
@@ -85,7 +94,7 @@ internal class TimetableRepositoryImpl(
 
     override suspend fun refresh(days: Int): SyncResult = withContext(ioDispatcher) {
         try {
-            val today = LocalDate.now(clock)
+            val today = todayAtSchool()
             // The school year, not a window measured from today.
             //
             // It used to be a rolling month anchored to Monday of the current
@@ -132,7 +141,13 @@ internal class TimetableRepositoryImpl(
                 // Before returning, not after: the caller shows the message,
                 // and by the time it does the app must already be out of a
                 // class that no longer has this device in it.
-                onTokenRejected()
+                //
+                // Guarded, because it writes: `signOut` clears the session
+                // through DataStore, whose write side rethrows `IOException`,
+                // and this runs inside a `catch` with nothing above it but the
+                // bare `viewModelScope.launch` of whoever asked for a refresh.
+                // A full disk would turn a handled 401 into a crash.
+                runCatching { onTokenRejected() }
                 SyncResult.Unauthorised
             } else {
                 SyncResult.Failed("Server returned HTTP ${http.code()}")
@@ -146,6 +161,30 @@ internal class TimetableRepositoryImpl(
             // The cache is untouched, because replaceAll is one transaction.
             SyncResult.Failed(unexpected.message ?: unexpected::class.java.simpleName)
         }
+    }
+
+    /**
+     * Today in the *class's* zone, falling back to the device's only when this
+     * phone has not cached a class yet.
+     *
+     * `LocalDate.now(clock)` on a `systemDefaultZone` clock is the device's
+     * date, and the window this date picks is a school year: `SchoolYear`
+     * changes windows between 31 May and 1 June. A class in Kaliningrad seen
+     * from a phone left on a zone to the east therefore asks, at ten in the
+     * evening on the last day of school, for *next* September–May — and since
+     * `replaceAll` wipes the table before writing, the app and the widget both
+     * fall to «Нет данных» for the rest of that day and stay there until the
+     * device's own date rolls over.
+     *
+     * The zone is already cached beside the timetable this call is about to
+     * replace, which is one indexed single-row read against a network round
+     * trip.
+     */
+    private suspend fun todayAtSchool(): LocalDate {
+        val stored = runCatching { dao.schoolClass()?.timeZoneId }.getOrNull()
+        val zone = stored?.let { id -> runCatching { ZoneId.of(id) }.getOrNull() }
+        // device clock: only until this phone has a class to take a zone from.
+        return LocalDate.now(if (zone != null) clock.withZone(zone) else clock)
     }
 
     private companion object {

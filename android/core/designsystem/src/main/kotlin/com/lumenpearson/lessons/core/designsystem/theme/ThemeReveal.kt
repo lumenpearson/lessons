@@ -9,16 +9,18 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -41,7 +43,9 @@ import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
 import kotlin.math.hypot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Switching the theme, as a circle opening from the switch that did it.
@@ -65,6 +69,23 @@ import kotlinx.coroutines.launch
  * Which is why this is driven from the call site rather than by watching the
  * settings flow. By the time an observer of the flow hears about the change, the
  * only thing left to photograph is the answer.
+ *
+ * ### Why step 3 waits
+ *
+ * Step 2 does not finish when it returns. The setter is a `launch` over
+ * DataStore, so `change()` comes back at its first suspension point and the tree
+ * under the photograph is still the *old* theme for several frames. Opening the
+ * hole then shows the old theme inside it, and the new one appears within an
+ * already-open circle — which is precisely the instant swap the effect exists to
+ * hide, moved a few frames later and made worse by the hole drawing attention to
+ * where it happens.
+ *
+ * So the hole waits for the theme it is supposed to be revealing: [themeKey] is
+ * republished by [ThemeRevealHost] on every composition, and the animation
+ * starts on the first value that differs from the one photographed. A change
+ * that turns out not to alter the theme at all never publishes a new key, and
+ * the wait ends on [SettleTimeoutMillis] instead — invisibly, because the
+ * photograph being held is identical to the live tree underneath it.
  */
 @Stable
 class ThemeRevealState internal constructor(
@@ -86,6 +107,28 @@ class ThemeRevealState internal constructor(
      */
     internal var wipe by mutableStateOf<Wipe?>(null)
         private set
+
+    /**
+     * A number that changes when the drawn theme changes, republished by
+     * [ThemeRevealHost] after every composition it survives.
+     *
+     * Snapshot state rather than a flow of its own so that the wait costs
+     * nothing when nobody is waiting: [snapshotFlow] subscribes only while a
+     * reveal is in flight, which is half a second per theme switch and never
+     * otherwise.
+     */
+    internal var themeKey by mutableStateOf(0uL)
+
+    /**
+     * Whether a photograph is currently on screen.
+     *
+     * Public because the system bars are not part of the composition and cannot
+     * be wiped with it: their icons are tinted by the window, so a caller that
+     * re-tints them the moment the theme changes paints dark icons over a
+     * photograph that is still light. `MainActivity` holds the tint until this
+     * goes false.
+     */
+    val revealing: Boolean get() = wipe != null
 
     private var running: Job? = null
 
@@ -116,6 +159,7 @@ class ThemeRevealState internal constructor(
         }
 
         val wipe = Wipe(shot, origin)
+        val photographed = themeKey
         // Cancelled before the new one is published, so the old animation cannot
         // land a frame — or its own cleanup — on top of it.
         running?.cancel()
@@ -124,6 +168,12 @@ class ThemeRevealState internal constructor(
 
         running = scope.launch {
             try {
+                // See "Why step 3 waits". The photograph is already on screen at
+                // progress 0 while this runs, so the delay is a still frame of
+                // what the user was already looking at, not a blank one.
+                withTimeoutOrNull(SettleTimeoutMillis) {
+                    snapshotFlow { themeKey }.first { it != photographed }
+                }
                 wipe.progress.animateTo(1f, tween(RevealMillis, easing = FastOutLinearInEasing))
             } finally {
                 // Only if it is still ours: a wipe that was superseded has
@@ -158,6 +208,20 @@ internal class Wipe(
 private const val RevealMillis = 560
 
 /**
+ * How long the hole will wait for the theme it is about to reveal.
+ *
+ * A ceiling, not a delay: the usual wait is the two or three frames a DataStore
+ * write and a recomposition take, and the timeout only ever runs out for a
+ * change that did not alter the theme — tapping the mode that is already
+ * selected, or turning on dynamic colour where the wallpaper gives back the
+ * same palette. Costing that case a third of a second is free, because what is
+ * held on screen is a photograph identical to the tree beneath it; overrunning
+ * a real change is not free, so the number is well clear of any plausible disk
+ * write rather than tight against the expected one.
+ */
+private const val SettleTimeoutMillis = 350L
+
+/**
  * How far past the furthest corner the wavefront travels before it is done.
  *
  * Without it the circle ends exactly on the corner, and because the curve of a
@@ -188,30 +252,27 @@ private const val SnapshotScale = 0.5f
 val LocalThemeReveal = staticCompositionLocalOf<ThemeRevealState?> { null }
 
 /**
- * Hosts the reveal overlay. Wrap the whole app in it, once.
+ * The reveal handle, created once per window.
  *
- * The overlay is a sibling drawn after [content], never a parent of it: it must
- * not be able to take a touch, and a `Canvas` with no pointer input cannot. That
- * is not a hypothetical caution in this codebase — a full-screen layer over the
- * settings pages once ate every tap on every row for two releases.
+ * Hoisted out of [ThemeRevealHost] because the system bars need it and they are
+ * not part of the composition the host wraps: their icons are tinted through the
+ * window, above the theme, so whoever sets that tint has to know whether a
+ * photograph is currently covering the screen. Create it above `MaterialTheme`,
+ * pass it down.
  */
 @Composable
-fun ThemeRevealHost(
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    content: @Composable () -> Unit,
-) {
+fun rememberThemeRevealState(enabled: Boolean = true): ThemeRevealState {
     val view = LocalView.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Read through a state holder rather than captured: the host is remembered
+    // Read through a state holder rather than captured: the state is remembered
     // once per view and the setting changes underneath it, and a wipe that ran
     // on the old value of a switch the user had just turned off would be the
     // one wipe they specifically asked not to see.
     val wanted = rememberUpdatedState(enabled)
 
-    val state = remember(view) {
+    return remember(view) {
         ThemeRevealState(
             scope = scope,
             capture = { view.photograph(SnapshotScale) },
@@ -220,6 +281,34 @@ fun ThemeRevealHost(
             enabled = { wanted.value && context.animatorsAreOn() },
         )
     }
+}
+
+/**
+ * Hosts the reveal overlay. Wrap the whole app in it, once, inside the theme.
+ *
+ * The overlay is a sibling drawn after [content], never a parent of it: it must
+ * not be able to take a touch, and a `Canvas` with no pointer input cannot. That
+ * is not a hypothetical caution in this codebase — a full-screen layer over the
+ * settings pages once ate every tap on every row for two releases.
+ *
+ * Inside the theme rather than around it, because this is where the resolved
+ * colours are — see [ThemeRevealState.themeKey].
+ */
+@Composable
+fun ThemeRevealHost(
+    state: ThemeRevealState,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    // What the theme looks like from in here, which is inside MaterialTheme and
+    // therefore after every setting that feeds it has been resolved — mode,
+    // dynamic colour and pitch black all land as different colours and none of
+    // them has to be known by name. Published from a SideEffect so it is written
+    // once the composition holding the new colours has been applied, which is
+    // the moment the tree under the photograph stops being the old theme.
+    val scheme = MaterialTheme.colorScheme
+    val key = scheme.background.value xor scheme.surface.value xor scheme.primary.value
+    SideEffect { state.themeKey = key }
 
     Box(modifier = modifier.fillMaxSize()) {
         CompositionLocalProvider(LocalThemeReveal provides state) {

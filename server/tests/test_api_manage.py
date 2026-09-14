@@ -465,8 +465,32 @@ async def test_subject_patch_sets_and_clears_the_small_fields(client, session, s
     ]
 
 
-async def test_subject_delete_keeps_the_lessons(client, session, school_class):
+async def test_subject_delete_is_refused_while_the_timetable_uses_it(
+    client, session, school_class
+):
+    """Deleting half of one list is refused, and says how much of it is in use.
+
+    It used to succeed and leave the lessons alone. Once the dictionary began
+    keeping itself that stopped meaning anything: the name is still in the
+    weekly template, so the next read adopts it straight back — without the
+    colour, the short name or the teacher the deleted row carried — and the
+    admin is told nothing.
+    """
     subject = await _subject(session, school_class, "Алгебра")
+    token = await _admin(client, session, school_class)
+
+    response = await client.delete(
+        f"/api/v1/manage/subjects/{subject.id}", headers=_auth(token)
+    )
+    assert response.status_code == 409
+    assert "lesson" in response.json()["detail"]
+    assert await session.scalar(select(Subject).where(Subject.id == subject.id)) is not None
+    assert await _actions(session, school_class) == []
+
+
+async def test_a_subject_nothing_teaches_still_deletes(client, session, school_class):
+    """The case the endpoint was really for: a row the template never mentions."""
+    subject = await _subject(session, school_class, "Астрономия")
     token = await _admin(client, session, school_class)
 
     response = await client.delete(
@@ -479,7 +503,7 @@ async def test_subject_delete_keeps_the_lessons(client, session, school_class):
     names = await session.scalars(
         select(TimetableEntry.subject_name).where(TimetableEntry.class_id == school_class.id)
     )
-    assert "Алгебра" in set(names)
+    assert "Астрономия" not in set(names)
     assert await _actions(session, school_class) == ["subject.delete"]
 
 

@@ -446,7 +446,7 @@ instant.
 | `GET` | `/manage/subjects` | editor | The dictionary, with ids |
 | `POST` | `/manage/subjects` | admin | Add a subject → `201` |
 | `PATCH` | `/manage/subjects/{id}` | admin | Rename / short name / teacher / colour |
-| `DELETE` | `/manage/subjects/{id}` | admin | Remove the dictionary entry |
+| `DELETE` | `/manage/subjects/{id}` | admin | Remove it; `409` while the timetable uses it |
 | `GET` | `/manage/bells` | admin | Every bell schedule, default marked |
 | `POST` | `/manage/bells` | admin | New schedule → `201` |
 | `PATCH` | `/manage/bells/{id}` | admin | Rename, or make it the class default |
@@ -572,11 +572,23 @@ rows written before the link existed. Renaming onto a name the class already use
 two subjects is a different operation, and doing it by accident cannot be
 undone.
 
-`DELETE` removes the dictionary entry and **leaves the lessons alone**: the
-timetable keeps the name (the link goes to `null`) and loses only the colour
-and the teacher, which is what an admin cleaning up a duplicate means. The next
-read re-adopts the name, because the timetable still uses it — deleting a
-subject a class is still taught is not a way to stop being taught it.
+`DELETE` is **refused with `409` while the weekly template still uses the
+subject**, and the detail says how many lessons do (`"12 lesson(s) still use
+this subject"`). It used to succeed and leave the lessons alone — the timetable
+keeps the name, so the class kept its расписание and lost only the colour and
+the teacher. That stopped meaning anything once the dictionary began keeping
+itself: the name is still in the template, so the next read adopts it straight
+back, stripped of the colour, the short name and the teacher the deleted row
+carried, and the admin was told nothing at all. Two halves of one list are
+deleted in one order — out of the расписание, then out of the dictionary. A
+subject nothing teaches still deletes in one call, which is what this endpoint
+was really for.
+
+Uniqueness ignores case everywhere it is checked — `POST`, `PATCH name` and the
+bot — because the matcher does. When it did not, «ФИЗИКА» was allowed in beside
+«Физика», and the healing read then saw one subject where the dictionary had
+two and rewrote every «Физика» lesson onto whichever row it happened to keep:
+a read renaming a subject and dropping the colour of the one it abandoned.
 
 ### Bell schedules
 

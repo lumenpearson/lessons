@@ -191,4 +191,27 @@ internal class FakeSessionRepository : SessionRepository {
         signOuts++
         state.value = null
     }
+
+    /** Joining a different class on the same phone, without restarting it. */
+    fun rejoin(classId: Long, className: String) {
+        state.value = Session(classId = classId, className = className, school = null, token = "t2")
+    }
+
+    companion object {
+        /** A filled card, for the tests that care that it is there and then is not. */
+        val CLASS_CARD = ManagedClass(
+            id = 1,
+            name = "9А",
+            school = null,
+            city = null,
+            timezone = "Europe/Moscow",
+            timezoneLabel = "МСК (UTC+3) · Москва",
+            joinCode = "DEMO24",
+            members = 3,
+            devices = 2,
+            pendingRequests = 0,
+            bellScheduleId = 1,
+            calendarReady = true,
+        )
+    }
 }

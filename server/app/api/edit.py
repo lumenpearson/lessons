@@ -53,7 +53,7 @@ from app.schemas import (
     OverrideIn,
     OverrideOut,
 )
-from app.services import audit, linking, notify
+from app.services import audit, linking, notify, subjects
 from app.services import tasks as task_service
 
 log = logging.getLogger(__name__)
@@ -154,18 +154,21 @@ async def homework_put(
     subject per day, and sending it again replaces the text."""
     _check_date(payload.due_date)
     actor = device.telegram_id
+    # The class's spelling, so that «алгебра» from a phone updates the «Алгебра»
+    # already set for that day instead of founding a second задание beside it.
+    subject_name = await subjects.spelling(session, school_class.id, payload.subject)
     existing = await session.scalar(
         select(Homework).where(
             Homework.class_id == school_class.id,
             Homework.due_date == payload.due_date,
-            Homework.subject_name == payload.subject,
+            Homework.subject_name == subject_name,
         )
     )
     if existing is None:
         existing = Homework(
             class_id=school_class.id,
             due_date=payload.due_date,
-            subject_name=payload.subject,
+            subject_name=subject_name,
             text=payload.text,
             attachment_url=payload.attachment_url,
             created_by=actor,
@@ -180,7 +183,7 @@ async def homework_put(
 
     when = human_date(payload.due_date, _today(school_class))
     await audit.record(
-        session, school_class.id, actor, action, f"ДЗ {verb}: {payload.subject}, {when}"
+        session, school_class.id, actor, action, f"ДЗ {verb}: {subject_name}, {when}"
     )
     await session.commit()
     await session.refresh(existing)
@@ -188,7 +191,7 @@ async def homework_put(
     await _tell(
         session,
         school_class,
-        f"📝 Задание {verb}: <b>{escape(payload.subject)}</b> {escape(when)}\n"
+        f"📝 Задание {verb}: <b>{escape(subject_name)}</b> {escape(when)}\n"
         f"{escape(payload.text)}",
         kind="homework",
         author=actor,
@@ -296,11 +299,18 @@ async def override_put(
         text = f"🚫 Урок №{payload.index} {escape(when)} отменён."
     else:
         existing.action = OverrideAction.REPLACE
-        existing.subject_name = payload.subject
+        # The class's spelling: the resolver looks a замена's colour up by
+        # exact name, so one sent in the wrong case draws grey among coloured
+        # lessons.
+        existing.subject_name = (
+            await subjects.spelling(session, school_class.id, payload.subject)
+            if payload.subject
+            else payload.subject
+        )
         existing.room = payload.room
         existing.teacher = payload.teacher
         existing.note = payload.note
-        what = payload.subject or "кабинет/учитель"
+        what = existing.subject_name or "кабинет/учитель"
         summary = f"Замена: урок №{payload.index}, {when} — {what}"
         text = (
             f"🔁 Замена {escape(when)}: урок №{payload.index} — <b>{escape(what)}</b>"

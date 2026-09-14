@@ -188,6 +188,27 @@ class ManagementViewModel(
     private val state = MutableStateFlow(ManagementUiState())
     val uiState: StateFlow<ManagementUiState> = state.asStateFlow()
 
+    init {
+        // Everything in this state belongs to one class, and this object
+        // outlives it. There is one Activity and no nav graph, so the store
+        // this view model comes from is the Activity's: signing out only takes
+        // `HomeShell` out of composition, and every field here survives into
+        // whatever class the phone joins next.
+        //
+        // `classDeleted` is the one that bites. It is the first branch of the
+        // class card, ahead of the load, so the card opened on the *new* class
+        // announcing that it had been deleted — and both of its buttons call
+        // `leaveDeletedClass`, whose only guard is that same stale flag, so
+        // either one threw the user out of the class they had just joined and
+        // wiped the cache again. The rest is quieter and still wrong: the
+        // previous class's join code, school and member counts are drawn for
+        // one round trip before `loadClass` answers, which on a shared phone
+        // is one class's invite code shown to another.
+        viewModelScope.launch {
+            session.session.collect { if (it == null) state.value = ManagementUiState() }
+        }
+    }
+
     // -- the class card -----------------------------------------------------
 
     fun loadClass() = read({ it.copy(classCard = it.classCard.copy(loading = true, failure = null)) }) {

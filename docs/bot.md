@@ -256,10 +256,14 @@ entry has a name, a short name, a teacher and a colour (eight presets, or type
   the confirmation says how many rows moved. The homework and the замены store
   the name as text on purpose (a lesson keeps its name when a subject is
   deleted), and this is the price of that choice.
-* Deleting an entry leaves the lessons alone; the class loses the colour and the
-  teacher. The bare name comes back on the next read, because the timetable
-  still uses it — deleting a subject the class is still taught is not a way to
-  stop being taught it. Rename it instead.
+* **Deleting an entry the расписание still uses is refused**, with the number of
+  lessons that use it. It used to be allowed and leave the lessons alone — but
+  once the list began keeping itself that stopped meaning anything: the name is
+  still in the template, so the next read adopted it back without its colour,
+  short name or teacher, and the admin was left believing they had deleted
+  something. Take the subject out of the расписание first. A subject nothing
+  teaches still goes in one tap. To retire a spelling rather than a subject,
+  rename it — that moves the rows instead of orphaning them.
 
 ## Особые дни — `/holidays`
 

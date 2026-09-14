@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from pydantic import Field
 
 from app.bot.button_style import DANGER, SUCCESS
 from app.bot.editor_render import slot_label
@@ -39,10 +40,20 @@ class EditorAction(CallbackData, prefix="ted"):
     ``flags`` the view switches. The prefix is ``ted`` rather than ``ed``
     because ``tests/test_bot_manage.py`` checks every prefix against every
     other, and a two-letter one is a collision waiting for the next feature.
+
+    The bound on ``day`` is enforced, not documented. A payload is whatever the
+    sender typed into a button's data, and this one is used both as an index
+    into :data:`WEEKDAY_FULL` and as the weekday written onto a
+    ``TimetableEntry``. ``day=0`` labelled itself «Воскресенье» off the end of
+    the list and saved a lesson on weekday 0 — a row the resolver, which keys
+    on ``isoweekday()`` and so only ever asks for 1–7, can never return: the
+    editor showed it, every phone did not, and nothing said so. An out-of-range
+    payload now fails to unpack, which aiogram treats as a filter that did not
+    match.
     """
 
     action: str  # day | slot | add | edit | move | drop | split | merge | …
-    day: int = 1
+    day: int = Field(default=1, ge=1, le=LAST_WEEKDAY)
     index: int = 0
     flags: int = 0  # view switches only — they survive every navigation
     arg: int = 0  # action-specific: «move» direction, «edit»/«merge» parity

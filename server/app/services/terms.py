@@ -126,10 +126,20 @@ async def ensure(
     from the editor, because a class created before this feature existed has no
     terms at all and the first person to look at its calendar should see the
     conventional ones rather than an empty screen.
+
+    **Seeds, never replaces.** A set that already exists is returned as it
+    stands, whatever scheme it is in, and only an explicit ``kind`` — which
+    reaches here from :func:`set_scheme` and nowhere else — may throw it away.
+    Without that rule the replacement below is reachable from a read: a 9-й
+    класс keeps ``term_kind`` NULL, so :func:`scheme_of` answers from the
+    grade, and moving that class up to 10 makes the *next bundle request from
+    any phone* delete four четверти whose dates an admin had spent an evening
+    correcting, and write two conventional полугодия over them. Nothing would
+    have asked, and the audit log would not carry it either.
     """
     existing = await read(session, school_class.id, year)
     wanted = kind or scheme_of(school_class)
-    if existing and existing[0].kind is wanted:
+    if existing and (kind is None or existing[0].kind is wanted):
         return existing
 
     # A scheme change replaces the set rather than editing it: four quarters

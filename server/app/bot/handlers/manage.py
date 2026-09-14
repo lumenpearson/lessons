@@ -85,6 +85,7 @@ from app.bot.manage_states import (
     RequestAccess,
 )
 from app.bot.middlewares import prefs_key
+from app.bot.render import plural
 from app.bot.roles import can_grant, list_memberships
 from app.config import get_settings
 from app.db import SessionLocal
@@ -431,11 +432,7 @@ async def subject_rename(
         await message.answer("Название не изменилось.", reply_markup=back_to_menu())
         return
 
-    clash = await session.scalar(
-        select(Subject).where(
-            Subject.class_id == school_class.id, Subject.name == name, Subject.id != subject.id
-        )
-    )
+    clash = await subjects_service.clashing(session, school_class.id, name, besides=subject.id)
     if clash is not None:
         await message.answer(
             f"Предмет <b>{escape(name)}</b> уже есть. Придумайте другое название:"
@@ -653,13 +650,13 @@ async def subject_create(
         await message.answer(f"Название от 1 до {SUBJECT_NAME_MAX} символов. Ещё раз:")
         return
 
-    existing = await session.scalar(
-        select(Subject).where(Subject.class_id == school_class.id, Subject.name == name)
-    )
+    # Ignores case, so «физика» opens the class's «Физика» instead of founding
+    # a second row beside it.
+    existing = await subjects_service.find(session, school_class.id, name)
     if existing is not None:
         await state.clear()
         await message.answer(
-            f"Предмет <b>{escape(name)}</b> уже есть.",
+            f"Предмет <b>{escape(existing.name)}</b> уже есть.",
             reply_markup=subject_card_keyboard(existing.id),
         )
         return
@@ -685,12 +682,17 @@ async def subject_delete(
     school_class: SchoolClass | None,
     role: Role | None,
 ) -> None:
-    """Deleting a subject leaves the lessons alone.
+    """Deleting a subject the timetable still uses is refused.
 
-    The timetable stores the name, so the class keeps its расписание and only
-    loses the colour and the teacher — which is what an admin cleaning up a
-    duplicate entry means, and the opposite of what deleting the lessons would
-    mean.
+    It used to be allowed, and it left the lessons alone: the template stores
+    the name as well as the link, so the class kept its расписание and lost
+    only the colour and the teacher. That stopped being true when the
+    dictionary started keeping itself — the name is still in the template, so
+    the next read adopts it back, stripped of its colour and its teacher, and
+    the admin is left believing they deleted something.
+
+    The order is now stated instead: out of the расписание first, out of the
+    dictionary second. A subject nothing teaches still goes in one tap.
     """
     if not _allowed(school_class, role, Role.ADMIN):
         await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
@@ -699,6 +701,16 @@ async def subject_delete(
     subject = await _subject_by_id(session, school_class, callback_data.value)
     if subject is None:
         await callback.answer("Предмет уже удалён", show_alert=True)
+        return
+
+    in_use = await subjects_service.lessons_using(session, school_class.id, subject)
+    if in_use:
+        await callback.answer(
+            f"«{subject.name}» стоит в расписании: "
+            f"{in_use} {plural(in_use, 'урок', 'урока', 'уроков')}. "
+            "Сначала уберите их из расписания.",
+            show_alert=True,
+        )
         return
 
     name = subject.name

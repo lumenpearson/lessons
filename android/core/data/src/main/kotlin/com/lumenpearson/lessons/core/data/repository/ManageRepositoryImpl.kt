@@ -212,7 +212,12 @@ internal class ManageRepositoryImpl(
             throw cancellation
         } catch (failure: Exception) {
             val classified = ManageFailure.of(failure)
-            if (classified is ManageFailure.SignedOut) onTokenRejected()
+            // Guarded: `signOut` writes through DataStore, which rethrows
+            // `IOException`, and this sits in a `catch` under the bare
+            // `viewModelScope.launch` of a management screen. Losing the
+            // sign-out on a full disk is recoverable — the next 401 tries
+            // again — and crashing on one is not.
+            if (classified is ManageFailure.SignedOut) runCatching { onTokenRejected() }
             Result.failure(classified)
         }
     }

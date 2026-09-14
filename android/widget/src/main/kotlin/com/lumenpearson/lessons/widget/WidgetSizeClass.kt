@@ -267,10 +267,24 @@ enum class WidgetSizeClass(
         paddingDp = 12f,
     ),
 
-    /** Four rows: the whole rest of the school day fits, with the week above it. */
+    /**
+     * The week, what is left of today, and what is set for next time.
+     *
+     * Homework used to be off here, and that was the ladder's one real
+     * inversion: this rung catches everything from 250×250 up to the next one,
+     * so a widget 250 wide and 300 tall landed here and drew *less* than the
+     * same widget 110 wide, which lands on [NARROW] and has homework on. Wider
+     * and taller, and the homework block disappears — the kind of thing a user
+     * fixes by making the widget smaller and then does not trust again.
+     *
+     * Paid for out of the timeline, because the height was already spent: six
+     * rows and the week strip filled it. Five rather than four because five is
+     * what [NARROW] lists, and this rung has to be reachable by growing that
+     * one — the floor is the ladder's own rule, not a guess at how much fits.
+     */
     LARGE(
         breakpoint = DpSize(250.dp, 250.dp),
-        timelineRows = 6,
+        timelineRows = 5,
         homeworkItems = 5,
         homeworkChars = 56,
         showsSubject = true,
@@ -279,7 +293,7 @@ enum class WidgetSizeClass(
         showsNextUp = false,
         showsTodayHomework = true,
         showsWeekStrip = true,
-        showsHomework = false,
+        showsHomework = true,
         showsNextDay = false,
         titleSp = 21f,
         bodySp = 14f,

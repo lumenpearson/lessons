@@ -380,10 +380,8 @@ async def _subject_or_404(
 async def _name_taken(
     session: AsyncSession, class_id: int, name: str, *, besides: int | None = None
 ) -> bool:
-    query = select(Subject.id).where(Subject.class_id == class_id, Subject.name == name)
-    if besides is not None:
-        query = query.where(Subject.id != besides)
-    return await session.scalar(query) is not None
+    """Ignores case, because everything downstream of it does."""
+    return await subjects_service.clashing(session, class_id, name, besides=besides) is not None
 
 
 @router.get("/subjects", response_model=list[ManagedSubjectOut])
@@ -504,14 +502,25 @@ async def subject_delete(
     school_class: SchoolClass = Depends(current_class),
     session: AsyncSession = Depends(get_session),
 ) -> DeletedOut:
-    """Deleting a subject leaves the lessons alone.
+    """Deleting a subject the timetable still uses is refused.
 
-    The timetable stores the name, so the class keeps its расписание and only
-    loses the colour and the teacher - which is what an admin cleaning up a
-    duplicate entry means, and the opposite of what deleting the lessons would
-    mean.
+    It used to be allowed, and it left the lessons alone: the timetable stores
+    the name as well as the link, so the class kept its расписание and lost
+    only the colour and the teacher. That stopped being true when the
+    dictionary started keeping itself. The name is still in the template, so
+    the next read adopts it again - the entry returns within one poll, without
+    its colour, its short name or its teacher, and the admin is left believing
+    they deleted something.
+
+    So the two halves of one list are deleted in one order: take the subject
+    out of the weekly template, and then out of the dictionary. A subject
+    nothing teaches still deletes in one step, which is the case this endpoint
+    was really for.
     """
     subject = await _subject_or_404(session, school_class, subject_id)
+    in_use = await subjects_service.lessons_using(session, school_class.id, subject)
+    if in_use:
+        raise _conflict(f"{in_use} lesson(s) still use this subject")
     name = subject.name
     await session.delete(subject)
     await audit.record(
