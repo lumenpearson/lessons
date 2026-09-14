@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -745,10 +746,17 @@ private fun ShellScaffold(
     // This page's own scroll drives this page's own fade. The shell used to pick
     // whichever screen was in front and hand one number to everybody, which the
     // page sliding away then wore for the length of the slide.
-    val topFraction by animateFloatAsState(
-        targetValue = (offset.value / TopBlurRampPx).coerceIn(0f, 1f),
-        label = "top_blur_fraction",
-    )
+    // derivedStateOf, because the raw offset changes every scrolled pixel and
+    // the fraction it produces does not: past the ramp it is 1f and stays
+    // there. Read directly, this composable — the whole page, toolbar included
+    // — was invalidated on every frame of every scroll for a number that had
+    // stopped moving. The derived read only invalidates when the clamped value
+    // actually changes, which is a handful of frames per swipe instead of all
+    // of them.
+    val target by remember(offset) {
+        derivedStateOf { (offset.value / TopBlurRampPx).coerceIn(0f, 1f) }
+    }
+    val topFraction by animateFloatAsState(targetValue = target, label = "top_blur_fraction")
 
     Box(modifier = Modifier.fillMaxSize()) {
         CompositionLocalProvider(LocalBottomBarSpace provides barHeight + BottomBarGap) {
