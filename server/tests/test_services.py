@@ -789,7 +789,8 @@ async def test_render_ics_writes_lessons_events_homework_and_tasks(session, scho
         ]
     )
     await session.commit()
-    await _homework(session, school_class, MONDAY)
+    homework = await _homework(session, school_class, MONDAY)
+    event = await session.scalar(select(DayEvent).where(DayEvent.class_id == cid))
     task = await tasks.add_task(
         session,
         cid,
@@ -832,12 +833,12 @@ async def test_render_ics_writes_lessons_events_homework_and_tasks(session, scho
     assert f"UID:lesson-{cid}-2026-09-07-3@lessons" not in lines
     assert "SUMMARY:История" not in lines
 
-    assert f"UID:event-{cid}-2026-09-07-1@lessons" in lines
+    assert f"UID:event-{cid}-id{event.id}@lessons" in lines
     assert "SUMMARY:Столовая" in lines
     assert "LOCATION:1 этаж" in lines
     assert "DTSTART;TZID=Europe/Moscow:20260907T123000" in lines
 
-    assert f"UID:homework-{cid}-2026-09-07-1@lessons" in lines
+    assert f"UID:homework-{cid}-id{homework.id}@lessons" in lines
     assert "DUE;VALUE=DATE:20260907" in lines
     assert "SUMMARY:Алгебра: № 12–15" in lines
 
@@ -1203,3 +1204,49 @@ async def test_export_roundtrips_through_parse(session, school_class):
 
 def test_export_of_nothing_is_empty():
     assert timetable_io.export_timetable([], []) == ""
+
+
+async def test_a_calendar_uid_survives_its_neighbour_being_deleted(session, school_class):
+    """UIDs used to be the item's position within its day, which is not an
+    identity.
+
+    Delete the first of three заданий and the other two slid up into its UID
+    and the second's. A subscriber's client reads a UID as "which to-do is
+    this", so two of them silently changed into different subjects — ticked-off
+    ones included — and a third disappeared. Nothing in the feed said anything
+    had happened.
+    """
+    algebra = await _homework(session, school_class, MONDAY, subject="Алгебра")
+    biology = await _homework(session, school_class, MONDAY, subject="Биология")
+    history = await _homework(session, school_class, MONDAY, subject="История")
+
+    def uids_of(ics: str) -> dict[str, str]:
+        """Subject -> the UID the feed gave it."""
+        out, current = {}, None
+        for line in ics.split("\r\n"):
+            if line.startswith("UID:homework-"):
+                current = line
+            elif line.startswith("SUMMARY:") and current is not None:
+                out[line[len("SUMMARY:"):].split(":")[0]] = current
+                current = None
+        return out
+
+    async def render() -> dict[str, str]:
+        days = await ScheduleResolver(session, school_class).resolve_range(MONDAY, 1)
+        return uids_of(
+            calendar.render_ics(
+                school_class, days, generated_at=datetime(2026, 9, 6, 12, 0, tzinfo=UTC)
+            )
+        )
+
+    before = await render()
+    assert set(before) == {"Алгебра", "Биология", "История"}
+
+    await session.delete(algebra)
+    await session.commit()
+    after = await render()
+
+    assert set(after) == {"Биология", "История"}
+    assert after["Биология"] == before["Биология"]
+    assert after["История"] == before["История"]
+    assert str(biology.id) in after["Биология"] and str(history.id) in after["История"]

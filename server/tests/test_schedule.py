@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, time, timedelta
+from datetime import date as Date
 
 import pytest
 
+from app import schedule
 from app.models import (
     DayEvent,
     DayKind,
@@ -310,3 +312,53 @@ async def test_a_room_change_for_the_same_subject_keeps_the_teacher(session, sch
     assert lesson.room == "101"
     assert lesson.teacher == "Иванова И.И."
     assert lesson.is_replaced
+
+
+# ---- «числитель/знаменатель» ----------------------------------------------
+
+
+def test_parity_alternates_across_every_week_of_a_53_week_iso_year():
+    """The bug this replaced: parity was the ISO week number's parity.
+
+    An ISO year with 53 weeks puts week 53 and week 1 side by side, both odd.
+    2026 is such a year — Monday 2026-12-28 is week 53 and Monday 2027-01-04 is
+    week 1 — so числитель was drawn twice running and every знаменатель lesson
+    of the rest of that year came out one week off, everywhere at once and with
+    nothing logged.
+    """
+    for opening in (2024, 2025, 2026, 2027, 2031, 2032):
+        day = schedule.school_year_start(opening)
+        end = schedule.school_year_end(opening)
+        previous: tuple[Date, WeekParity] | None = None
+        while day <= end:
+            monday = day - timedelta(days=day.weekday())
+            parity = week_parity(monday)
+            if previous is not None and previous[0] != monday:
+                assert parity is not previous[1], (
+                    f"{opening}/{opening + 1}: {previous[0]} and {monday} are both "
+                    f"{parity.value} — the weeks stopped alternating"
+                )
+            previous = (monday, parity)
+            day += timedelta(days=7)
+
+
+def test_parity_belongs_to_the_week_and_not_to_the_day():
+    """Saturday must answer what the Monday before it answered, or a six-day
+    school week changes parity halfway through."""
+    monday = Date(2026, 12, 28)
+    for offset in range(6):
+        assert week_parity(monday + timedelta(days=offset)) is week_parity(monday)
+
+
+def test_the_new_parity_rule_did_not_swap_any_year_that_was_already_right():
+    """Switching the basis must not have turned every class's числитель into
+    знаменатель. It does not: the opening week keeps the parity the ISO rule
+    gave it, so the two rules agree on every day of every year the old one got
+    right, and part company only inside the two it did not."""
+    for opening in (2024, 2025, 2027, 2031):
+        day = schedule.school_year_start(opening)
+        end = schedule.school_year_end(opening)
+        while day <= end:
+            old = WeekParity.ODD if day.isocalendar().week % 2 == 1 else WeekParity.EVEN
+            assert week_parity(day) is old, f"{day} changed meaning"
+            day += timedelta(days=1)

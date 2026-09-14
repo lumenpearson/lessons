@@ -159,6 +159,9 @@ class ResolvedEvent:
     ends_at: Time
     location: str | None = None
     covers_lesson: bool = False
+    #: The row this came from. Carried so the calendar feed can name it: see
+    #: :class:`ResolvedHomework`.
+    id: int | None = None
 
 
 @dataclass(slots=True)
@@ -166,6 +169,14 @@ class ResolvedHomework:
     subject: str
     text: str
     attachment_url: str | None = None
+    #: The row this came from.
+    #:
+    #: Carried for the calendar feed, whose UIDs used to be the item's position
+    #: in its day. A position is not an identity: delete the first of three
+    #: заданий and the other two slide up into its UID and the third's, so every
+    #: subscriber's calendar quietly rewrites two to-dos into different subjects
+    #: and deletes a third — including ones they had already ticked off.
+    id: int | None = None
 
 
 @dataclass(slots=True)
@@ -184,9 +195,32 @@ class ResolvedDay:
 
 
 def week_parity(day: Date) -> WeekParity:
-    """ISO week number parity — the convention Russian schools use for
-    «числитель/знаменатель» weeks."""
-    return WeekParity.ODD if day.isocalendar().week % 2 == 1 else WeekParity.EVEN
+    """«Числитель/знаменатель», counted from the start of the school year.
+
+    Not the ISO week number, which is what this used to be and which does not
+    alternate: an ISO year with 53 weeks puts week 53 and week 1 next to each
+    other, both odd. **2026 is such a year** — Monday 28 December 2026 is week
+    53 and Monday 4 January 2027 is week 1, so the old rule drew числитель
+    twice running and every знаменатель lesson of the rest of that year landed
+    one week out. In the bundle, the widget, the digests and the calendar feed
+    alike, with nothing logged. 2032 is the next one; 2020 was the last.
+
+    Counting weeks since the year opened cannot drift, because the count is
+    what alternates. The opening week keeps whatever parity the ISO rule gave
+    it, so switching to this did not swap числитель and знаменатель under any
+    class that already had a timetable: across 2024/25, 2025/26, 2027/28 and
+    2031/32 the two rules agree on every single day, and they part company only
+    inside the two years the old one got wrong, from January onwards.
+    """
+    start, _ = school_year_bounds(day)
+    # Mondays, because a parity belongs to a week and not to a date: Saturday
+    # must answer the same as the Monday before it.
+    first_monday = start - timedelta(days=start.weekday())
+    this_monday = day - timedelta(days=day.weekday())
+    weeks = (this_monday - first_monday).days // 7
+    opening_is_odd = first_monday.isocalendar().week % 2 == 1
+    is_odd = opening_is_odd if weeks % 2 == 0 else not opening_is_odd
+    return WeekParity.ODD if is_odd else WeekParity.EVEN
 
 
 class ScheduleResolver:
@@ -316,7 +350,7 @@ class ScheduleResolver:
             note=day_override.note if day_override else None,
         )
         resolved.homework = [
-            ResolvedHomework(item.subject_name, item.text, item.attachment_url)
+            ResolvedHomework(item.subject_name, item.text, item.attachment_url, item.id)
             for item in sorted(self._homework.get(day, []), key=lambda h: h.subject_name)
         ]
         resolved.events = [
@@ -327,6 +361,7 @@ class ScheduleResolver:
                 ends_at=event.ends_at,
                 location=event.location,
                 covers_lesson=event.covers_lesson,
+                id=event.id,
             )
             for event in sorted(self._events.get(day, []), key=lambda e: e.starts_at)
         ]

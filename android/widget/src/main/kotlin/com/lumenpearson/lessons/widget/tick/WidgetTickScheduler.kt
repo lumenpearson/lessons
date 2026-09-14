@@ -32,15 +32,6 @@ object WidgetTickScheduler {
     private const val REQUEST_CODE = 0x1E55
 
     /**
-     * How wide a window an inexact alarm may drift.
-     *
-     * Only used for countdown refreshes, never for a bell: being a minute late
-     * on "осталось 12 мин" costs nothing, being a minute late on "Перемена"
-     * makes the widget wrong.
-     */
-    private const val INEXACT_WINDOW_MILLIS = 60_000L
-
-    /**
      * When to wake, as an absolute instant.
      *
      * @property tick the moment in the school's wall time, and whether it is a
@@ -131,7 +122,15 @@ object WidgetTickScheduler {
         val operation = pendingIntent(context, mutable = false, create = true) ?: return
 
         // setExactAndAllowWhileIdle is reserved for bells, and only when the OS
-        // is willing. Everything else is a window, which Doze can batch.
+        // is willing. Everything else is inexact — but not deferrable.
+        //
+        // Not setWindow, which is what this used to be: Doze holds a plain
+        // window until the next maintenance pass, and only one alarm exists at
+        // a time. The exact bell alarm is armed *by the tick before it*, so a
+        // countdown tick held by Doze means the 08:30 boundary is never armed
+        // at all and the chain stops advancing until something else wakes the
+        // device. At 07:00 on a phone lying face down, that is the whole school
+        // day. `SchoolAlerts.arm` refuses setWindow for the same reason.
         val wantsExact = armed.tick.isBoundary && canScheduleExact(alarmManager)
         try {
             if (wantsExact) {
@@ -141,18 +140,13 @@ object WidgetTickScheduler {
                     operation,
                 )
             } else {
-                alarmManager.setWindow(
-                    AlarmManager.RTC,
-                    triggerAt,
-                    INEXACT_WINDOW_MILLIS,
-                    operation,
-                )
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, operation)
             }
         } catch (error: SecurityException) {
             // The exact-alarm permission can be revoked between the check above
             // and this call. Degrading is always better than crashing a receiver.
-            android.util.Log.w(TAG, "Exact alarm refused, falling back to a window", error)
-            alarmManager.setWindow(AlarmManager.RTC, triggerAt, INEXACT_WINDOW_MILLIS, operation)
+            android.util.Log.w(TAG, "Exact alarm refused, falling back to an inexact one", error)
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, operation)
         }
     }
 
