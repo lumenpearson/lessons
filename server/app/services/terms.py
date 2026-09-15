@@ -21,7 +21,6 @@ follows.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from datetime import date as Date
 
 from sqlalchemy import delete as sa_delete
@@ -48,20 +47,6 @@ MAX_LETTER_LENGTH = 8
 
 class TermError(ValueError):
     """A change a school year cannot hold. Carries the Russian explanation."""
-
-
-@dataclass(slots=True)
-class TermView:
-    """One term, flattened for a renderer that has no session."""
-
-    index: int
-    kind: TermKind
-    starts_on: Date
-    ends_on: Date
-
-    @property
-    def days(self) -> int:
-        return (self.ends_on - self.starts_on).days + 1
 
 
 def opening_year_of(on: Date) -> int:
@@ -252,7 +237,7 @@ def parse_span(raw: str | None) -> tuple[Date, Date] | None:
         return None
 
 
-def term_at(terms: list[Term] | list[TermView], on: Date) -> Term | TermView | None:
+def term_at(terms: list[Term], on: Date) -> Term | None:
     """Which term ``on`` falls in, or `None` — каникулы are a real answer."""
     for term in terms:
         if term.starts_on <= on <= term.ends_on:
