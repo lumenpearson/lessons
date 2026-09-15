@@ -25,7 +25,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crypto import diary_enabled, seal, unseal
-from app.models import DiarySession
+from app.models import DiaryOverride, DiarySession
 from app.providers.petersburg import (
     PetersburgClient,
     SessionExpired,
@@ -125,6 +125,123 @@ async def find_session(session: AsyncSession, token: str) -> DiarySession | None
         await session.commit()
         return None
     return row
+
+
+# ---------------------------------------------------------------------------
+# Corrections laid over what came down
+# ---------------------------------------------------------------------------
+#
+# The rules for applying them live in ``services/diary_overrides.py``, which is
+# free of SQLAlchemy so that they can be tested without a database. This is the
+# other half: getting the rows in and out. They are keyed by the upstream login
+# rather than by the session, because a session ends every few days and a
+# correction must not.
+
+
+async def load_corrections(
+    session: AsyncSession, login: str, student_id: int
+) -> dict[str, dict[str, tuple[str, str | None]]]:
+    """Every correction for one child, shaped the way the overlay wants it.
+
+    All of them, not a date range: a target carries its date inside a string,
+    and asking the database to reason about that would make the key format
+    something the schema knows. A family has a handful of these.
+    """
+    rows = await session.scalars(
+        select(DiaryOverride).where(
+            DiaryOverride.login == login,
+            DiaryOverride.student_id == student_id,
+        )
+    )
+    corrections: dict[str, dict[str, tuple[str, str | None]]] = {}
+    for row in rows:
+        corrections.setdefault(row.target, {})[row.field] = (row.value, row.original)
+    return corrections
+
+
+async def list_overrides(
+    session: AsyncSession, login: str, student_id: int
+) -> list[DiaryOverride]:
+    """The raw rows, for the screen that lists and resets them."""
+    rows = await session.scalars(
+        select(DiaryOverride)
+        .where(
+            DiaryOverride.login == login,
+            DiaryOverride.student_id == student_id,
+        )
+        .order_by(DiaryOverride.target, DiaryOverride.field)
+    )
+    return list(rows)
+
+
+async def put_override(
+    session: AsyncSession,
+    login: str,
+    student_id: int,
+    target: str,
+    field: str,
+    value: str,
+    original: str | None,
+) -> DiaryOverride:
+    """Writes a correction, replacing the one that was there.
+
+    Upsert rather than insert: correcting the same field twice is the ordinary
+    case — a person fixes a typo in their own fix — and a second row would make
+    the unique constraint the thing that reports it.
+    """
+    row = await session.scalar(
+        select(DiaryOverride).where(
+            DiaryOverride.login == login,
+            DiaryOverride.student_id == student_id,
+            DiaryOverride.target == target,
+            DiaryOverride.field == field,
+        )
+    )
+    if row is None:
+        row = DiaryOverride(
+            login=login,
+            student_id=student_id,
+            target=target,
+            field=field,
+            value=value,
+            original=original,
+        )
+        session.add(row)
+    else:
+        row.value = value
+        row.original = original
+    await session.commit()
+    await session.refresh(row)
+    return row
+
+
+async def drop_override(
+    session: AsyncSession, login: str, student_id: int, target: str, field: str
+) -> bool:
+    """Resets one field. @return whether there was anything to reset."""
+    row = await session.scalar(
+        select(DiaryOverride).where(
+            DiaryOverride.login == login,
+            DiaryOverride.student_id == student_id,
+            DiaryOverride.target == target,
+            DiaryOverride.field == field,
+        )
+    )
+    if row is None:
+        return False
+    await session.delete(row)
+    await session.commit()
+    return True
+
+
+async def drop_overrides(session: AsyncSession, login: str, student_id: int) -> int:
+    """Resets everything for one child. @return how many were dropped."""
+    rows = await list_overrides(session, login, student_id)
+    for row in rows:
+        await session.delete(row)
+    if rows:
+        await session.commit()
+    return len(rows)
 
 
 async def sign_out(session: AsyncSession, row: DiarySession) -> None:

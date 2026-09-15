@@ -89,4 +89,20 @@
     <string name="diary_sign_out_message">Класс, расписание и уведомления останутся на месте: это два разных аккаунта. Чтобы вернуться в дневник, понадобятся логин и пароль.</string>
     <string name="diary_signed_in_as">Вход выполнен: %1$s</string>
 
+    <string name="diary_error_rejected">Это поле нельзя исправить.</string>
+    <string name="diary_edit_title">Исправить</string>
+    <string name="diary_edit_message">Правка меняет только то, что вы видите здесь. В самом дневнике ничего не меняется, и учитель её не увидит.</string>
+    <string name="diary_edit_field_homework">Домашнее задание</string>
+    <string name="diary_edit_field_room">Кабинет</string>
+    <string name="diary_edit_field_teacher">Учитель</string>
+    <string name="diary_edit_field_topic">Тема урока</string>
+    <string name="diary_edit_field_text">Задание</string>
+    <string name="diary_edit_upstream">В дневнике: %1$s</string>
+    <string name="diary_edit_upstream_empty">В дневнике пусто</string>
+    <string name="diary_edit_changed">В дневнике теперь другое — посмотрите, нужна ли ещё правка</string>
+    <string name="diary_edit_ambiguous">В этот день два таких урока, и дневник их не различает. Правка не применяется — её можно только сбросить.</string>
+    <string name="diary_edit_save">Сохранить</string>
+    <string name="diary_edit_reset">Сбросить правки</string>
+    <string name="diary_edited_badge">Исправлено</string>
+    <string name="diary_edit_hint">Нажмите на урок или задание, чтобы исправить</string>
 </resources>

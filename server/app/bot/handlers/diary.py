@@ -317,6 +317,19 @@ async def _body(
     offset: int,
     student: int,
 ) -> str:
+    """One view as text.
+
+    **Corrections are deliberately not applied here.** A family can lay a value
+    over what the diary sent down (``services/diary_overrides``), and that
+    happens in the app, where a corrected value is drawn as corrected and can be
+    reset next to where it is shown. The bot draws a day as one block of text
+    with no control per lesson, so a correction applied here would be
+    indistinguishable from what the school actually wrote, with no way to take
+    it back — and this is the surface a parent is most likely to be reading.
+    Leaving it as the unmodified mirror of the diary is the safer half of the
+    asymmetry, not an omission. If this ever gains per-lesson buttons, apply
+    them *and* mark them; do not apply them quietly.
+    """
     # «Today» is the class's, not the server's — the same rule the rest of the
     # project follows, and it matters here because a family in Kaliningrad
     # reading a Petersburg school is one hour apart from it.

@@ -39,12 +39,15 @@ from app.schemas import (
     DiaryLoginIn,
     DiaryLoginOut,
     DiaryMarkOut,
+    DiaryOverrideIn,
+    DiaryOverrideOut,
     DiaryPeriodOut,
     DiaryStudentOut,
     DiarySubjectOut,
     DiaryTeacherOut,
 )
 from app.services import diary as service
+from app.services import diary_overrides as overrides
 
 router = APIRouter(prefix="/api/v1/diary", tags=["diary"])
 
@@ -201,11 +204,17 @@ async def schedule(
     date_from: Date | None = Query(default=None, alias="from"),
     date_to: Date | None = Query(default=None, alias="to"),
     svc: service.DiaryService = Depends(_service),
+    row: DiarySession = Depends(current_diary),
+    session: AsyncSession = Depends(get_session),
 ) -> list[DiaryLessonOut]:
     student = await _student(svc, student_id)
     start, end = _range(date_from, date_to)
     lessons = await _guard(svc.schedule(student.education_id, start, end))
-    return [DiaryLessonOut.of(lesson) for lesson in lessons]
+    corrections = await service.load_corrections(session, row.login, student_id)
+    return [
+        DiaryLessonOut.of(overlaid)
+        for overlaid in overrides.overlay_lessons(lessons, corrections)
+    ]
 
 
 @router.get("/students/{student_id}/homework", response_model=list[DiaryHomeworkOut])
@@ -214,6 +223,8 @@ async def homework(
     date_from: Date | None = Query(default=None, alias="from"),
     date_to: Date | None = Query(default=None, alias="to"),
     svc: service.DiaryService = Depends(_service),
+    row: DiarySession = Depends(current_diary),
+    session: AsyncSession = Depends(get_session),
 ) -> list[DiaryHomeworkOut]:
     """Homework as its own resource.
 
@@ -223,7 +234,11 @@ async def homework(
     student = await _student(svc, student_id)
     start, end = _range(date_from, date_to)
     items = await _guard(svc.homework(student.education_id, start, end))
-    return [DiaryHomeworkOut.of(item) for item in items]
+    corrections = await service.load_corrections(session, row.login, student_id)
+    return [
+        DiaryHomeworkOut.of(overlaid)
+        for overlaid in overrides.overlay_homework(items, corrections)
+    ]
 
 
 @router.get("/students/{student_id}/grades", response_model=list[DiaryMarkOut])
@@ -291,3 +306,112 @@ async def attendance(
     student = await _student(svc, student_id)
     events = await _guard(svc.attendance(student.education_id))
     return [DiaryAttendanceOut.of(event) for event in events]
+
+
+# ---------------------------------------------------------------------------
+# Corrections
+# ---------------------------------------------------------------------------
+#
+# The only write surface the diary has beyond signing in and out, and it writes
+# nothing upstream: a correction is stored here and laid over the answer on the
+# way out. Marks and attendance are deliberately not correctable — see
+# ``services/diary_overrides`` for why an app that let a family rewrite a grade
+# would be producing a false record that looks official.
+#
+# Scoped by the upstream login rather than by the session, so signing out and
+# back in finds the corrections where they were left. The student is checked
+# against the account on every call for the same reason the read endpoints do
+# it: an id from another family is otherwise a way to write into their diary.
+
+
+@router.get("/students/{student_id}/overrides", response_model=list[DiaryOverrideOut])
+async def list_overrides(
+    student_id: int,
+    svc: service.DiaryService = Depends(_service),
+    row: DiarySession = Depends(current_diary),
+    session: AsyncSession = Depends(get_session),
+) -> list[DiaryOverrideOut]:
+    """Every correction this account has made for this child."""
+    await _student(svc, student_id)
+    found = await service.list_overrides(session, row.login, student_id)
+    return [DiaryOverrideOut.of(item) for item in found]
+
+
+@router.put("/students/{student_id}/overrides", response_model=DiaryOverrideOut)
+async def put_override(
+    student_id: int,
+    payload: DiaryOverrideIn,
+    svc: service.DiaryService = Depends(_service),
+    row: DiarySession = Depends(current_diary),
+    session: AsyncSession = Depends(get_session),
+) -> DiaryOverrideOut:
+    """Writes or replaces one correction.
+
+    The target is the string the read endpoints handed down; it is not parsed
+    beyond the check that it names something correctable. A target this server
+    would never produce is refused rather than stored: a row no read path can
+    match would sit in the table looking like a correction somebody made, with
+    no way to reset it, because the button that resets it only appears next to
+    the value it changed.
+    """
+    await _student(svc, student_id)
+    try:
+        overrides.check(payload.target, payload.field)
+    except overrides.UnknownTarget as failure:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Эту запись нельзя исправить",
+        ) from failure
+    except overrides.UnsupportedField as failure:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Это поле нельзя исправить",
+        ) from failure
+
+    stored = await service.put_override(
+        session,
+        login=row.login,
+        student_id=student_id,
+        target=payload.target,
+        field=payload.field,
+        value=payload.value,
+        original=payload.original,
+    )
+    return DiaryOverrideOut.of(stored)
+
+
+@router.delete(
+    "/students/{student_id}/overrides",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def reset_override(
+    student_id: int,
+    target: str = Query(min_length=1, max_length=300),
+    field: str = Query(min_length=1, max_length=40),
+    svc: service.DiaryService = Depends(_service),
+    row: DiarySession = Depends(current_diary),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Resets one field back to what the diary says.
+
+    Idempotent, and answers 204 whether or not there was a row: "there is no
+    correction here" is the state the caller asked for, and a 404 would make
+    the client decide whether to show an error for having got what it wanted.
+    """
+    await _student(svc, student_id)
+    await service.drop_override(session, row.login, student_id, target, field)
+
+
+@router.delete(
+    "/students/{student_id}/overrides/all",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def reset_all_overrides(
+    student_id: int,
+    svc: service.DiaryService = Depends(_service),
+    row: DiarySession = Depends(current_diary),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Resets every correction for this child. The diary answers for itself again."""
+    await _student(svc, student_id)
+    await service.drop_overrides(session, row.login, student_id)

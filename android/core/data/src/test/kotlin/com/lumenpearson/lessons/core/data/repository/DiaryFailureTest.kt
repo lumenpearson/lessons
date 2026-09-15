@@ -66,6 +66,20 @@ class DiaryFailureTest {
         assertEquals(DiaryFailure.BadRange, DiaryFailure.of(httpError(422)))
     }
 
+    /**
+     * The same status on `/overrides` is the server refusing to file a
+     * correction, and the response says so only in a Russian `detail` — reading
+     * which is the text-parsing this class exists to replace. So the caller
+     * names the meaning and the default stays the one the reads want.
+     */
+    @Test
+    fun `422 means a refused correction when the caller says so`() {
+        assertEquals(
+            DiaryFailure.Rejected,
+            DiaryFailure.of(httpError(422), unprocessable = DiaryFailure.Rejected),
+        )
+    }
+
     @Test
     fun `a status with no rule of its own keeps its code`() {
         val failure = DiaryFailure.of(httpError(418))

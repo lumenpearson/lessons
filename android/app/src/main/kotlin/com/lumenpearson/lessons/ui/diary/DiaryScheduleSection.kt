@@ -78,7 +78,11 @@ internal fun LazyListScope.diarySchedule(
 
         else -> state.days.forEach { day ->
             item(key = "day-${day.date}") {
-                DiaryDayCard(day = day, isToday = day.date == state.today)
+                DiaryDayCard(
+                day = day,
+                isToday = day.date == state.today,
+                onEdit = viewModel::edit,
+            )
             }
         }
     }
@@ -132,6 +136,7 @@ private fun DiaryWeekHeader(
 private fun DiaryDayCard(
     day: DiaryDayUi,
     isToday: Boolean,
+    onEdit: (DiaryCorrections) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -148,14 +153,17 @@ private fun DiaryDayCard(
             day.lessons.forEach { lesson ->
                 val timed = lesson.asTimedLesson()
                 if (timed != null) {
-                    LessonRow(lesson = timed)
+                    LessonRow(lesson = timed, onClick = { onEdit(lesson.corrections()) })
                 } else {
                     // The diary publishes lessons with no bell time often
                     // enough that dropping them would misreport the day, and
                     // `LessonRow` cannot draw one: its whole meta line is the
                     // time range. So this row says what is known and says the
                     // time is not.
-                    UntimedLessonRow(lesson = lesson)
+                    UntimedLessonRow(
+                        lesson = lesson,
+                        onClick = { onEdit(lesson.corrections()) },
+                    )
                 }
             }
 
@@ -169,7 +177,15 @@ private fun DiaryDayCard(
                 }
                 day.homework.forEach { item ->
                     HomeworkRow(
-                        item = HomeworkItem(subject = item.subject, text = item.text),
+                        item = HomeworkItem(
+                            // The badge goes on the label, never on the text:
+                            // the text is the value that was corrected, and a
+                            // marker inside it would be indistinguishable from
+                            // what somebody typed.
+                            subject = item.subject.withBadge(item.edits.isNotEmpty()),
+                            text = item.text,
+                        ),
+                        onClick = { onEdit(item.corrections()) },
                     )
                 }
             }
@@ -198,18 +214,29 @@ private fun DiaryLesson.asTimedLesson(): Lesson? {
         teacher = teacher,
         // The row draws `note` as its second line, which is where the topic of
         // the lesson belongs — labelled, because "Квадратные уравнения" on its
-        // own under a subject could be anything.
-        note = topic?.let { stringResource(R.string.diary_lesson_topic, it) },
+        // own under a subject could be anything. The badge joins it there
+        // rather than replacing a value, so that a corrected row says it has
+        // been corrected without the correction pretending to be the school's.
+        note = listOfNotNull(
+            topic?.let { stringResource(R.string.diary_lesson_topic, it) },
+            stringResource(R.string.diary_edited_badge).takeIf { edits.isNotEmpty() },
+        ).joinToString(" · ").ifBlank { null },
     )
 }
+
+/** Appends «Исправлено» to a label, or leaves it alone. */
+@Composable
+private fun String.withBadge(corrected: Boolean): String =
+    if (corrected) "$this · ${stringResource(R.string.diary_edited_badge)}" else this
 
 /** A lesson the diary published without a time. */
 @Composable
 private fun UntimedLessonRow(
     lesson: DiaryLesson,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    GroupRow(modifier = modifier) {
+    GroupRow(modifier = modifier, onClick = onClick) {
         AccentIconTile(
             icon = Icons.AutoMirrored.Rounded.MenuBook,
             tone = subjectTone(lesson.subject),
@@ -221,6 +248,7 @@ private fun UntimedLessonRow(
                 stringResource(R.string.diary_lesson_no_time),
                 lesson.room?.let { stringResource(R.string.diary_lesson_room, it) },
                 lesson.teacher,
+                stringResource(R.string.diary_edited_badge).takeIf { lesson.edits.isNotEmpty() },
             ).joinToString(" · "),
         )
     }

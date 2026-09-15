@@ -45,12 +45,19 @@ fun HomeworkRow(
     modifier: Modifier = Modifier,
     tone: AccentTone = subjectTone(item.subject),
     onOpenAttachment: ((String) -> Unit)? = null,
+    /**
+     * Opens the row. Null everywhere the row is only something to read, which
+     * is still most places; [LessonRow] has carried the same parameter for the
+     * same reason since the week screen gained its sheet.
+     */
+    onClick: (() -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
 
     GroupRow(
         modifier = modifier,
         verticalAlignment = Alignment.Top,
+        onClick = onClick,
     ) {
         AccentIconTile(icon = Icons.Rounded.EditNote, tone = tone)
 

@@ -88,4 +88,20 @@
     <string name="diary_sign_out_message">The class, its timetable and its notifications stay where they are: these are two separate accounts. Coming back to the diary needs the login and password again.</string>
     <string name="diary_signed_in_as">Signed in as %1$s</string>
 
+    <string name="diary_error_rejected">This field cannot be corrected.</string>
+    <string name="diary_edit_title">Correct</string>
+    <string name="diary_edit_message">A correction changes only what you see here. Nothing changes in the diary itself, and the teacher will not see it.</string>
+    <string name="diary_edit_field_homework">Homework</string>
+    <string name="diary_edit_field_room">Room</string>
+    <string name="diary_edit_field_teacher">Teacher</string>
+    <string name="diary_edit_field_topic">Lesson topic</string>
+    <string name="diary_edit_field_text">Task</string>
+    <string name="diary_edit_upstream">In the diary: %1$s</string>
+    <string name="diary_edit_upstream_empty">The diary has nothing here</string>
+    <string name="diary_edit_changed">The diary now says something else — see whether the correction is still wanted</string>
+    <string name="diary_edit_ambiguous">There are two such lessons that day and the diary does not tell them apart. The correction is not applied — it can only be reset.</string>
+    <string name="diary_edit_save">Save</string>
+    <string name="diary_edit_reset">Reset corrections</string>
+    <string name="diary_edited_badge">Corrected</string>
+    <string name="diary_edit_hint">Tap a lesson or a task to correct it</string>
 </resources>

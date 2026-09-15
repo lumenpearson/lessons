@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.DiaryFailure
+import com.lumenpearson.lessons.core.data.repository.DiaryField
 import com.lumenpearson.lessons.core.data.repository.DiaryPeriod
 import com.lumenpearson.lessons.core.data.repository.DiaryRepository
 import com.lumenpearson.lessons.core.data.repository.DiarySession
@@ -66,6 +67,10 @@ data class DiaryUiState(
     val gradesError: DiaryFailure? = null,
     val subjects: List<DiarySubjectMarks> = emptyList(),
     val gradeRange: DiaryRange? = null,
+    /** The row whose corrections are open in a sheet, or `null` for none. */
+    val editing: DiaryCorrections? = null,
+    val savingEdit: Boolean = false,
+    val editError: DiaryFailure? = null,
 ) {
     /**
      * The date it is in the city whose diary this is.
@@ -283,6 +288,15 @@ class DiaryViewModel(
         loadJob = viewModelScope.launch { load() }
     }
 
+    /**
+     * Fetches the open tab again.
+     *
+     * Public because writing a correction has to be followed by a read: none of
+     * this is cached, the server is what applies a correction, and `retry` — the
+     * only other way back in — is reachable only from a failure card.
+     */
+    fun refresh() = reload()
+
     private suspend fun load() {
         val current = state.value
         val student = current.student ?: return
@@ -348,6 +362,92 @@ class DiaryViewModel(
         }
         val subjects = summariseMarks(result.getOrDefault(emptyList()))
         state.update { it.copy(gradesLoading = false, subjects = subjects, gradeRange = range) }
+    }
+
+    // -- corrections --------------------------------------------------------
+    //
+    // The diary stays read-only upstream: what these write is a value the
+    // server lays *over* the answer on the way out, and a reset takes it off
+    // again. The sheet edits a whole row at once because that is how a person
+    // thinks about it — "this lesson is in 204, not 12" — and the difference
+    // between what they typed and what the diary says is what becomes a
+    // per-field correction or a per-field reset.
+
+    /** Opens the sheet for one row. */
+    fun edit(corrections: DiaryCorrections) {
+        state.update { it.copy(editing = corrections, editError = null) }
+    }
+
+    fun cancelEdit() {
+        state.update { it.copy(editing = null, editError = null, savingEdit = false) }
+    }
+
+    /**
+     * Writes what changed and nothing else.
+     *
+     * A field typed back to what the diary says is a **reset**, not a
+     * correction equal to the upstream: keeping a row that says "show exactly
+     * what you were going to show anyway" would leave the value marked as
+     * corrected forever, with a reset button that appears to do nothing.
+     */
+    fun saveEdit(typed: Map<DiaryField, String>) {
+        val open = state.value.editing ?: return
+        val student = state.value.selectedStudentId ?: return
+        if (state.value.savingEdit) return
+
+        state.update { it.copy(savingEdit = true, editError = null) }
+        viewModelScope.launch {
+            var failure: DiaryFailure? = null
+            for ((field, raw) in typed) {
+                val wanted = raw.trim()
+                val upstream = open.upstreamOf(field)
+                val corrected = field in open.corrected
+                // Nothing is sent for a field nobody touched. The sheet hands
+                // back every field it drew, so without this a save of one room
+                // is four round trips, three of them asking the server to
+                // delete corrections that were never there.
+                val result = when {
+                    wanted == upstream.orEmpty().trim() ->
+                        if (corrected) repository.reset(student, open.target, field) else null
+                    corrected && wanted == open.values[field].orEmpty().trim() -> null
+                    else -> repository.correct(student, open.target, field, wanted, upstream)
+                } ?: continue
+                failure = result.exceptionOrNull() as? DiaryFailure
+                if (failure != null) break
+            }
+            if (failure != null) {
+                // Left open on purpose: what the person typed is still in the
+                // fields, and closing the sheet would throw it away to show
+                // them a message about why it had not been saved.
+                applyFailure(failure) { copy(savingEdit = false, editError = it) }
+                return@launch
+            }
+            state.update { it.copy(editing = null, savingEdit = false) }
+            refresh()
+        }
+    }
+
+    /** Takes every correction off this row. */
+    fun resetEdit() {
+        val open = state.value.editing ?: return
+        val student = state.value.selectedStudentId ?: return
+        if (state.value.savingEdit) return
+
+        state.update { it.copy(savingEdit = true, editError = null) }
+        viewModelScope.launch {
+            var failure: DiaryFailure? = null
+            for (field in open.fields) {
+                val result = repository.reset(student, open.target, field)
+                failure = result.exceptionOrNull() as? DiaryFailure
+                if (failure != null) break
+            }
+            if (failure != null) {
+                applyFailure(failure) { copy(savingEdit = false, editError = it) }
+                return@launch
+            }
+            state.update { it.copy(editing = null, savingEdit = false) }
+            refresh()
+        }
     }
 
     /**

@@ -757,6 +757,65 @@ class DiaryLinkCode(Base):
     used_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
+class DiaryOverride(Base):
+    """One correction a family laid over something the diary sent down.
+
+    Nothing here changes dnevnik2. The upstream is read-only to this project
+    and will stay that way; what this table holds is a value put **over** the
+    one that came down, on the way out, so that «сбросить» is a delete rather
+    than a second guess at what was there before. A row is the correction; its
+    absence is the upstream's own answer.
+
+    **Keyed by the account, not by the session.** Signing out and back in makes
+    a new :class:`DiarySession` row, and a correction that went with it would
+    make the reset button meaningless — the correction would already be gone,
+    silently, the first time the upstream session expired. ``login`` is what
+    survives, and it is the same string the session row already stores.
+
+    ``target`` names the thing being corrected **semantically** rather than by
+    position: a homework item by its upstream id when it has one and by (day,
+    subject) when it does not, a lesson by (day, number) or (day, subject).
+    Positional keys were tried once in this project, for calendar UIDs, and
+    deleting one item silently moved every correction after it onto a different
+    lesson. Nothing in this schema is allowed to be addressed by its index in a
+    list again.
+
+    ``original`` is what the upstream said **at the moment the correction was
+    made**, and it is kept for one reason: so that the upstream moving
+    afterwards can be noticed. A teacher who finally fills in the homework a
+    family had typed in themselves must not have it hidden behind the older
+    correction with nothing on screen to say so. The read path compares and
+    flags it; it never resets on its own, because that would throw away what a
+    person wrote.
+    """
+
+    __tablename__ = "diary_overrides"
+    __table_args__ = (
+        UniqueConstraint("login", "student_id", "target", "field", name="uq_diary_override"),
+        Index("ix_diary_override_owner", "login", "student_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: The upstream account. Stored as it is, like ``DiarySession.login``: it is
+    #: a user name, not a credential, and it is already shown back to the person
+    #: on the "вы вошли как" line.
+    login: Mapped[str] = mapped_column(String(200), nullable=False)
+    #: Which child, for an account that carries several.
+    student_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    #: See the class docstring: semantic, never positional.
+    target: Mapped[str] = mapped_column(String(300), nullable=False)
+    #: Which field of that item. The set is closed and lives in
+    #: ``app/services/diary_overrides.py``; marks and attendance are not in it.
+    field: Mapped[str] = mapped_column(String(40), nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    #: What the upstream said when this was written; null when it said nothing.
+    original: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
 DEFAULT_BELLS: list[tuple[int, time, time]] = [
     (1, time(8, 30), time(9, 15)),
     (2, time(9, 25), time(10, 10)),

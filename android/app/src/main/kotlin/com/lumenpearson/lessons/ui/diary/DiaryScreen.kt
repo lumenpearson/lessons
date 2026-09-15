@@ -82,6 +82,20 @@ fun DiaryScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var confirmSignOut by rememberSaveable { mutableStateOf(false) }
 
+    // Held in the state holder rather than here, because it carries a typed
+    // value and a busy flag and has to survive the reload a save triggers —
+    // the same reason `signInOutcome` lives there.
+    state.editing?.let { corrections ->
+        DiaryEditSheet(
+            corrections = corrections,
+            saving = state.savingEdit,
+            error = state.editError?.asText(),
+            onDismiss = viewModel::cancelEdit,
+            onSave = viewModel::saveEdit,
+            onReset = viewModel::resetEdit,
+        )
+    }
+
     if (confirmSignOut) {
         DiarySignOutSheet(
             onDismiss = { confirmSignOut = false },
@@ -299,6 +313,9 @@ internal fun DiaryFailure.asText(): String = when (this) {
     DiaryFailure.BadRange -> stringResource(R.string.diary_error_range)
     DiaryFailure.Unreadable -> stringResource(R.string.diary_error_unreadable)
     DiaryFailure.Unavailable -> stringResource(R.string.diary_error_unavailable)
+    // The server refusing a correction it could never apply. Its own message,
+    // because "не получилось: 422" is not something to put in front of anybody.
+    DiaryFailure.Rejected -> stringResource(R.string.diary_error_rejected)
     is DiaryFailure.Offline -> stringResource(R.string.diary_error_offline)
     is DiaryFailure.Unexpected -> stringResource(
         R.string.diary_error_unknown,

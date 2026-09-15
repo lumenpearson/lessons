@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons.core.data.network.dto
 
 import com.lumenpearson.lessons.core.data.network.NetworkModule
+import com.lumenpearson.lessons.core.data.repository.DiaryField
 import com.lumenpearson.lessons.core.data.repository.DiaryMarkKind
 import com.lumenpearson.lessons.core.data.repository.toDomain
 import java.time.LocalDate
@@ -209,6 +210,154 @@ class DiaryJsonTest {
         assertEquals(DiaryMarkKind.REMARK, marks[4].kind)
         // An unknown kind from a newer server is "other", never a crash.
         assertEquals(DiaryMarkKind.OTHER, marks[5].kind)
+    }
+
+    /**
+     * A corrected lesson and one from a server that has never heard of
+     * corrections, in the same payload. The second is the case that matters:
+     * the app is shipped to phones that will keep talking to whatever is
+     * deployed, and a missing `target` has to read as "nothing is corrected
+     * here" rather than as a payload that will not decode.
+     */
+    @Test
+    fun `a lesson carries its corrections, and an older server's carries none`() {
+        val decoded = json.decodeFromString<List<DiaryLessonDto>>(
+            """
+            [
+              {
+                "date": "2026-09-14",
+                "number": 2,
+                "subject": "Алгебра",
+                "room": "301",
+                "teacher": "Иванова И.И.",
+                "target": "lesson:2026-09-14:n2:Алгебра",
+                "edits": [
+                  {
+                    "field": "room",
+                    "value": "301",
+                    "original": "204",
+                    "changed_upstream": true
+                  },
+                  { "field": "   ", "value": "уже не поле", "original": null }
+                ],
+                "ambiguous": false
+              },
+              {
+                "date": "2026-09-14",
+                "number": 3,
+                "subject": "Физика"
+              },
+              {
+                "date": "2026-09-14",
+                "number": 4,
+                "subject": "Физкультура",
+                "target": "lesson:2026-09-14:n4:Физкультура",
+                "edits": [],
+                "ambiguous": true
+              }
+            ]
+            """.trimIndent(),
+        )
+
+        val corrected = decoded[0].toDomain()!!
+        assertEquals("lesson:2026-09-14:n2:Алгебра", corrected.target)
+        // The value arrives already corrected: the server lays it over on the
+        // way out, so the client never applies anything itself.
+        assertEquals("301", corrected.room)
+        // One edit, not two: the second names no field, so nothing could draw
+        // it and nothing could reset it.
+        assertEquals(1, corrected.edits.size)
+        assertEquals("room", corrected.edits.first().field)
+        assertEquals("204", corrected.edits.first().original)
+        assertTrue(corrected.edits.first().changedUpstream)
+
+        val untouched = decoded[1].toDomain()!!
+        assertEquals("", untouched.target)
+        assertTrue(untouched.edits.isEmpty())
+        assertEquals(false, untouched.ambiguous)
+
+        // A correction exists for this key and is deliberately not applied:
+        // another lesson the same day shares it.
+        assertTrue(decoded[2].toDomain()!!.ambiguous)
+    }
+
+    @Test
+    fun `homework carries its corrections`() {
+        val decoded = json.decodeFromString<List<DiaryHomeworkDto>>(
+            """
+            [
+              {
+                "id": 9001,
+                "due_date": "2026-09-15",
+                "subject": "Физика",
+                "text": "Прочитать § 5 и § 6",
+                "target": "hw:id:9001",
+                "edits": [
+                  {
+                    "field": "text",
+                    "value": "Прочитать § 5 и § 6",
+                    "original": "Прочитать § 5",
+                    "changed_upstream": false
+                  }
+                ]
+              },
+              { "id": null, "due_date": "2026-09-16", "subject": "Химия", "text": "§ 3" }
+            ]
+            """.trimIndent(),
+        )
+
+        val corrected = decoded[0].toDomain()!!
+        assertEquals("hw:id:9001", corrected.target)
+        assertEquals("Прочитать § 5 и § 6", corrected.text)
+        assertEquals("Прочитать § 5", corrected.edits.single().original)
+        assertEquals(false, corrected.edits.single().changedUpstream)
+
+        // Keyed by day and subject when the upstream gave it no id.
+        val plain = decoded[1].toDomain()!!
+        assertEquals("", plain.target)
+        assertTrue(plain.edits.isEmpty())
+    }
+
+    /**
+     * The list a family resets from. A row naming a field this build cannot act
+     * on is dropped rather than shown with a button that would send nothing.
+     */
+    @Test
+    fun `stored corrections decode, and one this build cannot name is dropped`() {
+        val decoded = json.decodeFromString<List<DiaryOverrideDto>>(
+            """
+            [
+              {
+                "target": "lesson:2026-09-14:n2:Алгебра",
+                "field": "room",
+                "value": "301",
+                "original": "204",
+                "updated_at": "2026-09-14T18:20:00+03:00"
+              },
+              {
+                "target": "hw:id:9001",
+                "field": "text",
+                "value": "Прочитать § 5 и § 6",
+                "original": null,
+                "updated_at": "2026-09-14T18:21:00+03:00"
+              },
+              {
+                "target": "lesson:2026-09-14:n5:Обед",
+                "field": "canteen",
+                "value": "нет",
+                "updated_at": "2026-09-14T18:22:00+03:00"
+              }
+            ]
+            """.trimIndent(),
+        )
+
+        val rows = decoded.mapNotNull { it.toDomain() }
+        assertEquals(2, rows.size)
+        assertEquals(DiaryField.ROOM, rows[0].field)
+        assertEquals("lesson:2026-09-14:n2:Алгебра", rows[0].target)
+        assertEquals("204", rows[0].original)
+        assertEquals(DiaryField.TEXT, rows[1].field)
+        assertNull(rows[1].original)
     }
 
     @Test

@@ -644,6 +644,31 @@ class DiaryMarkOut(BaseModel):
         )
 
 
+class DiaryEditOut(BaseModel):
+    """One field a family has corrected, as the client needs to draw it.
+
+    ``original`` is what the diary says **now**, not what it said when the
+    correction was written — the client shows it as «в дневнике: …», and the
+    question it answers is what is currently being covered up.
+    """
+
+    field: str
+    value: str
+    original: str | None = None
+    #: The diary has changed this field since the correction was made, so the
+    #: value being hidden is no longer the one the person decided to replace.
+    changed_upstream: bool = False
+
+    @classmethod
+    def of(cls, edit) -> DiaryEditOut:
+        return cls(
+            field=edit.field,
+            value=edit.value,
+            original=edit.original,
+            changed_upstream=edit.changed_upstream,
+        )
+
+
 class DiaryLessonOut(BaseModel):
     date: Date
     number: int | None = None
@@ -654,9 +679,19 @@ class DiaryLessonOut(BaseModel):
     teacher: str | None = None
     homework: str | None = None
     topic: str | None = None
+    #: The key a correction for this lesson is filed under. Sent down so the
+    #: client echoes it back rather than building its own: two implementations
+    #: of a key that has to match exactly would agree until the first lesson
+    #: with no number, and then quietly stop.
+    target: str = ""
+    edits: list[DiaryEditOut] = Field(default_factory=list)
+    #: Another lesson the same day carries the same key, so no correction is
+    #: applied to either. See ``services/diary_overrides.lesson_target``.
+    ambiguous: bool = False
 
     @classmethod
-    def of(cls, lesson) -> DiaryLessonOut:
+    def of(cls, overlaid) -> DiaryLessonOut:
+        lesson = overlaid.lesson
         return cls(
             date=lesson.date,
             number=lesson.number,
@@ -667,6 +702,9 @@ class DiaryLessonOut(BaseModel):
             teacher=lesson.teacher,
             homework=lesson.homework,
             topic=lesson.topic,
+            target=overlaid.target,
+            edits=[DiaryEditOut.of(edit) for edit in overlaid.edits],
+            ambiguous=overlaid.ambiguous,
         )
 
 
@@ -676,15 +714,60 @@ class DiaryHomeworkOut(BaseModel):
     subject: str
     text: str
     teacher: str | None = None
+    #: @see DiaryLessonOut.target
+    target: str = ""
+    edits: list[DiaryEditOut] = Field(default_factory=list)
 
     @classmethod
-    def of(cls, item) -> DiaryHomeworkOut:
+    def of(cls, overlaid) -> DiaryHomeworkOut:
+        item = overlaid.item
         return cls(
             id=item.id,
             due_date=item.due_date,
             subject=item.subject,
             text=item.text,
             teacher=item.teacher,
+            target=overlaid.target,
+            edits=[DiaryEditOut.of(edit) for edit in overlaid.edits],
+        )
+
+
+class DiaryOverrideIn(BaseModel):
+    """A correction being written. The target came from a read; it is echoed."""
+
+    target: str = Field(min_length=1, max_length=300)
+    field: str = Field(min_length=1, max_length=40)
+    #: Empty is a real answer — the diary often carries a placeholder where a
+    #: family would rather see nothing — so it is stored rather than treated as
+    #: a reset. Resetting is a DELETE.
+    value: str = Field(max_length=4000)
+    #: What the person was looking at when they wrote the correction.
+    #:
+    #: Taken from the client rather than re-read upstream, and deliberately: the
+    #: question it exists to answer is "has the diary changed since the person
+    #: decided to replace this", and the answer is about what *they* saw, not
+    #: about what the upstream happened to say in the second this request
+    #: landed. It is also nobody else's data — a family's own correction of
+    #: their own diary — so there is no boundary here to defend.
+    original: str | None = Field(default=None, max_length=4000)
+
+
+class DiaryOverrideOut(BaseModel):
+    target: str
+    field: str
+    value: str
+    #: What the diary said when this was written; null when it said nothing.
+    original: str | None = None
+    updated_at: datetime
+
+    @classmethod
+    def of(cls, row) -> DiaryOverrideOut:
+        return cls(
+            target=row.target,
+            field=row.field,
+            value=row.value,
+            original=row.original,
+            updated_at=row.updated_at,
         )
 
 

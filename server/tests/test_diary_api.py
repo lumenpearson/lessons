@@ -269,6 +269,11 @@ async def test_homework_comes_from_the_lesson_list_and_says_nothing_about_it(
             "subject": "Алгебра",
             "text": "№ 42",
             "teacher": None,
+            # The key a correction for this item would be filed under, sent
+            # down so the client never builds its own. Nothing is corrected
+            # here, so the list is empty rather than absent.
+            "target": "hw:2026-09-15:Алгебра",
+            "edits": [],
         }
     ]
     # Their odd date-plus-time format, which is neither ISO nor a timestamp.
@@ -474,3 +479,212 @@ async def test_a_login_carries_no_session_at_all(monkeypatch):
         await provider_client.close_client()
 
     assert calls[1] is None
+
+
+# ---- corrections ----------------------------------------------------------
+#
+# The diary is read-only upstream and stays that way: what these pin is that a
+# family's correction is stored here, laid over the answer on the way out, and
+# can be taken back off again.
+
+#: The timetable comes from its own endpoint; homework is pulled out of the
+#: *lesson* list, which is a different path with a different date format.
+SCHEDULE_PATH = "/api/journal/schedule/list-by-education"
+
+
+def a_lesson(**fields) -> dict:
+    return {
+        "date": "15.09.2026",
+        "subject_name": "Алгебра",
+        "number": 1,
+        "office": "12",
+    } | fields
+
+
+async def read_schedule(client, token: str) -> list[dict]:
+    response = await client.get(
+        "/api/v1/diary/students/4021/schedule?from=2026-09-14&to=2026-09-20",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+async def signed_in_with_a_lesson(client, upstream) -> str:
+    token = await sign_in(client, upstream)
+    upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
+    upstream.routes[SCHEDULE_PATH] = {"items": [a_lesson()]}
+    return token
+
+
+async def test_a_correction_shows_up_in_the_next_read(client, upstream):
+    token = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, token))[0]["target"]
+
+    written = await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": target, "field": "room", "value": "204", "original": "12"},
+    )
+    assert written.status_code == 200, written.text
+
+    lesson = (await read_schedule(client, token))[0]
+    assert lesson["room"] == "204"
+    assert lesson["edits"] == [
+        {
+            "field": "room",
+            "value": "204",
+            "original": "12",
+            "changed_upstream": False,
+        }
+    ]
+
+
+async def test_resetting_gives_the_diary_its_answer_back(client, upstream):
+    token = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, token))[0]["target"]
+    await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": target, "field": "room", "value": "204"},
+    )
+
+    reset = await client.delete(
+        f"/api/v1/diary/students/4021/overrides?target={target}&field=room",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert reset.status_code == 204
+
+    lesson = (await read_schedule(client, token))[0]
+    assert lesson["room"] == "12"
+    assert lesson["edits"] == []
+
+
+async def test_resetting_something_that_was_never_corrected_is_not_an_error(
+    client, upstream
+):
+    """The caller asked for "no correction here" and that is the state; a 404
+    would make the client show a failure for having got what it wanted."""
+    token = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, token))[0]["target"]
+
+    response = await client.delete(
+        f"/api/v1/diary/students/4021/overrides?target={target}&field=topic",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 204
+
+
+async def test_resetting_everything_clears_the_lot(client, upstream):
+    token = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, token))[0]["target"]
+    for field, value in (("room", "204"), ("teacher", "Иванова И. И.")):
+        await client.put(
+            "/api/v1/diary/students/4021/overrides",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"target": target, "field": field, "value": value},
+        )
+
+    listed = await client.get(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert len(listed.json()) == 2
+
+    dropped = await client.delete(
+        "/api/v1/diary/students/4021/overrides/all",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert dropped.status_code == 204
+
+    lesson = (await read_schedule(client, token))[0]
+    assert lesson["room"] == "12"
+    assert lesson["edits"] == []
+
+
+async def test_corrections_survive_signing_out_and_back_in(client, upstream, session):
+    """The whole point of keying them on the account rather than the session.
+
+    The upstream token dies every few days and the row goes with it; a
+    correction that went too would already be gone by the time anybody pressed
+    «сбросить», silently, and the button would look broken.
+    """
+    token = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, token))[0]["target"]
+    await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": target, "field": "room", "value": "204"},
+    )
+
+    await client.post(
+        "/api/v1/diary/logout", headers={"Authorization": f"Bearer {token}"}
+    )
+    again = await sign_in(client, upstream)
+    assert again != token
+
+    lesson = (await read_schedule(client, again))[0]
+    assert lesson["room"] == "204"
+
+
+async def test_correcting_a_second_time_replaces_rather_than_piles_up(client, upstream):
+    token = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, token))[0]["target"]
+    for value in ("204", "301"):
+        await client.put(
+            "/api/v1/diary/students/4021/overrides",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"target": target, "field": "room", "value": value},
+        )
+
+    listed = await client.get(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert [row["value"] for row in listed.json()] == ["301"]
+
+
+@pytest.mark.parametrize(
+    ("target", "field"),
+    [
+        ("mark:id:5", "value"),
+        ("lesson:2026-09-15:n1:Алгебра", "subject"),
+        ("nonsense", "text"),
+    ],
+)
+async def test_a_correction_the_read_path_could_never_apply_is_refused(
+    client, upstream, target, field
+):
+    """A stored row no read path can match would look like a correction
+    somebody made, with no way to reset it: the button that resets one only
+    appears next to the value it changed."""
+    token = await signed_in_with_a_lesson(client, upstream)
+    response = await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": target, "field": field, "value": "x"},
+    )
+    assert response.status_code == 422, response.text
+
+
+async def test_corrections_for_another_family_child_are_not_reachable(client, upstream):
+    token = await signed_in_with_a_lesson(client, upstream)
+    response = await client.put(
+        "/api/v1/diary/students/999/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": "hw:id:1", "field": "text", "value": "x"},
+    )
+    assert response.status_code == 404
+
+
+async def test_the_correction_endpoints_need_a_bearer(client):
+    paths = [
+        ("get", "/api/v1/diary/students/1/overrides"),
+        ("put", "/api/v1/diary/students/1/overrides"),
+        ("delete", "/api/v1/diary/students/1/overrides?target=hw:id:1&field=text"),
+        ("delete", "/api/v1/diary/students/1/overrides/all"),
+    ]
+    for method, path in paths:
+        call = getattr(client, method)
+        response = await call(path, json={}) if method == "put" else await call(path)
+        assert response.status_code == 401, path

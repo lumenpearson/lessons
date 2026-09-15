@@ -7,6 +7,8 @@ import com.lumenpearson.lessons.core.data.network.dto.DiaryLessonDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryLoginRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryLoginResponseDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryMarkDto
+import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideDto
+import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryPeriodDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryStudentDto
 import com.lumenpearson.lessons.core.data.network.dto.DiarySubjectDto
@@ -159,6 +161,117 @@ class DiaryRepositoryTest {
         assertEquals("Алгебра", lessons.first().subject)
     }
 
+    /**
+     * The 422 the corrections answer with is not the 422 the reads answer with,
+     * and only the caller knows which it asked for. All three writes have to
+     * pass that on, so all three are checked: one that forgot would report
+     * "диапазон слишком широкий" over a correction nobody can file.
+     */
+    @Test
+    fun `a server that refuses a correction is a rejection, on every write`() = runTest {
+        val repository = repository(FakeApi(callFailure = httpError(422)))
+
+        assertEquals(
+            DiaryFailure.Rejected,
+            repository.correct(1, TARGET, DiaryField.ROOM, "301", null).exceptionOrNull(),
+        )
+        assertEquals(
+            DiaryFailure.Rejected,
+            repository.reset(1, TARGET, DiaryField.ROOM).exceptionOrNull(),
+        )
+        assertEquals(DiaryFailure.Rejected, repository.resetAll(1).exceptionOrNull())
+    }
+
+    /** The other half of the same rule: a read's 422 still means the range. */
+    @Test
+    fun `a 422 on a read is still about the date range`() = runTest {
+        val repository = repository(FakeApi(callFailure = httpError(422)))
+
+        val result = repository.schedule(
+            studentId = 1,
+            from = LocalDate.of(2026, 9, 14),
+            to = LocalDate.of(2026, 9, 20),
+        )
+
+        assertEquals(DiaryFailure.BadRange, result.exceptionOrNull())
+    }
+
+    /**
+     * The key is the server's and is echoed, never rebuilt — including its
+     * trailing space, which belongs to the subject name it was composed from.
+     * A client that tidied it would file the correction under a lesson that
+     * does not exist, and the reset button for it would never appear.
+     */
+    @Test
+    fun `a correction echoes the target and names the field the server's way`() = runTest {
+        val api = FakeApi()
+        val repository = repository(api)
+
+        val result = repository.correct(
+            studentId = 1,
+            target = TARGET,
+            field = DiaryField.ROOM,
+            value = "301",
+            original = "204",
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals(TARGET, api.written?.target)
+        assertEquals("room", api.written?.field)
+        assertEquals("301", api.written?.value)
+        assertEquals("204", api.written?.original)
+    }
+
+    @Test
+    fun `a reset names the same target and field`() = runTest {
+        val api = FakeApi()
+        val repository = repository(api)
+
+        repository.reset(studentId = 1, target = TARGET, field = DiaryField.TEXT)
+
+        assertEquals(TARGET to "text", api.reset)
+    }
+
+    /**
+     * The decision written up in [DiaryRepositoryImpl]: a write that meets a
+     * dead token signs the family out, exactly as a read does. The correction
+     * was refused before it was stored, so keeping the token could not have
+     * saved it — and keeping it would leave them on a screen that looks signed
+     * in and fails everything.
+     */
+    @Test
+    fun `a dead token on a correction signs the family out`() = runTest {
+        store.stored = DiarySession(login = "parent@example.com", token = "stale")
+        val repository = repository(FakeApi(callFailure = httpError(401)))
+
+        val result = repository.correct(1, TARGET, DiaryField.ROOM, "301", null)
+
+        assertEquals(DiaryFailure.SignInRequired, result.exceptionOrNull())
+        assertNull(store.stored)
+    }
+
+    /**
+     * A newer server may know a correctable field this build does not. Showing
+     * the row would mean showing a reset button with no field to send, so it is
+     * left out — and «сбросить всё» still reaches it.
+     */
+    @Test
+    fun `a stored correction this build cannot name is left out of the list`() = runTest {
+        val api = FakeApi(
+            stored = listOf(
+                DiaryOverrideDto(target = TARGET, field = "room", value = "301"),
+                DiaryOverrideDto(target = TARGET, field = "canteen", value = "нет"),
+            ),
+        )
+        val repository = repository(api)
+
+        val rows = repository.overrides(1).getOrNull().orEmpty()
+
+        assertEquals(1, rows.size)
+        assertEquals(DiaryField.ROOM, rows.first().field)
+        assertEquals(TARGET, rows.first().target)
+    }
+
     private fun repository(api: DiaryApi) = DiaryRepositoryImpl(
         api = api,
         store = store,
@@ -193,9 +306,24 @@ class DiaryRepositoryTest {
         private val loginFailure: Throwable? = null,
         private val logoutFailure: Throwable? = null,
         private val callFailure: Throwable? = null,
+        private val stored: List<DiaryOverrideDto> = emptyList(),
     ) : DiaryApi {
 
         var scheduleCalls: Int = 0
+            private set
+
+        /**
+         * What the last correction was sent as, recorded *before* any failure
+         * is thrown: a write that the server refuses still has to have asked
+         * for the right thing.
+         */
+        var written: DiaryOverrideRequestDto? = null
+            private set
+
+        var reset: Pair<String, String>? = null
+            private set
+
+        var resetAllCalls: Int = 0
             private set
 
         override suspend fun login(body: DiaryLoginRequestDto): DiaryLoginResponseDto {
@@ -274,8 +402,44 @@ class DiaryRepositoryTest {
             callFailure?.let { throw it }
             return emptyList()
         }
+
+        override suspend fun overrides(studentId: Long): List<DiaryOverrideDto> {
+            callFailure?.let { throw it }
+            return stored
+        }
+
+        override suspend fun putOverride(
+            studentId: Long,
+            body: DiaryOverrideRequestDto,
+        ): DiaryOverrideDto {
+            written = body
+            callFailure?.let { throw it }
+            return DiaryOverrideDto(
+                target = body.target,
+                field = body.field,
+                value = body.value,
+                original = body.original,
+                updatedAt = "2026-09-15T10:00:00+03:00",
+            )
+        }
+
+        override suspend fun resetOverride(studentId: Long, target: String, field: String) {
+            reset = target to field
+            callFailure?.let { throw it }
+        }
+
+        override suspend fun resetOverrides(studentId: Long) {
+            resetAllCalls++
+            callFailure?.let { throw it }
+        }
     }
 }
+
+/**
+ * A key as the server composes it: the day, the lesson number when there is
+ * one, and the subject — trailing space and all.
+ */
+private const val TARGET = "lesson:2026-09-14:n2:Алгебра "
 
 private fun httpError(code: Int, vararg headers: Pair<String, String>): HttpException {
     val request = Request.Builder().url("https://school.example/api/v1/diary/students").build()
