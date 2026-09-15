@@ -29,7 +29,6 @@ from app.providers.petersburg.models import (
     DiaryLesson,
     HomeworkItem,
     Mark,
-    Student,
 )
 
 #: How a mark is drawn. Colour rather than a number alone, because the thing a
@@ -43,14 +42,6 @@ ABSENCE_ICONS = {"Н": "⚪", "Б": "⚪", "У": "⚪"}
 
 def mark_icon(value: str) -> str:
     return MARK_ICONS.get(value) or ABSENCE_ICONS.get(value) or "⚫"
-
-
-def student_line(student: Student) -> str:
-    parts = [f"<b>{escape(student.full_name)}</b>"]
-    where = " · ".join(escape(part) for part in (student.class_name, student.school) if part)
-    if where:
-        parts.append(where)
-    return "\n".join(parts)
 
 
 def render_day(lessons: list[DiaryLesson], day: Date, today: Date) -> str:

@@ -740,16 +740,9 @@ def test_the_other_three_views_escape_the_upstream_too():
     marks = diary_render.render_marks(
         [Mark(subject_name="ОБЖ <мал>", value="5", date=TODAY)], TODAY, TODAY
     )
-    student = diary_render.student_line(
-        Student(id=1, first_name="Пётр", last_name="Иванов <мл>", education_id=7,
-                class_name="9А & 9Б")
-    )
-
     assert "Алгебра &lt;7&gt;" in week
     assert "<b>Физика &lt;б&gt;</b> — п. 3 &lt;= 5" in homework
     assert "<b>ОБЖ &lt;мал&gt;</b>" in marks
-    assert "<b>Иванов &lt;мл&gt; Пётр</b>" in student
-    assert "9А &amp; 9Б" in student
 
 
 # --------------------------------------------------------------------------

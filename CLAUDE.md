@@ -248,7 +248,18 @@ points Hilt does not inject cleanly.
   `f"{n} {plural(n, …)}"` prints «10 10 минут» — three callers had it, and one had a test
   that passed because «10 минут» is a substring. And `answerCallbackQuery` takes no parse
   mode, so a card built for a message shows its own tags in an alert; run it through
-  `editor_render.as_alert` instead.
+  `editor_render.as_alert` instead — which also cuts at 200 characters, because past
+  that Telegram answers 400 and the press answers nothing at all.
+- **A list page and the keyboard under it read the same number.** `manage_render`
+  declares `SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX` and `LIST_MAX`, and
+  `manage_keyboards` builds its rows from those same names. While there were two
+  numbers, three pages of four drew rows no button could reach and «… и ещё N» said
+  nothing, because it counted from the renderer's number. The values differ on
+  purpose — a bell schedule's row carries three buttons and twelve lines of times, a
+  subject's one of each — so do not "tidy" them into one constant; the rule is that
+  what is drawn is what can be pressed, and
+  `test_no_list_page_draws_a_row_the_keyboard_cannot_reach` holds it. Nothing
+  paginates, so past the cap a row is only a number.
 - **A renderer is written against the type it is handed, and nothing checks that but you.**
   «🗓 Четверти» crashed on every press in production because the card printed `term.days`
   and `days` lived on a flattened copy of a term that nothing ever constructed. There is
