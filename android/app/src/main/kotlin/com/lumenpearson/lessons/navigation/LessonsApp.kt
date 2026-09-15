@@ -317,12 +317,15 @@ private fun HomeShell(
     //
     // They leave it entirely once a settings page is in front, which is what
     // stops them receiving touches — and that has to be removal rather than
-    // cover. `OverlayLayerTest` measures why: a layer that consumes early enough
-    // to stop the pager is early enough to cancel taps on its own rows, and one
-    // that waits until its rows are safe has already let the pager through. This
-    // shipped twice before that test existed. `AnimatedContent` removes the slot
-    // that is no longer current, so the property now falls out of the navigation
-    // rather than being maintained beside it.
+    // cover. A covering layer that consumed early enough to stop the pager was
+    // early enough to cancel taps on its own rows, and this shipped twice before
+    // a test existed for it. `OverlayLayerTest` now records that compose-bom
+    // 2026.09.00 changed that dispatch, which is the argument for removal rather
+    // than against it: the ordering is unspecified, it moved once under a
+    // dependency bump without a word, and a layer would go silently dead again.
+    // Removal leaves nothing to block. `AnimatedContent` removes the slot that is
+    // no longer current, so the property now falls out of the navigation rather
+    // than being maintained beside it.
     //
     // Without the holder, coming back would put every list at the top: the
     // scroll position of a LazyColumn is `rememberSaveable`, and a
