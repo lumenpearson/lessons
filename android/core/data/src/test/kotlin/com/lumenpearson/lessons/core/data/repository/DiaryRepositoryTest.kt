@@ -10,6 +10,7 @@ import com.lumenpearson.lessons.core.data.network.dto.DiaryMarkDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryPeriodDto
+import com.lumenpearson.lessons.core.data.network.dto.DiaryResetRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryStudentDto
 import com.lumenpearson.lessons.core.data.network.dto.DiarySubjectDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryTeacherDto
@@ -182,18 +183,25 @@ class DiaryRepositoryTest {
         assertEquals(DiaryFailure.Rejected, repository.resetAll(1).exceptionOrNull())
     }
 
-    /** The other half of the same rule: a read's 422 still means the range. */
+    /**
+     * The other half of the same rule, and the contrast is what makes it a
+     * test: one server, one 422, two meanings. Asserting only the read would
+     * keep passing with the whole `unprocessable` argument deleted, since
+     * whichever meaning was left as the default would be the one it checked.
+     */
     @Test
-    fun `a 422 on a read is still about the date range`() = runTest {
+    fun `the same 422 is the date range on a read and a refusal on a write`() = runTest {
         val repository = repository(FakeApi(callFailure = httpError(422)))
 
-        val result = repository.schedule(
+        val read = repository.schedule(
             studentId = 1,
             from = LocalDate.of(2026, 9, 14),
             to = LocalDate.of(2026, 9, 20),
         )
+        val write = repository.reset(1, TARGET, DiaryField.ROOM)
 
-        assertEquals(DiaryFailure.BadRange, result.exceptionOrNull())
+        assertEquals(DiaryFailure.BadRange, read.exceptionOrNull())
+        assertEquals(DiaryFailure.Rejected, write.exceptionOrNull())
     }
 
     /**
@@ -229,7 +237,53 @@ class DiaryRepositoryTest {
 
         repository.reset(studentId = 1, target = TARGET, field = DiaryField.TEXT)
 
-        assertEquals(TARGET to "text", api.reset)
+        assertEquals(TARGET, api.reset?.target)
+        assertEquals("text", api.reset?.field)
+    }
+
+    /**
+     * Why the reset stopped being a query string. A key is composed from a
+     * subject name, so it can hold an ampersand — which any URL parser reads as
+     * the start of the next parameter — and a colon, which is the separator the
+     * key itself is built from. Both have to arrive byte for byte, because the
+     * server matches the whole string and answers 204 either way: a reset that
+     * matched nothing would look exactly like one that worked.
+     */
+    @Test
+    fun `a reset sends the target verbatim, ampersand and colon and all`() = runTest {
+        val api = FakeApi()
+        val repository = repository(api)
+
+        val ampersand = "lesson:2026-09-14:n2:Физика & астрономия"
+        repository.reset(studentId = 1, target = ampersand, field = DiaryField.ROOM)
+        assertEquals(ampersand, api.reset?.target)
+
+        val colon = "lesson:2026-09-14:n3:ОБЖ: основы безопасности"
+        repository.reset(studentId = 1, target = colon, field = DiaryField.TOPIC)
+        assertEquals(colon, api.reset?.target)
+        assertEquals("topic", api.reset?.field)
+    }
+
+    /**
+     * «Сбросить всё» is one call of its own and not a loop over the list. The
+     * rows this build cannot name a field for are dropped from that list, so a
+     * loop would leave behind precisely the corrections a family has no other
+     * way to be rid of.
+     */
+    @Test
+    fun `resetting everything is one call, not a reset for each row`() = runTest {
+        val api = FakeApi(
+            stored = listOf(
+                DiaryOverrideDto(target = TARGET, field = "room", value = "301"),
+                DiaryOverrideDto(target = TARGET, field = "canteen", value = "нет"),
+            ),
+        )
+        val repository = repository(api)
+
+        assertTrue(repository.resetAll(1).isSuccess)
+
+        assertEquals(1, api.resetAllCalls)
+        assertNull(api.reset)
     }
 
     /**
@@ -320,7 +374,9 @@ class DiaryRepositoryTest {
         var written: DiaryOverrideRequestDto? = null
             private set
 
-        var reset: Pair<String, String>? = null
+        /** The body of the last single-field reset, kept whole so a test can
+         * look at the target that travelled rather than at a re-encoding of it. */
+        var reset: DiaryResetRequestDto? = null
             private set
 
         var resetAllCalls: Int = 0
@@ -418,13 +474,13 @@ class DiaryRepositoryTest {
                 target = body.target,
                 field = body.field,
                 value = body.value,
-                original = body.original,
+                originalWhenWritten = body.original,
                 updatedAt = "2026-09-15T10:00:00+03:00",
             )
         }
 
-        override suspend fun resetOverride(studentId: Long, target: String, field: String) {
-            reset = target to field
+        override suspend fun resetOverride(studentId: Long, body: DiaryResetRequestDto) {
+            reset = body
             callFailure?.let { throw it }
         }
 

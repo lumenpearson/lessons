@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
@@ -18,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.DiaryLesson
 import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
@@ -31,6 +33,7 @@ import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
 import com.lumenpearson.lessons.core.model.HomeworkItem
 import com.lumenpearson.lessons.core.model.Lesson
+import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
 import com.lumenpearson.lessons.ui.common.asDayMonth
 import com.lumenpearson.lessons.ui.common.asFullWeekday
@@ -76,13 +79,27 @@ internal fun LazyListScope.diarySchedule(
             )
         }
 
-        else -> state.days.forEach { day ->
-            item(key = "day-${day.date}") {
-                DiaryDayCard(
-                day = day,
-                isToday = day.date == state.today,
-                onEdit = viewModel::edit,
-            )
+        else -> {
+            state.days.forEach { day ->
+                item(key = "day-${day.date}") {
+                    DiaryDayCard(
+                        day = day,
+                        isToday = day.date == state.today,
+                        onEdit = viewModel::edit,
+                    )
+                }
+            }
+            // The rows became tappable and nothing said so. One quiet line at
+            // the end of the week rather than a badge on every row: it is worth
+            // reading once, and a hint that repeats itself down the screen is
+            // one people stop seeing.
+            item(key = "edit-hint") {
+                Text(
+                    text = stringResource(R.string.diary_edit_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = ScreenPadding, vertical = 8.dp),
+                )
             }
         }
     }
@@ -176,16 +193,16 @@ private fun DiaryDayCard(
                     )
                 }
                 day.homework.forEach { item ->
+                    val corrections = item.corrections()
                     HomeworkRow(
-                        item = HomeworkItem(
-                            // The badge goes on the label, never on the text:
-                            // the text is the value that was corrected, and a
-                            // marker inside it would be indistinguishable from
-                            // what somebody typed.
-                            subject = item.subject.withBadge(item.edits.isNotEmpty()),
-                            text = item.text,
-                        ),
-                        onClick = { onEdit(item.corrections()) },
+                        item = HomeworkItem(subject = item.subject, text = item.text),
+                        // Its own slot, not appended to the subject: the tile's
+                        // colour is a hash of the subject, so a word added to
+                        // it draws a corrected Алгебра in a different colour
+                        // from the Алгебра beside it.
+                        badge = stringResource(R.string.diary_edited_badge)
+                            .takeIf { corrections.hasCorrections },
+                        onClick = { onEdit(corrections) },
                     )
                 }
             }
@@ -219,15 +236,16 @@ private fun DiaryLesson.asTimedLesson(): Lesson? {
         // been corrected without the correction pretending to be the school's.
         note = listOfNotNull(
             topic?.let { stringResource(R.string.diary_lesson_topic, it) },
-            stringResource(R.string.diary_edited_badge).takeIf { edits.isNotEmpty() },
+            // From the corrections this build can name, which is the same set
+            // the reset button acts on. Drawn from the raw edit list instead, a
+            // correction on a field a newer server knows and this one does not
+            // would mark the row and offer nothing to take it off with.
+            stringResource(R.string.diary_edited_badge)
+                .takeIf { corrections().hasCorrections },
         ).joinToString(" · ").ifBlank { null },
     )
 }
 
-/** Appends «Исправлено» to a label, or leaves it alone. */
-@Composable
-private fun String.withBadge(corrected: Boolean): String =
-    if (corrected) "$this · ${stringResource(R.string.diary_edited_badge)}" else this
 
 /** A lesson the diary published without a time. */
 @Composable
@@ -248,7 +266,8 @@ private fun UntimedLessonRow(
                 stringResource(R.string.diary_lesson_no_time),
                 lesson.room?.let { stringResource(R.string.diary_lesson_room, it) },
                 lesson.teacher,
-                stringResource(R.string.diary_edited_badge).takeIf { lesson.edits.isNotEmpty() },
+                stringResource(R.string.diary_edited_badge)
+                    .takeIf { lesson.corrections().hasCorrections },
             ).joinToString(" · "),
         )
     }

@@ -22,6 +22,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.ui.admin.ManagementSheet
 import com.lumenpearson.lessons.ui.admin.SheetField
 import com.lumenpearson.lessons.ui.admin.SheetNote
+import com.lumenpearson.lessons.ui.admin.SheetSection
 
 /**
  * Correcting one row of the diary.
@@ -55,10 +56,19 @@ internal fun DiaryEditSheet(
     }
 
     ManagementSheet(
-        title = corrections.title,
+        // The action, not the subject: the row is named in the first line
+        // below, where there is room for the lesson number too. Two halves of a
+        // double lesson are the same subject, so a sheet titled with it alone
+        // cannot say which one is being corrected.
+        title = stringResource(R.string.diary_edit_title),
         onDismiss = onDismiss,
         modifier = modifier,
     ) {
+        SheetSection(
+            title = corrections.subtitle
+                ?.let { stringResource(R.string.diary_edit_which, corrections.title, it) }
+                ?: corrections.title,
+        )
         SheetNote(text = stringResource(R.string.diary_edit_message))
 
         if (corrections.ambiguous) {

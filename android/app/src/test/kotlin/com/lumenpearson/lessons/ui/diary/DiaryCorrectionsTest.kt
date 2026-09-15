@@ -156,4 +156,24 @@ class DiaryCorrectionsTest {
         assertEquals("§ 5", corrections.upstreamOf(DiaryField.TEXT))
         assertFalse(corrections.ambiguous)
     }
+
+    @Test
+    fun `homework the server could not tell apart carries that through too`() {
+        // Two assignments in one subject due the same day, neither with an
+        // upstream id, key the same — and the sheet refuses to write on a row
+        // it cannot name. This flag was hardcoded false on the homework path
+        // for a while, which meant the sheet happily offered a save whose
+        // correction the server would then decline to apply to anything.
+        val item = DiaryHomework(
+            id = null,
+            dueDate = monday,
+            subject = "Алгебра",
+            text = "§ 5, упр. 3",
+            teacher = null,
+            target = "hw:2026-09-07:Алгебра",
+            ambiguous = true,
+        )
+
+        assertTrue(item.corrections().ambiguous)
+    }
 }

@@ -153,6 +153,15 @@ class DiaryViewModel(
                         selectedStudentId = if (session == null) null else it.selectedStudentId,
                         days = if (session == null) emptyList() else it.days,
                         subjects = if (session == null) emptyList() else it.subjects,
+                        // The correction sheet goes with everything else. A
+                        // write that meets a dead token clears the session from
+                        // under it, and the sheet would stay on top of the
+                        // sign-in form — over a «Сохранить» that is enabled and
+                        // provably does nothing, because the pupil it was
+                        // saving for has just been forgotten too.
+                        editing = if (session == null) null else it.editing,
+                        savingEdit = if (session == null) false else it.savingEdit,
+                        editError = if (session == null) null else it.editError,
                     )
                 }
                 if (session != null && state.value.students.isEmpty()) loadStudents()
@@ -397,37 +406,49 @@ class DiaryViewModel(
 
         state.update { it.copy(savingEdit = true, editError = null) }
         viewModelScope.launch {
-            var failure: DiaryFailure? = null
-            for ((field, raw) in typed) {
-                val wanted = raw.trim()
-                val upstream = open.upstreamOf(field)
-                val corrected = field in open.corrected
-                // Nothing is sent for a field nobody touched. The sheet hands
-                // back every field it drew, so without this a save of one room
-                // is four round trips, three of them asking the server to
-                // delete corrections that were never there.
-                val result = when {
-                    wanted == upstream.orEmpty().trim() ->
-                        if (corrected) repository.reset(student, open.target, field) else null
-                    corrected && wanted == open.values[field].orEmpty().trim() -> null
-                    else -> repository.correct(student, open.target, field, wanted, upstream)
-                } ?: continue
-                failure = result.exceptionOrNull() as? DiaryFailure
-                if (failure != null) break
+            val failure = write {
+                typed.mapNotNull { (field, raw) ->
+                    val wanted = raw.trim()
+                    val upstream = open.upstreamOf(field)
+                    val corrected = field in open.corrected
+                    // Nothing is sent for a field nobody touched. The sheet
+                    // hands back every field it drew, so without this a save of
+                    // one room is four round trips, three of them asking the
+                    // server to delete corrections that were never there.
+                    when {
+                        wanted == upstream.orEmpty().trim() ->
+                            if (corrected) {
+                                suspend { repository.reset(student, open.target, field) }
+                            } else {
+                                null
+                            }
+                        // Re-sent, not skipped, when the diary has moved under
+                        // this field. The value is the same but `original` is
+                        // not: without the write, «в дневнике теперь другое»
+                        // comes back every time the sheet is opened and there
+                        // is no way to say "yes, I know, keep mine".
+                        corrected &&
+                            wanted == open.values[field].orEmpty().trim() &&
+                            field !in open.changedUpstream -> null
+                        else -> suspend {
+                            repository.correct(student, open.target, field, wanted, upstream)
+                        }
+                    }
+                }
             }
-            if (failure != null) {
-                // Left open on purpose: what the person typed is still in the
-                // fields, and closing the sheet would throw it away to show
-                // them a message about why it had not been saved.
-                applyFailure(failure) { copy(savingEdit = false, editError = it) }
-                return@launch
-            }
-            state.update { it.copy(editing = null, savingEdit = false) }
-            refresh()
+            finishEdit(failure)
         }
     }
 
-    /** Takes every correction off this row. */
+    /**
+     * Takes every correction off this row.
+     *
+     * The fields that **are** corrected, not the ones the sheet drew. They are
+     * not the same set — a correction can exist on a field this screen does not
+     * offer — and resetting the drawn ones deletes nothing while leaving the
+     * row still marked as corrected, which is a destructive-looking button that
+     * provably does nothing, forever.
+     */
     fun resetEdit() {
         val open = state.value.editing ?: return
         val student = state.value.selectedStudentId ?: return
@@ -435,19 +456,61 @@ class DiaryViewModel(
 
         state.update { it.copy(savingEdit = true, editError = null) }
         viewModelScope.launch {
-            var failure: DiaryFailure? = null
-            for (field in open.fields) {
-                val result = repository.reset(student, open.target, field)
-                failure = result.exceptionOrNull() as? DiaryFailure
-                if (failure != null) break
+            val failure = write {
+                open.corrected.map { field ->
+                    suspend { repository.reset(student, open.target, field) }
+                }
             }
-            if (failure != null) {
-                applyFailure(failure) { copy(savingEdit = false, editError = it) }
-                return@launch
-            }
+            finishEdit(failure)
+        }
+    }
+
+    /**
+     * Runs the writes one at a time and stops at the first failure.
+     *
+     * @return what went wrong, or `null`.
+     */
+    private suspend fun write(
+        calls: () -> List<suspend () -> Result<Unit>>,
+    ): Throwable? {
+        for (call in calls()) {
+            // `exceptionOrNull()` rather than a cast: a failure that is not a
+            // `DiaryFailure` was being read as a success, which closed the
+            // sheet on a save that never happened. Nothing produces one today
+            // — the repository classifies everything — and that is a property
+            // of a layer below this one, not a reason to depend on it.
+            val failure = call().exceptionOrNull()
+            if (failure != null) return failure
+        }
+        return null
+    }
+
+    /**
+     * Closes the sheet, or leaves it open with the reason.
+     *
+     * Either way the screen is reloaded. A save is several writes, so a failure
+     * halfway leaves some of them applied; without the reload the week still
+     * shows the old value with no badge, and the correction that *was* written
+     * turns up later as a change nobody made just then.
+     */
+    private fun finishEdit(failure: Throwable?) {
+        if (failure == null) {
             state.update { it.copy(editing = null, savingEdit = false) }
             refresh()
+            return
         }
+        if (DiaryFailure.of(failure) is DiaryFailure.ReauthRequired) {
+            // The sheet has to go: `applyFailure` puts the password prompt on
+            // screen underneath it, and a modal sheet with no message in it
+            // over a form nobody can see is how somebody concludes the button
+            // is broken.
+            state.update { it.copy(editing = null) }
+        }
+        // Left open otherwise, on purpose: what the person typed is still in
+        // the fields, and closing the sheet would throw it away to show them a
+        // message about why it had not been saved.
+        applyFailure(failure) { copy(savingEdit = false, editError = it) }
+        refresh()
     }
 
     /**

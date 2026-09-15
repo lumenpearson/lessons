@@ -99,6 +99,7 @@ internal fun DiaryHomeworkDto.toDomain(): DiaryHomework? {
         teacher = teacher.cleaned(),
         target = target,
         edits = edits.mapNotNull { it.toDomain() },
+        ambiguous = ambiguous,
     )
 }
 
@@ -118,7 +119,7 @@ internal fun DiaryOverrideDto.toDomain(): DiaryOverrideRecord? {
         target = key,
         field = named,
         value = value,
-        original = original.cleaned(),
+        originalWhenWritten = originalWhenWritten.cleaned(),
     )
 }
 

@@ -22,6 +22,7 @@ from datetime import date as Date
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crypto import diary_enabled, seal, unseal
@@ -138,6 +139,22 @@ async def find_session(session: AsyncSession, token: str) -> DiarySession | None
 # correction must not.
 
 
+def owner_key(login: str) -> str:
+    """The form of a login that corrections are filed under.
+
+    Case-folded, because the upstream does not care: a family that signed in as
+    ``Ivan@mail.ru`` and later types ``ivan@mail.ru`` lands in the same account
+    there, and must land on the same corrections here. Keyed on the raw string,
+    every one of them would vanish the first time somebody's keyboard
+    capitalised the first letter — with no reset button, because there would be
+    nothing left to reset.
+
+    The row's own ``login`` stays as it was typed: it is what «вы вошли как»
+    prints, and that should say what the person wrote.
+    """
+    return login.strip().casefold()
+
+
 async def load_corrections(
     session: AsyncSession, login: str, student_id: int
 ) -> dict[str, dict[str, tuple[str, str | None]]]:
@@ -149,7 +166,7 @@ async def load_corrections(
     """
     rows = await session.scalars(
         select(DiaryOverride).where(
-            DiaryOverride.login == login,
+            DiaryOverride.login == owner_key(login),
             DiaryOverride.student_id == student_id,
         )
     )
@@ -166,7 +183,7 @@ async def list_overrides(
     rows = await session.scalars(
         select(DiaryOverride)
         .where(
-            DiaryOverride.login == login,
+            DiaryOverride.login == owner_key(login),
             DiaryOverride.student_id == student_id,
         )
         .order_by(DiaryOverride.target, DiaryOverride.field)
@@ -191,26 +208,51 @@ async def put_override(
     """
     row = await session.scalar(
         select(DiaryOverride).where(
-            DiaryOverride.login == login,
+            DiaryOverride.login == owner_key(login),
             DiaryOverride.student_id == student_id,
             DiaryOverride.target == target,
             DiaryOverride.field == field,
         )
     )
-    if row is None:
-        row = DiaryOverride(
-            login=login,
-            student_id=student_id,
-            target=target,
-            field=field,
-            value=value,
-            original=original,
-        )
-        session.add(row)
-    else:
+    if row is not None:
         row.value = value
         row.original = original
-    await session.commit()
+        await session.commit()
+        await session.refresh(row)
+        return row
+
+    row = DiaryOverride(
+        login=owner_key(login),
+        student_id=student_id,
+        target=target,
+        field=field,
+        value=value,
+        original=original,
+    )
+    session.add(row)
+    try:
+        await session.commit()
+    except IntegrityError:
+        # Select-then-insert has a gap, and two devices of one family — or one
+        # device double-tapping through a retry — fall into it. The unique
+        # constraint catches it, which is the constraint doing its job; what it
+        # must not do is become a 500 on the way out, because from the person's
+        # side both taps said the same thing and the answer to both is the row
+        # that is now there.
+        await session.rollback()
+        row = await session.scalar(
+            select(DiaryOverride).where(
+                DiaryOverride.login == owner_key(login),
+                DiaryOverride.student_id == student_id,
+                DiaryOverride.target == target,
+                DiaryOverride.field == field,
+            )
+        )
+        if row is None:
+            raise
+        row.value = value
+        row.original = original
+        await session.commit()
     await session.refresh(row)
     return row
 
@@ -221,7 +263,7 @@ async def drop_override(
     """Resets one field. @return whether there was anything to reset."""
     row = await session.scalar(
         select(DiaryOverride).where(
-            DiaryOverride.login == login,
+            DiaryOverride.login == owner_key(login),
             DiaryOverride.student_id == student_id,
             DiaryOverride.target == target,
             DiaryOverride.field == field,
@@ -352,6 +394,15 @@ class DiaryService:
         except Exception:  # noqa: BLE001 - telemetry must not fail a read
             log.warning("could not store the refreshed diary session", exc_info=True)
             await self.session.rollback()
+            # A rollback expires every instance in the session, including this
+            # one — and an expired instance in an async session reloads itself
+            # lazily, which raises MissingGreenlet from whatever attribute is
+            # touched next. The routes read `row.login` after calling in here,
+            # so without this the failure this branch exists to absorb comes
+            # back as a 500 from a line that only wanted a string.
+            # `api/deps.py:_touch_last_seen` carries the same refresh, for the
+            # same reason and after the same outage.
+            await self.session.refresh(self.row)
 
     async def _expire(self) -> None:
         """Marks the session dead so the next request fails fast, with the
@@ -362,3 +413,6 @@ class DiaryService:
         except Exception:  # noqa: BLE001
             log.warning("could not mark the diary session expired", exc_info=True)
             await self.session.rollback()
+            # @see _remember_token: the rollback expires `row`, and the caller
+            # reads it straight afterwards.
+            await self.session.refresh(self.row)

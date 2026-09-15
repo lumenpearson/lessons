@@ -163,6 +163,12 @@ data class DiaryHomework(
     val teacher: String?,
     val target: String = "",
     val edits: List<DiaryEdit> = emptyList(),
+    /**
+     * Two assignments in one subject due the same day, neither carrying an
+     * upstream id, share a key — so no correction is applied to either and the
+     * screen says so. @see DiaryLesson.ambiguous
+     */
+    val ambiguous: Boolean = false,
 )
 
 /**
@@ -175,12 +181,18 @@ data class DiaryHomework(
  * [target] is the server's key and is kept byte for byte — it is composed from
  * a date, a lesson number and a subject name, so a trailing space in it belongs
  * to the key and not to the formatting.
+ *
+ * [originalWhenWritten] is what the diary said at the moment the correction was
+ * made. [DiaryEdit.original] is the other of the two and means the opposite —
+ * what the diary says **now** — and only that one may be drawn as
+ * «в дневнике: …»; this one dates a correction, it does not describe the
+ * current state of anything.
  */
 data class DiaryOverrideRecord(
     val target: String,
     val field: DiaryField,
     val value: String,
-    val original: String?,
+    val originalWhenWritten: String?,
 )
 
 /**

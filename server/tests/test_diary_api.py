@@ -100,10 +100,12 @@ def with_token(request: httpx.Request) -> httpx.Response:
     return response
 
 
-async def sign_in(client, upstream, password: str = "correct") -> str:
+async def sign_in(
+    client, upstream, password: str = "correct", login: str = "parent@example.com"
+) -> str:
     upstream.routes[LOGIN_PATH] = with_token
     response = await client.post(
-        "/api/v1/diary/login", json={"login": "parent@example.com", "password": password}
+        "/api/v1/diary/login", json={"login": login, "password": password}
     )
     assert response.status_code == 200, response.text
     return response.json()["token"]
@@ -274,6 +276,9 @@ async def test_homework_comes_from_the_lesson_list_and_says_nothing_about_it(
             # here, so the list is empty rather than absent.
             "target": "hw:2026-09-15:Алгебра",
             "edits": [],
+            # Only one item shares this key, so the correction it would carry
+            # is a correction of this item and nothing else.
+            "ambiguous": False,
         }
     ]
     # Their odd date-plus-time format, which is neither ISO nor a timestamp.
@@ -549,9 +554,10 @@ async def test_resetting_gives_the_diary_its_answer_back(client, upstream):
         json={"target": target, "field": "room", "value": "204"},
     )
 
-    reset = await client.delete(
-        f"/api/v1/diary/students/4021/overrides?target={target}&field=room",
+    reset = await client.post(
+        "/api/v1/diary/students/4021/overrides/reset",
         headers={"Authorization": f"Bearer {token}"},
+        json={"target": target, "field": "room"},
     )
     assert reset.status_code == 204
 
@@ -568,9 +574,10 @@ async def test_resetting_something_that_was_never_corrected_is_not_an_error(
     token = await signed_in_with_a_lesson(client, upstream)
     target = (await read_schedule(client, token))[0]["target"]
 
-    response = await client.delete(
-        f"/api/v1/diary/students/4021/overrides?target={target}&field=topic",
+    response = await client.post(
+        "/api/v1/diary/students/4021/overrides/reset",
         headers={"Authorization": f"Bearer {token}"},
+        json={"target": target, "field": "topic"},
     )
     assert response.status_code == 204
 
@@ -681,10 +688,100 @@ async def test_the_correction_endpoints_need_a_bearer(client):
     paths = [
         ("get", "/api/v1/diary/students/1/overrides"),
         ("put", "/api/v1/diary/students/1/overrides"),
-        ("delete", "/api/v1/diary/students/1/overrides?target=hw:id:1&field=text"),
+        ("post", "/api/v1/diary/students/1/overrides/reset"),
         ("delete", "/api/v1/diary/students/1/overrides/all"),
     ]
     for method, path in paths:
         call = getattr(client, method)
-        response = await call(path, json={}) if method == "put" else await call(path)
+        response = (
+            await call(path, json={}) if method in ("put", "post") else await call(path)
+        )
         assert response.status_code == 401, path
+
+
+async def test_corrections_are_private_to_the_account_that_wrote_them(client, upstream):
+    """Two parents of one child sign in with their own upstream accounts. The
+    key is (login, student), so each set of corrections is theirs — and the
+    fixture gives both accounts the same child, which is the only way this
+    property can actually be observed."""
+    mine = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, mine))[0]["target"]
+    await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {mine}"},
+        json={"target": target, "field": "room", "value": "204"},
+    )
+
+    theirs = await sign_in(client, upstream, login="other@example.com")
+
+    listed = await client.get(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {theirs}"},
+    )
+    assert listed.json() == []
+    assert (await read_schedule(client, theirs))[0]["room"] == "12"
+    # …and mine are still mine.
+    assert (await read_schedule(client, mine))[0]["room"] == "204"
+
+
+async def test_a_login_typed_with_different_capitals_finds_its_corrections(
+    client, upstream
+):
+    """The upstream does not care about the case, so neither may we: a family
+    whose keyboard capitalises the first letter must not find every correction
+    gone, with no reset button because there is nothing left to reset."""
+    first = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, first))[0]["target"]
+    await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {first}"},
+        json={"target": target, "field": "room", "value": "204"},
+    )
+
+    again = await sign_in(client, upstream, login="Parent@Example.com")
+
+    assert (await read_schedule(client, again))[0]["room"] == "204"
+
+
+async def test_the_diary_moving_underneath_a_correction_is_reported(client, upstream):
+    token = await sign_in(client, upstream)
+    upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
+    upstream.routes[SCHEDULE_PATH] = {"items": [a_lesson(office="12")]}
+    target = (await read_schedule(client, token))[0]["target"]
+    await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": target, "field": "room", "value": "204", "original": "12"},
+    )
+
+    # The school moves the lesson. The correction is not thrown away for the
+    # person, but it stops being silent about what it is covering.
+    upstream.routes[SCHEDULE_PATH] = {"items": [a_lesson(office="301")]}
+    lesson = (await read_schedule(client, token))[0]
+
+    assert lesson["room"] == "204"
+    assert lesson["edits"][0]["changed_upstream"] is True
+    assert lesson["edits"][0]["original"] == "301"
+
+
+async def test_a_homework_text_cannot_be_emptied(client, upstream):
+    """It would take the row off the list, and the correction with it."""
+    token = await signed_in_with_a_lesson(client, upstream)
+    response = await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": "hw:id:77", "field": "text", "value": "   "},
+    )
+    assert response.status_code == 422
+
+
+async def test_a_well_prefixed_but_malformed_target_is_refused(client, upstream):
+    """The prefix is not the check: a key is matched by string equality, so
+    `lesson:x` could only ever be a row nothing applies."""
+    token = await signed_in_with_a_lesson(client, upstream)
+    response = await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": "lesson:x", "field": "room", "value": "204"},
+    )
+    assert response.status_code == 422

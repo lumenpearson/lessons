@@ -46,10 +46,11 @@ def test_a_lesson_with_no_number_keeps_its_place_in_the_key():
     assert ov.lesson_target(lesson(number=None)) != ov.lesson_target(lesson())
 
 
-def test_a_double_lesson_is_two_targets_because_the_number_differs():
-    first = ov.lesson_target(lesson(number=3))
-    second = ov.lesson_target(lesson(number=4))
-    assert first != second
+def test_a_double_lesson_is_two_targets_because_the_number_is_in_the_key():
+    """Both halves of a double lesson carry the same subject and the same day,
+    so the number is the only thing keeping their corrections apart."""
+    assert ov.lesson_target(lesson(number=3)) == "lesson:2026-09-07:n3:Алгебра"
+    assert ov.lesson_target(lesson(number=4)) == "lesson:2026-09-07:n4:Алгебра"
 
 
 def test_homework_uses_its_upstream_id_when_it_has_one():
@@ -85,6 +86,57 @@ def test_a_target_this_server_would_never_produce_is_refused():
         ov.check("something-else", "text")
     with pytest.raises(ov.UnknownTarget):
         ov.check("lesson", "room")
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "lesson:x",
+        "lesson:2026-09-07:n1",
+        "lesson:2026-09-07:1:Алгебра",
+        "lesson:not-a-date::Алгебра",
+        "lesson:2026-09-07:n1:",
+        "hw:junk",
+        "hw:id:notanumber",
+        "hw:2026-13-40:Алгебра",
+        "hw:2026-09-07:",
+        "lesson::::",
+    ],
+)
+def test_a_target_with_the_right_prefix_but_the_wrong_shape_is_refused(target):
+    """The prefix is not the check. A key is matched by string equality against
+    one this module produced, so a target that merely starts with `lesson:` can
+    never match anything — and a stored row that can never match is exactly what
+    `check` exists to keep out of the table."""
+    field = "text" if target.startswith("hw") else "room"
+    with pytest.raises(ov.UnknownTarget):
+        ov.check(target, field)
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "lesson:2026-09-07:n1:Алгебра",
+        "lesson:2026-09-07::Алгебра",
+        "lesson:2026-09-07:n1:Физика: практикум",
+        "hw:id:77",
+        "hw:2026-09-07:Алгебра",
+    ],
+)
+def test_every_shape_this_module_produces_is_accepted(target):
+    ov.check(target, "text" if target.startswith("hw") else "room")
+
+
+def test_a_homework_text_may_not_be_emptied():
+    """Emptying it would take the row off the list — the provider drops an item
+    whose task is blank — and with it the only thing that could undo it."""
+    with pytest.raises(ov.EmptyNotAllowed):
+        ov.check_value("text", "   ")
+
+
+@pytest.mark.parametrize("field", sorted(ov.NULLABLE_FIELDS))
+def test_a_field_the_diary_leaves_blank_may_be_emptied(field):
+    ov.check_value(field, "")
 
 
 def test_an_oversized_target_is_refused_rather_than_truncated():
@@ -169,7 +221,9 @@ def test_two_lessons_sharing_a_key_correct_neither_and_say_so():
 
     assert [item.lesson.room for item in result] == ["12", "14"]
     assert all(item.ambiguous for item in result)
-    assert all(item.edits == () for item in result)
+    # Reported, not applied: the correction exists and the person needs to be
+    # able to take it off. See the test below for what an unapplied edit says.
+    assert all(item.edits for item in result)
 
 
 def test_a_lesson_that_shares_no_key_is_not_marked_ambiguous():
@@ -201,3 +255,34 @@ def test_upstream_order_survives_the_overlay():
     lessons = [lesson(number=index, subject=f"Урок {index}") for index in (3, 1, 2)]
     result = ov.overlay_lessons(lessons, {})
     assert [item.lesson.number for item in result] == [3, 1, 2]
+
+
+def test_two_homework_items_sharing_a_key_correct_neither_and_say_so():
+    """Two assignments in one subject due the same day, neither carrying an
+    upstream id, are ordinary — a reading and an exercise set. Applying one
+    family's correction to both, and taking it off both on reset, is the same
+    failure the lesson path refuses; it is not less wrong for being easier to
+    miss."""
+    both = [homework(text="прочитать"), homework(text="№ 42")]
+    result = ov.overlay_homework(
+        both, {"hw:2026-09-07:Алгебра": {"text": correction("§ 5", "прочитать")}}
+    )
+
+    assert [item.item.text for item in result] == ["прочитать", "№ 42"]
+    assert all(item.ambiguous for item in result)
+
+
+def test_an_ambiguous_row_still_names_the_fields_it_is_not_applying():
+    """The only thing a person can do about it is reset it, and a reset button
+    has to know which field it is resetting."""
+    split = [lesson(room="12"), lesson(room="14")]
+    result = ov.overlay_lessons(
+        split, {"lesson:2026-09-07:n1:Алгебра": {"room": correction("204", "12")}}
+    )
+
+    edit = result[0].edits[0]
+    assert edit.field == "room"
+    assert edit.value == "204"
+    # Null, not one of the two rooms: there is more than one row and no way to
+    # say which this was written against — which is why nothing is applied.
+    assert edit.original is None

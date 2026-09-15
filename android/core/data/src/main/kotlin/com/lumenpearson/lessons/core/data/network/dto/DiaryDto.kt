@@ -106,6 +106,10 @@ internal data class DiaryHomeworkDto(
     /** @see DiaryLessonDto.target — homework is keyed by its upstream id when it has one. */
     @SerialName("target") val target: String = "",
     @SerialName("edits") val edits: List<DiaryEditDto> = emptyList(),
+    // Two assignments in one subject due the same day, neither carrying an
+    // upstream id, share a key. False is also what a server too old to know
+    // about corrections means by not sending it, as on DiaryLessonDto.
+    @SerialName("ambiguous") val ambiguous: Boolean = false,
 )
 
 /**
@@ -121,7 +125,14 @@ internal data class DiaryOverrideDto(
     @SerialName("target") val target: String = "",
     @SerialName("field") val field: String = "",
     @SerialName("value") val value: String = "",
-    @SerialName("original") val original: String? = null,
+    /**
+     * What the diary said **when this correction was written**, which is the
+     * opposite of what [DiaryEditDto.original] carries: that one is the value
+     * currently being covered up. The server spells the two apart because a
+     * client holding one name for both renders «в дневнике: …» from whichever
+     * of them it happened to have.
+     */
+    @SerialName("original_when_written") val originalWhenWritten: String? = null,
     @SerialName("updated_at") val updatedAt: String = "",
 )
 
@@ -140,6 +151,22 @@ internal data class DiaryOverrideRequestDto(
     @SerialName("field") val field: String,
     @SerialName("value") val value: String,
     @SerialName("original") val original: String? = null,
+)
+
+/**
+ * Mirrors `DiaryResetIn`: the body of `POST /overrides/reset`.
+ *
+ * A body rather than a query string, and the reason is the target: it is free
+ * text, so a subject named «Физика & астрономия» composes a key with an
+ * ampersand in it, and a caller that percent-encodes it a shade differently
+ * from the server matches no row while being answered 204.
+ *
+ * No defaults, for the reason [DiaryOverrideRequestDto] has none.
+ */
+@Serializable
+internal data class DiaryResetRequestDto(
+    @SerialName("target") val target: String,
+    @SerialName("field") val field: String,
 )
 
 /**

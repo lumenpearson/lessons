@@ -42,6 +42,7 @@ from app.schemas import (
     DiaryOverrideIn,
     DiaryOverrideOut,
     DiaryPeriodOut,
+    DiaryResetIn,
     DiaryStudentOut,
     DiarySubjectOut,
     DiaryTeacherOut,
@@ -367,6 +368,13 @@ async def put_override(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Это поле нельзя исправить",
         ) from failure
+    try:
+        overrides.check_value(payload.field, payload.value)
+    except overrides.EmptyNotAllowed as failure:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Это поле не может быть пустым",
+        ) from failure
 
     stored = await service.put_override(
         session,
@@ -380,26 +388,31 @@ async def put_override(
     return DiaryOverrideOut.of(stored)
 
 
-@router.delete(
-    "/students/{student_id}/overrides",
+@router.post(
+    "/students/{student_id}/overrides/reset",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def reset_override(
     student_id: int,
-    target: str = Query(min_length=1, max_length=300),
-    field: str = Query(min_length=1, max_length=40),
+    payload: DiaryResetIn,
     svc: service.DiaryService = Depends(_service),
     row: DiarySession = Depends(current_diary),
     session: AsyncSession = Depends(get_session),
 ) -> None:
     """Resets one field back to what the diary says.
 
+    A POST with a body rather than a DELETE with a query string: the target is
+    free text and can carry an ampersand, and a reset that quietly matched
+    nothing while answering 204 is worse than one that is awkward to spell.
+
     Idempotent, and answers 204 whether or not there was a row: "there is no
     correction here" is the state the caller asked for, and a 404 would make
     the client decide whether to show an error for having got what it wanted.
     """
     await _student(svc, student_id)
-    await service.drop_override(session, row.login, student_id, target, field)
+    await service.drop_override(
+        session, row.login, student_id, payload.target, payload.field
+    )
 
 
 @router.delete(

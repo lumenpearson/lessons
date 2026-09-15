@@ -3,6 +3,7 @@ package com.lumenpearson.lessons.core.data.repository
 import com.lumenpearson.lessons.core.data.network.DiaryApi
 import com.lumenpearson.lessons.core.data.network.dto.DiaryLoginRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideRequestDto
+import com.lumenpearson.lessons.core.data.network.dto.DiaryResetRequestDto
 import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -161,7 +162,12 @@ internal class DiaryRepositoryImpl(
         target: String,
         field: DiaryField,
     ): Result<Unit> = call(unprocessable = DiaryFailure.Rejected) {
-        api.resetOverride(studentId, target = target, field = field.wire())
+        // In the body, not in the query string: the key is the server's own and
+        // it can carry an ampersand, so it travels where nothing re-encodes it.
+        api.resetOverride(
+            studentId,
+            DiaryResetRequestDto(target = target, field = field.wire()),
+        )
     }
 
     override suspend fun resetAll(studentId: Long): Result<Unit> =

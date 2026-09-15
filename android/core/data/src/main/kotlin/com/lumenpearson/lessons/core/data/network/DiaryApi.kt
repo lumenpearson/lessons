@@ -9,6 +9,7 @@ import com.lumenpearson.lessons.core.data.network.dto.DiaryMarkDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryPeriodDto
+import com.lumenpearson.lessons.core.data.network.dto.DiaryResetRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryStudentDto
 import com.lumenpearson.lessons.core.data.network.dto.DiarySubjectDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryTeacherDto
@@ -134,14 +135,19 @@ internal interface DiaryApi {
     /**
      * Puts one field back to what the diary says. Answers 204 with no body.
      *
+     * A POST with a body rather than a DELETE with a query string, because the
+     * value that has to match byte for byte is the target and a target can
+     * carry an ampersand: a key spelled a shade differently in a URL resets
+     * nothing and is still answered 204, which is a reset button that looks
+     * like it worked.
+     *
      * Idempotent, and 204 whether or not there was a row: "there is no
      * correction here" is the state the caller asked for.
      */
-    @DELETE("api/v1/diary/students/{id}/overrides")
+    @POST("api/v1/diary/students/{id}/overrides/reset")
     suspend fun resetOverride(
         @Path("id") studentId: Long,
-        @Query("target") target: String,
-        @Query("field") field: String,
+        @Body body: DiaryResetRequestDto,
     )
 
     /** Drops every correction for this child, so the diary answers for itself again. */

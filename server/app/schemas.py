@@ -717,6 +717,10 @@ class DiaryHomeworkOut(BaseModel):
     #: @see DiaryLessonOut.target
     target: str = ""
     edits: list[DiaryEditOut] = Field(default_factory=list)
+    #: Another item due the same day shares this key — two assignments in one
+    #: subject, neither carrying an upstream id — so no correction is applied to
+    #: either. @see DiaryLessonOut.ambiguous
+    ambiguous: bool = False
 
     @classmethod
     def of(cls, overlaid) -> DiaryHomeworkOut:
@@ -729,7 +733,22 @@ class DiaryHomeworkOut(BaseModel):
             teacher=item.teacher,
             target=overlaid.target,
             edits=[DiaryEditOut.of(edit) for edit in overlaid.edits],
+            ambiguous=overlaid.ambiguous,
         )
+
+
+class DiaryResetIn(BaseModel):
+    """Which correction to take off.
+
+    A body rather than a query string, and a POST rather than a DELETE, because
+    a target is free text: a subject named «Физика & астрономия» produces a key
+    with an ampersand in it, and a caller that encodes it a shade imperfectly
+    resets nothing while being told 204. The value that has to match byte for
+    byte does not travel in a URL.
+    """
+
+    target: str = Field(min_length=1, max_length=300)
+    field: str = Field(min_length=1, max_length=40)
 
 
 class DiaryOverrideIn(BaseModel):
@@ -739,7 +758,11 @@ class DiaryOverrideIn(BaseModel):
     field: str = Field(min_length=1, max_length=40)
     #: Empty is a real answer — the diary often carries a placeholder where a
     #: family would rather see nothing — so it is stored rather than treated as
-    #: a reset. Resetting is a DELETE.
+    #: a reset. Resetting is ``POST .../overrides/reset``, which names the
+    #: target and field in a body; it used to be a ``DELETE`` with them in the
+    #: query string, and a target is a colon-joined string with a subject name
+    #: in it, which is the kind of thing a proxy log truncates and an ``&`` in
+    #: a subject silently cuts in half.
     value: str = Field(max_length=4000)
     #: What the person was looking at when they wrote the correction.
     #:
@@ -753,11 +776,19 @@ class DiaryOverrideIn(BaseModel):
 
 
 class DiaryOverrideOut(BaseModel):
+    """A stored correction, for the screen that lists and resets them."""
+
     target: str
     field: str
     value: str
-    #: What the diary said when this was written; null when it said nothing.
-    original: str | None = None
+    #: What the diary said **when this was written** — not what it says now.
+    #:
+    #: Spelled differently from :attr:`DiaryEditOut.original` on purpose. The
+    #: two are the same feature, travel to the same client and mean opposite
+    #: things: one is the value currently being covered up, this one is the
+    #: value the person decided to replace, however long ago. One name for both
+    #: is a client rendering «в дневнике: …» from whichever it happened to have.
+    original_when_written: str | None = None
     updated_at: datetime
 
     @classmethod
@@ -766,7 +797,7 @@ class DiaryOverrideOut(BaseModel):
             target=row.target,
             field=row.field,
             value=row.value,
-            original=row.original,
+            original_when_written=row.original,
             updated_at=row.updated_at,
         )
 

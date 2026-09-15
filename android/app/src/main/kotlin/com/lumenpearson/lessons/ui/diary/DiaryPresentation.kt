@@ -249,6 +249,15 @@ data class DiaryCorrections(
 
     fun upstreamOf(field: DiaryField): String? = upstream[field]
 
+    /**
+     * Whether this row has anything to take off.
+     *
+     * Counted over [corrected] — the corrections this build can **name** — and
+     * the «Исправлено» badge is drawn from the same set for the same reason.
+     * Drawn from the raw edit list instead, a correction on a field a newer
+     * server knows and this build does not would mark the row as corrected and
+     * offer nothing to undo it with.
+     */
     val hasCorrections: Boolean get() = corrected.isNotEmpty()
 }
 
@@ -292,7 +301,7 @@ internal fun DiaryHomework.corrections(): DiaryCorrections = build(
     order = listOf(DiaryField.TEXT),
     shown = mapOf(DiaryField.TEXT to text),
     edits = edits,
-    ambiguous = false,
+    ambiguous = ambiguous,
 )
 
 private fun build(

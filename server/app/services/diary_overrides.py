@@ -41,6 +41,7 @@ throwing it away because a teacher edited a field is not this code's decision.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date as Date
 
 from app.providers.petersburg.models import DiaryLesson, HomeworkItem
 
@@ -119,9 +120,12 @@ class OverlaidLesson:
 
 @dataclass(frozen=True)
 class OverlaidHomework:
+    """A homework item as it should be shown. @see OverlaidLesson"""
+
     item: HomeworkItem
     target: str
     edits: tuple[Edit, ...]
+    ambiguous: bool = False
 
 
 def lesson_target(lesson: DiaryLesson) -> str:
@@ -152,11 +156,50 @@ def homework_target(item: HomeworkItem) -> str:
 
 
 def kind_of(target: str) -> str:
-    """Which family a target belongs to, or [UnknownTarget]."""
+    """Which family a target belongs to, and that it is one this module builds.
+
+    The shape is checked, not just the prefix. A key is matched by string
+    equality against one this module produced on the way out, so a target that
+    merely *starts* with ``lesson:`` can never match anything — and a stored row
+    that can never match is the thing [check] exists to refuse.
+    """
     kind, _, rest = target.partition(":")
     if not rest or kind not in FIELDS_BY_KIND:
         raise UnknownTarget(target)
+
+    if kind == _HOMEWORK:
+        # `hw:id:<digits>` or `hw:<iso date>:<subject>`. Split on three so a
+        # subject containing a colon stays whole, exactly as it does on the way
+        # out.
+        parts = target.split(":", 2)
+        if len(parts) != 3:
+            raise UnknownTarget(target)
+        _, first, rest_of = parts
+        if first == "id":
+            if not rest_of.isdigit():
+                raise UnknownTarget(target)
+        elif not _is_iso_date(first) or not rest_of:
+            raise UnknownTarget(target)
+        return kind
+
+    # `lesson:<iso date>:<empty or n+digits>:<subject>`.
+    parts = target.split(":", 3)
+    if len(parts) != 4:
+        raise UnknownTarget(target)
+    _, day, number, subject = parts
+    if not _is_iso_date(day) or not subject:
+        raise UnknownTarget(target)
+    if number and not (number.startswith("n") and number[1:].isdigit()):
+        raise UnknownTarget(target)
     return kind
+
+
+def _is_iso_date(value: str) -> bool:
+    try:
+        Date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
 
 
 def check(target: str, field: str) -> None:
@@ -164,13 +207,37 @@ def check(target: str, field: str) -> None:
 
     Called before anything is written. A row that no read path can match is
     worse than a rejection: it would sit in the table looking like a correction
-    somebody made, and the reset button for it would never appear.
+    somebody made, next to a value it does not change, and the only place it
+    would ever show up is the list of corrections to reset.
     """
     if len(target) > MAX_TARGET_LENGTH:
         raise UnknownTarget(target)
     allowed = FIELDS_BY_KIND[kind_of(target)]
     if field not in allowed:
         raise UnsupportedField(field)
+
+
+class EmptyNotAllowed(ValueError):
+    """The field must say something; the upstream never leaves it blank."""
+
+
+def check_value(field: str, value: str) -> None:
+    """Refuses an empty correction on a field that cannot be empty.
+
+    ``room``, ``teacher``, ``topic`` and a lesson's ``homework`` are optional
+    upstream, so "there is nothing here" is a real correction — the diary often
+    carries a placeholder where a family would rather see nothing.
+
+    A homework item's ``text`` is not one of those. It is the whole of what the
+    row says, and the provider drops an item whose task is blank, so an empty
+    correction would make the assignment disappear from the list — taking the
+    tap target that owns the correction with it, and with it the only way to
+    undo it. Refused rather than made to work: an item a family wants gone is
+    an item they want gone from the *diary*, and this feature cannot do that.
+    """
+    if value.strip() or field in NULLABLE_FIELDS:
+        return
+    raise EmptyNotAllowed(field)
 
 
 def _applied(value: str, field: str) -> str | None:
@@ -232,10 +299,18 @@ def overlay_lessons(
             continue
         if shared[target] > 1:
             # A correction exists and is deliberately not applied: see
-            # [lesson_target]. Reported rather than dropped, because the person
-            # wrote it and the only thing they can do about it is reset it.
+            # [lesson_target]. Still reported, and reported per field: the only
+            # thing a person can do about it is reset it, and a reset button
+            # needs to know which field it is resetting. The values below are
+            # the upstream's, unchanged — the edit says what *would* have been
+            # put there.
             result.append(
-                OverlaidLesson(lesson=lesson, target=target, edits=(), ambiguous=True)
+                OverlaidLesson(
+                    lesson=lesson,
+                    target=target,
+                    edits=_unapplied(rows, LESSON_FIELDS),
+                    ambiguous=True,
+                )
             )
             continue
         current = {field: getattr(lesson, field, None) for field in LESSON_FIELDS}
@@ -255,12 +330,33 @@ def overlay_homework(
     corrections: dict[str, dict[str, tuple[str, str | None]]],
 ) -> list[OverlaidHomework]:
     """Applies corrections to homework, keeping upstream order. @see overlay_lessons"""
+    # The same count, for the same reason as [overlay_lessons]. Homework with no
+    # upstream id is keyed by (day, subject), and two assignments in one subject
+    # due the same day are ordinary — a reading and an exercise set. Applying one
+    # family's correction to both, and taking it off both on reset, is the
+    # failure the lesson path spends twenty lines refusing; it is not less wrong
+    # here for being easier to miss.
+    shared: dict[str, int] = {}
+    for item in items:
+        key = homework_target(item)
+        shared[key] = shared.get(key, 0) + 1
+
     result: list[OverlaidHomework] = []
     for item in items:
         target = homework_target(item)
         rows = corrections.get(target)
         if not rows:
             result.append(OverlaidHomework(item=item, target=target, edits=()))
+            continue
+        if shared[target] > 1:
+            result.append(
+                OverlaidHomework(
+                    item=item,
+                    target=target,
+                    edits=_unapplied(rows, HOMEWORK_FIELDS),
+                    ambiguous=True,
+                )
+            )
             continue
         current = {field: getattr(item, field, None) for field in HOMEWORK_FIELDS}
         changes, edits = _overlay(current, {f: v for f, v in rows.items() if f in HOMEWORK_FIELDS})
@@ -272,6 +368,22 @@ def overlay_homework(
             )
         )
     return result
+
+
+def _unapplied(
+    rows: dict[str, tuple[str, str | None]], allowed: frozenset[str]
+) -> tuple[Edit, ...]:
+    """The corrections on an ambiguous row, reported but not applied.
+
+    ``original`` is left null rather than filled with one of the rows' values:
+    there is more than one row and no way to say which of them this correction
+    was written against, which is the whole reason nothing is applied.
+    """
+    return tuple(
+        Edit(field=field, value=value, original=None, changed_upstream=False)
+        for field, (value, _) in sorted(rows.items())
+        if field in allowed
+    )
 
 
 def upstream_value(lesson: DiaryLesson | HomeworkItem, field: str) -> str | None:
