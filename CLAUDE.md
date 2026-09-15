@@ -241,7 +241,7 @@ points Hilt does not inject cleanly.
   `tests/test_join_modes.py` now holds all three sides of it.
 - **Another agent may be working in this tree.** Check `git status` before you touch a file
   you did not open, and do not revert someone else's uncommitted work.
-- **`HANDOVER.md` at the root says where the work stands** — the open branch, what the last
+- **`HANDOVER.md` at the root says where the work stands** — the branches, what the last
   session finished, what it deliberately left alone and what nothing has verified. It is
   working state, not part of `docs/`, so it is stale the moment it stops being updated:
   re-check the PR and CI before trusting it, and update it when you finish a batch.
