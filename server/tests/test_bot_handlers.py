@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 from sqlalchemy import select
 
+from app.bot.handlers import content
 from app.bot.handlers.access import (
     JOIN_MODE_TEXT,
     access_root,
@@ -26,22 +27,31 @@ from app.bot.handlers.access import (
 )
 from app.bot.handlers.content import (
     _parse_time_range,
+    event_pick_kind,
+    event_time,
+    event_title,
     homework_pick_day,
     homework_pick_subject,
     homework_text,
+    homework_typed_subject,
+    override_cancel,
+    override_clear,
     override_subject,
 )
 from app.bot.handlers.start import cmd_code, phone_code
 from app.bot.handlers.timetable import bells_apply, timetable_apply
-from app.bot.keyboards import AccessAction, HomeworkAction
+from app.bot.keyboards import AccessAction, EventAction, HomeworkAction
 from app.models import (
     AuditEntry,
     BellPeriod,
     BotUser,
+    DayEvent,
     DeviceInvite,
+    EventKind,
     Homework,
     JoinMode,
     LessonOverride,
+    OverrideAction,
     PhoneInvite,
     Role,
     TimetableEntry,
@@ -254,6 +264,218 @@ async def test_bells_refuse_to_wipe_the_schedule_on_a_bad_paste(session, school_
         )
     )
     assert after == before
+
+
+# --------------------------------------------------------------------------
+# Разбор того, что приходит снаружи
+#
+# `_date_or_none` и `_shorten` — граница между payload'ом клиента и состоянием
+# FSM, за которой пять мест читают дату уже не проверяя. Ни одна из двух не
+# вызывалась ни одним тестом.
+# --------------------------------------------------------------------------
+
+
+def test_a_date_out_of_a_callback_payload_is_never_trusted():
+    """A payload is whatever the client sends, not only what was on a button.
+
+    `Date.fromisoformat` on it straight is an unhandled `ValueError` — a 500 in
+    the middleware and «что-то пошло не так» for a person who pressed a
+    calendar. The guard exists for that; this is what it has to swallow.
+    """
+    assert content._date_or_none("2026-09-07") == date(2026, 9, 7)
+    for bad in ("", "вчера", "2026-13-40", "2026-09-07T10:00", None, "07.09.2026"):
+        assert content._date_or_none(bad) is None, bad
+
+
+def test_a_notification_is_shortened_without_losing_the_start():
+    """The digest line carries the assignment, and Telegram is not the place to
+    paste four paragraphs — but the first words are what tells somebody which
+    assignment it is, so the cut is at the end and it is marked."""
+    assert content._shorten("  два   пробела\nи перевод ") == "два пробела и перевод"
+
+    long = "я" * (content.NOTIFY_TEXT_MAX + 50)
+    cut = content._shorten(long)
+    assert len(cut) <= content.NOTIFY_TEXT_MAX
+    assert cut.endswith("…")
+    # Short enough to pass through untouched, including the ellipsis-free edge.
+    exact = "я" * content.NOTIFY_TEXT_MAX
+    assert content._shorten(exact) == exact
+
+
+async def test_typing_a_subject_instead_of_picking_one_moves_the_flow_on(session):
+    """The picker is buttons, but a class with an empty dictionary has none —
+    so the name is typed, and that path had no test at all."""
+    state = FakeState()
+
+    message = FakeMessage(text="  Астрономия  ")
+    await homework_typed_subject(message, state)
+
+    assert state.data["subject"] == "Астрономия"
+    assert "текст задания" in message.last
+
+
+async def test_an_empty_subject_does_not_move_the_flow_on(session):
+    state = FakeState()
+
+    message = FakeMessage(text="   ")
+    await homework_typed_subject(message, state)
+
+    assert "subject" not in state.data
+    assert "название предмета" in message.last
+
+
+# --------------------------------------------------------------------------
+# Событие, целиком
+#
+# Ни один тест никогда не доходил здесь дальше выбора дня: `event_pick_kind`,
+# `event_time` и `event_title` не назывались нигде. Это значит, что событие в
+# классе никто не заводил ни разу, кроме как пальцем — а «Четверти» показали,
+# чего стоит строка, которую не исполняли.
+# --------------------------------------------------------------------------
+
+
+async def test_an_event_is_added_by_walking_the_whole_flow(session, school_class):
+    """Kind, then time, then title — the three steps a person actually takes."""
+    state = FakeState(data={"date": MONDAY.isoformat()})
+
+    callback = FakeCallback(message=FakeEditable())
+    await event_pick_kind(callback, EventAction(action="pick_kind", value="trip"), state)
+    assert state.data["kind"] == "trip"
+    assert "12:30-13:15" in callback.message.last
+
+    await event_time(FakeMessage(text="09:00-11:30"), state)
+    assert state.data["start"] == "09:00:00" and state.data["end"] == "11:30:00"
+
+    message = FakeMessage(text="Поездка в планетарий")
+    await event_title(message, state, session, school_class, Role.EDITOR)
+
+    event = await session.scalar(select(DayEvent))
+    assert event.title == "Поездка в планетарий"
+    assert event.date == MONDAY
+    assert event.starts_at == time(9, 0) and event.ends_at == time(11, 30)
+    assert event.kind is EventKind.TRIP
+    # An excursion replaces lessons; that is the whole reason the flag exists.
+    assert event.covers_lesson is True
+    assert "09:00–11:30" in message.last
+    assert state.cleared
+
+
+async def test_a_meeting_does_not_replace_the_lessons_it_sits_beside(session, school_class):
+    """`covers_lesson` is the difference between «вместо уроков» and «после».
+
+    A parents' meeting in the evening must not blank the school day, and the
+    only thing deciding that is a set literal in the handler.
+    """
+    state = FakeState(data={"date": MONDAY.isoformat(), "kind": "meeting",
+                            "start": "18:00:00", "end": "19:00:00"})
+
+    await event_title(FakeMessage(text="Родительское собрание"), state, session,
+                      school_class, Role.EDITOR)
+
+    event = await session.scalar(select(DayEvent))
+    assert event.kind is EventKind.MEETING
+    assert event.covers_lesson is False
+
+
+async def test_time_that_is_not_a_range_is_refused_and_the_step_holds(session, school_class):
+    """Wrong input must not advance the conversation.
+
+    A flow that moves on regardless asks for a title and then saves an event
+    with whatever times happened to be in the state — which for a fresh
+    conversation is nothing at all, i.e. a `KeyError` two messages later.
+    """
+    state = FakeState(data={"date": MONDAY.isoformat(), "kind": "event"})
+
+    for bad in ("завтра", "25:00-26:00", "13:15-12:30", "12:30", ""):
+        message = FakeMessage(text=bad)
+        await event_time(message, state)
+        assert "Не понял время" in message.last, bad
+        assert "start" not in state.data, bad
+
+
+async def test_an_event_with_no_title_is_not_saved(session, school_class):
+    state = FakeState(data={"date": MONDAY.isoformat(), "kind": "event",
+                            "start": "10:00:00", "end": "11:00:00"})
+
+    message = FakeMessage(text="   ")
+    await event_title(message, state, session, school_class, Role.EDITOR)
+
+    assert await session.scalar(select(DayEvent)) is None
+    assert "название" in message.last
+    # And the conversation stays where it was, so the next line typed is a title.
+    assert not state.cleared
+
+
+async def test_a_viewer_cannot_add_an_event(session, school_class):
+    state = FakeState(data={"date": MONDAY.isoformat(), "kind": "event",
+                            "start": "10:00:00", "end": "11:00:00"})
+
+    await event_title(FakeMessage(text="взлом"), state, session, school_class, Role.VIEWER)
+
+    assert await session.scalar(select(DayEvent)) is None
+    assert state.cleared
+
+
+# --------------------------------------------------------------------------
+# Отмена урока и возврат к расписанию
+#
+# Обе операции разрушающие, обе были без единого теста.
+# --------------------------------------------------------------------------
+
+
+async def test_cancelling_a_lesson_writes_the_override_and_says_so(session, school_class):
+    state = FakeState(data={"date": MONDAY.isoformat(), "index": 2})
+    callback = FakeCallback(message=FakeEditable())
+
+    await override_cancel(callback, state, session, school_class, Role.EDITOR)
+
+    row = await session.scalar(select(LessonOverride))
+    assert row.action is OverrideAction.CANCEL
+    assert row.index == 2 and row.date == MONDAY
+    assert "отменён" in callback.message.last
+    assert state.cleared
+
+
+async def test_putting_a_lesson_back_removes_the_override(session, school_class):
+    cancel = FakeState(data={"date": MONDAY.isoformat(), "index": 2})
+    await override_cancel(FakeCallback(message=FakeEditable()), cancel, session,
+                          school_class, Role.EDITOR)
+    assert await session.scalar(select(LessonOverride)) is not None
+
+    state = FakeState(data={"date": MONDAY.isoformat(), "index": 2})
+    callback = FakeCallback(message=FakeEditable())
+    await override_clear(callback, state, session, school_class, Role.EDITOR)
+
+    assert await session.scalar(select(LessonOverride)) is None
+    assert "по расписанию" in callback.message.last
+
+
+async def test_clearing_a_lesson_that_was_never_changed_is_not_an_error(session, school_class):
+    """«Вернуть по расписанию» on an untouched lesson is a no-op, and has to
+    read as one: the person pressed it because they were not sure."""
+    state = FakeState(data={"date": MONDAY.isoformat(), "index": 5})
+    callback = FakeCallback(message=FakeEditable())
+
+    await override_clear(callback, state, session, school_class, Role.EDITOR)
+
+    assert await session.scalar(select(LessonOverride)) is None
+    assert "по расписанию" in callback.message.last
+    # Nothing happened, so nothing is claimed in the log either.
+    logged = list(await session.scalars(
+        select(AuditEntry).where(AuditEntry.action == "override.clear")
+    ))
+    assert logged == []
+
+
+async def test_a_viewer_can_neither_cancel_a_lesson_nor_restore_one(session, school_class):
+    for handler in (override_cancel, override_clear):
+        state = FakeState(data={"date": MONDAY.isoformat(), "index": 2})
+        callback = FakeCallback(message=FakeEditable())
+
+        await handler(callback, state, session, school_class, Role.VIEWER)
+
+        assert callback.alerted
+        assert await session.scalar(select(LessonOverride)) is None
 
 
 # --------------------------------------------------------------------------

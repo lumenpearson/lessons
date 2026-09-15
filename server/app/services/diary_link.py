@@ -25,6 +25,7 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db import rows_affected
 from app.models import DiaryLinkCode
 from app.security import hash_token, new_token
 
@@ -96,4 +97,4 @@ async def purge(session: AsyncSession) -> int:
         sa_delete(DiaryLinkCode).where(DiaryLinkCode.expires_at <= utcnow())
     )
     await session.commit()
-    return result.rowcount or 0
+    return rows_affected(result)

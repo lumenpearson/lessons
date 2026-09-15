@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -108,6 +109,27 @@ async def get_session() -> AsyncIterator[AsyncSession]:
     """FastAPI dependency."""
     async with SessionLocal() as session:
         yield session
+
+
+def rows_affected(result: Any) -> int:
+    """How many rows a DELETE or an UPDATE actually touched.
+
+    Eleven places asked `result.rowcount or 0`, and every one of them was a
+    sweep or a conditional write reporting what it had done. One name for it
+    reads better than eleven copies of the same `or 0`.
+
+    It also gives the cast a single home. `AsyncSession.execute` is typed as
+    returning `Result[Any]`, which declares no `rowcount`; what comes back from
+    a DML statement is a `CursorResult`, which does. That gap is SQLAlchemy's
+    stubs, not ours - but it is the only thing standing between this project
+    and a clean `attr-defined` check, and that check is worth having: it is
+    what would have caught `Term.days`, the missing attribute that crashed
+    «🗓 Четверти» on every press in production.
+
+    `None` becomes 0: a driver is allowed not to report a count, and «не знаю»
+    is closer to nought swept than to a crash in a cron tick.
+    """
+    return getattr(result, "rowcount", None) or 0
 
 
 #: The Alembic revision this code needs the database to be at.

@@ -28,6 +28,7 @@ from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db import rows_affected
 from app.models import BellPeriod, SchoolClass, TimetableEntry, WeekParity
 from app.services import subjects
 
@@ -178,7 +179,7 @@ async def remove_lesson(session: AsyncSession, class_id: int, weekday: int, inde
             TimetableEntry.index == index,
         )
     )
-    removed = result.rowcount or 0
+    removed = rows_affected(result)
     if removed:
         await _shift(session, class_id, weekday, at_least=index + 1, by=-1)
     return removed

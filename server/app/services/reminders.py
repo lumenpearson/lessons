@@ -32,6 +32,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.render import MONTHS_GENITIVE, human_date, relative_day_name, render_day
+from app.db import rows_affected
 from app.models import Homework, PersonalTask, ReminderSettings, SchoolClass
 from app.schedule import ResolvedDay, ScheduleResolver
 from app.services.tasks import homework_ticks
@@ -199,7 +200,7 @@ async def claim(
         .values({column: day})
     )
     await session.commit()
-    return bool(claimed.rowcount)
+    return rows_affected(claimed) > 0
 
 
 async def due_task_reminders(

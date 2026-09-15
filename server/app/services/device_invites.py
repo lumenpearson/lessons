@@ -35,6 +35,7 @@ from sqlalchemy import select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db import rows_affected
 from app.models import DeviceInvite
 from app.security import hash_token, new_join_code
 
@@ -142,7 +143,7 @@ async def burn(session: AsyncSession, invite: DeviceInvite) -> bool:
         .where(DeviceInvite.id == invite.id, DeviceInvite.used_at.is_(None))
         .values(used_at=utcnow())
     )
-    return (result.rowcount or 0) == 1
+    return rows_affected(result) == 1
 
 
 async def drop_for(session: AsyncSession, *, telegram_id: int, class_id: int) -> int:
@@ -166,7 +167,7 @@ async def drop_for(session: AsyncSession, *, telegram_id: int, class_id: int) ->
             DeviceInvite.used_at.is_(None),
         )
     )
-    return result.rowcount or 0
+    return rows_affected(result)
 
 
 async def prune(session: AsyncSession) -> int:
@@ -181,4 +182,4 @@ async def prune(session: AsyncSession) -> int:
         sa_delete(DeviceInvite).where(DeviceInvite.expires_at < cutoff)
     )
     await session.commit()
-    return result.rowcount or 0
+    return rows_affected(result)

@@ -19,6 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db import rows_affected
 from app.models import (
     BellPeriod,
     BellSchedule,
@@ -67,7 +68,7 @@ async def rename_subject(
         )
         .values(subject_name=new_name, subject_id=subject.id)
     )
-    moved += result.rowcount or 0
+    moved += rows_affected(result)
 
     # Homework and замены carry no link at all: a lesson keeps its name when a
     # subject is deleted, and that is the whole reason they store text.
@@ -77,7 +78,7 @@ async def rename_subject(
             .where(model.class_id == class_id, model.subject_name == old_name)
             .values(subject_name=new_name)
         )
-        moved += result.rowcount or 0
+        moved += rows_affected(result)
 
     subject.name = new_name
     return moved

@@ -45,6 +45,50 @@ dev = [
     "pytest-asyncio>=0.24",
     "httpx>=0.28.1",
     "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+# Not a type checker in the usual sense - one question, asked of the whole
+# server: does this code reach for an attribute the type does not have?
+#
+# That question is here because it was answered the expensive way. «🗓 Четверти»
+# crashed on every press in production because `_terms_card` printed
+# `term.days`, and `days` lived on a flattened copy of a term that nothing ever
+# constructed. `AttributeError`, an error dialog, and no way to find out short
+# of pressing the button. Removing the property today reproduces it exactly:
+#
+#     app/bot/handlers/manage.py:2831: error: "Term" has no attribute "days"
+#
+# Everything else mypy has to say about this codebase is friction rather than
+# fault, so it is switched off by name below. The numbers are what a full run
+# reported when this was written, and every one of them was read:
+#
+#   union-attr (347)  `callback.message` is `Message | InaccessibleMessage |
+#                     None` in aiogram, and no handler here has ever met an
+#                     inaccessible one. Guarding all 347 would be noise.
+#   arg-type   (128)  handlers take `SchoolClass | None` / `Role | None` from
+#                     the middleware and refuse early; mypy cannot follow the
+#                     refusal through `_allowed()`. Also SQLAlchemy's `where()`
+#                     against a plain `bool`.
+#   call-arg     (4)  aiogram's `CallbackData` builds `__init__` at runtime.
+#   assignment   (3)  a `X | None` narrowed by a branch mypy does not track.
+#   return-value (1)  the same shape, on the way out.
+#   override     (1)  our FSM storage widens a parameter aiogram declares
+#                     narrower, deliberately.
+#
+# If one of those ever hides a real defect, the cost is a bug this check would
+# not have caught - the same position the project was in before it existed.
+# Turning a code back on is one line here.
+[tool.mypy]
+files = ["app"]
+ignore_missing_imports = true
+disable_error_code = [
+    "union-attr",
+    "arg-type",
+    "call-arg",
+    "assignment",
+    "return-value",
+    "override",
 ]
 
 [tool.pytest.ini_options]
