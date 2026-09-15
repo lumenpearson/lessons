@@ -128,8 +128,12 @@ internal class DiaryRepositoryImpl(
     // saved it. What keeping it would buy is a family left on a diary screen
     // that looks signed in and fails everything, with a sign-in button they
     // have no reason to press — the trap the reads clear the token to avoid.
-    // Signing out mid-edit is a real cost and it is the smaller one; the text
-    // they typed is in the editor above this layer, not in anything this clears.
+    // Signing out mid-edit is a real cost — and it costs the text as well as
+    // the screen: the sheet's fields are a plain `remember`, and the view model
+    // deliberately closes the sheet when the session goes, so what was typed
+    // goes with it. It is still the smaller cost, because the alternative is a
+    // screen that looks signed in and refuses everything; but it is not free,
+    // and an earlier version of this comment claimed it was.
     //
     // The re-auth `401` still leaves the session alone, here as everywhere: it
     // is the upstream half that died, the login is what the password prompt is

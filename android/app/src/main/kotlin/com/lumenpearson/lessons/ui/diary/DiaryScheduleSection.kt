@@ -93,7 +93,12 @@ internal fun LazyListScope.diarySchedule(
             // the end of the week rather than a badge on every row: it is worth
             // reading once, and a hint that repeats itself down the screen is
             // one people stop seeing.
-            item(key = "edit-hint") {
+            //
+            // Not printed when nothing on the week can be corrected — a server
+            // older than the corrections sends no key, every row is then a dead
+            // end, and a hint inviting taps that all end in «Эту запись нельзя
+            // исправить» is worse than silence.
+            if (state.days.any { it.correctable }) item(key = "edit-hint") {
                 Text(
                     text = stringResource(R.string.diary_edit_hint),
                     style = MaterialTheme.typography.bodySmall,
@@ -169,18 +174,19 @@ private fun DiaryDayCard(
         RoundedCardContainer {
             day.lessons.forEach { lesson ->
                 val timed = lesson.asTimedLesson()
+                // No key, no correcting it: the server builds the key and a row
+                // without one is a row a correction could never be filed
+                // against. Tappable, it would send every tap to a `422`.
+                val onEditRow = { onEdit(lesson.corrections()) }.takeIf { lesson.correctable }
                 if (timed != null) {
-                    LessonRow(lesson = timed, onClick = { onEdit(lesson.corrections()) })
+                    LessonRow(lesson = timed, onClick = onEditRow)
                 } else {
                     // The diary publishes lessons with no bell time often
                     // enough that dropping them would misreport the day, and
                     // `LessonRow` cannot draw one: its whole meta line is the
                     // time range. So this row says what is known and says the
                     // time is not.
-                    UntimedLessonRow(
-                        lesson = lesson,
-                        onClick = { onEdit(lesson.corrections()) },
-                    )
+                    UntimedLessonRow(lesson = lesson, onClick = onEditRow)
                 }
             }
 
@@ -202,7 +208,7 @@ private fun DiaryDayCard(
                         // from the Алгебра beside it.
                         badge = stringResource(R.string.diary_edited_badge)
                             .takeIf { corrections.hasCorrections },
-                        onClick = { onEdit(corrections) },
+                        onClick = { onEdit(corrections) }.takeIf { item.correctable },
                     )
                 }
             }
@@ -251,7 +257,7 @@ private fun DiaryLesson.asTimedLesson(): Lesson? {
 @Composable
 private fun UntimedLessonRow(
     lesson: DiaryLesson,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     GroupRow(modifier = modifier, onClick = onClick) {

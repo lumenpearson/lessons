@@ -39,7 +39,14 @@ from app.api.public import join_limiter
 from app.config import Settings, get_settings
 from app.fsm_storage import FsmRecord  # noqa: F401 - registers fsm_states before create_all
 from app.main import app
-from app.models import DeviceInvite, DeviceToken, JoinAttempt, JoinMode, SchoolClass
+from app.models import (
+    AuditEntry,
+    DeviceInvite,
+    DeviceToken,
+    JoinAttempt,
+    JoinMode,
+    SchoolClass,
+)
 from app.services import device_invites
 
 MEMBER_ID = 4242
@@ -273,6 +280,35 @@ async def test_minting_again_keeps_the_code_that_was_already_spent(
     assert redeemed[0].telegram_id == MEMBER_ID
 
 
+async def test_the_journal_says_who_let_this_phone_in(client, session, invite_class):
+    """«Кто подключил этот телефон» has to stay answerable on the new door.
+
+    `/link` has always written `device.link` for the same event. In «по
+    приглашению» this is the *only* door, so a redemption that logged nothing
+    would take the answer away exactly when it becomes the only question worth
+    asking of the journal.
+    """
+    code = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+
+    assert (await _join(client, code)).status_code == 200
+
+    linked = list(
+        await session.scalars(select(AuditEntry).where(AuditEntry.action == "device.link"))
+    )
+    assert len(linked) == 1
+    assert linked[0].telegram_id == MEMBER_ID
+    assert linked[0].class_id == invite_class.id
+    assert "pytest" in linked[0].summary
+
+
+async def test_a_class_code_join_still_logs_nothing(client, session, school_class):
+    """Nobody to attribute it to. A phone that joined anonymously is in
+    «📱 Устройства» as «не привязан», which is the whole of what is known."""
+    assert (await _join(client, "TEST42")).status_code == 200
+
+    assert await session.scalar(select(AuditEntry)) is None
+
+
 async def test_a_code_opens_the_class_it_was_minted_for_and_no_other(
     client, session, school_class, invite_class
 ):
@@ -296,6 +332,39 @@ async def test_a_code_is_upper_cased_before_it_is_looked_up(client, session, inv
 # --------------------------------------------------------------------------
 # The sweep
 # --------------------------------------------------------------------------
+
+
+async def test_losing_the_class_takes_the_live_code_with_it(session, invite_class):
+    """A code is matched by its hash and nothing else.
+
+    `find_live` never re-reads the `BotUser` row, so a member removed from the
+    class in the fifteen minutes after pressing the button would still get a
+    phone in — and in «по приглашению» that is the only door there is.
+    """
+    code = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+    assert await device_invites.find_live(session, code) is not None
+
+    dropped = await device_invites.drop_for(
+        session, telegram_id=MEMBER_ID, class_id=invite_class.id
+    )
+    await session.commit()
+
+    assert dropped == 1
+    assert await device_invites.find_live(session, code) is None
+
+
+async def test_losing_the_class_leaves_the_record_of_what_was_already_spent(
+    client, session, invite_class
+):
+    """The spent row is the record of a phone that did get in. Revoking
+    somebody does not un-happen that, and the row is how it stays answerable."""
+    spent = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+    assert (await _join(client, spent)).status_code == 200
+
+    assert await device_invites.drop_for(
+        session, telegram_id=MEMBER_ID, class_id=invite_class.id
+    ) == 0
+    assert len(list(await session.scalars(select(DeviceInvite)))) == 1
 
 
 async def test_prune_drops_only_codes_past_the_cutoff(session, invite_class):

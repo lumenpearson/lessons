@@ -148,7 +148,6 @@ fun ClassCardSheet(
 
             mode == ClassSheetMode.INVITE_ONLY -> ClassInviteOnlyForm(
                 busy = state.working,
-                failure = state.writeFailure,
                 onCancel = { mode = ClassSheetMode.CARD },
                 onConfirm = {
                     viewModel.setJoinMode(ClassJoinMode.INVITE)
@@ -609,7 +608,6 @@ private fun ClassDeleteForm(
 @Composable
 private fun ClassInviteOnlyForm(
     busy: Boolean,
-    failure: ManageFailure?,
     onCancel: () -> Unit,
     onConfirm: () -> Unit,
 ) {
@@ -617,7 +615,9 @@ private fun ClassInviteOnlyForm(
         SheetSection(title = stringResource(R.string.admin_class_join_mode_confirm_title))
         SheetNote(text = stringResource(R.string.admin_class_join_mode_confirm_message))
     }
-    SheetFailure(failure = failure)
+    // No `SheetFailure` here, unlike the delete face: confirming returns to the
+    // card before the write answers, so a refusal is drawn there. One that
+    // could never render would be a promise this face does not keep.
     SheetButtons(
         confirmLabel = stringResource(R.string.admin_class_join_mode_confirm_action),
         onConfirm = onConfirm,

@@ -57,8 +57,8 @@ from app.schemas import (
     UnlinkOut,
 )
 from app.security import JoinThrottle, client_bucket, hash_token, new_token
+from app.services import audit, device_invites, linking
 from app.services import calendar as calendar_service
-from app.services import device_invites, linking
 from app.services import subjects as subjects_service
 from app.services import tasks as task_service
 from app.services import terms as terms_service
@@ -284,7 +284,14 @@ async def join(
     payload: JoinRequest,
     session: AsyncSession = Depends(get_session),
 ) -> JoinResponse:
-    """Exchange a class join code for a long-lived read-only device token."""
+    """Exchange a code for a long-lived device token.
+
+    Read-only when the code is the class's: a token with no Telegram account
+    behind it is refused by every write path. A personal invite from the bot
+    carries the account that asked for it, so the phone that redeems one writes
+    with that account's role at the moment of each request — «read-only» has
+    not been true of every token since invites existed.
+    """
     client = _client_bucket(request)
     retry_after = await join_limiter.blocked_for(session, client)
     if retry_after is not None:
@@ -350,6 +357,20 @@ async def join(
             linked_at=device_invites.utcnow() if invite is not None else None,
         )
     )
+    if invite is not None:
+        # The same line `/link` writes, for the same event: a phone that from
+        # now on acts with somebody's role. On the invite path this is the only
+        # place it can be written — there is no second step to hang it on — and
+        # in «по приглашению» this is the only door, so without it the journal
+        # stops answering «кто подключил этот телефон» exactly when it becomes
+        # the only question worth asking of it.
+        await audit.record(
+            session,
+            school_class.id,
+            invite.telegram_id,
+            "device.link",
+            f"телефон подключён по личному коду: {payload.device_name or 'без названия'}",
+        )
     await session.commit()
     return JoinResponse(
         token=token,

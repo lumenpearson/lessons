@@ -44,7 +44,24 @@ data class DiaryDayUi(
     val date: LocalDate,
     val lessons: List<DiaryLesson>,
     val homework: List<DiaryHomework>,
-)
+) {
+    /** Whether anything on this day can be corrected at all. @see correctable */
+    val correctable: Boolean
+        get() = lessons.any { it.correctable } || homework.any { it.correctable }
+}
+
+/**
+ * Whether this row can carry a correction.
+ *
+ * The key is the server's to build, and a row that arrived without one — from a
+ * server older than the corrections, or one that could not key the row — can
+ * never be matched by anything written against it. Drawn as a tap target it
+ * would send every tap to a `422`, under a hint telling people to tap.
+ */
+internal val DiaryLesson.correctable: Boolean get() = target.isNotBlank()
+
+/** @see DiaryLesson.correctable */
+internal val DiaryHomework.correctable: Boolean get() = target.isNotBlank()
 
 /**
  * The zone the diary's own days are cut at.

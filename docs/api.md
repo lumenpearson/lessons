@@ -542,8 +542,8 @@ API's «🏖 Особые дни».
 }
 ```
 
-`PATCH /manage/class` takes any of `name`, `school`, `city`, `timezone`,
-`join_mode` and answers the card. Only the fields present change; `null` clears
+`PATCH /manage/class` takes any of `name`, `grade`, `letter`, `school`, `city`,
+`timezone`, `join_mode` and answers the card. Only the fields present change; `null` clears
 `school` or `city`. `name` and `timezone` may not be null or blank, and
 `timezone` must be one of the eleven Russian zones the bot offers (`422 unknown
 timezone` otherwise). Changing the zone moves no stored time - a bell rings at
@@ -996,9 +996,14 @@ POST /api/v1/diary/login
 | `401` | токен нашей сессии не подошёл | попросить войти |
 | `401` + `X-Diary-Reauth: required` | сессия дневника истекла | попросить пароль заново |
 | `404` | такого ребёнка у этого аккаунта нет | — |
-| `422` | диапазон дат вывернут или шире 62 дней | — |
+| `422` | на чтениях — диапазон дат вывернут или шире 62 дней; на `PUT .../overrides` — правка отклонена: неизвестный `target`, неправимое поле или пустое значение там, где пусто нельзя | на чтении — почини диапазон; на правке — покажи `detail` |
 | `502` | дневник ответил непонятно | показать, что сервис изменился |
 | `503` | дневник не отвечает | предложить повторить |
+
+Один код на две разные вещи — это цена того, что и диапазон, и правка
+проверяются как тело запроса. Различает их **вызов**, а не ответ: в теле нет
+ничего, что отделяло бы одно от другого, поэтому клиент решает по тому, какой
+запрос он сделал (`android/core/data/.../DiaryModels.kt` делает ровно это).
 
 `502` — единственный код, который означает, что чинить надо нам: сервис не
 документирован, и когда его ответ перестаёт читаться, это видно именно так.

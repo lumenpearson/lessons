@@ -39,7 +39,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 921 tests, about four minutes
+- **`python -m pytest -q`** — 1024 tests, about four minutes
 - `python -m pytest -q tests/test_schedule.py -k parity` — one file, one test
 - `python -m uvicorn app.main:app --reload` — run it; add `--host 0.0.0.0` for a phone to
   reach it
@@ -129,7 +129,7 @@ points Hilt does not inject cleanly.
   this project failed on four invented versions that exist in no repository.
 - **Commit messages are English sentences that say what the change makes the project do** —
   "Let the class be run from the phone, by the same rules as from the bot". No Conventional
-  Commits prefix (none of the 74 commits has one), and the body explains the reasoning and
+  Commits prefix (none of the 178 commits has one), and the body explains the reasoning and
   names what is left uncovered. Unlike the owner's other repositories, this history does
   carry a `Co-Authored-By: Claude …` trailer; keep doing what the history does.
 - **Say what is not covered.** The README has a "Честный статус" section and it is honest on
@@ -152,6 +152,18 @@ points Hilt does not inject cleanly.
   fits. With five rungs, a 4-cell-wide widget taller than about 471 dp landed on the narrow
   110×300 column and drew half a screen of one column. Do not remove an intermediate rung to
   tidy the enum; `WidgetSizeClassTest` reproduces the launcher's rule and will say so.
+- **A phone gets into a class two ways, and one of them is not read-only.** The
+  class code (eight characters) buys an anonymous, read-only token. A personal
+  code from the bot's «📱 Подключить телефон» (ten characters, fifteen minutes,
+  one phone) buys a token already linked to the account that minted it, so it
+  writes with that account's role — checked per request, never cached. Both go
+  into the same `code` field of the same `POST /api/v1/join`; they cannot
+  collide because the lengths differ, and the class code is looked up first.
+  `SchoolClass.join_mode` decides whether the class code opens anything at all;
+  switching it revokes no device, in either direction, and three screens promise
+  that out loud. A `403` from `/join` means the class takes invites only — it is
+  deliberately *not* counted against the throttle, because that caller had a
+  real code.
 - **There are two independent bearer tokens.** The device token from `POST /api/v1/join`
   (`api/deps.py:current_device`) and the diary session token from
   `POST /api/v1/diary/login` (`api/diary.py:current_diary`). A phone can be joined to a class
@@ -220,6 +232,13 @@ points Hilt does not inject cleanly.
 
 ## Notes
 
+- **An enum column stores the member NAME.** `SAEnum(SomeStrEnum)` writes
+  `OPEN`, not `open` — check `bot_users.role` in the live database if you doubt
+  it. A `server_default` spelled as `.value` therefore lands an unreadable
+  string on every existing row, and the first ORM read of one raises
+  `LookupError` — which on `classes` is the bot's middleware, i.e. every update
+  at once. `0010` was written that way and caught before it was applied;
+  `tests/test_join_modes.py` now holds all three sides of it.
 - **Another agent may be working in this tree.** Check `git status` before you touch a file
   you did not open, and do not revert someone else's uncommitted work.
 - **`HANDOVER.md` at the root says where the work stands** — the open branch, what the last

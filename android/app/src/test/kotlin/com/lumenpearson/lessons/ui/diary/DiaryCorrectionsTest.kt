@@ -158,6 +158,35 @@ class DiaryCorrectionsTest {
     }
 
     @Test
+    fun `a row the server could not key is not offered as correctable`() {
+        // A server older than the corrections sends no target at all, and every
+        // row on the week is then a dead end: the tap opens a sheet whose save
+        // is a 422. The screen asks this before it makes a row tappable, and
+        // before it prints the hint telling people to tap.
+        assertFalse(lesson().copy(target = "").correctable)
+        assertFalse(lesson().copy(target = "   ").correctable)
+        assertTrue(lesson().correctable)
+
+        val item = DiaryHomework(
+            id = null,
+            dueDate = monday,
+            subject = "Алгебра",
+            text = "§ 5",
+            teacher = null,
+        )
+        assertFalse(item.correctable)
+        assertTrue(item.copy(target = "hw:id:77").correctable)
+
+        assertFalse(
+            DiaryDayUi(date = monday, lessons = listOf(lesson().copy(target = "")), homework = listOf(item))
+                .correctable,
+        )
+        assertTrue(
+            DiaryDayUi(date = monday, lessons = listOf(lesson()), homework = emptyList()).correctable,
+        )
+    }
+
+    @Test
     fun `homework the server could not tell apart carries that through too`() {
         // Two assignments in one subject due the same day, neither with an
         // upstream id, key the same — and the sheet refuses to write on a row

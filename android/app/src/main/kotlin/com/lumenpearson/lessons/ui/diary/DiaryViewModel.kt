@@ -499,16 +499,12 @@ class DiaryViewModel(
             refresh()
             return
         }
-        if (DiaryFailure.of(failure) is DiaryFailure.ReauthRequired) {
-            // The sheet has to go: `applyFailure` puts the password prompt on
-            // screen underneath it, and a modal sheet with no message in it
-            // over a form nobody can see is how somebody concludes the button
-            // is broken.
-            state.update { it.copy(editing = null) }
-        }
-        // Left open otherwise, on purpose: what the person typed is still in
-        // the fields, and closing the sheet would throw it away to show them a
-        // message about why it had not been saved.
+        // Left open, on purpose: what the person typed is still in the fields,
+        // and closing the sheet would throw it away to show them a message
+        // about why it had not been saved. The one exception is a failure that
+        // asks for the password, and `applyFailure` closes it for that — a
+        // modal with no message in it, over a form nobody can see, is how
+        // somebody concludes the button is broken.
         applyFailure(failure) { copy(savingEdit = false, editError = it) }
         refresh()
     }
@@ -527,7 +523,18 @@ class DiaryViewModel(
         val classified = DiaryFailure.of(failure)
         val reauth = classified is DiaryFailure.ReauthRequired
         state.update {
-            it.apply(classified.takeUnless { _ -> reauth }).copy(reauth = it.reauth || reauth)
+            it.apply(classified.takeUnless { _ -> reauth }).copy(
+                reauth = it.reauth || reauth,
+                // Whatever raised the prompt, the sheet goes with it. The sheet
+                // is drawn above the branch that chooses between the form and
+                // the page, so it survives the swap: leave it and a modal with
+                // a «Сохранить» that can only fail sits on top of the password
+                // field. The reachable way in is not the save itself — that
+                // case is handled where it happens — but the reload fired
+                // right after a *different* failure, which can come back
+                // asking for the password.
+                editing = if (it.reauth || reauth) null else it.editing,
+            )
         }
     }
 

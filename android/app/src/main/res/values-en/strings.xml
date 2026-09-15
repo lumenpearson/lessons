@@ -61,6 +61,12 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="join_error_rejected">Could not join: %1$s</string>
     <string name="join_error_generic">Could not join. Check the code and your network connection.</string>
     <string name="join_error_unknown_code">No such code. Check it with whoever gave it to you.</string>
+    <!--
+      The bot's button label stays in Russian here and in strings_admin.xml,
+      and it is the only Cyrillic in values-en/ on purpose: the bot has no
+      English interface, so a translated label would name a button that does
+      not exist on the screen the reader is being sent to.
+    -->
     <string name="join_error_invite_only">This class admits phones by personal invite only. Take your own code from the bot: menu → “📱 Подключить телефон”.</string>
     <string name="join_error_too_many">Too many attempts. Wait a little and try again.</string>
     <plurals name="join_error_too_many_wait">

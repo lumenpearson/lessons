@@ -97,10 +97,15 @@ enum class DiaryField(private val wireName: String) {
 /**
  * One correction, as it is shown over the value it replaces.
  *
- * [field] is kept as the server spelled it rather than as a [DiaryField]: an
- * edit that arrives for a field this build has never heard of still says that
- * something here was corrected, and hiding it would show the upstream value as
- * if nobody had touched it.
+ * [field] is kept as the server spelled it rather than as a [DiaryField], so
+ * that this layer neither drops nor guesses at a field a newer server knows.
+ * What the screen does with an unrecognised one is the screen's decision, and
+ * it drops it: `DiaryPresentation` marks a row «Исправлено» only for
+ * corrections it can also offer a reset for, because a badge over a reset
+ * button that finds nothing is worse than no badge. The cost is that a value
+ * corrected through a field this build does not know is drawn as if nobody had
+ * touched it — the trade is argued where it is made, on
+ * `DiaryCorrections.hasCorrections`.
  *
  * [original] is what the diary says **now** — the client renders it as
  * «в дневнике: …» — and [changedUpstream] says the diary has moved since the

@@ -981,7 +981,8 @@ async def test_the_class_card_names_the_way_into_the_class_it_is_really_in(
 
     message = FakeMessage()
     await cmd_class(message, FakeState(), session, school_class, Role.ADMIN)
-    assert "🔓 Подключение телефонов: только по личным приглашениям" in message.last
+    # The padlock follows the state: an admin skimming the card reads the icon.
+    assert "🔒 Подключение телефонов: только по личным приглашениям" in message.last
 
 
 async def test_a_full_log_page_still_fits_in_one_telegram_message(session, school_class):

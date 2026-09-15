@@ -33,7 +33,7 @@ from app.bot.handlers.content import (
 )
 from app.bot.handlers.start import cmd_code, phone_code
 from app.bot.handlers.timetable import bells_apply, timetable_apply
-from app.bot.keyboards import HomeworkAction
+from app.bot.keyboards import AccessAction, HomeworkAction
 from app.models import (
     AuditEntry,
     BellPeriod,
@@ -638,15 +638,19 @@ async def test_the_access_page_says_which_mode_the_class_is_in(session, school_c
     assert "🔓 Вернуть вход по коду" in _labels(callback.message.markup)
 
 
+def _wants(mode: JoinMode) -> AccessAction:
+    return AccessAction(action="join_mode", value=mode.value)
+
+
 async def test_an_admin_switches_the_mode_both_ways(session, school_class):
     callback = FakeCallback(message=FakeEditable())
-    await switch_join_mode(callback, session, school_class, Role.ADMIN)
+    await switch_join_mode(callback, _wants(JoinMode.INVITE), session, school_class, Role.ADMIN)
 
     assert school_class.join_mode is JoinMode.INVITE
     # The promise the confirmation has to make: switching takes nothing away.
     assert "уже подключены" in callback.message.last.lower()
 
-    await switch_join_mode(callback, session, school_class, Role.ADMIN)
+    await switch_join_mode(callback, _wants(JoinMode.OPEN), session, school_class, Role.ADMIN)
     assert school_class.join_mode is JoinMode.OPEN
     assert "снова" in callback.message.last
 
@@ -657,10 +661,53 @@ async def test_an_admin_switches_the_mode_both_ways(session, school_class):
     assert all(entry.telegram_id == 42 for entry in logged)
 
 
+async def test_a_stale_page_cannot_undo_what_somebody_else_just_did(session, school_class):
+    """The press carries the mode it wants, so it cannot mean «the other one».
+
+    Two «👥 Доступ» pages open, both rendered while the class was open. One is
+    used to switch to invitations. The other still shows «🔒 Только по
+    приглашениям» — and pressing it must not hand the class code back to
+    everybody who still has it, which is what a toggle would do.
+    """
+    stale = _wants(JoinMode.INVITE)
+
+    first = FakeCallback(message=FakeEditable())
+    await switch_join_mode(first, stale, session, school_class, Role.ADMIN)
+    assert school_class.join_mode is JoinMode.INVITE
+
+    second = FakeCallback(message=FakeEditable())
+    await switch_join_mode(second, stale, session, school_class, Role.ADMIN)
+
+    assert school_class.join_mode is JoinMode.INVITE
+    assert "ничего не изменилось" in second.message.last
+    # And the log records one change, not two.
+    logged = list(
+        await session.scalars(select(AuditEntry).where(AuditEntry.action == "access.join_mode"))
+    )
+    assert len(logged) == 1
+
+
+async def test_a_button_from_a_build_that_spelled_the_modes_differently_is_refused(
+    session, school_class
+):
+    callback = FakeCallback(message=FakeEditable())
+
+    await switch_join_mode(
+        callback, AccessAction(action="join_mode", value="whatever"), session, school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    assert school_class.join_mode is JoinMode.OPEN
+    assert await session.scalar(select(AuditEntry)) is None
+
+
 async def test_an_editor_cannot_switch_the_mode(session, school_class):
     callback = FakeCallback(message=FakeEditable())
 
-    await switch_join_mode(callback, session, school_class, Role.EDITOR)
+    await switch_join_mode(
+        callback, _wants(JoinMode.INVITE), session, school_class, Role.EDITOR
+    )
 
     assert callback.alerted
     assert school_class.join_mode is JoinMode.OPEN

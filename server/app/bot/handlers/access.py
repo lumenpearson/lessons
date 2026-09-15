@@ -33,7 +33,7 @@ from app.bot.roles import can_grant
 from app.bot.states import AddInvite
 from app.models import AccessRequest, BotUser, JoinMode, PhoneInvite, Role, SchoolClass
 from app.security import normalise_phone
-from app.services import audit
+from app.services import audit, device_invites
 
 router = Router(name="access")
 
@@ -53,7 +53,13 @@ JOIN_MODE_TEXT = {
     JoinMode.INVITE: (
         "🔒 <b>Телефон подключается только по личному приглашению.</b> Код "
         "класса сейчас ничего не открывает: каждый берёт себе одноразовый код "
-        "сам — кнопка «📱 Подключить телефон» в меню."
+        "сам — кнопка «📱 Подключить телефон» в меню.\n"
+        # Said because the list directly above this line is also called
+        # «приглашения» and means something else entirely: those hand a person
+        # a role by phone number, this hands a phone a code. An admin reading
+        # the page top to bottom meets the word twice in ten lines.
+        "<i>Это не те приглашения, что в списке выше: там — доступ человеку по "
+        "номеру телефона, здесь — код на один телефон.</i>"
     ),
 }
 
@@ -153,7 +159,16 @@ async def access_root(
         [
             InlineKeyboardButton(
                 text="🔓 Вернуть вход по коду" if invite_only else "🔒 Только по приглашениям",
-                callback_data=AccessAction(action="join_mode").pack(),
+                # The mode it asks for, not «the other one». A keyboard is a
+                # message, messages stay in the chat, and an admin with two
+                # «👥 Доступ» pages open would otherwise press a button still
+                # labelled «только по приглашениям» and re-publish the class
+                # code — the one mistake on this page that hands the class's
+                # timetable back to everybody holding an old code.
+                callback_data=AccessAction(
+                    action="join_mode",
+                    value=(JoinMode.OPEN if invite_only else JoinMode.INVITE).value,
+                ).pack(),
                 # Painted by what pressing it does, like every other toggle
                 # here: red while the press switches the class code off, plain
                 # while it gives it back.
@@ -177,11 +192,17 @@ async def access_root(
 @router.callback_query(AccessAction.filter(F.action == "join_mode"))
 async def switch_join_mode(
     callback: CallbackQuery,
+    callback_data: AccessAction,
     session: AsyncSession,
     school_class: SchoolClass | None,
     role: Role | None,
 ) -> None:
-    """Turn the class code off, or turn it back on. Nothing else moves.
+    """Put the class into the mode the button asked for. Nothing else moves.
+
+    Asked for, not toggled: the press carries the mode it wants, so a page
+    left open from before somebody else switched cannot do the opposite of
+    what it says. Pressing a button that is already true says so and changes
+    nothing, which is the honest answer to a stale keyboard.
 
     Both directions are reversible and neither touches a device that is
     already connected. That is worth saying out loud in the reply: an admin
@@ -192,8 +213,24 @@ async def switch_join_mode(
         await callback.answer("Только для администраторов", show_alert=True)
         return
 
-    to_invite = school_class.join_mode is JoinMode.OPEN
-    school_class.join_mode = JoinMode.INVITE if to_invite else JoinMode.OPEN
+    try:
+        wanted = JoinMode(callback_data.value)
+    except ValueError:
+        # A payload from a build that spelled the modes differently. Refusing
+        # beats guessing: the wrong guess re-opens the class code.
+        await callback.answer("Кнопка устарела. Откройте «👥 Доступ» заново.", show_alert=True)
+        return
+
+    if school_class.join_mode is wanted:
+        await callback.message.edit_text(
+            f"{JOIN_MODE_TEXT[wanted]}\n\nЭто уже так — ничего не изменилось.",
+            reply_markup=back_to_menu(),
+        )
+        await callback.answer("Уже так")
+        return
+
+    to_invite = wanted is JoinMode.INVITE
+    school_class.join_mode = wanted
     note = (
         "вход только по личным приглашениям"
         if to_invite
@@ -480,6 +517,13 @@ async def revoke(
         callback.from_user.id,
         "access.revoke",
         f"убран доступ: {member.full_name or member.telegram_id} ({member.role.title_ru})",
+    )
+    # Any connect code they are still holding goes with the membership. It is
+    # matched by its hash alone, so it would keep letting a phone in for the
+    # rest of its fifteen minutes — and in «по приглашению» that is the only
+    # door the class has.
+    await device_invites.drop_for(
+        session, telegram_id=member.telegram_id, class_id=school_class.id
     )
     await session.delete(member)
     await session.commit()

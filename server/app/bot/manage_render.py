@@ -364,11 +364,13 @@ def render_class_card(
         # here for a year and decided nothing — no code read the flag — so an
         # admin who «закрыл» the class had closed nothing. This says which of
         # the two things is actually true, and «👥 Доступ» is where it changes.
-        "🔓 Подключение телефонов: "
-        + (
-            "только по личным приглашениям"
+        # The padlock matches the state, not the row: an admin skimming the
+        # card reads the icon, and «🔓» over «только по приглашениям» says the
+        # opposite of the words beside it. «👥 Доступ» paints it the same way.
+        (
+            "🔒 Подключение телефонов: только по личным приглашениям"
             if school_class.join_mode is JoinMode.INVITE
-            else "по коду класса"
+            else "🔓 Подключение телефонов: по коду класса"
         ),
         f"📒 Дневник: {'Санкт-Петербург' if school_class.diary_provider else 'не привязан'}",
         "",

@@ -145,6 +145,30 @@ async def burn(session: AsyncSession, invite: DeviceInvite) -> bool:
     return (result.rowcount or 0) == 1
 
 
+async def drop_for(session: AsyncSession, *, telegram_id: int, class_id: int) -> int:
+    """Kill the live codes one person holds in one class. @return how many.
+
+    Called when their membership goes. A code is checked against nothing but
+    its own hash at redemption — [find_live] never re-reads the ``BotUser`` row
+    — so without this, somebody removed from the class in the fifteen minutes
+    after pressing the button still gets a phone in, and in ``INVITE`` that is
+    the only door there is. Staged, not committed: the caller commits it with
+    the removal it belongs to, so the two land together or not at all.
+
+    Spent rows are left alone. Revoking somebody does not un-happen the phone
+    they already connected — that is [app.bot.handlers.manage] territory, and
+    the row is the record of it.
+    """
+    result = await session.execute(
+        sa_delete(DeviceInvite).where(
+            DeviceInvite.telegram_id == telegram_id,
+            DeviceInvite.class_id == class_id,
+            DeviceInvite.used_at.is_(None),
+        )
+    )
+    return result.rowcount or 0
+
+
 async def prune(session: AsyncSession) -> int:
     """Drops codes that can no longer be redeemed. @return how many went.
 

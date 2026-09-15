@@ -8,7 +8,12 @@ from html import escape
 from aiogram import F, Router
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    Message,
+    ReplyKeyboardRemove,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.keyboards import (
@@ -44,7 +49,7 @@ from app.models import (
 from app.providers import dadata
 from app.schedule import ScheduleResolver
 from app.security import new_join_code
-from app.services import device_invites, linking
+from app.services import audit, device_invites, linking
 from app.services import schools as schools_service
 from app.services import terms as terms_service
 from app.services.terms import TermError, compose_name, normalise_letter, validate_grade
@@ -616,10 +621,18 @@ async def phone_code(
 ) -> None:
     """A code for the presser's own phone, in either join mode.
 
-    No role check beyond membership, for the same reason /link has none: the
-    phone that redeems this acts with whatever role this account holds, so the
-    code can never hand out more than the person already has. A наблюдатель
-    minting one gets a наблюдатель's phone.
+    No role check beyond membership, and the bound is on what the phone may
+    **do**, not on how many phones there are: it acts with whatever role this
+    account holds at the moment of each request, so a наблюдатель minting one
+    gets a наблюдатель's phone, and a demotion follows it the same second.
+
+    What it is *not* bounded by is forwarding. Anybody in the class can press
+    this repeatedly and pass the codes on, so in «по приглашению» the class is
+    joinable by whoever a member chooses to let in — the bot has replaced one
+    shared secret with a named person deciding each time, not with a smaller
+    number of readers. Every phone that arrives this way carries the account
+    that let it in, in «📱 Устройства» and in the journal, which is the part
+    that makes the trade worth it.
     """
     if school_class is None or role is None:
         await callback.answer("Нет доступа", show_alert=True)
@@ -628,16 +641,39 @@ async def phone_code(
     code = await device_invites.mint(
         session, telegram_id=callback.from_user.id, class_id=school_class.id
     )
+    await audit.record(
+        session,
+        school_class.id,
+        callback.from_user.id,
+        "device.invite",
+        "выдан личный код на подключение телефона",
+    )
+    await session.commit()
     minutes = plural(device_invites.CODE_MINUTES, "минуту", "минуты", "минут")
     await callback.message.edit_text(
         "📱 <b>Подключить телефон</b>\n\n"
+        # Named, because the code is minted for whichever class is active and
+        # somebody in two of them has no other way to see which that is. A
+        # phone silently joined to the wrong child's class looks exactly like a
+        # phone joined to the right one.
+        f"Класс: <b>{escape(school_class.name)}</b>\n"
         f"Ваш код: <code>{code}</code>\n\n"
         f"Введите его в приложении при первом запуске. Код действует {minutes} "
         "и годится для одного телефона — для второго нажмите кнопку ещё раз.\n\n"
         "Телефон, который его введёт, сразу станет вашим: он будет работать с "
         f"вашей ролью (<b>{role.title_ru}</b>), и отдельно присылать код "
         "привязки не нужно.",
-        reply_markup=back_to_menu(),
+        # The button again, so «нажмите кнопку ещё раз» is something the person
+        # can actually do from the screen that says it.
+        reply_markup=back_to_menu(
+            [
+                [
+                    InlineKeyboardButton(
+                        text="📱 Ещё код", callback_data=Menu(action="phone").pack()
+                    )
+                ]
+            ]
+        ),
     )
     await callback.answer()
 
@@ -664,7 +700,13 @@ HELP_SECTIONS: list[tuple[Role | None, str, list[str]]] = [
             "/task <i>текст</i> — добавить задачу одной строкой",
             "/remind — напоминания и сводки",
             "/calendar — подписка на календарь",
-            "/link — привязать телефон к аккаунту",
+            # Named here as well as on the menu, because the comment on the
+            # button in `keyboards.py` says people never find `/link` — and a
+            # help page that lists only `/link` sends somebody in «по
+            # приглашению» to the one route that cannot work there: it needs a
+            # phone that is already in the class.
+            "«📱 Подключить телефон» в /start — код на один телефон",
+            "/link — привязать телефон, который уже подключён к классу",
             "/request — запросить доступ повыше",
         ],
     ),
@@ -681,7 +723,7 @@ HELP_SECTIONS: list[tuple[Role | None, str, list[str]]] = [
             "/export — выгрузить расписание текстом",
             "/import — загрузить расписание текстом",
             "/stats — статистика класса",
-            "/code — код класса для приложения",
+            "/code — код класса для приложения (в «по приглашению» не действует)",
         ],
     ),
 ]

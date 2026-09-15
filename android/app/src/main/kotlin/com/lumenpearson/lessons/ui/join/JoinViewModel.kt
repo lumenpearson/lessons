@@ -55,7 +55,15 @@ sealed interface JoinError {
      */
     data class TooManyAttempts(val minutes: Int?) : JoinError
 
-    /** The server refused the code some other way, or was unreachable. */
+    /**
+     * The server refused the code some other way, or was unreachable.
+     *
+     * [detail] is what the server said, and it is null when nobody said
+     * anything worth repeating — no network, or a failure whose only message
+     * is one this app wrote in English for a log. The screen then falls back
+     * to its own Russian sentence, which is the whole reason the field is
+     * nullable.
+     */
     data class Rejected(val detail: String?) : JoinError
 
     companion object {
@@ -69,7 +77,15 @@ sealed interface JoinError {
                 // instruction to do nothing, and the wait is real.
                 minutes = classified.retryAfterSeconds?.let { (it + 59) / 60 }?.coerceAtLeast(1),
             )
-            else -> Rejected(failure.message?.takeIf { it.isNotBlank() })
+            // `classified.message`, never the raw `failure`'s. Every
+            // `JoinFailure` supplies an English fallback message so that a log
+            // line is never empty, and reading those here made the null branch
+            // unreachable: «Не удалось подключиться: Could not reach the
+            // server» went on a Russian screen, and the Russian sentence
+            // written for exactly that case was never shown again.
+            is JoinFailure.Offline -> Rejected(classified.reason.message?.takeIf { it.isNotBlank() })
+            is JoinFailure.Rejected ->
+                Rejected(classified.reason?.message?.takeIf { it.isNotBlank() })
         }
     }
 }
