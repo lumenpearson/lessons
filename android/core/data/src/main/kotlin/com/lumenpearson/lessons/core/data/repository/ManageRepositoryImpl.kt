@@ -38,6 +38,16 @@ import kotlinx.serialization.json.JsonPrimitive
 internal class ManageRepositoryImpl(
     private val api: ManageApi,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /**
+     * Called when the server refuses this device's token.
+     *
+     * Same bearer as the read API and therefore the same single answer: a
+     * `401` here means the token was revoked or the class was deleted — by
+     * this phone or from the bot — and the app must leave rather than keep a
+     * page of buttons that will all fail. Deliberately *not* wired to the
+     * `403`s: those say the role changed, and the device is still in the class.
+     */
+    private val onTokenRejected: suspend () -> Unit = {},
 ) : ManageRepository {
 
     override suspend fun classCard(): Result<ManagedClass> = call {
@@ -58,11 +68,23 @@ internal class ManageRepositoryImpl(
         ).toDomain()
     }
 
+    override suspend fun setJoinMode(mode: ClassJoinMode): Result<ManagedClass> = call {
+        // The one field, and nothing else. A patch that also carried the name
+        // and the zone the card happens to hold would be three audit lines for
+        // one tap, and would overwrite whatever the bot changed since this card
+        // was read.
+        api.updateClass(ClassPatchDto(joinMode = mode.toWire())).toDomain()
+    }
+
     // `.map { }` rather than a trailing `Unit`: the answer is `DeletedOut`, and
     // the id in it names a row the caller already knows about. Throwing it away
     // in the type is clearer than throwing it away in a statement.
     override suspend fun deleteClass(confirmName: String): Result<Unit> =
         call { api.deleteClass(ClassDeleteDto(confirmName = confirmName.trim())) }.map { }
+
+    override suspend fun searchSchools(query: String): Result<SchoolPage> = call {
+        api.searchSchools(query = query.trim(), pageSize = SCHOOL_SEARCH_LIMIT).toDomain()
+    }
 
     override suspend fun subjects(): Result<List<ManagedSubject>> = call {
         api.subjects().map { it.toDomain() }
@@ -197,11 +219,24 @@ internal class ManageRepositoryImpl(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (failure: Exception) {
-            Result.failure(ManageFailure.of(failure))
+            val classified = ManageFailure.of(failure)
+            // Guarded: `signOut` writes through DataStore, which rethrows
+            // `IOException`, and this sits in a `catch` under the bare
+            // `viewModelScope.launch` of a management screen. Losing the
+            // sign-out on a full disk is recoverable — the next 401 tries
+            // again — and crashing on one is not.
+            if (classified is ManageFailure.SignedOut) runCatching { onTokenRejected() }
+            Result.failure(classified)
         }
     }
 
     private companion object {
+        /**
+         * The directory's own ceiling, asked for explicitly so one search is
+         * one request. See [ManageRepository.searchSchools].
+         */
+        const val SCHOOL_SEARCH_LIMIT: Int = 20
+
         /**
          * `HH:mm:ss`, which is what a `datetime.time` accepts and what the
          * server sends back. [LocalTime.toString] drops the seconds on a whole

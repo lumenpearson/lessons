@@ -1,6 +1,8 @@
 package com.lumenpearson.lessons.ui.diary
 
 import com.lumenpearson.lessons.core.data.repository.DiaryFailure
+import com.lumenpearson.lessons.core.data.repository.DiaryField
+import com.lumenpearson.lessons.core.data.repository.DiaryOverrideRecord
 import com.lumenpearson.lessons.core.data.repository.DiaryHomework
 import com.lumenpearson.lessons.core.data.repository.DiaryLesson
 import com.lumenpearson.lessons.core.data.repository.DiaryMark
@@ -172,6 +174,28 @@ private class FakeDiaryRepository : DiaryRepository {
         from: LocalDate,
         to: LocalDate,
     ): Result<List<DiaryHomework>> = Result.failure(DiaryFailure.Unavailable)
+
+    // Corrections are not what this file is about — it pins how a sign-in
+    // reports itself — so these refuse like every other read here.
+    override suspend fun overrides(studentId: Long): Result<List<DiaryOverrideRecord>> =
+        Result.failure(DiaryFailure.Unavailable)
+
+    override suspend fun correct(
+        studentId: Long,
+        target: String,
+        field: DiaryField,
+        value: String,
+        original: String?,
+    ): Result<Unit> = Result.failure(DiaryFailure.Unavailable)
+
+    override suspend fun reset(
+        studentId: Long,
+        target: String,
+        field: DiaryField,
+    ): Result<Unit> = Result.failure(DiaryFailure.Unavailable)
+
+    override suspend fun resetAll(studentId: Long): Result<Unit> =
+        Result.failure(DiaryFailure.Unavailable)
 
     override suspend fun grades(
         studentId: Long,

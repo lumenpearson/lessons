@@ -149,6 +149,7 @@ fun WeekScreen(
     ) {
         ScheduleHeader(
             periodLabel = state.periodLabel(),
+            termLabel = state.termLabel(),
             showTodayAction = state.canReturnToToday,
             onToday = viewModel::showToday,
             onPrevious = viewModel::showPrevious,
@@ -260,6 +261,16 @@ private fun ScheduleUiState.periodLabel(): String = when (view) {
 }
 
 /**
+ * The term the selected day belongs to, appended to the header.
+ *
+ * Empty during каникулы and for a class whose server has no terms — in both
+ * cases the header is just the period, because «—» in place of a четверть
+ * claims the school has one and the app forgot it.
+ */
+@Composable
+private fun ScheduleUiState.termLabel(): String? = selectedTerm?.label
+
+/**
  * The page title and the three period controls.
  *
  * The controls used to be actions in a top app bar. They are here because there
@@ -270,6 +281,7 @@ private fun ScheduleUiState.periodLabel(): String = when (view) {
 @Composable
 private fun ScheduleHeader(
     periodLabel: String,
+    termLabel: String?,
     showTodayAction: Boolean,
     onToday: () -> Unit,
     onPrevious: () -> Unit,
@@ -284,7 +296,10 @@ private fun ScheduleHeader(
     ) {
         ScreenHeader(
             title = stringResource(R.string.week_title),
-            subtitle = periodLabel,
+            // «Октябрь 2026 · 1 четверть». One line rather than two: the term
+            // qualifies the period rather than standing beside it, and a second
+            // line pushes the grid down on every phone for a word.
+            subtitle = listOfNotNull(periodLabel, termLabel).joinToString(" · "),
             modifier = Modifier.weight(1f),
         )
         // Only offered when it would do something: a "back to today" button on

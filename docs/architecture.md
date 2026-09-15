@@ -100,6 +100,21 @@ Room is the single source of truth. The network only fills it. Every screen and
 the widget read from Room, so the app is fully usable offline and the widget
 keeps counting down in a dead zone.
 
+**One device, several classes.** A join code buys one read-only token for one
+class, so a pupil in two classes is a phone holding two tokens — that was always
+the server's model, and the app used to throw the previous token away. It now
+keeps a list of memberships and shows one at a time; `SessionRepository` owns
+the list and which one is current.
+
+The cache follows: `school_day` carries a `class_id` and every read is filtered
+by the class on screen, so two windows sit side by side and switching is instant
+and works with no network. That filter is the load-bearing part. Two classes'
+weeks are both plausible school weeks, so a read that lost it would draw a
+timetable that looks entirely correct and belongs to somebody else — which is
+why the DAO takes the class id as a required parameter on every query rather
+than defaulting it, and why a sync writes under the class the **server**
+resolved the token to rather than the one the device believes is current.
+
 After a successful sync, `SyncWorker` sends a package-internal broadcast
 (`com.lumenpearson.lessons.action.DATA_SYNCED`) that the widget receiver listens
 for. That is why `:core:data` does not depend on `:widget` — the dependency would
@@ -160,7 +175,7 @@ can swap wholesale.
 
 ## Слой сервисов, и почему телефон не логинится
 
-`server/app/services/` — восемь модулей чистых async-функций над сессией, и
+`server/app/services/` — семнадцать модулей чистых async-функций над сессией, и
 существуют они ровно потому, что у каждой функции продукта теперь два входа:
 бот и приложение. Домашка добавляется командой в чате и кнопкой на телефоне;
 замена, событие, особый день — тоже. Две реализации одного правила разошлись бы
@@ -171,7 +186,10 @@ can swap wholesale.
 
 Прав у телефона своих нет — и это главное решение этого слоя. Устройство
 получает от сервера шестисимвольный код, человек отправляет его боту, и с этого
-момента токен устройства привязан к Telegram-аккаунту. Любая запись с телефона
+момента токен устройства привязан к Telegram-аккаунту. У класса, который
+пускает телефоны только по личным приглашениям (`join_mode`), этого шага нет
+вовсе: код на вход выдаёт бот тому, кого уже узнал, так что телефон оказывается
+привязан в тот же момент, когда подключается. Любая запись с телефона
 проверяется так: найти аккаунт по токену, спросить его роль **в этом классе в
 момент запроса** (`linking.effective_role`), сравнить с EDITOR. Ни роли, ни
 срока действия на устройстве не хранится, потому что хранить нечего: отозвали
@@ -186,8 +204,9 @@ can swap wholesale.
 посередине, не рассылает сводку дважды, а опоздавший на десять минут — досылает.
 
 Этот же тик — единственное место, где что-то удаляется по времени. Брошенные
-диалоги бота, счётчики неудачных входов, сессии дневника и молчащие токены
-устройств растут между вызовами, и подмести их больше негде: фоновой задачи,
+диалоги бота, счётчики неудачных входов, сессии дневника, одноразовые коды —
+и на вход в дневник, и на подключение телефона — и молчащие токены устройств
+растут между вызовами, и подмести их больше негде: фоновой задачи,
 которая переживёт ответ, здесь не существует. Сроки и их обоснование — в
 `api.md`, в разделе про `/api/v1/cron/tick`.
 

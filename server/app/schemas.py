@@ -140,12 +140,31 @@ class DayOut(BaseModel):
     note: str | None = None
 
 
+class TermOut(BaseModel):
+    """One четверть or полугодие, as the class actually runs it."""
+
+    index: int
+    kind: Literal["quarter", "semester"]
+    starts_on: Date
+    ends_on: Date
+
+
 class ClassOut(BaseModel):
     id: int
     name: str
+    # The year of school, 1..11, and the letter that distinguishes two classes
+    # of the same year. Null on a class created before they existed: its name
+    # is all there is, and «9» read out of «9А» would be a guess.
+    grade: int | None = None
+    letter: str | None = None
     school: str | None = None
     city: str | None = None
     timezone: str
+    #: Which scheme the year is cut into, and the terms themselves — the app
+    #: renders «2 четверть» and shades the calendar from these rather than
+    #: recomputing dates a school is free to have moved.
+    term_kind: Literal["quarter", "semester"] | None = None
+    terms: list[TermOut] = Field(default_factory=list)
 
 
 RoleName = Literal["viewer", "editor", "admin", "owner"]
@@ -488,6 +507,7 @@ class TickOut(BaseModel):
     diary_sessions_purged: int = 0
     device_tokens_purged: int = 0
     diary_links_purged: int = 0
+    device_invites_purged: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -625,6 +645,31 @@ class DiaryMarkOut(BaseModel):
         )
 
 
+class DiaryEditOut(BaseModel):
+    """One field a family has corrected, as the client needs to draw it.
+
+    ``original`` is what the diary says **now**, not what it said when the
+    correction was written — the client shows it as «в дневнике: …», and the
+    question it answers is what is currently being covered up.
+    """
+
+    field: str
+    value: str
+    original: str | None = None
+    #: The diary has changed this field since the correction was made, so the
+    #: value being hidden is no longer the one the person decided to replace.
+    changed_upstream: bool = False
+
+    @classmethod
+    def of(cls, edit) -> DiaryEditOut:
+        return cls(
+            field=edit.field,
+            value=edit.value,
+            original=edit.original,
+            changed_upstream=edit.changed_upstream,
+        )
+
+
 class DiaryLessonOut(BaseModel):
     date: Date
     number: int | None = None
@@ -635,9 +680,19 @@ class DiaryLessonOut(BaseModel):
     teacher: str | None = None
     homework: str | None = None
     topic: str | None = None
+    #: The key a correction for this lesson is filed under. Sent down so the
+    #: client echoes it back rather than building its own: two implementations
+    #: of a key that has to match exactly would agree until the first lesson
+    #: with no number, and then quietly stop.
+    target: str = ""
+    edits: list[DiaryEditOut] = Field(default_factory=list)
+    #: Another lesson the same day carries the same key, so no correction is
+    #: applied to either. See ``services/diary_overrides.lesson_target``.
+    ambiguous: bool = False
 
     @classmethod
-    def of(cls, lesson) -> DiaryLessonOut:
+    def of(cls, overlaid) -> DiaryLessonOut:
+        lesson = overlaid.lesson
         return cls(
             date=lesson.date,
             number=lesson.number,
@@ -648,6 +703,9 @@ class DiaryLessonOut(BaseModel):
             teacher=lesson.teacher,
             homework=lesson.homework,
             topic=lesson.topic,
+            target=overlaid.target,
+            edits=[DiaryEditOut.of(edit) for edit in overlaid.edits],
+            ambiguous=overlaid.ambiguous,
         )
 
 
@@ -657,15 +715,91 @@ class DiaryHomeworkOut(BaseModel):
     subject: str
     text: str
     teacher: str | None = None
+    #: @see DiaryLessonOut.target
+    target: str = ""
+    edits: list[DiaryEditOut] = Field(default_factory=list)
+    #: Another item due the same day shares this key — two assignments in one
+    #: subject, neither carrying an upstream id — so no correction is applied to
+    #: either. @see DiaryLessonOut.ambiguous
+    ambiguous: bool = False
 
     @classmethod
-    def of(cls, item) -> DiaryHomeworkOut:
+    def of(cls, overlaid) -> DiaryHomeworkOut:
+        item = overlaid.item
         return cls(
             id=item.id,
             due_date=item.due_date,
             subject=item.subject,
             text=item.text,
             teacher=item.teacher,
+            target=overlaid.target,
+            edits=[DiaryEditOut.of(edit) for edit in overlaid.edits],
+            ambiguous=overlaid.ambiguous,
+        )
+
+
+class DiaryResetIn(BaseModel):
+    """Which correction to take off.
+
+    A body rather than a query string, and a POST rather than a DELETE, because
+    a target is free text: a subject named «Физика & астрономия» produces a key
+    with an ampersand in it, and a caller that encodes it a shade imperfectly
+    resets nothing while being told 204. The value that has to match byte for
+    byte does not travel in a URL.
+    """
+
+    target: str = Field(min_length=1, max_length=300)
+    field: str = Field(min_length=1, max_length=40)
+
+
+class DiaryOverrideIn(BaseModel):
+    """A correction being written. The target came from a read; it is echoed."""
+
+    target: str = Field(min_length=1, max_length=300)
+    field: str = Field(min_length=1, max_length=40)
+    #: Empty is a real answer — the diary often carries a placeholder where a
+    #: family would rather see nothing — so it is stored rather than treated as
+    #: a reset. Resetting is ``POST .../overrides/reset``, which names the
+    #: target and field in a body; it used to be a ``DELETE`` with them in the
+    #: query string, and a target is a colon-joined string with a subject name
+    #: in it, which is the kind of thing a proxy log truncates and an ``&`` in
+    #: a subject silently cuts in half.
+    value: str = Field(max_length=4000)
+    #: What the person was looking at when they wrote the correction.
+    #:
+    #: Taken from the client rather than re-read upstream, and deliberately: the
+    #: question it exists to answer is "has the diary changed since the person
+    #: decided to replace this", and the answer is about what *they* saw, not
+    #: about what the upstream happened to say in the second this request
+    #: landed. It is also nobody else's data — a family's own correction of
+    #: their own diary — so there is no boundary here to defend.
+    original: str | None = Field(default=None, max_length=4000)
+
+
+class DiaryOverrideOut(BaseModel):
+    """A stored correction, for the screen that lists and resets them."""
+
+    target: str
+    field: str
+    value: str
+    #: What the diary said **when this was written** — not what it says now.
+    #:
+    #: Spelled differently from :attr:`DiaryEditOut.original` on purpose. The
+    #: two are the same feature, travel to the same client and mean opposite
+    #: things: one is the value currently being covered up, this one is the
+    #: value the person decided to replace, however long ago. One name for both
+    #: is a client rendering «в дневнике: …» from whichever it happened to have.
+    original_when_written: str | None = None
+    updated_at: datetime
+
+    @classmethod
+    def of(cls, row) -> DiaryOverrideOut:
+        return cls(
+            target=row.target,
+            field=row.field,
+            value=row.value,
+            original_when_written=row.original,
+            updated_at=row.updated_at,
         )
 
 
@@ -731,11 +865,68 @@ class ManagedClassOut(BaseModel):
     # app does not have to carry the table of Russian zones twice.
     timezone_label: str
     join_code: str
+    #: "open" | "invite" — whether that code is enough on its own.
+    join_mode: str = "open"
     members: int
     devices: int
     pending_requests: int
     bell_schedule_id: int | None = None
     calendar_ready: bool = False
+
+
+class TermSchemeIn(BaseModel):
+    """Switch the class between четверти and полугодия."""
+
+    kind: Literal["quarter", "semester"]
+
+
+class TermBoundsIn(BaseModel):
+    """Both edges of one term. Validated against the year in the service, not
+    here: «пересекается с периодом 2» is a rule about the other rows, and
+    pydantic can only see this one."""
+
+    starts_on: Date
+    ends_on: Date
+
+
+class TermsOut(BaseModel):
+    kind: Literal["quarter", "semester"]
+    year: int
+    terms: list[TermOut] = Field(default_factory=list)
+
+
+class SchoolOut(BaseModel):
+    """One row of the school directory, as the picker shows it."""
+
+    name: str
+    full_name: str
+    #: ОГРН — thirteen digits, assigned once and never reused. Returned so a
+    #: client can tell two «Гимназия № 3» apart without parsing the address.
+    ogrn: str | None = None
+    inn: str | None = None
+    address: str | None = None
+    city: str | None = None
+    region: str | None = None
+    #: False for a school the register has closed. Shown rather than hidden:
+    #: a class created in May may belong to one merged over the summer.
+    active: bool = True
+
+
+class SchoolSearchOut(BaseModel):
+    """One page of results, and whether there is more behind it.
+
+    ``truncated`` is not «есть ещё страницы» — those are ``pages``. It means
+    the directory's own ceiling of twenty was reached, so this is the first
+    twenty of an unknown number and the way forward is a longer query, not a
+    next page. A client that ignores it will show «найдено 20» for a search
+    matching three hundred schools.
+    """
+
+    items: list[SchoolOut] = Field(default_factory=list)
+    page: int
+    pages: int
+    total: int
+    truncated: bool = False
 
 
 class ClassPatch(BaseModel):
@@ -747,9 +938,18 @@ class ClassPatch(BaseModel):
     """
 
     name: str | None = Field(default=None, min_length=1, max_length=64)
+    # 1..11. The bound is the school's, not the column's: a class numbered 0 or
+    # 12 would resolve its term scheme from a comparison that happens to be
+    # true rather than from a decision.
+    grade: int | None = Field(default=None, ge=1, le=11)
+    letter: str | None = Field(default=None, max_length=8)
     school: str | None = Field(default=None, max_length=200)
     city: str | None = Field(default=None, max_length=120)
     timezone: str | None = Field(default=None, max_length=64)
+    #: Who vouches for a phone: the class code, or the bot. See ``JoinMode``.
+    #: A literal rather than the enum so an unknown value is a 422 with the
+    #: field named, not a 500 from deep inside SQLAlchemy.
+    join_mode: Literal["open", "invite"] | None = None
 
     # An absent field is never validated, so these two run only on a value the
     # client actually sent - which is how an explicit ``null`` is refused while

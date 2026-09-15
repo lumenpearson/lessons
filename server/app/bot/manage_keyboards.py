@@ -16,6 +16,11 @@ from app.bot.button_style import DANGER, PRIMARY, SUCCESS
 from app.bot.keyboards import Menu, back_to_menu
 
 
+class TermAction(CallbackData, prefix="trm"):
+    action: str  # list | scheme | edit
+    value: str = ""
+
+
 class ManageAction(CallbackData, prefix="mg"):
     action: str  # root | rename | school | city | calendar | rotate_feed | delete | ...
     value: str = ""
@@ -89,7 +94,6 @@ def class_menu(
     many_classes: bool,
     pending: int,
     diary_bound: bool = False,
-    is_public: bool = False,
 ) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
         [
@@ -130,21 +134,21 @@ def class_menu(
                 text="📜 Журнал", callback_data=AuditAction(action="page", value="0").pack()
             ),
         ],
+        [
+            InlineKeyboardButton(
+                text="🗓 Четверти", callback_data=TermAction(action="list").pack()
+            ),
+        ],
     ]
     rows.append(
         [
-            # Both painted by what pressing does, like every other toggle here:
-            # red while the press takes something away (unbinding the diary,
-            # closing the class), plain while it gives it back.
+            # Painted by what pressing does, like every other toggle here: red
+            # while the press takes something away, plain while it gives it
+            # back.
             InlineKeyboardButton(
                 text="📒 Дневник: отвязать" if diary_bound else "📒 Привязать дневник",
                 callback_data=ManageAction(action="diary_bind").pack(),
                 style=DANGER if diary_bound else None,
-            ),
-            InlineKeyboardButton(
-                text="🔒 Закрыть класс" if is_public else "🔓 Открыть класс",
-                callback_data=ManageAction(action="openness").pack(),
-                style=DANGER if is_public else None,
             ),
         ]
     )
@@ -519,3 +523,34 @@ def switch_keyboard(classes: list) -> InlineKeyboardMarkup:
     ]
     rows.append(back_to("root"))
     return back_to_menu(rows)
+
+
+def terms_menu(terms, *, is_semester: bool) -> InlineKeyboardMarkup:
+    """One row per term, plus the switch between the two schemes.
+
+    The scheme button is painted by what pressing it does rather than by the
+    state it reports — «Перейти на полугодия» is an offer, and green on a
+    button that says «полугодия» while the class is on quarters reads as a
+    claim about the present.
+    """
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=f"{term.index}. {term.starts_on:%d.%m} — {term.ends_on:%d.%m}",
+                callback_data=TermAction(action="edit", value=str(term.index)).pack(),
+            )
+        ]
+        for term in terms
+    ]
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="📗 Перейти на четверти" if is_semester else "📘 Перейти на полугодия",
+                callback_data=TermAction(
+                    action="scheme", value="quarter" if is_semester else "semester"
+                ).pack(),
+            )
+        ]
+    )
+    rows.append(back_to("root"))
+    return InlineKeyboardMarkup(inline_keyboard=rows)

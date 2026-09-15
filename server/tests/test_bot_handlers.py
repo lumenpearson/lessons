@@ -7,6 +7,7 @@ testing here is the parsing and the permission checks, not Telegram's transport.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import date, time
 from types import SimpleNamespace
@@ -15,7 +16,14 @@ from typing import Any
 import pytest
 from sqlalchemy import select
 
-from app.bot.handlers.access import apply_role, invite_phone, invite_role
+from app.bot.handlers.access import (
+    JOIN_MODE_TEXT,
+    access_root,
+    apply_role,
+    invite_phone,
+    invite_role,
+    switch_join_mode,
+)
 from app.bot.handlers.content import (
     _parse_time_range,
     homework_pick_day,
@@ -23,18 +31,23 @@ from app.bot.handlers.content import (
     homework_text,
     override_subject,
 )
+from app.bot.handlers.start import cmd_code, phone_code
 from app.bot.handlers.timetable import bells_apply, timetable_apply
-from app.bot.keyboards import HomeworkAction
+from app.bot.keyboards import AccessAction, HomeworkAction
 from app.models import (
+    AuditEntry,
     BellPeriod,
     BotUser,
+    DeviceInvite,
     Homework,
+    JoinMode,
     LessonOverride,
     PhoneInvite,
     Role,
     TimetableEntry,
 )
 from app.models import OverrideAction as OverrideActionEnum
+from app.services import device_invites
 
 MONDAY = date(2026, 9, 7)
 
@@ -537,3 +550,190 @@ async def test_a_button_from_a_stale_keyboard_is_refused(session, school_class):
 
     assert callback.alerted
     assert "subject" not in state.data
+
+
+# --------------------------------------------------------------------------
+# Личный код на телефон и режим входа в класс
+# --------------------------------------------------------------------------
+
+
+class MarkupEditable(FakeEditable):
+    """Keeps the keyboard as well as the text.
+
+    The access page says which mode the class is in twice — in a sentence and
+    on the button that changes it — and the two disagreeing is exactly the bug
+    worth catching.
+    """
+
+    markup: Any = None
+
+    async def edit_text(self, text: str, **kwargs: Any) -> None:
+        self.markup = kwargs.get("reply_markup")
+        self.replies.append(text)
+
+
+def _shown_code(text: str) -> str:
+    """The code out of the <code> block the reply shows it in."""
+    found = re.search(r"<code>([^<]+)</code>", text)
+    assert found is not None, text
+    return found.group(1)
+
+
+def _labels(markup) -> list[str]:
+    return [button.text for row in markup.inline_keyboard for button in row]
+
+
+async def test_a_member_gets_a_personal_code_for_their_own_phone(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+
+    await phone_code(callback, session, school_class, Role.VIEWER)
+
+    invite = await session.scalar(select(DeviceInvite))
+    assert invite.telegram_id == 42
+    assert invite.class_id == school_class.id
+    assert not invite.is_used
+    assert await device_invites.find_live(session, _shown_code(callback.message.last)) is invite
+    # The three things the reply has to say, so that nobody has to be told
+    # them in the chat afterwards.
+    assert str(device_invites.CODE_MINUTES) in callback.message.last
+    assert "одного телефона" in callback.message.last
+    assert "привязки не нужно" in callback.message.last
+    assert not callback.alerted
+
+
+async def test_asking_twice_leaves_one_live_code(session, school_class):
+    """The older code is further up the chat, where somebody else scrolls
+    past it — two live ones is two chances for that to matter."""
+    first = FakeCallback(message=FakeEditable())
+    await phone_code(first, session, school_class, Role.VIEWER)
+    second = FakeCallback(message=FakeEditable())
+    await phone_code(second, session, school_class, Role.VIEWER)
+
+    assert len(list(await session.scalars(select(DeviceInvite)))) == 1
+    assert await device_invites.find_live(session, _shown_code(first.message.last)) is None
+    assert await device_invites.find_live(session, _shown_code(second.message.last)) is not None
+
+
+async def test_somebody_outside_the_class_gets_no_code(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+
+    await phone_code(callback, session, school_class, None)
+
+    assert callback.alerted
+    assert await session.scalar(select(DeviceInvite)) is None
+
+
+async def test_the_access_page_says_which_mode_the_class_is_in(session, school_class):
+    callback = FakeCallback(message=MarkupEditable())
+    await access_root(callback, session, school_class, Role.ADMIN)
+    assert JOIN_MODE_TEXT[JoinMode.OPEN] in callback.message.last
+    assert "🔒 Только по приглашениям" in _labels(callback.message.markup)
+
+    school_class.join_mode = JoinMode.INVITE
+    await session.commit()
+
+    callback = FakeCallback(message=MarkupEditable())
+    await access_root(callback, session, school_class, Role.ADMIN)
+    assert JOIN_MODE_TEXT[JoinMode.INVITE] in callback.message.last
+    assert "🔓 Вернуть вход по коду" in _labels(callback.message.markup)
+
+
+def _wants(mode: JoinMode) -> AccessAction:
+    return AccessAction(action="join_mode", value=mode.value)
+
+
+async def test_an_admin_switches_the_mode_both_ways(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+    await switch_join_mode(callback, _wants(JoinMode.INVITE), session, school_class, Role.ADMIN)
+
+    assert school_class.join_mode is JoinMode.INVITE
+    # The promise the confirmation has to make: switching takes nothing away.
+    assert "уже подключены" in callback.message.last.lower()
+
+    await switch_join_mode(callback, _wants(JoinMode.OPEN), session, school_class, Role.ADMIN)
+    assert school_class.join_mode is JoinMode.OPEN
+    assert "снова" in callback.message.last
+
+    logged = list(
+        await session.scalars(select(AuditEntry).where(AuditEntry.action == "access.join_mode"))
+    )
+    assert len(logged) == 2
+    assert all(entry.telegram_id == 42 for entry in logged)
+
+
+async def test_a_stale_page_cannot_undo_what_somebody_else_just_did(session, school_class):
+    """The press carries the mode it wants, so it cannot mean «the other one».
+
+    Two «👥 Доступ» pages open, both rendered while the class was open. One is
+    used to switch to invitations. The other still shows «🔒 Только по
+    приглашениям» — and pressing it must not hand the class code back to
+    everybody who still has it, which is what a toggle would do.
+    """
+    stale = _wants(JoinMode.INVITE)
+
+    first = FakeCallback(message=FakeEditable())
+    await switch_join_mode(first, stale, session, school_class, Role.ADMIN)
+    assert school_class.join_mode is JoinMode.INVITE
+
+    second = FakeCallback(message=FakeEditable())
+    await switch_join_mode(second, stale, session, school_class, Role.ADMIN)
+
+    assert school_class.join_mode is JoinMode.INVITE
+    assert "ничего не изменилось" in second.message.last
+    # And the log records one change, not two.
+    logged = list(
+        await session.scalars(select(AuditEntry).where(AuditEntry.action == "access.join_mode"))
+    )
+    assert len(logged) == 1
+
+
+async def test_a_button_from_a_build_that_spelled_the_modes_differently_is_refused(
+    session, school_class
+):
+    callback = FakeCallback(message=FakeEditable())
+
+    await switch_join_mode(
+        callback, AccessAction(action="join_mode", value="whatever"), session, school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    assert school_class.join_mode is JoinMode.OPEN
+    assert await session.scalar(select(AuditEntry)) is None
+
+
+async def test_an_editor_cannot_switch_the_mode(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+
+    await switch_join_mode(
+        callback, _wants(JoinMode.INVITE), session, school_class, Role.EDITOR
+    )
+
+    assert callback.alerted
+    assert school_class.join_mode is JoinMode.OPEN
+    assert await session.scalar(select(AuditEntry)) is None
+
+
+async def test_the_class_code_reply_stops_promising_a_join_in_invite_mode(
+    session, school_class
+):
+    message = FakeMessage()
+    await cmd_code(message, school_class, Role.ADMIN)
+    assert "вводят в приложении" in message.last
+    assert school_class.join_code in message.last
+
+    school_class.join_mode = JoinMode.INVITE
+    await session.commit()
+
+    message = FakeMessage()
+    await cmd_code(message, school_class, Role.ADMIN)
+    # Still shown — it is dormant, not gone — but with the way in that works.
+    assert school_class.join_code in message.last
+    assert "ничего не открывает" in message.last
+    assert "📱 Подключить телефон" in message.last
+
+
+async def test_the_class_code_stays_admin_only(session, school_class):
+    message = FakeMessage()
+    await cmd_code(message, school_class, Role.EDITOR)
+    assert school_class.join_code not in message.last

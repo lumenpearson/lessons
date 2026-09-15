@@ -342,12 +342,23 @@ fun SettingsSectionScreen(
     var showServerSheet by rememberSaveable { mutableStateOf(false) }
     var showSignOutSheet by rememberSaveable { mutableStateOf(false) }
     var showUnlinkSheet by rememberSaveable { mutableStateOf(false) }
+    var showAddClassSheet by rememberSaveable { mutableStateOf(false) }
+    // The id rather than the Session: this survives a configuration change, and
+    // a Session is not parcelable. It is resolved against the live list below,
+    // so a class that stops existing while the sheet is up closes it instead of
+    // asking about a name nobody is in any more.
+    var leavingClassId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     // The link is a fact about the token that only the server holds, so the
     // class page asks on every visit. Keyed on the section: the same view
     // model serves every page, and a visit to «Оформление» is not a visit here.
+    //
+    // And keyed on the class as well, because there is a token per class and
+    // the switch happens on this very page: without it, switching to a class
+    // this phone is only a reader in went on offering the editor's rows the
+    // previous class had earned.
     if (section == SettingsSection.ACCOUNT) {
-        LaunchedEffect(Unit) { viewModel.refreshDeviceLink() }
+        LaunchedEffect(state.session?.classId) { viewModel.refreshDeviceLink() }
     }
 
     if (showUnlinkSheet) {
@@ -377,10 +388,33 @@ fun SettingsSectionScreen(
     if (showSignOutSheet) {
         SignOutSheet(
             className = state.session?.className,
+            everyClass = state.sessions.size > 1,
             onDismiss = { showSignOutSheet = false },
             onConfirm = {
                 showSignOutSheet = false
                 viewModel.signOut()
+            },
+        )
+    }
+
+    if (showAddClassSheet) {
+        AddClassSheet(onDismiss = { showAddClassSheet = false })
+    }
+
+    // Resolved against the live list: the class can stop being one this phone
+    // is in while the sheet is up — the confirmation itself does exactly that —
+    // and asking about a name nobody is in any more is worse than closing.
+    val leaving = leavingClassId?.let { id -> state.sessions.firstOrNull { it.classId == id } }
+    LaunchedEffect(leaving, leavingClassId) {
+        if (leavingClassId != null && leaving == null) leavingClassId = null
+    }
+    if (leaving != null) {
+        LeaveClassSheet(
+            className = leaving.className,
+            onDismiss = { leavingClassId = null },
+            onConfirm = {
+                leavingClassId = null
+                viewModel.leaveClass(leaving.classId)
             },
         )
     }
@@ -405,7 +439,13 @@ fun SettingsSectionScreen(
             SettingsSection.ALERTS -> notificationRows(state, viewModel, onOpenSection)
             SettingsSection.SYNC -> syncRows(state, viewModel) { showServerSheet = true }
             SettingsSection.ACCOUNT -> {
-                accountRows(state) { showSignOutSheet = true }
+                classRows(
+                    state = state,
+                    onSelectClass = viewModel::selectClass,
+                    onAddClass = { showAddClassSheet = true },
+                    onLeaveClass = { leavingClassId = it.classId },
+                    onSignOut = { showSignOutSheet = true },
+                )
                 telegramLinkRows(
                     state = state.deviceLink,
                     onRefresh = viewModel::refreshDeviceLink,
@@ -1021,28 +1061,6 @@ private fun LazyListScope.syncRows(
     }
 }
 
-private fun LazyListScope.accountRows(
-    state: SettingsUiState,
-    onSignOut: () -> Unit,
-) = item(key = "class") {
-    SettingsGroup(title = stringResource(R.string.settings_class_group)) {
-        GroupItem(
-            title = state.session?.className
-                ?: stringResource(R.string.settings_class_unknown),
-            subtitle = state.session?.school
-                ?: stringResource(R.string.settings_class_no_school),
-            icon = Icons.Rounded.School,
-            tone = accentTone(1),
-        )
-        GroupItem(
-            title = stringResource(R.string.settings_sign_out),
-            icon = Icons.AutoMirrored.Rounded.Logout,
-            tone = errorTone(),
-            onClick = onSignOut,
-        )
-    }
-}
-
 private fun LazyListScope.aboutRows(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
@@ -1175,17 +1193,26 @@ private fun SyncIntervalRow(
 @Composable
 private fun SignOutSheet(
     className: String?,
+    everyClass: Boolean,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
     LessonsBottomSheet(
         onDismissRequest = onDismiss,
-        title = stringResource(R.string.settings_sign_out_title),
+        title = stringResource(
+            if (everyClass) R.string.settings_sign_out_all_title else R.string.settings_sign_out_title,
+        ),
     ) {
         Text(
-            text = className
-                ?.let { stringResource(R.string.settings_sign_out_message, it) }
-                ?: stringResource(R.string.settings_sign_out_message_generic),
+            // Naming the one class is only honest while there is one. With
+            // several, this button takes them all, and a sentence about 7«А»
+            // over a button that also drops 9«Б» is the kind of wrong that is
+            // only discovered afterwards.
+            text = when {
+                everyClass -> stringResource(R.string.settings_sign_out_all_message)
+                className != null -> stringResource(R.string.settings_sign_out_message, className)
+                else -> stringResource(R.string.settings_sign_out_message_generic)
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = ScreenPadding),

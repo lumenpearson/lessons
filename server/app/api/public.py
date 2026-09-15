@@ -21,8 +21,10 @@ from app.api.deps import current_class, current_device
 from app.config import get_settings
 from app.db import EXPECTED_REVISION, current_revision, get_session
 from app.models import (
+    DeviceInvite,
     DeviceToken,
     Homework,
+    JoinMode,
     PersonalTask,
     Role,
     SchoolClass,
@@ -51,16 +53,29 @@ from app.schemas import (
     TaskIn,
     TaskOut,
     TaskPatch,
+    TermOut,
     UnlinkOut,
 )
 from app.security import JoinThrottle, client_bucket, hash_token, new_token
+from app.services import audit, device_invites, linking
 from app.services import calendar as calendar_service
-from app.services import linking
+from app.services import subjects as subjects_service
 from app.services import tasks as task_service
+from app.services import terms as terms_service
 
 router = APIRouter(prefix="/api/v1", tags=["client"])
 
-MAX_BUNDLE_DAYS = 31
+# A whole school year, because that is the horizon the calendar draws. It used
+# to be 31, and 31 days is what the client cached: every date past the window
+# read «Нет данных», including the rest of the term, which looked like data
+# ending a month after the class was created rather than like a window.
+#
+# The widest year 1 September (or the Monday after) to 31 May can be is 274
+# days; the slack is for a client that anchors a little earlier than the year
+# opens. Widening it costs the server almost nothing — ScheduleResolver issues
+# the same handful of queries whatever the range, and resolves the rest in
+# Python from the weekly template it has already loaded.
+MAX_BUNDLE_DAYS = 280
 
 # ``start`` is arbitrary client input and the resolver does date arithmetic on
 # top of it (up to ``days`` forward, then another three weeks of look-ahead).
@@ -269,7 +284,14 @@ async def join(
     payload: JoinRequest,
     session: AsyncSession = Depends(get_session),
 ) -> JoinResponse:
-    """Exchange a class join code for a long-lived read-only device token."""
+    """Exchange a code for a long-lived device token.
+
+    Read-only when the code is the class's: a token with no Telegram account
+    behind it is refused by every write path. A personal invite from the bot
+    carries the account that asked for it, so the phone that redeems one writes
+    with that account's role at the moment of each request — «read-only» has
+    not been true of every token since invites existed.
+    """
     client = _client_bucket(request)
     retry_after = await join_limiter.blocked_for(session, client)
     if retry_after is not None:
@@ -280,9 +302,46 @@ async def join(
         )
 
     code = payload.code.strip().upper()
+    # The class code first, and a personal invite only if it names no class.
+    # The two cannot collide — they are different lengths, see
+    # ``services/device_invites.CODE_LENGTH`` — so the order is about which
+    # refusal the caller gets rather than about which code wins.
     school_class = await session.scalar(select(SchoolClass).where(SchoolClass.join_code == code))
+    invite: DeviceInvite | None = None
+
+    if school_class is not None and school_class.join_mode is JoinMode.INVITE:
+        # A real code for a real class, refused because this class does not let
+        # a shared secret in. Said plainly rather than as "unknown code": the
+        # person holding it has been given it by somebody, and telling them it
+        # is wrong sends them back to that person instead of to the bot.
+        #
+        # Not a failed attempt for the throttle either. The limiter is there to
+        # stop somebody walking the code space, and this caller has already
+        # found a code — counting it would let a class that switched to invites
+        # lock out everybody who still had the old one.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Этот класс принимает только по личному приглашению из бота",
+        )
+
+    if school_class is None:
+        invite = await device_invites.find_live(session, code)
+        if invite is not None:
+            school_class = await session.get(SchoolClass, invite.class_id)
+
     if school_class is None:
         await join_limiter.record_failure(session, client)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown join code")
+
+    # Spent before the token is minted, not after: the update is what makes
+    # "one code, one phone" true against a second request that read the same
+    # live row, and a token minted first would be a token already handed out
+    # by the time we found out we lost.
+    if invite is not None and not await device_invites.burn(session, invite):
+        # Lost a race microseconds wide: the row was live when it was read and
+        # spent by the time it was written. Not counted against the limiter,
+        # for the same reason the 403 above is not — this caller had a real
+        # code, and the limiter is there for somebody who does not.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown join code")
 
     token = new_token()
@@ -291,8 +350,27 @@ async def join(
             token_hash=hash_token(token),
             class_id=school_class.id,
             device_name=payload.device_name,
+            # An invite carries the account that asked for it, so the device is
+            # linked in the same breath as it joins. On the class code it stays
+            # null, which is what "joined, nobody knows whose phone" looks like.
+            telegram_id=invite.telegram_id if invite is not None else None,
+            linked_at=device_invites.utcnow() if invite is not None else None,
         )
     )
+    if invite is not None:
+        # The same line `/link` writes, for the same event: a phone that from
+        # now on acts with somebody's role. On the invite path this is the only
+        # place it can be written — there is no second step to hang it on — and
+        # in «по приглашению» this is the only door, so without it the journal
+        # stops answering «кто подключил этот телефон» exactly when it becomes
+        # the only question worth asking of it.
+        await audit.record(
+            session,
+            school_class.id,
+            invite.telegram_id,
+            "device.link",
+            f"телефон подключён по личному коду: {payload.device_name or 'без названия'}",
+        )
     await session.commit()
     return JoinResponse(
         token=token,
@@ -344,13 +422,38 @@ async def bundle(
     last_with_lessons = max((d.date for d in resolved if d.has_lessons), default=today)
     following = await ScheduleResolver(session, school_class).next_school_day(last_with_lessons)
 
+    # Seeded on read as well as on creation: a class made before terms existed
+    # has none, and the first person to open its calendar should see the
+    # conventional ones rather than nothing. `ensure` is idempotent, so this
+    # writes on exactly one request per class per year and reads on the rest.
+    year = terms_service.opening_year_of(today)
+    terms = await terms_service.ensure(session, school_class, year)
+    # Same reasoning for the subject dictionary: a class whose timetable was
+    # typed before the link existed has names in the template and nothing in
+    # «📚 Предметы», which on the phone is a timetable with no colours at all.
+    # Also idempotent, and free — a count — once everything is in step.
+    await subjects_service.sync_from_timetable(session, school_class.id)
+    await session.commit()
+
     out = BundleOut(
         school_class=ClassOut(
             id=school_class.id,
             name=school_class.name,
+            grade=school_class.grade,
+            letter=school_class.letter,
             school=school_class.school,
             city=school_class.city,
             timezone=school_class.timezone_name,
+            term_kind=terms_service.scheme_of(school_class).value,
+            terms=[
+                TermOut(
+                    index=term.index,
+                    kind=term.kind.value,
+                    starts_on=term.starts_on,
+                    ends_on=term.ends_on,
+                )
+                for term in terms
+            ],
         ),
         generated_at=datetime.now(school_class.tz).isoformat(),
         days=[_to_day_out(day) for day in resolved],

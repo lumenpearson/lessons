@@ -100,10 +100,12 @@ def with_token(request: httpx.Request) -> httpx.Response:
     return response
 
 
-async def sign_in(client, upstream, password: str = "correct") -> str:
+async def sign_in(
+    client, upstream, password: str = "correct", login: str = "parent@example.com"
+) -> str:
     upstream.routes[LOGIN_PATH] = with_token
     response = await client.post(
-        "/api/v1/diary/login", json={"login": "parent@example.com", "password": password}
+        "/api/v1/diary/login", json={"login": login, "password": password}
     )
     assert response.status_code == 200, response.text
     return response.json()["token"]
@@ -269,6 +271,14 @@ async def test_homework_comes_from_the_lesson_list_and_says_nothing_about_it(
             "subject": "Алгебра",
             "text": "№ 42",
             "teacher": None,
+            # The key a correction for this item would be filed under, sent
+            # down so the client never builds its own. Nothing is corrected
+            # here, so the list is empty rather than absent.
+            "target": "hw:2026-09-15:Алгебра",
+            "edits": [],
+            # Only one item shares this key, so the correction it would carry
+            # is a correction of this item and nothing else.
+            "ambiguous": False,
         }
     ]
     # Their odd date-plus-time format, which is neither ISO nor a timestamp.
@@ -474,3 +484,327 @@ async def test_a_login_carries_no_session_at_all(monkeypatch):
         await provider_client.close_client()
 
     assert calls[1] is None
+
+
+# ---- corrections ----------------------------------------------------------
+#
+# The diary is read-only upstream and stays that way: what these pin is that a
+# family's correction is stored here, laid over the answer on the way out, and
+# can be taken back off again.
+
+#: The timetable comes from its own endpoint; homework is pulled out of the
+#: *lesson* list, which is a different path with a different date format.
+SCHEDULE_PATH = "/api/journal/schedule/list-by-education"
+
+
+def a_lesson(**fields) -> dict:
+    return {
+        "date": "15.09.2026",
+        "subject_name": "Алгебра",
+        "number": 1,
+        "office": "12",
+    } | fields
+
+
+async def read_schedule(client, token: str) -> list[dict]:
+    response = await client.get(
+        "/api/v1/diary/students/4021/schedule?from=2026-09-14&to=2026-09-20",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+async def signed_in_with_a_lesson(client, upstream) -> str:
+    token = await sign_in(client, upstream)
+    upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
+    upstream.routes[SCHEDULE_PATH] = {"items": [a_lesson()]}
+    return token
+
+
+async def test_a_correction_shows_up_in_the_next_read(client, upstream):
+    token = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, token))[0]["target"]
+
+    written = await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": target, "field": "room", "value": "204", "original": "12"},
+    )
+    assert written.status_code == 200, written.text
+
+    lesson = (await read_schedule(client, token))[0]
+    assert lesson["room"] == "204"
+    assert lesson["edits"] == [
+        {
+            "field": "room",
+            "value": "204",
+            "original": "12",
+            "changed_upstream": False,
+        }
+    ]
+
+
+async def test_resetting_gives_the_diary_its_answer_back(client, upstream):
+    token = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, token))[0]["target"]
+    await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": target, "field": "room", "value": "204"},
+    )
+
+    reset = await client.post(
+        "/api/v1/diary/students/4021/overrides/reset",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": target, "field": "room"},
+    )
+    assert reset.status_code == 204
+
+    lesson = (await read_schedule(client, token))[0]
+    assert lesson["room"] == "12"
+    assert lesson["edits"] == []
+
+
+async def test_resetting_something_that_was_never_corrected_is_not_an_error(
+    client, upstream
+):
+    """The caller asked for "no correction here" and that is the state; a 404
+    would make the client show a failure for having got what it wanted."""
+    token = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, token))[0]["target"]
+
+    response = await client.post(
+        "/api/v1/diary/students/4021/overrides/reset",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": target, "field": "topic"},
+    )
+    assert response.status_code == 204
+
+
+async def test_resetting_everything_clears_the_lot(client, upstream):
+    token = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, token))[0]["target"]
+    for field, value in (("room", "204"), ("teacher", "Иванова И. И.")):
+        await client.put(
+            "/api/v1/diary/students/4021/overrides",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"target": target, "field": field, "value": value},
+        )
+
+    listed = await client.get(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert len(listed.json()) == 2
+
+    dropped = await client.delete(
+        "/api/v1/diary/students/4021/overrides/all",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert dropped.status_code == 204
+
+    lesson = (await read_schedule(client, token))[0]
+    assert lesson["room"] == "12"
+    assert lesson["edits"] == []
+
+
+async def test_corrections_survive_signing_out_and_back_in(client, upstream, session):
+    """The whole point of keying them on the account rather than the session.
+
+    The upstream token dies every few days and the row goes with it; a
+    correction that went too would already be gone by the time anybody pressed
+    «сбросить», silently, and the button would look broken.
+    """
+    token = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, token))[0]["target"]
+    await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": target, "field": "room", "value": "204"},
+    )
+
+    await client.post(
+        "/api/v1/diary/logout", headers={"Authorization": f"Bearer {token}"}
+    )
+    again = await sign_in(client, upstream)
+    assert again != token
+
+    lesson = (await read_schedule(client, again))[0]
+    assert lesson["room"] == "204"
+
+
+async def test_correcting_a_second_time_replaces_rather_than_piles_up(client, upstream):
+    token = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, token))[0]["target"]
+    for value in ("204", "301"):
+        await client.put(
+            "/api/v1/diary/students/4021/overrides",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"target": target, "field": "room", "value": value},
+        )
+
+    listed = await client.get(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert [row["value"] for row in listed.json()] == ["301"]
+
+
+@pytest.mark.parametrize(
+    ("target", "field"),
+    [
+        ("mark:id:5", "value"),
+        ("lesson:2026-09-15:n1:Алгебра", "subject"),
+        ("nonsense", "text"),
+    ],
+)
+async def test_a_correction_the_read_path_could_never_apply_is_refused(
+    client, upstream, target, field
+):
+    """A stored row no read path can match would look like a correction
+    somebody made, with no way to reset it: the button that resets one only
+    appears next to the value it changed."""
+    token = await signed_in_with_a_lesson(client, upstream)
+    response = await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": target, "field": field, "value": "x"},
+    )
+    assert response.status_code == 422, response.text
+
+
+async def test_corrections_for_another_family_child_are_not_reachable(client, upstream):
+    token = await signed_in_with_a_lesson(client, upstream)
+    response = await client.put(
+        "/api/v1/diary/students/999/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": "hw:id:1", "field": "text", "value": "x"},
+    )
+    assert response.status_code == 404
+
+
+async def test_the_correction_endpoints_need_a_bearer(client):
+    paths = [
+        ("get", "/api/v1/diary/students/1/overrides"),
+        ("put", "/api/v1/diary/students/1/overrides"),
+        ("post", "/api/v1/diary/students/1/overrides/reset"),
+        ("delete", "/api/v1/diary/students/1/overrides/all"),
+    ]
+    for method, path in paths:
+        call = getattr(client, method)
+        response = (
+            await call(path, json={}) if method in ("put", "post") else await call(path)
+        )
+        assert response.status_code == 401, path
+
+
+async def test_corrections_are_private_to_the_account_that_wrote_them(client, upstream):
+    """Two parents of one child sign in with their own upstream accounts. The
+    key is (login, student), so each set of corrections is theirs — and the
+    fixture gives both accounts the same child, which is the only way this
+    property can actually be observed."""
+    mine = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, mine))[0]["target"]
+    await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {mine}"},
+        json={"target": target, "field": "room", "value": "204"},
+    )
+
+    theirs = await sign_in(client, upstream, login="other@example.com")
+
+    listed = await client.get(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {theirs}"},
+    )
+    assert listed.json() == []
+    assert (await read_schedule(client, theirs))[0]["room"] == "12"
+    # …and mine are still mine.
+    assert (await read_schedule(client, mine))[0]["room"] == "204"
+
+
+async def test_a_login_typed_with_different_capitals_finds_its_corrections(
+    client, upstream
+):
+    """The upstream does not care about the case, so neither may we: a family
+    whose keyboard capitalises the first letter must not find every correction
+    gone, with no reset button because there is nothing left to reset."""
+    first = await signed_in_with_a_lesson(client, upstream)
+    target = (await read_schedule(client, first))[0]["target"]
+    await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {first}"},
+        json={"target": target, "field": "room", "value": "204"},
+    )
+
+    again = await sign_in(client, upstream, login="Parent@Example.com")
+
+    assert (await read_schedule(client, again))[0]["room"] == "204"
+
+
+async def test_the_diary_moving_underneath_a_correction_is_reported(client, upstream):
+    token = await sign_in(client, upstream)
+    upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
+    upstream.routes[SCHEDULE_PATH] = {"items": [a_lesson(office="12")]}
+    target = (await read_schedule(client, token))[0]["target"]
+    await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": target, "field": "room", "value": "204", "original": "12"},
+    )
+
+    # The school moves the lesson. The correction is not thrown away for the
+    # person, but it stops being silent about what it is covering.
+    upstream.routes[SCHEDULE_PATH] = {"items": [a_lesson(office="301")]}
+    lesson = (await read_schedule(client, token))[0]
+
+    assert lesson["room"] == "204"
+    assert lesson["edits"][0]["changed_upstream"] is True
+    assert lesson["edits"][0]["original"] == "301"
+
+
+async def test_a_homework_text_cannot_be_emptied(client, upstream):
+    """It would take the row off the list, and the correction with it."""
+    token = await signed_in_with_a_lesson(client, upstream)
+    response = await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": "hw:id:77", "field": "text", "value": "   "},
+    )
+    assert response.status_code == 422
+
+
+async def test_a_well_prefixed_but_malformed_target_is_refused(client, upstream):
+    """The prefix is not the check: a key is matched by string equality, so
+    `lesson:x` could only ever be a row nothing applies."""
+    token = await signed_in_with_a_lesson(client, upstream)
+    response = await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target": "lesson:x", "field": "room", "value": "204"},
+    )
+    assert response.status_code == 422
+
+
+async def test_a_refresh_that_fails_does_not_replace_the_answer_it_was_helping():
+    """The un-expiring refresh after a rollback may not raise. Ever.
+
+    It is the last statement of two `except` blocks that exist so a failed
+    write does not fail the read — and it is a `SELECT` down the connection the
+    commit just lost, so when the commit fails it usually fails too. In
+    `_expire` the block it would hijack is on its way to re-raising
+    `SessionExpired`, which the route turns into `401` with
+    `X-Diary-Reauth: required`: the one signal the app has for «спросите пароль
+    заново». A 500 in its place costs the family the sign-in prompt on the
+    exact path whose whole job is to ask for it.
+    """
+
+    class RefusesToRefresh:
+        async def refresh(self, _row):
+            raise RuntimeError("the connection is gone")
+
+    row = DiarySession(login="parent@example.com", token_hash="x", upstream_token="y")
+
+    # No exception, and none swallowed silently either — it is logged.
+    await service._refresh_quietly(RefusesToRefresh(), row)

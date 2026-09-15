@@ -36,7 +36,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -48,6 +51,14 @@ import kotlinx.coroutines.launch
 data class SettingsUiState(
     val settings: AppSettings = DefaultAppSettings,
     val session: Session? = null,
+    /**
+     * Every class this device has joined, the one in [session] among them.
+     *
+     * Kept beside [session] rather than replacing it because the two answer
+     * different questions: the rest of the screen wants "which class am I
+     * looking at", and only the class group wants "which could I look at".
+     */
+    val sessions: List<Session> = emptyList(),
     val isRefreshing: Boolean = false,
     val message: SyncMessage? = null,
     /** Where the last update check stands; see [UpdateCheck]. */
@@ -102,12 +113,14 @@ class SettingsViewModel(
     private val local = combine(
         settingsRepository.settings,
         sessionRepository.session,
+        sessionRepository.sessions,
         refreshing,
         message,
-    ) { settings, session, isRefreshing, message ->
+    ) { settings, session, sessions, isRefreshing, message ->
         SettingsUiState(
             settings = settings,
             session = session,
+            sessions = sessions,
             isRefreshing = isRefreshing,
             message = message,
         )
@@ -141,19 +154,47 @@ class SettingsViewModel(
         initialValue = SettingsUiState(),
     )
 
+    init {
+        // There is a token per class, so switching classes *voids* what is on
+        // screen rather than changing it: the role, the link code and the deep
+        // link all describe the token that was current when they were asked
+        // for. Showing 7«А»'s editor rows over 9«Б» is the visible half; the
+        // link code is the quieter one, because typing another class's code
+        // into the bot links the wrong phone to the wrong class.
+        //
+        // `drop(1)` leaves the state this view model starts with alone — the
+        // first emission is the class it was built for.
+        viewModelScope.launch {
+            sessionRepository.session
+                .map { it?.classId }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { deviceLink.value = DeviceLinkState.Idle }
+        }
+    }
+
     /**
      * Asks the server whether this phone is tied to a Telegram account.
      *
-     * Called when the class page opens. Cheap to repeat: the server hands out
-     * the same link code until it is used, so opening the page twice does not
-     * invalidate the code the user is halfway through typing into the bot.
+     * Called when the class page opens, and again whenever the class on it
+     * changes. Cheap to repeat: the server hands out the same link code until
+     * it is used, so opening the page twice does not invalidate the code the
+     * user is halfway through typing into the bot.
      */
     fun refreshDeviceLink() {
         if (deviceLink.value is DeviceLinkState.Loading) return
         val known = (deviceLink.value as? DeviceLinkState.Ready)?.link
         deviceLink.value = DeviceLinkState.Loading(known)
         viewModelScope.launch {
-            deviceLinkRepository.refresh()
+            val asked = sessionRepository.current()?.classId
+            val result = deviceLinkRepository.refresh()
+            // A reply about the class the user has just switched away from is
+            // not a slow answer, it is the wrong one. The request carried that
+            // class's bearer, so nothing about it describes the class now on
+            // screen; the switch has already reset the state to Idle and the
+            // refresh it triggered is the one that will answer.
+            if (asked != sessionRepository.current()?.classId) return@launch
+            result
                 .onSuccess { deviceLink.value = DeviceLinkState.Ready(it) }
                 .onFailure { deviceLink.value = DeviceLinkState.Failed(it, known) }
         }
@@ -318,8 +359,31 @@ class SettingsViewModel(
     }
 
     /**
-     * Leaves the class. Navigation is not triggered from here: the session flow
-     * emits `null`, and the app shell takes the user back to the join screen.
+     * Shows one of the classes this device has already joined.
+     *
+     * Nothing is navigated and nothing is fetched here either: the repository
+     * re-points the cache, the widget and the alarm chain, and every screen is
+     * reading a flow that follows the same answer.
+     */
+    fun selectClass(classId: Long) {
+        viewModelScope.launch { sessionRepository.select(classId) }
+    }
+
+    /**
+     * Leaves one class and keeps the rest.
+     *
+     * The same non-navigation as [signOut]: leaving the last class empties the
+     * session flow and the shell goes back to the join screen on its own, and
+     * leaving one of several simply changes which class the screens describe.
+     */
+    fun leaveClass(classId: Long) {
+        viewModelScope.launch { sessionRepository.leave(classId) }
+    }
+
+    /**
+     * Leaves every class. Navigation is not triggered from here: the session
+     * flow emits `null`, and the app shell takes the user back to the join
+     * screen.
      */
     fun signOut() {
         viewModelScope.launch { sessionRepository.signOut() }

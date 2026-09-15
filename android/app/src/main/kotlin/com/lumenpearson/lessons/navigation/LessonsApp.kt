@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -68,6 +69,7 @@ import com.lumenpearson.lessons.core.designsystem.component.ToolbarAction
 import com.lumenpearson.lessons.core.designsystem.component.ToolbarItem
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.modifier.BottomBlurHeight
 import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurExtent
 import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurRadius
 import com.lumenpearson.lessons.core.designsystem.modifier.TopBlurRampPx
@@ -315,12 +317,15 @@ private fun HomeShell(
     //
     // They leave it entirely once a settings page is in front, which is what
     // stops them receiving touches — and that has to be removal rather than
-    // cover. `OverlayLayerTest` measures why: a layer that consumes early enough
-    // to stop the pager is early enough to cancel taps on its own rows, and one
-    // that waits until its rows are safe has already let the pager through. This
-    // shipped twice before that test existed. `AnimatedContent` removes the slot
-    // that is no longer current, so the property now falls out of the navigation
-    // rather than being maintained beside it.
+    // cover. A covering layer that consumed early enough to stop the pager was
+    // early enough to cancel taps on its own rows, and this shipped twice before
+    // a test existed for it. `OverlayLayerTest` now records that compose-bom
+    // 2026.09.00 changed that dispatch, which is the argument for removal rather
+    // than against it: the ordering is unspecified, it moved once under a
+    // dependency bump without a word, and a layer would go silently dead again.
+    // Removal leaves nothing to block. `AnimatedContent` removes the slot that is
+    // no longer current, so the property now falls out of the navigation rather
+    // than being maintained beside it.
     //
     // Without the holder, coming back would put every list at the top: the
     // scroll position of a LazyColumn is `rememberSaveable`, and a
@@ -732,13 +737,29 @@ private fun ShellScaffold(
     var barHeight by remember { mutableStateOf(seedBarHeight) }
     val barHeightPx = with(density) { barHeight.toPx() }
 
+    // Essentials' distance, not the toolbar's height. The bar measures around
+    // 60 dp here, so a fade tied to it only began where the toolbar already
+    // covered the list — the rows arrived sharp and were cut off rather than
+    // dissolving into it. `coerceAtLeast` is the one thing not copied: it keeps
+    // the guarantee the measured height gave, that the fade is never shorter
+    // than the bar it has to reach behind, on a device whose gesture inset
+    // makes the toolbar taller than Essentials' 130 dp.
+    val bottomBlurPx = with(density) { BottomBlurHeight.toPx() }.coerceAtLeast(barHeightPx)
+
     // This page's own scroll drives this page's own fade. The shell used to pick
     // whichever screen was in front and hand one number to everybody, which the
     // page sliding away then wore for the length of the slide.
-    val topFraction by animateFloatAsState(
-        targetValue = (offset.value / TopBlurRampPx).coerceIn(0f, 1f),
-        label = "top_blur_fraction",
-    )
+    // derivedStateOf, because the raw offset changes every scrolled pixel and
+    // the fraction it produces does not: past the ramp it is 1f and stays
+    // there. Read directly, this composable — the whole page, toolbar included
+    // — was invalidated on every frame of every scroll for a number that had
+    // stopped moving. The derived read only invalidates when the clamped value
+    // actually changes, which is a handful of frames per swipe instead of all
+    // of them.
+    val target by remember(offset) {
+        derivedStateOf { (offset.value / TopBlurRampPx).coerceIn(0f, 1f) }
+    }
+    val topFraction by animateFloatAsState(targetValue = target, label = "top_blur_fraction")
 
     Box(modifier = Modifier.fillMaxSize()) {
         CompositionLocalProvider(LocalBottomBarSpace provides barHeight + BottomBarGap) {
@@ -751,7 +772,7 @@ private fun ShellScaffold(
                     .progressiveBlur(
                         blurRadius = if (edgeBlur) StatusBarBlurRadius else 0f,
                         topHeight = statusBarHeightPx * StatusBarBlurExtent,
-                        bottomHeight = barHeightPx,
+                        bottomHeight = bottomBlurPx,
                         topFraction = topFraction,
                         showGradientOverlay = edgeBlur,
                     ),

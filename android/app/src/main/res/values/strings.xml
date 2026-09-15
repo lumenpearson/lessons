@@ -52,6 +52,15 @@
     <string name="join_error_invalid_code">В коде от %1$d до %2$d символов</string>
     <string name="join_error_rejected">Не удалось подключиться: %1$s</string>
     <string name="join_error_generic">Не удалось подключиться. Проверьте код и подключение к сети.</string>
+    <string name="join_error_unknown_code">Такого кода нет. Проверьте его у того, кто его дал.</string>
+    <string name="join_error_invite_only">Этот класс подключает телефоны только по личному приглашению. Возьмите личный код в боте: меню → «📱 Подключить телефон».</string>
+    <string name="join_error_too_many">Слишком много попыток. Подождите и попробуйте снова.</string>
+    <plurals name="join_error_too_many_wait">
+        <item quantity="one">Слишком много попыток. Попробуйте через %1$d минуту.</item>
+        <item quantity="few">Слишком много попыток. Попробуйте через %1$d минуты.</item>
+        <item quantity="many">Слишком много попыток. Попробуйте через %1$d минут.</item>
+        <item quantity="other">Слишком много попыток. Попробуйте через %1$d минуты.</item>
+    </plurals>
     <string name="join_what_you_get">Что появится после подключения</string>
     <string name="join_feature_timetable">Расписание и замены</string>
     <string name="join_feature_timetable_description">Неделя целиком, с кабинетами и заменами.</string>
@@ -167,7 +176,7 @@
     <string name="settings_feel_summary">Отклик, жесты, анимации и размытие</string>
     <string name="settings_content_summary">Что показывать в списках и виджете</string>
     <string name="settings_sync_summary">Расписание обновлений и адрес сервера</string>
-    <string name="settings_class_summary">Класс, школа и выход</string>
+    <string name="settings_class_summary">Классы, школа и выход</string>
     <string name="settings_about_summary">Версия и благодарности</string>
     <string name="settings_theme">Тема</string>
     <string name="settings_type_group">Шрифт</string>
@@ -290,6 +299,17 @@
     <string name="settings_sign_out_title">Выйти из класса?</string>
     <string name="settings_sign_out_message">Расписание класса «%1$s» будет удалено с устройства. Чтобы вернуться, понадобится код.</string>
     <string name="settings_sign_out_message_generic">Расписание будет удалено с устройства. Чтобы вернуться, понадобится код.</string>
+    <string name="settings_classes_group">Ваши классы</string>
+    <string name="settings_class_active">Показывается сейчас</string>
+    <string name="settings_class_add">Добавить класс</string>
+    <string name="settings_class_add_message">Введите код второго класса. Классы, которые уже есть на устройстве, останутся.</string>
+    <string name="settings_class_leave">Выйти из класса «%1$s»</string>
+    <string name="settings_class_leave_title">Выйти из этого класса?</string>
+    <string name="settings_class_leave_action">Выйти из класса</string>
+    <string name="settings_class_leave_message">Расписание класса «%1$s» будет удалено с устройства. Остальные классы останутся на месте.</string>
+    <string name="settings_sign_out_all">Выйти из всех классов</string>
+    <string name="settings_sign_out_all_title">Выйти из всех классов?</string>
+    <string name="settings_sign_out_all_message">Расписания всех классов будут удалены с устройства. Чтобы вернуться, понадобится код каждого.</string>
     <string name="settings_about">О приложении</string>
 
     <!-- Уведомления -->

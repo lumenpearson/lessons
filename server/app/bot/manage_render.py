@@ -19,7 +19,7 @@ from datetime import date as Date
 from html import escape
 
 from app.bot.render import DAY_KIND_LABELS, MONTHS_GENITIVE, WEEKDAYS, plural
-from app.models import DayKind, DayOverride, Role
+from app.models import DayKind, DayOverride, JoinMode, Role
 
 #: Telegram refuses a message over 4096 characters. Splitting at 4000 leaves
 #: room for the header a caller adds to each part.
@@ -360,7 +360,18 @@ def render_class_card(
         f"🕒 Часовой пояс: {escape(zone_label)}",
         f"🔑 Код для приложения: <code>{escape(school_class.join_code)}</code>",
         f"📅 Календарь: {'ссылка выдана' if feed_ready else 'ссылка ещё не создавалась'}",
-        f"🔓 Тип класса: {'публичный' if school_class.is_public else 'закрытый'}",
+        # What the code on the line above is worth. «Публичный/закрытый» stood
+        # here for a year and decided nothing — no code read the flag — so an
+        # admin who «закрыл» the class had closed nothing. This says which of
+        # the two things is actually true, and «👥 Доступ» is where it changes.
+        # The padlock matches the state, not the row: an admin skimming the
+        # card reads the icon, and «🔓» over «только по приглашениям» says the
+        # opposite of the words beside it. «👥 Доступ» paints it the same way.
+        (
+            "🔒 Подключение телефонов: только по личным приглашениям"
+            if school_class.join_mode is JoinMode.INVITE
+            else "🔓 Подключение телефонов: по коду класса"
+        ),
         f"📒 Дневник: {'Санкт-Петербург' if school_class.diary_provider else 'не привязан'}",
         "",
         f"👥 Участников: {members} · 📱 устройств: {devices}",

@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.core.data.di.Graph
+import com.lumenpearson.lessons.core.data.repository.JoinFailure
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
@@ -30,8 +31,63 @@ sealed interface JoinError {
     /** The typed code is not a length [ClassCodeLengths] allows. */
     data object InvalidCode : JoinError
 
-    /** The server refused the code, or was unreachable. */
+    /** No class and no live invite answers to this code. */
+    data object UnknownCode : JoinError
+
+    /**
+     * The code is real and the class no longer admits anybody who merely knows
+     * it.
+     *
+     * Its own case because it is the only failure on this screen whose answer
+     * is not on this screen: the way in is a personal code out of the bot, and
+     * «неизвестный код» would send the user back to whoever read the class code
+     * out to them, who cannot help.
+     */
+    data object InviteOnly : JoinError
+
+    /**
+     * Too many failed attempts from this address; [minutes] is how long the
+     * throttle says to wait, rounded up, or null when it would not say.
+     *
+     * Minutes rather than the seconds the header carries: nobody waits 743
+     * seconds, and a number that precise invites watching it rather than
+     * putting the phone down.
+     */
+    data class TooManyAttempts(val minutes: Int?) : JoinError
+
+    /**
+     * The server refused the code some other way, or was unreachable.
+     *
+     * [detail] is what the server said, and it is null when nobody said
+     * anything worth repeating — no network, or a failure whose only message
+     * is one this app wrote in English for a log. The screen then falls back
+     * to its own Russian sentence, which is the whole reason the field is
+     * nullable.
+     */
     data class Rejected(val detail: String?) : JoinError
+
+    companion object {
+
+        /** What the repository answered, as something the screen can word. */
+        fun of(failure: Throwable): JoinError = when (val classified = JoinFailure.of(failure)) {
+            JoinFailure.InviteOnly -> InviteOnly
+            JoinFailure.UnknownCode -> UnknownCode
+            is JoinFailure.TooManyAttempts -> TooManyAttempts(
+                // Rounded up, and never to zero: «подождите 0 минут» is an
+                // instruction to do nothing, and the wait is real.
+                minutes = classified.retryAfterSeconds?.let { (it + 59) / 60 }?.coerceAtLeast(1),
+            )
+            // `classified.message`, never the raw `failure`'s. Every
+            // `JoinFailure` supplies an English fallback message so that a log
+            // line is never empty, and reading those here made the null branch
+            // unreachable: «Не удалось подключиться: Could not reach the
+            // server» went on a Russian screen, and the Russian sentence
+            // written for exactly that case was never shown again.
+            is JoinFailure.Offline -> Rejected(classified.reason.message?.takeIf { it.isNotBlank() })
+            is JoinFailure.Rejected ->
+                Rejected(classified.reason?.message?.takeIf { it.isNotBlank() })
+        }
+    }
 }
 
 /**
@@ -45,6 +101,19 @@ data class JoinUiState(
     val baseUrl: String = "",
     val isSubmitting: Boolean = false,
     val error: JoinError? = null,
+    /**
+     * The class just joined, until somebody consumes it.
+     *
+     * The screen ignores this — joining writes a session and the shell
+     * navigates on the session, which is still the one mechanism. It exists
+     * for the «Добавить класс» sheet, which is raised from inside an app that
+     * is already signed in: nothing navigates there, so the sheet has to be
+     * told, and the class id alone cannot tell it. Re-entering the code of the
+     * class already on screen is a real case — it is how somebody whose device
+     * was revoked gets back in — and it leaves the active class exactly as it
+     * was while having plainly succeeded.
+     */
+    val joinedClassId: Long? = null,
 ) {
     /** The button is only live for a complete code with no request running. */
     val canSubmit: Boolean get() = code.length in ClassCodeLengths && !isSubmitting
@@ -70,18 +139,21 @@ class JoinViewModel(
     private val code = MutableStateFlow("")
     private val submitting = MutableStateFlow(false)
     private val error = MutableStateFlow<JoinError?>(null)
+    private val joined = MutableStateFlow<Long?>(null)
 
     val uiState: StateFlow<JoinUiState> = combine(
         code,
         submitting,
         error,
+        joined,
         settingsRepository.settings.map { it.baseUrl },
-    ) { code, isSubmitting, error, baseUrl ->
+    ) { code, isSubmitting, error, joinedClassId, baseUrl ->
         JoinUiState(
             code = code,
             baseUrl = baseUrl,
             isSubmitting = isSubmitting,
             error = error,
+            joinedClassId = joinedClassId,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -125,7 +197,7 @@ class JoinViewModel(
             val failure = result.exceptionOrNull()
             if (failure != null) {
                 submitting.value = false
-                error.value = JoinError.Rejected(failure.message?.takeIf { it.isNotBlank() })
+                error.value = JoinError.of(failure)
                 return@launch
             }
             // Pull the timetable straight away. Joining only stores a token;
@@ -137,7 +209,15 @@ class JoinViewModel(
             // has just this second joined a class.
             timetableRepository.refresh()
             submitting.value = false
+            // Last, so that whoever is watching for it sees a finished join
+            // rather than one still fetching its first week.
+            joined.value = result.getOrNull()?.classId
         }
+    }
+
+    /** Clears the one-shot in [JoinUiState.joinedClassId]. */
+    fun consumeJoined() {
+        joined.value = null
     }
 
     companion object {

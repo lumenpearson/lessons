@@ -9,8 +9,13 @@ import androidx.room.TypeConverters
 /**
  * The offline cache.
  *
- * Version 1 and `exportSchema = true`: the JSON under `schemas/` is what a later
- * migration will be written and tested against.
+ * `exportSchema = true`: the JSON under `schemas/` is what a later migration
+ * will be written and tested against.
+ *
+ * Version 3 gave `school_day` a `class_id`, because the cache now holds one
+ * window per joined class instead of exactly one window. Nothing migrates — see
+ * the note on [build] — so the first sync after an update refills the class the
+ * user is looking at, and the others refill as they are opened.
  */
 @Database(
     entities = [
@@ -20,7 +25,7 @@ import androidx.room.TypeConverters
         EventEntity::class,
         HomeworkEntity::class,
     ],
-    version = 1,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(LessonsTypeConverters::class)

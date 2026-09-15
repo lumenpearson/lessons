@@ -2,6 +2,8 @@ package com.lumenpearson.lessons.ui.diary
 
 import androidx.annotation.StringRes
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.repository.DiaryEdit
+import com.lumenpearson.lessons.core.data.repository.DiaryField
 import com.lumenpearson.lessons.core.data.repository.DiaryHomework
 import com.lumenpearson.lessons.core.data.repository.DiaryLesson
 import com.lumenpearson.lessons.core.data.repository.DiaryMark
@@ -42,7 +44,24 @@ data class DiaryDayUi(
     val date: LocalDate,
     val lessons: List<DiaryLesson>,
     val homework: List<DiaryHomework>,
-)
+) {
+    /** Whether anything on this day can be corrected at all. @see correctable */
+    val correctable: Boolean
+        get() = lessons.any { it.correctable } || homework.any { it.correctable }
+}
+
+/**
+ * Whether this row can carry a correction.
+ *
+ * The key is the server's to build, and a row that arrived without one — from a
+ * server older than the corrections, or one that could not key the row — can
+ * never be matched by anything written against it. Drawn as a tap target it
+ * would send every tap to a `422`, under a hint telling people to tap.
+ */
+internal val DiaryLesson.correctable: Boolean get() = target.isNotBlank()
+
+/** @see DiaryLesson.correctable */
+internal val DiaryHomework.correctable: Boolean get() = target.isNotBlank()
 
 /**
  * The zone the diary's own days are cut at.
@@ -211,4 +230,131 @@ fun diaryGradeRange(today: LocalDate, period: DiaryPeriod? = null): DiaryRange {
     val start = period?.startsOn?.takeIf { it.isAfter(widest) } ?: widest
     // A term whose start is somehow after its end cannot narrow anything.
     return DiaryRange(from = minOf(start, end), to = end)
+}
+
+/**
+ * One row's correctable fields, as the sheet needs them.
+ *
+ * Built per row rather than read out of the row in the sheet, because the sheet
+ * has to know three different things about each field and only one of them is
+ * on screen: what is being shown, what the diary itself says, and whether the
+ * diary has changed since the correction was written. A corrected field shows
+ * the correction; the upstream value survives only in [upstream], and that is
+ * what a save compares against to decide between writing a correction and
+ * taking one off.
+ *
+ * @property target the key the server filed this row under. Echoed back
+ *   untouched — building one here would be a second implementation of a key
+ *   that has to match exactly, and the two would agree until the first lesson
+ *   with no number.
+ * @property ambiguous the server could not tell this row from another on the
+ *   same day, so nothing is applied to either. The sheet says so and offers
+ *   only the reset.
+ */
+data class DiaryCorrections(
+    val title: String,
+    val subtitle: String?,
+    val target: String,
+    val values: Map<DiaryField, String>,
+    val upstream: Map<DiaryField, String?>,
+    val corrected: Set<DiaryField>,
+    val changedUpstream: Set<DiaryField>,
+    val ambiguous: Boolean,
+) {
+    /** In the order the sheet draws them. */
+    val fields: List<DiaryField> get() = values.keys.toList()
+
+    fun upstreamOf(field: DiaryField): String? = upstream[field]
+
+    /**
+     * Whether this row has anything to take off.
+     *
+     * Counted over [corrected] — the corrections this build can **name** — and
+     * the «Исправлено» badge is drawn from the same set for the same reason.
+     * Drawn from the raw edit list instead, a correction on a field a newer
+     * server knows and this build does not would mark the row as corrected and
+     * offer nothing to undo it with.
+     */
+    val hasCorrections: Boolean get() = corrected.isNotEmpty()
+}
+
+/**
+ * The fields of a lesson that are correctable **here**, in the order they read.
+ *
+ * `homework` is not among them, though the server accepts it. The lesson row
+ * does not draw a lesson's homework — the day card draws the homework list
+ * under it, from the other endpoint — so correcting it on the lesson would edit
+ * something invisible, and the assignment shown below would keep the diary's
+ * own text because it is a different item with a different key. One assignment,
+ * one place to correct it.
+ */
+private val LESSON_FIELDS = listOf(
+    DiaryField.ROOM,
+    DiaryField.TEACHER,
+    DiaryField.TOPIC,
+)
+
+internal fun DiaryLesson.corrections(): DiaryCorrections {
+    val shown = mapOf(
+        DiaryField.ROOM to room.orEmpty(),
+        DiaryField.TEACHER to teacher.orEmpty(),
+        DiaryField.TOPIC to topic.orEmpty(),
+    )
+    return build(
+        title = subject,
+        subtitle = number?.let { "$it" },
+        target = target,
+        order = LESSON_FIELDS,
+        shown = shown,
+        edits = edits,
+        ambiguous = ambiguous,
+    )
+}
+
+internal fun DiaryHomework.corrections(): DiaryCorrections = build(
+    title = subject,
+    subtitle = null,
+    target = target,
+    order = listOf(DiaryField.TEXT),
+    shown = mapOf(DiaryField.TEXT to text),
+    edits = edits,
+    ambiguous = ambiguous,
+)
+
+private fun build(
+    title: String,
+    subtitle: String?,
+    target: String,
+    order: List<DiaryField>,
+    shown: Map<DiaryField, String>,
+    edits: List<DiaryEdit>,
+    ambiguous: Boolean,
+): DiaryCorrections {
+    val byField = edits.mapNotNull { edit ->
+        DiaryField.fromWire(edit.field)?.let { field -> field to edit }
+    }.toMap()
+    return DiaryCorrections(
+        title = title,
+        subtitle = subtitle,
+        target = target,
+        // A LinkedHashMap, so `fields` comes back in the order above rather
+        // than in whatever order a hash gives.
+        values = order.associateWithTo(LinkedHashMap()) { shown[it].orEmpty() },
+        // For a corrected field the diary's own answer is only in the edit;
+        // for an untouched one what is shown *is* the diary's answer.
+        //
+        // Blank becomes null on both paths. The edit already reports "the diary
+        // said nothing" as null, and a field the diary never filled in has to
+        // read the same way — otherwise "empty" means null in one row and "" in
+        // the next, and the two comparisons that decide between writing a
+        // correction and taking one off would disagree about which is which.
+        upstream = order.associateWithTo(LinkedHashMap()) { field ->
+            val answer =
+                if (field in byField) byField.getValue(field).original else shown[field]
+            answer?.takeIf { it.isNotBlank() }
+        },
+        corrected = byField.keys,
+        changedUpstream = byField.filterValues { it.changedUpstream }.keys,
+        ambiguous = ambiguous,
+    )
 }

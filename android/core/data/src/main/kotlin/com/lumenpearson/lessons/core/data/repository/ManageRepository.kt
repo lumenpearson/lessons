@@ -33,6 +33,35 @@ interface ManageRepository {
     suspend fun updateClass(before: ManagedClass, edit: ClassEdit): Result<ManagedClass>
 
     /**
+     * Switches the class between the class code and personal bot invites.
+     *
+     * Its own call rather than a fifth field on [ClassEdit], because that is a
+     * form with four boxes and a «Сохранить» under them, and this is one row on
+     * the card that is tapped. Sending it through the form would also make
+     * every save of a renamed class re-assert the join mode, which the audit
+     * log would report as a change that nobody made.
+     *
+     * Nothing is taken away by either direction: the phones already joined keep
+     * their tokens whichever mode the class is in, and going back to
+     * [ClassJoinMode.OPEN] makes the same class code work again.
+     */
+    suspend fun setJoinMode(mode: ClassJoinMode): Result<ManagedClass>
+
+    /**
+     * Searches the school directory for a name to put on the class.
+     *
+     * Everything it found, in one call, because the directory has no offset:
+     * the server searches again on every request whatever page is asked for, so
+     * four pages of five is four searches for one question. Twenty is the
+     * ceiling, and the answer says so in [SchoolPage.truncated].
+     *
+     * Fails with [ManageFailure.Unavailable] when this deployment has no
+     * directory key or the directory is not answering. That is not an error to
+     * report — it is the case where the name gets typed instead.
+     */
+    suspend fun searchSchools(query: String): Result<SchoolPage>
+
+    /**
      * Deletes the class and everything in it. Owner only.
      *
      * [confirmName] must be the class's name exactly. The sheet in the app is

@@ -288,16 +288,24 @@ enum class WidgetSizeClass(
     ),
 
     /**
-     * Four cells wide and most of a screen tall.
+     * Four cells wide and three or more rows tall.
      *
      * Everything [LARGE] says plus the homework block, which is what the extra
-     * 150dp of height is for: on a four-column launcher this is the biggest the
-     * widget can get, and without this rung it was the one size that fell
-     * through to the narrow column. Narrower rows than [XLARGE], because 250dp
-     * is 70dp less to spend on a subject and a room number.
+     * height is for. Narrower rows than [XLARGE], because 250dp is 70dp less to
+     * spend on a subject and a room number.
+     *
+     * **The 300dp threshold is where the ladder's one real inversion was.** It
+     * used to be 400, so everything from 250dp to 399dp tall fell to [LARGE],
+     * whose homework block is off — and a widget 250 wide and 300 tall
+     * therefore drew *less* than the same widget 110 wide, which lands on
+     * [NARROW] and has homework on. Wider and taller, and the homework block
+     * disappeared. Fixed from this end rather than by turning homework on in
+     * [LARGE], because [LARGE] is reached at 250dp of height and that is 50dp
+     * less than [NARROW] has for a shorter list: the block had to go where
+     * there is room for it, not where the inversion was noticed.
      */
     LARGE_TALL(
-        breakpoint = DpSize(250.dp, 400.dp),
+        breakpoint = DpSize(250.dp, 300.dp),
         timelineRows = 6,
         homeworkItems = 5,
         homeworkChars = 56,

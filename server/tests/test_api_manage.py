@@ -18,7 +18,7 @@ from typing import Any
 import httpx
 import pytest
 from httpx import ASGITransport
-from sqlalchemy import event, select
+from sqlalchemy import event, select, text
 
 from app.api import manage
 from app.config import get_settings
@@ -34,6 +34,7 @@ from app.models import (
     DayOverride,
     DeviceToken,
     Homework,
+    JoinMode,
     LessonOverride,
     OverrideAction,
     Role,
@@ -161,6 +162,17 @@ ENDPOINTS: list[tuple[str, str, dict | None, str]] = [
     ("GET", "/api/v1/manage/requests", None, "admin"),
     ("POST", "/api/v1/manage/requests/1/approve", None, "admin"),
     ("POST", "/api/v1/manage/requests/1/decline", None, "admin"),
+    ("GET", "/api/v1/manage/terms", None, "admin"),
+    ("PUT", "/api/v1/manage/terms/scheme", {"kind": "semester"}, "admin"),
+    (
+        "PUT",
+        "/api/v1/manage/terms/1",
+        {"starts_on": "2026-09-01", "ends_on": "2026-10-20"},
+        "admin",
+    ),
+    # Read-only, and still admin: every call spends part of a daily allowance
+    # on somebody else's service, so the auth table is where that is enforced.
+    ("GET", "/api/v1/manage/schools?q=гимназия", None, "admin"),
 ]
 
 
@@ -293,6 +305,80 @@ async def test_class_update_refuses_an_unknown_zone_and_a_blank_name(
     assert await _audit(session, school_class) == []
 
 
+async def test_class_update_switches_the_join_mode_both_ways(client, session, school_class):
+    """The phone's half of the bot's «🔒 Только по приглашениям».
+
+    Three spellings meet here and only two of them are the same: the wire says
+    «invite», the column holds «INVITE» — SQLAlchemy stores a PEP-435 enum by
+    member name — and the audit line says neither. The raw read is deliberate:
+    an ORM round-trip would agree with itself whichever string had been
+    written, and a column holding a value the enum cannot look up raises on the
+    *next* request rather than this one.
+    """
+    token = await _admin(client, session, school_class)
+
+    response = await client.patch(
+        "/api/v1/manage/class", json={"join_mode": "invite"}, headers=_auth(token)
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["join_mode"] == "invite"
+
+    stored = await session.scalar(
+        text("select join_mode from classes where id = :id"), {"id": school_class.id}
+    )
+    assert stored == "INVITE"
+
+    await session.refresh(school_class)
+    assert school_class.join_mode is JoinMode.INVITE
+    body = (await client.get("/api/v1/manage/class", headers=_auth(token))).json()
+    assert body["join_mode"] == "invite"
+    assert await _actions(session, school_class) == ["access.join_mode"]
+
+    back = await client.patch(
+        "/api/v1/manage/class", json={"join_mode": "open"}, headers=_auth(token)
+    )
+    assert back.json()["join_mode"] == "open"
+    assert (
+        await session.scalar(
+            text("select join_mode from classes where id = :id"), {"id": school_class.id}
+        )
+        == "OPEN"
+    )
+
+
+async def test_class_update_refuses_a_join_mode_nobody_defined(client, session, school_class):
+    """A literal in the schema rather than the enum, so this is a 422 naming
+    the field instead of a 500 from somewhere inside SQLAlchemy."""
+    token = await _admin(client, session, school_class)
+
+    response = await client.patch(
+        "/api/v1/manage/class", json={"join_mode": "INVITE"}, headers=_auth(token)
+    )
+    assert response.status_code == 422
+    assert "join_mode" in response.text
+
+    await session.refresh(school_class)
+    assert school_class.join_mode is JoinMode.OPEN
+    assert await _audit(session, school_class) == []
+
+
+async def test_class_update_leaves_the_join_mode_alone_when_it_is_not_sent(
+    client, session, school_class
+):
+    """An absent field is never written, and this one decides who can read the
+    class — a rename that quietly reopened it would be the worst kind."""
+    token = await _admin(client, session, school_class)
+    await client.patch("/api/v1/manage/class", json={"join_mode": "invite"}, headers=_auth(token))
+
+    body = (
+        await client.patch("/api/v1/manage/class", json={"name": "9Б"}, headers=_auth(token))
+    ).json()
+
+    assert body["name"] == "9Б"
+    assert body["join_mode"] == "invite"
+    assert await _actions(session, school_class) == ["access.join_mode", "class.name"]
+
+
 async def test_class_delete_needs_the_name_typed_back(client, session, school_class):
     token = await _linked_token(client, session, school_class, OWNER_ID, None)
     wrong = await client.request(
@@ -337,7 +423,12 @@ async def test_subjects_list_is_open_to_an_editor(client, session, school_class)
     token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
 
     body = (await client.get("/api/v1/manage/subjects", headers=_auth(token))).json()
-    assert [row["name"] for row in body] == ["Алгебра", "Физика"]
+    # «История» is not one of the two rows this test added: it is the third
+    # lesson of the fixture's Monday, and the list adopts what the timetable
+    # already uses. A dictionary that answered «Алгебра, Физика» for a class
+    # visibly teaching three subjects is the bug this behaviour exists for.
+    assert [row["name"] for row in body] == ["Алгебра", "История", "Физика"]
+    assert next(row for row in body if row["name"] == "Алгебра")["teacher"] == "Иванова"
     assert body[0]["teacher"] == "Иванова" and body[0]["id"]
 
 
@@ -449,8 +540,32 @@ async def test_subject_patch_sets_and_clears_the_small_fields(client, session, s
     ]
 
 
-async def test_subject_delete_keeps_the_lessons(client, session, school_class):
+async def test_subject_delete_is_refused_while_the_timetable_uses_it(
+    client, session, school_class
+):
+    """Deleting half of one list is refused, and says how much of it is in use.
+
+    It used to succeed and leave the lessons alone. Once the dictionary began
+    keeping itself that stopped meaning anything: the name is still in the
+    weekly template, so the next read adopts it straight back — without the
+    colour, the short name or the teacher the deleted row carried — and the
+    admin is told nothing.
+    """
     subject = await _subject(session, school_class, "Алгебра")
+    token = await _admin(client, session, school_class)
+
+    response = await client.delete(
+        f"/api/v1/manage/subjects/{subject.id}", headers=_auth(token)
+    )
+    assert response.status_code == 409
+    assert "lesson" in response.json()["detail"]
+    assert await session.scalar(select(Subject).where(Subject.id == subject.id)) is not None
+    assert await _actions(session, school_class) == []
+
+
+async def test_a_subject_nothing_teaches_still_deletes(client, session, school_class):
+    """The case the endpoint was really for: a row the template never mentions."""
+    subject = await _subject(session, school_class, "Астрономия")
     token = await _admin(client, session, school_class)
 
     response = await client.delete(
@@ -463,7 +578,7 @@ async def test_subject_delete_keeps_the_lessons(client, session, school_class):
     names = await session.scalars(
         select(TimetableEntry.subject_name).where(TimetableEntry.class_id == school_class.id)
     )
-    assert "Алгебра" in set(names)
+    assert "Астрономия" not in set(names)
     assert await _actions(session, school_class) == ["subject.delete"]
 
 
@@ -1239,3 +1354,219 @@ async def test_a_decision_survives_a_deployment_with_no_bot(client, session, sch
     )
     assert response.status_code == 200
     assert await session.scalar(select(BotUser).where(BotUser.telegram_id == ASKER_ID)) is not None
+
+
+# --------------------------------------------------------------------------
+# Четверти и полугодия
+# --------------------------------------------------------------------------
+
+
+async def test_terms_are_seeded_on_first_read(client, session, school_class):
+    school_class.grade = 9
+    await session.commit()
+    headers = _auth(await _admin(client, session, school_class))
+
+    body = (await client.get("/api/v1/manage/terms", headers=headers)).json()
+
+    assert body["kind"] == "quarter"
+    assert [term["index"] for term in body["terms"]] == [1, 2, 3, 4]
+
+
+async def test_the_scheme_can_be_switched_from_the_phone(client, session, school_class):
+    school_class.grade = 9
+    await session.commit()
+    headers = _auth(await _admin(client, session, school_class))
+
+    body = (
+        await client.put(
+            "/api/v1/manage/terms/scheme", json={"kind": "semester"}, headers=headers
+        )
+    ).json()
+
+    assert body["kind"] == "semester"
+    assert len(body["terms"]) == 2
+    assert "class.term_kind" in await _actions(session, school_class)
+
+
+async def test_a_term_can_be_moved_from_the_phone(client, session, school_class):
+    school_class.grade = 9
+    await session.commit()
+    headers = _auth(await _admin(client, session, school_class))
+    year = (await client.get("/api/v1/manage/terms", headers=headers)).json()["year"]
+
+    response = await client.put(
+        "/api/v1/manage/terms/1",
+        json={"starts_on": f"{year}-09-01", "ends_on": f"{year}-10-20"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["terms"][0]["ends_on"] == f"{year}-10-20"
+
+
+async def test_an_overlapping_term_is_refused_with_the_reason(client, session, school_class):
+    """The rule is about the other rows, so the message names the one it hit —
+    a field-shaped error could not say which period is in the way."""
+    school_class.grade = 9
+    await session.commit()
+    headers = _auth(await _admin(client, session, school_class))
+    year = (await client.get("/api/v1/manage/terms", headers=headers)).json()["year"]
+
+    response = await client.put(
+        "/api/v1/manage/terms/1",
+        json={"starts_on": f"{year}-09-01", "ends_on": f"{year}-12-01"},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+    assert "ересекается" in response.json()["detail"]
+
+
+async def test_a_term_reaching_into_the_holidays_is_refused(client, session, school_class):
+    school_class.grade = 9
+    await session.commit()
+    headers = _auth(await _admin(client, session, school_class))
+    year = (await client.get("/api/v1/manage/terms", headers=headers)).json()["year"]
+
+    response = await client.put(
+        "/api/v1/manage/terms/4",
+        json={"starts_on": f"{year + 1}-04-01", "ends_on": f"{year + 1}-06-20"},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+    assert "учебный год" in response.json()["detail"]
+
+
+
+# --------------------------------------------------------------------------
+# The school directory
+# --------------------------------------------------------------------------
+
+
+async def test_the_school_search_says_it_is_unavailable_rather_than_broken(
+    client, session, school_class, monkeypatch
+):
+    """No key is not a 500. Nothing failed — the feature was never configured,
+    and the client's answer to that is to let the name be typed."""
+    monkeypatch.setattr(get_settings(), "dadata_token", "")
+    token = await _admin(client, session, school_class)
+
+    response = await client.get("/api/v1/manage/schools?q=гимназия", headers=_auth(token))
+    assert response.status_code == 503
+    assert "вручную" in response.json()["detail"]
+
+
+async def test_a_query_too_short_to_search_with_is_422_in_russian(
+    client, session, school_class, monkeypatch
+):
+    monkeypatch.setattr(get_settings(), "dadata_token", "test-key")
+    token = await _admin(client, session, school_class)
+
+    response = await client.get("/api/v1/manage/schools?q=шк", headers=_auth(token))
+    assert response.status_code == 422
+    assert "символа" in response.json()["detail"]
+
+
+async def test_the_search_returns_a_page_and_says_when_it_was_cut_short(
+    client, session, school_class, monkeypatch
+):
+    """Twenty is the directory's ceiling, not the number of matches, and
+    ``truncated`` is the only thing that says so."""
+    monkeypatch.setattr(get_settings(), "dadata_token", "test-key")
+
+    async def fake_suggest(query: str, *, region: str | None = None):
+        assert query == "гимназия 3"
+        return [
+            {
+                "value": f"ГИМНАЗИЯ № {i}",
+                "data": {
+                    "ogrn": f"102780000{i:04d}",
+                    "name": {"short_with_opf": f'МБОУ "ГИМНАЗИЯ № {i}"'},
+                    "state": {"status": "ACTIVE"},
+                    "address": {"value": "г Пермь", "data": {"city": "Пермь"}},
+                },
+            }
+            for i in range(20)
+        ]
+
+    monkeypatch.setattr("app.providers.dadata.suggest_schools", fake_suggest)
+    token = await _admin(client, session, school_class)
+
+    response = await client.get(
+        "/api/v1/manage/schools", params={"q": " гимназия  3 ", "page": 2}, headers=_auth(token)
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["page"] == 2
+    assert body["pages"] == 4
+    assert body["total"] == 20
+    assert body["truncated"] is True
+    assert [item["name"] for item in body["items"]] == [
+        f'МБОУ "Гимназия № {i}"' for i in range(5, 10)
+    ]
+    assert body["items"][0]["city"] == "Пермь"
+
+
+async def test_a_page_past_the_end_comes_back_as_the_last_one(
+    client, session, school_class, monkeypatch
+):
+    monkeypatch.setattr(get_settings(), "dadata_token", "test-key")
+
+    async def fake_suggest(query: str, *, region: str | None = None):
+        return [
+            {"value": "ШКОЛА № 1", "data": {"ogrn": "1", "state": {"status": "ACTIVE"}}},
+        ]
+
+    monkeypatch.setattr("app.providers.dadata.suggest_schools", fake_suggest)
+    token = await _admin(client, session, school_class)
+
+    response = await client.get(
+        "/api/v1/manage/schools", params={"q": "школа 1", "page": 99}, headers=_auth(token)
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["page"] == 1
+    assert response.json()["truncated"] is False
+
+
+async def test_asking_for_everything_at_once_costs_one_upstream_search(
+    client, session, school_class, monkeypatch
+):
+    """The directory has no offset, so each call searches again — a client that
+    pages should take all twenty and cut them up itself."""
+    monkeypatch.setattr(get_settings(), "dadata_token", "test-key")
+    searches: list[str] = []
+
+    async def fake_suggest(query: str, *, region: str | None = None):
+        searches.append(query)
+        return [
+            {"value": f"ШКОЛА {i}", "data": {"ogrn": str(i), "state": {"status": "ACTIVE"}}}
+            for i in range(20)
+        ]
+
+    monkeypatch.setattr("app.providers.dadata.suggest_schools", fake_suggest)
+    token = await _admin(client, session, school_class)
+
+    response = await client.get(
+        "/api/v1/manage/schools",
+        params={"q": "школа", "page_size": 20},
+        headers=_auth(token),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["pages"] == 1
+    assert len(response.json()["items"]) == 20
+    assert len(searches) == 1
+
+
+async def test_a_page_size_above_the_directorys_ceiling_is_refused(
+    client, session, school_class, monkeypatch
+):
+    monkeypatch.setattr(get_settings(), "dadata_token", "test-key")
+    token = await _admin(client, session, school_class)
+
+    response = await client.get(
+        "/api/v1/manage/schools",
+        params={"q": "школа", "page_size": 50},
+        headers=_auth(token),
+    )
+    assert response.status_code == 422

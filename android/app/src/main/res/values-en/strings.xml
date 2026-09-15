@@ -60,6 +60,19 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="join_error_invalid_code" tools:ignore="PluralsCandidate">The code is %1$d to %2$d characters long</string>
     <string name="join_error_rejected">Could not join: %1$s</string>
     <string name="join_error_generic">Could not join. Check the code and your network connection.</string>
+    <string name="join_error_unknown_code">No such code. Check it with whoever gave it to you.</string>
+    <!--
+      The bot's button label stays in Russian here and in strings_admin.xml,
+      and it is the only Cyrillic in values-en/ on purpose: the bot has no
+      English interface, so a translated label would name a button that does
+      not exist on the screen the reader is being sent to.
+    -->
+    <string name="join_error_invite_only">This class admits phones by personal invite only. Take your own code from the bot: menu → “📱 Подключить телефон”.</string>
+    <string name="join_error_too_many">Too many attempts. Wait a little and try again.</string>
+    <plurals name="join_error_too_many_wait">
+        <item quantity="one">Too many attempts. Try again in %1$d minute.</item>
+        <item quantity="other">Too many attempts. Try again in %1$d minutes.</item>
+    </plurals>
     <string name="join_what_you_get">What you get once you have joined</string>
     <string name="join_feature_timetable">Timetable and substitutions</string>
     <string name="join_feature_timetable_description">The whole week, with rooms and substitutions.</string>
@@ -172,7 +185,7 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="settings_feel_summary">Feedback, gestures, animations and blur</string>
     <string name="settings_content_summary">What the lists and the widget show</string>
     <string name="settings_sync_summary">Update schedule and server address</string>
-    <string name="settings_class_summary">Class, school and signing out</string>
+    <string name="settings_class_summary">Classes, school and signing out</string>
     <string name="settings_about_summary">Version and credits</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_type_group">Font</string>
@@ -295,6 +308,17 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="settings_sign_out_title">Leave the class?</string>
     <string name="settings_sign_out_message">The timetable of class “%1$s” will be deleted from the device. Coming back will take a code.</string>
     <string name="settings_sign_out_message_generic">The timetable will be deleted from the device. Coming back will take a code.</string>
+    <string name="settings_classes_group">Your classes</string>
+    <string name="settings_class_active">Shown right now</string>
+    <string name="settings_class_add">Add a class</string>
+    <string name="settings_class_add_message">Enter the code of the other class. The classes already on this device stay where they are.</string>
+    <string name="settings_class_leave">Leave “%1$s”</string>
+    <string name="settings_class_leave_title">Leave this class?</string>
+    <string name="settings_class_leave_action">Leave the class</string>
+    <string name="settings_class_leave_message">The timetable of class “%1$s” will be deleted from the device. The other classes stay where they are.</string>
+    <string name="settings_sign_out_all">Leave every class</string>
+    <string name="settings_sign_out_all_title">Leave every class?</string>
+    <string name="settings_sign_out_all_message">The timetables of every class will be deleted from the device. Coming back will take each code again.</string>
     <string name="settings_about">About</string>
 
     <!-- Notifications -->

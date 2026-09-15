@@ -8,6 +8,8 @@ import com.lumenpearson.lessons.core.data.network.dto.ManagedClassDto
 import com.lumenpearson.lessons.core.data.network.dto.ManagedDeviceDto
 import com.lumenpearson.lessons.core.data.network.dto.ManagedSubjectDto
 import com.lumenpearson.lessons.core.data.network.dto.RequestDecisionDto
+import com.lumenpearson.lessons.core.data.network.dto.SchoolDto
+import com.lumenpearson.lessons.core.data.network.dto.SchoolSearchDto
 import com.lumenpearson.lessons.core.data.network.dto.StatsDto
 import com.lumenpearson.lessons.core.data.network.dto.SubjectHoursDto
 import java.time.LocalDate
@@ -253,5 +255,36 @@ class ManageMappersTest {
     @Test
     fun `filling in an empty field sends the value`() {
         assertEquals(JsonPrimitive("Омск"), changedOrCleared(null, "Омск"))
+    }
+
+    // -- the school directory -----------------------------------------------
+
+    @Test
+    fun `a school keeps its full name when the short one is missing`() {
+        val school = SchoolDto(name = "", fullName = "ШКОЛА № 1").toDomain()
+        assertEquals("ШКОЛА № 1", school.fullName)
+
+        val short = SchoolDto(name = "МБОУ СОШ № 1", fullName = "").toDomain()
+        // A blank full name falls back to the short one rather than to nothing:
+        // the class card has to be able to show *some* unambiguous name.
+        assertEquals("МБОУ СОШ № 1", short.fullName)
+    }
+
+    @Test
+    fun `a nameless row is dropped rather than drawn as an empty button`() {
+        val page = SchoolSearchDto(
+            items = listOf(SchoolDto(name = "Школа № 1"), SchoolDto(name = "  ")),
+            total = 2,
+        ).toDomain()
+        assertEquals(1, page.items.size)
+        // `total` is the server's count and is not re-derived: it says how many
+        // the directory matched, not how many survived this filter.
+        assertEquals(2, page.total)
+    }
+
+    @Test
+    fun `truncated survives the mapping because nothing else says it`() {
+        val page = SchoolSearchDto(items = emptyList(), truncated = true).toDomain()
+        assertTrue(page.truncated)
     }
 }

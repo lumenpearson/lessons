@@ -28,6 +28,7 @@ from app.models import (
     Subject,
     TimetableEntry,
 )
+from app.services import subjects, timetable_edit
 
 #: What a schedule is called when a paste brings bell times to a class that has
 #: none at all. Named rather than left blank: it is about to be the class's
@@ -52,13 +53,32 @@ async def rename_subject(
     """
     old_name = subject.name
     moved = 0
-    for model in (TimetableEntry, Homework, LessonOverride):
+
+    # The timetable is matched on the link first and the old spelling second.
+    # The link is the reliable half — it survives a row whose name drifted —
+    # and the name is what catches rows written before the link existed, which
+    # is every row in every class older than it.
+    result = await session.execute(
+        sa_update(TimetableEntry)
+        .where(
+            TimetableEntry.class_id == class_id,
+            (TimetableEntry.subject_id == subject.id)
+            | (TimetableEntry.subject_name == old_name),
+        )
+        .values(subject_name=new_name, subject_id=subject.id)
+    )
+    moved += result.rowcount or 0
+
+    # Homework and замены carry no link at all: a lesson keeps its name when a
+    # subject is deleted, and that is the whole reason they store text.
+    for model in (Homework, LessonOverride):
         result = await session.execute(
             sa_update(model)
             .where(model.class_id == class_id, model.subject_name == old_name)
             .values(subject_name=new_name)
         )
         moved += result.rowcount or 0
+
     subject.name = new_name
     return moved
 
@@ -104,16 +124,25 @@ async def apply_timetable(
     school_class: SchoolClass,
     days: dict[int, list],
     bells: list[BellRow],
-) -> tuple[int, BellSchedule | None]:
+) -> tuple[int, BellSchedule | None, list[int]]:
     """Replace exactly the weekdays ``days`` names, and the bells if any came.
 
     Days the paste did not mention are left alone, so importing a single day's
     block is a legitimate thing to do. A day that appears with no lessons under
     it is emptied - that is how a paste says «в четверг уроков нет».
 
-    Returns (lessons written, the schedule the bells went into). The schedule is
-    handed back rather than refreshed here because a bulk delete left its
-    ``periods`` stale and only the caller knows whether it is about to be read.
+    Returns (lessons written, the schedule the bells went into, the lesson
+    numbers that had no bell to ring them). The schedule is handed back rather
+    than refreshed here because a bulk delete left its ``periods`` stale and
+    only the caller knows whether it is about to be read.
+
+    **A lesson past the last bell is not written.** The resolver takes a
+    lesson's times from the bell row of the same number, so such a row used to
+    be stored, counted in «уроков добавлено» and then shown nowhere at all.
+    The ceiling is what the class will ring *after* this import, not before:
+    a paste that brings a «== Звонки ==» block with eight rows may legitimately
+    bring an eighth lesson with it, and checking against the old schedule would
+    reject the very line that the same paste makes valid.
     """
     if days:
         await session.execute(
@@ -123,15 +152,28 @@ async def apply_timetable(
             )
         )
 
+    ceiling = len(bells) if bells else await timetable_edit.rings(session, school_class.id)
+    ceiling = min(timetable_edit.MAX_INDEX, ceiling or timetable_edit.MAX_INDEX)
+
     total = 0
+    unrung: list[int] = []
     for weekday, rows in days.items():
         for index, subject, room, teacher, parity in rows:
+            if index > ceiling:
+                unrung.append(index)
+                continue
+            # A paste is where a class's subjects usually come into existence,
+            # and where two spellings of one of them usually do too. The
+            # dictionary settles both: the name it already holds wins, and a
+            # name it does not hold is adopted rather than left unlinked.
+            name, subject_id = await subjects.canonical(session, school_class.id, subject)
             session.add(
                 TimetableEntry(
                     class_id=school_class.id,
                     weekday=weekday,
                     index=index,
-                    subject_name=subject,
+                    subject_id=subject_id,
+                    subject_name=name,
                     room=room,
                     teacher=teacher,
                     parity=parity,
@@ -150,4 +192,4 @@ async def apply_timetable(
             school_class.bell_schedule_id = schedule.id
         await write_bell_periods(session, schedule, bells)
 
-    return total, schedule
+    return total, schedule, sorted(set(unrung))

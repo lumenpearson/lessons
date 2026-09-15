@@ -22,10 +22,12 @@ import com.lumenpearson.lessons.core.data.repository.ManageRepository
 import com.lumenpearson.lessons.core.data.repository.ManageRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.UpdateRepository
 import com.lumenpearson.lessons.core.data.sync.DataSyncBroadcast
+import com.lumenpearson.lessons.core.data.sync.SyncScheduler
 import com.lumenpearson.lessons.core.data.update.UpdateRepositoryImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.map
 
 /**
  * Everything the rest of the app is allowed to reach for.
@@ -108,6 +110,12 @@ class DefaultLessonsContainer(
         TimetableRepositoryImpl(
             dao = database.timetableDao(),
             api = api,
+            // Taken from the preferences rather than from `sessionRepository`,
+            // which is a lazy in this same container: the timetable is what the
+            // widget's cold start asks for first, and routing it through the
+            // session repository would build that one too, on that path, for a
+            // class id it could have read directly.
+            activeClassId = preferences.session.map { it?.classId },
             // The widget cannot be called directly from here — it depends on
             // this module, not the other way round — so the broadcast it already
             // listens for is handed in instead. The alerts live in this module
@@ -116,6 +124,17 @@ class DefaultLessonsContainer(
                 DataSyncBroadcast.send(appContext)
                 SchoolAlerts.onDataChanged(appContext)
             },
+            // Resolved when it fires, not here: `sessionRepository` is a lazy
+            // in this same container and asking for it now would build it on
+            // the cold-start path of a class this device may not even be in.
+            //
+            // `leave`, not `signOut`. The token the server refused is the one
+            // the request carried, which is the class on screen — and since a
+            // phone may now hold several, signing out of all of them would
+            // answer one class revoking a device by deleting the other classes'
+            // tokens too, in the background, with the app closed and nothing on
+            // screen to say where they went.
+            onTokenRejected = { sessionRepository.leaveActive() },
         )
     }
 
@@ -124,7 +143,34 @@ class DefaultLessonsContainer(
             preferences = preferences,
             api = api,
             dao = database.timetableDao(),
-            onSignedOut = { SchoolAlerts.clear(appContext) },
+            // The broadcast as well as the alarms, because the widget redraws
+            // on exactly two things: this broadcast, and its own armed tick.
+            // Leaving a class at four on a Friday puts the state at
+            // `AfterSchool`, whose tick is midnight — so without this the home
+            // screen went on showing the lessons of a class the phone had been
+            // thrown out of for the next eight hours, and after a 401 nobody
+            // had even pressed anything.
+            onSignedOut = {
+                DataSyncBroadcast.send(appContext)
+                SchoolAlerts.clear(appContext)
+            },
+            // Switching classes is not signing out, so nothing is cancelled:
+            // the widget is told to redraw, the alarm chain is re-planned from
+            // the class now on screen, and a sync is asked for because the
+            // window being switched to is as old as the last time it was
+            // looked at. The cached one is drawn in the meantime, which is what
+            // keeps the switch instant and usable with no network.
+            onActiveClassChanged = {
+                DataSyncBroadcast.send(appContext)
+                // Cleared before re-planning, not instead of it. An alert
+                // already on the shade names no class — «первый в 08:30» is all
+                // it says — so after a switch it is an unattributed statement
+                // about a class the phone is no longer showing, and tapping it
+                // opens the app on the other one.
+                SchoolAlerts.clear(appContext)
+                SchoolAlerts.onDataChanged(appContext)
+                SyncScheduler.syncNow(appContext, wantsDifferentData = true)
+            },
         )
     }
 
@@ -155,7 +201,14 @@ class DefaultLessonsContainer(
     }
 
     override val manageRepository: ManageRepository by lazy {
-        ManageRepositoryImpl(api = apis.manage)
+        ManageRepositoryImpl(
+            api = apis.manage,
+            // The management surface carries the same class bearer, so a `401`
+            // there means the same thing it means on a sync — including the
+            // case an admin makes themselves by deleting the class. And it
+            // means it about that one class: see the note on the sync above.
+            onTokenRejected = { sessionRepository.leaveActive() },
+        )
     }
 
     override val githubRepository: GithubRepository by lazy {

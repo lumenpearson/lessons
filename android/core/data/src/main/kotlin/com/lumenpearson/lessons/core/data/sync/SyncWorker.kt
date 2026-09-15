@@ -37,6 +37,17 @@ class SyncWorker(
             return Result.success()
         }
 
+        // Before the sync, not after: the rows of a class this device has left
+        // are dead weight that no screen can reach, and the one thing that can
+        // create them — a sync that landed after the class was left — is the
+        // very job this is. Cheap: five deletes that match nothing on a phone
+        // that has left no class.
+        runCatching {
+            container.timetableRepository.forgetClassesOtherThan(
+                container.sessionRepository.currentAll().map { it.classId }.toSet(),
+            )
+        }
+
         val days = inputData.getInt(KEY_DAYS, DEFAULT_DAYS)
         return when (val result = container.timetableRepository.refresh(days)) {
             // The repository broadcasts on its own now, so that an in-app
@@ -78,11 +89,16 @@ class SyncWorker(
         /**
          * A month, which is what the calendar's month view needs to be a month.
          *
-         * It was two weeks, chosen so the widget could survive a holiday
-         * offline. A month grid drawn over a two-week cache is half real and
-         * half "нет данных", and the difference between the two on the wire is
-         * one integer in a query string — the server already caps the window at
-         * 31 days and resolves the whole range in one query.
+         * It was two weeks, then a month. Both were windows measured from
+         * today, and a calendar that draws a year over either of them is part
+         * real and part "нет данных" — which on screen is the same thing as "no
+         * lessons", so a timetable looked like it stopped a month after the
+         * class was made.
+         *
+         * The repository now asks for the school year regardless and treats
+         * this as a floor, so the number matters only to a caller that wants
+         * *more* than the year has left. It stays at a month because that is
+         * the smallest useful ask, not because it is the window.
          */
         const val DEFAULT_DAYS: Int = 31
 

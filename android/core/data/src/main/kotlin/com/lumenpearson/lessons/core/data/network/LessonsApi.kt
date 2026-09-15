@@ -37,7 +37,8 @@ internal interface LessonsApi {
      *
      * @param start first day, ISO `YYYY-MM-DD`, always sent explicitly so the
      * window does not depend on the server's idea of "today".
-     * @param days server caps this at 31.
+     * @param days server caps this at 280 — a whole school year, which is what
+     * the calendar draws and therefore what the repository asks for.
      */
     @GET("api/v1/bundle")
     suspend fun bundle(

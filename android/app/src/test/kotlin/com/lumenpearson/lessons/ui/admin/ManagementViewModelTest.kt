@@ -1,7 +1,9 @@
 package com.lumenpearson.lessons.ui.admin
 
+import com.lumenpearson.lessons.core.data.repository.ClassJoinMode
 import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.ImportConflict
+import com.lumenpearson.lessons.core.data.repository.ManageFailure
 import com.lumenpearson.lessons.core.data.repository.ManagedDevice
 import com.lumenpearson.lessons.core.data.repository.ManagedSubject
 import com.lumenpearson.lessons.core.data.repository.TimetableExport
@@ -10,9 +12,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -36,6 +41,7 @@ class ManagementViewModelTest {
 
     private val repository = FakeManageRepository()
     private val links = FakeDeviceLinkRepository(ClassRole.ADMIN)
+    private val session = FakeSessionRepository()
 
     @Before
     fun setUp() {
@@ -50,7 +56,7 @@ class ManagementViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun model() = ManagementViewModel(repository, links)
+    private fun model() = ManagementViewModel(repository, links, session)
 
     /**
      * A read in flight when the role is lost must not put its answer back.
@@ -240,4 +246,180 @@ class ManagementViewModelTest {
         lastSeenAt = null,
         linkedAt = null,
     )
+
+    // -- leaving a class that was just deleted ------------------------------
+
+    @Test
+    fun `deleting the class does not leave until the sheet is closed`() {
+        // The sheet has to be able to say what happened. Dropping the session
+        // on success would swap the whole shell for the join screen mid-word.
+        val model = model()
+        model.deleteClass("9А")
+        repository.answer(0, Result.success(Unit))
+
+        assertTrue(model.uiState.value.classDeleted)
+        assertEquals(0, session.signOuts)
+    }
+
+    @Test
+    fun `closing that sheet drops the token and the cache with it`() {
+        val model = model()
+        model.deleteClass("9А")
+        repository.answer(0, Result.success(Unit))
+
+        model.leaveDeletedClass()
+
+        assertEquals(1, session.signOuts)
+    }
+
+    @Test
+    fun `nothing leaves a class that was not deleted`() {
+        // The same call reaches this view model when the sheet is dismissed
+        // after an ordinary look at the class card.
+        val model = model()
+
+        model.leaveDeletedClass()
+
+        assertEquals(0, session.signOuts)
+    }
+
+    @Test
+    fun `a refused delete leaves the class alone`() {
+        val model = model()
+        model.deleteClass("не то имя")
+        repository.answer(0, Result.failure(ManageFailure.Invalid("confirm_name does not match")))
+
+        model.leaveDeletedClass()
+
+        assertFalse(model.uiState.value.classDeleted)
+        assertEquals(0, session.signOuts)
+    }
+
+    /**
+     * Signing out has to empty this state, because this object outlives the
+     * class it describes.
+     *
+     * There is one Activity and no nav graph, so the view model comes from the
+     * Activity's store: leaving a class only takes `HomeShell` out of
+     * composition. `classDeleted` then survived into the next class — and it is
+     * the first branch of the class card, ahead of the load, so the card opened
+     * on a class that existed and announced that it had been deleted. Both of
+     * its buttons call `leaveDeletedClass`, whose only guard is that same flag,
+     * so either one signed the user out of the class they had just joined.
+     */
+    @Test
+    fun `joining another class does not inherit the deleted one's state`() {
+        val model = model()
+        model.deleteClass("9А")
+        repository.answer(0, Result.success(Unit))
+        assertTrue(model.uiState.value.classDeleted)
+
+        model.leaveDeletedClass()
+        session.rejoin(classId = 2L, className = "9Б")
+
+        assertFalse(model.uiState.value.classDeleted)
+        assertEquals(1, session.signOuts)
+
+        // And the button that used to throw the user straight back out now
+        // finds nothing to act on.
+        model.leaveDeletedClass()
+        assertEquals(1, session.signOuts)
+    }
+
+    /**
+     * The quieter half of the same leak: the previous class's card is drawn for
+     * one round trip before `loadClass` answers, which on a shared phone is one
+     * class's join code shown to another.
+     */
+    @Test
+    fun `the previous class's card does not outlive it`() {
+        val model = model()
+        model.loadClass()
+        repository.answer(0, Result.success(FakeSessionRepository.CLASS_CARD))
+        assertNotNull(model.uiState.value.classCard.value)
+
+        runTest { session.signOut() }
+
+        assertNull(model.uiState.value.classCard.value)
+    }
+
+    // -- the join mode ------------------------------------------------------
+
+    @Test
+    fun `switching to invites writes through and says which way it went`() {
+        val model = model()
+        model.loadClass()
+        repository.answer(0, Result.success(FakeSessionRepository.CLASS_CARD))
+
+        model.setJoinMode(ClassJoinMode.INVITE)
+        assertEquals(listOf(ClassJoinMode.INVITE), repository.joinModeCalls)
+        repository.answer(1, Result.success(INVITE_ONLY_CARD))
+
+        val state = model.uiState.value
+        assertEquals(ClassJoinMode.INVITE, state.classCard.value?.joinMode)
+        assertEquals(ManagementNotice.JoinModeChanged(ClassJoinMode.INVITE), state.notice)
+        assertFalse(state.working)
+        assertNull(state.writeFailure)
+    }
+
+    /**
+     * A refused switch must leave the card saying what the class actually is.
+     *
+     * The failure is the only thing on screen that says the tap did nothing:
+     * this row is a toggle, and a toggle that moves and then is told "no" by a
+     * sentence somewhere else reads as having worked. The card is the server's
+     * answer or it is the card from before — never the mode that was asked for.
+     */
+    @Test
+    fun `a refused switch keeps the card on the mode the class is really in`() {
+        val model = model()
+        model.loadClass()
+        repository.answer(0, Result.success(FakeSessionRepository.CLASS_CARD))
+
+        model.setJoinMode(ClassJoinMode.INVITE)
+        repository.answer(1, Result.failure(ManageFailure.Refused("нельзя")))
+
+        val state = model.uiState.value
+        assertEquals(ClassJoinMode.OPEN, state.classCard.value?.joinMode)
+        assertTrue(state.writeFailure is ManageFailure.Refused)
+        assertNull(state.notice)
+        assertFalse(state.working)
+    }
+
+    /** Back to the class code is the same write, and it says the opposite. */
+    @Test
+    fun `opening the class code back up is one call and its own notice`() {
+        val model = model()
+        model.loadClass()
+        repository.answer(0, Result.success(INVITE_ONLY_CARD))
+
+        model.setJoinMode(ClassJoinMode.OPEN)
+        assertEquals(listOf(ClassJoinMode.OPEN), repository.joinModeCalls)
+        repository.answer(1, Result.success(FakeSessionRepository.CLASS_CARD))
+
+        val state = model.uiState.value
+        assertEquals(ClassJoinMode.OPEN, state.classCard.value?.joinMode)
+        assertEquals(ManagementNotice.JoinModeChanged(ClassJoinMode.OPEN), state.notice)
+    }
+
+    /** A demotion between the tap and the answer takes the page, as anywhere else. */
+    @Test
+    fun `losing the role while switching takes the page away`() {
+        val model = model()
+        model.loadClass()
+        repository.answer(0, Result.success(FakeSessionRepository.CLASS_CARD))
+
+        model.setJoinMode(ClassJoinMode.INVITE)
+        repository.answer(1, Result.failure(RoleLost))
+
+        assertEquals(RoleLost, model.uiState.value.gone)
+        assertNull(model.uiState.value.classCard.value)
+    }
+
+    private companion object {
+        /** The same class, after the server has accepted the switch. */
+        val INVITE_ONLY_CARD = FakeSessionRepository.CLASS_CARD.copy(
+            joinMode = ClassJoinMode.INVITE,
+        )
+    }
 }

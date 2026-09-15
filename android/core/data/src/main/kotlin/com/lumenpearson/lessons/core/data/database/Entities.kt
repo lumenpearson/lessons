@@ -17,37 +17,60 @@ import java.time.LocalTime
  */
 
 /**
- * The joined class. At most one row exists - the app belongs to one class at a
- * time - and its presence is what "has ever synced" means: no row, no timetable.
+ * A joined class. One row per membership: the device may belong to several
+ * classes at once and shows one of them at a time, so the row that matters is
+ * the one whose [id] the stored session names. Its presence is what "has ever
+ * synced" means for that class - no row, no timetable, and switching to a class
+ * that has none lands on an empty screen until the first sync fills it.
  */
 @Entity(tableName = "school_class")
 internal data class SchoolClassEntity(
     @PrimaryKey @ColumnInfo(name = "id") val id: Long,
     @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "grade") val grade: Int? = null,
+    @ColumnInfo(name = "letter") val letter: String? = null,
     @ColumnInfo(name = "school") val school: String?,
     @ColumnInfo(name = "time_zone_id") val timeZoneId: String,
+    @ColumnInfo(name = "term_kind") val termKind: String? = null,
+    /**
+     * The terms, as `index|kind|start|end` lines.
+     *
+     * One column rather than a table of its own: there are two to four of
+     * them, they only ever travel with the class, and a sync replaces all of
+     * them at once — a table would buy a join and a delete for nothing. The
+     * cache is disposable anyway (`fallbackToDestructiveMigration`), so the
+     * format is free to change with the schema version.
+     */
+    @ColumnInfo(name = "terms") val terms: String = "",
     /** Server's `generated_at`, or arrival time; drives the "synced N ago" label. */
     @ColumnInfo(name = "synced_at_epoch_millis") val syncedAtEpochMillis: Long,
 )
 
 /**
- * One calendar date.
+ * One calendar date, in one class.
  *
  * The primary key is a surrogate id rather than the date because the bundle can
  * legitimately contain the same date twice: once inside the synced window and
  * once as `next_school_day`, which the server resolves past the window's end.
- * [isNextSchoolDay] separates the two, and the unique index makes the pair the
- * real key.
+ * [isNextSchoolDay] separates the two, and the unique index makes the triple
+ * the real key.
+ *
+ * [classId] is on the day rather than only on the class row because it is what
+ * every read filters by: two classes cached side by side have a Monday each,
+ * and a query that forgot the filter would draw one class's lessons under the
+ * other's name. Lessons, events and homework need no such column - they reach
+ * their class through `day_id`, and deleting the day takes them with it.
  */
 @Entity(
     tableName = "school_day",
     indices = [
-        Index(value = ["date"]),
-        Index(value = ["date", "is_next_school_day"], unique = true),
+        Index(value = ["class_id", "date"]),
+        Index(value = ["class_id", "date", "is_next_school_day"], unique = true),
     ],
 )
 internal data class SchoolDayEntity(
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "id") val id: Long = 0L,
+    @ColumnInfo(name = "class_id") val classId: Long,
     @ColumnInfo(name = "date") val date: LocalDate,
     @ColumnInfo(name = "weekday") val weekday: Int,
     /** `DayKind` name; stored as text so an unknown future kind survives a downgrade. */

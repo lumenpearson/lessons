@@ -10,6 +10,8 @@ import com.lumenpearson.lessons.core.data.network.dto.ManagedClassDto
 import com.lumenpearson.lessons.core.data.network.dto.ManagedDeviceDto
 import com.lumenpearson.lessons.core.data.network.dto.ManagedSubjectDto
 import com.lumenpearson.lessons.core.data.network.dto.RequestDecisionDto
+import com.lumenpearson.lessons.core.data.network.dto.SchoolDto
+import com.lumenpearson.lessons.core.data.network.dto.SchoolSearchDto
 import com.lumenpearson.lessons.core.data.network.dto.StatsDto
 import com.lumenpearson.lessons.core.data.network.dto.SubjectSavedDto
 import com.lumenpearson.lessons.core.data.network.dto.TimetableExportDto
@@ -61,6 +63,7 @@ internal fun ManagedClassDto.toDomain(): ManagedClass = ManagedClass(
     // class runs on, and an empty row would say less than "Europe/Samara".
     timezoneLabel = timezoneLabel.cleaned() ?: timezone.trim(),
     joinCode = joinCode.trim(),
+    joinMode = ClassJoinMode.fromWire(joinMode),
     members = members,
     devices = devices,
     pendingRequests = pendingRequests,
@@ -176,4 +179,25 @@ internal fun RequestDecisionDto.toDomain(): RequestDecision = RequestDecision(
     approved = status.trim().equals("approved", ignoreCase = true),
     role = ClassRole.fromWire(role),
     who = who.trim(),
+)
+
+internal fun SchoolDto.toDomain(): School = School(
+    name = name,
+    fullName = fullName.ifBlank { name },
+    ogrn = ogrn,
+    address = address,
+    city = city,
+    region = region,
+    active = active,
+)
+
+internal fun SchoolSearchDto.toDomain(): SchoolPage = SchoolPage(
+    // A row with no name at all is dropped rather than drawn as an empty
+    // button: the server already drops the unreadable ones, and this is the
+    // same rule applied to whatever a future field rename lets through.
+    items = items.filter { it.name.isNotBlank() }.map { it.toDomain() },
+    page = page,
+    pages = pages,
+    total = total,
+    truncated = truncated,
 )

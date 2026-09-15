@@ -2,6 +2,8 @@ package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.network.DiaryApi
 import com.lumenpearson.lessons.core.data.network.dto.DiaryLoginRequestDto
+import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideRequestDto
+import com.lumenpearson.lessons.core.data.network.dto.DiaryResetRequestDto
 import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -26,8 +28,8 @@ internal interface DiarySessionStore {
 }
 
 /**
- * Nine calls over [DiaryApi], a token in [DiarySessionStore], and the rule for
- * what a failure means.
+ * Every call the app makes over [DiaryApi], a token in [DiarySessionStore], and
+ * the rule for what a failure means.
  *
  * Two behaviours are worth knowing about:
  *
@@ -113,6 +115,70 @@ internal class DiaryRepositoryImpl(
         api.periods(studentId).map { it.toDomain() }
     }
 
+    override suspend fun overrides(studentId: Long): Result<List<DiaryOverrideRecord>> = call {
+        api.overrides(studentId).mapNotNull { it.toDomain() }
+    }
+
+    // The three writes below leave `clearOnSignInRequired` at true, like every
+    // read, and that is a decision rather than the default going unexamined.
+    //
+    // A `401` without the re-auth header means the server has just refused this
+    // token: it is dead for writing and for reading alike, and the correction
+    // was refused before it was stored, so keeping the token could not have
+    // saved it. What keeping it would buy is a family left on a diary screen
+    // that looks signed in and fails everything, with a sign-in button they
+    // have no reason to press — the trap the reads clear the token to avoid.
+    // Signing out mid-edit is a real cost — and it costs the text as well as
+    // the screen: the sheet's fields are a plain `remember`, and the view model
+    // deliberately closes the sheet when the session goes, so what was typed
+    // goes with it. It is still the smaller cost, because the alternative is a
+    // screen that looks signed in and refuses everything; but it is not free,
+    // and an earlier version of this comment claimed it was.
+    //
+    // The re-auth `401` still leaves the session alone, here as everywhere: it
+    // is the upstream half that died, the login is what the password prompt is
+    // about to say out loud, and the correction can be retried after it.
+    override suspend fun correct(
+        studentId: Long,
+        target: String,
+        field: DiaryField,
+        value: String,
+        original: String?,
+    ): Result<Unit> = call(unprocessable = DiaryFailure.Rejected) {
+        api.putOverride(
+            studentId,
+            DiaryOverrideRequestDto(
+                // Verbatim: the server composed this key and matches it exactly
+                // when it lays the correction back over the lesson.
+                target = target,
+                field = field.wire(),
+                value = value,
+                original = original,
+            ),
+        )
+        // The stored row comes back and is dropped: the screen redraws from the
+        // schedule it refetches, and a correction kept in two places is a
+        // correction shown two ways after the next upstream change.
+    }
+
+    override suspend fun reset(
+        studentId: Long,
+        target: String,
+        field: DiaryField,
+    ): Result<Unit> = call(unprocessable = DiaryFailure.Rejected) {
+        // In the body, not in the query string: the key is the server's own and
+        // it can carry an ampersand, so it travels where nothing re-encodes it.
+        api.resetOverride(
+            studentId,
+            DiaryResetRequestDto(target = target, field = field.wire()),
+        )
+    }
+
+    override suspend fun resetAll(studentId: Long): Result<Unit> =
+        call(unprocessable = DiaryFailure.Rejected) {
+            api.resetOverrides(studentId)
+        }
+
     /** [call], with the server's own range rule applied before the round trip. */
     private suspend fun <T> ranged(
         from: LocalDate,
@@ -126,8 +192,15 @@ internal class DiaryRepositoryImpl(
         return call(block = block)
     }
 
+    /**
+     * @param unprocessable what a `422` from this call means. The reads leave
+     *   it at [DiaryFailure.BadRange]; the corrections pass
+     *   [DiaryFailure.Rejected], because on `/overrides` a 422 is a target or a
+     *   field the server will not file, and nothing but the endpoint says so.
+     */
     private suspend fun <T> call(
         clearOnSignInRequired: Boolean = true,
+        unprocessable: DiaryFailure = DiaryFailure.BadRange,
         block: suspend () -> T,
     ): Result<T> = withContext(ioDispatcher) {
         try {
@@ -135,7 +208,7 @@ internal class DiaryRepositoryImpl(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (failure: Exception) {
-            val classified = DiaryFailure.of(failure)
+            val classified = DiaryFailure.of(failure, unprocessable)
             if (clearOnSignInRequired && classified is DiaryFailure.SignInRequired) {
                 store.clearDiarySession()
             }

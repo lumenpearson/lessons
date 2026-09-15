@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.repository.ClassJoinMode
 import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.ManageFailure
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
@@ -275,6 +276,12 @@ fun ManageFailure.asText(): String = when (this) {
     ManageFailure.NotFound -> stringResource(R.string.admin_error_not_found)
     is ManageFailure.Refused -> stringResource(R.string.admin_error_refused)
     is ManageFailure.Invalid -> stringResource(R.string.admin_error_invalid)
+    // The server's own sentence, not ours: a 503 here is a feature that is off
+    // on this deployment, and only the server knows which one and what to do
+    // instead. Falls back to a generic line for a body without a detail.
+    is ManageFailure.Unavailable ->
+        detail?.takeIf { it.isNotBlank() } ?: stringResource(R.string.admin_error_unavailable)
+
     is ManageFailure.Offline -> stringResource(R.string.admin_error_offline)
     is ManageFailure.Unexpected -> stringResource(
         R.string.admin_error_unknown,
@@ -289,6 +296,8 @@ fun ManageFailure.detailText(): String? {
         is ManageFailure.NotAllowed -> detail
         is ManageFailure.Refused -> detail
         is ManageFailure.Invalid -> detail
+        // Not repeated here: [asText] already *is* the server's sentence for
+        // this one, and the detail line underneath would say it twice.
         else -> null
     }
     return detail?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.admin_error_detail, it) }
@@ -324,6 +333,13 @@ fun ManagementNotice.asText(): String = when (this) {
     is ManagementNotice.SubjectSaved -> stringResource(R.string.admin_subject_saved, name)
     is ManagementNotice.SubjectDeleted -> stringResource(R.string.admin_subject_deleted, name)
     ManagementNotice.ClassSaved -> stringResource(R.string.admin_class_saved)
+    is ManagementNotice.JoinModeChanged -> stringResource(
+        if (mode == ClassJoinMode.INVITE) {
+            R.string.admin_class_join_mode_set_invite
+        } else {
+            R.string.admin_class_join_mode_set_open
+        },
+    )
     is ManagementNotice.BellsSaved -> stringResource(R.string.admin_bells_saved, name)
     is ManagementNotice.BellsDefault -> stringResource(R.string.admin_bells_default_set, name)
     is ManagementNotice.BellsDeleted -> stringResource(R.string.admin_bells_deleted, name)

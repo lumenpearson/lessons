@@ -47,11 +47,14 @@ from app.models import (
     BotUser,
     DayOverride,
     DeviceToken,
+    JoinMode,
     Role,
     SchoolClass,
     Subject,
+    TermKind,
     TimetableEntry,
 )
+from app.providers import dadata
 from app.schemas import (
     AccessRequestOut,
     AuditEntryOut,
@@ -70,17 +73,26 @@ from app.schemas import (
     ManagedSubjectOut,
     RequestDecisionIn,
     RequestDecisionOut,
+    SchoolOut,
+    SchoolSearchOut,
     StatsOut,
     SubjectHoursOut,
     SubjectIn,
     SubjectPatch,
     SubjectSavedOut,
+    TermBoundsIn,
+    TermOut,
+    TermSchemeIn,
+    TermsOut,
     TimetableExportOut,
     TimetableImportIn,
     TimetableImportOut,
 )
 from app.services import audit, linking, structure, timetable_io
+from app.services import schools as schools_service
 from app.services import stats as stats_service
+from app.services import subjects as subjects_service
+from app.services import terms as terms_service
 from app.timezones import is_supported, label_for
 
 log = logging.getLogger(__name__)
@@ -250,6 +262,10 @@ async def _class_out(session: AsyncSession, school_class: SchoolClass) -> Manage
         ),
         bell_schedule_id=school_class.bell_schedule_id,
         calendar_ready=bool(school_class.calendar_token),
+        # `.value`, so the wire says «open». The column stores the member name
+        # because that is how SQLAlchemy persists an enum, and the two are not
+        # the same string.
+        join_mode=school_class.join_mode.value,
     )
 
 
@@ -270,7 +286,7 @@ async def class_update(
     school_class: SchoolClass = Depends(current_class),
     session: AsyncSession = Depends(get_session),
 ) -> ManagedClassOut:
-    """Rename the class, re-home it, or move it to another time zone.
+    """Rename the class, re-home it, move its time zone, or change who may join.
 
     One audit line per field changed rather than one for the request, because
     that is what the log is read for: «что изменилось», not «кто открыл
@@ -279,6 +295,7 @@ async def class_update(
     """
     changes = payload.model_dump(exclude_unset=True)
     zone = changes.pop("timezone", None)
+    mode = changes.pop("join_mode", None)
     if zone is not None and not is_supported(zone):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -302,6 +319,22 @@ async def class_update(
             actor.telegram_id,
             "class.timezone",
             f"часовой пояс: {zone}",
+        )
+    if mode is not None:
+        # Through the enum rather than by the string, because the attribute is
+        # read back as one by `_class_out` in this same request - and because
+        # the audit line should say what changed rather than echo a wire value.
+        school_class.join_mode = JoinMode(mode)
+        await audit.record(
+            session,
+            school_class.id,
+            actor.telegram_id,
+            # The same action name the bot's own toggle writes, so the log
+            # reads as one history however the switch was flipped.
+            "access.join_mode",
+            "вход только по личным приглашениям"
+            if school_class.join_mode is JoinMode.INVITE
+            else "вход по коду класса снова разрешён",
         )
 
     await session.commit()
@@ -369,10 +402,8 @@ async def _subject_or_404(
 async def _name_taken(
     session: AsyncSession, class_id: int, name: str, *, besides: int | None = None
 ) -> bool:
-    query = select(Subject.id).where(Subject.class_id == class_id, Subject.name == name)
-    if besides is not None:
-        query = query.where(Subject.id != besides)
-    return await session.scalar(query) is not None
+    """Ignores case, because everything downstream of it does."""
+    return await subjects_service.clashing(session, class_id, name, besides=besides) is not None
 
 
 @router.get("/subjects", response_model=list[ManagedSubjectOut])
@@ -382,7 +413,14 @@ async def subjects_list(
     session: AsyncSession = Depends(get_session),
 ) -> list[ManagedSubjectOut]:
     """The dictionary with ids, for a screen that edits it. An editor may
-    read it - it is the same list ``GET /api/v1/subjects`` gives any device."""
+    read it - it is the same list ``GET /api/v1/subjects`` gives any device.
+
+    Adopts whatever the timetable already uses on the way, so this list is
+    never emptily lying about a class with thirty-five lessons in it. Free once
+    the two agree, which after the first read they do.
+    """
+    if await subjects_service.sync_from_timetable(session, school_class.id):
+        await session.commit()
     rows = await session.scalars(
         select(Subject).where(Subject.class_id == school_class.id).order_by(Subject.name)
     )
@@ -486,14 +524,25 @@ async def subject_delete(
     school_class: SchoolClass = Depends(current_class),
     session: AsyncSession = Depends(get_session),
 ) -> DeletedOut:
-    """Deleting a subject leaves the lessons alone.
+    """Deleting a subject the timetable still uses is refused.
 
-    The timetable stores the name, so the class keeps its расписание and only
-    loses the colour and the teacher - which is what an admin cleaning up a
-    duplicate entry means, and the opposite of what deleting the lessons would
-    mean.
+    It used to be allowed, and it left the lessons alone: the timetable stores
+    the name as well as the link, so the class kept its расписание and lost
+    only the colour and the teacher. That stopped being true when the
+    dictionary started keeping itself. The name is still in the template, so
+    the next read adopts it again - the entry returns within one poll, without
+    its colour, its short name or its teacher, and the admin is left believing
+    they deleted something.
+
+    So the two halves of one list are deleted in one order: take the subject
+    out of the weekly template, and then out of the dictionary. A subject
+    nothing teaches still deletes in one step, which is the case this endpoint
+    was really for.
     """
     subject = await _subject_or_404(session, school_class, subject_id)
+    in_use = await subjects_service.lessons_using(session, school_class.id, subject)
+    if in_use:
+        raise _conflict(f"{in_use} lesson(s) still use this subject")
     name = subject.name
     await session.delete(subject)
     await audit.record(
@@ -783,10 +832,18 @@ async def timetable_import(
             rejected=rejected,
         )
 
-    total, schedule = await structure.apply_timetable(session, school_class, days, bells)
+    total, schedule, unrung = await structure.apply_timetable(session, school_class, days, bells)
+    # Reported, not silently dropped: a lesson past the last bell has nowhere
+    # to be drawn, and «applied: true, lessons: N» with N short of what was
+    # pasted is exactly the answer that hides it.
+    rejected = rejected + [
+        f"урок {index}: нет такого звонка в расписании звонков" for index in unrung
+    ]
     summary = f"импорт расписания: дней {len(days)}, уроков {total}"
     if bells:
         summary += f", звонков {len(bells)}"
+    if unrung:
+        summary += f", без звонка пропущено {len(unrung)}"
     await audit.record(
         session, school_class.id, actor.telegram_id, "timetable.import", summary
     )
@@ -1166,3 +1223,166 @@ async def request_decline(
         f"✖️ Запрос доступа в классе <b>{escape(school_class.name)}</b> отклонён.",
     )
     return RequestDecisionOut(id=request_id, status="declined", who=who)
+
+
+# --------------------------------------------------------------------------
+# Четверти и полугодия
+#
+# The same service the bot's editor calls, for the same reason the rest of
+# this module does it that way: «пересекается с периодом 2» decided twice
+# disagrees within a month.
+# --------------------------------------------------------------------------
+
+
+def _terms_out(school_class: SchoolClass, year: int, rows) -> TermsOut:
+    return TermsOut(
+        kind=terms_service.scheme_of(school_class).value,
+        year=year,
+        terms=[
+            TermOut(
+                index=term.index,
+                kind=term.kind.value,
+                starts_on=term.starts_on,
+                ends_on=term.ends_on,
+            )
+            for term in rows
+        ],
+    )
+
+
+def _term_year(school_class: SchoolClass) -> int:
+    """The school year in force for this class, in the class's own zone."""
+    return terms_service.opening_year_of(datetime.now(school_class.tz).date())
+
+
+@router.get("/terms", response_model=TermsOut)
+async def terms_list(
+    _: Actor = Depends(admin_actor),
+    school_class: SchoolClass = Depends(current_class),
+    session: AsyncSession = Depends(get_session),
+) -> TermsOut:
+    """This class's terms, seeding the conventional set if it has none."""
+    year = _term_year(school_class)
+    rows = await terms_service.ensure(session, school_class, year)
+    await session.commit()
+    return _terms_out(school_class, year, rows)
+
+
+@router.put("/terms/scheme", response_model=TermsOut)
+async def terms_set_scheme(
+    payload: TermSchemeIn,
+    actor: Actor = Depends(admin_actor),
+    school_class: SchoolClass = Depends(current_class),
+    session: AsyncSession = Depends(get_session),
+) -> TermsOut:
+    """Switch between четверти and полугодия, reseeding the year.
+
+    A replacement rather than an edit: four quarters and two halves do not map
+    onto each other, and a leftover third quarter inside a year that has two is
+    not a state worth keeping.
+    """
+    year = _term_year(school_class)
+    wanted = TermKind(payload.kind)
+    rows = await terms_service.set_scheme(session, school_class, wanted, year)
+    await audit.record(
+        session,
+        school_class.id,
+        actor.telegram_id,
+        "class.term_kind",
+        f"схема: {'полугодия' if wanted is TermKind.SEMESTER else 'четверти'}",
+    )
+    await session.commit()
+    return _terms_out(school_class, year, rows)
+
+
+@router.put("/terms/{index}", response_model=TermsOut)
+async def terms_set_bounds(
+    index: int,
+    payload: TermBoundsIn,
+    actor: Actor = Depends(admin_actor),
+    school_class: SchoolClass = Depends(current_class),
+    session: AsyncSession = Depends(get_session),
+) -> TermsOut:
+    """Move one term's edges.
+
+    422 with the service's own Russian sentence rather than a field-shaped
+    error: what is wrong is the relationship between this term and the year or
+    its neighbours, and «конец периода раньше его начала» is the thing worth
+    putting on the screen.
+    """
+    year = _term_year(school_class)
+    await terms_service.ensure(session, school_class, year)
+    try:
+        await terms_service.set_bounds(
+            session, school_class, year, index, payload.starts_on, payload.ends_on
+        )
+    except terms_service.TermError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
+        ) from error
+
+    await audit.record(
+        session,
+        school_class.id,
+        actor.telegram_id,
+        "class.term",
+        f"период {index}: {payload.starts_on:%d.%m.%Y} — {payload.ends_on:%d.%m.%Y}",
+    )
+    await session.commit()
+    rows = await terms_service.read(session, school_class.id, year)
+    return _terms_out(school_class, year, rows)
+
+
+@router.get("/schools", response_model=SchoolSearchOut)
+async def schools_search(
+    q: str = Query(..., description="Название или номер школы"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(
+        schools_service.PAGE_SIZE,
+        ge=1,
+        le=dadata.MAX_SUGGESTIONS,
+        description="Строк на странице; 20 отдаёт всё найденное за один запрос",
+    ),
+    region: str | None = Query(None, max_length=120),
+    _: Actor = Depends(admin_actor),
+    __: SchoolClass = Depends(current_class),
+) -> SchoolSearchOut:
+    """Search the school directory, the same way «⚙️ Класс» does in the bot.
+
+    Reads nothing and writes nothing: it is a lookup the app needs before it
+    can `PATCH /class` with a school name, and the name is all that is stored.
+    Admin-only despite being read-only, because every call spends part of a
+    daily allowance somebody else pays for, and the class's own members are the
+    only people with a reason to spend it.
+
+    503 rather than 500 when the directory is not configured or not answering:
+    nothing here is broken, the feature is simply unavailable right now, and
+    the client's answer to that is to let the name be typed.
+
+    **Every call is one upstream search**, whatever ``page`` says — the
+    directory has no offset to page with, so there is nothing to resume. A
+    client that pages should therefore ask once with ``page_size=20`` and cut
+    the answer up itself, which is what the bot and the app both do; asking for
+    four pages of five is four searches for one question.
+    """
+    try:
+        result = await schools_service.search(q, region=region)
+    except schools_service.SearchError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
+        ) from error
+    except dadata.DirectoryError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=error.message
+        ) from error
+
+    found = schools_service.page_of(
+        result.schools, page, size=page_size, truncated=result.truncated
+    )
+    return SchoolSearchOut(
+        items=[SchoolOut(**school.model_dump()) for school in found.items],
+        page=found.page,
+        pages=found.pages,
+        total=found.total,
+        truncated=found.truncated,
+    )

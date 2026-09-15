@@ -45,12 +45,30 @@ fun HomeworkRow(
     modifier: Modifier = Modifier,
     tone: AccentTone = subjectTone(item.subject),
     onOpenAttachment: ((String) -> Unit)? = null,
+    /**
+     * Opens the row. Null everywhere the row is only something to read, which
+     * is still most places; [LessonRow] has carried the same parameter for the
+     * same reason since the week screen gained its sheet.
+     */
+    onClick: (() -> Unit)? = null,
+    /**
+     * A short label under the text, for something true about the row rather
+     * than part of it — «Исправлено», today.
+     *
+     * A slot of its own rather than something a caller appends to [item]: the
+     * subject is what [tone] is derived from, so a word added to it recolours
+     * the row away from every other card of that subject, and it is drawn on
+     * one ellipsised line, so on a long subject name the label is the half that
+     * disappears.
+     */
+    badge: String? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
 
     GroupRow(
         modifier = modifier,
         verticalAlignment = Alignment.Top,
+        onClick = onClick,
     ) {
         AccentIconTile(icon = Icons.Rounded.EditNote, tone = tone)
 
@@ -70,6 +88,14 @@ fun HomeworkRow(
                 style = MaterialTheme.typography.bodyMedium,
                 color = scheme.onSurfaceVariant,
             )
+
+            if (badge != null) {
+                Text(
+                    text = badge,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = scheme.onSurfaceVariant,
+                )
+            }
 
             val attachment = item.attachmentUrl
             if (attachment != null) {

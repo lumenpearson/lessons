@@ -100,6 +100,23 @@ def _local(day: Date, clock: Time) -> str:
     return f"{day:%Y%m%d}T{clock:%H%M%S}"
 
 
+def _uid_part(row_id: int | None, date_key: str, position: int) -> str:
+    """The part of a ``UID`` that names *which* row this is.
+
+    The row id when there is one, because a UID is an identity and has to
+    survive its neighbours. It used to be the item's position within its day,
+    which is not one: delete the first of three заданий and the remaining two
+    slide up into its UID and the second's. Every subscriber's client then sees
+    two to-dos change into different subjects — ticked-off ones included — and
+    a third disappear, with nothing to say it happened.
+
+    Falls back to the position for a resolved row that carries no id, which is
+    only ever a hand-built one in a test. Prefixed so the two namespaces cannot
+    collide as ids and positions pass each other.
+    """
+    return f"id{row_id}" if row_id is not None else f"{date_key}-{position}"
+
+
 def _utc_stamp(moment: datetime) -> str:
     """``DTSTAMP`` form. A naive value is taken as UTC, like every naive column."""
     aware = moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment.astimezone(UTC)
@@ -167,7 +184,7 @@ def render_ics(
         for position, event in enumerate(day.events, 1):
             lines += [
                 "BEGIN:VEVENT",
-                f"UID:event-{school_class.id}-{date_key}-{position}@lessons",
+                f"UID:event-{school_class.id}-{_uid_part(event.id, date_key, position)}@lessons",
                 f"DTSTAMP:{stamp}",
                 f"DTSTART;TZID={zone}:{_local(day.date, event.starts_at)}",
                 f"DTEND;TZID={zone}:{_local(day.date, event.ends_at)}",
@@ -181,7 +198,7 @@ def render_ics(
             summary = f"{item.subject}: {' '.join(item.text.split())}"
             lines += [
                 "BEGIN:VTODO",
-                f"UID:homework-{school_class.id}-{date_key}-{position}@lessons",
+                f"UID:homework-{school_class.id}-{_uid_part(item.id, date_key, position)}@lessons",
                 f"DTSTAMP:{stamp}",
                 f"DUE;VALUE=DATE:{day.date:%Y%m%d}",
                 f"SUMMARY:{escape_text(summary)}",

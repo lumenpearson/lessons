@@ -141,6 +141,43 @@ class WidgetSizeClassTest {
     }
 
     /**
+     * The same property, asked of the sizes a launcher actually reports.
+     *
+     * The test above compares *breakpoints*, and breakpoints are only
+     * comparable when one is larger in both directions — so the ladder's one
+     * real inversion sat outside it for two releases. `LARGE` is 250×250 and
+     * `NARROW` is 110×300: neither contains the other, nothing compared them,
+     * and a widget 250 wide by 300 tall therefore drew *less* than the same
+     * widget at 110 wide, because the first lands on `LARGE` and the second on
+     * `NARROW`, which had homework on where `LARGE` had it off.
+     *
+     * What a user grows is the widget, not the breakpoint, so that is what is
+     * swept here: every size on a grid, against every size at least as large in
+     * both directions, compared through [WidgetSizeClass.of] — which is the
+     * function that decides what they will see.
+     */
+    @Test
+    fun `growing a real widget never takes anything away`() {
+        val widths = listOf(90, 110, 180, 250, 260, 320, 400, 480)
+        val heights = listOf(40, 60, 110, 150, 190, 250, 300, 360, 400, 480, 560, 640)
+        val sizes = widths.flatMap { w -> heights.map { h -> DpSize(w.dp, h.dp) } }
+
+        sizes.forEach { small ->
+            sizes.filter { it.width >= small.width && it.height >= small.height }.forEach { big ->
+                val grown = WidgetSizeClass.of(big)
+                val was = WidgetSizeClass.of(small)
+                val why = "$big (${grown.name}) is at least as large as $small (${was.name})"
+                assertTrue("$why but lists fewer lessons", grown.timelineRows >= was.timelineRows)
+                assertTrue("$why but lists less homework", grown.homeworkItems >= was.homeworkItems)
+                assertTrue("$why but truncates harder", grown.homeworkChars >= was.homeworkChars)
+                assertTrue("$why but drops the week", grown.showsWeekStrip || !was.showsWeekStrip)
+                assertTrue("$why but drops homework", grown.showsHomework || !was.showsHomework)
+                assertTrue("$why but drops tomorrow", grown.showsNextDay || !was.showsNextDay)
+            }
+        }
+    }
+
+    /**
      * Every size answers "what is next", one way or another.
      *
      * The narrow column drops the dedicated line because its timeline already

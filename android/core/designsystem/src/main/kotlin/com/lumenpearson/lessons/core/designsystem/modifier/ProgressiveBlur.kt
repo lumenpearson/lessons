@@ -24,6 +24,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import org.intellij.lang.annotations.Language
 
 /**
@@ -101,6 +103,19 @@ const val StatusBarBlurRadius: Float = 40f
 
 /** How far past the status bar the blur reaches, as a multiple of its height. */
 const val StatusBarBlurExtent: Float = 1.15f
+
+/**
+ * How far up from the bottom edge the fade reaches.
+ *
+ * Essentials' own number, from the screen this shell is modelled on:
+ * `MainActivity.kt` blurs its pager with `height = 130.dp.toPx()` and
+ * `BlurDirection.BOTTOM`, while its settings-shaped screens use 150.dp. It is a
+ * fixed distance rather than the toolbar's height, and that is the point — the
+ * fade is there to let a list dissolve on its way *towards* the toolbar, so it
+ * has to start well above it. Measured against the bar, the list stays sharp
+ * until it is already behind the bar and there is nothing left to soften.
+ */
+val BottomBlurHeight: Dp = 130.dp
 
 /** Opacity of the tint drawn over the blurred strip. */
 private const val OverlayAlpha = 0.65f

@@ -10,12 +10,12 @@ dependencies = [
     # Bot API 9.3's ``InlineKeyboardButton.style``, and on anything older every
     # coloured keyboard in ``app/bot/button_style.py`` raises at construction
     # rather than quietly drawing grey. requirements.txt already said 3.31.
-    "aiogram>=3.31",
-    "sqlalchemy[asyncio]>=2.0.30",
+    "aiogram>=3.31.0",
+    "sqlalchemy[asyncio]>=2.0.52",
     "aiosqlite>=0.20",
-    "asyncpg>=0.29",
+    "asyncpg>=0.31.0",
     "pydantic>=2.8",
-    "pydantic-settings>=2.4",
+    "pydantic-settings>=2.15.0",
     # The Petersburg diary provider talks to an upstream over HTTP. It was
     # already here as a test dependency (httpx drives the ASGI client); this
     # promotes it, because now a request path uses it.
@@ -24,7 +24,7 @@ dependencies = [
     # hashed — the diary's upstream session token (see app/crypto.py). It was
     # already present as somebody's transitive dependency; a security floor is
     # not something to inherit by accident.
-    "cryptography>=41.0",
+    "cryptography>=50.0.1",
     # Schema changes. Not in requirements.txt: migrations are run from a
     # workstation against the database, never from inside a request, and the
     # function bundle is smaller without it.

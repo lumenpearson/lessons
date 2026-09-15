@@ -6,13 +6,18 @@ import com.lumenpearson.lessons.core.data.network.dto.DiaryLessonDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryLoginRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryLoginResponseDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryMarkDto
+import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideDto
+import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryPeriodDto
+import com.lumenpearson.lessons.core.data.network.dto.DiaryResetRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryStudentDto
 import com.lumenpearson.lessons.core.data.network.dto.DiarySubjectDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryTeacherDto
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -99,4 +104,53 @@ internal interface DiaryApi {
     /** Turnstile records, newest first. */
     @GET("api/v1/diary/students/{id}/attendance")
     suspend fun attendance(@Path("id") studentId: Long): List<DiaryAttendanceDto>
+
+    /**
+     * Every correction this account has stored for this child.
+     *
+     * The only calls in this interface that write anything, and they write
+     * nothing upstream: a correction is laid over the diary's answer on the way
+     * out and never sent to the school. Marks and attendance are not in the
+     * field set, deliberately — see `services/diary_overrides` on why an app
+     * that let a family rewrite a grade would produce a false record that looks
+     * official.
+     */
+    @GET("api/v1/diary/students/{id}/overrides")
+    suspend fun overrides(@Path("id") studentId: Long): List<DiaryOverrideDto>
+
+    /**
+     * Writes or replaces one correction; the answer is the stored row.
+     *
+     * `422` here does not mean what it means on [schedule]: it is the server
+     * refusing a target it would never have produced or a field that is not
+     * correctable, not a date range. `DiaryFailure.of` cannot tell the two
+     * apart from the response, so the repository says which one it asked for.
+     */
+    @PUT("api/v1/diary/students/{id}/overrides")
+    suspend fun putOverride(
+        @Path("id") studentId: Long,
+        @Body body: DiaryOverrideRequestDto,
+    ): DiaryOverrideDto
+
+    /**
+     * Puts one field back to what the diary says. Answers 204 with no body.
+     *
+     * A POST with a body rather than a DELETE with a query string, because the
+     * value that has to match byte for byte is the target and a target can
+     * carry an ampersand: a key spelled a shade differently in a URL resets
+     * nothing and is still answered 204, which is a reset button that looks
+     * like it worked.
+     *
+     * Idempotent, and 204 whether or not there was a row: "there is no
+     * correction here" is the state the caller asked for.
+     */
+    @POST("api/v1/diary/students/{id}/overrides/reset")
+    suspend fun resetOverride(
+        @Path("id") studentId: Long,
+        @Body body: DiaryResetRequestDto,
+    )
+
+    /** Drops every correction for this child, so the diary answers for itself again. */
+    @DELETE("api/v1/diary/students/{id}/overrides/all")
+    suspend fun resetOverrides(@Path("id") studentId: Long)
 }

@@ -73,8 +73,21 @@ object SyncScheduler {
      * `KEEP` rather than `REPLACE`: if a sync is already running it will produce
      * exactly the data this call wants, and cancelling it would only make the
      * user wait longer.
+     *
+     * @param wantsDifferentData the running sync is **not** fetching what this
+     * call is asking for, so dropping this request would leave the caller with
+     * nothing. True for a class switch: a device may hold several classes, the
+     * job already in flight was signed with the previous one's token, and its
+     * result is filed under the class the server resolved — so it can neither
+     * serve nor be mistaken for the class now on screen. The request is
+     * appended rather than replacing, because the running one is still fetching
+     * something somebody asked for.
      */
-    fun syncNow(context: Context, days: Int = SyncWorker.DEFAULT_DAYS) {
+    fun syncNow(
+        context: Context,
+        days: Int = SyncWorker.DEFAULT_DAYS,
+        wantsDifferentData: Boolean = false,
+    ) {
         val builder = OneTimeWorkRequestBuilder<SyncWorker>()
             .setConstraints(constraints)
             .setInputData(workDataOf(SyncWorker.KEY_DAYS to days))
@@ -90,7 +103,7 @@ object SyncScheduler {
 
         WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
             ONE_TIME_WORK_NAME,
-            ExistingWorkPolicy.KEEP,
+            if (wantsDifferentData) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.KEEP,
             builder.build(),
         )
     }

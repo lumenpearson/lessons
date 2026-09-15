@@ -47,7 +47,19 @@ async def _touch_last_seen(session: AsyncSession, device: DeviceToken) -> None:
         # whatever attribute the endpoint touches next. So the failure this
         # branch exists to absorb used to turn into a 500 anyway. Refreshing
         # here brings the rows back inside the greenlet that can do the I/O.
-        await session.refresh(device)
+        #
+        # And the refresh itself may not raise. It is a SELECT down the
+        # connection the commit just lost, so when the commit failed it
+        # usually fails too - and this is the last statement of a branch whose
+        # entire purpose is that a failed write does not fail the read the
+        # widget asked for. A refresh that fails leaves `device` expired, which
+        # is where it was before any of this; raising would throw away the read
+        # as well. `services/diary.py:_refresh_quietly` is the same call with
+        # the same guard.
+        try:
+            await session.refresh(device)
+        except SQLAlchemyError:
+            log.warning("could not refresh device %s after a rollback", device.id, exc_info=True)
 
 
 async def current_device(

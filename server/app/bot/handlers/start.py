@@ -8,29 +8,51 @@ from html import escape
 from aiogram import F, Router
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    Message,
+    ReplyKeyboardRemove,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.keyboards import (
     ClassAction,
     DayNav,
+    GradePick,
     Menu,
+    SchoolPick,
     TimezonePick,
     back_to_menu,
     cancel_keyboard,
     day_nav,
+    grade_picker,
     main_menu,
     request_contact,
+    school_fallback,
+    school_picker,
     timezone_picker,
 )
-from app.bot.render import render_day, render_role_help
+from app.bot.render import plural, render_day, render_role_help
 from app.bot.roles import claim_phone_invites, get_role, is_env_owner
 from app.bot.states import CreateClass
 from app.config import get_settings
-from app.models import DEFAULT_BELLS, BellPeriod, BellSchedule, BotUser, Role, SchoolClass
+from app.models import (
+    DEFAULT_BELLS,
+    BellPeriod,
+    BellSchedule,
+    BotUser,
+    JoinMode,
+    Role,
+    SchoolClass,
+)
+from app.providers import dadata
 from app.schedule import ScheduleResolver
 from app.security import new_join_code
-from app.services import linking
+from app.services import audit, device_invites, linking
+from app.services import schools as schools_service
+from app.services import terms as terms_service
+from app.services.terms import TermError, compose_name, normalise_letter, validate_grade
 from app.timezones import DEFAULT_TIMEZONE, is_supported, label_for
 
 router = Router(name="start")
@@ -121,10 +143,10 @@ async def cmd_start(
         if is_env_owner(message.from_user.id):
             await message.answer(
                 "👋 Классов ещё нет. Давайте создадим первый.\n\n"
-                "Введите название класса, например <code>9А</code>:",
-                reply_markup=cancel_keyboard(),
+                "Какой это класс?",
+                reply_markup=grade_picker(),
             )
-            await state.set_state(CreateClass.name)
+            await state.set_state(CreateClass.grade)
             return
         await message.answer(WELCOME_UNKNOWN, reply_markup=request_contact())
         return
@@ -179,24 +201,72 @@ async def on_contact(
     await _send_menu(message, school_class, role)
 
 
-@router.message(CreateClass.name)
-async def create_class_name(message: Message, state: FSMContext) -> None:
-    name = (message.text or "").strip()
-    if not 1 <= len(name) <= 64:
-        await message.answer("Название должно быть от 1 до 64 символов. Попробуйте ещё раз:")
+@router.callback_query(CreateClass.grade, GradePick.filter())
+async def create_class_grade(
+    callback: CallbackQuery,
+    callback_data: GradePick,
+    state: FSMContext,
+) -> None:
+    # The payload is attacker-controlled like any other, and the keyboard is
+    # the only thing that would otherwise keep it inside 1..11.
+    try:
+        grade = validate_grade(callback_data.grade)
+    except TermError as error:
+        await callback.answer(str(error), show_alert=True)
         return
-    await state.update_data(name=name)
-    await message.answer(
-        "Теперь введите название школы (или отправьте <code>-</code>, чтобы пропустить):",
-        reply_markup=cancel_keyboard(),
+
+    await state.update_data(grade=grade)
+    await callback.message.edit_text(
+        f"Класс — <b>{grade}</b>.\n\n"
+        "Теперь буква: <code>А</code>, <code>Б</code>, <code>инж</code>… "
+        "или отправьте <code>-</code>, если буквы нет.",
     )
-    await state.set_state(CreateClass.school)
+    await state.set_state(CreateClass.letter)
+    await callback.answer()
 
 
-@router.message(CreateClass.school)
-async def create_class_school(message: Message, state: FSMContext) -> None:
-    school = (message.text or "").strip()
-    await state.update_data(school=None if school in {"-", ""} else school[:200])
+@router.message(CreateClass.letter)
+async def create_class_letter(message: Message, state: FSMContext) -> None:
+    try:
+        letter = normalise_letter(message.text)
+    except TermError as error:
+        await message.answer(str(error))
+        return
+
+    await state.update_data(letter=letter)
+    await _ask_school(message, state)
+
+
+SKIP_ANSWERS = {"-", "—", ""}
+
+SEARCH_PROMPT = (
+    "Теперь школа. Напишите название или номер — «гимназия 3», "
+    "«школа 197 Санкт-Петербург» — и бот поищет её в реестре.\n\n"
+    "Или отправьте <code>-</code>, чтобы пропустить."
+)
+
+MANUAL_PROMPT = (
+    "Введите название школы так, как оно должно стоять в карточке класса "
+    "(или отправьте <code>-</code>, чтобы пропустить):"
+)
+
+
+async def _ask_school(message: Message, state: FSMContext) -> None:
+    """The school step, in whichever form this deployment can offer.
+
+    Without a directory key there is nothing to search, so the question
+    becomes the one it has always been — type the name. Said plainly rather
+    than by showing a search box that answers «не настроено» to everything.
+    """
+    if schools_service.available():
+        await message.answer(SEARCH_PROMPT, reply_markup=cancel_keyboard())
+        await state.set_state(CreateClass.school)
+    else:
+        await message.answer(MANUAL_PROMPT, reply_markup=cancel_keyboard())
+        await state.set_state(CreateClass.school_manual)
+
+
+async def _ask_timezone(message: Message, state: FSMContext) -> None:
     await message.answer(
         "В каком часовом поясе находится школа?\n\n"
         "Это влияет на то, когда приложение и виджет считают уроки идущими — "
@@ -204,6 +274,137 @@ async def create_class_school(message: Message, state: FSMContext) -> None:
         reply_markup=timezone_picker(),
     )
     await state.set_state(CreateClass.timezone)
+
+
+@router.message(CreateClass.school)
+async def create_class_school_search(message: Message, state: FSMContext) -> None:
+    """A search query, not a name. The name arrives from a button below."""
+    raw = (message.text or "").strip()
+    if raw in SKIP_ANSWERS:
+        await state.update_data(school=None)
+        await _ask_timezone(message, state)
+        return
+
+    try:
+        result = await schools_service.search(raw)
+    except schools_service.SearchError as error:
+        await message.answer(str(error))
+        return
+    except dadata.DirectoryError as error:
+        # The directory is somebody else's service and this is a class being
+        # created: typing the name has to stay possible on a day it is down.
+        await state.update_data(school_results=[])
+        await message.answer(error.message, reply_markup=school_fallback())
+        return
+
+    if not result.schools:
+        await state.update_data(school_results=[])
+        await message.answer(
+            f"По запросу «{escape(raw)}» ничего не нашлось.\n\n"
+            "Попробуйте номер школы и город, или введите название вручную.",
+            reply_markup=school_fallback(),
+        )
+        return
+
+    # The whole result set is kept, not the page: the upstream has no offset,
+    # so paging is local and a page turn must not cost a second search.
+    await state.update_data(
+        school_results=[school.model_dump() for school in result.schools],
+        school_truncated=result.truncated,
+    )
+    page = schools_service.page_of(result.schools, 1, truncated=result.truncated)
+    await message.answer(
+        _search_caption(page),
+        reply_markup=school_picker(page, page_size=schools_service.PAGE_SIZE),
+    )
+
+
+def _search_caption(page: dadata.SchoolPage) -> str:
+    head = f"Нашлось: <b>{page.total}</b>. Выберите свою школу:"
+    if page.truncated:
+        # Twenty is their ceiling, not the number of matches. Saying "первые
+        # 20" is the only thing that tells somebody their school may be in the
+        # part that never arrived, and that a longer query is the way to it.
+        head = (
+            "Показаны первые <b>20</b> совпадений — реестр больше за раз не "
+            "отдаёт. Если своей школы нет, добавьте в запрос город или номер.\n\n"
+            "Выберите школу:"
+        )
+    return head
+
+
+def _stored_schools(data: dict) -> list[dadata.School]:
+    raw = data.get("school_results") or []
+    return [dadata.School(**item) for item in raw if isinstance(item, dict)]
+
+
+@router.callback_query(CreateClass.school, SchoolPick.filter(F.action == "page"))
+async def create_class_school_page(
+    callback: CallbackQuery,
+    callback_data: SchoolPick,
+    state: FSMContext,
+) -> None:
+    data = await state.get_data()
+    schools = _stored_schools(data)
+    if not schools:
+        await callback.answer("Поиск устарел — отправьте запрос заново", show_alert=True)
+        return
+    page = schools_service.page_of(
+        schools, callback_data.value, truncated=bool(data.get("school_truncated"))
+    )
+    await callback.message.edit_text(
+        _search_caption(page),
+        reply_markup=school_picker(page, page_size=schools_service.PAGE_SIZE),
+    )
+    await callback.answer()
+
+
+@router.callback_query(CreateClass.school, SchoolPick.filter(F.action == "pick"))
+async def create_class_school_pick(
+    callback: CallbackQuery,
+    callback_data: SchoolPick,
+    state: FSMContext,
+) -> None:
+    schools = _stored_schools(await state.get_data())
+    # The payload is attacker-controlled like any other; the index is checked
+    # against the list rather than trusted to be one the keyboard drew.
+    if not 0 <= callback_data.value < len(schools):
+        await callback.answer("Поиск устарел — отправьте запрос заново", show_alert=True)
+        return
+
+    school = schools[callback_data.value]
+    await state.update_data(
+        school=schools_service.stored_name(school),
+        school_results=[],
+    )
+    await callback.message.edit_text(f"Школа: <b>{escape(school.name)}</b>")
+    await _ask_timezone(callback.message, state)
+    await callback.answer()
+
+
+@router.callback_query(CreateClass.school, SchoolPick.filter(F.action == "manual"))
+async def create_class_school_manual(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.update_data(school_results=[])
+    await callback.message.edit_text(MANUAL_PROMPT)
+    await state.set_state(CreateClass.school_manual)
+    await callback.answer()
+
+
+@router.callback_query(CreateClass.school, SchoolPick.filter(F.action == "skip"))
+async def create_class_school_skip(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.update_data(school=None, school_results=[])
+    await callback.message.edit_text("Школа не указана.")
+    await _ask_timezone(callback.message, state)
+    await callback.answer()
+
+
+@router.message(CreateClass.school_manual)
+async def create_class_school_typed(message: Message, state: FSMContext) -> None:
+    school = (message.text or "").strip()
+    await state.update_data(
+        school=None if school in SKIP_ANSWERS else school[: schools_service.MAX_NAME]
+    )
+    await _ask_timezone(message, state)
 
 
 @router.callback_query(CreateClass.timezone, TimezonePick.filter())
@@ -222,15 +423,19 @@ async def create_class_timezone(
         return
 
     data = await state.get_data()
-    if "name" not in data:
+    if "grade" not in data:
         await state.clear()
         await callback.answer("Начните сначала: /start", show_alert=True)
         return
     zone = callback_data.zone if is_supported(callback_data.zone) else DEFAULT_TIMEZONE
 
     bells = BellSchedule(class_id=0, name="Обычное")
+    grade = data["grade"]
+    letter = data.get("letter")
     school_class = SchoolClass(
-        name=data["name"],
+        name=compose_name(grade, letter, fallback=str(grade)),
+        grade=grade,
+        letter=letter,
         school=data.get("school"),
         timezone=zone,
         join_code=new_join_code(),
@@ -248,6 +453,12 @@ async def create_class_timezone(
         )
 
     school_class.bell_schedule_id = bells.id
+    # Seeded here rather than lazily on first read so the class has четверти
+    # from the moment it exists — the scheme follows the grade that was just
+    # picked, and every date is editable afterwards.
+    await terms_service.ensure(
+        session, school_class, terms_service.opening_year_of(datetime.now(school_class.tz).date())
+    )
     session.add(
         BotUser(
             telegram_id=callback.from_user.id,
@@ -349,15 +560,32 @@ async def cmd_code(
     school_class: SchoolClass | None,
     role: Role | None,
 ) -> None:
-    """Show the join code the Android app needs."""
+    """Show the join code the Android app needs.
+
+    Still shown while the class is on invitations, because it is not gone —
+    it is dormant, and the switch back makes it work again. What changes is
+    the sentence under it: «введите его в приложении» about a code the app
+    now refuses would send an admin to look for the fault in the app.
+    """
     if school_class is None or role is None or not role.at_least(Role.ADMIN):
         await message.answer("Команда доступна администраторам класса.")
         return
+    if school_class.join_mode is JoinMode.INVITE:
+        tail = (
+            "Сейчас он ничего не открывает: класс подключает телефоны только "
+            "по личным приглашениям. Личный код на один телефон берут в меню "
+            "/start — кнопка «📱 Подключить телефон»; она есть у каждого, кто "
+            "в классе.\n\n"
+            "Вернуть вход по коду можно в разделе «👥 Доступ»."
+        )
+    else:
+        tail = (
+            "Его вводят в приложении при первом запуске. "
+            "Код даёт только чтение расписания."
+        )
     await message.answer(
         f"Код класса <b>{escape(school_class.name)}</b>: "
-        f"<code>{escape(school_class.join_code)}</code>\n\n"
-        "Его вводят в приложении при первом запуске. "
-        "Код даёт только чтение расписания.",
+        f"<code>{escape(school_class.join_code)}</code>\n\n" + tail,
     )
 
 
@@ -384,6 +612,72 @@ async def rotate_code(
     await callback.answer("Код обновлён")
 
 
+@router.callback_query(Menu.filter(F.action == "phone"))
+async def phone_code(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """A code for the presser's own phone, in either join mode.
+
+    No role check beyond membership, and the bound is on what the phone may
+    **do**, not on how many phones there are: it acts with whatever role this
+    account holds at the moment of each request, so a наблюдатель minting one
+    gets a наблюдатель's phone, and a demotion follows it the same second.
+
+    What it is *not* bounded by is forwarding. Anybody in the class can press
+    this repeatedly and pass the codes on, so in «по приглашению» the class is
+    joinable by whoever a member chooses to let in — the bot has replaced one
+    shared secret with a named person deciding each time, not with a smaller
+    number of readers. Every phone that arrives this way carries the account
+    that let it in, in «📱 Устройства» and in the journal, which is the part
+    that makes the trade worth it.
+    """
+    if school_class is None or role is None:
+        await callback.answer("Нет доступа", show_alert=True)
+        return
+
+    code = await device_invites.mint(
+        session, telegram_id=callback.from_user.id, class_id=school_class.id
+    )
+    await audit.record(
+        session,
+        school_class.id,
+        callback.from_user.id,
+        "device.invite",
+        "выдан личный код на подключение телефона",
+    )
+    await session.commit()
+    minutes = plural(device_invites.CODE_MINUTES, "минуту", "минуты", "минут")
+    await callback.message.edit_text(
+        "📱 <b>Подключить телефон</b>\n\n"
+        # Named, because the code is minted for whichever class is active and
+        # somebody in two of them has no other way to see which that is. A
+        # phone silently joined to the wrong child's class looks exactly like a
+        # phone joined to the right one.
+        f"Класс: <b>{escape(school_class.name)}</b>\n"
+        f"Ваш код: <code>{code}</code>\n\n"
+        f"Введите его в приложении при первом запуске. Код действует {minutes} "
+        "и годится для одного телефона — для второго нажмите кнопку ещё раз.\n\n"
+        "Телефон, который его введёт, сразу станет вашим: он будет работать с "
+        f"вашей ролью (<b>{role.title_ru}</b>), и отдельно присылать код "
+        "привязки не нужно.",
+        # The button again, so «нажмите кнопку ещё раз» is something the person
+        # can actually do from the screen that says it.
+        reply_markup=back_to_menu(
+            [
+                [
+                    InlineKeyboardButton(
+                        text="📱 Ещё код", callback_data=Menu(action="phone").pack()
+                    )
+                ]
+            ]
+        ),
+    )
+    await callback.answer()
+
+
 HELP_SECTIONS: list[tuple[Role | None, str, list[str]]] = [
     (
         None,
@@ -406,7 +700,13 @@ HELP_SECTIONS: list[tuple[Role | None, str, list[str]]] = [
             "/task <i>текст</i> — добавить задачу одной строкой",
             "/remind — напоминания и сводки",
             "/calendar — подписка на календарь",
-            "/link — привязать телефон к аккаунту",
+            # Named here as well as on the menu, because the comment on the
+            # button in `keyboards.py` says people never find `/link` — and a
+            # help page that lists only `/link` sends somebody in «по
+            # приглашению» to the one route that cannot work there: it needs a
+            # phone that is already in the class.
+            "«📱 Подключить телефон» в /start — код на один телефон",
+            "/link — привязать телефон, который уже подключён к классу",
             "/request — запросить доступ повыше",
         ],
     ),
@@ -423,7 +723,7 @@ HELP_SECTIONS: list[tuple[Role | None, str, list[str]]] = [
             "/export — выгрузить расписание текстом",
             "/import — загрузить расписание текстом",
             "/stats — статистика класса",
-            "/code — код класса для приложения",
+            "/code — код класса для приложения (в «по приглашению» не действует)",
         ],
     ),
 ]

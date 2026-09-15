@@ -475,7 +475,7 @@ async def test_due_digests_counts_today_in_the_class_zone(session, school_class)
     settings.morning_at = time(7, 30)
     await session.commit()
 
-    await reminders.mark_sent(session, settings, "morning", MONDAY)
+    assert await reminders.claim(session, settings, "morning", MONDAY) is True
     assert settings.last_morning_sent == MONDAY
     assert await reminders.due_digests(session, VLADIVOSTOK_0730) == []
 
@@ -487,7 +487,7 @@ async def test_due_digests_counts_today_in_the_class_zone(session, school_class)
     assert len(await reminders.due_digests(session, VLADIVOSTOK_0730 + timedelta(days=1))) == 1
 
     # Sent yesterday means due today.
-    await reminders.mark_sent(session, settings, "morning", MONDAY - timedelta(days=1))
+    await reminders.claim(session, settings, "morning", MONDAY - timedelta(days=1))
     assert len(await reminders.due_digests(session, VLADIVOSTOK_0730)) == 1
 
 
@@ -509,12 +509,33 @@ async def test_due_digests_evening_and_naive_utc(session, school_class):
     assert [kind for _, _, kind in due] == ["morning", "evening"]
 
 
-async def test_mark_sent_rejects_an_unknown_kind(session, school_class):
+async def test_claim_rejects_an_unknown_kind(session, school_class):
     settings = await reminders.settings_for(session, school_class.id, 42)
     with pytest.raises(ValueError):
-        await reminders.mark_sent(session, settings, "noon", MONDAY)
-    await reminders.mark_sent(session, settings, "evening", MONDAY)
+        await reminders.claim(session, settings, "noon", MONDAY)
+    assert await reminders.claim(session, settings, "evening", MONDAY) is True
     assert settings.last_evening_sent == MONDAY and settings.last_morning_sent is None
+
+
+async def test_only_one_of_two_overlapping_ticks_may_send(session, school_class):
+    """The claim is what stops a digest going out twice.
+
+    `due_digests` selects and `send_due` marks as it reaches each row, so a
+    tick that starts while another is still working used to select the same
+    rows and send them again. Marking before sending protects against a tick
+    that dies halfway, which is a different failure — and this deployment has
+    both, because `reminders.yml` timing `curl` out does not stop the
+    serverless invocation it started.
+    """
+    settings = await reminders.settings_for(session, school_class.id, 42)
+
+    assert await reminders.claim(session, settings, "morning", MONDAY) is True
+    # The second tick, holding the same row it selected a moment earlier.
+    assert await reminders.claim(session, settings, "morning", MONDAY) is False
+    # Tomorrow is a different claim and is still there to be taken.
+    assert await reminders.claim(
+        session, settings, "morning", MONDAY + timedelta(days=1)
+    ) is True
 
 
 async def test_due_task_reminders_compare_class_wall_time(session, school_class):
@@ -789,7 +810,8 @@ async def test_render_ics_writes_lessons_events_homework_and_tasks(session, scho
         ]
     )
     await session.commit()
-    await _homework(session, school_class, MONDAY)
+    homework = await _homework(session, school_class, MONDAY)
+    event = await session.scalar(select(DayEvent).where(DayEvent.class_id == cid))
     task = await tasks.add_task(
         session,
         cid,
@@ -832,12 +854,12 @@ async def test_render_ics_writes_lessons_events_homework_and_tasks(session, scho
     assert f"UID:lesson-{cid}-2026-09-07-3@lessons" not in lines
     assert "SUMMARY:История" not in lines
 
-    assert f"UID:event-{cid}-2026-09-07-1@lessons" in lines
+    assert f"UID:event-{cid}-id{event.id}@lessons" in lines
     assert "SUMMARY:Столовая" in lines
     assert "LOCATION:1 этаж" in lines
     assert "DTSTART;TZID=Europe/Moscow:20260907T123000" in lines
 
-    assert f"UID:homework-{cid}-2026-09-07-1@lessons" in lines
+    assert f"UID:homework-{cid}-id{homework.id}@lessons" in lines
     assert "DUE;VALUE=DATE:20260907" in lines
     assert "SUMMARY:Алгебра: № 12–15" in lines
 
@@ -1203,3 +1225,101 @@ async def test_export_roundtrips_through_parse(session, school_class):
 
 def test_export_of_nothing_is_empty():
     assert timetable_io.export_timetable([], []) == ""
+
+
+async def test_a_calendar_uid_survives_its_neighbour_being_deleted(session, school_class):
+    """UIDs used to be the item's position within its day, which is not an
+    identity.
+
+    Delete the first of three заданий and the other two slid up into its UID
+    and the second's. A subscriber's client reads a UID as "which to-do is
+    this", so two of them silently changed into different subjects — ticked-off
+    ones included — and a third disappeared. Nothing in the feed said anything
+    had happened.
+    """
+    algebra = await _homework(session, school_class, MONDAY, subject="Алгебра")
+    biology = await _homework(session, school_class, MONDAY, subject="Биология")
+    history = await _homework(session, school_class, MONDAY, subject="История")
+
+    def uids_of(ics: str) -> dict[str, str]:
+        """Subject -> the UID the feed gave it."""
+        out, current = {}, None
+        for line in ics.split("\r\n"):
+            if line.startswith("UID:homework-"):
+                current = line
+            elif line.startswith("SUMMARY:") and current is not None:
+                out[line[len("SUMMARY:"):].split(":")[0]] = current
+                current = None
+        return out
+
+    async def render() -> dict[str, str]:
+        days = await ScheduleResolver(session, school_class).resolve_range(MONDAY, 1)
+        return uids_of(
+            calendar.render_ics(
+                school_class, days, generated_at=datetime(2026, 9, 6, 12, 0, tzinfo=UTC)
+            )
+        )
+
+    before = await render()
+    assert set(before) == {"Алгебра", "Биология", "История"}
+
+    await session.delete(algebra)
+    await session.commit()
+    after = await render()
+
+    assert set(after) == {"Биология", "История"}
+    assert after["Биология"] == before["Биология"]
+    assert after["История"] == before["История"]
+    assert str(biology.id) in after["Биология"] and str(history.id) in after["История"]
+
+
+def test_a_comma_inside_a_field_survives_the_round_trip():
+    """The module docstring promises that a paste produced by the export
+    survives the import unchanged. It did not.
+
+    «Иностранный язык, второй» was written out plain and read back as the
+    subject «Иностранный язык» in a room called «второй» — nothing rejected,
+    nothing logged, the row simply became two different things. Teachers had it
+    too: «Иванов И.И., к.п.н.» lost everything after the comma into a field
+    that did not exist.
+    """
+    combinations = [
+        ("Физика", None, None),
+        ("Физика", "305", None),
+        ("Физика", "305", "Петров П.П."),
+        ("Физика", None, "Петров П.П."),
+        ("Иностранный язык, второй", None, None),
+        ("Иностранный язык, второй", "305", None),
+        ("Иностранный язык, второй", "305", "Иванов И.И., к.п.н."),
+        ("Физика", "каб. 3, левый", "Петров"),
+        ("Физика", "305", "Иванов И.И., к.п.н."),
+        ('Он сказал "да"', "12", None),
+    ]
+    for parity in (WeekParity.ANY, WeekParity.ODD, WeekParity.EVEN):
+        for subject, room, teacher in combinations:
+            entry = TimetableEntry(
+                weekday=1, index=1, subject_name=subject, room=room,
+                teacher=teacher, parity=parity,
+            )
+            line = timetable_io.format_lesson_line(entry)
+            parsed = timetable_io.parse_lesson_line(line)
+            assert parsed is not None, line
+            assert parsed[1:] == (subject, room, teacher, parity), line
+
+
+def test_an_ordinary_line_is_written_exactly_as_it_always_was():
+    """Quoting is only for the fields that need it: every paste anybody has
+    written so far has to keep meaning what it meant."""
+    plain = TimetableEntry(
+        weekday=1, index=2, subject_name="Физика", room="305",
+        teacher="Иванова И.И.", parity=WeekParity.ANY,
+    )
+    assert timetable_io.format_lesson_line(plain) == "2. Физика, 305, Иванова И.И."
+
+
+def test_the_last_field_keeps_its_commas_without_quoting():
+    """A teacher is third and takes everything left, so «к.п.н.» needs no
+    syntax — which is what keeps the format typeable by hand."""
+    assert timetable_io.parse_lesson_line("1. Физика, 305, Иванов И.И., к.п.н.") == (
+        1, "Физика", "305", "Иванов И.И., к.п.н.", WeekParity.ANY,
+    )

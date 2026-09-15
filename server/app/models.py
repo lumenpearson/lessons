@@ -94,6 +94,42 @@ class DayKind(enum.StrEnum):
     REMOTE = "remote"  # дистанционное обучение
 
 
+class JoinMode(enum.StrEnum):
+    """How a phone is allowed into a class.
+
+    ``OPEN`` is what every class has always been: the class code admits whoever
+    types it. That code is printed on paper, read out in a chat and forwarded,
+    and it is the whole of the access control around somebody's timetable — the
+    throttle on :class:`JoinAttempt` exists because of exactly that.
+
+    ``INVITE`` stops the class code admitting anything. A phone gets in on a
+    personal one-time code the bot hands to a member, which means the class can
+    only be joined by somebody the bot already recognises as being in it.
+
+    The two are not a hierarchy of trust so much as a choice about who is doing
+    the vouching: in ``OPEN`` it is whoever passed the code on, in ``INVITE`` it
+    is the bot. Switching is reversible and takes nothing away — see
+    ``services/device_invites.py``.
+    """
+
+    OPEN = "open"
+    INVITE = "invite"
+
+
+class TermKind(enum.StrEnum):
+    """How a school year is cut up.
+
+    Younger classes are taught in four quarters; 10 and 11 are usually taught
+    in two semesters, because that is how the leaving exams are organised. The
+    scheme follows the grade by default and is editable, since a school is free
+    to do neither — and plenty do тримест­ры, which is why this is stored per
+    class rather than derived on every read.
+    """
+
+    QUARTER = "quarter"  # четверть
+    SEMESTER = "semester"  # полугодие
+
+
 class EventKind(enum.StrEnum):
     EVENT = "event"
     CANTEEN = "canteen"
@@ -108,13 +144,42 @@ class SchoolClass(Base):
     __tablename__ = "classes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # The display name ("9А"). Still the one field every screen renders, and
+    # still free-form for a class that calls itself something else — but it is
+    # now composed from grade + letter when those are known, rather than typed.
     name: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Which year of school this is, 1 to 11. Typed as a number rather than read
+    # out of the name because the rest of the app has to reason about it: the
+    # term scheme follows it, and "9А" is not something to parse — a class may
+    # be "9 инж", "11 ФМ" or "5-й Б", and a regular expression over that is a
+    # guess that fails silently on the one class that is written differently.
+    #
+    # Nullable: every class that existed before this column has a name and no
+    # number, and inventing one from the name is exactly the guess above.
+    grade: Mapped[int | None] = mapped_column(Integer)
+    # "А", "Б", … or whatever distinguishes two classes of the same year.
+    letter: Mapped[str | None] = mapped_column(String(8))
     school: Mapped[str | None] = mapped_column(String(200))
     city: Mapped[str | None] = mapped_column(String(120))
     # Russia spans eleven time zones, so this belongs to the class rather than
     # to the deployment. Null means "use the server default".
     timezone: Mapped[str | None] = mapped_column(String(64))
     join_code: Mapped[str] = mapped_column(String(16), unique=True, index=True, nullable=False)
+    # Whether that code is enough on its own. See :class:`JoinMode`; the default
+    # is what every class already was, so switching is something an admin does
+    # rather than something that happened to them.
+    join_mode: Mapped[JoinMode] = mapped_column(
+        SAEnum(JoinMode, native_enum=False),
+        default=JoinMode.OPEN,
+        # `.name`, not `.value`. SQLAlchemy stores a PEP-435 enum by member
+        # name unless told otherwise, so the column holds «OPEN» — as `role`
+        # and `term_kind` already do — and a server default of «open» would be
+        # a value the ORM cannot read back. Every class would carry it, and the
+        # first read of one would raise; for the bot that read is the
+        # middleware, which is how the whole bot dies at once.
+        server_default=JoinMode.OPEN.name,
+        nullable=False,
+    )
     # Secret path segment of the class's iCal feed. Separate from the join code
     # on purpose: a calendar subscription URL ends up in Google Calendar's
     # settings, a family laptop and the odd screenshot, and none of those
@@ -136,11 +201,19 @@ class SchoolClass(Base):
     # *member* a way to sign in to their own account and read their own diary
     # in the same chat — which is why nothing here holds a credential.
     diary_provider: Mapped[str | None] = mapped_column(String(32))
-    # Whether anyone with the join code may read the class, or only people an
-    # admin let in. A public class is the honest default for a school whose
-    # timetable is on a wall anyway; a private one is for a class that treats
-    # its roster as its own business.
-    is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # `is_public` used to sit here. It was toggled from «⚙️ Класс», printed on
+    # the card as «публичный / закрытый», and read by nothing at all: an admin
+    # who closed the class closed nothing, and the screen told them otherwise.
+    # `join_mode` above is that promise actually kept. The column is still in
+    # Postgres — dropping one is not additive, and every revision after 0001
+    # here is — with a server default, so an insert that omits it is fine.
+    # Nothing is to be hung on it again; a second flag meaning «кого пускают»
+    # is how the two start disagreeing.
+    # Which scheme this class's year is cut into. Null means "follow the
+    # grade" — quarters up to 9, semesters at 10 and 11 — which is what
+    # `term_kind_for` resolves; storing the answer only once somebody has
+    # chosen it keeps "not decided" different from "deliberately quarters".
+    term_kind: Mapped[TermKind | None] = mapped_column(SAEnum(TermKind, native_enum=False))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     bell_schedule: Mapped[BellSchedule | None] = relationship(
@@ -274,6 +347,41 @@ class DayOverride(Base):
         ForeignKey("bell_schedules.id", ondelete="SET NULL")
     )
     note: Mapped[str | None] = mapped_column(Text)
+
+
+class Term(Base):
+    """One четверть or полугодие, as this class actually runs it.
+
+    Stored rather than computed because the dates are a school's own decision:
+    the конец четверти moves for каникулы, for a quarantine, for a region that
+    starts its spring break a week early. `app/services/terms.py` seeds a set
+    of conventional ones when a class is created, and every one of them is
+    meant to be edited afterwards — which is the whole reason they are rows.
+
+    ``index`` is 1-based and counts within the year: quarters 1..4, semesters
+    1..2. It is not derived from the dates, so a class that has not filled in
+    the third quarter yet still knows the fourth is the fourth.
+    """
+
+    __tablename__ = "terms"
+    __table_args__ = (
+        UniqueConstraint("class_id", "year", "index", name="uq_term_slot"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    class_id: Mapped[int] = mapped_column(
+        ForeignKey("classes.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    # The year the school year *opened* in — 2026 for 2026/27. One number
+    # rather than a span, so "which terms are this year's" is an equality
+    # rather than a range query over two columns that could disagree.
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[TermKind] = mapped_column(
+        SAEnum(TermKind, native_enum=False), default=TermKind.QUARTER, nullable=False
+    )
+    index: Mapped[int] = mapped_column(Integer, nullable=False)
+    starts_on: Mapped[Date] = mapped_column(SADate, nullable=False)
+    ends_on: Mapped[Date] = mapped_column(SADate, nullable=False)
 
 
 class LessonOverride(Base):
@@ -687,6 +795,111 @@ class DiaryLinkCode(Base):
     # one attempt: a code that survived a wrong password would let whoever has
     # the link keep guessing against the upstream from our address.
     used_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class DeviceInvite(Base):
+    """A one-time code that lets one phone into one class.
+
+    The counterpart of the class code, and the only way in when the class is in
+    :attr:`JoinMode.INVITE`. A class code is one secret shared by everybody, so
+    it is worth exactly as much as the least careful person who has it; this is
+    worth one join, for fifteen minutes, for one Telegram account, and the bot
+    only hands one to somebody it already recognises as a member of that class.
+
+    Redeeming it does two things at once, which is the point: it mints the
+    device token **and** links the device to the account that asked for the
+    code. In ``OPEN`` a phone joins anonymously and links afterwards by typing
+    a second code into the bot, and most never do — so the class ends up full
+    of devices nobody can name. Here the name comes for free, because the code
+    could not have been issued without it.
+
+    Stored as a hash like every other credential in this schema, so a leak of
+    this table is a list of codes that cannot be used.
+    """
+
+    __tablename__ = "device_invites"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    class_id: Mapped[int] = mapped_column(
+        ForeignKey("classes.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    #: Who asked, and therefore who the device that redeems this belongs to.
+    telegram_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    #: Set the moment it is redeemed. One code is one phone.
+    used_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    @property
+    def is_used(self) -> bool:
+        return self.used_at is not None
+
+
+class DiaryOverride(Base):
+    """One correction a family laid over something the diary sent down.
+
+    Nothing here changes dnevnik2. The upstream is read-only to this project
+    and will stay that way; what this table holds is a value put **over** the
+    one that came down, on the way out, so that «сбросить» is a delete rather
+    than a second guess at what was there before. A row is the correction; its
+    absence is the upstream's own answer.
+
+    **Keyed by the account, not by the session.** Signing out and back in makes
+    a new :class:`DiarySession` row, and a correction that went with it would
+    make the reset button meaningless — the correction would already be gone,
+    silently, the first time the upstream session expired. ``login`` is what
+    survives, and it is the same string the session row already stores.
+
+    ``target`` names the thing being corrected **semantically** rather than by
+    position: a homework item by its upstream id when it has one and by (day,
+    subject) when it does not, a lesson by (day, number) or (day, subject).
+    Positional keys were tried once in this project, for calendar UIDs, and
+    deleting one item silently moved every correction after it onto a different
+    lesson. Nothing in this schema is allowed to be addressed by its index in a
+    list again.
+
+    ``original`` is what the upstream said **at the moment the correction was
+    made**, and it is kept for one reason: so that the upstream moving
+    afterwards can be noticed. A teacher who finally fills in the homework a
+    family had typed in themselves must not have it hidden behind the older
+    correction with nothing on screen to say so. The read path compares and
+    flags it; it never resets on its own, because that would throw away what a
+    person wrote.
+    """
+
+    __tablename__ = "diary_overrides"
+    __table_args__ = (
+        UniqueConstraint("login", "student_id", "target", "field", name="uq_diary_override"),
+        Index("ix_diary_override_owner", "login", "student_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: The upstream account, **case-folded** — ``services/diary.py:owner_key``
+    #: is the only thing that writes or queries this column, and it folds.
+    #:
+    #: Unlike ``DiarySession.login``, which is kept exactly as it was typed
+    #: because it is what «вы вошли как» prints. This one is a key, and the
+    #: upstream treats ``Ivan@mail.ru`` and ``ivan@mail.ru`` as one account —
+    #: so keeping the casing here would file one family's corrections under two
+    #: owners, and the set that went missing would have no reset button left,
+    #: there being nothing to reset. The consequence to remember: this column
+    #: **must not** be joined against ``diary_sessions.login``.
+    login: Mapped[str] = mapped_column(String(200), nullable=False)
+    #: Which child, for an account that carries several.
+    student_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    #: See the class docstring: semantic, never positional.
+    target: Mapped[str] = mapped_column(String(300), nullable=False)
+    #: Which field of that item. The set is closed and lives in
+    #: ``app/services/diary_overrides.py``; marks and attendance are not in it.
+    field: Mapped[str] = mapped_column(String(40), nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    #: What the upstream said when this was written; null when it said nothing.
+    original: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
 
 
 DEFAULT_BELLS: list[tuple[int, time, time]] = [

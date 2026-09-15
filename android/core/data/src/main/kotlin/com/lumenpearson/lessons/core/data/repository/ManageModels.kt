@@ -25,6 +25,51 @@ import retrofit2.HttpException
  * had, only the time the class says it was.
  */
 
+/**
+ * How a phone is let into the class.
+ *
+ * An enum rather than the raw string it arrives as, because every screen that
+ * asks this question asks it twice — which icon, which sentence — and a typo in
+ * one of the two comparisons would be a row that says «открытый» under a lock.
+ *
+ * [fromWire] reads anything it does not recognise as [OPEN], and that direction
+ * is deliberate. A phone older than the server will meet modes this build has
+ * never heard of, and the two wrong answers are not equally wrong: [OPEN] is
+ * what every class was before this feature existed, so it is the reading that
+ * describes the class the user is most likely looking at, and it is the reading
+ * whose screen — «код класса работает» — is checked against the server on the
+ * very next join. Refusing to decode, or defaulting to [INVITE], would hide a
+ * working class code behind a padlock nobody can explain.
+ */
+enum class ClassJoinMode {
+
+    /** The class code admits whoever types it. What every class starts as. */
+    OPEN,
+
+    /**
+     * The class code admits nobody; a phone gets in on a personal one-time
+     * code the bot hands to a member.
+     */
+    INVITE,
+    ;
+
+    /** The spelling `server/app/models.py:JoinMode` uses. */
+    fun toWire(): String = when (this) {
+        OPEN -> WIRE_OPEN
+        INVITE -> WIRE_INVITE
+    }
+
+    companion object {
+
+        private const val WIRE_OPEN: String = "open"
+        private const val WIRE_INVITE: String = "invite"
+
+        /** Anything but a known mode is [OPEN]; see the type's own comment. */
+        fun fromWire(raw: String?): ClassJoinMode =
+            if (raw?.trim()?.lowercase() == WIRE_INVITE) INVITE else OPEN
+    }
+}
+
 /** The card «⚙️ Класс» draws, with the counts under it. */
 data class ManagedClass(
     val id: Long,
@@ -35,11 +80,47 @@ data class ManagedClass(
     /** "МСК+2 (UTC+5) · Екатеринбург" — the bot's own label, so it is not built twice. */
     val timezoneLabel: String,
     val joinCode: String,
+    /** Whether [joinCode] is enough on its own, or only a bot invite is. */
+    val joinMode: ClassJoinMode,
     val members: Int,
     val devices: Int,
     val pendingRequests: Int,
     val bellScheduleId: Long?,
     val calendarReady: Boolean,
+)
+
+/** One school out of the directory, as the picker draws it. */
+data class School(
+    /** What goes on a button, and what is written to the class when it is picked. */
+    val name: String,
+    /** The register's own spelling — the only unambiguous name there is. */
+    val fullName: String,
+    val ogrn: String?,
+    val address: String?,
+    val city: String?,
+    val region: String?,
+    /** False for one the register has closed. Shown and marked, never hidden. */
+    val active: Boolean,
+) {
+    /** The name, and the city when there is one — two schools share a number. */
+    val label: String get() = city?.let { "$name · $it" } ?: name
+}
+
+/**
+ * One screenful of results.
+ *
+ * [truncated] is **not** «есть ещё страницы» — [pages] counts those. It means
+ * the directory's own ceiling of twenty rows was reached, so this is the first
+ * twenty of an unknown number and the way to the rest is a longer query, not a
+ * next page. A screen that shows «найдено 20» for a search matching three
+ * hundred schools has read [total] and ignored this.
+ */
+data class SchoolPage(
+    val items: List<School>,
+    val page: Int,
+    val pages: Int,
+    val total: Int,
+    val truncated: Boolean,
 )
 
 /**
@@ -278,6 +359,18 @@ sealed class ManageFailure(message: String, cause: Throwable? = null) :
     data class Invalid(val detail: String?) :
         ManageFailure(detail ?: "The server could not accept these values")
 
+    /**
+     * `503`: the feature is switched off or its upstream is not answering.
+     *
+     * Its own case rather than an [Unexpected] because nothing is broken and
+     * the screen has somewhere to go: the school directory needs a key this
+     * deployment may not have, and the answer to that is to let the name be
+     * typed rather than to retry or to report a bug. [detail] is the server's
+     * own Russian sentence, which already says exactly that.
+     */
+    data class Unavailable(val detail: String?) :
+        ManageFailure(detail ?: "This feature is not available right now")
+
     /** No answer at all: no network, wrong address, a timeout. */
     data class Offline(val reason: Throwable) :
         ManageFailure("Could not reach the server", reason)
@@ -340,6 +433,7 @@ sealed class ManageFailure(message: String, cause: Throwable? = null) :
                 404 -> NotFound
                 409 -> Refused(said.ifBlank { null })
                 422 -> Invalid(said.ifBlank { null })
+                503 -> Unavailable(said.ifBlank { null })
                 else -> Unexpected(code = code, reason = null)
             }
         }

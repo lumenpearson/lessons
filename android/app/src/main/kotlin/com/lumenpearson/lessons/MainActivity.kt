@@ -16,6 +16,7 @@ import com.lumenpearson.lessons.core.data.diagnostics.CrashReporter
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealHost
+import com.lumenpearson.lessons.core.designsystem.theme.rememberThemeRevealState
 import com.lumenpearson.lessons.core.designsystem.theme.resolvesToDark
 import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.DeepLink
@@ -126,6 +127,11 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
+            // Created here, above the theme, because the tint below needs to
+            // know when a photograph is on screen and the bars are not part of
+            // the composition the host wraps.
+            val themeReveal = rememberThemeRevealState(enabled = shell.settings.themeReveal)
+
             // Which way to tint the clock, the battery and the gesture bar.
             //
             // `enableEdgeToEdge()` on its own reads the *system* night mode to
@@ -134,8 +140,17 @@ class MainActivity : ComponentActivity() {
             // drawing white status-bar icons onto a white page. Re-applied
             // whenever the answer changes, which is the supported way to do it —
             // the call is idempotent.
+            //
+            // Held while the reveal is running. The bars are painted by the
+            // window, above everything the circle wipes, so re-tinting them when
+            // the setting changes puts dark icons over a photograph that is
+            // still light — for as long as the wavefront takes to reach the top
+            // of the screen, which from a switch in «Оформление» is most of the
+            // animation. Waiting costs nothing: until the wave arrives the old
+            // tint is the correct one for what is actually drawn up there.
             val darkTheme = shell.settings.themeMode.resolvesToDark()
-            LaunchedEffect(darkTheme) {
+            LaunchedEffect(darkTheme, themeReveal.revealing) {
+                if (themeReveal.revealing) return@LaunchedEffect
                 val bars = SystemBarStyle.auto(
                     lightScrim = Color.TRANSPARENT,
                     darkScrim = Color.TRANSPARENT,
@@ -153,7 +168,7 @@ class MainActivity : ComponentActivity() {
                 // Wraps the app rather than living inside a screen: the circle
                 // has to cross the whole window, and the still it wipes away is
                 // a photograph of the whole window.
-                ThemeRevealHost(enabled = shell.settings.themeReveal) {
+                ThemeRevealHost(state = themeReveal) {
                     LessonsApp(
                         signedIn = shell.signedIn,
                         settings = shell.settings,

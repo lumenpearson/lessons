@@ -39,7 +39,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 762 tests, about two and a half minutes
+- **`python -m pytest -q`** — 1024 tests, about four minutes
 - `python -m pytest -q tests/test_schedule.py -k parity` — one file, one test
 - `python -m uvicorn app.main:app --reload` — run it; add `--host 0.0.0.0` for a phone to
   reach it
@@ -83,8 +83,12 @@ Server modules:
   grammar (`services/timetable_io.py`) and one set of mutations
   (`services/timetable_edit.py`) — the editor's ‹ › pager and «⏱ Перемены» switch live in
   the callback payload, never in FSM state
-- `providers/petersburg/` — the one foreign service, behind `client.py` / `mapper.py` /
-  `models.py`; nothing above `models.py` knows the words `p_educations[]` or `X-JWT-Token`
+- `providers/` — the two foreign services, each behind `client.py` / `mapper.py` /
+  `models.py`. `petersburg/` is the electronic diary: nothing above `models.py` knows the
+  words `p_educations[]` or `X-JWT-Token`. `dadata/` is the school directory, a search over
+  ЕГРЮЛ because no downloadable register of Russian schools exists; without `DADATA_TOKEN`
+  it refuses at the door and the bot asks for the name to be typed, exactly as the diary
+  refuses without `DIARY_SECRET`
 
 Android modules (`android/settings.gradle.kts`):
 
@@ -125,7 +129,7 @@ points Hilt does not inject cleanly.
   this project failed on four invented versions that exist in no repository.
 - **Commit messages are English sentences that say what the change makes the project do** —
   "Let the class be run from the phone, by the same rules as from the bot". No Conventional
-  Commits prefix (none of the 74 commits has one), and the body explains the reasoning and
+  Commits prefix (none of the 178 commits has one), and the body explains the reasoning and
   names what is left uncovered. Unlike the owner's other repositories, this history does
   carry a `Co-Authored-By: Claude …` trailer; keep doing what the history does.
 - **Say what is not covered.** The README has a "Честный статус" section and it is honest on
@@ -148,6 +152,18 @@ points Hilt does not inject cleanly.
   fits. With five rungs, a 4-cell-wide widget taller than about 471 dp landed on the narrow
   110×300 column and drew half a screen of one column. Do not remove an intermediate rung to
   tidy the enum; `WidgetSizeClassTest` reproduces the launcher's rule and will say so.
+- **A phone gets into a class two ways, and one of them is not read-only.** The
+  class code (eight characters) buys an anonymous, read-only token. A personal
+  code from the bot's «📱 Подключить телефон» (ten characters, fifteen minutes,
+  one phone) buys a token already linked to the account that minted it, so it
+  writes with that account's role — checked per request, never cached. Both go
+  into the same `code` field of the same `POST /api/v1/join`; they cannot
+  collide because the lengths differ, and the class code is looked up first.
+  `SchoolClass.join_mode` decides whether the class code opens anything at all;
+  switching it revokes no device, in either direction, and three screens promise
+  that out loud. A `403` from `/join` means the class takes invites only — it is
+  deliberately *not* counted against the throttle, because that caller had a
+  real code.
 - **There are two independent bearer tokens.** The device token from `POST /api/v1/join`
   (`api/deps.py:current_device`) and the diary session token from
   `POST /api/v1/diary/login` (`api/diary.py:current_diary`). A phone can be joined to a class
@@ -169,14 +185,36 @@ points Hilt does not inject cleanly.
   after `0001` is additive, so applying it to the *running* code is safe; the other order
   never is. `GET /api/v1/warmup` answers `{"status": "degraded", ...}` when the database is
   behind and names both revisions (`app/db.py:EXPECTED_REVISION`, pinned to the real head by
-  `tests/test_schema_version.py`). `/api/v1/health` deliberately opens no connection, so it
-  cannot tell you this.
-- **Migrations are Alembic and production is already at `0007`.** `0001` is a guarded
+  `tests/test_schema_version.py`), and `{"status": "degraded", "detail": "База впереди
+  кода…"}` in the window the correct order creates. `/api/v1/health` deliberately opens no
+  connection, so it cannot tell you this.
+- **Apply migrations through the Neon connector, from here.** The owner does not run
+  `alembic upgrade head` by hand and this session has no `DATABASE_URL`; the project is
+  `proud-math-08001107` on the Neon MCP server, and `0005` through `0011` were all applied
+  that way. It is not alembic running — it is the revision's DDL executed as one
+  transaction, with `alembic_version` stamped in the same transaction — so three things
+  follow. Take the DDL from the model rather than writing it out: `CreateTable(...).compile(
+  dialect=postgresql.dialect())` prints exactly what `create_all` would build, which is what
+  the revision is supposed to produce. Read the database's state first and stamp it last, so
+  a half-applied revision cannot claim to be whole. And say what a revision destroys before
+  running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
+  sentence the owner needs *before* the transaction, not after.
+- **Migrations are Alembic and production is already at `0011`.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
-  the per-member diary columns, `0007` adds the two class foreign keys `0006` left out.
-  Nothing after `0001` may use `create_all`. A model change needs
+  the per-member diary columns, `0007` adds the two class foreign keys `0006` left out,
+  `0008` gives a class a number (1–11) and cuts its year into четверти or полугодия,
+  `0009` adds the corrections a family lays over the diary, `0010` gives a class its join
+  mode and adds the personal connect codes, and `0011` tightens two `diary_overrides`
+  timestamps `0009` left nullable while the model builds them `NOT NULL` — a no-op on this
+  database, because the DDL for `0009` came from the model, and not one on a deployment
+  that ran the chain through alembic.
+  Nothing after `0001` may use `create_all`.
+  Beware the enum: `SAEnum(SomeStrEnum)` stores the member **name**, so a `server_default`
+  written as `.value` is a string the ORM cannot read back — which on `classes` is a
+  `LookupError` in the bot's middleware, i.e. every update at once. `0010` nearly shipped
+  exactly that. A model change needs
   a revision — a live database will not grow a column on its own, and lifespan `create_all`
   runs only for local SQLite.
 - **Time is naive local wall time, in the class's zone, not the server's.** A bell rings at
@@ -194,8 +232,19 @@ points Hilt does not inject cleanly.
 
 ## Notes
 
+- **An enum column stores the member NAME.** `SAEnum(SomeStrEnum)` writes
+  `OPEN`, not `open` — check `bot_users.role` in the live database if you doubt
+  it. A `server_default` spelled as `.value` therefore lands an unreadable
+  string on every existing row, and the first ORM read of one raises
+  `LookupError` — which on `classes` is the bot's middleware, i.e. every update
+  at once. `0010` was written that way and caught before it was applied;
+  `tests/test_join_modes.py` now holds all three sides of it.
 - **Another agent may be working in this tree.** Check `git status` before you touch a file
   you did not open, and do not revert someone else's uncommitted work.
+- **`HANDOVER.md` at the root says where the work stands** — the branches, what the last
+  session finished, what it deliberately left alone and what nothing has verified. It is
+  working state, not part of `docs/`, so it is stale the moment it stops being updated:
+  re-check the PR and CI before trusting it, and update it when you finish a batch.
 - **Read a file before editing it; grep every caller before changing a function.** The
   audits in `docs/design.md` exist because a conclusion drawn from call sites was wrong.
 - Secrets never enter the repository: `BOT_TOKEN`, `OWNER_IDS`, `WEBHOOK_SECRET`,

@@ -5,9 +5,15 @@ own: an external cron calls the tick endpoint every few minutes and the
 endpoint calls :func:`send_due`. Everything is therefore written to be safe to
 run twice in the same minute and safe to run an hour late. What is due is
 decided from the class's own clock and from what was already sent today,
-never from "when did the last tick run" - and each row is marked sent
+never from "when did the last tick run" - and each row is claimed
 *before* the message goes out, so a crash mid-send costs one digest rather
 than repeating it.
+
+The claim is a conditional ``UPDATE`` rather than an attribute written back
+(:func:`claim`), because two ticks can be in flight at once: timing out the
+`curl` in `reminders.yml` does not stop the serverless invocation it started.
+Marking before sending answers the tick that dies; only the database answers
+the tick that overlaps.
 """
 
 from __future__ import annotations
@@ -21,6 +27,7 @@ from html import escape
 from typing import Any
 
 from sqlalchemy import and_, or_, select
+from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -158,16 +165,41 @@ async def due_digests(
     return due[:MAX_PER_TICK]
 
 
-async def mark_sent(
+async def claim(
     session: AsyncSession, settings: ReminderSettings, kind: str, day: Date
-) -> None:
-    if kind == "morning":
-        settings.last_morning_sent = day
-    elif kind == "evening":
-        settings.last_evening_sent = day
-    else:
+) -> bool:
+    """Take this digest for this day, or report that something else already has.
+
+    The mark *is* the claim, and a claim has to be atomic. Reading the row and
+    writing it back is not: :func:`due_digests` selects everything due and
+    :func:`send_due` marks each one as it reaches it, so a second tick that
+    starts while the first is still working selects the same rows again and
+    sends them again. Marking before sending defends against a tick that dies
+    halfway through, which is a different failure, and this deployment has both
+    — `reminders.yml` gives `curl` a five-minute timeout, and killing the
+    request does not kill the serverless invocation it started, so the next run
+    genuinely does overlap the abandoned one.
+
+    ``UPDATE … WHERE last_x_sent IS DISTINCT FROM :day`` moves the decision
+    into the database, which is the only place that can make it once. Exactly
+    one caller gets a row back; everyone else is told to leave it alone.
+
+    @return whether this caller may send.
+    """
+    column = {
+        "morning": ReminderSettings.last_morning_sent,
+        "evening": ReminderSettings.last_evening_sent,
+    }.get(kind)
+    if column is None:
         raise ValueError(f"unknown digest kind: {kind!r}")
+
+    claimed = await session.execute(
+        sa_update(ReminderSettings)
+        .where(ReminderSettings.id == settings.id, column.is_distinct_from(day))
+        .values({column: day})
+    )
     await session.commit()
+    return bool(claimed.rowcount)
 
 
 async def due_task_reminders(
@@ -311,9 +343,13 @@ async def send_due(session: AsyncSession, bot: Any, now_utc: datetime) -> dict[s
 
     for settings, school_class, kind in await due_digests(session, now_utc):
         today = local_now(now_utc, school_class).date()
-        # Committed before the send: a crash between here and the send loses
-        # one digest, whereas the other order repeats it on every retry.
-        await mark_sent(session, settings, kind, today)
+        # Claimed before the send, and the claim is what decides whether this
+        # tick may send at all: a crash between here and the send loses one
+        # digest, whereas the other order repeats it on every retry — and a
+        # second tick running alongside this one is turned away here rather
+        # than sending everything a second time.
+        if not await claim(session, settings, kind, today):
+            continue
         try:
             text = await _digest_text(
                 session, school_class, settings.telegram_id, kind, today, cache
