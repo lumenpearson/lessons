@@ -1,12 +1,6 @@
 package com.lumenpearson.lessons.core.data.repository
 
-import com.lumenpearson.lessons.core.data.database.EventEntity
-import com.lumenpearson.lessons.core.data.database.HomeworkEntity
-import com.lumenpearson.lessons.core.data.database.LessonEntity
-import com.lumenpearson.lessons.core.data.database.SchoolClassEntity
-import com.lumenpearson.lessons.core.data.database.SchoolDayEntity
-import com.lumenpearson.lessons.core.data.database.SchoolDayWithDetails
-import com.lumenpearson.lessons.core.data.database.TimetableDao
+import com.lumenpearson.lessons.core.data.database.InMemoryTimetableDao
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.network.ManageApi
 import com.lumenpearson.lessons.core.data.network.dto.ClassPatchDto
@@ -14,7 +8,6 @@ import com.lumenpearson.lessons.core.data.network.dto.JoinRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.ManagedClassDto
 import java.io.IOException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -83,8 +76,11 @@ class TokenRejectedTest {
         api: LessonsApi,
         onTokenRejected: suspend () -> Unit,
     ): SyncResult = TimetableRepositoryImpl(
-        dao = EmptyDao(),
+        dao = InMemoryTimetableDao(),
         api = api,
+        // Which class is on screen is beside the point here: a 401 is about the
+        // token, and the token is the same one whichever class it names.
+        activeClassId = flowOf(1L),
         ioDispatcher = UnconfinedTestDispatcher(),
         onTokenRejected = onTokenRejected,
     ).refresh(days = 31)
@@ -177,25 +173,6 @@ class TokenRejectedTest {
 
     private class FailingManageApi(private val failure: Exception) : ManageApi by UnusedManageApi() {
         override suspend fun classCard(): Nothing = throw failure
-    }
-
-    private class EmptyDao : TimetableDao() {
-        override fun observeSchoolClass(): Flow<SchoolClassEntity?> = flowOf(null)
-        override fun observeDays(): Flow<List<SchoolDayWithDetails>> = flowOf(emptyList())
-        override fun observeNextSchoolDay(): Flow<SchoolDayWithDetails?> = flowOf(null)
-        override suspend fun schoolClass(): SchoolClassEntity? = null
-        override suspend fun days(): List<SchoolDayWithDetails> = emptyList()
-        override suspend fun nextSchoolDay(): SchoolDayWithDetails? = null
-        override suspend fun insertSchoolClass(entity: SchoolClassEntity) = Unit
-        override suspend fun insertDay(entity: SchoolDayEntity): Long = 1L
-        override suspend fun insertLessons(entities: List<LessonEntity>) = Unit
-        override suspend fun insertEvents(entities: List<EventEntity>) = Unit
-        override suspend fun insertHomework(entities: List<HomeworkEntity>) = Unit
-        override suspend fun deleteAllHomework() = Unit
-        override suspend fun deleteAllEvents() = Unit
-        override suspend fun deleteAllLessons() = Unit
-        override suspend fun deleteAllDays() = Unit
-        override suspend fun deleteSchoolClass() = Unit
     }
 }
 

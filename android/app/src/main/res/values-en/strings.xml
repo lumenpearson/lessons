@@ -295,6 +295,16 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="settings_sign_out_title">Leave the class?</string>
     <string name="settings_sign_out_message">The timetable of class “%1$s” will be deleted from the device. Coming back will take a code.</string>
     <string name="settings_sign_out_message_generic">The timetable will be deleted from the device. Coming back will take a code.</string>
+    <string name="settings_classes_group">Your classes</string>
+    <string name="settings_class_active">Shown right now</string>
+    <string name="settings_class_add">Add a class</string>
+    <string name="settings_class_add_message">Enter the code of the other class. The classes already on this device stay where they are.</string>
+    <string name="settings_class_leave">Leave “%1$s”</string>
+    <string name="settings_class_leave_title">Leave this class?</string>
+    <string name="settings_class_leave_message">The timetable of class “%1$s” will be deleted from the device. The other classes stay where they are.</string>
+    <string name="settings_sign_out_all">Leave every class</string>
+    <string name="settings_sign_out_all_title">Leave every class?</string>
+    <string name="settings_sign_out_all_message">The timetables of every class will be deleted from the device. Coming back will take each code again.</string>
     <string name="settings_about">About</string>
 
     <!-- Notifications -->

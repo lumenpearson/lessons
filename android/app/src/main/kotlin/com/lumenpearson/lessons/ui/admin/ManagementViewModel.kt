@@ -25,6 +25,9 @@ import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SubjectForm
 import com.lumenpearson.lessons.core.data.repository.TimetableExport
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -204,8 +207,21 @@ class ManagementViewModel(
         // previous class's join code, school and member counts are drawn for
         // one round trip before `loadClass` answers, which on a shared phone
         // is one class's invite code shown to another.
+        //
+        // Keyed on the class id rather than on `null`, because leaving is no
+        // longer the only way the class under this screen changes. A phone may
+        // hold several and switch between them, which goes from one class
+        // straight to the next with no null in between — so a reset that waited
+        // for one would never come, and every line above would describe the
+        // class the user had just switched away from.
         viewModelScope.launch {
-            session.session.collect { if (it == null) state.value = ManagementUiState() }
+            session.session
+                .map { it?.classId }
+                .distinctUntilChanged()
+                // The first emission is the class this view model was built
+                // for; resetting on it would wipe a load already in flight.
+                .drop(1)
+                .collect { state.value = ManagementUiState() }
         }
     }
 

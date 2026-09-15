@@ -23,9 +23,11 @@ import com.lumenpearson.lessons.core.data.repository.SubjectSaved
 import com.lumenpearson.lessons.core.data.repository.TimetableExport
 import com.lumenpearson.lessons.core.data.repository.TimetableImport
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 
 /**
  * A management server that answers exactly what a test tells it to, when the
@@ -182,10 +184,25 @@ internal class FakeSessionRepository : SessionRepository {
 
     override val session: StateFlow<Session?> = state.asStateFlow()
 
+    /**
+     * One class, which is what these tests are about: the management screen
+     * reads the class it is looking at, and holding several would not change a
+     * single assertion here.
+     */
+    override val sessions: Flow<List<Session>> = state.map { listOfNotNull(it) }
+
     override suspend fun current(): Session? = state.value
+
+    override suspend fun currentAll(): List<Session> = listOfNotNull(state.value)
 
     override suspend fun join(code: String, deviceName: String?): Result<Session> =
         Result.failure(IllegalStateException("unused"))
+
+    override suspend fun select(classId: Long) = Unit
+
+    override suspend fun leave(classId: Long) {
+        if (state.value?.classId == classId) signOut()
+    }
 
     override suspend fun signOut() {
         signOuts++

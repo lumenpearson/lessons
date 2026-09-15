@@ -78,52 +78,58 @@ internal fun encodeTerms(terms: List<Term>): String = terms.joinToString("\n") {
 /**
  * Flattens a day into the rows that represent it.
  *
+ * @param classId the class this day belongs to. Passed in rather than left as a
+ * placeholder the way `dayId` is: the row id genuinely does not exist until the
+ * insert, but the class is known here, and a cache holding two classes at once
+ * has no margin for a day that does not know whose it is.
  * @param isNextSchoolDay marks the lookahead day so it can be read back
  * separately instead of appearing twice in the calendar.
  */
-internal fun SchoolDay.toRecord(isNextSchoolDay: Boolean): SchoolDayRecord = SchoolDayRecord(
-    day = SchoolDayEntity(
-        date = date,
-        weekday = weekday,
-        kind = kind.name,
-        note = note,
-        isNextSchoolDay = isNextSchoolDay,
-    ),
-    lessons = lessons.map { lesson ->
-        LessonEntity(
-            dayId = UNSAVED_DAY_ID,
-            index = lesson.index,
-            subject = lesson.subject,
-            startsAt = lesson.startsAt,
-            endsAt = lesson.endsAt,
-            room = lesson.room,
-            teacher = lesson.teacher,
-            colorHex = lesson.colorHex,
-            isReplaced = lesson.isReplaced,
-            isCancelled = lesson.isCancelled,
-            note = lesson.note,
-        )
-    },
-    events = events.map { event ->
-        EventEntity(
-            dayId = UNSAVED_DAY_ID,
-            title = event.title,
-            kind = event.kind.name,
-            startsAt = event.startsAt,
-            endsAt = event.endsAt,
-            location = event.location,
-            coversLesson = event.coversLesson,
-        )
-    },
-    homework = homework.map { item ->
-        HomeworkEntity(
-            dayId = UNSAVED_DAY_ID,
-            subject = item.subject,
-            text = item.text,
-            attachmentUrl = item.attachmentUrl,
-        )
-    },
-)
+internal fun SchoolDay.toRecord(classId: Long, isNextSchoolDay: Boolean): SchoolDayRecord =
+    SchoolDayRecord(
+        day = SchoolDayEntity(
+            classId = classId,
+            date = date,
+            weekday = weekday,
+            kind = kind.name,
+            note = note,
+            isNextSchoolDay = isNextSchoolDay,
+        ),
+        lessons = lessons.map { lesson ->
+            LessonEntity(
+                dayId = UNSAVED_DAY_ID,
+                index = lesson.index,
+                subject = lesson.subject,
+                startsAt = lesson.startsAt,
+                endsAt = lesson.endsAt,
+                room = lesson.room,
+                teacher = lesson.teacher,
+                colorHex = lesson.colorHex,
+                isReplaced = lesson.isReplaced,
+                isCancelled = lesson.isCancelled,
+                note = lesson.note,
+            )
+        },
+        events = events.map { event ->
+            EventEntity(
+                dayId = UNSAVED_DAY_ID,
+                title = event.title,
+                kind = event.kind.name,
+                startsAt = event.startsAt,
+                endsAt = event.endsAt,
+                location = event.location,
+                coversLesson = event.coversLesson,
+            )
+        },
+        homework = homework.map { item ->
+            HomeworkEntity(
+                dayId = UNSAVED_DAY_ID,
+                subject = item.subject,
+                text = item.text,
+                attachmentUrl = item.attachmentUrl,
+            )
+        },
+    )
 
 /**
  * Rebuilds a day from its rows.

@@ -3,13 +3,13 @@ package com.lumenpearson.lessons.core.data.datastore
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -70,20 +70,69 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         if (cause is IOException) emit(emptyPreferences()) else throw cause
     }
 
-    val session: Flow<Session?> = preferences.map { it.toSession() }.distinctUntilChanged()
+    /** The class being shown, or `null` when this device is in none. */
+    val session: Flow<Session?> = preferences.map { it.activeMembership() }.distinctUntilChanged()
+
+    /** Every class this device has joined, in the order they were joined. */
+    val sessions: Flow<List<Session>> = preferences.map { it.memberships() }.distinctUntilChanged()
 
     val settings: Flow<AppSettings> = preferences.map { it.toSettings() }.distinctUntilChanged()
 
-    suspend fun currentSession(): Session? = preferences.first().toSession()
+    suspend fun currentSession(): Session? = preferences.first().activeMembership()
+
+    suspend fun currentSessions(): List<Session> = preferences.first().memberships()
 
     suspend fun currentSettings(): AppSettings = preferences.first().toSettings()
 
-    suspend fun writeSession(value: Session) {
+    /**
+     * Stores a membership and makes it the one being shown.
+     *
+     * Re-joining a class already on this phone replaces its token **in place**
+     * rather than appending: the join code is how a pupil recovers from a
+     * revoked device, and doing that must not leave the same class listed
+     * twice, nor move it to the bottom of a list the user has got used to.
+     */
+    suspend fun addSession(value: Session) {
         dataStore.edit { prefs ->
-            prefs[KEY_TOKEN] = value.token
-            prefs[KEY_CLASS_ID] = value.classId
-            prefs[KEY_CLASS_NAME] = value.className
-            if (value.school != null) prefs[KEY_SCHOOL] = value.school else prefs.remove(KEY_SCHOOL)
+            prefs.writeMemberships(prefs.memberships().withMembership(value))
+            prefs.activate(value.classId)
+        }
+    }
+
+    /**
+     * Shows a different class. A class this device is not in is ignored rather
+     * than stored: the active id is read back by matching it against the list,
+     * and one that matches nothing would land the app on the join screen with
+     * memberships still on disk.
+     */
+    suspend fun selectSession(classId: Long) {
+        dataStore.edit { prefs ->
+            if (prefs.memberships().none { it.classId == classId }) return@edit
+            prefs.activate(classId)
+        }
+    }
+
+    /**
+     * Drops one membership, keeping the rest.
+     *
+     * If it was the one being shown, the first of the remaining classes takes
+     * over — there is no "no class selected" state to fall into while the phone
+     * still belongs somewhere. Leaving the last one is a full sign-out, and
+     * lands on the same keys [clearSession] would leave behind.
+     */
+    suspend fun removeSession(classId: Long) {
+        dataStore.edit { prefs ->
+            val remaining = prefs.memberships().filterNot { it.classId == classId }
+            prefs.writeMemberships(remaining)
+            val next = remaining.firstOrNull { it.classId == prefs[MembershipKeys.ACTIVE_CLASS_ID] }
+                ?: remaining.firstOrNull()
+            if (next == null) {
+                prefs[KEY_ONBOARDING_DONE] = true
+                prefs.remove(MembershipKeys.ACTIVE_CLASS_ID)
+                prefs.remove(KEY_SCHEDULE_FINGERPRINT)
+            } else {
+                prefs.activate(next.classId)
+            }
         }
     }
 
@@ -102,10 +151,11 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
             // introduction flag. To be here at all you were in a class, and to
             // have been in a class you got past the join screen.
             prefs[KEY_ONBOARDING_DONE] = true
-            prefs.remove(KEY_TOKEN)
-            prefs.remove(KEY_CLASS_ID)
-            prefs.remove(KEY_CLASS_NAME)
-            prefs.remove(KEY_SCHOOL)
+            // Both the list and the four keys it replaced: the old ones are
+            // what an install from before this version is read from, and
+            // leaving them would sign the user back in to that one class on the
+            // next launch.
+            prefs.clearMemberships()
             // The fingerprint describes the shape of *that* class's schedule, so
             // keeping it means the first sync after joining a different one
             // compares two unrelated timetables, finds them different, and
@@ -261,14 +311,17 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         dataStore.edit { prefs -> prefs[KEY_SCHEDULE_FINGERPRINT] = value }
     }
 
-    private fun Preferences.toSession(): Session? {
-        val token = this[KEY_TOKEN]?.takeIf { it.isNotBlank() } ?: return null
-        return Session(
-            classId = this[KEY_CLASS_ID] ?: 0L,
-            className = this[KEY_CLASS_NAME].orEmpty(),
-            school = this[KEY_SCHOOL],
-            token = token,
-        )
+    /**
+     * Points the app at one of the stored classes.
+     *
+     * The fingerprint goes with it, for the reason [clearSession] spells out:
+     * it describes the shape of the schedule that was on screen a moment ago,
+     * and comparing the next class's timetable against it would announce that
+     * the schedule changed the instant somebody switched classes.
+     */
+    private fun MutablePreferences.activate(classId: Long) {
+        this[MembershipKeys.ACTIVE_CLASS_ID] = classId
+        remove(KEY_SCHEDULE_FINGERPRINT)
     }
 
     /** `null` unless a diary sign-in has actually stored a token. */
@@ -328,7 +381,14 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         // accident: it is only written after a successful join, which is the
         // screen the introduction ends on. Someone holding one has been past
         // it, whatever else they have or have not touched.
-        onboardingDone = this[KEY_ONBOARDING_DONE] ?: (this[KEY_TOKEN] != null),
+        //
+        // Both keys, because the membership list replaced the flat token and
+        // the phones this sentinel exists for are exactly the ones that predate
+        // it: reading only `KEY_TOKEN` would promise four screens of
+        // introduction to every long-standing user the first time their
+        // memberships were rewritten as a list.
+        onboardingDone = this[KEY_ONBOARDING_DONE]
+            ?: (this[MembershipKeys.TOKEN] != null || this[MembershipKeys.SESSIONS] != null),
         alerts = AlertPreferences(
             lessonSoon = this[KEY_ALERT_LESSON] ?: false,
             lessonLeadMinutes = this[KEY_ALERT_LEAD] ?: AlertPreferences.DefaultLeadMinutes,
@@ -360,10 +420,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
     )
 
     private companion object {
-        val KEY_TOKEN = stringPreferencesKey("session_token")
-        val KEY_CLASS_ID = longPreferencesKey("session_class_id")
-        val KEY_CLASS_NAME = stringPreferencesKey("session_class_name")
-        val KEY_SCHOOL = stringPreferencesKey("session_school")
+        // The membership keys live in `MembershipKeys`, beside the code that reads them.
 
         val KEY_DIARY_TOKEN = stringPreferencesKey("diary_token")
         val KEY_DIARY_LOGIN = stringPreferencesKey("diary_login")

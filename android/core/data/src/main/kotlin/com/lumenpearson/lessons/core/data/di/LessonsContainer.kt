@@ -22,10 +22,12 @@ import com.lumenpearson.lessons.core.data.repository.ManageRepository
 import com.lumenpearson.lessons.core.data.repository.ManageRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.UpdateRepository
 import com.lumenpearson.lessons.core.data.sync.DataSyncBroadcast
+import com.lumenpearson.lessons.core.data.sync.SyncScheduler
 import com.lumenpearson.lessons.core.data.update.UpdateRepositoryImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.map
 
 /**
  * Everything the rest of the app is allowed to reach for.
@@ -108,6 +110,12 @@ class DefaultLessonsContainer(
         TimetableRepositoryImpl(
             dao = database.timetableDao(),
             api = api,
+            // Taken from the preferences rather than from `sessionRepository`,
+            // which is a lazy in this same container: the timetable is what the
+            // widget's cold start asks for first, and routing it through the
+            // session repository would build that one too, on that path, for a
+            // class id it could have read directly.
+            activeClassId = preferences.session.map { it?.classId },
             // The widget cannot be called directly from here — it depends on
             // this module, not the other way round — so the broadcast it already
             // listens for is handed in instead. The alerts live in this module
@@ -138,6 +146,17 @@ class DefaultLessonsContainer(
             onSignedOut = {
                 DataSyncBroadcast.send(appContext)
                 SchoolAlerts.clear(appContext)
+            },
+            // Switching classes is not signing out, so nothing is cancelled:
+            // the widget is told to redraw, the alarm chain is re-planned from
+            // the class now on screen, and a sync is asked for because the
+            // window being switched to is as old as the last time it was
+            // looked at. The cached one is drawn in the meantime, which is what
+            // keeps the switch instant and usable with no network.
+            onActiveClassChanged = {
+                DataSyncBroadcast.send(appContext)
+                SchoolAlerts.onDataChanged(appContext)
+                SyncScheduler.syncNow(appContext)
             },
         )
     }

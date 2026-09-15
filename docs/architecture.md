@@ -100,6 +100,21 @@ Room is the single source of truth. The network only fills it. Every screen and
 the widget read from Room, so the app is fully usable offline and the widget
 keeps counting down in a dead zone.
 
+**One device, several classes.** A join code buys one read-only token for one
+class, so a pupil in two classes is a phone holding two tokens — that was always
+the server's model, and the app used to throw the previous token away. It now
+keeps a list of memberships and shows one at a time; `SessionRepository` owns
+the list and which one is current.
+
+The cache follows: `school_day` carries a `class_id` and every read is filtered
+by the class on screen, so two windows sit side by side and switching is instant
+and works with no network. That filter is the load-bearing part. Two classes'
+weeks are both plausible school weeks, so a read that lost it would draw a
+timetable that looks entirely correct and belongs to somebody else — which is
+why the DAO takes the class id as a required parameter on every query rather
+than defaulting it, and why a sync writes under the class the **server**
+resolved the token to rather than the one the device believes is current.
+
 After a successful sync, `SyncWorker` sends a package-internal broadcast
 (`com.lumenpearson.lessons.action.DATA_SYNCED`) that the widget receiver listens
 for. That is why `:core:data` does not depend on `:widget` — the dependency would

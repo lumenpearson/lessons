@@ -290,6 +290,16 @@
     <string name="settings_sign_out_title">Выйти из класса?</string>
     <string name="settings_sign_out_message">Расписание класса «%1$s» будет удалено с устройства. Чтобы вернуться, понадобится код.</string>
     <string name="settings_sign_out_message_generic">Расписание будет удалено с устройства. Чтобы вернуться, понадобится код.</string>
+    <string name="settings_classes_group">Ваши классы</string>
+    <string name="settings_class_active">Показывается сейчас</string>
+    <string name="settings_class_add">Добавить класс</string>
+    <string name="settings_class_add_message">Введите код второго класса. Классы, которые уже есть на устройстве, останутся.</string>
+    <string name="settings_class_leave">Выйти из класса «%1$s»</string>
+    <string name="settings_class_leave_title">Выйти из этого класса?</string>
+    <string name="settings_class_leave_message">Расписание класса «%1$s» будет удалено с устройства. Остальные классы останутся на месте.</string>
+    <string name="settings_sign_out_all">Выйти из всех классов</string>
+    <string name="settings_sign_out_all_title">Выйти из всех классов?</string>
+    <string name="settings_sign_out_all_message">Расписания всех классов будут удалены с устройства. Чтобы вернуться, понадобится код каждого.</string>
     <string name="settings_about">О приложении</string>
 
     <!-- Уведомления -->

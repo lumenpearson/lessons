@@ -14,41 +14,59 @@ import kotlinx.coroutines.flow.Flow
  * replaces all of them, a screen reads all of them - so splitting them would buy
  * nothing but extra plumbing.
  *
- * It is an abstract class rather than an interface because [replaceAll] and
- * [clearAll] need bodies wrapped in `@Transaction`, which Room implements by
- * overriding a concrete method.
+ * **Every read takes a class id, and none of them defaults it.** The cache holds
+ * one window per joined class side by side, so an unfiltered `SELECT` returns
+ * two classes' Mondays and the screen draws whichever came first. A required
+ * parameter is the cheapest way to make forgetting the filter a compile error
+ * rather than a wrong timetable that looks right.
+ *
+ * It is an abstract class rather than an interface because [replaceAll],
+ * [clear] and [clearAll] need bodies wrapped in `@Transaction`, which Room
+ * implements by overriding a concrete method.
  */
 @Dao
 internal abstract class TimetableDao {
 
-    /** Emits `null` until the first successful sync writes the class row. */
-    @Query("SELECT * FROM school_class LIMIT 1")
-    abstract fun observeSchoolClass(): Flow<SchoolClassEntity?>
+    /** Emits `null` until the first successful sync writes this class's row. */
+    @Query("SELECT * FROM school_class WHERE id = :classId")
+    abstract fun observeSchoolClass(classId: Long): Flow<SchoolClassEntity?>
 
     /** The synced window, chronological. Epoch-day storage makes this a plain integer sort. */
     @Transaction
-    @Query("SELECT * FROM school_day WHERE is_next_school_day = 0 ORDER BY date ASC")
-    abstract fun observeDays(): Flow<List<SchoolDayWithDetails>>
+    @Query(
+        "SELECT * FROM school_day WHERE class_id = :classId AND is_next_school_day = 0 " +
+            "ORDER BY date ASC",
+    )
+    abstract fun observeDays(classId: Long): Flow<List<SchoolDayWithDetails>>
 
     /** The lookahead day beyond the window, if the server resolved one. */
     @Transaction
-    @Query("SELECT * FROM school_day WHERE is_next_school_day = 1 ORDER BY date ASC LIMIT 1")
-    abstract fun observeNextSchoolDay(): Flow<SchoolDayWithDetails?>
+    @Query(
+        "SELECT * FROM school_day WHERE class_id = :classId AND is_next_school_day = 1 " +
+            "ORDER BY date ASC LIMIT 1",
+    )
+    abstract fun observeNextSchoolDay(classId: Long): Flow<SchoolDayWithDetails?>
 
     /**
      * One-shot twins of the observers, for the widget and the sync worker, which
      * want one value and no subscription.
      */
-    @Query("SELECT * FROM school_class LIMIT 1")
-    abstract suspend fun schoolClass(): SchoolClassEntity?
+    @Query("SELECT * FROM school_class WHERE id = :classId")
+    abstract suspend fun schoolClass(classId: Long): SchoolClassEntity?
 
     @Transaction
-    @Query("SELECT * FROM school_day WHERE is_next_school_day = 0 ORDER BY date ASC")
-    abstract suspend fun days(): List<SchoolDayWithDetails>
+    @Query(
+        "SELECT * FROM school_day WHERE class_id = :classId AND is_next_school_day = 0 " +
+            "ORDER BY date ASC",
+    )
+    abstract suspend fun days(classId: Long): List<SchoolDayWithDetails>
 
     @Transaction
-    @Query("SELECT * FROM school_day WHERE is_next_school_day = 1 ORDER BY date ASC LIMIT 1")
-    abstract suspend fun nextSchoolDay(): SchoolDayWithDetails?
+    @Query(
+        "SELECT * FROM school_day WHERE class_id = :classId AND is_next_school_day = 1 " +
+            "ORDER BY date ASC LIMIT 1",
+    )
+    abstract suspend fun nextSchoolDay(classId: Long): SchoolDayWithDetails?
 
     /**
      * All three reads a render needs, taken inside one transaction.
@@ -60,12 +78,12 @@ internal abstract class TimetableDao {
      * which puts it at exactly that instant.
      */
     @Transaction
-    open suspend fun snapshot(): TimetableSnapshot? {
-        val schoolClass = schoolClass() ?: return null
+    open suspend fun snapshot(classId: Long): TimetableSnapshot? {
+        val schoolClass = schoolClass(classId) ?: return null
         return TimetableSnapshot(
             schoolClass = schoolClass,
-            days = days(),
-            nextSchoolDay = nextSchoolDay(),
+            days = days(classId),
+            nextSchoolDay = nextSchoolDay(classId),
         )
     }
 
@@ -90,6 +108,35 @@ internal abstract class TimetableDao {
     @Insert
     abstract suspend fun insertHomework(entities: List<HomeworkEntity>)
 
+    /**
+     * Per-class deletes. The children are reached through their day rather than
+     * carrying a class of their own, which is why each of these is a subquery
+     * instead of a flat `WHERE class_id = …`.
+     */
+    @Query(
+        "DELETE FROM homework WHERE day_id IN " +
+            "(SELECT id FROM school_day WHERE class_id = :classId)",
+    )
+    abstract suspend fun deleteHomeworkOf(classId: Long)
+
+    @Query(
+        "DELETE FROM event WHERE day_id IN " +
+            "(SELECT id FROM school_day WHERE class_id = :classId)",
+    )
+    abstract suspend fun deleteEventsOf(classId: Long)
+
+    @Query(
+        "DELETE FROM lesson WHERE day_id IN " +
+            "(SELECT id FROM school_day WHERE class_id = :classId)",
+    )
+    abstract suspend fun deleteLessonsOf(classId: Long)
+
+    @Query("DELETE FROM school_day WHERE class_id = :classId")
+    abstract suspend fun deleteDaysOf(classId: Long)
+
+    @Query("DELETE FROM school_class WHERE id = :classId")
+    abstract suspend fun deleteSchoolClass(classId: Long)
+
     @Query("DELETE FROM homework")
     abstract suspend fun deleteAllHomework()
 
@@ -103,16 +150,20 @@ internal abstract class TimetableDao {
     abstract suspend fun deleteAllDays()
 
     @Query("DELETE FROM school_class")
-    abstract suspend fun deleteSchoolClass()
+    abstract suspend fun deleteAllSchoolClasses()
 
     /**
-     * Swaps the whole synced window atomically.
+     * Swaps one class's whole synced window atomically.
      *
      * Wipe-and-reinsert rather than upsert: the server owns the schedule
      * completely, and a lesson that was deleted upstream has no key the client
      * could use to notice its absence. Doing it in one transaction means readers
      * either see the old window or the new one, never a half-empty week - which
      * matters because the widget can wake up mid-sync.
+     *
+     * Only this class's rows are touched. A sync of 7«А» that wiped the table
+     * would empty 9«Б» behind the user's back, and they would find out by
+     * switching to it and seeing nothing.
      *
      * @param nextSchoolDay the lookahead day, already flagged; pass `null` when
      * the server could not resolve one (long holiday at the end of the year).
@@ -123,10 +174,13 @@ internal abstract class TimetableDao {
         days: List<SchoolDayRecord>,
         nextSchoolDay: SchoolDayRecord?,
     ) {
-        clearAll()
+        clear(schoolClass.id)
         insertSchoolClass(schoolClass)
         (days + listOfNotNull(nextSchoolDay)).forEach { record ->
-            val dayId = insertDay(record.day)
+            // Re-stamped rather than trusted: the class row being written is
+            // the one authority on whose window this is, so a record built for
+            // another class cannot be filed under this one's id.
+            val dayId = insertDay(record.day.copy(classId = schoolClass.id))
             insertLessons(record.lessons.map { it.copy(dayId = dayId) })
             insertEvents(record.events.map { it.copy(dayId = dayId) })
             insertHomework(record.homework.map { it.copy(dayId = dayId) })
@@ -134,18 +188,29 @@ internal abstract class TimetableDao {
     }
 
     /**
-     * Empties the cache. Used on sign-out: a device that left the class must not
-     * keep showing its timetable.
+     * Empties one class's cache. Used when that class is left: a device that is
+     * no longer in it must not keep showing its timetable, and the other classes
+     * on the phone have nothing to do with the one being left.
      *
      * Children are deleted explicitly even though the foreign keys cascade, so
      * the wipe does not silently depend on `PRAGMA foreign_keys` being on.
      */
+    @Transaction
+    open suspend fun clear(classId: Long) {
+        deleteHomeworkOf(classId)
+        deleteEventsOf(classId)
+        deleteLessonsOf(classId)
+        deleteDaysOf(classId)
+        deleteSchoolClass(classId)
+    }
+
+    /** Empties the whole cache, every class at once. Used on full sign-out. */
     @Transaction
     open suspend fun clearAll() {
         deleteAllHomework()
         deleteAllEvents()
         deleteAllLessons()
         deleteAllDays()
-        deleteSchoolClass()
+        deleteAllSchoolClasses()
     }
 }

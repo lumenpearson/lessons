@@ -19,9 +19,13 @@ import java.time.temporal.TemporalAdjusters
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 
@@ -37,6 +41,19 @@ import retrofit2.HttpException
 internal class TimetableRepositoryImpl(
     private val dao: TimetableDao,
     private val api: LessonsApi,
+    /**
+     * The class being shown, or `null` when this device is in none.
+     *
+     * Every read below is filtered by it. The cache holds a window per joined
+     * class, so without the filter the screens would draw whichever class's
+     * Monday the database happened to return first — and the two look exactly
+     * alike on screen, which is the failure mode worth designing against.
+     *
+     * A flow rather than a value because switching classes has to redraw what is
+     * already on screen, and a `val` read once at construction would keep the
+     * previous class up until the process died.
+     */
+    private val activeClassId: Flow<Long?>,
     /**
      * device clock: the seam tests pin "today" through, and the only zone
      * available before this phone has cached a class to take one from.
@@ -74,21 +91,29 @@ internal class TimetableRepositoryImpl(
      * touch these tables, but a re-sync with identical content can - from
      * redrawing every screen.
      */
-    override val timetable: Flow<Timetable?> = combine(
-        dao.observeSchoolClass(),
-        dao.observeDays(),
-        dao.observeNextSchoolDay(),
-    ) { schoolClass, days, nextSchoolDay ->
-        schoolClass?.let { buildTimetable(it, days, nextSchoolDay) }
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override val timetable: Flow<Timetable?> = activeClassId.flatMapLatest { classId ->
+        if (classId == null) {
+            flowOf(null)
+        } else {
+            combine(
+                dao.observeSchoolClass(classId),
+                dao.observeDays(classId),
+                dao.observeNextSchoolDay(classId),
+            ) { schoolClass, days, nextSchoolDay ->
+                schoolClass?.let { buildTimetable(it, days, nextSchoolDay) }
+            }
+        }
     }.distinctUntilChanged()
 
     override suspend fun snapshot(): Timetable? = withContext(ioDispatcher) {
+        val classId = activeClassId.first() ?: return@withContext null
         // One transaction for all three reads: `replaceAll` swaps the class row
         // and the days together, and a reader interleaved between two separate
         // statements can take the class from before the swap and the days from
         // after it. The widget redraws on the sync broadcast, i.e. by
         // construction at exactly that moment.
-        val snapshot = dao.snapshot() ?: return@withContext null
+        val snapshot = dao.snapshot(classId) ?: return@withContext null
         buildTimetable(snapshot.schoolClass, snapshot.days, snapshot.nextSchoolDay)
     }
 
@@ -126,10 +151,19 @@ internal class TimetableRepositoryImpl(
             // gets it, because a partial cache is what this is fixing.
             val bundle = api.bundle(start = start.toString(), days = maxOf(span, days.coerceIn(MIN_DAYS, MAX_DAYS)))
             val timetable = bundle.toDomain(fallbackSyncedAtEpochMillis = clock.millis())
+            // The class the *server* resolved the token to, not the one this
+            // device thinks is active. They are the same except in the seconds
+            // around a switch, and taking the local answer there would file one
+            // class's window under the other's id — which is the one mistake
+            // this cache cannot survive, because both windows look plausible.
+            val syncedClassId = timetable.schoolClass.id
             dao.replaceAll(
                 schoolClass = timetable.schoolClass.toEntity(timetable.syncedAtEpochMillis),
-                days = timetable.days.map { it.toRecord(isNextSchoolDay = false) },
-                nextSchoolDay = timetable.nextSchoolDay?.toRecord(isNextSchoolDay = true),
+                days = timetable.days.map { it.toRecord(syncedClassId, isNextSchoolDay = false) },
+                nextSchoolDay = timetable.nextSchoolDay?.toRecord(
+                    syncedClassId,
+                    isNextSchoolDay = true,
+                ),
             )
             onDataChanged()
             SyncResult.Success
@@ -181,7 +215,9 @@ internal class TimetableRepositoryImpl(
      * trip.
      */
     private suspend fun todayAtSchool(): LocalDate {
-        val stored = runCatching { dao.schoolClass()?.timeZoneId }.getOrNull()
+        val stored = runCatching {
+            activeClassId.first()?.let { dao.schoolClass(it)?.timeZoneId }
+        }.getOrNull()
         val zone = stored?.let { id -> runCatching { ZoneId.of(id) }.getOrNull() }
         // device clock: only until this phone has a class to take a zone from.
         return LocalDate.now(if (zone != null) clock.withZone(zone) else clock)

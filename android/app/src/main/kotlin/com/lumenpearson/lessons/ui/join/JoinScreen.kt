@@ -295,9 +295,15 @@ private fun ClassCodeField(
     )
 }
 
-/** Localizes the inline error, or `null` when the field is fine. */
+/**
+ * Localizes the inline error, or `null` when the field is fine.
+ *
+ * Internal rather than private because the class group in settings raises the
+ * same join in a sheet: two copies of this mapping would agree today and drift
+ * the first time either error case gains a third branch.
+ */
 @Composable
-private fun JoinError?.asText(): String? = when (this) {
+internal fun JoinError?.asText(): String? = when (this) {
     null -> null
     JoinError.InvalidCode -> stringResource(R.string.join_error_invalid_code, ClassCodeLengths.first, ClassCodeLengths.last)
     is JoinError.Rejected ->

@@ -1,12 +1,6 @@
 package com.lumenpearson.lessons.core.data.repository
 
-import com.lumenpearson.lessons.core.data.database.EventEntity
-import com.lumenpearson.lessons.core.data.database.HomeworkEntity
-import com.lumenpearson.lessons.core.data.database.LessonEntity
-import com.lumenpearson.lessons.core.data.database.SchoolClassEntity
-import com.lumenpearson.lessons.core.data.database.SchoolDayEntity
-import com.lumenpearson.lessons.core.data.database.SchoolDayWithDetails
-import com.lumenpearson.lessons.core.data.database.TimetableDao
+import com.lumenpearson.lessons.core.data.database.InMemoryTimetableDao
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.network.dto.BundleDto
 import com.lumenpearson.lessons.core.data.network.dto.JoinRequestDto
@@ -18,7 +12,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -48,8 +41,11 @@ class SyncWindowTest {
     private suspend fun windowAt(day: String): Pair<LocalDate, Int> {
         val api = RecordingApi()
         TimetableRepositoryImpl(
-            dao = EmptyDao(),
+            dao = InMemoryTimetableDao(),
             api = api,
+            // Any class will do: these tests are about the dates asked for, and
+            // the window is the same whichever class is on screen.
+            activeClassId = flowOf(1L),
             clock = clockAt(day),
             ioDispatcher = UnconfinedTestDispatcher(),
         ).refresh(days = 31)
@@ -135,23 +131,4 @@ class SyncWindowTest {
         override suspend fun unlink() = error("unused")
     }
 
-    /** A DAO that accepts writes and reports nothing back. */
-    private class EmptyDao : TimetableDao() {
-        override fun observeSchoolClass(): Flow<SchoolClassEntity?> = flowOf(null)
-        override fun observeDays(): Flow<List<SchoolDayWithDetails>> = flowOf(emptyList())
-        override fun observeNextSchoolDay(): Flow<SchoolDayWithDetails?> = flowOf(null)
-        override suspend fun schoolClass(): SchoolClassEntity? = null
-        override suspend fun days(): List<SchoolDayWithDetails> = emptyList()
-        override suspend fun nextSchoolDay(): SchoolDayWithDetails? = null
-        override suspend fun insertSchoolClass(entity: SchoolClassEntity) = Unit
-        override suspend fun insertDay(entity: SchoolDayEntity): Long = 1L
-        override suspend fun insertLessons(entities: List<LessonEntity>) = Unit
-        override suspend fun insertEvents(entities: List<EventEntity>) = Unit
-        override suspend fun insertHomework(entities: List<HomeworkEntity>) = Unit
-        override suspend fun deleteAllHomework() = Unit
-        override suspend fun deleteAllEvents() = Unit
-        override suspend fun deleteAllLessons() = Unit
-        override suspend fun deleteAllDays() = Unit
-        override suspend fun deleteSchoolClass() = Unit
-    }
 }
