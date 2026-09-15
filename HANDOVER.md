@@ -26,8 +26,8 @@
 PR:      https://github.com/lumenpearson/lessons/pull/35
 Ветка:   claude/essentials-design-system-5ttyh6
 Код по:  236b259 (вершина ветки — коммит этого файла)
-База:    main @ a9d6f985
-Статус:  open, draft, mergeable_state=clean, 4/4 проверки зелёные
+База:    main (движется сам — dependabot; CI гоняет результат слияния)
+Статус:  open, draft, без конфликтов, CI зелёный
 ```
 
 ### Как продолжить
