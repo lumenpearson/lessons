@@ -154,6 +154,16 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    testOptions {
+        // Robolectric needs this module's own resources on the test classpath.
+        // Every screen here is built out of Russian strings, and a test that
+        // cannot resolve them is a test asserting against stubs - which on
+        // these screens would mean asserting nothing at all. Which Android it
+        // emulates is pinned in `src/test/resources/robolectric.properties`,
+        // beside the reason.
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -188,4 +198,15 @@ dependencies {
     // The management view model is a coroutine state holder: its tests need a
     // main dispatcher and a scheduler they can step, which is all this is for.
     testImplementation(libs.kotlinx.coroutines.test)
+
+    // The same harness `:core:designsystem` already runs, moved up a layer.
+    // That module can prove a row reports its click; it cannot prove that the
+    // screen built out of those rows shows the right class, refuses to switch a
+    // class code off without asking, or says a refused code in words a person
+    // can act on. Those are decisions, they live here, and until now the only
+    // thing that could check one was somebody holding a phone.
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

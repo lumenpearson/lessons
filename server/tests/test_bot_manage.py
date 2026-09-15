@@ -38,6 +38,7 @@ from app.bot.handlers.manage import (
     import_preview,
     request_approve,
     subject_rename,
+    terms_list,
 )
 from app.bot.handlers.timetable import timetable_apply
 from app.bot.manage_render import split_text, time_ago
@@ -959,6 +960,58 @@ async def test_every_management_page_renders(session, school_class):
     message = FakeMessage()
     await cmd_calendar(message, FakeState(), session, school_class, Role.VIEWER)
     assert "PUBLIC_BASE_URL" in message.last
+
+
+async def test_the_terms_card_draws(session, school_class):
+    """«🗓 Четверти» crashed on every press, in production, on `main`.
+
+    `_terms_card` printed `term.days` — a property that existed on `TermView`,
+    a flattened copy of a term that nothing has ever constructed, and not on
+    the `Term` the service actually returns. So the line was written against a
+    type that never reaches it, and the only way to find out was to press the
+    button: `AttributeError: 'Term' object has no attribute 'days'`, an error
+    dialog, and no card.
+
+    Nothing caught it because `tests/test_terms.py` opens with «the rules, not
+    the rendering» — a reasonable split that left the rendering with no tests
+    at all. This is that test. It asserts the numbers, not just that the call
+    returns, because a card that draws «0 дн.» is as wrong as one that throws.
+    """
+    callback = FakeCallback(message=FakeEditable())
+
+    await terms_list(callback, FakeState(), session, school_class, Role.ADMIN)
+
+    card = callback.message.last
+    assert "четверти" in card
+    # Four of them, each with a length that counts both ends: a term running
+    # 01.09 to 01.09 is one day of school, not nought.
+    assert card.count("дн.") == 4
+    assert " 0 дн." not in card
+    assert "1." in card and "4." in card
+
+
+async def test_a_term_is_as_long_as_both_its_ends(session, school_class):
+    """The property the card reads, pinned where it now lives.
+
+    It moved onto the model precisely because the copy that had it was dead:
+    two types for one term is how a renderer ends up written against the one it
+    will never be handed.
+    """
+    from datetime import date
+
+    from app.services import terms as terms_service
+
+    rows = await terms_service.ensure(session, school_class, 2026)
+    await session.commit()
+
+    for term in rows:
+        assert term.days == (term.ends_on - term.starts_on).days + 1
+        assert term.days > 0
+
+    one_day = rows[0]
+    one_day.starts_on = date(2026, 9, 1)
+    one_day.ends_on = date(2026, 9, 1)
+    assert one_day.days == 1
 
 
 async def test_the_class_card_names_the_way_into_the_class_it_is_really_in(

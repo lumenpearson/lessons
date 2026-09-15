@@ -383,6 +383,16 @@ class Term(Base):
     starts_on: Mapped[Date] = mapped_column(SADate, nullable=False)
     ends_on: Mapped[Date] = mapped_column(SADate, nullable=False)
 
+    @property
+    def days(self) -> int:
+        """How long the term runs, counting both ends.
+
+        Inclusive because a term that starts and ends on the same day is one
+        day of school, not nought, and because «01.09 — 25.10 · 55 дн.» is read
+        as «55 school days in it», not as a subtraction.
+        """
+        return (self.ends_on - self.starts_on).days + 1
+
 
 class LessonOverride(Base):
     """Замена: a per-date change to a single lesson slot."""
