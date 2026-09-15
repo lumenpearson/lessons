@@ -204,6 +204,56 @@ internal abstract class TimetableDao {
         deleteSchoolClass(classId)
     }
 
+    @Query(
+        "DELETE FROM homework WHERE day_id IN " +
+            "(SELECT id FROM school_day WHERE class_id NOT IN (:keep))",
+    )
+    abstract suspend fun deleteHomeworkOutside(keep: Collection<Long>)
+
+    @Query(
+        "DELETE FROM event WHERE day_id IN " +
+            "(SELECT id FROM school_day WHERE class_id NOT IN (:keep))",
+    )
+    abstract suspend fun deleteEventsOutside(keep: Collection<Long>)
+
+    @Query(
+        "DELETE FROM lesson WHERE day_id IN " +
+            "(SELECT id FROM school_day WHERE class_id NOT IN (:keep))",
+    )
+    abstract suspend fun deleteLessonsOutside(keep: Collection<Long>)
+
+    @Query("DELETE FROM school_day WHERE class_id NOT IN (:keep)")
+    abstract suspend fun deleteDaysOutside(keep: Collection<Long>)
+
+    @Query("DELETE FROM school_class WHERE id NOT IN (:keep)")
+    abstract suspend fun deleteSchoolClassesOutside(keep: Collection<Long>)
+
+    /**
+     * Drops every class the device is no longer in.
+     *
+     * A sweep rather than a delete at the moment of leaving, because the case
+     * it exists for cannot be caught there: a sync already in flight when a
+     * class is left lands afterwards and `replaceAll` re-creates the whole
+     * window for a class nobody can see any more. Every read is class-filtered
+     * so none of it is ever drawn — it is a year of somebody's timetable kept
+     * on a phone that asked to be rid of it, which is the part that matters.
+     *
+     * An empty [keep] is the whole cache, spelled as such: `NOT IN ()` is not
+     * valid SQL.
+     */
+    @Transaction
+    open suspend fun retainOnly(keep: Collection<Long>) {
+        if (keep.isEmpty()) {
+            clearAll()
+            return
+        }
+        deleteHomeworkOutside(keep)
+        deleteEventsOutside(keep)
+        deleteLessonsOutside(keep)
+        deleteDaysOutside(keep)
+        deleteSchoolClassesOutside(keep)
+    }
+
     /** Empties the whole cache, every class at once. Used on full sign-out. */
     @Transaction
     open suspend fun clearAll() {

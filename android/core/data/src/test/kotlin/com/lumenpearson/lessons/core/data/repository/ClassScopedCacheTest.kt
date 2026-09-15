@@ -101,6 +101,51 @@ class ClassScopedCacheTest {
     }
 
     @Test
+    fun `the sweep keeps the classes the phone is still in`() = runTest {
+        // What it exists for: a sync already in flight when a class is left
+        // lands after the wipe and re-creates its whole window. Nothing can
+        // draw it — every read is class-filtered — so it is a year of somebody
+        // else's timetable kept on a phone that asked to stop holding it.
+        val dao = InMemoryTimetableDao()
+        dao.replaceAll(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
+        dao.replaceAll(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
+
+        dao.retainOnly(setOf(2L))
+
+        assertEquals(listOf(2L), dao.cachedClassIds())
+        assertEquals(0, dao.dayCountOf(1))
+        assertEquals(0, dao.lessonCountOf(1))
+        assertEquals(1, dao.dayCountOf(2))
+        assertEquals(1, dao.lessonCountOf(2))
+    }
+
+    @Test
+    fun `sweeping with nothing to keep empties the cache`() = runTest {
+        // `NOT IN ()` is not valid SQL, so "the device is in no class" is the
+        // one case that cannot be expressed as a narrower delete.
+        val dao = InMemoryTimetableDao()
+        dao.replaceAll(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
+
+        dao.retainOnly(emptySet())
+
+        assertEquals(emptyList<Long>(), dao.cachedClassIds())
+        assertEquals(0, dao.dayCountOf(1))
+    }
+
+    @Test
+    fun `the sweep leaves a phone that has left nothing alone`() = runTest {
+        val dao = InMemoryTimetableDao()
+        dao.replaceAll(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
+        dao.replaceAll(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
+
+        dao.retainOnly(setOf(1L, 2L))
+
+        assertEquals(listOf(1L, 2L), dao.cachedClassIds())
+        assertEquals(1, dao.lessonCountOf(1))
+        assertEquals(1, dao.lessonCountOf(2))
+    }
+
+    @Test
     fun `a record built for the wrong class is filed under the class row`() = runTest {
         val dao = InMemoryTimetableDao()
 

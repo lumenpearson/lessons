@@ -197,6 +197,10 @@ internal class TimetableRepositoryImpl(
         }
     }
 
+    override suspend fun forgetClassesOtherThan(keep: Set<Long>) {
+        withContext(ioDispatcher) { dao.retainOnly(keep) }
+    }
+
     /**
      * Today in the *class's* zone, falling back to the device's only when this
      * phone has not cached a class yet.

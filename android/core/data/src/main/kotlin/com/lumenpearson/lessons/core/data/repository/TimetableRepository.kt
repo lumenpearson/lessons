@@ -39,4 +39,18 @@ interface TimetableRepository {
      * broadcasts on success.
      */
     suspend fun refresh(days: Int = 31): SyncResult
+
+    /**
+     * Forgets the cached window of every class this device has left.
+     *
+     * A sweep rather than part of leaving: a sync already in flight when a
+     * class is left lands after the wipe and re-creates its whole window. No
+     * screen can draw it — every read is filtered by the class on screen — so
+     * what is left is a year of a timetable kept on a phone that asked to stop
+     * holding it, until something sweeps.
+     *
+     * @param keep the classes the device is still in. Empty means it is in
+     * none, and the whole cache goes.
+     */
+    suspend fun forgetClassesOtherThan(keep: Set<Long>)
 }

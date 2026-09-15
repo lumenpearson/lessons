@@ -398,10 +398,7 @@ fun SettingsSectionScreen(
     }
 
     if (showAddClassSheet) {
-        AddClassSheet(
-            activeClassId = state.session?.classId,
-            onDismiss = { showAddClassSheet = false },
-        )
+        AddClassSheet(onDismiss = { showAddClassSheet = false })
     }
 
     // Resolved against the live list: the class can stop being one this phone

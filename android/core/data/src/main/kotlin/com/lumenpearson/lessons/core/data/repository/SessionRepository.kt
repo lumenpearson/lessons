@@ -65,6 +65,16 @@ interface SessionRepository {
      */
     suspend fun leave(classId: Long)
 
+    /**
+     * Leaves whichever class is on screen; does nothing when there is none.
+     *
+     * Exists for the one caller that cannot name a class: a `401` says the
+     * bearer the request carried has been refused, and that bearer is the
+     * active class's. Spelling it as [current] then [leave] at each call site
+     * would be two reads with a switch possible between them.
+     */
+    suspend fun leaveActive()
+
     /** Drops every membership and wipes the whole cached timetable with them. */
     suspend fun signOut()
 }

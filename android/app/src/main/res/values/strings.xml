@@ -167,7 +167,7 @@
     <string name="settings_feel_summary">Отклик, жесты, анимации и размытие</string>
     <string name="settings_content_summary">Что показывать в списках и виджете</string>
     <string name="settings_sync_summary">Расписание обновлений и адрес сервера</string>
-    <string name="settings_class_summary">Класс, школа и выход</string>
+    <string name="settings_class_summary">Классы, школа и выход</string>
     <string name="settings_about_summary">Версия и благодарности</string>
     <string name="settings_theme">Тема</string>
     <string name="settings_type_group">Шрифт</string>
@@ -296,6 +296,7 @@
     <string name="settings_class_add_message">Введите код второго класса. Классы, которые уже есть на устройстве, останутся.</string>
     <string name="settings_class_leave">Выйти из класса «%1$s»</string>
     <string name="settings_class_leave_title">Выйти из этого класса?</string>
+    <string name="settings_class_leave_action">Выйти из класса</string>
     <string name="settings_class_leave_message">Расписание класса «%1$s» будет удалено с устройства. Остальные классы останутся на месте.</string>
     <string name="settings_sign_out_all">Выйти из всех классов</string>
     <string name="settings_sign_out_all_title">Выйти из всех классов?</string>

@@ -142,20 +142,20 @@ internal fun LazyListScope.classRows(
  * — including the first sync that follows a success, which is what stops the
  * class that was just added from being empty for the next hour.
  *
- * Dismissal watches [activeClassId] rather than the view model. Joining makes
- * the new class the one on screen, so the id changing *is* the success signal,
- * and the view model keeps its rule that success is never reported through a
- * callback.
+ * Dismissal watches the view model's own one-shot rather than the class on
+ * screen. The class id looked like the success signal and is not one: entering
+ * the code of the class already showing is a real case — it is how somebody
+ * whose device was revoked gets back in — and it succeeds without changing
+ * which class is active, so a sheet keyed on that sat there after a successful
+ * join with the code still in the field and nothing to say it had worked.
  */
 @Composable
 internal fun AddClassSheet(
-    activeClassId: Long?,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: JoinViewModel = viewModel(factory = JoinViewModel.Factory),
 ) {
     val join by viewModel.uiState.collectAsStateWithLifecycle()
-    val openedWith = remember { activeClassId }
 
     // Closing empties the field, because the view model outlives the sheet: it
     // is scoped to the screen, so without this, opening «Добавить класс» again
@@ -172,8 +172,11 @@ internal fun AddClassSheet(
     // composition is not allowed to make one. Done inline it dismissed on the
     // same frame it was deciding what to draw, which Compose is entitled to
     // treat as an infinite recomposition.
-    LaunchedEffect(activeClassId) {
-        if (activeClassId != openedWith) close()
+    LaunchedEffect(join.joinedClassId) {
+        if (join.joinedClassId != null) {
+            viewModel.consumeJoined()
+            close()
+        }
     }
 
     val interactionSource = remember { MutableInteractionSource() }
@@ -275,7 +278,10 @@ internal fun LeaveClassSheet(
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 ),
             ) {
-                Text(text = stringResource(R.string.settings_sign_out))
+                // Not `settings_sign_out`: this sheet drops one class and the
+                // others stay, and in English that string reads "Sign out"
+                // under a title that says "Leave this class?".
+                Text(text = stringResource(R.string.settings_class_leave_action))
             }
         }
     }

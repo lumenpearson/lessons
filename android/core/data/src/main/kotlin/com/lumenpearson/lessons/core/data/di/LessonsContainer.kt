@@ -127,7 +127,14 @@ class DefaultLessonsContainer(
             // Resolved when it fires, not here: `sessionRepository` is a lazy
             // in this same container and asking for it now would build it on
             // the cold-start path of a class this device may not even be in.
-            onTokenRejected = { sessionRepository.signOut() },
+            //
+            // `leave`, not `signOut`. The token the server refused is the one
+            // the request carried, which is the class on screen — and since a
+            // phone may now hold several, signing out of all of them would
+            // answer one class revoking a device by deleting the other classes'
+            // tokens too, in the background, with the app closed and nothing on
+            // screen to say where they went.
+            onTokenRejected = { sessionRepository.leaveActive() },
         )
     }
 
@@ -155,8 +162,14 @@ class DefaultLessonsContainer(
             // keeps the switch instant and usable with no network.
             onActiveClassChanged = {
                 DataSyncBroadcast.send(appContext)
+                // Cleared before re-planning, not instead of it. An alert
+                // already on the shade names no class — «первый в 08:30» is all
+                // it says — so after a switch it is an unattributed statement
+                // about a class the phone is no longer showing, and tapping it
+                // opens the app on the other one.
+                SchoolAlerts.clear(appContext)
                 SchoolAlerts.onDataChanged(appContext)
-                SyncScheduler.syncNow(appContext)
+                SyncScheduler.syncNow(appContext, wantsDifferentData = true)
             },
         )
     }
@@ -192,8 +205,9 @@ class DefaultLessonsContainer(
             api = apis.manage,
             // The management surface carries the same class bearer, so a `401`
             // there means the same thing it means on a sync — including the
-            // case an admin makes themselves by deleting the class.
-            onTokenRejected = { sessionRepository.signOut() },
+            // case an admin makes themselves by deleting the class. And it
+            // means it about that one class: see the note on the sync above.
+            onTokenRejected = { sessionRepository.leaveActive() },
         )
     }
 

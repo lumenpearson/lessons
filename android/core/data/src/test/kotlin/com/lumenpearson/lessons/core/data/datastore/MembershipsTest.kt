@@ -133,6 +133,33 @@ class MembershipsTest {
     }
 
     @Test
+    fun `one damaged record does not take the other memberships with it`() {
+        // The list is decoded a record at a time for exactly this. Decoded as a
+        // list, one bad element reported a phone holding two valid tokens as
+        // being in no class — and the first thing a user does to recover is
+        // enter a join code, which overwrites the survivors for good.
+        val prefs = mutablePreferencesOf(
+            MembershipKeys.SESSIONS to
+                """[{"classId":1,"className":"7А","token":"t1"},""" +
+                """{"classId":"not a number","className":"9Б","token":"t2"},""" +
+                """{"classId":3,"className":"11В","token":"t3"}]""",
+        )
+
+        assertEquals(listOf(1L, 3L), prefs.memberships().map { it.classId })
+    }
+
+    @Test
+    fun `a null where a newer build wrote one falls back to the default`() {
+        val prefs = mutablePreferencesOf(
+            MembershipKeys.SESSIONS to
+                """[{"classId":1,"className":null,"school":null,"token":"t1"}]""",
+        )
+
+        assertEquals(listOf(1L), prefs.memberships().map { it.classId })
+        assertEquals("", prefs.memberships().single().className)
+    }
+
+    @Test
     fun `a record with no token is dropped and the rest survive`() {
         val prefs = mutablePreferencesOf(
             MembershipKeys.SESSIONS to

@@ -152,6 +152,37 @@ internal class InMemoryTimetableDao : TimetableDao() {
         touch()
     }
 
+    override suspend fun deleteHomeworkOutside(keep: Collection<Long>) {
+        val owned = daysOutside(keep)
+        homework.removeAll { it.dayId in owned }
+        touch()
+    }
+
+    override suspend fun deleteEventsOutside(keep: Collection<Long>) {
+        val owned = daysOutside(keep)
+        events.removeAll { it.dayId in owned }
+        touch()
+    }
+
+    override suspend fun deleteLessonsOutside(keep: Collection<Long>) {
+        val owned = daysOutside(keep)
+        lessons.removeAll { it.dayId in owned }
+        touch()
+    }
+
+    override suspend fun deleteDaysOutside(keep: Collection<Long>) {
+        days.removeAll { it.classId !in keep }
+        touch()
+    }
+
+    override suspend fun deleteSchoolClassesOutside(keep: Collection<Long>) {
+        classes.removeAll { it.id !in keep }
+        touch()
+    }
+
+    private fun daysOutside(keep: Collection<Long>): Set<Long> =
+        days.filter { it.classId !in keep }.map { it.id }.toSet()
+
     // -- what the assertions look at ---------------------------------------
 
     /** Every class row currently cached, in insertion order. */

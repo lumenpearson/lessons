@@ -37,6 +37,17 @@ class SyncWorker(
             return Result.success()
         }
 
+        // Before the sync, not after: the rows of a class this device has left
+        // are dead weight that no screen can reach, and the one thing that can
+        // create them — a sync that landed after the class was left — is the
+        // very job this is. Cheap: five deletes that match nothing on a phone
+        // that has left no class.
+        runCatching {
+            container.timetableRepository.forgetClassesOtherThan(
+                container.sessionRepository.currentAll().map { it.classId }.toSet(),
+            )
+        }
+
         val days = inputData.getInt(KEY_DAYS, DEFAULT_DAYS)
         return when (val result = container.timetableRepository.refresh(days)) {
             // The repository broadcasts on its own now, so that an in-app

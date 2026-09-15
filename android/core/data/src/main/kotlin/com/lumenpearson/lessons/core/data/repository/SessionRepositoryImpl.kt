@@ -116,6 +116,16 @@ internal class SessionRepositoryImpl(
         }
     }
 
+    override suspend fun leaveActive() {
+        withContext(ioDispatcher) {
+            // Read once and handed straight on: two reads with a switch
+            // possible between them would leave the class the user had just
+            // moved to.
+            val showing = preferences.currentSession() ?: return@withContext
+            leave(showing.classId)
+        }
+    }
+
     override suspend fun signOut() {
         withContext(ioDispatcher) {
             preferences.clearSession()

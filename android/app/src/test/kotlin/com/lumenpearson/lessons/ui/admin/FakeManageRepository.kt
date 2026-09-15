@@ -204,6 +204,10 @@ internal class FakeSessionRepository : SessionRepository {
         if (state.value?.classId == classId) signOut()
     }
 
+    override suspend fun leaveActive() {
+        state.value?.let { leave(it.classId) }
+    }
+
     override suspend fun signOut() {
         signOuts++
         state.value = null

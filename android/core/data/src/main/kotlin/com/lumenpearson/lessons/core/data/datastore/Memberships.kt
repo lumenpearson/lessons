@@ -7,6 +7,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lumenpearson.lessons.core.data.repository.Session
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonArray
 
 /**
  * How the classes this device belongs to are written down.
@@ -43,23 +45,46 @@ private data class StoredSession(
  * price of that is a phone that says it is in no class while holding the tokens
  * for three.
  */
-private val membershipJson = Json { ignoreUnknownKeys = true }
+private val membershipJson = Json {
+    ignoreUnknownKeys = true
+    // An explicit `null` in a non-null field becomes the declared default
+    // rather than an exception, the same way the network's parser treats
+    // one. Without it the per-record tolerance above only covers a record
+    // that is missing a key, not one that carries a null.
+    coerceInputValues = true
+}
 
-/** Every membership, in the order they were joined. @see MembershipKeys */
+/**
+ * Every membership, in the order they were joined.
+ *
+ * Decoded **one record at a time**, which is the whole point of the list being
+ * an array of small objects. Decoding it as a list would make any single
+ * damaged record — an explicit `null` where a newer build wrote one, a wrong
+ * type, one flipped byte — throw, and the catch around it would report a phone
+ * holding three valid tokens as being in no class at all. Worse than showing
+ * the join screen: the next write is `memberships() + the new one`, so the
+ * first thing the user does to recover overwrites the other two for good.
+ *
+ * @see MembershipKeys
+ */
 internal fun Preferences.memberships(): List<Session> {
     val raw = this[MembershipKeys.SESSIONS] ?: return listOfNotNull(legacyMembership())
-    return runCatching { membershipJson.decodeFromString<List<StoredSession>>(raw) }
-        .getOrDefault(emptyList())
-        .mapNotNull { stored ->
-            stored.token.takeIf { it.isNotBlank() }?.let { token ->
-                Session(
-                    classId = stored.classId,
-                    className = stored.className,
-                    school = stored.school,
-                    token = token,
-                )
-            }
+    val array = runCatching { membershipJson.parseToJsonElement(raw).jsonArray }
+        .getOrNull()
+        ?: return emptyList()
+    return array.mapNotNull { element ->
+        val stored = runCatching { membershipJson.decodeFromJsonElement<StoredSession>(element) }
+            .getOrNull()
+            ?: return@mapNotNull null
+        stored.token.takeIf { it.isNotBlank() }?.let { token ->
+            Session(
+                classId = stored.classId,
+                className = stored.className,
+                school = stored.school,
+                token = token,
+            )
         }
+    }
 }
 
 /**

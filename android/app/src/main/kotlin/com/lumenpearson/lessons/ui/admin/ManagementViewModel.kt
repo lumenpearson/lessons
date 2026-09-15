@@ -345,10 +345,16 @@ class ManagementViewModel(
      * drawing its lessons, never reached the join screen, and so never ran the
      * wipe that joining a new class does on the way in. The old class was then
      * still on screen after joining a new one.
+     *
+     * The class that was deleted and no other. A phone may hold several, and
+     * an admin deleting one of their classes must not be signed out of the
+     * ones they only attend: `signOut` would drop every token on the device,
+     * and the only way back into the others is another join code from their
+     * admins.
      */
     fun leaveDeletedClass() {
         if (!state.value.classDeleted) return
-        viewModelScope.launch { session.signOut() }
+        viewModelScope.launch { session.leaveActive() }
     }
 
     // -- subjects -----------------------------------------------------------

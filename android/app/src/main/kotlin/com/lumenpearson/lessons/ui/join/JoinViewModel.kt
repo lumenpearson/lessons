@@ -45,6 +45,19 @@ data class JoinUiState(
     val baseUrl: String = "",
     val isSubmitting: Boolean = false,
     val error: JoinError? = null,
+    /**
+     * The class just joined, until somebody consumes it.
+     *
+     * The screen ignores this — joining writes a session and the shell
+     * navigates on the session, which is still the one mechanism. It exists
+     * for the «Добавить класс» sheet, which is raised from inside an app that
+     * is already signed in: nothing navigates there, so the sheet has to be
+     * told, and the class id alone cannot tell it. Re-entering the code of the
+     * class already on screen is a real case — it is how somebody whose device
+     * was revoked gets back in — and it leaves the active class exactly as it
+     * was while having plainly succeeded.
+     */
+    val joinedClassId: Long? = null,
 ) {
     /** The button is only live for a complete code with no request running. */
     val canSubmit: Boolean get() = code.length in ClassCodeLengths && !isSubmitting
@@ -70,18 +83,21 @@ class JoinViewModel(
     private val code = MutableStateFlow("")
     private val submitting = MutableStateFlow(false)
     private val error = MutableStateFlow<JoinError?>(null)
+    private val joined = MutableStateFlow<Long?>(null)
 
     val uiState: StateFlow<JoinUiState> = combine(
         code,
         submitting,
         error,
+        joined,
         settingsRepository.settings.map { it.baseUrl },
-    ) { code, isSubmitting, error, baseUrl ->
+    ) { code, isSubmitting, error, joinedClassId, baseUrl ->
         JoinUiState(
             code = code,
             baseUrl = baseUrl,
             isSubmitting = isSubmitting,
             error = error,
+            joinedClassId = joinedClassId,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -137,7 +153,15 @@ class JoinViewModel(
             // has just this second joined a class.
             timetableRepository.refresh()
             submitting.value = false
+            // Last, so that whoever is watching for it sees a finished join
+            // rather than one still fetching its first week.
+            joined.value = result.getOrNull()?.classId
         }
+    }
+
+    /** Clears the one-shot in [JoinUiState.joinedClassId]. */
+    fun consumeJoined() {
+        joined.value = null
     }
 
     companion object {

@@ -124,14 +124,22 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         dataStore.edit { prefs ->
             val remaining = prefs.memberships().filterNot { it.classId == classId }
             prefs.writeMemberships(remaining)
-            val next = remaining.firstOrNull { it.classId == prefs[MembershipKeys.ACTIVE_CLASS_ID] }
-                ?: remaining.firstOrNull()
-            if (next == null) {
-                prefs[KEY_ONBOARDING_DONE] = true
-                prefs.remove(MembershipKeys.ACTIVE_CLASS_ID)
-                prefs.remove(KEY_SCHEDULE_FINGERPRINT)
-            } else {
-                prefs.activate(next.classId)
+            val was = prefs[MembershipKeys.ACTIVE_CLASS_ID]
+            val next = remaining.firstOrNull { it.classId == was } ?: remaining.firstOrNull()
+            when {
+                next == null -> {
+                    prefs[KEY_ONBOARDING_DONE] = true
+                    prefs.remove(MembershipKeys.ACTIVE_CLASS_ID)
+                    prefs.remove(KEY_SCHEDULE_FINGERPRINT)
+                }
+                // Leaving a class that was not the one on screen changes
+                // nothing about the one that is, so the fingerprint stays.
+                // Clearing it would silently swallow the next «расписание
+                // изменилось» for a class the user never touched: the baseline
+                // would be re-set by the following sync, and a замена that
+                // arrived with it would be the thing that set it.
+                next.classId == was -> Unit
+                else -> prefs.activate(next.classId)
             }
         }
     }

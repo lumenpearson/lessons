@@ -172,7 +172,7 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="settings_feel_summary">Feedback, gestures, animations and blur</string>
     <string name="settings_content_summary">What the lists and the widget show</string>
     <string name="settings_sync_summary">Update schedule and server address</string>
-    <string name="settings_class_summary">Class, school and signing out</string>
+    <string name="settings_class_summary">Classes, school and signing out</string>
     <string name="settings_about_summary">Version and credits</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_type_group">Font</string>
@@ -301,6 +301,7 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="settings_class_add_message">Enter the code of the other class. The classes already on this device stay where they are.</string>
     <string name="settings_class_leave">Leave “%1$s”</string>
     <string name="settings_class_leave_title">Leave this class?</string>
+    <string name="settings_class_leave_action">Leave the class</string>
     <string name="settings_class_leave_message">The timetable of class “%1$s” will be deleted from the device. The other classes stay where they are.</string>
     <string name="settings_sign_out_all">Leave every class</string>
     <string name="settings_sign_out_all_title">Leave every class?</string>
