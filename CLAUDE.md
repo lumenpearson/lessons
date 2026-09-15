@@ -39,7 +39,11 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 1026 tests, about four minutes
+- **`python -m pytest -q`** — 1190 tests, about four and a half minutes
+- **`python -m mypy`** — one question, of all 78 modules, in seconds: does anything reach
+  for an attribute its type does not have? Configured in `pyproject.toml`, where every
+  other error code is switched off by name with its count and its reason. Not in CI — the
+  owner has not been asked — but run it before you push server code
 - `python -m pytest -q tests/test_schedule.py -k parity` — one file, one test
 - `python -m uvicorn app.main:app --reload` — run it; add `--host 0.0.0.0` for a phone to
   reach it
@@ -232,6 +236,26 @@ points Hilt does not inject cleanly.
 
 ## Notes
 
+- **Everything from outside is escaped before it goes into a message.** The bot sends
+  HTML, and Telegram refuses the **whole message** on a stray `<` rather than damaging one
+  row — so an unescaped string does not produce a broken line, it produces a blank screen
+  and no error anybody sees. The strings that come from outside are: anything the
+  Petersburg diary sends (subject, room, teacher, topic, homework), anything typed into
+  the bot or pasted into the timetable grammar (a subject really can be «Алгебра <7>»),
+  and anything out of the schools registry. `render.py` always did this; `diary_render.py`
+  and `editor_render.py` never did, and both shipped that way.
+  Two related traps in the same family: `plural(n, …)` already contains the number, so
+  `f"{n} {plural(n, …)}"` prints «10 10 минут» — three callers had it, and one had a test
+  that passed because «10 минут» is a substring. And `answerCallbackQuery` takes no parse
+  mode, so a card built for a message shows its own tags in an alert; run it through
+  `editor_render.as_alert` instead.
+- **A renderer is written against the type it is handed, and nothing checks that but you.**
+  «🗓 Четверти» crashed on every press in production because the card printed `term.days`
+  and `days` lived on a flattened copy of a term that nothing ever constructed. There is
+  no compiler here. `python -m mypy` is: it reproduces that exact failure when the property
+  is removed, and it is clean today. If you add a «view» dataclass beside a model, check
+  that something builds it — an unused twin is how a renderer ends up written against the
+  one it will never receive.
 - **An enum column stores the member NAME.** `SAEnum(SomeStrEnum)` writes
   `OPEN`, not `open` — check `bot_users.role` in the live database if you doubt
   it. A `server_default` spelled as `.value` therefore lands an unreadable
