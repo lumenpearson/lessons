@@ -42,7 +42,7 @@ from app.models import (
     Subject,
 )
 from app.security import hash_token, new_join_code
-from app.services import linking
+from app.services import linking, subjects
 
 MONDAY = date(2026, 9, 7)
 MOSCOW = ZoneInfo("Europe/Moscow")
@@ -712,6 +712,58 @@ async def _subscriber(session, school_class, telegram_id: int, **flags) -> None:
     await session.commit()
 
 
+async def test_homework_in_another_case_updates_the_task_already_set(
+    client, session, school_class, recording_bot
+):
+    """Homework upserts on (date, subject_name), so a phone sending «алгебра»
+    used to found a second задание beside the «Алгебра» already there — and
+    both then went out in the evening digest. It also survived a rename, which
+    moves homework by exact old name, and afterwards named a subject the class
+    no longer had.
+
+    The dictionary's spelling is stored instead, so the second send lands on
+    the first.
+    """
+    await subjects.sync_from_timetable(session, school_class.id)
+    await session.commit()
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+
+    first = await client.put(
+        "/api/v1/homework",
+        json={"due_date": "2026-09-14", "subject": "Алгебра", "text": "№ 1"},
+        headers=_auth(token),
+    )
+    shouted = await client.put(
+        "/api/v1/homework",
+        json={"due_date": "2026-09-14", "subject": "  АЛГЕБРА ", "text": "№ 2"},
+        headers=_auth(token),
+    )
+
+    assert shouted.status_code == 200, shouted.text
+    assert shouted.json()["id"] == first.json()["id"]
+    assert shouted.json()["subject"] == "Алгебра"
+    rows = list(await session.scalars(select(Homework).where(Homework.class_id == school_class.id)))
+    assert len(rows) == 1 and rows[0].text == "№ 2"
+
+
+async def test_homework_for_a_subject_the_class_has_no_entry_for_is_kept_as_typed(
+    client, session, school_class, recording_bot
+):
+    """Never founds a dictionary entry: a picker that grew a subject because
+    somebody wrote down an assignment would be learning from the wrong half of
+    the app."""
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+
+    response = await client.put(
+        "/api/v1/homework",
+        json={"due_date": "2026-09-14", "subject": "Астрономия", "text": "§ 4"},
+        headers=_auth(token),
+    )
+
+    assert response.json()["subject"] == "Астрономия"
+    assert await subjects.find(session, school_class.id, "Астрономия") is None
+
+
 async def test_homework_put_upserts_audits_and_notifies(
     client, session, school_class, recording_bot
 ):
@@ -968,6 +1020,17 @@ async def test_days_set_and_clear(client, session, school_class, recording_bot):
         headers=_auth(token),
     )
     assert shortened.json()["kind"] == "shortened"
+
+    # A shortened day with no schedule to ring is refused: the resolver would
+    # fall back to the class default, so the day would announce short lessons
+    # and draw the normal ones.
+    bare = await client.put(
+        "/api/v1/days",
+        json={"date": next_monday, "kind": "shortened"},
+        headers=_auth(token),
+    )
+    assert bare.status_code == 422
+    assert "bell schedule" in bare.json()["detail"]
     assert shortened.json()["bell_schedule_id"] == other_bells.id
     rows = list(
         await session.scalars(select(DayOverride).where(DayOverride.class_id == school_class.id))

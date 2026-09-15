@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from pydantic import Field
 
 from app.bot.button_style import DANGER, SUCCESS
 from app.bot.editor_render import slot_label
@@ -39,13 +40,35 @@ class EditorAction(CallbackData, prefix="ted"):
     ``flags`` the view switches. The prefix is ``ted`` rather than ``ed``
     because ``tests/test_bot_manage.py`` checks every prefix against every
     other, and a two-letter one is a collision waiting for the next feature.
+
+    The bound on ``day`` is enforced, not documented. A payload is whatever the
+    sender typed into a button's data, and this one is used both as an index
+    into :data:`WEEKDAY_FULL` and as the weekday written onto a
+    ``TimetableEntry``. ``day=0`` labelled itself «Воскресенье» off the end of
+    the list and saved a lesson on weekday 0 — a row the resolver, which keys
+    on ``isoweekday()`` and so only ever asks for 1–7, can never return: the
+    editor showed it, every phone did not, and nothing said so. An out-of-range
+    payload now fails to unpack, which aiogram treats as a filter that did not
+    match.
     """
 
     action: str  # day | slot | add | edit | move | drop | split | merge | …
-    day: int = 1
+    day: int = Field(default=1, ge=1, le=LAST_WEEKDAY)
     index: int = 0
     flags: int = 0  # view switches only — they survive every navigation
     arg: int = 0  # action-specific: «move» direction, «edit»/«merge» parity
+
+
+class EditorSubject(CallbackData, prefix="tes"):
+    """One subject of the class, picked instead of typed.
+
+    Only the subject travels. The cursor — which day, which lesson, add or
+    edit — is already in FSM data by the time this keyboard is drawn, put there
+    by the same handler that draws it, and that is the editor's existing rule
+    for the typed answer too.
+    """
+
+    subject: int
 
 
 def _cursor(action: str, day: int, flags: int, index: int = 0, arg: int = 0) -> str:
@@ -58,6 +81,38 @@ def _cursor(action: str, day: int, flags: int, index: int = 0, arg: int = 0) -> 
     still a bit the next reader has to prove nothing reads.
     """
     return EditorAction(action=action, day=day, index=index, flags=flags, arg=arg).pack()
+
+
+def subject_picker(subjects: list, day: int, flags: int) -> InlineKeyboardMarkup:
+    """The class's own subjects, two to a row, above the typed prompt.
+
+    Typing still works — the state is set before this is shown — and it is
+    still the only way to give a room and a teacher in one go. This is for the
+    other case, which is most of them: the subject is one the class already
+    has, and picking it off a list is both faster and the only way to be sure
+    the spelling matches the one «📚 Предметы» holds.
+
+    An empty dictionary draws no buttons rather than an empty card: a class
+    whose timetable is being typed for the first time has nothing to offer yet.
+    """
+    buttons = [
+        InlineKeyboardButton(
+            text=subject.short_name or subject.name,
+            callback_data=EditorSubject(subject=subject.id).pack(),
+        )
+        for subject in subjects
+    ]
+    rows = [buttons[start : start + 2] for start in range(0, len(buttons), 2)]
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="Отмена",
+                callback_data=_cursor("day", day, flags),
+                style=DANGER,
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def day_keyboard(

@@ -82,13 +82,60 @@ data class SchoolDay(
     val lastLesson: Lesson? get() = activeLessons.lastOrNull()
 }
 
+/** Четверти or полугодия — how this class's year is cut up. */
+enum class TermKind {
+    QUARTER,
+    SEMESTER,
+    ;
+
+    companion object {
+        /**
+         * Unknown wire values become [QUARTER] rather than throwing: a server
+         * that learns a third scheme must not stop an older client from
+         * drawing a timetable, and quarters are what most classes are taught in.
+         */
+        fun fromWire(raw: String?): TermKind =
+            if (raw?.lowercase() == "semester") SEMESTER else QUARTER
+    }
+}
+
+/**
+ * One term, as the school actually runs it.
+ *
+ * The dates come from the server because they are the school's own and they
+ * move; deriving them here would be a second answer to a question an admin has
+ * already answered.
+ */
+data class Term(
+    val index: Int,
+    val kind: TermKind,
+    val startsOn: LocalDate,
+    val endsOn: LocalDate,
+) {
+    operator fun contains(date: LocalDate): Boolean = date >= startsOn && date <= endsOn
+
+    /** «2 четверть» / «1 полугодие», for a heading. */
+    val label: String
+        get() = when (kind) {
+            TermKind.QUARTER -> "$index четверть"
+            TermKind.SEMESTER -> "$index полугодие"
+        }
+}
+
 data class SchoolClassInfo(
     val id: Long,
     val name: String,
+    val grade: Int? = null,
+    val letter: String? = null,
     val school: String? = null,
     val city: String? = null,
     val timeZoneId: String = "Europe/Moscow",
+    val termKind: TermKind = TermKind.QUARTER,
+    val terms: List<Term> = emptyList(),
 ) {
+    /** The term holding [date], or `null` — каникулы are a real answer. */
+    fun termAt(date: LocalDate): Term? = terms.firstOrNull { date in it }
+
     /**
      * The school's zone, falling back to the device's if the server sent
      * something this Android build has no tzdata for.

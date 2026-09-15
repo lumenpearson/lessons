@@ -457,7 +457,7 @@ async def test_a_non_owner_cannot_create_a_class_by_reaching_the_final_step(sess
     from app.bot.handlers.start import create_class_timezone
 
     callback = _Callback(user_id=2000)  # not in OWNER_IDS
-    state = _State({"name": "Взлом", "school": None})
+    state = _State({"grade": 9, "letter": "Взлом", "school": None})
 
     await create_class_timezone(callback, SimpleNamespace(zone="Europe/Moscow"), state, session)
 
@@ -470,18 +470,19 @@ async def test_the_owner_can_still_create_a_class(session):
     from app.bot.handlers.start import create_class_timezone
 
     callback = _Callback(user_id=1000)  # matches OWNER_IDS in conftest
-    state = _State({"name": "9Б", "school": "Школа № 2"})
+    state = _State({"grade": 9, "letter": "Б", "school": "Школа № 2"})
 
     await create_class_timezone(callback, SimpleNamespace(zone="Asia/Omsk"), state, session)
 
     created = await session.scalar(select(SchoolClass).where(SchoolClass.name == "9Б"))
     assert created is not None
     assert created.timezone == "Asia/Omsk"
+    assert (created.grade, created.letter) == (9, "Б")
     assert not callback.alerted
 
 
 async def test_a_half_finished_create_flow_does_not_raise(session):
-    """The name step never ran, so the data dict has no "name" key."""
+    """The grade step never ran, so the data dict has no "grade" key."""
     from app.bot.handlers.start import create_class_timezone
 
     callback = _Callback(user_id=1000)
@@ -491,6 +492,39 @@ async def test_a_half_finished_create_flow_does_not_raise(session):
 
     assert callback.alerted
     assert (await session.scalars(select(SchoolClass))).all() == []
+
+
+async def test_a_forged_grade_is_refused_rather_than_stored(session):
+    """The keyboard offers 1..11; the payload it packs is a number an attacker
+    types. A class numbered 99 would resolve its term scheme from a comparison
+    that happens to be true rather than from a decision."""
+    from app.bot.handlers.start import create_class_grade
+
+    callback = _Callback(user_id=1000)
+    state = _State({})
+
+    await create_class_grade(callback, SimpleNamespace(grade=99), state)
+
+    assert callback.alerted
+    assert "grade" not in state.data
+
+
+async def test_creating_a_class_seeds_its_terms(session):
+    """A class has четверти from the moment it exists; the alternative is an
+    empty screen for the first person who opens the calendar."""
+    from app.bot.handlers.start import create_class_timezone
+    from app.models import Term, TermKind
+
+    callback = _Callback(user_id=1000)
+    state = _State({"grade": 10, "letter": None, "school": None})
+
+    await create_class_timezone(callback, SimpleNamespace(zone="Europe/Moscow"), state, session)
+
+    created = await session.scalar(select(SchoolClass).where(SchoolClass.grade == 10))
+    seeded = (await session.scalars(select(Term).where(Term.class_id == created.id))).all()
+    # A tenth year is taught in halves, so there are two of them.
+    assert len(seeded) == 2
+    assert all(term.kind is TermKind.SEMESTER for term in seeded)
 
 
 # --------------------------------------------------------------------------

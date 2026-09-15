@@ -140,12 +140,31 @@ class DayOut(BaseModel):
     note: str | None = None
 
 
+class TermOut(BaseModel):
+    """One четверть or полугодие, as the class actually runs it."""
+
+    index: int
+    kind: Literal["quarter", "semester"]
+    starts_on: Date
+    ends_on: Date
+
+
 class ClassOut(BaseModel):
     id: int
     name: str
+    # The year of school, 1..11, and the letter that distinguishes two classes
+    # of the same year. Null on a class created before they existed: its name
+    # is all there is, and «9» read out of «9А» would be a guess.
+    grade: int | None = None
+    letter: str | None = None
     school: str | None = None
     city: str | None = None
     timezone: str
+    #: Which scheme the year is cut into, and the terms themselves — the app
+    #: renders «2 четверть» and shades the calendar from these rather than
+    #: recomputing dates a school is free to have moved.
+    term_kind: Literal["quarter", "semester"] | None = None
+    terms: list[TermOut] = Field(default_factory=list)
 
 
 RoleName = Literal["viewer", "editor", "admin", "owner"]
@@ -738,6 +757,61 @@ class ManagedClassOut(BaseModel):
     calendar_ready: bool = False
 
 
+class TermSchemeIn(BaseModel):
+    """Switch the class between четверти and полугодия."""
+
+    kind: Literal["quarter", "semester"]
+
+
+class TermBoundsIn(BaseModel):
+    """Both edges of one term. Validated against the year in the service, not
+    here: «пересекается с периодом 2» is a rule about the other rows, and
+    pydantic can only see this one."""
+
+    starts_on: Date
+    ends_on: Date
+
+
+class TermsOut(BaseModel):
+    kind: Literal["quarter", "semester"]
+    year: int
+    terms: list[TermOut] = Field(default_factory=list)
+
+
+class SchoolOut(BaseModel):
+    """One row of the school directory, as the picker shows it."""
+
+    name: str
+    full_name: str
+    #: ОГРН — thirteen digits, assigned once and never reused. Returned so a
+    #: client can tell two «Гимназия № 3» apart without parsing the address.
+    ogrn: str | None = None
+    inn: str | None = None
+    address: str | None = None
+    city: str | None = None
+    region: str | None = None
+    #: False for a school the register has closed. Shown rather than hidden:
+    #: a class created in May may belong to one merged over the summer.
+    active: bool = True
+
+
+class SchoolSearchOut(BaseModel):
+    """One page of results, and whether there is more behind it.
+
+    ``truncated`` is not «есть ещё страницы» — those are ``pages``. It means
+    the directory's own ceiling of twenty was reached, so this is the first
+    twenty of an unknown number and the way forward is a longer query, not a
+    next page. A client that ignores it will show «найдено 20» for a search
+    matching three hundred schools.
+    """
+
+    items: list[SchoolOut] = Field(default_factory=list)
+    page: int
+    pages: int
+    total: int
+    truncated: bool = False
+
+
 class ClassPatch(BaseModel):
     """Only the fields present are changed; ``null`` clears a nullable one.
 
@@ -747,6 +821,11 @@ class ClassPatch(BaseModel):
     """
 
     name: str | None = Field(default=None, min_length=1, max_length=64)
+    # 1..11. The bound is the school's, not the column's: a class numbered 0 or
+    # 12 would resolve its term scheme from a comparison that happens to be
+    # true rather than from a decision.
+    grade: int | None = Field(default=None, ge=1, le=11)
+    letter: str | None = Field(default=None, max_length=8)
     school: str | None = Field(default=None, max_length=200)
     city: str | None = Field(default=None, max_length=120)
     timezone: str | None = Field(default=None, max_length=64)

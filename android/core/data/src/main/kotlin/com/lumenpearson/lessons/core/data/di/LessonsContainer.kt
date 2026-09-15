@@ -116,6 +116,10 @@ class DefaultLessonsContainer(
                 DataSyncBroadcast.send(appContext)
                 SchoolAlerts.onDataChanged(appContext)
             },
+            // Resolved when it fires, not here: `sessionRepository` is a lazy
+            // in this same container and asking for it now would build it on
+            // the cold-start path of a class this device may not even be in.
+            onTokenRejected = { sessionRepository.signOut() },
         )
     }
 
@@ -124,7 +128,17 @@ class DefaultLessonsContainer(
             preferences = preferences,
             api = api,
             dao = database.timetableDao(),
-            onSignedOut = { SchoolAlerts.clear(appContext) },
+            // The broadcast as well as the alarms, because the widget redraws
+            // on exactly two things: this broadcast, and its own armed tick.
+            // Leaving a class at four on a Friday puts the state at
+            // `AfterSchool`, whose tick is midnight — so without this the home
+            // screen went on showing the lessons of a class the phone had been
+            // thrown out of for the next eight hours, and after a 401 nobody
+            // had even pressed anything.
+            onSignedOut = {
+                DataSyncBroadcast.send(appContext)
+                SchoolAlerts.clear(appContext)
+            },
         )
     }
 
@@ -155,7 +169,13 @@ class DefaultLessonsContainer(
     }
 
     override val manageRepository: ManageRepository by lazy {
-        ManageRepositoryImpl(api = apis.manage)
+        ManageRepositoryImpl(
+            api = apis.manage,
+            // The management surface carries the same class bearer, so a `401`
+            // there means the same thing it means on a sync — including the
+            // case an admin makes themselves by deleting the class.
+            onTokenRejected = { sessionRepository.signOut() },
+        )
     }
 
     override val githubRepository: GithubRepository by lazy {

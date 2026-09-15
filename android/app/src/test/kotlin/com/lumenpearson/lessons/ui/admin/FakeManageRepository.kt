@@ -15,6 +15,9 @@ import com.lumenpearson.lessons.core.data.repository.ManagedClass
 import com.lumenpearson.lessons.core.data.repository.ManagedDevice
 import com.lumenpearson.lessons.core.data.repository.ManagedSubject
 import com.lumenpearson.lessons.core.data.repository.RequestDecision
+import com.lumenpearson.lessons.core.data.repository.Session
+import com.lumenpearson.lessons.core.data.repository.SessionRepository
+import com.lumenpearson.lessons.core.data.repository.SchoolPage
 import com.lumenpearson.lessons.core.data.repository.SubjectForm
 import com.lumenpearson.lessons.core.data.repository.SubjectSaved
 import com.lumenpearson.lessons.core.data.repository.TimetableExport
@@ -63,6 +66,14 @@ internal class FakeManageRepository : ManageRepository {
         before: ManagedClass,
         edit: ClassEdit,
     ): Result<ManagedClass> = park()
+
+    /** The query of each [searchSchools] call, in order. */
+    val schoolQueries: MutableList<String> = mutableListOf()
+
+    override suspend fun searchSchools(query: String): Result<SchoolPage> {
+        schoolQueries += query
+        return park()
+    }
 
     override suspend fun deleteClass(confirmName: String): Result<Unit> = park()
 
@@ -152,3 +163,55 @@ internal class FakeDeviceLinkRepository(role: ClassRole?) : DeviceLinkRepository
 
 /** The refusal that means "this page is no longer yours". */
 internal val RoleLost: ManageFailure = ManageFailure.RoleLost("admin")
+
+/**
+ * A session that records whether it was dropped.
+ *
+ * The one question worth asking of it: after the class is deleted, does the app
+ * actually leave? It used to say «класс удалён» and keep both the token and the
+ * whole cached timetable of a class that no longer existed.
+ */
+internal class FakeSessionRepository : SessionRepository {
+
+    var signOuts: Int = 0
+        private set
+
+    private val state = MutableStateFlow<Session?>(
+        Session(classId = 1, className = "9А", school = null, token = "t"),
+    )
+
+    override val session: StateFlow<Session?> = state.asStateFlow()
+
+    override suspend fun current(): Session? = state.value
+
+    override suspend fun join(code: String, deviceName: String?): Result<Session> =
+        Result.failure(IllegalStateException("unused"))
+
+    override suspend fun signOut() {
+        signOuts++
+        state.value = null
+    }
+
+    /** Joining a different class on the same phone, without restarting it. */
+    fun rejoin(classId: Long, className: String) {
+        state.value = Session(classId = classId, className = className, school = null, token = "t2")
+    }
+
+    companion object {
+        /** A filled card, for the tests that care that it is there and then is not. */
+        val CLASS_CARD = ManagedClass(
+            id = 1,
+            name = "9А",
+            school = null,
+            city = null,
+            timezone = "Europe/Moscow",
+            timezoneLabel = "МСК (UTC+3) · Москва",
+            joinCode = "DEMO24",
+            members = 3,
+            devices = 2,
+            pendingRequests = 0,
+            bellScheduleId = 1,
+            calendarReady = true,
+        )
+    }
+}

@@ -7,6 +7,8 @@ import com.lumenpearson.lessons.core.model.Lesson
 import com.lumenpearson.lessons.core.model.SchoolClassInfo
 import com.lumenpearson.lessons.core.model.SchoolDay
 import com.lumenpearson.lessons.core.model.SchoolEvent
+import com.lumenpearson.lessons.core.model.Term
+import com.lumenpearson.lessons.core.model.TermKind
 import com.lumenpearson.lessons.core.model.Timetable
 
 /**
@@ -95,9 +97,23 @@ internal fun DayDto.toDomain(): SchoolDay? {
 internal fun SchoolClassDto.toDomain(): SchoolClassInfo = SchoolClassInfo(
     id = id,
     name = name.trim(),
+    // Outside 1..11 is a server this client does not understand, and a grade of
+    // 0 or 99 would pick a term scheme from a comparison rather than a fact.
+    grade = grade?.takeIf { it in 1..11 },
+    letter = letter.orNullIfBlank(),
     school = school.orNullIfBlank(),
     timeZoneId = WireFormats.sanitiseZoneId(timezone),
+    termKind = TermKind.fromWire(termKind),
+    terms = terms.mapNotNull { it.toDomain() }.sortedBy { it.index },
 )
+
+/** `null` for a term whose dates do not parse; see `decodeTerms` for why. */
+internal fun TermDto.toDomain(): Term? {
+    val starts = WireFormats.parseDate(startsOn) ?: return null
+    val ends = WireFormats.parseDate(endsOn) ?: return null
+    if (ends < starts) return null
+    return Term(index = index, kind = TermKind.fromWire(kind), startsOn = starts, endsOn = ends)
+}
 
 /**
  * The full snapshot.

@@ -57,8 +57,19 @@ PUBLIC_BASE_URL=https://lessons.example.com
 
 4. Start the server. Send `/start` to your bot; because your id is in
    `OWNER_IDS`, it offers to create the first class. Creating a class asks for
-   its name, its school and its **time zone** — one of the eleven Russian zones,
-   from Kaliningrad (МСК−1) to Kamchatka (МСК+9).
+   the **year** (1–11, as buttons), the letter, the **school** and the **time
+   zone** — one of the eleven Russian zones, from Kaliningrad (МСК−1) to
+   Kamchatka (МСК+9). The year is a number rather than part of a typed name
+   because the term scheme follows it: 1–9 are taught in четверти and 10–11 in
+   полугодия, and every date is editable afterwards.
+
+   The school step searches the register when this deployment has a
+   `DADATA_TOKEN` — type «гимназия 3 Казань», pick from the results, five to a
+   page. Twenty is the register's own ceiling for one search, so the bot says
+   «показаны первые 20» rather than «найдено 20»: the way to a school that is
+   not in them is a longer query. Without a key, or on a day the register is
+   not answering, the same step asks for the name to be typed, which is what it
+   has always done.
 
 `PUBLIC_BASE_URL` is only needed for `/calendar`; without it the bot says so
 instead of printing a URL that would not resolve.
@@ -156,6 +167,14 @@ recurring event: it is the same перемена every day that schedule is in f
 and it moves with the bells when a shortened day moves them. The last lesson is
 not offered — there is no break after it.
 
+Adding or changing a lesson offers **the class's own subjects as buttons**,
+above the typed prompt. Typing still works and is still the only way to give a
+room and a teacher in one go — the button carries a subject and nothing else,
+and that subject's teacher reaches the lesson through the dictionary anyway.
+The list is the one «📚 Предметы» holds, after it has adopted whatever the
+timetable already uses, so it is empty only for a class whose расписание is
+being typed for the first time.
+
 Every write goes in the журнал, and all of it is ADMIN-only; замены and события
 stay an editor's business.
 
@@ -182,6 +201,18 @@ parity — `[чис]`/`[знам]`, `(чис)`/`(знам)`, `[1]`/`[2]`, or a b
 * Lines that cannot be parsed, and repeats that would collide, are reported back
   rather than silently dropped — and a paste from which nothing parsed changes
   nothing at all.
+* **A comma inside a field.** The last field takes everything that is left, so a
+  teacher «Иванов И.И., к.п.н.» needs nothing special. A subject or a room with
+  a comma in it is wrapped in double quotes — `1. "Иностранный язык, второй",
+  305` — and that is what «Экспорт» writes, because without it the export wrote
+  a line the import read back as a different subject in a room called «второй».
+  A doubled `""` inside a quoted field is one literal quote.
+* **A lesson number the звонки do not reach is not written**, and the reply says
+  which ones were skipped. The day view builds its times out of the bell rows,
+  so such a lesson would be stored and then shown nowhere at all — not in the
+  bot, not in the app, not in the widget, not in the сводка. If the paste brings
+  its own `== Звонки ==` block, the lessons are checked against *those*, so one
+  message can legitimately add a ninth bell and a ninth lesson together.
 
 The grammar lives in one place, `services/timetable_io.py`, and the day editor,
 the button editor, the week import and «Экспорт» all speak it. The current day is
@@ -220,15 +251,31 @@ different subjects in the timetable, the homework and the app's colours. Each
 entry has a name, a short name, a teacher and a colour (eight presets, or type
 `#5B6ABF`).
 
-* **🔄 Собрать из расписания** creates an entry for every distinct subject name
-  the timetable already uses. An editor may run it: it invents nothing.
+* **The list keeps itself.** Every lesson written into the weekly template —
+  typed, tapped or pasted — goes through the dictionary: its subject is found
+  (ignoring case) or added, and the lesson is linked to it. Opening this screen
+  adopts anything a class typed before that was true. A class with a full
+  расписание therefore cannot have an empty «📚 Предметы», which is what it used
+  to have.
+* **🔄 Собрать из расписания** still exists, and is now the button for «я только
+  что вставил день и хочу увидеть его предметы, не выходя отсюда». An editor may
+  run it: it invents nothing.
+* **The dictionary is what gives a lesson its colour**, and its teacher when the
+  cell in the template names nobody. That is the reason to fill it in: before,
+  a colour set here reached only замены.
 * **Renaming an entry renames the subject everywhere** — `timetable_entries`,
   `homework` and `lesson_overrides` of that class, in the same transaction — and
-  the confirmation says how many rows moved. The tables store the name as text
-  on purpose (a lesson keeps its name when a subject is deleted), and this is
-  the price of that choice.
-* Deleting an entry leaves the lessons alone; the class only loses the colour
-  and the teacher.
+  the confirmation says how many rows moved. The homework and the замены store
+  the name as text on purpose (a lesson keeps its name when a subject is
+  deleted), and this is the price of that choice.
+* **Deleting an entry the расписание still uses is refused**, with the number of
+  lessons that use it. It used to be allowed and leave the lessons alone — but
+  once the list began keeping itself that stopped meaning anything: the name is
+  still in the template, so the next read adopted it back without its colour,
+  short name or teacher, and the admin was left believing they had deleted
+  something. Take the subject out of the расписание first. A subject nothing
+  teaches still goes in one tap. To retire a spelling rather than a subject,
+  rename it — that moves the rows instead of orphaning them.
 
 ## Особые дни — `/holidays`
 

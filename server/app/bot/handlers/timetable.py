@@ -33,7 +33,7 @@ from app.bot.keyboards import (
 )
 from app.bot.states import EditBells, EditTimetable
 from app.models import BellPeriod, BellSchedule, Role, SchoolClass, TimetableEntry, WeekParity
-from app.services import audit, timetable_io
+from app.services import audit, subjects, timetable_io
 
 router = Router(name="timetable")
 
@@ -240,11 +240,15 @@ async def timetable_apply(
     )
     created: list[TimetableEntry] = []
     for index, subject, room, teacher, parity in parsed:
+        # Through the dictionary, so a pasted weekday adds its subjects to
+        # «📚 Предметы» and picks up the spelling the class already uses.
+        name, subject_id = await subjects.canonical(session, school_class.id, subject)
         entry = TimetableEntry(
             class_id=school_class.id,
             weekday=weekday,
             index=index,
-            subject_name=subject,
+            subject_id=subject_id,
+            subject_name=name,
             room=room,
             teacher=teacher,
             parity=parity,

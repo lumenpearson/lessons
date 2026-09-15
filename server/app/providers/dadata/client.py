@@ -1,0 +1,195 @@
+"""The HTTP half of the school directory.
+
+This is the only file in the project that knows DaData's URL, its parameter
+names and the fact that its key travels in an ``Authorization: Token`` header
+rather than as a bearer. Everything it returns is the raw ``suggestions`` list;
+turning that into :class:`~app.providers.dadata.models.School` is
+:mod:`app.providers.dadata.mapper`'s job.
+
+Why an API at all, rather than a table shipped with the project: there is no
+official nationwide register of Russian schools to download. Рособрнадзор's
+open-data endpoints — the ones every GitHub project that tried this links to —
+answer 404 today. What does exist is ЕГРЮЛ, the register of legal entities,
+which every school is in because every school is one, and DaData is the search
+over it that people actually use (119 files on GitHub call this exact URL).
+The cost is a request per keystroke-ish search and a key in the environment;
+the alternative is a snapshot that is wrong by September and says nothing
+about it.
+
+One client per process, not one per request: a search is three or four calls
+in a row as somebody types, and three TLS handshakes is most of the wait.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Any
+
+import httpx
+
+from app.config import get_settings
+from app.providers.dadata.exceptions import (
+    NotConfigured,
+    QuotaExceeded,
+    UnexpectedResponse,
+    UpstreamUnavailable,
+)
+
+log = logging.getLogger(__name__)
+
+BASE_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs"
+SUGGEST_PARTY = "/suggest/party"
+
+#: Their ceiling, not ours. The endpoint is built for type-ahead: twenty rows
+#: is the most it will return and there is no offset, so a search that matches
+#: three hundred schools cannot be paged through — it has to be narrowed. That
+#: is why :class:`~app.providers.dadata.models.SchoolPage` carries
+#: ``truncated``: the paging this project shows is over what arrived, and the
+#: only honest thing to do when twenty arrive is to say so.
+MAX_SUGGESTIONS = 20
+
+#: ОКВЭД for общее образование: начальное (85.12), основное (85.13), среднее
+#: (85.14). Without this filter a search for «гимназия 3» finds the ООО that
+#: rents the building. 85.11 — дошкольное — is deliberately out: a детский сад
+#: has no 9 «Б».
+SCHOOL_OKVED = ("85.12", "85.13", "85.14")
+
+#: The fallback filter, applied here rather than upstream when the filtered
+#: search finds nothing at all. Some schools are registered under a
+#: neighbouring code in the same group (85.21 колледж, 85.41 дополнительное),
+#: and a person who typed their school's exact name would otherwise be told it
+#: does not exist.
+EDUCATION_PREFIX = "85."
+
+#: Registered, or on its way out but still teaching this year. A school
+#: liquidated in 2013 is noise; one liquidating right now is where somebody is
+#: sitting in September.
+ACTIVE_STATUS = ("ACTIVE", "LIQUIDATING")
+
+#: This endpoint is called from inside a Telegram callback, where the person is
+#: watching a spinner on a button, so the read timeout is short on purpose: a
+#: directory that answers in eight seconds is worse than one that says it is
+#: not answering and lets the name be typed.
+_TIMEOUT = httpx.Timeout(connect=5.0, read=10.0, write=10.0, pool=5.0)
+_LIMITS = httpx.Limits(max_connections=5, max_keepalive_connections=2)
+
+_client: httpx.AsyncClient | None = None
+_client_lock = asyncio.Lock()
+
+
+def configured() -> bool:
+    """Whether this deployment has a key. Cheap enough to ask on every screen."""
+    return bool(get_settings().dadata_token)
+
+
+async def shared_client() -> httpx.AsyncClient:
+    """The one client, built on first use."""
+    global _client
+    if _client is None:
+        async with _client_lock:
+            if _client is None:
+                _client = httpx.AsyncClient(
+                    base_url=BASE_URL,
+                    timeout=_TIMEOUT,
+                    limits=_LIMITS,
+                    headers={"accept": "application/json"},
+                )
+    return _client
+
+
+async def close_client() -> None:
+    """Closes the shared client. For the lifespan's shutdown and for tests."""
+    global _client
+    if _client is not None:
+        await _client.aclose()
+        _client = None
+
+
+async def suggest_schools(
+    query: str,
+    *,
+    region: str | None = None,
+) -> list[dict[str, Any]]:
+    """Raw suggestions for one search.
+
+    @param region a region or city to prefer, as people write it («Санкт-
+        Петербург», «Татарстан»). A hint, not a filter: the upstream's
+        ``locations`` narrows hard, and a school just over a city boundary is
+        still the school the child goes to.
+    @raises NotConfigured when this deployment has no key.
+    """
+    token = get_settings().dadata_token
+    if not token:
+        raise NotConfigured()
+
+    payload: dict[str, Any] = {
+        "query": query,
+        "count": MAX_SUGGESTIONS,
+        "status": list(ACTIVE_STATUS),
+        "okved": list(SCHOOL_OKVED),
+    }
+    if region:
+        # A boost, not ``locations``: theirs is a hard filter, and a school one
+        # street over the city boundary is still the one the child attends.
+        payload["locations_boost"] = [{"region": region}]
+
+    suggestions = await _post(SUGGEST_PARTY, payload, token)
+    if suggestions:
+        return suggestions
+
+    # Nothing matched under the three school codes. Rather than tell somebody
+    # who typed their own school's name that it does not exist, ask again
+    # without the filter and keep whatever is in the education group. One
+    # extra request, only ever on an empty result.
+    payload.pop("okved", None)
+    return [
+        item
+        for item in await _post(SUGGEST_PARTY, payload, token)
+        if _okved_of(item).startswith(EDUCATION_PREFIX)
+    ]
+
+
+async def _post(path: str, payload: dict[str, Any], token: str) -> list[dict[str, Any]]:
+    client = await shared_client()
+    try:
+        response = await client.post(
+            path,
+            json=payload,
+            headers={"authorization": f"Token {token}", "content-type": "application/json"},
+        )
+    except httpx.TimeoutException as failure:
+        raise UpstreamUnavailable("Справочник школ не ответил вовремя") from failure
+    except httpx.HTTPError as failure:
+        log.warning("dadata %s failed: %s", path, failure)
+        raise UpstreamUnavailable() from failure
+
+    # 401 is a wrong or missing key, 403 a key whose plan does not cover this
+    # call, 429 the daily allowance. All three are the owner's to fix and none
+    # is worth retrying inside the request, so they share one answer.
+    if response.status_code in (401, 403, 429):
+        log.warning("dadata refused the key: %s", response.status_code)
+        raise QuotaExceeded()
+    if response.status_code >= 500:
+        raise UpstreamUnavailable()
+    if response.status_code != 200:
+        raise UnexpectedResponse()
+
+    try:
+        body = response.json()
+    except ValueError as failure:
+        raise UnexpectedResponse() from failure
+    if not isinstance(body, dict):
+        raise UnexpectedResponse()
+    suggestions = body.get("suggestions")
+    if suggestions is None:
+        return []
+    if not isinstance(suggestions, list):
+        raise UnexpectedResponse()
+    return [item for item in suggestions if isinstance(item, dict)]
+
+
+def _okved_of(item: dict[str, Any]) -> str:
+    data = item.get("data")
+    okved = data.get("okved") if isinstance(data, dict) else None
+    return okved if isinstance(okved, str) else ""

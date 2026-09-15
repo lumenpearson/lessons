@@ -3,6 +3,7 @@ package com.lumenpearson.lessons.core.data.locale
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
+import android.content.res.Resources
 import android.os.Build
 import android.os.LocaleList
 import com.lumenpearson.lessons.core.data.di.Graph
@@ -84,7 +85,7 @@ object AppLocale {
         // in both directions — left in English after a switch back to
         // «Системный» just as surely as left in Russian after a switch to
         // English — and this is the one function every caller goes through.
-        Locale.setDefault(processLocaleFor(tags, systemDefault))
+        Locale.setDefault(processLocaleFor(tags, systemDefault()))
         if (tags == null) return base
         val configuration = Configuration(current)
         // setLocales rather than setLocale: see the note on the return value of
@@ -94,15 +95,27 @@ object AppLocale {
     }
 
     /**
-     * The process default as it was before this object touched it.
+     * The phone's own language, right now.
      *
-     * Read once, when the object is first used, which is necessarily before the
-     * first [localized] call and therefore before the first `Locale.setDefault`
-     * below — nothing else in the app sets it. Keeping it is what makes a
-     * return to [AppLanguage.SYSTEM] a return to the phone's language rather
-     * than to whatever was chosen last.
+     * What makes a return to [AppLanguage.SYSTEM] a return to the *phone's*
+     * language rather than to whatever was chosen last. It has to be read on
+     * every call rather than cached: this used to be a `val` holding
+     * `Locale.getDefault()` from the first time the object was touched, and
+     * `Locale.setDefault` below then overwrote the very thing it had recorded —
+     * correct within one process, wrong the moment the phone's language changed
+     * while the app was alive. Set the app to English, change the phone from
+     * Russian to Kazakh, ask for «Системный» again, and the cached answer was
+     * Russian.
+     *
+     * `Resources.getSystem()` is the source because it is the one set of
+     * resources the app's own overrides never reach — `createConfigurationContext`
+     * and `Locale.setDefault` both leave it alone, so it still reports what the
+     * device is set to. Empty only on a configuration with no locales at all,
+     * which the process default is the sane fallback for.
      */
-    private val systemDefault: Locale = Locale.getDefault()
+    private fun systemDefault(): Locale =
+        Resources.getSystem().configuration.locales.takeIf { it.size() > 0 }?.get(0)
+            ?: Locale.getDefault()
 
     /** The locales this configuration resolves through, most preferred first. */
     private fun Configuration.localeTags(): List<String> =

@@ -39,7 +39,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 762 tests, about two and a half minutes
+- **`python -m pytest -q`** — 921 tests, about four minutes
 - `python -m pytest -q tests/test_schedule.py -k parity` — one file, one test
 - `python -m uvicorn app.main:app --reload` — run it; add `--host 0.0.0.0` for a phone to
   reach it
@@ -83,8 +83,12 @@ Server modules:
   grammar (`services/timetable_io.py`) and one set of mutations
   (`services/timetable_edit.py`) — the editor's ‹ › pager and «⏱ Перемены» switch live in
   the callback payload, never in FSM state
-- `providers/petersburg/` — the one foreign service, behind `client.py` / `mapper.py` /
-  `models.py`; nothing above `models.py` knows the words `p_educations[]` or `X-JWT-Token`
+- `providers/` — the two foreign services, each behind `client.py` / `mapper.py` /
+  `models.py`. `petersburg/` is the electronic diary: nothing above `models.py` knows the
+  words `p_educations[]` or `X-JWT-Token`. `dadata/` is the school directory, a search over
+  ЕГРЮЛ because no downloadable register of Russian schools exists; without `DADATA_TOKEN`
+  it refuses at the door and the bot asks for the name to be typed, exactly as the diary
+  refuses without `DIARY_SECRET`
 
 Android modules (`android/settings.gradle.kts`):
 
@@ -169,13 +173,26 @@ points Hilt does not inject cleanly.
   after `0001` is additive, so applying it to the *running* code is safe; the other order
   never is. `GET /api/v1/warmup` answers `{"status": "degraded", ...}` when the database is
   behind and names both revisions (`app/db.py:EXPECTED_REVISION`, pinned to the real head by
-  `tests/test_schema_version.py`). `/api/v1/health` deliberately opens no connection, so it
-  cannot tell you this.
-- **Migrations are Alembic and production is already at `0007`.** `0001` is a guarded
+  `tests/test_schema_version.py`), and `{"status": "degraded", "detail": "База впереди
+  кода…"}` in the window the correct order creates. `/api/v1/health` deliberately opens no
+  connection, so it cannot tell you this.
+- **Apply migrations through the Neon connector, from here.** The owner does not run
+  `alembic upgrade head` by hand and this session has no `DATABASE_URL`; the project is
+  `proud-math-08001107` on the Neon MCP server, and `0005` through `0008` were all applied
+  that way. It is not alembic running — it is the revision's DDL executed as one
+  transaction, with `alembic_version` stamped in the same transaction — so three things
+  follow. Take the DDL from the model rather than writing it out: `CreateTable(...).compile(
+  dialect=postgresql.dialect())` prints exactly what `create_all` would build, which is what
+  the revision is supposed to produce. Read the database's state first and stamp it last, so
+  a half-applied revision cannot claim to be whole. And say what a revision destroys before
+  running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
+  sentence the owner needs *before* the transaction, not after.
+- **Migrations are Alembic and production is already at `0008`.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
-  the per-member diary columns, `0007` adds the two class foreign keys `0006` left out.
+  the per-member diary columns, `0007` adds the two class foreign keys `0006` left out,
+  `0008` gives a class a number (1–11) and cuts its year into четверти or полугодия.
   Nothing after `0001` may use `create_all`. A model change needs
   a revision — a live database will not grow a column on its own, and lifespan `create_all`
   runs only for local SQLite.
@@ -196,6 +213,10 @@ points Hilt does not inject cleanly.
 
 - **Another agent may be working in this tree.** Check `git status` before you touch a file
   you did not open, and do not revert someone else's uncommitted work.
+- **`HANDOVER.md` at the root says where the work stands** — the open branch, what the last
+  session finished, what it deliberately left alone and what nothing has verified. It is
+  working state, not part of `docs/`, so it is stale the moment it stops being updated:
+  re-check the PR and CI before trusting it, and update it when you finish a batch.
 - **Read a file before editing it; grep every caller before changing a function.** The
   audits in `docs/design.md` exist because a conclusion drawn from call sites was wrong.
 - Secrets never enter the repository: `BOT_TOKEN`, `OWNER_IDS`, `WEBHOOK_SECRET`,

@@ -6,9 +6,10 @@ import android.util.Log
 import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
-import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.ArrayDeque
-import java.util.Date
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -56,8 +57,41 @@ object CrashReporter {
     @Volatile
     private var enabled = false
 
-    private val fileStamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
-    private val readableStamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+    // DateTimeFormatter rather than SimpleDateFormat, which is what this used
+    // to be and which is not thread-safe: it keeps a Calendar between calls.
+    // `log` runs on whatever thread logged — the sync worker, an alarm — while
+    // `write` runs on whichever thread died, or on the UI thread for a manual
+    // report, and the two shared one formatter under different locks. The
+    // failure is a garbled timestamp, or an exception thrown from inside the
+    // crash handler: the one place in the app that must not have one.
+    private val fileStamp: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss", Locale.US)
+    private val readableStamp: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US)
+
+    /**
+     * Device wall time, not the school's.
+     *
+     * The rest of the app reads the clock in the class's zone, because a bell
+     * rings at 08:30 wherever the pupil is. A crash report is the opposite: it
+     * is read next to the phone's own logs and next to what its owner remembers
+     * doing, so it wants the time the phone was showing.
+     */
+    internal fun stamp(
+        formatter: DateTimeFormatter,
+        at: Instant,
+        // device clock: a crash report is read beside the phone's own logs and
+        // beside what its owner remembers doing, so it wants the time the phone
+        // was showing — not the school's. The SimpleDateFormat this replaced
+        // took the same zone implicitly, where this guard could not see it.
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): String = formatter.format(at.atZone(zone))
+
+    /** @see stamp */
+    internal val reportStamp: DateTimeFormatter get() = readableStamp
+
+    /** @see stamp */
+    internal val nameStamp: DateTimeFormatter get() = fileStamp
 
     /**
      * Installs the handler, once per process.
@@ -98,7 +132,7 @@ object CrashReporter {
         if (!enabled) return
         synchronized(buffer) {
             if (buffer.size >= MAX_BUFFERED_LINES) buffer.removeFirst()
-            buffer.addLast("${readableStamp.format(Date())}  $tag: $message")
+            buffer.addLast("${stamp(readableStamp, Instant.now())}  $tag: $message")
         }
     }
 
@@ -137,9 +171,9 @@ object CrashReporter {
         error: Throwable?,
         note: String? = null,
     ): File? {
-        val now = Date()
+        val now = Instant.now()
         val report = buildString {
-            appendLine("Время: ${readableStamp.format(now)}")
+            appendLine("Время: ${stamp(readableStamp, now)}")
             appendLine("Сборка: ${versionOf(context)}")
             appendLine("Устройство: ${Build.MANUFACTURER} ${Build.MODEL} (${Build.DEVICE})")
             appendLine("Android: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
@@ -160,7 +194,7 @@ object CrashReporter {
         }
 
         return runCatching {
-            val file = File(directory(context), "crash_${fileStamp.format(now)}.log")
+            val file = File(directory(context), "crash_${stamp(fileStamp, now)}.log")
             file.writeText(report)
             prune(context)
             file

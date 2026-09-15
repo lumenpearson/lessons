@@ -133,7 +133,17 @@ object SchoolAlerts {
         val now = timetable.nowAtSchool()
         val from = windowStart(now, armedFor(intent))
         AlertPlanner.due(timetable, preferences, from = from, to = now.plus(Tolerance)).forEach { alert ->
-            AlertNotifier.post(appContext, alert)
+            // Each post guarded on its own, because the arming below is what
+            // keeps the chain alive and posting runs first. `AlertNotifier.post`
+            // is best-effort only past the `notify` call: the channel it creates
+            // on the way, the locale it resolves and the plurals it formats all
+            // throw freely. One bad alert therefore skipped `armNext` entirely,
+            // and since the receiver only logs, no alarm was left armed — every
+            // notification after it was lost until a sync, a reboot or somebody
+            // opening the app. One lost notification is the cheap failure; the
+            // chain going quiet for a week is not.
+            runCatching { AlertNotifier.post(appContext, alert) }
+                .onFailure { Log.w(TAG, "Could not post ${alert::class.java.simpleName}", it) }
         }
         // Strictly after the window just published, so the next alarm cannot
         // announce something this one already has. The same clock reading is

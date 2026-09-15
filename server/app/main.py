@@ -70,11 +70,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if bot_task is not None:
             with contextlib.suppress(asyncio.CancelledError):
                 await bot_task
-        # The diary's HTTP client is process-wide and pooled; closing it is
-        # what returns its sockets rather than leaving them to a finaliser.
+        # Both providers hold a process-wide pooled HTTP client; closing them
+        # is what returns their sockets rather than leaving them to a
+        # finaliser. Imported here rather than at module scope so neither
+        # lands on the cold-start path of a request that uses neither.
+        from app.providers.dadata import close_client as close_directory
         from app.providers.petersburg import close_client
 
         await close_client()
+        await close_directory()
 
 
 app = FastAPI(

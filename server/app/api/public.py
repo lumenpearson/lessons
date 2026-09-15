@@ -51,16 +51,29 @@ from app.schemas import (
     TaskIn,
     TaskOut,
     TaskPatch,
+    TermOut,
     UnlinkOut,
 )
 from app.security import JoinThrottle, client_bucket, hash_token, new_token
 from app.services import calendar as calendar_service
 from app.services import linking
+from app.services import subjects as subjects_service
 from app.services import tasks as task_service
+from app.services import terms as terms_service
 
 router = APIRouter(prefix="/api/v1", tags=["client"])
 
-MAX_BUNDLE_DAYS = 31
+# A whole school year, because that is the horizon the calendar draws. It used
+# to be 31, and 31 days is what the client cached: every date past the window
+# read «Нет данных», including the rest of the term, which looked like data
+# ending a month after the class was created rather than like a window.
+#
+# The widest year 1 September (or the Monday after) to 31 May can be is 274
+# days; the slack is for a client that anchors a little earlier than the year
+# opens. Widening it costs the server almost nothing — ScheduleResolver issues
+# the same handful of queries whatever the range, and resolves the rest in
+# Python from the weekly template it has already loaded.
+MAX_BUNDLE_DAYS = 280
 
 # ``start`` is arbitrary client input and the resolver does date arithmetic on
 # top of it (up to ``days`` forward, then another three weeks of look-ahead).
@@ -344,13 +357,38 @@ async def bundle(
     last_with_lessons = max((d.date for d in resolved if d.has_lessons), default=today)
     following = await ScheduleResolver(session, school_class).next_school_day(last_with_lessons)
 
+    # Seeded on read as well as on creation: a class made before terms existed
+    # has none, and the first person to open its calendar should see the
+    # conventional ones rather than nothing. `ensure` is idempotent, so this
+    # writes on exactly one request per class per year and reads on the rest.
+    year = terms_service.opening_year_of(today)
+    terms = await terms_service.ensure(session, school_class, year)
+    # Same reasoning for the subject dictionary: a class whose timetable was
+    # typed before the link existed has names in the template and nothing in
+    # «📚 Предметы», which on the phone is a timetable with no colours at all.
+    # Also idempotent, and free — a count — once everything is in step.
+    await subjects_service.sync_from_timetable(session, school_class.id)
+    await session.commit()
+
     out = BundleOut(
         school_class=ClassOut(
             id=school_class.id,
             name=school_class.name,
+            grade=school_class.grade,
+            letter=school_class.letter,
             school=school_class.school,
             city=school_class.city,
             timezone=school_class.timezone_name,
+            term_kind=terms_service.scheme_of(school_class).value,
+            terms=[
+                TermOut(
+                    index=term.index,
+                    kind=term.kind.value,
+                    starts_on=term.starts_on,
+                    ends_on=term.ends_on,
+                )
+                for term in terms
+            ],
         ),
         generated_at=datetime.now(school_class.tz).isoformat(),
         days=[_to_day_out(day) for day in resolved],

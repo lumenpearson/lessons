@@ -46,7 +46,7 @@ from app.models import (
     SchoolClass,
 )
 from app.schedule import ScheduleResolver
-from app.services import audit, notify
+from app.services import audit, notify, subjects
 
 router = Router(name="content")
 
@@ -280,7 +280,10 @@ async def homework_text(
 
     data = await state.get_data()
     due = Date.fromisoformat(data["due"])
-    subject = data["subject"]
+    # The class's spelling, so a typed «алгебра» updates the «Алгебра» already
+    # set for that day rather than founding a second задание beside it — both
+    # of which would then go out in the evening digest.
+    subject = await subjects.spelling(session, school_class.id, data["subject"])
 
     existing = await session.scalar(
         select(Homework).where(
@@ -457,7 +460,12 @@ async def _save_override(
         existing = LessonOverride(class_id=class_id, date=day, index=index, action=action)
         session.add(existing)
     existing.action = action
-    existing.subject_name = subject
+    # The class's spelling: `app/schedule.py` looks a замена's colour up by
+    # exact name, so one typed in the wrong case draws grey among coloured
+    # lessons on every phone.
+    existing.subject_name = (
+        await subjects.spelling(session, class_id, subject) if subject else subject
+    )
     existing.room = room
     # Staged, not committed: the caller commits it together with its audit
     # line, so a замена and the record of who made it land as one fact.

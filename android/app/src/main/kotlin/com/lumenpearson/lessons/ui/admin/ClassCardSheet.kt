@@ -1,12 +1,15 @@
 package com.lumenpearson.lessons.ui.admin
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Groups
@@ -14,7 +17,9 @@ import androidx.compose.material.icons.rounded.LocationCity
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +37,7 @@ import com.lumenpearson.lessons.core.data.repository.ClassEdit
 import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.ManageFailure
 import com.lumenpearson.lessons.core.data.repository.ManagedClass
+import com.lumenpearson.lessons.core.data.repository.School
 import com.lumenpearson.lessons.core.designsystem.component.GroupActionItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
@@ -74,12 +80,20 @@ fun ClassCardSheet(
             // The class is gone and so is this phone's token. Nothing below
             // this line exists any more, so nothing below it is drawn.
             state.classDeleted -> {
+                // Closing this is what finally leaves: the sheet gets to say
+                // what happened, and then the session and the cached timetable
+                // of a class that no longer exists go with it. Both buttons do
+                // it, because there is no "cancel" left to mean anything.
+                val leave = {
+                    viewModel.leaveDeletedClass()
+                    onDismiss()
+                }
                 SheetSection(title = stringResource(R.string.admin_class_deleted_title))
                 SheetNote(text = stringResource(R.string.admin_class_deleted_message))
                 SheetButtons(
                     confirmLabel = stringResource(R.string.action_back),
-                    onConfirm = onDismiss,
-                    onCancel = onDismiss,
+                    onConfirm = leave,
+                    onCancel = leave,
                     cancelLabel = stringResource(R.string.action_cancel),
                 )
             }
@@ -100,9 +114,17 @@ fun ClassCardSheet(
                 card = card,
                 busy = state.working,
                 failure = state.writeFailure,
-                onCancel = { mode = ClassSheetMode.CARD },
+                search = state.schoolSearch,
+                onSearchSchools = viewModel::searchSchools,
+                onSchoolPage = viewModel::showSchoolPage,
+                onClearSearch = viewModel::clearSchoolSearch,
+                onCancel = {
+                    viewModel.clearSchoolSearch()
+                    mode = ClassSheetMode.CARD
+                },
                 onSave = { edit ->
                     viewModel.saveClass(edit)
+                    viewModel.clearSchoolSearch()
                     mode = ClassSheetMode.CARD
                 },
             )
@@ -240,6 +262,10 @@ private fun ClassEditForm(
     card: ManagedClass,
     busy: Boolean,
     failure: ManageFailure?,
+    search: SchoolSearch,
+    onSearchSchools: (String) -> Unit,
+    onSchoolPage: (Int) -> Unit,
+    onClearSearch: () -> Unit,
     onCancel: () -> Unit,
     onSave: (ClassEdit) -> Unit,
 ) {
@@ -261,6 +287,21 @@ private fun ClassEditForm(
         onValueChange = { school = it },
         label = stringResource(R.string.admin_class_school_label),
         enabled = !busy,
+    )
+    // The directory fills the box above; it never writes the class on its own.
+    // Picking a school is still an edit somebody has to save, and the name it
+    // put there stays editable — a register spelling is not always the one a
+    // class calls itself.
+    SchoolSearchPanel(
+        search = search,
+        enabled = !busy,
+        onSearch = onSearchSchools,
+        onPage = onSchoolPage,
+        onPick = { picked ->
+            school = picked.name
+            if (city.isBlank()) picked.city?.let { city = it }
+            onClearSearch()
+        },
     )
     SheetField(
         value = city,
@@ -307,6 +348,126 @@ private fun ClassEditForm(
         enabled = problem == null,
         busy = busy,
     )
+}
+
+
+/**
+ * «Найти в реестре»: a query, five results at a time, and a pager.
+ *
+ * The whole answer is searched once and paged in the view model, because the
+ * directory has no offset — the server searches again on every request, so a
+ * next-page button that called it would be a second search for the same
+ * question. See [SchoolSearch].
+ *
+ * Nothing here can fail in a way that blocks the form. A directory that is not
+ * configured or not answering draws its own sentence and the box above still
+ * takes a typed name, which is what this screen did before the directory
+ * existed.
+ */
+@Composable
+private fun SchoolSearchPanel(
+    search: SchoolSearch,
+    enabled: Boolean,
+    onSearch: (String) -> Unit,
+    onPage: (Int) -> Unit,
+    onPick: (School) -> Unit,
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+
+    SheetNote(text = stringResource(R.string.admin_class_school_search_note))
+    SheetField(
+        value = query,
+        onValueChange = { query = it },
+        label = stringResource(R.string.admin_class_school_search_label),
+        placeholder = stringResource(R.string.admin_class_school_search_hint),
+        enabled = enabled && !search.searching,
+    )
+    RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
+        GroupItem(
+            title = stringResource(
+                if (search.searching) {
+                    R.string.admin_class_school_searching
+                } else {
+                    R.string.admin_class_school_search_action
+                },
+            ),
+            icon = Icons.Rounded.Search,
+            tone = accentTone(2),
+            enabled = enabled && !search.searching && query.isNotBlank(),
+            onClick = { onSearch(query) },
+        )
+    }
+
+    search.unavailable?.let { SheetNote(text = it) }
+    SheetFailure(failure = search.failure)
+
+    if (search.searched && search.results.isEmpty() && search.unavailable == null) {
+        SheetNote(text = stringResource(R.string.admin_class_school_search_empty))
+    }
+
+    if (search.results.isNotEmpty()) {
+        SheetNote(
+            text = if (search.truncated) {
+                // Twenty is the directory's ceiling, not the number of matches.
+                // Saying «найдено 20» would hide the other two hundred and
+                // eighty and give no reason to type more.
+                stringResource(R.string.admin_class_school_search_truncated)
+            } else {
+                stringResource(R.string.admin_class_school_search_found, search.total)
+            },
+        )
+        RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
+            search.visible.forEach { found ->
+                GroupItem(
+                    title = found.name,
+                    subtitle = listOfNotNull(
+                        found.city,
+                        stringResource(R.string.admin_class_school_closed).takeIf { !found.active },
+                    ).joinToString(" · ").ifBlank { null },
+                    icon = Icons.Rounded.School,
+                    tone = accentTone(1),
+                    enabled = enabled,
+                    onClick = { onPick(found) },
+                )
+            }
+        }
+        if (search.pages > 1) {
+            RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
+                GroupItem(
+                    title = stringResource(
+                        R.string.admin_class_school_page,
+                        search.page,
+                        search.pages,
+                    ),
+                    tone = accentTone(4),
+                    trailing = {
+                        Row {
+                            IconButton(
+                                onClick = { onPage(search.page - 1) },
+                                enabled = enabled && search.page > 1,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.ChevronLeft,
+                                    contentDescription = stringResource(R.string.action_back),
+                                )
+                            }
+                            IconButton(
+                                onClick = { onPage(search.page + 1) },
+                                enabled = enabled && search.page < search.pages,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.ChevronRight,
+                                    contentDescription = stringResource(
+                                        R.string.admin_class_school_next,
+                                    ),
+                                )
+                            }
+                        }
+                    },
+                )
+            }
+        }
+    }
 }
 
 /**

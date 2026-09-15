@@ -49,7 +49,7 @@ blocked client gets `429` with `Retry-After`.
 
 | Status | Meaning |
 | --- | --- |
-| `401` | Missing, malformed, unknown or revoked token |
+| `401` | Missing, malformed, unknown or revoked token — **the client must drop its session**, not merely report it |
 | `403` | The device is not linked, or its account lacks the role (`detail` says which) |
 | `404` | Join code, class, homework, task or event does not exist - or is not this class's |
 | `422` | Parameter out of range or body invalid |
@@ -65,12 +65,34 @@ One request returns everything the app and the widget need.
 | Parameter | Default | Notes |
 | --- | --- | --- |
 | `start` | today, in the school's timezone | `YYYY-MM-DD`, 2000–2100 |
-| `days` | `14` | 1–31 |
+| `days` | `14` | 1–280 — целый учебный год, см. ниже |
+
+Потолок в 280 дней — это самый длинный учебный год (274 дня, 1 сентября или
+ближайший будний после него по 31 мая) плюс запас. Прежний потолок в 31 день
+был не ограничением сервера, а размером кэша клиента: приложение просило месяц,
+и календарь за его границей рисовал «Нет данных» — что на экране неотличимо от
+«в этот день нет уроков». Расширение почти ничего не стоит: `ScheduleResolver`
+делает одно и то же число запросов на любой диапазон и разворачивает остальное
+из недельного шаблона в памяти. Замер на демо-классе: 6.0 KiB на 31 день против
+47.9 KiB на 273.
+
+Класс несёт свой номер и периоды учебного года. Номер — число, а не разбор
+названия: «9А» может оказаться «9 инж» или «5-й Б», и регулярное выражение по
+такому молча ошибается на том одном классе, что записан иначе. Периоды приходят
+строками, а не формулой, потому что даты — дело школы: каникулы сдвигаются,
+регион раньше уходит на весенние, карантин съедает неделю.
 
 ```json
 {
   "api_version": 1,
-  "school_class": { "id": 1, "name": "9А", "school": "Демо-школа", "city": "Санкт-Петербург", "timezone": "Europe/Moscow" },
+  "school_class": {
+    "id": 1, "name": "9А", "grade": 9, "letter": "А",
+    "school": "Демо-школа", "city": "Санкт-Петербург", "timezone": "Europe/Moscow",
+    "term_kind": "quarter",
+    "terms": [
+      { "index": 1, "kind": "quarter", "starts_on": "2026-09-01", "ends_on": "2026-10-31" }
+    ]
+  },
   "generated_at": "2026-09-09T11:15:38.433+03:00",
   "days": [
     {
@@ -424,7 +446,7 @@ instant.
 | `GET` | `/manage/subjects` | editor | The dictionary, with ids |
 | `POST` | `/manage/subjects` | admin | Add a subject → `201` |
 | `PATCH` | `/manage/subjects/{id}` | admin | Rename / short name / teacher / colour |
-| `DELETE` | `/manage/subjects/{id}` | admin | Remove the dictionary entry |
+| `DELETE` | `/manage/subjects/{id}` | admin | Remove it; `409` while the timetable uses it |
 | `GET` | `/manage/bells` | admin | Every bell schedule, default marked |
 | `POST` | `/manage/bells` | admin | New schedule → `201` |
 | `PATCH` | `/manage/bells/{id}` | admin | Rename, or make it the class default |
@@ -502,12 +524,33 @@ homework, замены, events, log and every device token go with it - includin
 the caller's own, so the next request from that phone is a `401`. Answers
 `{"id": 1, "deleted": true}`.
 
+A client that does not act on that `401` keeps a cached timetable of a class
+that no longer exists, and — because the wipe happens on the way *in* to a new
+class — carries it into the next one. The Android app drops its token and its
+cache on any `401` from this API family, on the delete it made itself and on
+one made from the bot alike; see `TokenRejectedTest`.
+
 ### Subjects
 
 The dictionary is what keeps «Алгебра», «алгебра» and «Алг.» from being three
 subjects in the timetable, the homework and the app's colours. `GET` answers
 `[{ "id": 4, "name": "Алгебра", "short_name": "Алг", "teacher": "Иванова А. П.", "color": "#5B6ABF" }]`,
 sorted by name; an editor may read it.
+
+**It is not a list somebody has to keep up by hand.** Every write that names a
+subject in the weekly template goes through the dictionary: the entry is found
+(ignoring case) or created, the lesson is linked to it by
+`timetable_entries.subject_id`, and the *dictionary's* spelling is what gets
+stored — so «АЛГЕБРА» in a paste joins the class's «Алгебра» instead of
+founding a second subject with its own colour. Reading this list, or the
+bundle, adopts anything a class typed before the link existed; that costs a
+count once the two agree.
+
+Which is why the dictionary is worth filling in. A colour set here reaches
+every lesson of that subject, and a teacher set here is the fallback for every
+lesson whose own cell names nobody — both on ordinary lessons and on замены.
+Before, an empty dictionary meant a timetable with no colours at all, whatever
+was typed into the template.
 
 `POST` takes `name` (required) and any of `short_name`, `teacher`, `color`.
 `PATCH` takes the same fields, changing only those present; `null` clears
@@ -520,16 +563,32 @@ Both answer:
 ```
 
 `moved` is the point of `PATCH name`. The timetable, the homework and the
-замены store the subject as **text**, not as a foreign key - deliberately, so
-a lesson keeps its name when a subject is deleted - so a rename is a cascade,
-and all of it happens in one transaction. `moved` is how many of those rows
-went with it. Renaming onto a name the class already uses is `409`: merging
+замены store the subject as **text** as well - deliberately, so a lesson keeps
+its name when a subject is deleted - so a rename is still a cascade, and all of
+it happens in one transaction. `moved` is how many of those rows went with it.
+The template is matched on the link *and* on the old spelling: the link is the
+half that survives a row whose name drifted, the name is the half that catches
+rows written before the link existed. Renaming onto a name the class already uses is `409`: merging
 two subjects is a different operation, and doing it by accident cannot be
 undone.
 
-`DELETE` removes the dictionary entry and **leaves the lessons alone**: the
-timetable keeps the name and loses only the colour and the teacher, which is
-what an admin cleaning up a duplicate means.
+`DELETE` is **refused with `409` while the weekly template still uses the
+subject**, and the detail says how many lessons do (`"12 lesson(s) still use
+this subject"`). It used to succeed and leave the lessons alone — the timetable
+keeps the name, so the class kept its расписание and lost only the colour and
+the teacher. That stopped meaning anything once the dictionary began keeping
+itself: the name is still in the template, so the next read adopts it straight
+back, stripped of the colour, the short name and the teacher the deleted row
+carried, and the admin was told nothing at all. Two halves of one list are
+deleted in one order — out of the расписание, then out of the dictionary. A
+subject nothing teaches still deletes in one call, which is what this endpoint
+was really for.
+
+Uniqueness ignores case everywhere it is checked — `POST`, `PATCH name` and the
+bot — because the matcher does. When it did not, «ФИЗИКА» was allowed in beside
+«Физика», and the healing read then saw one subject where the dictionary had
+two and rewrote every «Физика» lesson onto whichever row it happened to keep:
+a read renaming a subject and dropping the colour of the one it abandoned.
 
 ### Bell schedules
 
@@ -592,10 +651,25 @@ Only the weekdays the paste names are touched, so a Tuesday block against a
 Monday-only timetable is not a conflict at all, and a day named with nothing
 under it is emptied - that is how a paste says «в четверг уроков нет».
 `rejected` echoes the lines the parser could not read, so an admin can fix the
-two that were typos rather than re-reading the whole paste. A paste with no
-weekday header and no bells block in it is `422`. A `== Звонки ==` block
-replaces the default schedule's rows outright, as it does in the bot: it is a
-schedule, not a day, and nothing else points at it.
+two that were typos rather than re-reading the whole paste. It also carries
+`"урок N: нет такого звонка в расписании звонков"` for every lesson numbered
+past the last bell: the day view builds its times out of the bell rows, so such
+a lesson would be stored, counted in `lessons` and then drawn nowhere at all.
+Those lines are not written, and `lessons` counts only what was. When the same
+paste brings a `== Звонки ==` block, the lessons are checked against **those**,
+so one request can legitimately add a ninth bell and a ninth lesson together.
+
+A paste with no weekday header and no bells block in it is `422`. A
+`== Звонки ==` block replaces the default schedule's rows outright, as it does
+in the bot: it is a schedule, not a day, and nothing else points at it.
+
+**Commas inside a field.** The last field takes everything that is left, so a
+teacher `Иванов И.И., к.п.н.` needs no syntax. A subject or a room containing a
+comma is wrapped in double quotes — `1. "Иностранный язык, второй", 305` — and
+that is what the export writes; a doubled `""` inside such a field is one
+literal quote. Without this the export produced a line the import read back as
+a different subject in a room called «второй», which is the round trip the two
+endpoints exist to promise each other.
 
 ### Devices
 
@@ -817,3 +891,82 @@ POST /api/v1/diary/login
 
 `502` — единственный код, который означает, что чинить надо нам: сервис не
 документирован, и когда его ответ перестаёт читаться, это видно именно так.
+
+
+## Четверти и полугодия
+
+| Метод | Путь | Роль | Что делает |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/manage/terms` | админ | периоды класса; при первом обращении создаёт обычный набор |
+| `PUT` | `/api/v1/manage/terms/scheme` | админ | `{"kind": "quarter"\|"semester"}` — пересоздаёт год по другой схеме |
+| `PUT` | `/api/v1/manage/terms/{index}` | админ | `{"starts_on", "ends_on"}` — двигает края одного периода |
+
+Схема по умолчанию следует номеру класса: 1–9 учатся четвертями, 10–11 —
+полугодиями. Выбор хранится отдельно от номера, поэтому «никто не решал» и
+«решили четверти для одиннадцатого» — разные состояния, и второе школа вправе
+выбрать.
+
+Смена схемы **пересоздаёт** периоды года, а не правит их: четыре четверти и два
+полугодия друг на друга не ложатся, и оставшаяся третья четверть внутри года из
+двух половин — не то состояние, которое стоит хранить.
+
+Правка краёв отвечает `422` с русской фразой в `detail`, когда период
+заканчивается раньше начала, вылезает за учебный год или пересекается с соседним.
+Именно фразой, а не ошибкой по полю: нарушено отношение между этим периодом и
+годом или соседями, и «Пересекается с периодом 2 (01.11 — 31.12)» — это то, что
+стоит показать на экране.
+
+## Справочник школ
+
+| Метод | Путь | Роль | Что делает |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/manage/schools?q=&page=&page_size=&region=` | админ | ищет школу в реестре и отдаёт одну страницу |
+
+```json
+{
+  "items": [
+    {
+      "name": "МБОУ \"Гимназия № 3\"",
+      "full_name": "МУНИЦИПАЛЬНОЕ БЮДЖЕТНОЕ ОБЩЕОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ \"ГИМНАЗИЯ № 3\"",
+      "ogrn": "1027800000001",
+      "inn": "7801234567",
+      "address": "190000, г Санкт-Петербург, ул Восстания, д 8",
+      "city": "Санкт-Петербург",
+      "region": "г Санкт-Петербург",
+      "active": true
+    }
+  ],
+  "page": 1,
+  "pages": 4,
+  "total": 20,
+  "truncated": true
+}
+```
+
+Найденное **не хранится**. Клиент берёт `name` и отправляет его в
+`PATCH /api/v1/manage/class` — в карточке класса лежит название школы, как
+лежало всегда, а не ссылка на чью-то запись.
+
+`truncated` — это не «есть ещё страницы», их считает `pages`. Это «сработал
+потолок реестра»: источник (DaData, поиск по ЕГРЮЛ) рассчитан на подсказки при
+вводе, отдаёт максимум двадцать строк за раз и смещения не имеет. Значит перед
+вами первые двадцать из неизвестно скольких, и дойти до своей школы можно
+только более длинным запросом — дописав город или номер. Клиент, который
+покажет «найдено 20», соврёт про поиск, под который попали триста школ.
+
+**Каждый вызов — один поиск наверху**, что бы ни стояло в `page`: смещения у
+источника нет, возобновлять нечего. Клиент, который листает, должен спросить
+один раз с `page_size=20` и резать ответ сам — так делают и бот, и приложение.
+Четыре страницы по пять — это четыре поиска на один вопрос. `page_size` — от 1
+до 20, по умолчанию 5 (размер инлайн-клавиатуры).
+
+`region` — подсказка ранжирования, не фильтр: школа через дорогу от границы
+города всё ещё та самая школа.
+
+Коды: `422` — запрос короче трёх символов (фраза по-русски в `detail`);
+`503` — справочник не настроен (`DADATA_TOKEN` пуст), не отвечает или ответил
+непонятно. Ответ на `503` — дать ввести название руками, а не повторять запрос:
+в боте ровно эта кнопка и появляется.
+
+Админ, хотя ничего не пишет: каждый вызов тратит часть суточного лимита на
+чужом сервисе, и тратить его есть основания только у своего же класса.

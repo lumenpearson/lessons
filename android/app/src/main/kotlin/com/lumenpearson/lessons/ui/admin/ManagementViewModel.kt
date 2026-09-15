@@ -20,6 +20,8 @@ import com.lumenpearson.lessons.core.data.repository.ManageRepository
 import com.lumenpearson.lessons.core.data.repository.ManagedClass
 import com.lumenpearson.lessons.core.data.repository.ManagedDevice
 import com.lumenpearson.lessons.core.data.repository.ManagedSubject
+import com.lumenpearson.lessons.core.data.repository.School
+import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SubjectForm
 import com.lumenpearson.lessons.core.data.repository.TimetableExport
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -80,6 +82,44 @@ sealed interface ManagementNotice {
 }
 
 /**
+ * A school search, held between the typing and the tapping.
+ *
+ * The whole result set is kept and paged here rather than asked for a page at
+ * a time: the directory has no offset, so the server searches again on every
+ * request, and turning a page would be a second search for the same question.
+ *
+ * @property truncated the directory's ceiling of twenty rows was reached. Not
+ *   «есть ещё страницы» — [pages] counts those — but «это первые двадцать из
+ *   неизвестно скольких», whose only answer is a longer query.
+ * @property unavailable the directory is not configured on this server, or is
+ *   not answering. Carries the server's own sentence, which already says to
+ *   type the name instead.
+ */
+data class SchoolSearch(
+    val query: String = "",
+    val results: List<School> = emptyList(),
+    val page: Int = 1,
+    val total: Int = 0,
+    val truncated: Boolean = false,
+    val searching: Boolean = false,
+    /** A search ran and found nothing, as against one that has not run. */
+    val searched: Boolean = false,
+    val unavailable: String? = null,
+    val failure: ManageFailure? = null,
+) {
+    val pages: Int get() = maxOf(1, (results.size + PAGE - 1) / PAGE)
+
+    /** The rows of [page], clamped — the pager is a button pressed twice. */
+    val visible: List<School>
+        get() = results.drop((page.coerceIn(1, pages) - 1) * PAGE).take(PAGE)
+
+    companion object {
+        /** Five to a screen, the same as the bot's keyboard. */
+        const val PAGE: Int = 5
+    }
+}
+
+/**
  * The whole management page, as one state object.
  *
  * @property gone the refusal that took the page away — a dead token, an
@@ -106,6 +146,7 @@ data class ManagementUiState(
     val stats: Remote<ClassStats> = Remote(),
     val requests: Remote<List<AccessRequest>> = Remote(),
     val showRevokedDevices: Boolean = false,
+    val schoolSearch: SchoolSearch = SchoolSearch(),
     val pendingImport: PendingImport? = null,
     /**
      * Lines of the last paste the parser could not read.
@@ -141,10 +182,32 @@ data class ManagementUiState(
 class ManagementViewModel(
     private val repository: ManageRepository,
     private val deviceLinks: DeviceLinkRepository,
+    private val session: SessionRepository,
 ) : ViewModel() {
 
     private val state = MutableStateFlow(ManagementUiState())
     val uiState: StateFlow<ManagementUiState> = state.asStateFlow()
+
+    init {
+        // Everything in this state belongs to one class, and this object
+        // outlives it. There is one Activity and no nav graph, so the store
+        // this view model comes from is the Activity's: signing out only takes
+        // `HomeShell` out of composition, and every field here survives into
+        // whatever class the phone joins next.
+        //
+        // `classDeleted` is the one that bites. It is the first branch of the
+        // class card, ahead of the load, so the card opened on the *new* class
+        // announcing that it had been deleted — and both of its buttons call
+        // `leaveDeletedClass`, whose only guard is that same stale flag, so
+        // either one threw the user out of the class they had just joined and
+        // wiped the cache again. The rest is quieter and still wrong: the
+        // previous class's join code, school and member counts are drawn for
+        // one round trip before `loadClass` answers, which on a shared phone
+        // is one class's invite code shown to another.
+        viewModelScope.launch {
+            session.session.collect { if (it == null) state.value = ManagementUiState() }
+        }
+    }
 
     // -- the class card -----------------------------------------------------
 
@@ -173,6 +236,71 @@ class ManagementViewModel(
         result
     }
 
+    // -- the school directory -----------------------------------------------
+
+    /**
+     * Searches, once, and keeps everything it found.
+     *
+     * Not a `write`: nothing of ours changes, and the page's one write flag is
+     * what stops two edits of the same class at once — a search that took it
+     * would grey out «Сохранить» while somebody was looking for their school.
+     */
+    fun searchSchools(query: String) {
+        if (state.value.gone != null) return
+        state.update {
+            it.copy(
+                schoolSearch = it.schoolSearch.copy(
+                    query = query,
+                    searching = true,
+                    failure = null,
+                    unavailable = null,
+                ),
+            )
+        }
+        viewModelScope.launch {
+            val result = repository.searchSchools(query)
+            val failure = result.exceptionOrNull()?.let(ManageFailure::of)
+            if (note(failure)) return@launch
+            val found = result.getOrNull()
+            state.update {
+                if (it.gone != null || it.schoolSearch.query != query) {
+                    // A later query is already on screen; this answer is about a
+                    // search the person has moved on from.
+                    it
+                } else {
+                    it.copy(
+                        schoolSearch = it.schoolSearch.copy(
+                            results = found?.items.orEmpty(),
+                            page = 1,
+                            total = found?.total ?: 0,
+                            truncated = found?.truncated == true,
+                            searching = false,
+                            searched = true,
+                            // A directory that is off is not a failure to draw
+                            // in red: it is the sentence telling somebody to
+                            // type the name, which is what the box above is for.
+                            unavailable = (failure as? ManageFailure.Unavailable)
+                                ?.let { off -> off.detail ?: off.message },
+                            failure = failure.takeIf { f -> f !is ManageFailure.Unavailable },
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    fun showSchoolPage(page: Int) {
+        state.update {
+            val search = it.schoolSearch
+            it.copy(schoolSearch = search.copy(page = page.coerceIn(1, search.pages)))
+        }
+    }
+
+    /** Forgets the last search — the sheet closed, or a school was chosen. */
+    fun clearSchoolSearch() {
+        state.update { it.copy(schoolSearch = SchoolSearch()) }
+    }
+
     /**
      * Deletes the class, and with it this phone's own token.
      *
@@ -180,11 +308,31 @@ class ManagementViewModel(
      * nothing left to load, and the next call would be a `401` that would be
      * shown as "you were signed out" — true, but a strange thing to tell
      * somebody who has just deliberately deleted their class.
+     *
+     * The session is *not* dropped here, so that the sheet can say what
+     * happened before the app leaves; [leaveDeletedClass] does it when that
+     * sheet is dismissed. Nothing depends on the user pressing the button
+     * though — the token is already gone server-side, so the next sync's `401`
+     * drops the session anyway.
      */
     fun deleteClass(confirmName: String) = write {
         val result = repository.deleteClass(confirmName)
         result.onSuccess { state.update { it.copy(classDeleted = true) } }
         result
+    }
+
+    /**
+     * Leaves the class that was just deleted: token gone, cache gone.
+     *
+     * Without this the app kept the session and the whole cached timetable of
+     * a class that no longer existed — it said «класс удалён» and then went on
+     * drawing its lessons, never reached the join screen, and so never ran the
+     * wipe that joining a new class does on the way in. The old class was then
+     * still on screen after joining a new one.
+     */
+    fun leaveDeletedClass() {
+        if (!state.value.classDeleted) return
+        viewModelScope.launch { session.signOut() }
     }
 
     // -- subjects -----------------------------------------------------------
@@ -587,6 +735,7 @@ class ManagementViewModel(
                 ManagementViewModel(
                     repository = Graph.container.manageRepository,
                     deviceLinks = Graph.container.deviceLinkRepository,
+                    session = Graph.container.sessionRepository,
                 )
             }
         }

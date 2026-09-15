@@ -67,10 +67,18 @@ class DeviceClockTest {
          * A call, not a mention. `LocalDateTime.now()` inside a KDoc paragraph
          * explaining why it is wrong is the opposite of the thing being looked
          * for, and there are several of those.
+         *
+         * `Clock.systemDefaultZone()` is here because the empty-parens forms
+         * are not the only way to ask the device what day it is: a clock built
+         * in the device's zone and then passed to `LocalDate.now(clock)` reads
+         * as deliberate and is the same mistake one indirection further out.
+         * That is how the sync window came to pick its school year off the
+         * phone's date — see `TimetableRepositoryImpl.todayAtSchool`.
          */
         val CALL = Regex(
             """\b(LocalDate|LocalDateTime|LocalTime)\.now\(\s*\)""" +
-                """|\bZoneId\.systemDefault\(\s*\)""",
+                """|\bZoneId\.systemDefault\(\s*\)""" +
+                """|\bClock\.systemDefaultZone\(\s*\)""",
         )
 
         /**
