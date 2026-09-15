@@ -5,18 +5,24 @@ Revises: 0010
 Create Date: 2026-09-15
 
 ``0009`` declared ``diary_overrides.created_at`` and ``updated_at`` without
-``nullable=False`` while the model builds both ``NOT NULL``. Nothing breaks
-from it — each carries ``server_default now()``, so neither is ever actually
-null — but ``0009`` is already applied, so the running database disagrees
-permanently with what ``create_all`` would produce, and the next person doing
-the compile-and-compare pass this project uses to check a revision has to
-re-adjudicate a diff that means nothing.
+``nullable=False`` while the model builds both ``NOT NULL``. This closes that.
+
+**On our own production it changes nothing, and that is the whole point.**
+``0009`` was applied through the Neon connector, which is not alembic running —
+it is the revision's DDL executed as one transaction, and the DDL is taken from
+the model rather than written out by hand (see ``docs/deploy.md``). So the
+columns there are already ``NOT NULL``: the divergence was never in the
+database, it was between the revision file and the model. Anyone who applies
+this chain with ``alembic upgrade head`` — a second deployment, a school
+running its own server — gets the looser schema, and from here on gets this
+statement right after it.
 
 **Destroys nothing.** It rewrites no value and drops no row; it tightens two
-columns that cannot hold a null to say so. The one way it could fail is a row
-that already has one, which the ``UPDATE`` below cannot produce and the server
-default cannot either — it is there so that the revision is true of a database
-somebody wrote to by hand, rather than being true only of ours.
+columns that cannot hold a null to say so, and on a database built from the
+model it is a no-op the dialect resolves to nothing. The one way it could fail
+is a row that already holds a null, which neither the server default nor any
+code path can produce — the ``UPDATE`` below is there so the revision is true
+of a database somebody wrote to by hand, not only of ours.
 """
 
 from __future__ import annotations

@@ -178,7 +178,7 @@ points Hilt does not inject cleanly.
   connection, so it cannot tell you this.
 - **Apply migrations through the Neon connector, from here.** The owner does not run
   `alembic upgrade head` by hand and this session has no `DATABASE_URL`; the project is
-  `proud-math-08001107` on the Neon MCP server, and `0005` through `0009` were all applied
+  `proud-math-08001107` on the Neon MCP server, and `0005` through `0011` were all applied
   that way. It is not alembic running — it is the revision's DDL executed as one
   transaction, with `alembic_version` stamped in the same transaction — so three things
   follow. Take the DDL from the model rather than writing it out: `CreateTable(...).compile(
@@ -187,15 +187,17 @@ points Hilt does not inject cleanly.
   a half-applied revision cannot claim to be whole. And say what a revision destroys before
   running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
   sentence the owner needs *before* the transaction, not after.
-- **Migrations are Alembic and production is already at `0009`.** `0001` is a guarded
+- **Migrations are Alembic and production is already at `0011`.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
   the per-member diary columns, `0007` adds the two class foreign keys `0006` left out,
   `0008` gives a class a number (1–11) and cuts its year into четверти or полугодия,
-  `0009` adds the corrections a family lays over the diary. `0010` (the class's join mode
-  and the personal connect codes) and `0011` (two `diary_overrides` timestamps `0009` left
-  nullable while the model builds them `NOT NULL`) are written and **not yet applied**.
+  `0009` adds the corrections a family lays over the diary, `0010` gives a class its join
+  mode and adds the personal connect codes, and `0011` tightens two `diary_overrides`
+  timestamps `0009` left nullable while the model builds them `NOT NULL` — a no-op on this
+  database, because the DDL for `0009` came from the model, and not one on a deployment
+  that ran the chain through alembic.
   Nothing after `0001` may use `create_all`.
   Beware the enum: `SAEnum(SomeStrEnum)` stores the member **name**, so a `server_default`
   written as `.value` is a string the ORM cannot read back — which on `classes` is a
