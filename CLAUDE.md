@@ -213,6 +213,10 @@ points Hilt does not inject cleanly.
 
 - **Another agent may be working in this tree.** Check `git status` before you touch a file
   you did not open, and do not revert someone else's uncommitted work.
+- **`HANDOVER.md` at the root says where the work stands** — the open branch, what the last
+  session finished, what it deliberately left alone and what nothing has verified. It is
+  working state, not part of `docs/`, so it is stale the moment it stops being updated:
+  re-check the PR and CI before trusting it, and update it when you finish a batch.
 - **Read a file before editing it; grep every caller before changing a function.** The
   audits in `docs/design.md` exist because a conclusion drawn from call sites was wrong.
 - Secrets never enter the repository: `BOT_TOKEN`, `OWNER_IDS`, `WEBHOOK_SECRET`,
