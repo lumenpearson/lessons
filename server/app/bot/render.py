@@ -326,6 +326,13 @@ def _next_day_line(next_day: ResolvedDay | None, today: Date) -> str:
     if next_day is None:
         return "Следующий учебный день пока не назначен."
     lessons = [lesson for lesson in next_day.lessons if not lesson.is_cancelled]
+    if not lessons:
+        # A day whose every lesson is cancelled is not a school day to announce,
+        # and the line below reads ``lessons[0]``. ``next_school_day`` filters on
+        # the same predicate, so today's one caller cannot get here - but the
+        # signature invites any resolved day, and an IndexError out of a renderer
+        # is an error dialog where a sentence belongs.
+        return "Следующий учебный день пока не назначен."
     delta = (next_day.date - today).days
     if delta == 1:
         when = "Завтра"

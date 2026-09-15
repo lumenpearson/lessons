@@ -18,9 +18,23 @@ from typing import Any
 from sqlalchemy import select
 
 from app.bot.handlers.manage import (
+    audit_page,
+    bells_create,
+    bells_list,
     bells_delete,
+    bells_edit,
+    bells_make_default,
+    bells_new_name,
+    bells_new_rows,
     bells_rows_apply,
+    calendar_rotate,
     class_delete_apply,
+    class_delete_prompt,
+    class_diary_bind,
+    class_field_apply,
+    class_field_prompt,
+    class_root,
+    class_switch,
     class_switch_to,
     cmd_bells,
     cmd_calendar,
@@ -29,16 +43,47 @@ from app.bot.handlers.manage import (
     cmd_export,
     cmd_find,
     cmd_holidays,
+    cmd_import,
+    cmd_link,
     cmd_log,
     cmd_request,
+    cmd_stats,
     cmd_subjects,
+    calendar_card,
     device_revoke,
+    device_unlink,
+    devices_list,
+    holiday_add,
+    holiday_bells,
+    holiday_delete,
+    holiday_kind,
+    holiday_note,
     holiday_period_apply,
+    holiday_period_start,
+    holiday_pick_date,
+    holiday_typed_date,
+    holidays_list,
     import_apply,
+    import_cancel,
     import_preview,
+    subjects_list,
     request_approve,
+    request_decline,
+    request_message,
+    subject_colour_pick,
+    subject_colour_typed,
+    subject_create,
+    subject_delete,
+    subject_field,
+    subject_open,
     subject_rename,
+    subject_short_name,
+    subject_teacher,
+    subjects_collect,
+    term_edit_apply,
+    term_edit_prompt,
     terms_list,
+    terms_scheme,
 )
 from app.bot.handlers.timetable import timetable_apply
 from app.bot.manage_render import split_text, time_ago
@@ -50,6 +95,7 @@ from app.models import (
     BellPeriod,
     BellSchedule,
     BotUser,
+    DayKind,
     DayOverride,
     DeviceToken,
     Homework,
@@ -59,6 +105,8 @@ from app.models import (
     Role,
     SchoolClass,
     Subject,
+    Term,
+    TermKind,
     TimetableEntry,
     WeekParity,
 )
@@ -1086,3 +1134,1630 @@ async def test_search_folds_case_for_cyrillic_too(session, school_class):
         Role.VIEWER,
     )
     assert "Алгебра" in message.last
+
+
+# --------------------------------------------------------------------------
+# Карточка предмета
+# --------------------------------------------------------------------------
+
+
+async def _subject(session, school_class, **fields) -> Subject:
+    subject = Subject(class_id=school_class.id, **fields)
+    session.add(subject)
+    await session.commit()
+    return subject
+
+
+async def test_the_subject_card_shows_every_field_it_stores(session, school_class):
+    """Four stored columns, four lines. A card that drew the name and then a
+    dash where the teacher is would look exactly like a subject nobody has
+    filled in yet."""
+    subject = await _subject(
+        session,
+        school_class,
+        name="Алгебра",
+        short_name="Алг",
+        teacher="Иванова И. И.",
+        color="#5B6ABF",
+    )
+
+    callback = FakeCallback(message=FakeEditable())
+    await subject_open(
+        callback,
+        SimpleNamespace(action="open", value=str(subject.id)),
+        FakeState(),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    card = callback.message.last
+    assert "Алгебра" in card
+    assert "Сокращение: Алг" in card
+    assert "Учитель: Иванова И. И." in card
+    assert "■ #5B6ABF" in card
+
+
+async def test_a_subject_with_nothing_filled_in_draws_dashes_not_none(session, school_class):
+    """``None`` printed straight would read «Учитель: None» — an English word
+    in a Russian card, and one that looks like somebody's answer."""
+    subject = await _subject(session, school_class, name="Физика")
+
+    callback = FakeCallback(message=FakeEditable())
+    await subject_open(
+        callback,
+        SimpleNamespace(action="open", value=str(subject.id)),
+        FakeState(),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    card = callback.message.last
+    assert "Сокращение: —" in card
+    assert "Учитель: —" in card
+    assert "Цвет: —" in card
+    assert "None" not in card
+
+
+async def test_picking_a_preset_colour_writes_it_and_the_card_shows_it(session, school_class):
+    subject = await _subject(session, school_class, name="Алгебра")
+
+    callback = FakeCallback(message=FakeEditable())
+    await subject_colour_pick(
+        callback,
+        SimpleNamespace(action="colour", value=f"{subject.id}:3E8E7E"),
+        FakeState(),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    await session.refresh(subject)
+    assert subject.color == "#3E8E7E"
+    assert "■ #3E8E7E" in callback.message.last
+
+
+async def test_a_typed_colour_is_stored_in_the_one_spelling(session, school_class):
+    """«5b6abf», «#5b6abf» and «#5B6ABF» are one colour. The app matches the
+    stored string, so two spellings of one colour are two colours to it."""
+    subject = await _subject(session, school_class, name="Алгебра")
+
+    message = FakeMessage(text="5b6abf")
+    await subject_colour_typed(
+        message, FakeState(data={"subject_id": subject.id}), session, school_class, Role.ADMIN
+    )
+
+    await session.refresh(subject)
+    assert subject.color == "#5B6ABF"
+    assert "■ #5B6ABF" in message.last
+
+
+async def test_a_colour_that_is_not_a_colour_keeps_the_prompt_open(session, school_class):
+    subject = await _subject(session, school_class, name="Алгебра", color="#5B6ABF")
+
+    message = FakeMessage(text="синий")
+    state = FakeState(data={"subject_id": subject.id})
+    await subject_colour_typed(message, state, session, school_class, Role.ADMIN)
+
+    await session.refresh(subject)
+    assert subject.color == "#5B6ABF"
+    # The example, not a bare refusal: the admin has to know what to type next.
+    assert "#5B6ABF" in message.last
+    assert not state.cleared
+
+
+async def test_a_dash_clears_the_colour_and_the_teacher(session, school_class):
+    subject = await _subject(
+        session, school_class, name="Алгебра", teacher="Иванова И. И.", color="#5B6ABF"
+    )
+
+    await subject_colour_typed(
+        FakeMessage(text="-"),
+        FakeState(data={"subject_id": subject.id}),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+    message = FakeMessage(text="—")
+    await subject_teacher(
+        message, FakeState(data={"subject_id": subject.id}), session, school_class, Role.ADMIN
+    )
+
+    await session.refresh(subject)
+    assert subject.color is None
+    assert subject.teacher is None
+    assert "Учитель: —" in message.last
+    assert "Цвет: —" in message.last
+
+
+async def test_a_short_name_longer_than_the_column_is_cut_not_refused(session, school_class):
+    """The column is 16 characters. A refusal here would be a wall between an
+    admin and a field whose whole purpose is to be short."""
+    subject = await _subject(session, school_class, name="Алгебра")
+
+    message = FakeMessage(text="Очень длинное сокращение")
+    await subject_short_name(
+        message, FakeState(data={"subject_id": subject.id}), session, school_class, Role.ADMIN
+    )
+
+    await session.refresh(subject)
+    assert subject.short_name == "Очень длинное со"
+    assert len(subject.short_name) == 16
+
+
+async def test_the_colour_prompt_names_the_colour_the_subject_has_now(session, school_class):
+    subject = await _subject(session, school_class, name="Алгебра", color="#C4534A")
+
+    callback = FakeCallback(message=FakeEditable())
+    await subject_field(
+        callback,
+        SimpleNamespace(action="field", value=f"colour:{subject.id}"),
+        FakeState(),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert "■ #C4534A" in callback.message.last
+    assert "Алгебра" in callback.message.last
+
+
+async def test_an_unknown_field_name_is_refused_rather_than_guessed(session, school_class):
+    subject = await _subject(session, school_class, name="Алгебра")
+
+    callback = FakeCallback(message=FakeEditable())
+    await subject_field(
+        callback,
+        SimpleNamespace(action="field", value=f"кабинет:{subject.id}"),
+        FakeState(),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    assert callback.message.replies == []
+
+
+async def test_a_second_subject_with_the_same_name_in_another_case_is_not_created(
+    session, school_class
+):
+    """«физика» and «Физика» are one subject, and the second spelling opens the
+    first rather than founding a rival beside it."""
+    await _subject(session, school_class, name="Физика")
+
+    message = FakeMessage(text="физика")
+    state = FakeState()
+    await subject_create(message, state, session, school_class, Role.ADMIN)
+
+    rows = list(
+        await session.scalars(select(Subject).where(Subject.class_id == school_class.id))
+    )
+    assert [row.name for row in rows] == ["Физика"]
+    assert "Физика" in message.last
+    assert "уже есть" in message.last
+    assert state.cleared
+
+
+async def test_a_new_subject_is_created_and_its_card_drawn(session, school_class):
+    message = FakeMessage(text="  Химия  ")
+    await subject_create(message, FakeState(), session, school_class, Role.ADMIN)
+
+    subject = await session.scalar(select(Subject).where(Subject.name == "Химия"))
+    assert subject is not None
+    assert "Химия" in message.last
+    assert "Сокращение: —" in message.last
+
+
+async def test_renaming_to_a_name_the_class_already_uses_is_refused(session, school_class):
+    """Two subjects of one name would break the unique key, and the paste that
+    adopts names from the timetable would then have two rows to choose from."""
+    algebra = await _subject(session, school_class, name="Алгебра")
+    await _subject(session, school_class, name="Геометрия")
+
+    message = FakeMessage(text="Геометрия")
+    state = FakeState(data={"subject_id": algebra.id})
+    await subject_rename(message, state, session, school_class, Role.ADMIN)
+
+    await session.refresh(algebra)
+    assert algebra.name == "Алгебра"
+    assert "уже есть" in message.last
+    assert not state.cleared
+
+
+async def test_a_subject_the_timetable_still_uses_cannot_be_deleted(session, school_class):
+    """The template stores the name as well as the link, so deleting the
+    dictionary row only loses the colour and the teacher — and the next read
+    adopts the name straight back."""
+    algebra = await _subject(session, school_class, name="Алгебра", color="#5B6ABF")
+
+    callback = FakeCallback(message=FakeEditable())
+    await subject_delete(
+        callback,
+        SimpleNamespace(action="delete", value=str(algebra.id)),
+        FakeState(),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert await session.get(Subject, algebra.id) is not None
+    assert callback.alerted
+    # The alert names the count, because «уберите из расписания» is only
+    # actionable if you know how many lessons that is.
+    assert "стоит в расписании: 1 урок." in callback.answers[0][0]
+
+
+async def test_a_subject_nothing_teaches_goes_in_one_tap(session, school_class):
+    spare = await _subject(session, school_class, name="Астрономия")
+
+    callback = FakeCallback(message=FakeEditable())
+    await subject_delete(
+        callback,
+        SimpleNamespace(action="delete", value=str(spare.id)),
+        FakeState(),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    # By name, not by id: SQLite hands the freed rowid straight to the next
+    # insert, and the redraw adopts three subjects out of the timetable.
+    assert await session.scalar(select(Subject).where(Subject.name == "Астрономия")) is None
+    assert not callback.alerted
+    assert "Астрономия" not in callback.message.last
+
+
+async def test_collecting_from_the_timetable_writes_down_the_names_it_finds(
+    session, school_class
+):
+    callback = FakeCallback(message=FakeEditable())
+    await subjects_collect(callback, FakeState(), session, school_class, Role.EDITOR)
+
+    names = sorted(
+        row.name
+        for row in await session.scalars(
+            select(Subject).where(Subject.class_id == school_class.id)
+        )
+    )
+    assert names == ["Алгебра", "История", "Физика"]
+    assert "Добавлено: 3" in (callback.answers[0][0] or "")
+    for name in names:
+        assert name in callback.message.last
+
+
+# --------------------------------------------------------------------------
+# Особые дни: весь путь от кнопки до карточки
+# --------------------------------------------------------------------------
+
+
+async def test_a_shortened_day_asks_which_bells_and_then_carries_their_name(
+    session, school_class
+):
+    """The point of «⏱ Сокращённые уроки» is the schedule it points at; a day
+    marked shortened with no bells behind it changes nothing at all."""
+    short = BellSchedule(class_id=school_class.id, name="Сокращённое")
+    session.add(short)
+    await session.commit()
+
+    day = Date(2027, 3, 12)
+    callback = FakeCallback(message=FakeEditable())
+    await holiday_kind(
+        callback,
+        SimpleNamespace(action="kind", value=f"{day.isoformat()}:shortened"),
+        FakeState(),
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+    assert "расписанию звонков" in callback.message.last
+
+    picked = FakeCallback(message=FakeEditable())
+    await holiday_bells(
+        picked,
+        SimpleNamespace(action="bells", value=f"{day.isoformat()}:{short.id}"),
+        FakeState(),
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+
+    override = await session.scalar(select(DayOverride).where(DayOverride.date == day))
+    assert override.bell_schedule_id == short.id
+
+    card = FakeMessage()
+    await cmd_holidays(card, FakeState(), session, school_class, Role.EDITOR)
+    assert "12.03" in card.last
+    assert "⏱ Сокращённые уроки" in card.last
+    assert "🔔 Сокращённое" in card.last
+
+
+async def test_leaving_the_usual_bells_on_a_shortened_day_stores_no_schedule(
+    session, school_class
+):
+    day = Date(2027, 3, 12)
+    await holiday_kind(
+        FakeCallback(message=FakeEditable()),
+        SimpleNamespace(action="kind", value=f"{day.isoformat()}:shortened"),
+        FakeState(),
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+    await holiday_bells(
+        FakeCallback(message=FakeEditable()),
+        SimpleNamespace(action="bells", value=f"{day.isoformat()}:0"),
+        FakeState(),
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+
+    override = await session.scalar(select(DayOverride).where(DayOverride.date == day))
+    assert override.bell_schedule_id is None
+
+
+async def test_a_note_typed_after_the_kind_lands_on_the_day_row(session, school_class):
+    day = Date(2027, 3, 12)
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await holiday_kind(
+        callback,
+        SimpleNamespace(action="kind", value=f"{day.isoformat()}:holiday"),
+        state,
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+    assert state.data["date"] == day.isoformat()
+
+    message = FakeMessage(text="весенние каникулы")
+    await holiday_note(message, state, session, school_class, Role.EDITOR)
+
+    override = await session.scalar(select(DayOverride).where(DayOverride.date == day))
+    assert override.note == "весенние каникулы"
+    assert "весенние каникулы" in message.last
+
+
+async def test_a_dash_for_a_note_leaves_the_day_marked_and_unannotated(session, school_class):
+    day = Date(2027, 3, 12)
+    state = FakeState()
+    await holiday_kind(
+        FakeCallback(message=FakeEditable()),
+        SimpleNamespace(action="kind", value=f"{day.isoformat()}:remote"),
+        state,
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+    message = FakeMessage(text="-")
+    await holiday_note(message, state, session, school_class, Role.EDITOR)
+
+    override = await session.scalar(select(DayOverride).where(DayOverride.date == day))
+    assert override.kind is DayKind.REMOTE
+    assert override.note is None
+    assert "💻 Дистанционное обучение" in message.last
+
+
+async def test_обычный_день_removes_the_row_rather_than_storing_a_kind(session, school_class):
+    """«Обычный день» is the absence of an override, not a kind of one — two
+    spellings of the same thing would give the resolver a choice to get wrong."""
+    day = Date(2027, 3, 12)
+    session.add(DayOverride(class_id=school_class.id, date=day, kind=DayKind.HOLIDAY))
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await holiday_kind(
+        callback,
+        SimpleNamespace(action="kind", value=f"{day.isoformat()}:normal"),
+        FakeState(),
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+
+    assert await session.scalar(select(DayOverride).where(DayOverride.date == day)) is None
+    assert "12.03" not in callback.message.last
+
+
+async def test_deleting_a_day_takes_it_off_the_card(session, school_class):
+    day = Date(2027, 3, 12)
+    session.add(
+        DayOverride(class_id=school_class.id, date=day, kind=DayKind.HOLIDAY, note="актировка")
+    )
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await holiday_delete(
+        callback,
+        SimpleNamespace(action="delete", value=day.isoformat()),
+        FakeState(),
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+
+    assert await session.scalar(select(DayOverride)) is None
+    assert "актировка" not in callback.message.last
+    assert "Впереди особых дней нет" in callback.message.last
+
+
+async def test_a_bare_day_and_month_well_in_the_past_means_the_year_ahead(
+    session, school_class
+):
+    """A school year straddles New Year: «10.01» typed in December is the
+    January that is coming, not the one eleven months gone."""
+    message = FakeMessage(text="01.01")
+    await holiday_typed_date(message, FakeState(), school_class, Role.EDITOR)
+
+    today = datetime.now(school_class.tz).date()
+    expected = today.year if (today - Date(today.year, 1, 1)).days <= 90 else today.year + 1
+    assert f"01.01.{expected}" in message.last
+
+
+async def test_a_date_that_is_not_a_date_asks_again(session, school_class):
+    message = FakeMessage(text="как-нибудь потом")
+    state = FakeState()
+    await holiday_typed_date(message, state, school_class, Role.EDITOR)
+
+    assert "Не понял дату" in message.last
+    assert not state.cleared
+
+
+# --------------------------------------------------------------------------
+# Звонки
+# --------------------------------------------------------------------------
+
+
+async def test_a_second_bell_schedule_is_created_from_a_paste_and_listed(
+    session, school_class
+):
+    state = FakeState()
+    await bells_create(FakeCallback(message=FakeEditable()), state, school_class, Role.ADMIN)
+
+    named = FakeMessage(text="Суббота")
+    await bells_new_name(named, state, school_class, Role.ADMIN)
+    assert "Суббота" in named.last
+
+    rows = FakeMessage(text="1. 09:00-09:40\n2. 09:50-10:30\nчепуха")
+    await bells_new_rows(rows, state, session, school_class, Role.ADMIN)
+
+    schedule = await session.scalar(select(BellSchedule).where(BellSchedule.name == "Суббота"))
+    assert schedule is not None
+    assert [period.index for period in schedule.periods] == [1, 2]
+    # The line it could not read is named, not silently dropped.
+    assert "чепуха" in rows.replies[0]
+    # And the card that follows shows the new schedule with its rows.
+    assert "Суббота" in rows.last
+    assert "09:00-09:40" in rows.last
+    assert "2 урока" in rows.last
+
+
+async def test_an_unnamed_bell_schedule_is_not_created(session, school_class):
+    state = FakeState(data={})
+    message = FakeMessage(text="   ")
+    await bells_new_name(message, state, school_class, Role.ADMIN)
+
+    assert "от 1 до 64" in message.last
+    assert "name" not in state.data
+
+
+async def test_the_bells_editor_offers_the_rows_in_the_format_it_accepts_back(
+    session, school_class
+):
+    """The text in the message is what the admin edits and sends straight back,
+    so it has to parse as the same grammar that produced it."""
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await bells_edit(
+        callback,
+        SimpleNamespace(action="edit", value=str(school_class.bell_schedule_id)),
+        state,
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert "1. 08:30-09:15" in callback.message.last
+    assert state.data["schedule_id"] == school_class.bell_schedule_id
+
+    from app.bot.handlers.manage import _parse_bells
+
+    offered = callback.message.last
+    body = offered.split("<code>")[1].split("</code>")[0]
+    rows, rejected = _parse_bells(body)
+    assert len(rows) == 7
+    assert rejected == []
+
+
+async def test_the_star_moves_when_another_schedule_is_made_the_default(session, school_class):
+    other = BellSchedule(class_id=school_class.id, name="Сокращённое")
+    session.add(other)
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await bells_make_default(
+        callback,
+        SimpleNamespace(action="default", value=str(other.id)),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert school_class.bell_schedule_id == other.id
+    card = callback.message.last
+    assert "⭐ <b>Сокращённое</b>" in card
+    assert "⭐ <b>Обычное</b>" not in card
+
+
+async def test_a_spare_bell_schedule_is_deleted_and_leaves_the_card(session, school_class):
+    spare = BellSchedule(class_id=school_class.id, name="Лишнее")
+    session.add(spare)
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await bells_delete(
+        callback,
+        SimpleNamespace(action="delete", value=str(spare.id)),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert await session.get(BellSchedule, spare.id) is None
+    assert "Лишнее" not in callback.message.last
+
+
+async def test_a_schedule_a_special_day_still_points_at_cannot_be_deleted(
+    session, school_class
+):
+    """The foreign key is ``SET NULL``: deleting it would move those days onto
+    the class default, on dates nobody is looking at."""
+    spare = BellSchedule(class_id=school_class.id, name="Сокращённое")
+    session.add(spare)
+    await session.flush()
+    session.add(
+        DayOverride(
+            class_id=school_class.id,
+            date=Date(2027, 3, 12),
+            kind=DayKind.SHORTENED,
+            bell_schedule_id=spare.id,
+        )
+    )
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await bells_delete(
+        callback,
+        SimpleNamespace(action="delete", value=str(spare.id)),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert await session.get(BellSchedule, spare.id) is not None
+    assert callback.alerted
+    assert "особые дни (1)" in callback.answers[0][0]
+
+
+async def test_the_bells_card_says_how_many_schedules_it_did_not_draw(session, school_class):
+    """Every other list on these pages ends in «… и ещё N» when it runs out of
+    room; this one ended in the legend and lost the tail in silence — and the
+    keyboard under it is shorter still, so those rows were unreachable as well
+    as unmentioned."""
+    for number in range(30):
+        session.add(BellSchedule(class_id=school_class.id, name=f"Расписание {number}"))
+    await session.commit()
+
+    message = FakeMessage()
+    await cmd_bells(message, FakeState(), session, school_class, Role.ADMIN)
+
+    # Thirty-one in the class, twenty on the card.
+    assert message.last.count("Расписание ") == 19
+    assert "… и ещё 11" in message.last
+    assert "основное расписание класса" in message.last
+
+
+# --------------------------------------------------------------------------
+# Устройства
+# --------------------------------------------------------------------------
+
+
+async def test_unlinking_leaves_the_phone_on_the_class_as_a_reader(session, school_class):
+    """Unlinking is not revoking: the phone keeps its token and its class, and
+    loses only the account whose role let it write."""
+    session.add(BotUser(telegram_id=42, class_id=school_class.id, role=Role.ADMIN))
+    device = DeviceToken(
+        token_hash="hash-link",
+        class_id=school_class.id,
+        device_name="Pixel 8",
+        telegram_id=42,
+        linked_at=datetime(2026, 9, 1, 10, 0),
+    )
+    session.add(device)
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await device_unlink(
+        callback,
+        SimpleNamespace(action="unlink", value=str(device.id)),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    await session.refresh(device)
+    assert device.telegram_id is None
+    assert device.revoked is False
+    assert not callback.alerted
+    assert "Pixel 8" in callback.message.last
+    assert "не привязан" in callback.message.last
+
+
+async def test_a_phone_nobody_claimed_cannot_be_unlinked(session, school_class):
+    device = DeviceToken(token_hash="hash-free", class_id=school_class.id, device_name="Чей-то")
+    session.add(device)
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await device_unlink(
+        callback,
+        SimpleNamespace(action="unlink", value=str(device.id)),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    assert callback.message.replies == []
+
+
+async def test_linking_a_phone_gives_it_the_role_the_account_holds(session, school_class):
+    from app.services import linking
+
+    session.add(BotUser(telegram_id=42, class_id=school_class.id, role=Role.ADMIN))
+    device = DeviceToken(
+        token_hash="hash-code", class_id=school_class.id, device_name="Pixel 8"
+    )
+    session.add(device)
+    await session.commit()
+    code = await linking.issue_link_code(session, device)
+
+    message = FakeMessage(text="")
+    # Lower case on purpose: codes are minted upper-case and read back either way.
+    await cmd_link(message, _command(code.lower()), session, school_class, Role.ADMIN)
+
+    await session.refresh(device)
+    assert device.telegram_id == 42
+    assert device.link_code is None
+    assert "Pixel 8" in message.last
+    assert "Администратор" in message.last
+    assert "редактировать" in message.last
+
+
+async def test_a_link_code_works_once(session, school_class):
+    from app.services import linking
+
+    session.add(BotUser(telegram_id=42, class_id=school_class.id, role=Role.ADMIN))
+    device = DeviceToken(token_hash="hash-once", class_id=school_class.id)
+    session.add(device)
+    await session.commit()
+    code = await linking.issue_link_code(session, device)
+
+    await cmd_link(FakeMessage(), _command(code), session, school_class, Role.ADMIN)
+    second = FakeMessage()
+    await cmd_link(second, _command(code), session, school_class, Role.ADMIN)
+
+    assert "Код не подошёл" in second.last
+
+
+async def test_link_without_a_code_explains_where_to_find_one(session, school_class):
+    message = FakeMessage()
+    await cmd_link(message, _command(None), session, school_class, Role.VIEWER)
+
+    assert "/link" in message.last
+    assert "приложении" in message.last
+
+
+# --------------------------------------------------------------------------
+# Журнал: страницы
+# --------------------------------------------------------------------------
+
+
+async def test_the_log_pages_back_and_says_where_it_is(session, school_class):
+    session.add(BotUser(telegram_id=42, class_id=school_class.id, role=Role.ADMIN,
+                        username="admin"))
+    for number in range(45):
+        await audit.record(session, school_class.id, 42, "test", f"изменение № {number}")
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await audit_page(
+        callback,
+        SimpleNamespace(action="page", value="30"),
+        FakeState(),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    page = callback.message.last
+    # Newest first, so page two is the fifteen oldest.
+    assert "· с 31" in page
+    assert "изменение № 14" in page
+    assert "изменение № 15" not in page
+    assert "@admin" in page
+
+
+async def test_a_negative_page_is_page_one_and_does_not_claim_otherwise(session, school_class):
+    """SQL reads a negative OFFSET as no offset at all, so the page would be
+    the first one under a heading promising the thirty-first line."""
+    for number in range(5):
+        await audit.record(session, school_class.id, 42, "test", f"изменение № {number}")
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await audit_page(
+        callback,
+        SimpleNamespace(action="page", value="-100"),
+        FakeState(),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    page = callback.message.last
+    assert "· с " not in page
+    assert "изменение № 4" in page
+
+
+# --------------------------------------------------------------------------
+# Карточка класса: поля, дневник, календарь
+# --------------------------------------------------------------------------
+
+
+async def test_renaming_the_class_redraws_the_card_under_the_new_name(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await class_field_prompt(
+        callback, SimpleNamespace(action="rename"), state, school_class, Role.ADMIN
+    )
+    assert state.data["field"] == "rename"
+
+    message = FakeMessage(text="  9В  ")
+    await class_field_apply(message, state, session, school_class, Role.ADMIN)
+
+    assert school_class.name == "9В"
+    assert "9В" in message.last
+    assert "9А" not in message.last
+
+
+async def test_an_empty_class_name_is_refused_and_the_old_one_stands(session, school_class):
+    """The name is what the delete confirmation is typed against; a class with
+    no name could not be deleted by its owner at all."""
+    message = FakeMessage(text="   ")
+    state = FakeState(data={"field": "rename"})
+    await class_field_apply(message, state, session, school_class, Role.ADMIN)
+
+    assert school_class.name == "9А"
+    assert "От 1 до 64" in message.last
+    assert not state.cleared
+
+
+async def test_a_dash_clears_the_city_and_the_card_shows_a_dash(session, school_class):
+    school_class.city = "Тверь"
+    await session.commit()
+
+    message = FakeMessage(text="-")
+    await class_field_apply(
+        message, FakeState(data={"field": "city"}), session, school_class, Role.ADMIN
+    )
+
+    assert school_class.city is None
+    assert "🏙 Город: —" in message.last
+
+
+async def test_a_field_prompt_that_expired_sends_the_admin_back_to_the_card(
+    session, school_class
+):
+    message = FakeMessage(text="что-то")
+    state = FakeState(data={})
+    await class_field_apply(message, state, session, school_class, Role.ADMIN)
+
+    assert "/class" in message.last
+    assert state.cleared
+
+
+async def test_binding_and_unbinding_the_diary_flips_one_line_of_the_card(
+    session, school_class
+):
+    """Binding gives the class nothing and takes nothing — it puts «📒 Мой
+    дневник» on the menu — so the card is the only place it is visible."""
+    callback = FakeCallback(message=FakeEditable())
+    await class_diary_bind(callback, session, school_class, Role.ADMIN)
+
+    assert school_class.diary_provider is not None
+    assert "📒 Дневник: Санкт-Петербург" in callback.message.last
+
+    again = FakeCallback(message=FakeEditable())
+    await class_diary_bind(again, session, school_class, Role.ADMIN)
+
+    assert school_class.diary_provider is None
+    assert "📒 Дневник: не привязан" in again.message.last
+
+
+async def test_an_editor_cannot_bind_the_diary(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+    await class_diary_bind(callback, session, school_class, Role.EDITOR)
+
+    assert school_class.diary_provider is None
+    assert callback.alerted
+
+
+async def test_the_switch_screen_needs_somewhere_to_switch_to(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+    await class_switch(callback, session, school_class, Role.ADMIN)
+
+    assert callback.alerted
+    assert callback.message.replies == []
+
+    await _two_classes(session, school_class, 42)
+    listed = FakeCallback(message=FakeEditable())
+    await class_switch(listed, session, school_class, Role.ADMIN)
+
+    assert not listed.alerted
+    assert "Сменить класс" in listed.message.last
+
+
+async def test_the_delete_prompt_spells_out_what_goes_and_asks_for_the_name(
+    session, school_class
+):
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await class_delete_prompt(callback, state, school_class, Role.OWNER)
+
+    prompt = callback.message.last
+    assert "9А" in prompt
+    assert "домашние задания" in prompt
+    assert "нельзя отменить" in prompt
+    assert state.state is not None
+
+
+async def test_the_calendar_link_is_issued_once_and_the_rotation_says_so(
+    session, school_class, monkeypatch
+):
+    """Rotating breaks every existing subscription — that is the point of the
+    button, and the card has to say it out loud."""
+    from app.config import get_settings
+
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://example.test")
+    get_settings.cache_clear()
+    try:
+        message = FakeMessage()
+        await cmd_calendar(message, FakeState(), session, school_class, Role.ADMIN)
+        first = school_class.calendar_token
+        assert first
+        assert f"https://example.test/api/v1/calendar/{first}.ics" in message.last
+
+        again = FakeMessage()
+        await cmd_calendar(again, FakeState(), session, school_class, Role.ADMIN)
+        assert school_class.calendar_token == first
+
+        callback = FakeCallback(message=FakeEditable())
+        await calendar_rotate(callback, session, school_class, Role.ADMIN)
+
+        assert school_class.calendar_token != first
+        assert first not in callback.message.last
+        assert "Старая ссылка больше не работает" in callback.message.last
+    finally:
+        get_settings.cache_clear()
+
+
+# --------------------------------------------------------------------------
+# Статистика
+# --------------------------------------------------------------------------
+
+
+async def test_a_fortnightly_lesson_counts_as_half_an_hour_a_week(session, school_class):
+    """«Часов в неделю» is what a school's own paperwork means by it: a lesson
+    that runs on odd weeks only is half a lesson a week."""
+    session.add(
+        TimetableEntry(
+            class_id=school_class.id,
+            weekday=2,
+            index=1,
+            subject_name="Химия",
+            parity=WeekParity.ODD,
+        )
+    )
+    await session.commit()
+
+    message = FakeMessage()
+    await cmd_stats(message, FakeState(), session, school_class, Role.EDITOR)
+
+    card = message.last
+    # Three full lessons on Monday plus half of Tuesday's.
+    assert "Уроков в неделю: <b>3,5</b>" in card
+    assert "предметов: <b>4</b>" in card
+    assert "• Химия — 0,5" in card
+
+
+async def test_the_stats_card_counts_the_people_and_the_phones(session, school_class):
+    session.add(BotUser(telegram_id=1, class_id=school_class.id, role=Role.OWNER))
+    session.add(BotUser(telegram_id=2, class_id=school_class.id, role=Role.EDITOR))
+    session.add(BotUser(telegram_id=3, class_id=school_class.id, role=Role.EDITOR))
+    session.add(DeviceToken(token_hash="s1", class_id=school_class.id))
+    session.add(DeviceToken(token_hash="s2", class_id=school_class.id, revoked=True))
+    session.add(
+        Homework(
+            class_id=school_class.id,
+            due_date=Date.today() + timedelta(days=3),
+            subject_name="Алгебра",
+            text="№ 42",
+        )
+    )
+    await session.commit()
+
+    message = FakeMessage()
+    await cmd_stats(message, FakeState(), session, school_class, Role.EDITOR)
+
+    card = message.last
+    assert "Владелец: 1 · Редактор: 2" in card
+    # The revoked phone is not a connected phone.
+    assert "Подключённых устройств: <b>1</b>" in card
+    assert "<b>1</b> актуальных" in card
+
+
+async def test_the_stats_card_of_a_class_with_no_timetable_says_so(session):
+    bare = SchoolClass(name="10Б", join_code="BARE01")
+    bare_user = BotUser(telegram_id=9, class_id=0, role=Role.OWNER)
+    session.add(bare)
+    await session.flush()
+    bare_user.class_id = bare.id
+    session.add(bare_user)
+    await session.commit()
+
+    message = FakeMessage()
+    await cmd_stats(message, FakeState(), session, bare, Role.OWNER)
+
+    card = message.last
+    assert "Расписание ещё не заполнено" in card
+    assert "Уроков в неделю: <b>0</b>" in card
+    assert "Владелец: 1" in card
+
+
+# --------------------------------------------------------------------------
+# Импорт
+# --------------------------------------------------------------------------
+
+
+async def test_the_import_help_shows_the_shape_of_the_paste(session, school_class):
+    message = FakeMessage()
+    state = FakeState()
+    await cmd_import(message, state, school_class, Role.ADMIN)
+
+    assert "== Понедельник ==" in message.last
+    assert "== Звонки ==" in message.last
+    assert state.state is not None
+
+
+async def test_a_paste_that_is_neither_days_nor_bells_gets_the_help_back(
+    session, school_class
+):
+    message = FakeMessage(text="здравствуйте, вот расписание")
+    state = FakeState()
+    await import_preview(message, state, school_class, Role.ADMIN)
+
+    assert "Не нашёл ни одного дня" in message.last
+    # Nothing was stored, so «Применить» has nothing to apply.
+    assert "raw" not in state.data
+
+
+async def test_the_applied_import_counts_the_lessons_it_actually_wrote(session, school_class):
+    """A lesson past the last bell is not written — the resolver builds a day
+    out of the bell rows, so such a row would be stored and drawn nowhere. The
+    card used to print the parsed count under a total that excluded them:
+    «уроков — 7» directly above «Вторник: 9»."""
+    paste = "== Вторник ==\n" + "\n".join(f"{number}. Предмет{number}" for number in range(1, 10))
+    state = FakeState()
+    await import_preview(FakeMessage(text=paste), state, school_class, Role.ADMIN)
+
+    callback = FakeCallback(message=FakeEditable())
+    await import_apply(callback, state, session, school_class, Role.ADMIN)
+
+    written = list(
+        await session.scalars(
+            select(TimetableEntry).where(
+                TimetableEntry.class_id == school_class.id, TimetableEntry.weekday == 2
+            )
+        )
+    )
+    assert len(written) == 7
+
+    card = callback.message.last
+    assert "уроков — 7" in card
+    assert "• Вторник: 7" in card
+    assert "• Вторник: 9" not in card
+    assert "Не добавлены уроки № 8, 9" in card
+
+
+async def test_a_paste_of_bells_alone_is_not_reported_as_nothing_recognised(
+    session, school_class
+):
+    """«== Звонки ==» with no weekday under it is a legitimate paste — it is
+    what /export gives a class whose timetable is empty. The preview called it
+    «Ни одного дня не распознано» over an «✅ Применить» button that was about
+    to rewrite the class's звонки, and said nothing about doing so."""
+    message = FakeMessage(text="== Звонки ==\n1. 08:00-08:45\n2. 09:00-09:45")
+    state = FakeState()
+    await import_preview(message, state, school_class, Role.ADMIN)
+
+    preview = message.last
+    assert "Ни одного дня не распознано" not in preview
+    assert "• Звонки: 2 урока" in preview
+    assert "Звонки заменят основное расписание класса целиком." in preview
+
+    callback = FakeCallback(message=FakeEditable())
+    await import_apply(callback, state, session, school_class, Role.ADMIN)
+
+    schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
+    await session.refresh(schedule, ["periods"])
+    assert [period.index for period in schedule.periods] == [1, 2]
+
+
+async def test_the_bells_line_of_a_preview_counts_in_russian(session, school_class):
+    """One bell row read «Звонки: 1 уроков»; the line was glued on after the
+    renderer returned, below the «Применить» footer, and never saw ``plural``."""
+    message = FakeMessage(text="== Вторник ==\n1. Химия\n\n== Звонки ==\n1. 08:00-08:45")
+    await import_preview(message, FakeState(), school_class, Role.ADMIN)
+
+    preview = message.last
+    assert "• Звонки: 1 урок" in preview
+    assert "1 уроков" not in preview
+    # And it stands with the day counts, above the footer, not after it.
+    assert preview.index("Звонки: 1 урок") < preview.index("«Применить»")
+
+
+# --------------------------------------------------------------------------
+# Запросы доступа: отказ и комментарий
+# --------------------------------------------------------------------------
+
+
+async def test_declining_a_request_tells_the_person_and_leaves_the_role_alone(
+    session, school_class
+):
+    session.add(BotUser(telegram_id=55, class_id=school_class.id, role=Role.VIEWER))
+    request = AccessRequest(
+        class_id=school_class.id,
+        telegram_id=55,
+        requested_role=Role.EDITOR,
+        status="pending",
+    )
+    session.add(request)
+    await session.commit()
+
+    bot = FakeBot()
+    callback = FakeCallback(message=FakeEditable(), bot=bot)
+    await request_decline(
+        callback,
+        SimpleNamespace(action="decline", value=str(request.id)),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    await session.refresh(request)
+    assert request.status == "declined"
+    assert request.decided_by == 42
+    member = await session.scalar(select(BotUser).where(BotUser.telegram_id == 55))
+    assert member.role is Role.VIEWER
+    assert bot.sent and bot.sent[0][0] == 55
+    assert "отклонён" in bot.sent[0][1]
+    assert "9А" in bot.sent[0][1]
+
+
+async def test_a_request_already_decided_cannot_be_decided_again(session, school_class):
+    request = AccessRequest(
+        class_id=school_class.id,
+        telegram_id=55,
+        requested_role=Role.EDITOR,
+        status="declined",
+    )
+    session.add(request)
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await request_decline(
+        callback,
+        SimpleNamespace(action="decline", value=str(request.id)),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    assert callback.message.replies == []
+
+
+async def test_a_comment_typed_at_the_prompt_reaches_the_admins(session, school_class):
+    session.add(BotUser(telegram_id=55, class_id=school_class.id, role=Role.VIEWER))
+    session.add(BotUser(telegram_id=10, class_id=school_class.id, role=Role.ADMIN))
+    await session.commit()
+
+    bot = FakeBot()
+    message = FakeMessage(text="я староста", user_id=55, bot=bot)
+    state = FakeState()
+    await request_message(message, state, session, school_class, Role.VIEWER)
+
+    stored = await session.scalar(select(AccessRequest))
+    assert stored.message == "я староста"
+    assert [chat_id for chat_id, _ in bot.sent] == [10]
+    assert "я староста" in bot.sent[0][1]
+    assert "Запрос отправлен" in message.last
+    assert state.cleared
+
+
+async def test_a_dash_sends_the_request_without_a_comment(session, school_class):
+    session.add(BotUser(telegram_id=55, class_id=school_class.id, role=Role.VIEWER))
+    await session.commit()
+
+    message = FakeMessage(text="-", user_id=55)
+    await request_message(message, FakeState(), session, school_class, Role.VIEWER)
+
+    stored = await session.scalar(select(AccessRequest))
+    assert stored is not None
+    assert stored.message is None
+
+
+# --------------------------------------------------------------------------
+# Четверти и полугодия
+# --------------------------------------------------------------------------
+
+
+async def _open_terms(session, school_class) -> int:
+    """Draw «🗓 Четверти» once, which is what seeds the year, and say which year.
+
+    ``set_bounds`` reads the stored terms and refuses «Такого периода нет» for
+    a class that has none — the card is the only thing that creates them.
+    """
+    from app.services import terms as terms_service
+
+    await terms_list(
+        FakeCallback(message=FakeEditable()), FakeState(), session, school_class, Role.ADMIN
+    )
+    return terms_service.opening_year_of(datetime.now(school_class.tz).date())
+
+
+async def test_switching_to_semesters_replaces_the_four_quarters_with_two(
+    session, school_class
+):
+    """Four quarters and two halves do not map onto each other, so the set is
+    replaced rather than edited — and the card has to show the new shape."""
+    from app.services import terms as terms_service
+
+    await _open_terms(session, school_class)
+
+    callback = FakeCallback(message=FakeEditable())
+    await terms_scheme(
+        callback,
+        SimpleNamespace(action="scheme", value="semester"),
+        FakeState(),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    card = callback.message.last
+    assert "полугодия" in card
+    assert card.count("дн.") == 2
+    assert "<b>3.</b>" not in card
+
+    rows = list(await session.scalars(select(Term).where(Term.class_id == school_class.id)))
+    assert len(rows) == 2
+    assert school_class.term_kind is TermKind.SEMESTER
+    assert terms_service.scheme_of(school_class) is TermKind.SEMESTER
+
+
+async def test_editing_a_term_moves_its_dates_on_the_card(session, school_class):
+    year = await _open_terms(session, school_class)
+
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await term_edit_prompt(
+        callback, SimpleNamespace(action="edit", value="1"), state, school_class, Role.ADMIN
+    )
+    assert state.data["term_index"] == 1
+    assert "Период <b>1</b>" in callback.message.last
+
+    message = FakeMessage(text=f"01.09.{year} - 25.10.{year}")
+    await term_edit_apply(message, state, session, school_class, Role.ADMIN)
+
+    card = message.last
+    assert f"01.09.{year} — 25.10.{year}" in card
+    # 1 September to 25 October counts both ends: 55 days.
+    assert "· 55 дн." in card
+    assert state.cleared
+
+
+async def test_a_term_that_overlaps_the_next_one_keeps_the_prompt_open(session, school_class):
+    """The refusal is the rule in Russian, and the prompt stays open: the admin
+    has one date to correct, not a form to start again."""
+    from app.services import terms as terms_service
+
+    year = await _open_terms(session, school_class)
+    state = FakeState(data={"term_index": 1})
+
+    message = FakeMessage(text=f"01.09.{year} - 31.12.{year}")
+    await term_edit_apply(message, state, session, school_class, Role.ADMIN)
+
+    assert "Пересекается с периодом 2" in message.last
+    assert not state.cleared
+
+    rows = await terms_service.read(session, school_class.id, year)
+    assert rows[0].ends_on != Date(year, 12, 31)
+
+
+async def test_a_term_outside_the_school_year_is_refused(session, school_class):
+    year = await _open_terms(session, school_class)
+
+    message = FakeMessage(text=f"01.08.{year} - 10.08.{year}")
+    await term_edit_apply(
+        message, FakeState(data={"term_index": 1}), session, school_class, Role.ADMIN
+    )
+
+    assert "учебный год" in message.last
+
+
+async def test_a_span_that_is_not_two_dates_asks_again(session, school_class):
+    await _open_terms(session, school_class)
+
+    message = FakeMessage(text="с сентября по октябрь")
+    state = FakeState(data={"term_index": 1})
+    await term_edit_apply(message, state, session, school_class, Role.ADMIN)
+
+    assert "Не разобрал" in message.last
+    assert not state.cleared
+
+
+# --------------------------------------------------------------------------
+# Кнопки как вход в те же страницы
+# --------------------------------------------------------------------------
+
+
+async def test_every_button_opens_the_same_page_as_its_command(session, school_class):
+    """Each of these pages has two doors — a /command and a button — and they
+    are the same page or they are two pages that drift apart. The button path
+    edits a message instead of sending one, which is the only difference that
+    is supposed to survive."""
+    session.add(BotUser(telegram_id=42, class_id=school_class.id, role=Role.OWNER))
+    session.add(
+        DeviceToken(token_hash="hash-both", class_id=school_class.id, device_name="Pixel 8")
+    )
+    await session.commit()
+
+    pairs = [
+        (cmd_subjects, subjects_list, Role.EDITOR),
+        (cmd_holidays, holidays_list, Role.EDITOR),
+        (cmd_bells, bells_list, Role.ADMIN),
+        (cmd_devices, devices_list, Role.ADMIN),
+        (cmd_class, class_root, Role.OWNER),
+    ]
+    for command, button, role in pairs:
+        typed = FakeMessage()
+        await command(typed, FakeState(), session, school_class, role)
+
+        pressed = FakeCallback(message=FakeEditable())
+        await button(pressed, FakeState(), session, school_class, role)
+
+        assert pressed.message.last == typed.last, command.__name__
+        assert not pressed.alerted, command.__name__
+
+
+async def test_the_calendar_button_draws_what_the_command_draws(session, school_class):
+    typed = FakeMessage()
+    await cmd_calendar(typed, FakeState(), session, school_class, Role.VIEWER)
+
+    pressed = FakeCallback(message=FakeEditable())
+    await calendar_card(pressed, session, school_class, Role.VIEWER)
+
+    assert pressed.message.last == typed.last
+    assert "PUBLIC_BASE_URL" in pressed.message.last
+
+
+# --------------------------------------------------------------------------
+# Звонки: сохранение строк
+# --------------------------------------------------------------------------
+
+
+async def test_a_bells_paste_replaces_every_row_and_the_card_shows_the_new_times(
+    session, school_class
+):
+    """The rows are deleted in bulk, which goes round the ORM and leaves the
+    eagerly loaded ``periods`` stale. Without the refresh the card drawn a line
+    later would show the seven old times under a message saying three."""
+    message = FakeMessage(text="1. 09:00-09:40\n2. 09:50-10:30\n3. 10:40-11:20")
+    await bells_rows_apply(
+        message,
+        FakeState(data={"schedule_id": school_class.bell_schedule_id}),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    rows = list(
+        await session.scalars(
+            select(BellPeriod)
+            .where(BellPeriod.schedule_id == school_class.bell_schedule_id)
+            .order_by(BellPeriod.index)
+        )
+    )
+    assert [row.index for row in rows] == [1, 2, 3]
+
+    assert "сохранены: 3" in message.replies[0]
+    card = message.last
+    assert "3 урока" in card
+    assert "09:00-09:40" in card
+    # The times that were there a moment ago are gone from the card too.
+    assert "08:30-09:15" not in card
+    assert "14:20-15:05" not in card
+
+
+async def test_a_bells_paste_names_the_lines_it_could_not_read(session, school_class):
+    message = FakeMessage(text="1. 09:00-09:40\nобед\n2. 09:50-10:30")
+    await bells_rows_apply(
+        message,
+        FakeState(data={"schedule_id": school_class.bell_schedule_id}),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert "Не разобрал строки" in message.replies[0]
+    assert "обед" in message.replies[0]
+    assert "сохранены: 2" in message.replies[0]
+
+
+async def test_rows_for_a_schedule_that_was_deleted_mid_flow_say_so(session, school_class):
+    spare = BellSchedule(class_id=school_class.id, name="Лишнее")
+    session.add(spare)
+    await session.commit()
+    schedule_id = spare.id
+    await session.delete(spare)
+    await session.commit()
+
+    message = FakeMessage(text="1. 09:00-09:40")
+    state = FakeState(data={"schedule_id": schedule_id})
+    await bells_rows_apply(message, state, session, school_class, Role.ADMIN)
+
+    assert "уже удалено" in message.last
+    assert state.cleared
+
+
+async def test_a_new_schedule_whose_name_was_lost_starts_again(session, school_class):
+    """Every update may hit a fresh process, so a step that assumed the step
+    before it had happened would be a create with no name at all."""
+    message = FakeMessage(text="1. 09:00-09:40")
+    state = FakeState(data={})
+    await bells_new_rows(message, state, session, school_class, Role.ADMIN)
+
+    assert "/bells" in message.last
+    assert await session.scalar(select(BellSchedule).where(BellSchedule.name == "")) is None
+    assert state.cleared
+
+
+async def test_a_new_schedule_is_not_created_from_prose(session, school_class):
+    before = len(list(await session.scalars(select(BellSchedule))))
+    message = FakeMessage(text="как обычно, только короче")
+    state = FakeState(data={"name": "Суббота"})
+    await bells_new_rows(message, state, session, school_class, Role.ADMIN)
+
+    after = list(await session.scalars(select(BellSchedule)))
+    assert len(after) == before
+    assert "ни одной строки" in message.last
+    assert not state.cleared
+
+
+# --------------------------------------------------------------------------
+# Особые дни: экраны, с которых всё начинается
+# --------------------------------------------------------------------------
+
+
+async def test_the_add_day_screen_offers_a_month_and_a_typed_date(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await holiday_add(callback, state, school_class, Role.EDITOR)
+
+    assert "Особый день" in callback.message.last
+    assert "12.09" in callback.message.last
+    assert state.state is not None
+
+
+async def test_a_day_picked_in_the_calendar_asks_what_kind_of_day_it_is(
+    session, school_class
+):
+    """The date travels in the callback payload from here on, so the flow no
+    longer depends on an FSM state the user could have set for something else."""
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(state="something else")
+    await holiday_pick_date(
+        callback,
+        SimpleNamespace(action="pick_date", value="2027-03-12"),
+        state,
+        school_class,
+        Role.EDITOR,
+    )
+
+    assert "12.03.2027" in callback.message.last
+    assert "Что это за день?" in callback.message.last
+    assert state.cleared
+
+
+async def test_a_picked_date_that_is_not_a_date_is_refused(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+    await holiday_pick_date(
+        callback,
+        SimpleNamespace(action="pick_date", value="никогда"),
+        FakeState(),
+        school_class,
+        Role.EDITOR,
+    )
+
+    assert callback.alerted
+    assert callback.message.replies == []
+
+
+async def test_the_period_screen_names_the_ceiling_before_anybody_types(
+    session, school_class
+):
+    from app.bot.handlers.manage import PERIOD_MAX_DAYS
+
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await holiday_period_start(callback, state, school_class, Role.ADMIN)
+
+    assert "26.10-05.11" in callback.message.last
+    assert str(PERIOD_MAX_DAYS) in callback.message.last
+    assert state.state is not None
+
+
+async def test_an_editor_is_not_offered_the_period_screen(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+    await holiday_period_start(callback, FakeState(), school_class, Role.EDITOR)
+
+    assert callback.alerted
+    assert callback.message.replies == []
+
+
+# --------------------------------------------------------------------------
+# Импорт: отмена
+# --------------------------------------------------------------------------
+
+
+async def test_cancelling_an_import_writes_nothing_and_says_so(session, school_class):
+    state = FakeState()
+    await import_preview(FakeMessage(text=PASTE), state, school_class, Role.ADMIN)
+    assert state.data["raw"]
+
+    callback = FakeCallback(message=FakeEditable())
+    await import_cancel(callback, state, school_class, Role.ADMIN)
+
+    assert "ничего не изменилось" in callback.message.last
+    assert state.cleared
+    assert (
+        await session.scalar(
+            select(TimetableEntry).where(TimetableEntry.weekday == 2)
+        )
+    ) is None
+
+
+async def test_applying_an_import_whose_paste_is_gone_starts_again(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await import_apply(callback, state, session, school_class, Role.ADMIN)
+
+    assert callback.alerted
+    assert "/import" in callback.answers[0][0]
+    assert state.cleared
+
+
+# --------------------------------------------------------------------------
+# Запрос доступа: экран вместо аргумента
+# --------------------------------------------------------------------------
+
+
+async def test_request_without_a_word_opens_the_prompt_rather_than_sending(
+    session, school_class
+):
+    message = FakeMessage(text="", user_id=55)
+    state = FakeState()
+    await cmd_request(message, _command(None), state, session, school_class, Role.VIEWER)
+
+    assert await session.scalar(select(AccessRequest)) is None
+    assert "пару слов о себе" in message.last
+    assert state.state is not None
+
+
+async def test_approving_is_refused_for_somebody_who_already_outranks_you(
+    session, school_class
+):
+    """An admin may not touch another admin's role — the same rule «👥 Доступ»
+    applies, checked here because the request carries only what was asked for."""
+    session.add(BotUser(telegram_id=55, class_id=school_class.id, role=Role.ADMIN))
+    request = AccessRequest(
+        class_id=school_class.id,
+        telegram_id=55,
+        requested_role=Role.EDITOR,
+        status="pending",
+    )
+    session.add(request)
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await request_approve(
+        callback,
+        SimpleNamespace(action="approve", value=str(request.id)),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    member = await session.scalar(select(BotUser).where(BotUser.telegram_id == 55))
+    assert member.role is Role.ADMIN
+    await session.refresh(request)
+    assert request.status == "pending"
+    assert callback.alerted
+
+
+async def test_approving_a_request_from_somebody_not_in_the_class_adds_them(
+    session, school_class
+):
+    request = AccessRequest(
+        class_id=school_class.id,
+        telegram_id=77,
+        requested_role=Role.EDITOR,
+        status="pending",
+    )
+    session.add(request)
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await request_approve(
+        callback,
+        SimpleNamespace(action="approve", value=str(request.id)),
+        session,
+        school_class,
+        Role.OWNER,
+    )
+
+    member = await session.scalar(select(BotUser).where(BotUser.telegram_id == 77))
+    assert member is not None
+    assert member.role is Role.EDITOR
+    assert member.granted_by == 42
+    assert "Редактор" in callback.message.last
+
+
+# --------------------------------------------------------------------------
+# Четверти: экран, с которого их правят
+# --------------------------------------------------------------------------
+
+
+async def test_a_term_prompt_that_expired_sends_the_admin_back(session, school_class):
+    message = FakeMessage(text="01.09.2026 - 31.10.2026")
+    state = FakeState(data={})
+    await term_edit_apply(message, state, session, school_class, Role.ADMIN)
+
+    assert "/class" in message.last
+    assert state.cleared
+
+
+async def test_a_term_number_that_is_not_a_number_is_refused(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await term_edit_prompt(
+        callback, SimpleNamespace(action="edit", value="пятая"), state, school_class, Role.ADMIN
+    )
+
+    assert callback.alerted
+    assert callback.message.replies == []
+    assert state.state is None

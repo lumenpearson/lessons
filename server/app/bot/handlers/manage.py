@@ -706,8 +706,10 @@ async def subject_delete(
     in_use = await subjects_service.lessons_using(session, school_class.id, subject)
     if in_use:
         await callback.answer(
+            # ``plural`` carries the number itself — printing it again beside
+            # the call produced «стоит в расписании: 1 1 урок».
             f"«{subject.name}» стоит в расписании: "
-            f"{in_use} {plural(in_use, 'урок', 'урока', 'уроков')}. "
+            f"{plural(in_use, 'урок', 'урока', 'уроков')}. "
             "Сначала уберите их из расписания.",
             show_alert=True,
         )
@@ -2298,9 +2300,7 @@ async def import_preview(
         return
 
     await state.update_data(raw=raw)
-    preview = mr.render_import_preview(days, rejected)
-    if bells:
-        preview += f"\n• Звонки: {len(bells)} уроков"
+    preview = mr.render_import_preview(days, rejected, len(bells))
     await message.answer(preview, reply_markup=import_keyboard())
 
 
@@ -2362,8 +2362,15 @@ async def import_apply(
     await state.clear()
 
     lines = [f"✅ Импорт применён: {len(days)} дн., уроков — {total}."]
+    # What was written, not what was parsed. A lesson past the last bell is
+    # dropped by ``apply_timetable``, so printing the parsed count put «уроков
+    # — 7» directly above «Вторник: 9» — the card contradicting itself on two
+    # consecutive lines. The ceiling is class-wide, so a row is written exactly
+    # when its number is not among the ones ``unrung`` names.
+    dropped = set(unrung)
     for weekday in sorted(days):
-        lines.append(f"• {WEEKDAY_FULL[weekday - 1]}: {len(days[weekday])}")
+        written = sum(1 for row in days[weekday] if row[0] not in dropped)
+        lines.append(f"• {WEEKDAY_FULL[weekday - 1]}: {written}")
     if bells:
         lines.append(f"• Звонки: {len(bells)}")
     if unrung:

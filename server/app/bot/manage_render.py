@@ -258,6 +258,10 @@ def render_bells(schedules: list, default_id: int | None) -> str:
             )
         lines.extend(more_line(len(periods), 12))
         lines.append("")
+    # Every other list on these pages says how much it hid, and this one did
+    # not: a class past LIST_MAX schedules simply lost the tail of them, with
+    # no line to say so and no button below to reach them either.
+    lines.extend(more_line(len(schedules), LIST_MAX))
     lines.append("⭐ — основное расписание класса.")
     return clamp(lines)
 
@@ -408,7 +412,15 @@ def render_search(needle: str, rows: list, today: Date) -> str:
     return clamp(lines)
 
 
-def render_import_preview(days: dict[int, list], rejected: list[str]) -> str:
+def render_import_preview(days: dict[int, list], rejected: list[str], bells: int = 0) -> str:
+    """What «Применить» is about to do, in the order it will do it.
+
+    ``bells`` is a count rather than the rows: a «== Звонки ==» block is part
+    of the same paste and belongs in the same list. It used to be a line the
+    handler glued on after this returned, which put it below the «Применить»
+    footer and left a bells-only paste reading «Ни одного дня не распознано» -
+    over a button that was about to rewrite the class's звонки.
+    """
     lines = ["<b>📥 Импорт расписания</b>", ""]
     for weekday in sorted(days):
         count = len(days[weekday])
@@ -416,7 +428,9 @@ def render_import_preview(days: dict[int, list], rejected: list[str]) -> str:
             f"• {WEEKDAYS[weekday - 1].capitalize()}: "
             f"{plural(count, 'урок', 'урока', 'уроков')}"
         )
-    if not days:
+    if bells:
+        lines.append(f"• Звонки: {plural(bells, 'урок', 'урока', 'уроков')}")
+    if not days and not bells:
         lines.append(
             "<i>Ни одного дня не распознано — нужен заголовок "
             "вида «== Понедельник ==».</i>"
@@ -427,11 +441,14 @@ def render_import_preview(days: dict[int, list], rejected: list[str]) -> str:
         for line in rejected[:10]:
             lines.append(f"<code>{escape(line)}</code>")
         lines.extend(more_line(len(rejected), 10))
-    if days:
+    if days or bells:
         lines.append("")
-        lines.append(
-            "«Применить» заменит эти дни целиком. Остальные дни недели останутся как есть."
-        )
+        if days:
+            lines.append(
+                "«Применить» заменит эти дни целиком. Остальные дни недели останутся как есть."
+            )
+        if bells:
+            lines.append("Звонки заменят основное расписание класса целиком.")
     return clamp(lines)
 
 

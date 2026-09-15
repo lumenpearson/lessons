@@ -14,6 +14,7 @@ import pytest
 from sqlalchemy import select
 from test_bot_handlers import FakeCallback, FakeEditable, FakeMessage, FakeState
 
+from app.bot.handlers.manage import cmd_link
 from app.bot.handlers.reminders import (
     cmd_remind,
     reminder_clear_time,
@@ -22,10 +23,11 @@ from app.bot.handlers.reminders import (
     reminder_time_prompt,
     reminder_toggle,
 )
-from app.bot.handlers.start import cmd_help, cmd_start_link, cmd_tomorrow
+from app.bot.handlers.start import cmd_help, cmd_start_link, cmd_today, cmd_tomorrow
 from app.bot.handlers.tasks import (
     cmd_homework,
     cmd_task,
+    cmd_tasks,
     homework_tick_keyboard,
     homework_toggle,
     homework_view,
@@ -43,9 +45,14 @@ from app.bot.render import (
     WEEK_TEXT_LIMIT,
     duration,
     plural,
+    render_access_list,
+    render_day,
     render_homework_digest,
     render_next,
+    render_reminder_card,
+    render_role_help,
     render_task_list,
+    render_task_saved,
     render_week,
 )
 from app.bot.states import AddTask, SetReminderTime
@@ -57,6 +64,7 @@ from app.models import (
     Homework,
     HomeworkDone,
     PersonalTask,
+    PhoneInvite,
     ReminderSettings,
     Role,
     TimetableEntry,
@@ -917,3 +925,495 @@ def test_main_menu_has_the_new_rows_for_everyone():
     assert ["🗓 Неделя", "⏭ Что дальше", "✅ Мои задачи", "🔔 Напоминания"] == labels[4:8]
     assert "⚙️ Класс" not in labels
     assert "⚙️ Класс" in buttons(main_menu(Role.ADMIN))
+
+
+# --------------------------------------------------------------------------
+# The day card, drawn rather than assumed
+# --------------------------------------------------------------------------
+
+
+def test_a_day_with_nothing_on_it_says_so_instead_of_ending_on_the_heading():
+    text = render_day(day(MONDAY), MONDAY)
+
+    assert text.startswith("<b>Сегодня, 7 сентября (понедельник)</b>")
+    assert "Уроков нет." in text
+    # The three optional blocks are absent, not empty headings.
+    assert "События" not in text
+    assert "Домашнее задание" not in text
+
+
+def test_a_day_off_names_the_kind_and_the_reason_above_the_empty_list():
+    text = render_day(
+        ResolvedDay(
+            date=MONDAY,
+            weekday=1,
+            kind=DayKind.HOLIDAY,
+            note="Актированный день: −38 °C",
+        ),
+        MONDAY,
+    )
+
+    assert "🏖 Каникулы / выходной" in text
+    assert "<i>Актированный день: −38 °C</i>" in text
+    assert "Уроков нет." in text
+
+
+def test_a_day_draws_replacements_cancellations_events_and_homework():
+    lessons = four_lessons()
+    lessons[1].is_cancelled = True
+    lessons[2].is_replaced = True
+    lessons[2].teacher = "Петрова"
+    lessons[2].note = "в актовом зале"
+    text = render_day(
+        day(
+            MONDAY,
+            lessons,
+            events=[
+                ResolvedEvent(
+                    title="Экскурсия",
+                    kind=EventKind.TRIP,
+                    starts_at=time(12, 30),
+                    ends_at=time(15, 0),
+                    location="Эрмитаж",
+                )
+            ],
+            homework=[ResolvedHomework("Алгебра", "№ 12–15")],
+        ),
+        MONDAY,
+    )
+
+    assert "2. <s>Физика</s> — отменён" in text
+    assert "каб. 305" not in text  # a cancelled lesson keeps no room and no teacher
+    assert "3. <b>История</b> 🔁 · Петрова" in text
+    assert "<i>в актовом зале</i>" in text
+    assert "🚌 <code>12:30–15:00</code> Экскурсия · Эрмитаж" in text
+    assert "📝 <b>Алгебра</b>: № 12–15" in text
+
+
+def test_a_day_escapes_the_room_the_note_and_the_event_somebody_typed():
+    lessons = [lesson(1, "Алгебра", "08:30", "09:15", room="2<14", note="A&B")]
+    text = render_day(
+        day(
+            MONDAY,
+            lessons,
+            events=[
+                ResolvedEvent(
+                    title="<b>Сбор</b>",
+                    kind=EventKind.MEETING,
+                    starts_at=time(15, 0),
+                    ends_at=time(16, 0),
+                )
+            ],
+            homework=[ResolvedHomework("Алгебра", "a < b")],
+            note="<i>x</i>",
+        ),
+        MONDAY,
+    )
+
+    assert "каб. 2&lt;14" in text
+    assert "A&amp;B" in text
+    assert "&lt;b&gt;Сбор&lt;/b&gt;" in text
+    assert "a &lt; b" in text
+    assert "<i>&lt;i&gt;x&lt;/i&gt;</i>" in text
+
+
+# --------------------------------------------------------------------------
+# «Что дальше» when there is no next day worth naming
+# --------------------------------------------------------------------------
+
+
+def test_next_does_not_trip_over_a_following_day_whose_lessons_are_all_cancelled():
+    """``lessons[0]`` on an empty list is an error dialog where a line belongs.
+
+    ``next_school_day`` filters on the same predicate this line does, so the
+    bot's own caller cannot reach it - but the renderer takes any resolved day
+    and the two predicates have to disagree only once.
+    """
+    dead = day(MONDAY + timedelta(days=1), [lesson(1, "Алгебра", "08:30", "09:15")])
+    dead.lessons[0].is_cancelled = True
+
+    text = render_next(day(MONDAY), dead, at("09:00"))
+
+    assert "Сегодня уроков нет." in text
+    assert "Следующий учебный день пока не назначен." in text
+
+
+def test_next_says_nothing_is_scheduled_for_a_following_day_with_no_lessons_at_all():
+    text = render_next(day(MONDAY), day(MONDAY + timedelta(days=1)), at("09:00"))
+
+    assert "Следующий учебный день пока не назначен." in text
+
+
+# --------------------------------------------------------------------------
+# An empty week and an empty digest
+# --------------------------------------------------------------------------
+
+
+def test_a_week_of_holidays_names_every_day_and_never_claims_lessons():
+    days = [
+        ResolvedDay(date=MONDAY + timedelta(days=n), weekday=n + 1, kind=DayKind.HOLIDAY)
+        for n in range(6)
+    ]
+    text = render_week(days, MONDAY, parity_matters=False)
+
+    assert "<b>🗓 Неделя 7–12 сентября</b>" in text
+    assert text.count("🏖 Каникулы / выходной") == 6
+    # The kind is the reason; repeating «Уроков нет» under it says it twice.
+    assert "Уроков нет" not in text
+    assert "Пн, 7 сентября · сегодня" in text
+
+
+def test_an_ordinary_week_with_no_timetable_yet_says_so_on_every_day():
+    days = [day(MONDAY + timedelta(days=n)) for n in range(6)]
+    text = render_week(days, MONDAY, parity_matters=False)
+
+    assert text.count("Уроков нет") == 6
+
+
+def test_the_homework_digest_is_empty_when_everything_due_is_in_the_past():
+    """Homework due yesterday is not «upcoming», and the digest that showed it
+    would be a to-do list nobody can ever clear."""
+    stale = day(
+        MONDAY - timedelta(days=1), homework=[ResolvedHomework("Алгебра", "№ 1")]
+    )
+    assert render_homework_digest([stale], MONDAY) == "📝 Домашних заданий пока нет."
+    assert render_homework_digest([], MONDAY) == "📝 Домашних заданий пока нет."
+
+
+# --------------------------------------------------------------------------
+# The access list
+# --------------------------------------------------------------------------
+
+
+async def _access_view(session, school_class):
+    """Members and invites read back the way «👥 Доступ» reads them."""
+    members = list(
+        await session.scalars(
+            select(BotUser)
+            .where(BotUser.class_id == school_class.id)
+            .order_by(BotUser.role.desc(), BotUser.id)
+        )
+    )
+    invites = list(
+        await session.scalars(
+            select(PhoneInvite).where(PhoneInvite.class_id == school_class.id)
+        )
+    )
+    return render_access_list(members, invites)
+
+
+async def test_an_access_list_with_nobody_in_it_says_nobody_rather_than_nothing(
+    session, school_class
+):
+    text = await _access_view(session, school_class)
+
+    assert "<b>👥 Доступ к классу</b>" in text
+    assert "<i>Пока никого нет.</i>" in text
+    assert "Приглашения по номеру" not in text
+
+
+async def test_the_access_list_names_each_member_by_the_best_name_it_has(
+    session, school_class
+):
+    session.add_all(
+        [
+            BotUser(
+                telegram_id=1,
+                class_id=school_class.id,
+                role=Role.OWNER,
+                full_name="Иванова <И.И.>",
+                username="ivanova",
+            ),
+            BotUser(
+                telegram_id=2, class_id=school_class.id, role=Role.EDITOR, username="petya"
+            ),
+            BotUser(telegram_id=3, class_id=school_class.id, role=Role.VIEWER),
+        ]
+    )
+    await session.commit()
+
+    text = await _access_view(session, school_class)
+
+    assert "• Иванова &lt;И.И.&gt; (@ivanova) — <b>Владелец</b>" in text
+    assert "• petya (@petya) — <b>Редактор</b>" in text
+    # No name and no handle: the id is what is left, and it is better than a
+    # blank bullet nobody can act on.
+    assert "• 3 — <b>Наблюдатель</b>" in text
+    assert "Пока никого нет" not in text
+
+
+async def test_an_invite_leaves_the_list_the_moment_it_is_used(session, school_class):
+    session.add_all(
+        [
+            PhoneInvite(
+                class_id=school_class.id,
+                phone="79990000001",
+                role=Role.EDITOR,
+                label="мама <Пети>",
+            ),
+            PhoneInvite(
+                class_id=school_class.id,
+                phone="79990000002",
+                role=Role.VIEWER,
+                used_by=77,
+            ),
+        ]
+    )
+    await session.commit()
+
+    text = await _access_view(session, school_class)
+
+    assert "<b>Приглашения по номеру</b>" in text
+    assert "⏳ +79990000001 → Редактор — мама &lt;Пети&gt;" in text
+    assert "79990000002" not in text
+
+
+# --------------------------------------------------------------------------
+# The sentence under a role, and the reminder card
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("role", list(Role))
+def test_every_role_has_a_sentence_saying_what_it_may_do(role):
+    """A ``dict[...]`` lookup: a role added without a line here is a KeyError
+    on the first /start of whoever holds it."""
+    text = render_role_help(role)
+
+    assert text.startswith("Вы") or text.startswith("У вас")
+    assert text.endswith(".")
+
+
+def test_the_role_sentences_widen_as_the_role_does():
+    assert "смотреть" in render_role_help(Role.VIEWER)
+    assert "домашнее задание" in render_role_help(Role.EDITOR)
+    assert "расписание и звонки" in render_role_help(Role.ADMIN)
+    assert "полный доступ" in render_role_help(Role.OWNER)
+
+
+async def test_the_reminder_card_of_a_person_who_has_set_nothing(session, school_class):
+    settings = ReminderSettings(class_id=school_class.id, telegram_id=42)
+    session.add(settings)
+    await session.commit()
+    await session.refresh(settings)
+
+    text = render_reminder_card(settings)
+
+    assert "☀️ Утренняя сводка: <b>выкл</b>" in text
+    assert "🌙 Домашка на завтра: <b>выкл</b>" in text
+    # The column defaults, drawn as the database actually stored them.
+    assert "🔄 Замены и события: <b>вкл</b>" in text
+    assert "📝 Новые задания: <b>выкл</b>" in text
+    assert "по часам класса" in text
+
+
+def test_the_reminder_card_prints_the_times_that_are_set():
+    text = render_reminder_card(
+        ReminderSettings(
+            morning_at=time(7, 30),
+            evening_at=time(20, 0),
+            notify_changes=False,
+            notify_homework=True,
+        )
+    )
+
+    assert "☀️ Утренняя сводка: <b>07:30</b>" in text
+    assert "🌙 Домашка на завтра: <b>20:00</b>" in text
+    assert "🔄 Замены и события: <b>выкл</b>" in text
+    assert "📝 Новые задания: <b>вкл</b>" in text
+
+
+# --------------------------------------------------------------------------
+# The confirmation after a task is parsed
+# --------------------------------------------------------------------------
+
+
+async def test_a_saved_task_is_read_back_as_it_was_understood(session, school_class):
+    """The point of the card: it is the only chance to notice that «до 15.09»
+    was read as a date and «!» as a priority."""
+    message = FakeMessage(text="/task Реферат по истории до 15.09 в 18:00 !")
+    await cmd_task(
+        message, SimpleNamespace(args="Реферат по истории до 15.09 в 18:00 !"),
+        FakeState(), session, school_class, Role.VIEWER,
+    )
+    task = await session.scalar(select(PersonalTask))
+
+    text = render_task_saved(task, task.due_date - timedelta(days=1))
+
+    assert "✅ Задача добавлена: <b>Реферат по истории</b>" in text
+    assert text.splitlines()[1].startswith("Срок: завтра, 15 сентября (")
+    assert text.endswith(", 18:00\nПриоритет: 🔴 высокий")
+
+
+def test_a_task_with_no_deadline_says_the_deadline_is_unset():
+    text = render_task_saved(PersonalTask(title="Купить <тетрадь>", priority=0), MONDAY)
+
+    assert "✅ Задача добавлена: <b>Купить &lt;тетрадь&gt;</b>" in text
+    assert "Срок: не задан" in text
+    assert "Приоритет: ⚪ низкий" in text
+
+
+def test_a_task_due_on_a_date_with_no_time_names_only_the_date():
+    text = render_task_saved(
+        PersonalTask(title="Реферат", priority=1, due_date=date(2026, 9, 15)), MONDAY
+    )
+
+    assert "Срок: 15 сентября (вторник)" in text
+    assert not text.split("Срок: ")[1].split("\n")[0].endswith("0:00")
+    assert "Приоритет: 🟡 обычный" in text
+
+
+# --------------------------------------------------------------------------
+# /today, /tasks, /link
+# --------------------------------------------------------------------------
+
+
+async def test_today_draws_the_class_day_with_the_day_pager_under_it(
+    session, school_class
+):
+    message = FakeMessage(text="/today")
+    await cmd_today(message, session, school_class)
+
+    assert message.last.startswith("<b>Сегодня, ")
+    # The fixture's timetable is a Monday; on any other weekday the class has
+    # none, and either way the card has to say which it is.
+    assert "Алгебра" in message.last or "Уроков нет." in message.last
+
+
+async def test_today_on_the_fixture_monday_lists_the_template(session, school_class):
+    monday = datetime.now(school_class.tz).date()
+    monday -= timedelta(days=monday.weekday())
+    entries = list(
+        await session.scalars(
+            select(TimetableEntry).where(TimetableEntry.class_id == school_class.id)
+        )
+    )
+    for entry in entries:
+        entry.weekday = datetime.now(school_class.tz).date().isoweekday()
+    await session.commit()
+
+    message = FakeMessage(text="/today")
+    await cmd_today(message, session, school_class)
+
+    assert "1. <b>Алгебра</b>" in message.last
+    assert "каб. 214" in message.last
+    assert "3. <b>История</b>" in message.last
+    assert monday <= datetime.now(school_class.tz).date()
+
+
+async def test_today_offers_a_stranger_the_contact_button_not_a_timetable(session):
+    message = FakeMessage(text="/today")
+    await cmd_today(message, session, None)
+
+    assert "Вас пока нет в списке доступа" in message.last
+
+
+async def test_tasks_lists_only_the_callers_own_and_refuses_a_stranger(
+    session, school_class
+):
+    session.add_all(
+        [
+            PersonalTask(
+                class_id=school_class.id, telegram_id=42, title="Моя", priority=1
+            ),
+            PersonalTask(
+                class_id=school_class.id, telegram_id=7, title="Чужая", priority=1
+            ),
+        ]
+    )
+    await session.commit()
+
+    mine = FakeMessage(text="/tasks")
+    await cmd_tasks(mine, session, school_class, Role.VIEWER)
+    assert "Моя" in mine.last
+    assert "Чужая" not in mine.last
+
+    stranger = FakeMessage(text="/tasks")
+    await cmd_tasks(stranger, session, school_class, None)
+    assert stranger.last == "Нет доступа. Откройте /start, чтобы получить его."
+
+
+async def test_tasks_of_somebody_with_none_explains_the_grammar(session, school_class):
+    message = FakeMessage(text="/tasks")
+    await cmd_tasks(message, session, school_class, Role.VIEWER)
+
+    assert "Список пуст" in message.last
+    assert "/task Купить тетрадь до 15.09 в 18:00 !" in message.last
+
+
+async def test_link_attaches_the_phone_and_names_the_role_it_now_has(
+    session, school_class
+):
+    device = await _device(session, school_class, code="LNK234")
+    session.add(BotUser(telegram_id=42, class_id=school_class.id, role=Role.EDITOR))
+    await session.commit()
+
+    message = FakeMessage(text="/link LNK234")
+    await cmd_link(
+        message, SimpleNamespace(args="lnk234"), session, school_class, Role.EDITOR
+    )
+
+    await session.refresh(device)
+    assert device.telegram_id == 42
+    assert device.link_code is None
+    assert "Pixel &lt;8&gt;" in message.last
+    assert "<b>Редактор</b>" in message.last
+    assert "может редактировать" in message.last
+
+
+async def test_link_without_a_code_explains_where_the_code_comes_from(
+    session, school_class
+):
+    message = FakeMessage(text="/link")
+    await cmd_link(message, SimpleNamespace(args=None), session, school_class, Role.VIEWER)
+
+    assert "📱 <b>Привязка телефона</b>" in message.last
+    assert "/link ABC123" in message.last
+
+
+async def test_link_says_the_same_thing_to_a_wrong_code_as_to_a_used_one(
+    session, school_class
+):
+    """The three refusals are one sentence on purpose: a different answer for
+    «never existed» would say whether a code was ever real."""
+    session.add(BotUser(telegram_id=42, class_id=school_class.id, role=Role.VIEWER))
+    device = await _device(session, school_class, code="LNK235")
+    await session.commit()
+
+    unknown = FakeMessage(text="/link ZZZZZZ")
+    await cmd_link(
+        unknown, SimpleNamespace(args="ZZZZZZ"), session, school_class, Role.VIEWER
+    )
+    assert "Код не подошёл" in unknown.last
+
+    await cmd_link(
+        FakeMessage(), SimpleNamespace(args="LNK235"), session, school_class, Role.VIEWER
+    )
+    again = FakeMessage(text="/link LNK235")
+    await cmd_link(
+        again, SimpleNamespace(args="LNK235"), session, school_class, Role.VIEWER
+    )
+    assert "Код не подошёл" in again.last
+    await session.refresh(device)
+    assert device.telegram_id == 42
+
+
+async def test_a_linked_phone_of_a_viewer_is_told_it_only_reads(session, school_class):
+    await _device(session, school_class, code="LNK236")
+    session.add(BotUser(telegram_id=42, class_id=school_class.id, role=Role.VIEWER))
+    await session.commit()
+
+    message = FakeMessage(text="/link LNK236")
+    await cmd_link(
+        message, SimpleNamespace(args="LNK236"), session, school_class, Role.VIEWER
+    )
+
+    assert "<b>Наблюдатель</b>" in message.last
+    assert "только чтение" in message.last
+    assert "/request" in message.last
+
+
+async def test_link_refuses_somebody_with_no_class(session):
+    message = FakeMessage(text="/link ABC123")
+    await cmd_link(message, SimpleNamespace(args="ABC123"), session, None, None)
+
+    assert "Нет доступа" in message.last

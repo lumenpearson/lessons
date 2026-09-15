@@ -12,11 +12,17 @@ day in the holidays, and for a day whose teacher has not filled the journal
 yet — and a screen that renders all three as a blank is a screen that makes a
 parent refresh it four times. So each view names which of those it is when it
 can, and admits it cannot when it cannot.
+
+Everything the upstream sends is escaped before it goes into a line. The bot
+sends HTML, and «реши § 4 при a<b» is a homework text a maths teacher writes;
+unescaped it does not lose the «<», it makes Telegram refuse the whole message,
+so the parent sees no diary at all rather than one damaged row.
 """
 
 from __future__ import annotations
 
 from datetime import date as Date
+from html import escape
 
 from app.bot.render import WEEKDAYS, human_date
 from app.providers.petersburg.models import (
@@ -40,8 +46,8 @@ def mark_icon(value: str) -> str:
 
 
 def student_line(student: Student) -> str:
-    parts = [f"<b>{student.full_name}</b>"]
-    where = " · ".join(part for part in (student.class_name, student.school) if part)
+    parts = [f"<b>{escape(student.full_name)}</b>"]
+    where = " · ".join(escape(part) for part in (student.class_name, student.school) if part)
     if where:
         parts.append(where)
     return "\n".join(parts)
@@ -59,15 +65,15 @@ def render_day(lessons: list[DiaryLesson], day: Date, today: Date) -> str:
     lines = [heading, ""]
     for lesson in sorted(lessons, key=lambda item: (item.number or 0, item.subject)):
         number = f"<b>{lesson.number}.</b> " if lesson.number else "• "
-        head = f"{number}{lesson.subject}"
-        tail = " · ".join(part for part in (lesson.room, lesson.teacher) if part)
+        head = f"{number}{escape(lesson.subject)}"
+        tail = " · ".join(escape(part) for part in (lesson.room, lesson.teacher) if part)
         lines.append(f"{head}{f' · {tail}' if tail else ''}")
         if lesson.starts_at and lesson.ends_at:
             lines.append(f"    <code>{lesson.starts_at:%H:%M}–{lesson.ends_at:%H:%M}</code>")
         if lesson.topic:
-            lines.append(f"    <i>{lesson.topic}</i>")
+            lines.append(f"    <i>{escape(lesson.topic)}</i>")
         if lesson.homework:
-            lines.append(f"    📝 {lesson.homework}")
+            lines.append(f"    📝 {escape(lesson.homework)}")
     return "\n".join(lines)
 
 
@@ -89,7 +95,7 @@ def render_homework(items: list[HomeworkItem], start: Date, end: Date, today: Da
         when = human_date(day, today).capitalize()
         lines.append(f"<b>{when}</b>")
         for item in sorted(by_day[day], key=lambda one: one.subject):
-            lines.append(f"• <b>{item.subject}</b> — {item.text}")
+            lines.append(f"• <b>{escape(item.subject)}</b> — {escape(item.text)}")
         lines.append("")
     return "\n".join(lines).rstrip()
 
@@ -115,12 +121,12 @@ def render_marks(marks: list[Mark], start: Date, end: Date) -> str:
     lines = ["📊 <b>Оценки</b>", f"<i>{start:%d.%m} — {end:%d.%m}</i>", ""]
     for subject in sorted(by_subject):
         entries = by_subject[subject]
-        drawn = " ".join(f"{mark_icon(mark.value)}{mark.value}" for mark in entries)
+        drawn = " ".join(f"{mark_icon(mark.value)}{escape(mark.value)}" for mark in entries)
         # Digits only. «Н» and «Б» are attendance codes sitting in the same
         # column, and averaging them in would drag every absence towards a two.
         numeric = [int(mark.value) for mark in entries if mark.value.isdigit()]
         average = f" · <b>{sum(numeric) / len(numeric):.2f}</b>" if numeric else ""
-        lines.append(f"<b>{subject}</b>{average}")
+        lines.append(f"<b>{escape(subject)}</b>{average}")
         lines.append(f"    {drawn}")
     return "\n".join(lines)
 
@@ -141,7 +147,7 @@ def render_week(lessons: list[DiaryLesson], start: Date, today: Date) -> str:
         if not items:
             lines.append(f"{marker}{name}{close} — <i>нет</i>")
             continue
-        names = ", ".join(item.subject for item in items)
+        names = ", ".join(escape(item.subject) for item in items)
         lines.append(f"{marker}{name}{close} · {len(items)}")
         lines.append(f"    {names}")
     return "\n".join(lines)
