@@ -33,6 +33,21 @@ interface ManageRepository {
     suspend fun updateClass(before: ManagedClass, edit: ClassEdit): Result<ManagedClass>
 
     /**
+     * Switches the class between the class code and personal bot invites.
+     *
+     * Its own call rather than a fifth field on [ClassEdit], because that is a
+     * form with four boxes and a «Сохранить» under them, and this is one row on
+     * the card that is tapped. Sending it through the form would also make
+     * every save of a renamed class re-assert the join mode, which the audit
+     * log would report as a change that nobody made.
+     *
+     * Nothing is taken away by either direction: the phones already joined keep
+     * their tokens whichever mode the class is in, and going back to
+     * [ClassJoinMode.OPEN] makes the same class code work again.
+     */
+    suspend fun setJoinMode(mode: ClassJoinMode): Result<ManagedClass>
+
+    /**
      * Searches the school directory for a name to put on the class.
      *
      * Everything it found, in one call, because the directory has no offset:

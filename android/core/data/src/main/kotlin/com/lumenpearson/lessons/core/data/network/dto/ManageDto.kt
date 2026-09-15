@@ -33,6 +33,7 @@ internal data class ManagedClassDto(
     @SerialName("timezone") val timezone: String = "",
     @SerialName("timezone_label") val timezoneLabel: String = "",
     @SerialName("join_code") val joinCode: String = "",
+    @SerialName("join_mode") val joinMode: String = "open",
     @SerialName("members") val members: Int = 0,
     @SerialName("devices") val devices: Int = 0,
     @SerialName("pending_requests") val pendingRequests: Int = 0,
@@ -47,6 +48,13 @@ internal data class ClassPatchDto(
     @SerialName("school") val school: JsonElement? = null,
     @SerialName("city") val city: JsonElement? = null,
     @SerialName("timezone") val timezone: String? = null,
+    /**
+     * A plain [String] and not a [JsonElement], unlike the two above it: a
+     * class is always in one join mode or the other, so there is no third
+     * state for an explicit `null` to mean. Absent is "leave it alone", which
+     * is exactly what `explicitNulls = false` makes a Kotlin `null` here.
+     */
+    @SerialName("join_mode") val joinMode: String? = null,
 )
 
 /** Mirrors `ClassDeleteIn`: the class's own name, typed back. */

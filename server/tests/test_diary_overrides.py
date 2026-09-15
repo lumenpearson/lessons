@@ -101,6 +101,14 @@ def test_a_target_this_server_would_never_produce_is_refused():
         "hw:2026-13-40:Алгебра",
         "hw:2026-09-07:",
         "lesson::::",
+        # The same day, spelled two ways `date.fromisoformat` has accepted
+        # since 3.11 and this module has never produced. Both parse, so a
+        # check that only parsed would store them — and a target is matched by
+        # string equality, so neither would ever be found again.
+        "hw:20260915:Алгебра",
+        "hw:2026-W38-1:Алгебра",
+        "lesson:20260907:n1:Алгебра",
+        "lesson:2026-W37-1:n1:Алгебра",
     ],
 )
 def test_a_target_with_the_right_prefix_but_the_wrong_shape_is_refused(target):
@@ -283,6 +291,14 @@ def test_an_ambiguous_row_still_names_the_fields_it_is_not_applying():
     edit = result[0].edits[0]
     assert edit.field == "room"
     assert edit.value == "204"
-    # Null, not one of the two rooms: there is more than one row and no way to
-    # say which this was written against — which is why nothing is applied.
-    assert edit.original is None
+    # This row's own room, as on every other row: `original` means «что в
+    # дневнике сейчас», which is a question about the lesson being drawn. Null
+    # would leave the screen showing a typed value with nothing beside it to
+    # compare against, on the one row whose whole job is explaining why the
+    # correction is not being used.
+    assert edit.original == "12"
+    assert result[1].edits[0].original == "14"
+    # False on both, and that one *is* about the ambiguity: the stored original
+    # was written against one of these two and there is no saying which, so the
+    # flag would tell one of them the diary had moved under it when it had not.
+    assert not any(edit.changed_upstream for row in result for edit in row.edits)

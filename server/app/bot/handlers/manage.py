@@ -1806,7 +1806,6 @@ async def _class_card(
         many_classes=len(memberships) > 1,
         pending=pending,
         diary_bound=bool(school_class.diary_provider),
-        is_public=school_class.is_public,
     )
     return text, keyboard
 
@@ -2146,31 +2145,6 @@ async def class_diary_bind(
         note = "привязан дневник Санкт-Петербурга"
 
     await audit.record(session, school_class.id, callback.from_user.id, "class.diary", note)
-    await session.commit()
-    await _redraw_class(callback, session, school_class, role)
-    await callback.answer(note.capitalize())
-
-
-@router.callback_query(ManageAction.filter(F.action == "openness"))
-async def class_openness(
-    callback: CallbackQuery,
-    session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
-) -> None:
-    """Whether the join code alone is enough to be in the class.
-
-    Closed is the default and stays the default: a class that was public by
-    accident is a roster handed to whoever screenshotted the code, and that is
-    not a mistake anybody notices until afterwards.
-    """
-    if school_class is None or role is None or not role.at_least(Role.ADMIN):
-        await callback.answer("Только для администраторов", show_alert=True)
-        return
-
-    school_class.is_public = not school_class.is_public
-    note = "класс открыт" if school_class.is_public else "класс закрыт"
-    await audit.record(session, school_class.id, callback.from_user.id, "class.openness", note)
     await session.commit()
     await _redraw_class(callback, session, school_class, role)
     await callback.answer(note.capitalize())

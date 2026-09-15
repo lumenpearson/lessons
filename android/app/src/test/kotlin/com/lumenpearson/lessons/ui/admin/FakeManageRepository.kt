@@ -5,6 +5,7 @@ import com.lumenpearson.lessons.core.data.repository.AuditPage
 import com.lumenpearson.lessons.core.data.repository.BellPeriod
 import com.lumenpearson.lessons.core.data.repository.BellSchedule
 import com.lumenpearson.lessons.core.data.repository.ClassEdit
+import com.lumenpearson.lessons.core.data.repository.ClassJoinMode
 import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.ClassStats
 import com.lumenpearson.lessons.core.data.repository.DeviceLink
@@ -68,6 +69,14 @@ internal class FakeManageRepository : ManageRepository {
         before: ManagedClass,
         edit: ClassEdit,
     ): Result<ManagedClass> = park()
+
+    /** The mode each [setJoinMode] call asked for, in order. */
+    val joinModeCalls: MutableList<ClassJoinMode> = mutableListOf()
+
+    override suspend fun setJoinMode(mode: ClassJoinMode): Result<ManagedClass> {
+        joinModeCalls += mode
+        return park()
+    }
 
     /** The query of each [searchSchools] call, in order. */
     val schoolQueries: MutableList<String> = mutableListOf()
@@ -228,6 +237,7 @@ internal class FakeSessionRepository : SessionRepository {
             timezone = "Europe/Moscow",
             timezoneLabel = "МСК (UTC+3) · Москва",
             joinCode = "DEMO24",
+            joinMode = ClassJoinMode.OPEN,
             members = 3,
             devices = 2,
             pendingRequests = 0,

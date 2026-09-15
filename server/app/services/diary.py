@@ -293,6 +293,29 @@ async def sign_out(session: AsyncSession, row: DiarySession) -> None:
     await session.commit()
 
 
+async def _refresh_quietly(session: AsyncSession, row: DiarySession) -> None:
+    """Un-expire ``row`` after a rollback, and never raise doing it.
+
+    The refresh is a fresh ``SELECT`` down the connection the commit just lost,
+    so when the commit failed it usually fails too — and it is the last
+    statement of an ``except`` block, so an exception here replaces whatever
+    that block was on its way to doing.
+
+    In :meth:`DiaryService._expire` that would be the worst possible trade: the
+    caller is on its way to re-raising ``SessionExpired``, which the route
+    turns into ``401`` with ``X-Diary-Reauth: required`` — the one signal the
+    app has for «спросите пароль заново». Losing it to a 500 costs the family
+    the sign-in prompt on the exact path whose whole job is to ask for it.
+
+    A refresh that fails leaves ``row`` expired, which is where it was before
+    this helper existed. That is the old failure, not a new one.
+    """
+    try:
+        await session.refresh(row)
+    except Exception:  # noqa: BLE001 - see the docstring; nothing here may raise
+        log.warning("could not refresh the diary session row", exc_info=True)
+
+
 class DiaryService:
     """One signed-in session's view of the diary.
 
@@ -402,7 +425,7 @@ class DiaryService:
             # back as a 500 from a line that only wanted a string.
             # `api/deps.py:_touch_last_seen` carries the same refresh, for the
             # same reason and after the same outage.
-            await self.session.refresh(self.row)
+            await _refresh_quietly(self.session, self.row)
 
     async def _expire(self) -> None:
         """Marks the session dead so the next request fails fast, with the
@@ -415,4 +438,4 @@ class DiaryService:
             await self.session.rollback()
             # @see _remember_token: the rollback expires `row`, and the caller
             # reads it straight afterwards.
-            await self.session.refresh(self.row)
+            await _refresh_quietly(self.session, self.row)

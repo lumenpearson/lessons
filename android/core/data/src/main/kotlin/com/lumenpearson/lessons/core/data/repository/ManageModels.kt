@@ -25,6 +25,51 @@ import retrofit2.HttpException
  * had, only the time the class says it was.
  */
 
+/**
+ * How a phone is let into the class.
+ *
+ * An enum rather than the raw string it arrives as, because every screen that
+ * asks this question asks it twice — which icon, which sentence — and a typo in
+ * one of the two comparisons would be a row that says «открытый» under a lock.
+ *
+ * [fromWire] reads anything it does not recognise as [OPEN], and that direction
+ * is deliberate. A phone older than the server will meet modes this build has
+ * never heard of, and the two wrong answers are not equally wrong: [OPEN] is
+ * what every class was before this feature existed, so it is the reading that
+ * describes the class the user is most likely looking at, and it is the reading
+ * whose screen — «код класса работает» — is checked against the server on the
+ * very next join. Refusing to decode, or defaulting to [INVITE], would hide a
+ * working class code behind a padlock nobody can explain.
+ */
+enum class ClassJoinMode {
+
+    /** The class code admits whoever types it. What every class starts as. */
+    OPEN,
+
+    /**
+     * The class code admits nobody; a phone gets in on a personal one-time
+     * code the bot hands to a member.
+     */
+    INVITE,
+    ;
+
+    /** The spelling `server/app/models.py:JoinMode` uses. */
+    fun toWire(): String = when (this) {
+        OPEN -> WIRE_OPEN
+        INVITE -> WIRE_INVITE
+    }
+
+    companion object {
+
+        private const val WIRE_OPEN: String = "open"
+        private const val WIRE_INVITE: String = "invite"
+
+        /** Anything but a known mode is [OPEN]; see the type's own comment. */
+        fun fromWire(raw: String?): ClassJoinMode =
+            if (raw?.trim()?.lowercase() == WIRE_INVITE) INVITE else OPEN
+    }
+}
+
 /** The card «⚙️ Класс» draws, with the counts under it. */
 data class ManagedClass(
     val id: Long,
@@ -35,6 +80,8 @@ data class ManagedClass(
     /** "МСК+2 (UTC+5) · Екатеринбург" — the bot's own label, so it is not built twice. */
     val timezoneLabel: String,
     val joinCode: String,
+    /** Whether [joinCode] is enough on its own, or only a bot invite is. */
+    val joinMode: ClassJoinMode,
     val members: Int,
     val devices: Int,
     val pendingRequests: Int,

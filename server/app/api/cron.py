@@ -23,7 +23,7 @@ from app.config import get_settings
 from app.db import SessionLocal, get_session
 from app.models import DeviceToken, DiarySession, JoinAttempt
 from app.schemas import TickOut
-from app.services import diary_link, reminders
+from app.services import device_invites, diary_link, reminders
 
 router = APIRouter(prefix="/api/v1", tags=["cron"])
 
@@ -165,6 +165,9 @@ async def tick(
     # on Vercel nothing runs between requests, so whatever gets cleaned up is
     # cleaned up by something arriving from outside.
     links_purged = await diary_link.purge(session)
+    # The personal join codes of a class in «по приглашению». Same reason again:
+    # they expire in fifteen minutes and nothing would ever come back for them.
+    invites_purged = await device_invites.prune(session)
     return TickOut(
         **counts,
         fsm_purged=fsm_purged,
@@ -172,6 +175,7 @@ async def tick(
         diary_sessions_purged=diary_purged,
         device_tokens_purged=device_purged,
         diary_links_purged=links_purged,
+        device_invites_purged=invites_purged,
     )
 
 

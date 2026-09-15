@@ -785,3 +785,26 @@ async def test_a_well_prefixed_but_malformed_target_is_refused(client, upstream)
         json={"target": "lesson:x", "field": "room", "value": "204"},
     )
     assert response.status_code == 422
+
+
+async def test_a_refresh_that_fails_does_not_replace_the_answer_it_was_helping():
+    """The un-expiring refresh after a rollback may not raise. Ever.
+
+    It is the last statement of two `except` blocks that exist so a failed
+    write does not fail the read — and it is a `SELECT` down the connection the
+    commit just lost, so when the commit fails it usually fails too. In
+    `_expire` the block it would hijack is on its way to re-raising
+    `SessionExpired`, which the route turns into `401` with
+    `X-Diary-Reauth: required`: the one signal the app has for «спросите пароль
+    заново». A 500 in its place costs the family the sign-in prompt on the
+    exact path whose whole job is to ask for it.
+    """
+
+    class RefusesToRefresh:
+        async def refresh(self, _row):
+            raise RuntimeError("the connection is gone")
+
+    row = DiarySession(login="parent@example.com", token_hash="x", upstream_token="y")
+
+    # No exception, and none swallowed silently either — it is logged.
+    await service._refresh_quietly(RefusesToRefresh(), row)

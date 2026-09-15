@@ -322,6 +322,10 @@ then on it writes with whatever role that account holds **at request time**. So
 the role shown here is a lookup, not something stored on the row: revoking
 somebody in «Доступ» has already revoked their phone.
 
+Телефон, вошедший по личному коду из **📱 Подключить телефон**, привязан сразу:
+код нельзя было получить, не будучи узнанным, так что второго шага здесь просто
+нет. `/link` остаётся для телефонов, вошедших по коду класса.
+
 * **🚫** revokes the token — the row stays, which is what makes the refusal
   instant and permanent.
 * **🔗 Отвязать** returns the phone to read-only without taking it off the class.
@@ -338,10 +342,10 @@ evening on this morning's change.
 
 ## Настройки класса — `/class`
 
-One card: name, school, city, time zone, join code, whether a calendar link has
-been issued, and how many members, devices and pending requests there are. From
-it: предметы, особые дни, звонки, устройства, календарь, журнал, часовой пояс,
-код класса.
+One card: name, school, city, time zone, join code, how telephones are let in,
+whether a calendar link has been issued, and how many members, devices and
+pending requests there are. From it: предметы, особые дни, звонки, устройства,
+календарь, журнал, часовой пояс, код класса.
 
 * **🔀 Сменить класс** appears only for somebody who is in more than one. The
   choice is stored in the FSM table under its own key and read back by the
@@ -457,12 +461,39 @@ An empty answer is always said, never drawn as a blank: the upstream returns
 nothing for каникулы, for a day it has no data for, and for a journal a teacher
 has not filled, and one blank screen makes a parent refresh four times.
 
-## Публичный и закрытый класс
+## Кто пускает телефон
 
-**⚙️ Класс → 🔓 Открыть класс** decides whether the join code alone is enough.
-Closed is the default and stays it: a class that became public by accident is a
-roster handed to whoever screenshotted the code, and that is not a mistake
-anybody notices until afterwards.
+**👥 Доступ → 🔒 Только по приглашениям** decides whether the join code alone is
+enough. «⚙️ Класс» names the current answer on the card; changing it is on the
+access page, next to the list of people it is about.
+
+По умолчанию — **по коду класса**: кто набрал, тот и подключился. Для класса,
+чьё расписание и так висит на стене, это ровно то, что нужно. Для класса,
+который так не считает, — нет: код, прочитанный вслух и пересланный, стоит
+столько же, сколько самый неаккуратный из тех, у кого он есть, а ротация
+выбрасывает сразу всех, а не того, через кого он утёк.
+
+**Только по приглашениям** отключает код класса и включает личные. Каждый, кто
+в классе, берёт себе одноразовый код кнопкой **📱 Подключить телефон** в меню:
+десять символов, пятнадцать минут, один телефон. Кнопка есть у любой роли —
+телефон получает роль того, кто код взял, так что выдать больше, чем есть у
+самого человека, она не может. Заодно телефон сразу оказывается привязанным к
+аккаунту: в открытом режиме он заходит анонимно и привязывается вторым кодом
+потом, чего почти никто не делает, и список устройств зарастает строками, про
+которые никто не скажет, чьи они.
+
+**Переключение ничего не отбирает.** Телефоны, которые уже подключены,
+продолжают работать — ровно как при ротации кода, — а обратное переключение
+возвращает коду класса силу. Это стоит говорить вслух на экране: админ,
+который подозревает обратное, либо не переключается никогда, либо переключается
+и весь вечер отвечает на вопрос, куда делось расписание.
+
+`/code` показывает код класса в обоих режимах, потому что он не исчез, а
+уснул, — но в режиме приглашений говорит, что сейчас он ничего не открывает.
+
+> Раньше здесь был флаг «публичный / закрытый» на карточке класса. Его никто не
+> читал: класс, который «закрыли», не закрывался. Он снят, а не переименован —
+> два признака «кого пускают» рано или поздно начинают расходиться.
 
 ## Подписка на календарь — `/calendar`
 
@@ -508,6 +539,7 @@ server's.
 | `/remind` | members | digests and instant notifications |
 | `/calendar` | members | iCal subscription link |
 | `/link <код>` | members | attach a phone to this account |
+| **📱 Подключить телефон** | members | a personal one-time code for one phone (button, not a command) |
 | `/request [текст]` | below editor | ask for the editor role |
 | `/stats` | editor+ | class statistics |
 | `/subjects` | editor+ (edits: admin) | subject dictionary |

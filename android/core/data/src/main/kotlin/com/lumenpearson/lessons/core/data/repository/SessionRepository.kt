@@ -45,9 +45,11 @@ interface SessionRepository {
      * replaces that membership's token in place, which is how somebody whose
      * device was revoked gets back in.
      *
-     * Returns [Result] rather than a sealed type because the join screen shows
-     * the failure verbatim and has nothing to decide: a wrong code (HTTP 404), a
-     * wrong address and a dead server are all just "did not work, here is why".
+     * Fails with a [JoinFailure], always. It used to fail with whatever was
+     * thrown, on the grounds that the join screen had nothing to decide — and
+     * then a class gained a second way to refuse a code that is perfectly real,
+     * which the screen has to word differently or it sends the user to the
+     * wrong person. See [JoinFailure].
      */
     suspend fun join(code: String, deviceName: String?): Result<Session>
 

@@ -18,7 +18,7 @@ from typing import Any
 import httpx
 import pytest
 from httpx import ASGITransport
-from sqlalchemy import event, select
+from sqlalchemy import event, select, text
 
 from app.api import manage
 from app.config import get_settings
@@ -34,6 +34,7 @@ from app.models import (
     DayOverride,
     DeviceToken,
     Homework,
+    JoinMode,
     LessonOverride,
     OverrideAction,
     Role,
@@ -302,6 +303,80 @@ async def test_class_update_refuses_an_unknown_zone_and_a_blank_name(
     await session.refresh(school_class)
     assert school_class.name == "9А" and school_class.timezone is None
     assert await _audit(session, school_class) == []
+
+
+async def test_class_update_switches_the_join_mode_both_ways(client, session, school_class):
+    """The phone's half of the bot's «🔒 Только по приглашениям».
+
+    Three spellings meet here and only two of them are the same: the wire says
+    «invite», the column holds «INVITE» — SQLAlchemy stores a PEP-435 enum by
+    member name — and the audit line says neither. The raw read is deliberate:
+    an ORM round-trip would agree with itself whichever string had been
+    written, and a column holding a value the enum cannot look up raises on the
+    *next* request rather than this one.
+    """
+    token = await _admin(client, session, school_class)
+
+    response = await client.patch(
+        "/api/v1/manage/class", json={"join_mode": "invite"}, headers=_auth(token)
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["join_mode"] == "invite"
+
+    stored = await session.scalar(
+        text("select join_mode from classes where id = :id"), {"id": school_class.id}
+    )
+    assert stored == "INVITE"
+
+    await session.refresh(school_class)
+    assert school_class.join_mode is JoinMode.INVITE
+    body = (await client.get("/api/v1/manage/class", headers=_auth(token))).json()
+    assert body["join_mode"] == "invite"
+    assert await _actions(session, school_class) == ["access.join_mode"]
+
+    back = await client.patch(
+        "/api/v1/manage/class", json={"join_mode": "open"}, headers=_auth(token)
+    )
+    assert back.json()["join_mode"] == "open"
+    assert (
+        await session.scalar(
+            text("select join_mode from classes where id = :id"), {"id": school_class.id}
+        )
+        == "OPEN"
+    )
+
+
+async def test_class_update_refuses_a_join_mode_nobody_defined(client, session, school_class):
+    """A literal in the schema rather than the enum, so this is a 422 naming
+    the field instead of a 500 from somewhere inside SQLAlchemy."""
+    token = await _admin(client, session, school_class)
+
+    response = await client.patch(
+        "/api/v1/manage/class", json={"join_mode": "INVITE"}, headers=_auth(token)
+    )
+    assert response.status_code == 422
+    assert "join_mode" in response.text
+
+    await session.refresh(school_class)
+    assert school_class.join_mode is JoinMode.OPEN
+    assert await _audit(session, school_class) == []
+
+
+async def test_class_update_leaves_the_join_mode_alone_when_it_is_not_sent(
+    client, session, school_class
+):
+    """An absent field is never written, and this one decides who can read the
+    class — a rename that quietly reopened it would be the worst kind."""
+    token = await _admin(client, session, school_class)
+    await client.patch("/api/v1/manage/class", json={"join_mode": "invite"}, headers=_auth(token))
+
+    body = (
+        await client.patch("/api/v1/manage/class", json={"name": "9Б"}, headers=_auth(token))
+    ).json()
+
+    assert body["name"] == "9Б"
+    assert body["join_mode"] == "invite"
+    assert await _actions(session, school_class) == ["access.join_mode", "class.name"]
 
 
 async def test_class_delete_needs_the_name_typed_back(client, session, school_class):

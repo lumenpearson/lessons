@@ -63,6 +63,7 @@ internal fun ManagedClassDto.toDomain(): ManagedClass = ManagedClass(
     // class runs on, and an empty row would say less than "Europe/Samara".
     timezoneLabel = timezoneLabel.cleaned() ?: timezone.trim(),
     joinCode = joinCode.trim(),
+    joinMode = ClassJoinMode.fromWire(joinMode),
     members = members,
     devices = devices,
     pendingRequests = pendingRequests,

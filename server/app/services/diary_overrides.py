@@ -40,6 +40,7 @@ throwing it away because a teacher edited a field is not this code's decision.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date as Date
 
@@ -194,7 +195,19 @@ def kind_of(target: str) -> str:
     return kind
 
 
+#: The one spelling of a date a target may carry.
+#:
+#: ``date.fromisoformat`` alone is too generous from 3.11 on: it also reads
+#: ``20260915`` and ``2026-W38-1``. Both are the same day, and neither is what
+#: [lesson_target] and [homework_target] emit — so a hand-built target in one
+#: of those forms would be stored and then matched by nothing for ever, which
+#: is exactly the row [check] exists to refuse.
+_ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
 def _is_iso_date(value: str) -> bool:
+    if _ISO_DAY.fullmatch(value) is None:
+        return False
     try:
         Date.fromisoformat(value)
     except ValueError:
@@ -308,7 +321,7 @@ def overlay_lessons(
                 OverlaidLesson(
                     lesson=lesson,
                     target=target,
-                    edits=_unapplied(rows, LESSON_FIELDS),
+                    edits=_unapplied(lesson, rows, LESSON_FIELDS),
                     ambiguous=True,
                 )
             )
@@ -353,7 +366,7 @@ def overlay_homework(
                 OverlaidHomework(
                     item=item,
                     target=target,
-                    edits=_unapplied(rows, HOMEWORK_FIELDS),
+                    edits=_unapplied(item, rows, HOMEWORK_FIELDS),
                     ambiguous=True,
                 )
             )
@@ -371,16 +384,31 @@ def overlay_homework(
 
 
 def _unapplied(
-    rows: dict[str, tuple[str, str | None]], allowed: frozenset[str]
+    item: DiaryLesson | HomeworkItem,
+    rows: dict[str, tuple[str, str | None]],
+    allowed: frozenset[str],
 ) -> tuple[Edit, ...]:
     """The corrections on an ambiguous row, reported but not applied.
 
-    ``original`` is left null rather than filled with one of the rows' values:
-    there is more than one row and no way to say which of them this correction
-    was written against, which is the whole reason nothing is applied.
+    ``original`` is this row's own current value, the same as everywhere else:
+    :attr:`Edit.original` means «what the diary says now», and that is a
+    question about the row being drawn, which is right here — not about the
+    ambiguity. Left null, the screen would show the value somebody typed with
+    nothing beside it to compare it against, on the one row where the whole
+    point is explaining why it is not being used.
+
+    ``changed_upstream`` stays false, and that one *is* about the ambiguity:
+    the stored original was written against one of the colliding rows and there
+    is no saying which, so raising the flag here would tell one of them the
+    diary had changed under it when it had not.
     """
     return tuple(
-        Edit(field=field, value=value, original=None, changed_upstream=False)
+        Edit(
+            field=field,
+            value=value,
+            original=upstream_value(item, field),
+            changed_upstream=False,
+        )
         for field, (value, _) in sorted(rows.items())
         if field in allowed
     )

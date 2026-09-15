@@ -81,10 +81,12 @@ internal class SessionRepositoryImpl(
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (failure: Exception) {
-                // The join screen renders the exception itself: HTTP 404 means a
-                // wrong code, an IOException means a wrong or unreachable
-                // address, and it is the only screen that can tell the user so.
-                Result.failure(failure)
+                // Classified here, because `HttpException` does not leave this
+                // module: without this the join screen can see that something
+                // went wrong and not which of the two refusals it was, and a
+                // class that has switched to bot invites answers a perfectly
+                // real code with a 403. See [JoinFailure].
+                Result.failure(JoinFailure.of(failure))
             }
         }
 

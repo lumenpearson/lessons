@@ -28,15 +28,23 @@ from app.bot.keyboards import (
     school_picker,
     timezone_picker,
 )
-from app.bot.render import render_day, render_role_help
+from app.bot.render import plural, render_day, render_role_help
 from app.bot.roles import claim_phone_invites, get_role, is_env_owner
 from app.bot.states import CreateClass
 from app.config import get_settings
-from app.models import DEFAULT_BELLS, BellPeriod, BellSchedule, BotUser, Role, SchoolClass
+from app.models import (
+    DEFAULT_BELLS,
+    BellPeriod,
+    BellSchedule,
+    BotUser,
+    JoinMode,
+    Role,
+    SchoolClass,
+)
 from app.providers import dadata
 from app.schedule import ScheduleResolver
 from app.security import new_join_code
-from app.services import linking
+from app.services import device_invites, linking
 from app.services import schools as schools_service
 from app.services import terms as terms_service
 from app.services.terms import TermError, compose_name, normalise_letter, validate_grade
@@ -547,15 +555,32 @@ async def cmd_code(
     school_class: SchoolClass | None,
     role: Role | None,
 ) -> None:
-    """Show the join code the Android app needs."""
+    """Show the join code the Android app needs.
+
+    Still shown while the class is on invitations, because it is not gone —
+    it is dormant, and the switch back makes it work again. What changes is
+    the sentence under it: «введите его в приложении» about a code the app
+    now refuses would send an admin to look for the fault in the app.
+    """
     if school_class is None or role is None or not role.at_least(Role.ADMIN):
         await message.answer("Команда доступна администраторам класса.")
         return
+    if school_class.join_mode is JoinMode.INVITE:
+        tail = (
+            "Сейчас он ничего не открывает: класс подключает телефоны только "
+            "по личным приглашениям. Личный код на один телефон берут в меню "
+            "/start — кнопка «📱 Подключить телефон»; она есть у каждого, кто "
+            "в классе.\n\n"
+            "Вернуть вход по коду можно в разделе «👥 Доступ»."
+        )
+    else:
+        tail = (
+            "Его вводят в приложении при первом запуске. "
+            "Код даёт только чтение расписания."
+        )
     await message.answer(
         f"Код класса <b>{escape(school_class.name)}</b>: "
-        f"<code>{escape(school_class.join_code)}</code>\n\n"
-        "Его вводят в приложении при первом запуске. "
-        "Код даёт только чтение расписания.",
+        f"<code>{escape(school_class.join_code)}</code>\n\n" + tail,
     )
 
 
@@ -580,6 +605,41 @@ async def rotate_code(
         reply_markup=back_to_menu(),
     )
     await callback.answer("Код обновлён")
+
+
+@router.callback_query(Menu.filter(F.action == "phone"))
+async def phone_code(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """A code for the presser's own phone, in either join mode.
+
+    No role check beyond membership, for the same reason /link has none: the
+    phone that redeems this acts with whatever role this account holds, so the
+    code can never hand out more than the person already has. A наблюдатель
+    minting one gets a наблюдатель's phone.
+    """
+    if school_class is None or role is None:
+        await callback.answer("Нет доступа", show_alert=True)
+        return
+
+    code = await device_invites.mint(
+        session, telegram_id=callback.from_user.id, class_id=school_class.id
+    )
+    minutes = plural(device_invites.CODE_MINUTES, "минуту", "минуты", "минут")
+    await callback.message.edit_text(
+        "📱 <b>Подключить телефон</b>\n\n"
+        f"Ваш код: <code>{code}</code>\n\n"
+        f"Введите его в приложении при первом запуске. Код действует {minutes} "
+        "и годится для одного телефона — для второго нажмите кнопку ещё раз.\n\n"
+        "Телефон, который его введёт, сразу станет вашим: он будет работать с "
+        f"вашей ролью (<b>{role.title_ru}</b>), и отдельно присылать код "
+        "привязки не нужно.",
+        reply_markup=back_to_menu(),
+    )
+    await callback.answer()
 
 
 HELP_SECTIONS: list[tuple[Role | None, str, list[str]]] = [

@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.ui.admin
 
+import com.lumenpearson.lessons.core.data.repository.ClassJoinMode
 import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.ImportConflict
 import com.lumenpearson.lessons.core.data.repository.ManageFailure
@@ -340,5 +341,85 @@ class ManagementViewModelTest {
         runTest { session.signOut() }
 
         assertNull(model.uiState.value.classCard.value)
+    }
+
+    // -- the join mode ------------------------------------------------------
+
+    @Test
+    fun `switching to invites writes through and says which way it went`() {
+        val model = model()
+        model.loadClass()
+        repository.answer(0, Result.success(FakeSessionRepository.CLASS_CARD))
+
+        model.setJoinMode(ClassJoinMode.INVITE)
+        assertEquals(listOf(ClassJoinMode.INVITE), repository.joinModeCalls)
+        repository.answer(1, Result.success(INVITE_ONLY_CARD))
+
+        val state = model.uiState.value
+        assertEquals(ClassJoinMode.INVITE, state.classCard.value?.joinMode)
+        assertEquals(ManagementNotice.JoinModeChanged(ClassJoinMode.INVITE), state.notice)
+        assertFalse(state.working)
+        assertNull(state.writeFailure)
+    }
+
+    /**
+     * A refused switch must leave the card saying what the class actually is.
+     *
+     * The failure is the only thing on screen that says the tap did nothing:
+     * this row is a toggle, and a toggle that moves and then is told "no" by a
+     * sentence somewhere else reads as having worked. The card is the server's
+     * answer or it is the card from before — never the mode that was asked for.
+     */
+    @Test
+    fun `a refused switch keeps the card on the mode the class is really in`() {
+        val model = model()
+        model.loadClass()
+        repository.answer(0, Result.success(FakeSessionRepository.CLASS_CARD))
+
+        model.setJoinMode(ClassJoinMode.INVITE)
+        repository.answer(1, Result.failure(ManageFailure.Refused("нельзя")))
+
+        val state = model.uiState.value
+        assertEquals(ClassJoinMode.OPEN, state.classCard.value?.joinMode)
+        assertTrue(state.writeFailure is ManageFailure.Refused)
+        assertNull(state.notice)
+        assertFalse(state.working)
+    }
+
+    /** Back to the class code is the same write, and it says the opposite. */
+    @Test
+    fun `opening the class code back up is one call and its own notice`() {
+        val model = model()
+        model.loadClass()
+        repository.answer(0, Result.success(INVITE_ONLY_CARD))
+
+        model.setJoinMode(ClassJoinMode.OPEN)
+        assertEquals(listOf(ClassJoinMode.OPEN), repository.joinModeCalls)
+        repository.answer(1, Result.success(FakeSessionRepository.CLASS_CARD))
+
+        val state = model.uiState.value
+        assertEquals(ClassJoinMode.OPEN, state.classCard.value?.joinMode)
+        assertEquals(ManagementNotice.JoinModeChanged(ClassJoinMode.OPEN), state.notice)
+    }
+
+    /** A demotion between the tap and the answer takes the page, as anywhere else. */
+    @Test
+    fun `losing the role while switching takes the page away`() {
+        val model = model()
+        model.loadClass()
+        repository.answer(0, Result.success(FakeSessionRepository.CLASS_CARD))
+
+        model.setJoinMode(ClassJoinMode.INVITE)
+        repository.answer(1, Result.failure(RoleLost))
+
+        assertEquals(RoleLost, model.uiState.value.gone)
+        assertNull(model.uiState.value.classCard.value)
+    }
+
+    private companion object {
+        /** The same class, after the server has accepted the switch. */
+        val INVITE_ONLY_CARD = FakeSessionRepository.CLASS_CARD.copy(
+            joinMode = ClassJoinMode.INVITE,
+        )
     }
 }

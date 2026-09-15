@@ -52,6 +52,8 @@
     <string name="join_error_invalid_code">В коде от %1$d до %2$d символов</string>
     <string name="join_error_rejected">Не удалось подключиться: %1$s</string>
     <string name="join_error_generic">Не удалось подключиться. Проверьте код и подключение к сети.</string>
+    <string name="join_error_unknown_code">Такого кода нет. Проверьте его у того, кто его дал.</string>
+    <string name="join_error_invite_only">Этот класс подключает телефоны только по личному приглашению. Возьмите личный код в боте: меню → «📱 Подключить телефон».</string>
     <string name="join_what_you_get">Что появится после подключения</string>
     <string name="join_feature_timetable">Расписание и замены</string>
     <string name="join_feature_timetable_description">Неделя целиком, с кабинетами и заменами.</string>

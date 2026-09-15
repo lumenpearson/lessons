@@ -68,6 +68,14 @@ internal class ManageRepositoryImpl(
         ).toDomain()
     }
 
+    override suspend fun setJoinMode(mode: ClassJoinMode): Result<ManagedClass> = call {
+        // The one field, and nothing else. A patch that also carried the name
+        // and the zone the card happens to hold would be three audit lines for
+        // one tap, and would overwrite whatever the bot changed since this card
+        // was read.
+        api.updateClass(ClassPatchDto(joinMode = mode.toWire())).toDomain()
+    }
+
     // `.map { }` rather than a trailing `Unit`: the answer is `DeletedOut`, and
     // the id in it names a row the caller already knows about. Throwing it away
     // in the type is clearer than throwing it away in a statement.

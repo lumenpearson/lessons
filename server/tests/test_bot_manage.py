@@ -52,6 +52,7 @@ from app.models import (
     DayOverride,
     DeviceToken,
     Homework,
+    JoinMode,
     LessonOverride,
     OverrideAction,
     Role,
@@ -958,6 +959,29 @@ async def test_every_management_page_renders(session, school_class):
     message = FakeMessage()
     await cmd_calendar(message, FakeState(), session, school_class, Role.VIEWER)
     assert "PUBLIC_BASE_URL" in message.last
+
+
+async def test_the_class_card_names_the_way_into_the_class_it_is_really_in(
+    session, school_class
+):
+    """The line under the join code has to say what that code is worth.
+
+    «Тип класса: публичный» stood here and decided nothing — no code read the
+    flag, so an admin who «закрыл» the class had closed nothing while the card
+    said otherwise. This line is read off ``join_mode``, which the join
+    endpoint actually obeys, so the card cannot drift from the behaviour again.
+    """
+    message = FakeMessage()
+    await cmd_class(message, FakeState(), session, school_class, Role.ADMIN)
+    assert "🔓 Подключение телефонов: по коду класса" in message.last
+    assert "Тип класса" not in message.last
+
+    school_class.join_mode = JoinMode.INVITE
+    await session.commit()
+
+    message = FakeMessage()
+    await cmd_class(message, FakeState(), session, school_class, Role.ADMIN)
+    assert "🔓 Подключение телефонов: только по личным приглашениям" in message.last
 
 
 async def test_a_full_log_page_still_fits_in_one_telegram_message(session, school_class):

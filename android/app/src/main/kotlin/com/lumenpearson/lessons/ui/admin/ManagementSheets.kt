@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.repository.ClassJoinMode
 import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.ManageFailure
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
@@ -332,6 +333,13 @@ fun ManagementNotice.asText(): String = when (this) {
     is ManagementNotice.SubjectSaved -> stringResource(R.string.admin_subject_saved, name)
     is ManagementNotice.SubjectDeleted -> stringResource(R.string.admin_subject_deleted, name)
     ManagementNotice.ClassSaved -> stringResource(R.string.admin_class_saved)
+    is ManagementNotice.JoinModeChanged -> stringResource(
+        if (mode == ClassJoinMode.INVITE) {
+            R.string.admin_class_join_mode_set_invite
+        } else {
+            R.string.admin_class_join_mode_set_open
+        },
+    )
     is ManagementNotice.BellsSaved -> stringResource(R.string.admin_bells_saved, name)
     is ManagementNotice.BellsDefault -> stringResource(R.string.admin_bells_default_set, name)
     is ManagementNotice.BellsDeleted -> stringResource(R.string.admin_bells_deleted, name)

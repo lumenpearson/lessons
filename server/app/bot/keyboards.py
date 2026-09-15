@@ -40,7 +40,7 @@ class HomeworkAction(CallbackData, prefix="hw"):
 
 
 class AccessAction(CallbackData, prefix="acl"):
-    action: str  # list | invite | revoke | set_role | remove_invite
+    action: str  # list | invite | revoke | set_role | remove_invite | join_mode
     value: str = ""
 
 
@@ -159,6 +159,18 @@ def main_menu(role: Role, diary_provider: str | None = None) -> InlineKeyboardMa
                 )
             ]
         )
+    # Offered to every role, and low in the list rather than beside «Класс»:
+    # the code behind it is worth one phone — the presser's own — so it is a
+    # personal button like «Мои задачи», not an admin one. A button because
+    # /link has always existed and almost nobody types it: nothing on any
+    # screen said it was there.
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="📱 Подключить телефон", callback_data=Menu(action="phone").pack()
+            )
+        ]
+    )
     if role.at_least(Role.EDITOR):
         rows.append(
             [

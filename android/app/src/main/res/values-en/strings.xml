@@ -60,6 +60,8 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="join_error_invalid_code" tools:ignore="PluralsCandidate">The code is %1$d to %2$d characters long</string>
     <string name="join_error_rejected">Could not join: %1$s</string>
     <string name="join_error_generic">Could not join. Check the code and your network connection.</string>
+    <string name="join_error_unknown_code">No such code. Check it with whoever gave it to you.</string>
+    <string name="join_error_invite_only">This class admits phones by personal invite only. Take your own code from the bot: menu → “📱 Подключить телефон”.</string>
     <string name="join_what_you_get">What you get once you have joined</string>
     <string name="join_feature_timetable">Timetable and substitutions</string>
     <string name="join_feature_timetable_description">The whole week, with rooms and substitutions.</string>

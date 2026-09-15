@@ -11,6 +11,7 @@ import com.lumenpearson.lessons.core.data.repository.AuditPage
 import com.lumenpearson.lessons.core.data.repository.BellPeriod
 import com.lumenpearson.lessons.core.data.repository.BellSchedule
 import com.lumenpearson.lessons.core.data.repository.ClassEdit
+import com.lumenpearson.lessons.core.data.repository.ClassJoinMode
 import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.ClassStats
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
@@ -73,6 +74,14 @@ sealed interface ManagementNotice {
     data class SubjectSaved(val name: String) : ManagementNotice
     data class SubjectDeleted(val name: String) : ManagementNotice
     data object ClassSaved : ManagementNotice
+
+    /**
+     * Carries the mode it landed in rather than «сохранено», because this is
+     * the one row on the card whose two states read as opposites and whose
+     * confirmation is the whole reassurance: the sentence has to say which way
+     * the class went.
+     */
+    data class JoinModeChanged(val mode: ClassJoinMode) : ManagementNotice
     data class BellsSaved(val name: String) : ManagementNotice
     data class BellsDefault(val name: String) : ManagementNotice
     data class BellsDeleted(val name: String) : ManagementNotice
@@ -247,6 +256,31 @@ class ManagementViewModel(
         result.onSuccess { card ->
             state.update {
                 it.copy(classCard = Remote(card), notice = ManagementNotice.ClassSaved)
+            }
+        }
+        result
+    }
+
+    /**
+     * Turns personal invites on, or gives the class code back.
+     *
+     * Its own write and not part of [saveClass] for the reason
+     * [ManageRepository.setJoinMode] is its own call: this is a row that is
+     * tapped, not a form that is filled in. The answer replaces the card rather
+     * than being merged into it — the server has just re-read the class, so its
+     * copy is newer than the one the tap was made against.
+     */
+    fun setJoinMode(mode: ClassJoinMode) = write {
+        val result = repository.setJoinMode(mode)
+        result.onSuccess { card ->
+            state.update {
+                it.copy(
+                    classCard = Remote(card),
+                    // The card the server answered with, not the mode that was
+                    // asked for: if those two ever differ, the screen must show
+                    // what the class is rather than what was requested.
+                    notice = ManagementNotice.JoinModeChanged(card.joinMode),
+                )
             }
         }
         result

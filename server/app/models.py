@@ -94,6 +94,28 @@ class DayKind(enum.StrEnum):
     REMOTE = "remote"  # дистанционное обучение
 
 
+class JoinMode(enum.StrEnum):
+    """How a phone is allowed into a class.
+
+    ``OPEN`` is what every class has always been: the class code admits whoever
+    types it. That code is printed on paper, read out in a chat and forwarded,
+    and it is the whole of the access control around somebody's timetable — the
+    throttle on :class:`JoinAttempt` exists because of exactly that.
+
+    ``INVITE`` stops the class code admitting anything. A phone gets in on a
+    personal one-time code the bot hands to a member, which means the class can
+    only be joined by somebody the bot already recognises as being in it.
+
+    The two are not a hierarchy of trust so much as a choice about who is doing
+    the vouching: in ``OPEN`` it is whoever passed the code on, in ``INVITE`` it
+    is the bot. Switching is reversible and takes nothing away — see
+    ``services/device_invites.py``.
+    """
+
+    OPEN = "open"
+    INVITE = "invite"
+
+
 class TermKind(enum.StrEnum):
     """How a school year is cut up.
 
@@ -143,6 +165,21 @@ class SchoolClass(Base):
     # to the deployment. Null means "use the server default".
     timezone: Mapped[str | None] = mapped_column(String(64))
     join_code: Mapped[str] = mapped_column(String(16), unique=True, index=True, nullable=False)
+    # Whether that code is enough on its own. See :class:`JoinMode`; the default
+    # is what every class already was, so switching is something an admin does
+    # rather than something that happened to them.
+    join_mode: Mapped[JoinMode] = mapped_column(
+        SAEnum(JoinMode, native_enum=False),
+        default=JoinMode.OPEN,
+        # `.name`, not `.value`. SQLAlchemy stores a PEP-435 enum by member
+        # name unless told otherwise, so the column holds «OPEN» — as `role`
+        # and `term_kind` already do — and a server default of «open» would be
+        # a value the ORM cannot read back. Every class would carry it, and the
+        # first read of one would raise; for the bot that read is the
+        # middleware, which is how the whole bot dies at once.
+        server_default=JoinMode.OPEN.name,
+        nullable=False,
+    )
     # Secret path segment of the class's iCal feed. Separate from the join code
     # on purpose: a calendar subscription URL ends up in Google Calendar's
     # settings, a family laptop and the odd screenshot, and none of those
@@ -164,11 +201,14 @@ class SchoolClass(Base):
     # *member* a way to sign in to their own account and read their own diary
     # in the same chat — which is why nothing here holds a credential.
     diary_provider: Mapped[str | None] = mapped_column(String(32))
-    # Whether anyone with the join code may read the class, or only people an
-    # admin let in. A public class is the honest default for a school whose
-    # timetable is on a wall anyway; a private one is for a class that treats
-    # its roster as its own business.
-    is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # `is_public` used to sit here. It was toggled from «⚙️ Класс», printed on
+    # the card as «публичный / закрытый», and read by nothing at all: an admin
+    # who closed the class closed nothing, and the screen told them otherwise.
+    # `join_mode` above is that promise actually kept. The column is still in
+    # Postgres — dropping one is not additive, and every revision after 0001
+    # here is — with a server default, so an insert that omits it is fine.
+    # Nothing is to be hung on it again; a second flag meaning «кого пускают»
+    # is how the two start disagreeing.
     # Which scheme this class's year is cut into. Null means "follow the
     # grade" — quarters up to 9, semesters at 10 and 11 — which is what
     # `term_kind_for` resolves; storing the answer only once somebody has
@@ -757,6 +797,45 @@ class DiaryLinkCode(Base):
     used_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
+class DeviceInvite(Base):
+    """A one-time code that lets one phone into one class.
+
+    The counterpart of the class code, and the only way in when the class is in
+    :attr:`JoinMode.INVITE`. A class code is one secret shared by everybody, so
+    it is worth exactly as much as the least careful person who has it; this is
+    worth one join, for fifteen minutes, for one Telegram account, and the bot
+    only hands one to somebody it already recognises as a member of that class.
+
+    Redeeming it does two things at once, which is the point: it mints the
+    device token **and** links the device to the account that asked for the
+    code. In ``OPEN`` a phone joins anonymously and links afterwards by typing
+    a second code into the bot, and most never do — so the class ends up full
+    of devices nobody can name. Here the name comes for free, because the code
+    could not have been issued without it.
+
+    Stored as a hash like every other credential in this schema, so a leak of
+    this table is a list of codes that cannot be used.
+    """
+
+    __tablename__ = "device_invites"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    class_id: Mapped[int] = mapped_column(
+        ForeignKey("classes.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    #: Who asked, and therefore who the device that redeems this belongs to.
+    telegram_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    #: Set the moment it is redeemed. One code is one phone.
+    used_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    @property
+    def is_used(self) -> bool:
+        return self.used_at is not None
+
+
 class DiaryOverride(Base):
     """One correction a family laid over something the diary sent down.
 
@@ -796,9 +875,16 @@ class DiaryOverride(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    #: The upstream account. Stored as it is, like ``DiarySession.login``: it is
-    #: a user name, not a credential, and it is already shown back to the person
-    #: on the "вы вошли как" line.
+    #: The upstream account, **case-folded** — ``services/diary.py:owner_key``
+    #: is the only thing that writes or queries this column, and it folds.
+    #:
+    #: Unlike ``DiarySession.login``, which is kept exactly as it was typed
+    #: because it is what «вы вошли как» prints. This one is a key, and the
+    #: upstream treats ``Ivan@mail.ru`` and ``ivan@mail.ru`` as one account —
+    #: so keeping the casing here would file one family's corrections under two
+    #: owners, and the set that went missing would have no reset button left,
+    #: there being nothing to reset. The consequence to remember: this column
+    #: **must not** be joined against ``diary_sessions.login``.
     login: Mapped[str] = mapped_column(String(200), nullable=False)
     #: Which child, for an account that carries several.
     student_id: Mapped[int] = mapped_column(BigInteger, nullable=False)

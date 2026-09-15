@@ -47,10 +47,47 @@ Failed joins are rate-limited per client address (thirty per fifteen minutes,
 counted in the database so the limit survives serverless cold starts); a
 blocked client gets `429` with `Retry-After`.
 
+### Кто пускает телефон: код класса или бот
+
+У класса есть режим приёма — `join_mode`, `open` или `invite`, — и он решает,
+чего стоит код класса.
+
+`open` — то, чем класс был всегда: код класса пускает всякого, кто его наберёт.
+Это разумно ровно настолько, насколько разумно раздавать расписание всем
+подряд, и совершенно неразумно для класса, который так не считает: код, который
+прочитали вслух и переслали, стоит столько же, сколько самый неаккуратный из
+тех, у кого он есть, а ротация выбрасывает сразу всех, а не того, через кого он
+утёк.
+
+`invite` — код класса перестаёт пускать что-либо, и `POST /join` отвечает на
+него `403` с русской фразой в `detail`. Телефон заходит по **личному** коду:
+десять символов, пятнадцать минут, один телефон, один Telegram-аккаунт. Бот
+выдаёт его только тому, кого уже знает как участника класса, — кнопка
+«📱 Подключить телефон» в меню, — так что на вопрос «кто пустил этот телефон»
+всегда есть ответ с именем.
+
+Личный код вводится в то же поле `code` и на тот же `POST /join`: для
+приложения это один экран и одна ошибка, а не два способа войти. Он работает и
+в `open` — режимы не исключают друг друга, — и заодно **сразу привязывает**
+устройство к аккаунту, который его взял. В `open` телефон заходит анонимно и
+привязывается потом, вторым кодом в боте, чего почти никто не делает, и список
+устройств зарастает строками, про которые никто не скажет, чьи они.
+
+Тот `403` **не считается** неудачной попыткой для лимитера. Лимитер стоит
+против перебора кодов, а этот вызывающий код уже нашёл; считать его значило бы,
+что класс, переключившийся на приглашения, запирает всех, у кого ещё остался
+старый код.
+
+**Переключение ничего не отбирает.** `invite` не отзывает телефон, который
+вошёл по коду класса, ровно как и ротация кода, — а обратное переключение
+возвращает коду класса силу. Меняется `PATCH /api/v1/manage/class` полем
+`join_mode` (админ) или кнопкой в «👥 Доступ» у бота; и то и другое пишет в
+журнал строку `access.join_mode`.
+
 | Status | Meaning |
 | --- | --- |
 | `401` | Missing, malformed, unknown or revoked token — **the client must drop its session**, not merely report it |
-| `403` | The device is not linked, or its account lacks the role (`detail` says which) |
+| `403` | The device is not linked, or its account lacks the role (`detail` says which). On `/join` it is the one refusal below that is not about the code being wrong: the class takes personal invites only |
 | `404` | Join code, class, homework, task or event does not exist - or is not this class's |
 | `422` | Parameter out of range or body invalid |
 | `429` | Too many failed join attempts |
@@ -496,6 +533,7 @@ API's «🏖 Особые дни».
   "timezone": "Europe/Moscow",
   "timezone_label": "МСК (UTC+3) · Москва, Санкт-Петербург",
   "join_code": "DEMO24",
+  "join_mode": "open",
   "members": 12,
   "devices": 9,
   "pending_requests": 1,
@@ -504,12 +542,14 @@ API's «🏖 Особые дни».
 }
 ```
 
-`PATCH /manage/class` takes any of `name`, `school`, `city`, `timezone` and
-answers the card. Only the fields present change; `null` clears `school` or
-`city`. `name` and `timezone` may not be null or blank, and `timezone` must be
-one of the eleven Russian zones the bot offers (`422 unknown timezone`
-otherwise). Changing the zone moves no stored time - a bell rings at 08:30
-whatever the zone says - it changes which instant the class calls "now".
+`PATCH /manage/class` takes any of `name`, `school`, `city`, `timezone`,
+`join_mode` and answers the card. Only the fields present change; `null` clears
+`school` or `city`. `name` and `timezone` may not be null or blank, and
+`timezone` must be one of the eleven Russian zones the bot offers (`422 unknown
+timezone` otherwise). Changing the zone moves no stored time - a bell rings at
+08:30 whatever the zone says - it changes which instant the class calls "now".
+`join_mode` is `open` or `invite` and anything else is a `422` naming the field;
+what the two mean is under «Кто пускает телефон» above.
 
 `DELETE /manage/class` is the owner's alone and takes the confirmation the bot
 asks for:
@@ -778,7 +818,7 @@ minutes, with the `X-Cron-Secret` header set to the deployment's
 | `404` | `CRON_SECRET` is unset: the endpoint does not exist, like the webhook without its secret |
 | `403` | Wrong or missing header (constant-time comparison) |
 | `503` | `BOT_TOKEN` is unset: nothing to send with |
-| `200` | `{"morning": 1, "evening": 0, "tasks": 2, "failed": 0, "fsm_purged": 0, "join_attempts_purged": 3, "diary_sessions_purged": 0, "device_tokens_purged": 0}` |
+| `200` | `{"morning": 1, "evening": 0, "tasks": 2, "failed": 0, "fsm_purged": 0, "join_attempts_purged": 3, "diary_sessions_purged": 0, "device_tokens_purged": 0, "diary_links_purged": 0, "device_invites_purged": 0}` |
 
 What is due is decided from each class's own clock and from what was already
 sent today, never from when the last tick ran - so a tick that runs twice in
@@ -793,6 +833,8 @@ a minute or an hour late sends each digest once.
 | Счётчики неудачных попыток входа (`join_attempts`) | через час | `join_attempts_purged` |
 | Сессии дневника (`diary_sessions`) | через сутки после отказа сервера, через 30 дней без использования | внутри лежит живой токен чужого сервиса |
 | Токены устройств (`device_tokens`) | через 180 дней молчания | каждый `POST /join` создаёт строку; переустановка приложения оставляет старую навсегда |
+| Билеты входа в дневник (`diary_link_codes`) | по истечении | `diary_links_purged` |
+| Личные коды подключения (`device_invites`) | через сутки после истечения | `device_invites_purged`; сутки, а не сразу, — «мой код не работает» спрашивают через минуты, а кто подключил телефон, помнит сам токен устройства |
 
 180 дней — это заведомо больше летних каникул: телефон, молчавший с конца мая,
 в сентябре должен работать. Устройство, которым пользуются, отмечается не реже

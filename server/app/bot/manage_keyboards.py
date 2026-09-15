@@ -94,7 +94,6 @@ def class_menu(
     many_classes: bool,
     pending: int,
     diary_bound: bool = False,
-    is_public: bool = False,
 ) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
         [
@@ -143,18 +142,13 @@ def class_menu(
     ]
     rows.append(
         [
-            # Both painted by what pressing does, like every other toggle here:
-            # red while the press takes something away (unbinding the diary,
-            # closing the class), plain while it gives it back.
+            # Painted by what pressing does, like every other toggle here: red
+            # while the press takes something away, plain while it gives it
+            # back.
             InlineKeyboardButton(
                 text="📒 Дневник: отвязать" if diary_bound else "📒 Привязать дневник",
                 callback_data=ManageAction(action="diary_bind").pack(),
                 style=DANGER if diary_bound else None,
-            ),
-            InlineKeyboardButton(
-                text="🔒 Закрыть класс" if is_public else "🔓 Открыть класс",
-                callback_data=ManageAction(action="openness").pack(),
-                style=DANGER if is_public else None,
             ),
         ]
     )

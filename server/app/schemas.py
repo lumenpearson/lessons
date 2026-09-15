@@ -507,6 +507,7 @@ class TickOut(BaseModel):
     diary_sessions_purged: int = 0
     device_tokens_purged: int = 0
     diary_links_purged: int = 0
+    device_invites_purged: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -864,6 +865,8 @@ class ManagedClassOut(BaseModel):
     # app does not have to carry the table of Russian zones twice.
     timezone_label: str
     join_code: str
+    #: "open" | "invite" — whether that code is enough on its own.
+    join_mode: str = "open"
     members: int
     devices: int
     pending_requests: int
@@ -943,6 +946,10 @@ class ClassPatch(BaseModel):
     school: str | None = Field(default=None, max_length=200)
     city: str | None = Field(default=None, max_length=120)
     timezone: str | None = Field(default=None, max_length=64)
+    #: Who vouches for a phone: the class code, or the bot. See ``JoinMode``.
+    #: A literal rather than the enum so an unknown value is a 422 with the
+    #: field named, not a 500 from deep inside SQLAlchemy.
+    join_mode: Literal["open", "invite"] | None = None
 
     # An absent field is never validated, so these two run only on a value the
     # client actually sent - which is how an explicit ``null`` is refused while

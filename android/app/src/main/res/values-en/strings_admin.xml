@@ -74,6 +74,15 @@
 
     <!-- The class card -->
     <string name="admin_class_join_code">Join code</string>
+    <string name="admin_class_join_mode_open">Anyone with the class code</string>
+    <string name="admin_class_join_mode_open_note">The class code admits any phone it is typed on. Tap to move to personal invites.</string>
+    <string name="admin_class_join_mode_invite">By invite from the bot</string>
+    <string name="admin_class_join_mode_invite_note">The class code admits nobody. Each member takes a personal code from the bot. Tap to make the class code work again.</string>
+    <string name="admin_class_join_mode_confirm_title">Move to personal invites</string>
+    <string name="admin_class_join_mode_confirm_message">The phones already connected stay connected — not one of them is disconnected. Only the class code stops working: a new phone joins on a personal code, which each member takes from the bot with the “📱 Подключить телефон” button. The class code can be turned back on from this same row at any time.</string>
+    <string name="admin_class_join_mode_confirm_action">Move to invites</string>
+    <string name="admin_class_join_mode_set_invite">The class now admits phones by personal invite only</string>
+    <string name="admin_class_join_mode_set_open">The class code admits phones again</string>
     <string name="admin_class_school_empty">No school set</string>
     <string name="admin_class_city_empty">No city set</string>
     <string name="admin_class_members">Members</string>

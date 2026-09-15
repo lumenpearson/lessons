@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.core.data.di.Graph
+import com.lumenpearson.lessons.core.data.repository.JoinFailure
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
@@ -30,8 +31,32 @@ sealed interface JoinError {
     /** The typed code is not a length [ClassCodeLengths] allows. */
     data object InvalidCode : JoinError
 
-    /** The server refused the code, or was unreachable. */
+    /** No class and no live invite answers to this code. */
+    data object UnknownCode : JoinError
+
+    /**
+     * The code is real and the class no longer admits anybody who merely knows
+     * it.
+     *
+     * Its own case because it is the only failure on this screen whose answer
+     * is not on this screen: the way in is a personal code out of the bot, and
+     * «неизвестный код» would send the user back to whoever read the class code
+     * out to them, who cannot help.
+     */
+    data object InviteOnly : JoinError
+
+    /** The server refused the code some other way, or was unreachable. */
     data class Rejected(val detail: String?) : JoinError
+
+    companion object {
+
+        /** What the repository answered, as something the screen can word. */
+        fun of(failure: Throwable): JoinError = when (JoinFailure.of(failure)) {
+            JoinFailure.InviteOnly -> InviteOnly
+            JoinFailure.UnknownCode -> UnknownCode
+            else -> Rejected(failure.message?.takeIf { it.isNotBlank() })
+        }
+    }
 }
 
 /**
@@ -141,7 +166,7 @@ class JoinViewModel(
             val failure = result.exceptionOrNull()
             if (failure != null) {
                 submitting.value = false
-                error.value = JoinError.Rejected(failure.message?.takeIf { it.isNotBlank() })
+                error.value = JoinError.of(failure)
                 return@launch
             }
             // Pull the timetable straight away. Joining only stores a token;

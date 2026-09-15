@@ -85,6 +85,15 @@
 
     <!-- Карточка класса -->
     <string name="admin_class_join_code">Код класса</string>
+    <string name="admin_class_join_mode_open">Вход по коду класса</string>
+    <string name="admin_class_join_mode_open_note">Код класса подключает любой телефон, на котором его наберут. Нажмите, чтобы перейти на личные приглашения.</string>
+    <string name="admin_class_join_mode_invite">Вход по приглашению из бота</string>
+    <string name="admin_class_join_mode_invite_note">Код класса никого не подключает. Личный код каждый берёт в боте. Нажмите, чтобы снова включить код класса.</string>
+    <string name="admin_class_join_mode_confirm_title">Перейти на личные приглашения</string>
+    <string name="admin_class_join_mode_confirm_message">Подключённые телефоны останутся подключёнными — ни один не отключится. Перестанет работать только код класса: новый телефон подключится по личному коду, который каждый участник берёт в боте кнопкой «📱 Подключить телефон». Вернуть код класса можно в любой момент этой же строкой.</string>
+    <string name="admin_class_join_mode_confirm_action">Перейти на приглашения</string>
+    <string name="admin_class_join_mode_set_invite">Теперь класс подключает телефоны только по личному приглашению</string>
+    <string name="admin_class_join_mode_set_open">Код класса снова подключает телефоны</string>
     <string name="admin_class_school_empty">Школа не указана</string>
     <string name="admin_class_city_empty">Город не указан</string>
     <string name="admin_class_members">Участники</string>

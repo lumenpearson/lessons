@@ -21,8 +21,10 @@ from app.api.deps import current_class, current_device
 from app.config import get_settings
 from app.db import EXPECTED_REVISION, current_revision, get_session
 from app.models import (
+    DeviceInvite,
     DeviceToken,
     Homework,
+    JoinMode,
     PersonalTask,
     Role,
     SchoolClass,
@@ -56,7 +58,7 @@ from app.schemas import (
 )
 from app.security import JoinThrottle, client_bucket, hash_token, new_token
 from app.services import calendar as calendar_service
-from app.services import linking
+from app.services import device_invites, linking
 from app.services import subjects as subjects_service
 from app.services import tasks as task_service
 from app.services import terms as terms_service
@@ -293,9 +295,46 @@ async def join(
         )
 
     code = payload.code.strip().upper()
+    # The class code first, and a personal invite only if it names no class.
+    # The two cannot collide — they are different lengths, see
+    # ``services/device_invites.CODE_LENGTH`` — so the order is about which
+    # refusal the caller gets rather than about which code wins.
     school_class = await session.scalar(select(SchoolClass).where(SchoolClass.join_code == code))
+    invite: DeviceInvite | None = None
+
+    if school_class is not None and school_class.join_mode is JoinMode.INVITE:
+        # A real code for a real class, refused because this class does not let
+        # a shared secret in. Said plainly rather than as "unknown code": the
+        # person holding it has been given it by somebody, and telling them it
+        # is wrong sends them back to that person instead of to the bot.
+        #
+        # Not a failed attempt for the throttle either. The limiter is there to
+        # stop somebody walking the code space, and this caller has already
+        # found a code — counting it would let a class that switched to invites
+        # lock out everybody who still had the old one.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Этот класс принимает только по личному приглашению из бота",
+        )
+
+    if school_class is None:
+        invite = await device_invites.find_live(session, code)
+        if invite is not None:
+            school_class = await session.get(SchoolClass, invite.class_id)
+
     if school_class is None:
         await join_limiter.record_failure(session, client)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown join code")
+
+    # Spent before the token is minted, not after: the update is what makes
+    # "one code, one phone" true against a second request that read the same
+    # live row, and a token minted first would be a token already handed out
+    # by the time we found out we lost.
+    if invite is not None and not await device_invites.burn(session, invite):
+        # Lost a race microseconds wide: the row was live when it was read and
+        # spent by the time it was written. Not counted against the limiter,
+        # for the same reason the 403 above is not — this caller had a real
+        # code, and the limiter is there for somebody who does not.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown join code")
 
     token = new_token()
@@ -304,6 +343,11 @@ async def join(
             token_hash=hash_token(token),
             class_id=school_class.id,
             device_name=payload.device_name,
+            # An invite carries the account that asked for it, so the device is
+            # linked in the same breath as it joins. On the class code it stays
+            # null, which is what "joined, nobody knows whose phone" looks like.
+            telegram_id=invite.telegram_id if invite is not None else None,
+            linked_at=device_invites.utcnow() if invite is not None else None,
         )
     )
     await session.commit()

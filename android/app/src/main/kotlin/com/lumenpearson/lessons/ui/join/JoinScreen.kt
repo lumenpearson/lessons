@@ -306,6 +306,8 @@ private fun ClassCodeField(
 internal fun JoinError?.asText(): String? = when (this) {
     null -> null
     JoinError.InvalidCode -> stringResource(R.string.join_error_invalid_code, ClassCodeLengths.first, ClassCodeLengths.last)
+    JoinError.UnknownCode -> stringResource(R.string.join_error_unknown_code)
+    JoinError.InviteOnly -> stringResource(R.string.join_error_invite_only)
     is JoinError.Rejected ->
         detail?.let { stringResource(R.string.join_error_rejected, it) }
             ?: stringResource(R.string.join_error_generic)

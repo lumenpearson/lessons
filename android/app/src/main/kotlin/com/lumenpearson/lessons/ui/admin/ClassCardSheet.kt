@@ -14,6 +14,8 @@ import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.LocationCity
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.School
@@ -34,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.ClassEdit
+import com.lumenpearson.lessons.core.data.repository.ClassJoinMode
 import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.ManageFailure
 import com.lumenpearson.lessons.core.data.repository.ManagedClass
@@ -46,8 +49,14 @@ import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 
-/** Which of the three things this sheet is doing. */
-private enum class ClassSheetMode { CARD, EDIT, DELETE }
+/**
+ * Which of the four things this sheet is doing.
+ *
+ * [INVITE_ONLY] is a confirm face and not a dialog, for the reason [DELETE] is
+ * one: this sheet is where the decision is being made, and a scrim over the
+ * card would hide the join code the admin is deciding about.
+ */
+private enum class ClassSheetMode { CARD, EDIT, DELETE, INVITE_ONLY }
 
 /**
  * «⚙️ Класс»: what the class is, and the two ways to change it.
@@ -137,10 +146,43 @@ fun ClassCardSheet(
                 onDelete = viewModel::deleteClass,
             )
 
+            mode == ClassSheetMode.INVITE_ONLY -> ClassInviteOnlyForm(
+                busy = state.working,
+                failure = state.writeFailure,
+                onCancel = { mode = ClassSheetMode.CARD },
+                onConfirm = {
+                    viewModel.setJoinMode(ClassJoinMode.INVITE)
+                    // Back to the card, where the notice and any refusal are
+                    // drawn — unlike the delete face, which stays put because
+                    // what it is waiting for is the sheet being taken away.
+                    mode = ClassSheetMode.CARD
+                },
+            )
+
             else -> {
-                SheetNotice(text = state.notice?.takeIf { it == ManagementNotice.ClassSaved }?.asText())
+                SheetNotice(
+                    text = state.notice
+                        ?.takeIf {
+                            it == ManagementNotice.ClassSaved ||
+                                it is ManagementNotice.JoinModeChanged
+                        }
+                        ?.asText(),
+                )
                 SheetFailure(failure = state.writeFailure)
-                ClassFacts(card)
+                ClassFacts(
+                    card = card,
+                    busy = state.working,
+                    // Only one direction asks first. Opening the class code
+                    // back up takes nothing away from anybody, so a confirm
+                    // step in front of it would be a question with one answer.
+                    onJoinMode = { wanted ->
+                        if (wanted == ClassJoinMode.INVITE) {
+                            mode = ClassSheetMode.INVITE_ONLY
+                        } else {
+                            viewModel.setJoinMode(ClassJoinMode.OPEN)
+                        }
+                    },
+                )
                 GroupActionItem(
                     label = stringResource(R.string.admin_class_edit),
                     icon = Icons.Rounded.Edit,
@@ -165,9 +207,21 @@ fun ClassCardSheet(
     }
 }
 
-/** The card itself: what the class is and how much of it there is. */
+/**
+ * The card itself: what the class is and how much of it there is.
+ *
+ * @param onJoinMode the mode the tap on the join-mode row is asking for — the
+ *   opposite of the one the class is in. The row says which way it goes; what
+ *   happens on the way there is the caller's, because one direction needs a
+ *   confirmation and the other does not.
+ */
 @Composable
-private fun ClassFacts(card: ManagedClass, modifier: Modifier = Modifier) {
+private fun ClassFacts(
+    card: ManagedClass,
+    busy: Boolean,
+    onJoinMode: (ClassJoinMode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     RoundedCardContainer(modifier = modifier.padding(horizontal = ScreenPadding)) {
         GroupItem(
             title = card.name,
@@ -199,6 +253,34 @@ private fun ClassFacts(card: ManagedClass, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
+            },
+        )
+        // Directly under the code, because it is the sentence that says whether
+        // the code above it does anything at all. The subtitle is about a
+        // phone rather than about the setting: «invite» means nothing to
+        // somebody who has not read the bot's help, and «код класса никого не
+        // подключает» means exactly one thing.
+        val inviteOnly = card.joinMode == ClassJoinMode.INVITE
+        GroupItem(
+            title = stringResource(
+                if (inviteOnly) {
+                    R.string.admin_class_join_mode_invite
+                } else {
+                    R.string.admin_class_join_mode_open
+                },
+            ),
+            subtitle = stringResource(
+                if (inviteOnly) {
+                    R.string.admin_class_join_mode_invite_note
+                } else {
+                    R.string.admin_class_join_mode_open_note
+                },
+            ),
+            icon = if (inviteOnly) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+            tone = accentTone(if (inviteOnly) 5 else 4),
+            enabled = !busy,
+            onClick = {
+                onJoinMode(if (inviteOnly) ClassJoinMode.OPEN else ClassJoinMode.INVITE)
             },
         )
         CountRow(
@@ -511,6 +593,36 @@ private fun ClassDeleteForm(
         enabled = confirmsClassName(typed, card.name),
         busy = busy,
         destructive = true,
+    )
+}
+
+/**
+ * The one question in front of switching the class code off.
+ *
+ * It exists because the tap that reaches it is the same size as the tap that
+ * opens the timezone list, and the thing it does is invisible from this phone:
+ * nothing on this screen changes, and the person who finds out is a pupil
+ * typing a code that worked yesterday. So the sentence has to carry all three
+ * true things — that nobody is disconnected, that the code is what stops, and
+ * where the personal code comes from instead — rather than «вы уверены?».
+ */
+@Composable
+private fun ClassInviteOnlyForm(
+    busy: Boolean,
+    failure: ManageFailure?,
+    onCancel: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SheetSection(title = stringResource(R.string.admin_class_join_mode_confirm_title))
+        SheetNote(text = stringResource(R.string.admin_class_join_mode_confirm_message))
+    }
+    SheetFailure(failure = failure)
+    SheetButtons(
+        confirmLabel = stringResource(R.string.admin_class_join_mode_confirm_action),
+        onConfirm = onConfirm,
+        onCancel = onCancel,
+        busy = busy,
     )
 }
 

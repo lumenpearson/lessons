@@ -31,7 +31,7 @@ from app.bot.manage_render import person
 from app.bot.render import render_access_list
 from app.bot.roles import can_grant
 from app.bot.states import AddInvite
-from app.models import AccessRequest, BotUser, PhoneInvite, Role, SchoolClass
+from app.models import AccessRequest, BotUser, JoinMode, PhoneInvite, Role, SchoolClass
 from app.security import normalise_phone
 from app.services import audit
 
@@ -40,6 +40,22 @@ router = Router(name="access")
 #: Pending requests shown before the member list. More than this and the
 #: keyboard stops fitting on a phone; the rest appear as they are answered.
 PENDING_MAX = 5
+
+#: Each join mode said as what a phone can do, not as the name of the setting.
+#: The admin reading this page is choosing who may connect one, and «открытый»
+#: or «по приглашениям» answers that only for somebody who already knows which
+#: is which — which is nobody the first time they open the page.
+JOIN_MODE_TEXT = {
+    JoinMode.OPEN: (
+        "🔓 <b>Телефон подключается кодом класса.</b> Код один на всех: кто "
+        "его перешлёт, тот и подключит телефон."
+    ),
+    JoinMode.INVITE: (
+        "🔒 <b>Телефон подключается только по личному приглашению.</b> Код "
+        "класса сейчас ничего не открывает: каждый берёт себе одноразовый код "
+        "сам — кнопка «📱 Подключить телефон» в меню."
+    ),
+}
 
 
 def _grantable_roles(actor: Role) -> list[Role]:
@@ -132,10 +148,79 @@ async def access_root(
                 )
             ]
         )
+    invite_only = school_class.join_mode is JoinMode.INVITE
+    extra.append(
+        [
+            InlineKeyboardButton(
+                text="🔓 Вернуть вход по коду" if invite_only else "🔒 Только по приглашениям",
+                callback_data=AccessAction(action="join_mode").pack(),
+                # Painted by what pressing it does, like every other toggle
+                # here: red while the press switches the class code off, plain
+                # while it gives it back.
+                style=None if invite_only else DANGER,
+            )
+        ]
+    )
 
-    body = "\n".join(lines) + render_access_list(members, invites)
+    body = (
+        "\n".join(lines)
+        + render_access_list(members, invites)
+        # Under the list rather than above it, so it sits next to the button
+        # that changes it.
+        + "\n\n"
+        + JOIN_MODE_TEXT[school_class.join_mode]
+    )
     await callback.message.edit_text(body, reply_markup=back_to_menu(extra))
     await callback.answer()
+
+
+@router.callback_query(AccessAction.filter(F.action == "join_mode"))
+async def switch_join_mode(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """Turn the class code off, or turn it back on. Nothing else moves.
+
+    Both directions are reversible and neither touches a device that is
+    already connected. That is worth saying out loud in the reply: an admin
+    who suspects otherwise either never switches, or switches and then spends
+    the evening being asked why the timetable disappeared from thirty phones.
+    """
+    if school_class is None or role is None or not role.at_least(Role.ADMIN):
+        await callback.answer("Только для администраторов", show_alert=True)
+        return
+
+    to_invite = school_class.join_mode is JoinMode.OPEN
+    school_class.join_mode = JoinMode.INVITE if to_invite else JoinMode.OPEN
+    note = (
+        "вход только по личным приглашениям"
+        if to_invite
+        else "вход по коду класса снова разрешён"
+    )
+    await audit.record(
+        session, school_class.id, callback.from_user.id, "access.join_mode", note
+    )
+    await session.commit()
+
+    if to_invite:
+        tail = (
+            "Ничего не отключилось: телефоны, которые уже подключены, "
+            "продолжают работать — перестал действовать только код класса. "
+            "Личный код на один телефон каждый берёт в меню сам, кнопкой "
+            "«📱 Подключить телефон»."
+        )
+    else:
+        tail = (
+            "Код класса снова подключает телефоны, и личные коды, которые уже "
+            "выданы, тоже действуют."
+        )
+    await callback.message.edit_text(
+        f"{JOIN_MODE_TEXT[school_class.join_mode]}\n\n{tail}",
+        reply_markup=back_to_menu(),
+    )
+    await callback.answer(note.capitalize())
 
 
 @router.callback_query(AccessAction.filter(F.action == "invite"))

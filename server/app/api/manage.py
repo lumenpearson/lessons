@@ -47,6 +47,7 @@ from app.models import (
     BotUser,
     DayOverride,
     DeviceToken,
+    JoinMode,
     Role,
     SchoolClass,
     Subject,
@@ -261,6 +262,10 @@ async def _class_out(session: AsyncSession, school_class: SchoolClass) -> Manage
         ),
         bell_schedule_id=school_class.bell_schedule_id,
         calendar_ready=bool(school_class.calendar_token),
+        # `.value`, so the wire says «open». The column stores the member name
+        # because that is how SQLAlchemy persists an enum, and the two are not
+        # the same string.
+        join_mode=school_class.join_mode.value,
     )
 
 
@@ -281,7 +286,7 @@ async def class_update(
     school_class: SchoolClass = Depends(current_class),
     session: AsyncSession = Depends(get_session),
 ) -> ManagedClassOut:
-    """Rename the class, re-home it, or move it to another time zone.
+    """Rename the class, re-home it, move its time zone, or change who may join.
 
     One audit line per field changed rather than one for the request, because
     that is what the log is read for: «что изменилось», not «кто открыл
@@ -290,6 +295,7 @@ async def class_update(
     """
     changes = payload.model_dump(exclude_unset=True)
     zone = changes.pop("timezone", None)
+    mode = changes.pop("join_mode", None)
     if zone is not None and not is_supported(zone):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -313,6 +319,22 @@ async def class_update(
             actor.telegram_id,
             "class.timezone",
             f"часовой пояс: {zone}",
+        )
+    if mode is not None:
+        # Through the enum rather than by the string, because the attribute is
+        # read back as one by `_class_out` in this same request - and because
+        # the audit line should say what changed rather than echo a wire value.
+        school_class.join_mode = JoinMode(mode)
+        await audit.record(
+            session,
+            school_class.id,
+            actor.telegram_id,
+            # The same action name the bot's own toggle writes, so the log
+            # reads as one history however the switch was flipped.
+            "access.join_mode",
+            "вход только по личным приглашениям"
+            if school_class.join_mode is JoinMode.INVITE
+            else "вход по коду класса снова разрешён",
         )
 
     await session.commit()
