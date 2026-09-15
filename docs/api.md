@@ -651,10 +651,25 @@ Only the weekdays the paste names are touched, so a Tuesday block against a
 Monday-only timetable is not a conflict at all, and a day named with nothing
 under it is emptied - that is how a paste says «в четверг уроков нет».
 `rejected` echoes the lines the parser could not read, so an admin can fix the
-two that were typos rather than re-reading the whole paste. A paste with no
-weekday header and no bells block in it is `422`. A `== Звонки ==` block
-replaces the default schedule's rows outright, as it does in the bot: it is a
-schedule, not a day, and nothing else points at it.
+two that were typos rather than re-reading the whole paste. It also carries
+`"урок N: нет такого звонка в расписании звонков"` for every lesson numbered
+past the last bell: the day view builds its times out of the bell rows, so such
+a lesson would be stored, counted in `lessons` and then drawn nowhere at all.
+Those lines are not written, and `lessons` counts only what was. When the same
+paste brings a `== Звонки ==` block, the lessons are checked against **those**,
+so one request can legitimately add a ninth bell and a ninth lesson together.
+
+A paste with no weekday header and no bells block in it is `422`. A
+`== Звонки ==` block replaces the default schedule's rows outright, as it does
+in the bot: it is a schedule, not a day, and nothing else points at it.
+
+**Commas inside a field.** The last field takes everything that is left, so a
+teacher `Иванов И.И., к.п.н.` needs no syntax. A subject or a room containing a
+comma is wrapped in double quotes — `1. "Иностранный язык, второй", 305` — and
+that is what the export writes; a doubled `""` inside such a field is one
+literal quote. Without this the export produced a line the import read back as
+a different subject in a room called «второй», which is the round trip the two
+endpoints exist to promise each other.
 
 ### Devices
 

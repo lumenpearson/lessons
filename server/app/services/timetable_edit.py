@@ -28,7 +28,7 @@ from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import TimetableEntry, WeekParity
+from app.models import BellPeriod, SchoolClass, TimetableEntry, WeekParity
 from app.services import subjects
 
 #: Where a row waits while another takes its number.
@@ -46,6 +46,29 @@ PARK = 1000
 #: with more than this many lessons in a day has a broken import behind it,
 #: and the bells only go as far as their own rows do anyway.
 MAX_INDEX = 20
+
+
+async def rings(session: AsyncSession, class_id: int) -> int:
+    """How many lessons the class's default bells actually ring.
+
+    The real ceiling on a weekday, and it is not a constant. The resolver
+    builds a day's timeline out of the bell rows, so a lesson written at an
+    index that has none is stored happily and then dropped: the editor showed
+    it, no phone ever did, and nothing anywhere said so. ``MAX_INDEX`` is only
+    the backstop for a class whose bells are missing altogether.
+    """
+    total = await session.scalar(
+        select(func.count())
+        .select_from(BellPeriod)
+        .join(SchoolClass, SchoolClass.bell_schedule_id == BellPeriod.schedule_id)
+        .where(SchoolClass.id == class_id)
+    )
+    return int(total or 0)
+
+
+async def _ceiling(session: AsyncSession, class_id: int) -> int:
+    """The highest lesson number this class can actually show."""
+    return min(MAX_INDEX, await rings(session, class_id) or MAX_INDEX)
 
 
 async def _indexes(session: AsyncSession, class_id: int, weekday: int) -> list[int]:
@@ -95,19 +118,32 @@ async def add_lesson(
 ) -> int | None:
     """Put a lesson in the day. ``at`` inserts and pushes down; ``None`` appends.
 
-    Returns the number it got, or ``None`` when the day is already at
-    ``MAX_INDEX``.
+    Returns the number it got, or ``None`` when there is no slot for it — the
+    day is at ``MAX_INDEX``, or, far more often, past the last bell the class
+    rings. The second is the one that used to be missing: the row was written,
+    the editor drew it, and :func:`app.schedule.ScheduleResolver` — which takes
+    a lesson's times from the bell row of the same number — dropped it from
+    every phone, every widget, every digest and the calendar feed, with nothing
+    to say it had.
     """
     used = await _indexes(session, class_id, weekday)
     if len(used) >= MAX_INDEX:
         return None
+    ceiling = await _ceiling(session, class_id)
 
     if at is None:
         index = (used[-1] + 1) if used else 1
     else:
         index = max(1, min(at, (used[-1] + 1) if used else 1))
-        if index in used:
-            await _shift(session, class_id, weekday, at_least=index, by=1)
+    if index > ceiling:
+        return None
+    # An insert pushes everything below it down, so the day's last lesson is
+    # what has to still fit — otherwise adding a second lesson quietly costs
+    # the seventh.
+    if at is not None and index in used and used[-1] + 1 > ceiling:
+        return None
+    if at is not None and index in used:
+        await _shift(session, class_id, weekday, at_least=index, by=1)
 
     # The dictionary decides the spelling, and hands back the row to point at:
     # a lesson typed «алгебра» into a class that already has «Алгебра» joins it

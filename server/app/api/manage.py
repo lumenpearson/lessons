@@ -810,10 +810,18 @@ async def timetable_import(
             rejected=rejected,
         )
 
-    total, schedule = await structure.apply_timetable(session, school_class, days, bells)
+    total, schedule, unrung = await structure.apply_timetable(session, school_class, days, bells)
+    # Reported, not silently dropped: a lesson past the last bell has nowhere
+    # to be drawn, and «applied: true, lessons: N» with N short of what was
+    # pasted is exactly the answer that hides it.
+    rejected = rejected + [
+        f"урок {index}: нет такого звонка в расписании звонков" for index in unrung
+    ]
     summary = f"импорт расписания: дней {len(days)}, уроков {total}"
     if bells:
         summary += f", звонков {len(bells)}"
+    if unrung:
+        summary += f", без звонка пропущено {len(unrung)}"
     await audit.record(
         session, school_class.id, actor.telegram_id, "timetable.import", summary
     )

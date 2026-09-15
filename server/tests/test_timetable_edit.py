@@ -192,3 +192,95 @@ async def test_the_pager_counts_a_split_slot_once(session, school_class):
     await session.commit()
 
     assert await edit.day_counts(session, school_class.id) == {1: 3}
+
+
+# ---- the bells are the ceiling --------------------------------------------
+
+
+async def test_a_lesson_past_the_last_bell_is_refused(session, school_class):
+    """The resolver builds a day out of the bell rows, so a lesson numbered
+    past the last one is stored and then drawn nowhere.
+
+    It used to be accepted: the editor showed it, `MAX_INDEX` was 20 and had
+    nothing to do with the bells, and no phone, widget, digest or calendar feed
+    ever saw the row. Nothing said so, because a lesson missing from a day looks
+    exactly like a lesson that was never added.
+    """
+    rings = await edit.rings(session, school_class.id)
+    assert rings == 7, "the fixture class rings the seven default bells"
+
+    while await edit.add_lesson(session, school_class.id, 2, subject="Физика") is not None:
+        pass
+    await session.commit()
+
+    day = await _day(session, school_class.id, 2)
+    assert [index for index, _, _ in day] == list(range(1, rings + 1))
+    assert await edit.add_lesson(session, school_class.id, 2, subject="Лишний") is None
+
+
+async def test_an_insert_that_would_push_the_last_lesson_past_the_bells_is_refused(
+    session, school_class
+):
+    """Inserting pushes everything below it down, so a full day cannot take one
+    in the middle either — otherwise adding a second lesson quietly costs the
+    seventh, which is the same invisible row by another route."""
+    while await edit.add_lesson(session, school_class.id, 3, subject="Физика") is not None:
+        pass
+    await session.commit()
+    before = await _day(session, school_class.id, 3)
+
+    assert await edit.add_lesson(session, school_class.id, 3, subject="Втиснутый", at=2) is None
+    assert await _day(session, school_class.id, 3) == before
+
+
+async def test_a_class_with_no_bells_at_all_still_takes_lessons(session, school_class):
+    """`MAX_INDEX` is the backstop. A class whose schedule is missing is a class
+    being set up, and refusing every lesson until the bells exist would be a
+    worse answer than the one this is fixing."""
+    school_class.bell_schedule_id = None
+    await session.commit()
+
+    assert await edit.rings(session, school_class.id) == 0
+    assert await edit.add_lesson(session, school_class.id, 4, subject="Физика") == 1
+
+
+async def test_an_import_skips_lessons_it_has_no_bell_for_and_says_which(
+    session, school_class
+):
+    """The paste path had the same hole, and it counted the row in «уроков
+    добавлено» on the way — so the number an admin read back was the number
+    they pasted, and the lesson was nowhere."""
+    from app.services import structure
+
+    rows = [(index, f"Урок {index}", None, None, WeekParity.ANY) for index in range(1, 10)]
+    total, _schedule, unrung = await structure.apply_timetable(
+        session, school_class, {5: rows}, []
+    )
+    await session.commit()
+
+    assert total == 7, "the class rings seven bells, so seven lessons landed"
+    assert unrung == [8, 9]
+    assert [index for index, _, _ in await _day(session, school_class.id, 5)] == list(range(1, 8))
+
+
+async def test_an_import_that_brings_its_own_bells_may_bring_the_lessons_too(
+    session, school_class
+):
+    """The ceiling is what the class will ring *after* the import, not before.
+
+    A «== Звонки ==» block with nine rows makes a ninth lesson legitimate in the
+    same paste, and checking against the old schedule would reject the very line
+    the paste makes valid.
+    """
+    from datetime import time
+
+    from app.services import structure
+
+    rows = [(index, f"Урок {index}", None, None, WeekParity.ANY) for index in range(1, 10)]
+    bells = [(index, time(8, 0), time(8, 45)) for index in range(1, 10)]
+    total, _schedule, unrung = await structure.apply_timetable(
+        session, school_class, {5: rows}, bells
+    )
+    await session.commit()
+
+    assert total == 9 and unrung == []

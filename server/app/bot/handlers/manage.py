@@ -2372,11 +2372,13 @@ async def import_apply(
         await callback.answer("Нечего применять — начните заново: /import", show_alert=True)
         return
 
-    total, schedule = await structure.apply_timetable(session, school_class, days, bells)
+    total, schedule, unrung = await structure.apply_timetable(session, school_class, days, bells)
 
     summary = f"импорт расписания: дней {len(days)}, уроков {total}"
     if bells:
         summary += f", звонков {len(bells)}"
+    if unrung:
+        summary += f", без звонка пропущено {len(unrung)}"
     await audit.record(
         session, school_class.id, callback.from_user.id, "timetable.import", summary
     )
@@ -2390,6 +2392,15 @@ async def import_apply(
         lines.append(f"• {WEEKDAY_FULL[weekday - 1]}: {len(days[weekday])}")
     if bells:
         lines.append(f"• Звонки: {len(bells)}")
+    if unrung:
+        # Said out loud rather than left in the difference between two numbers:
+        # such a lesson is stored nowhere and drawn nowhere, and an admin who
+        # is not told simply believes the paste worked.
+        numbers = ", ".join(str(index) for index in unrung)
+        lines.append(
+            f"\n⚠️ Не добавлены уроки № {numbers}: в расписании звонков нет "
+            "таких номеров. Добавьте звонки в «🔔 Звонки» и вставьте день заново."
+        )
     await callback.message.edit_text("\n".join(lines), reply_markup=back_to_menu())
     await callback.answer("Готово")
 

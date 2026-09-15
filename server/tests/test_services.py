@@ -1271,3 +1271,55 @@ async def test_a_calendar_uid_survives_its_neighbour_being_deleted(session, scho
     assert after["Биология"] == before["Биология"]
     assert after["История"] == before["История"]
     assert str(biology.id) in after["Биология"] and str(history.id) in after["История"]
+
+
+def test_a_comma_inside_a_field_survives_the_round_trip():
+    """The module docstring promises that a paste produced by the export
+    survives the import unchanged. It did not.
+
+    «Иностранный язык, второй» was written out plain and read back as the
+    subject «Иностранный язык» in a room called «второй» — nothing rejected,
+    nothing logged, the row simply became two different things. Teachers had it
+    too: «Иванов И.И., к.п.н.» lost everything after the comma into a field
+    that did not exist.
+    """
+    combinations = [
+        ("Физика", None, None),
+        ("Физика", "305", None),
+        ("Физика", "305", "Петров П.П."),
+        ("Физика", None, "Петров П.П."),
+        ("Иностранный язык, второй", None, None),
+        ("Иностранный язык, второй", "305", None),
+        ("Иностранный язык, второй", "305", "Иванов И.И., к.п.н."),
+        ("Физика", "каб. 3, левый", "Петров"),
+        ("Физика", "305", "Иванов И.И., к.п.н."),
+        ('Он сказал "да"', "12", None),
+    ]
+    for parity in (WeekParity.ANY, WeekParity.ODD, WeekParity.EVEN):
+        for subject, room, teacher in combinations:
+            entry = TimetableEntry(
+                weekday=1, index=1, subject_name=subject, room=room,
+                teacher=teacher, parity=parity,
+            )
+            line = timetable_io.format_lesson_line(entry)
+            parsed = timetable_io.parse_lesson_line(line)
+            assert parsed is not None, line
+            assert parsed[1:] == (subject, room, teacher, parity), line
+
+
+def test_an_ordinary_line_is_written_exactly_as_it_always_was():
+    """Quoting is only for the fields that need it: every paste anybody has
+    written so far has to keep meaning what it meant."""
+    plain = TimetableEntry(
+        weekday=1, index=2, subject_name="Физика", room="305",
+        teacher="Иванова И.И.", parity=WeekParity.ANY,
+    )
+    assert timetable_io.format_lesson_line(plain) == "2. Физика, 305, Иванова И.И."
+
+
+def test_the_last_field_keeps_its_commas_without_quoting():
+    """A teacher is third and takes everything left, so «к.п.н.» needs no
+    syntax — which is what keeps the format typeable by hand."""
+    assert timetable_io.parse_lesson_line("1. Физика, 305, Иванов И.И., к.п.н.") == (
+        1, "Физика", "305", "Иванов И.И., к.п.н.", WeekParity.ANY,
+    )

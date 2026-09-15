@@ -201,6 +201,18 @@ parity — `[чис]`/`[знам]`, `(чис)`/`(знам)`, `[1]`/`[2]`, or a b
 * Lines that cannot be parsed, and repeats that would collide, are reported back
   rather than silently dropped — and a paste from which nothing parsed changes
   nothing at all.
+* **A comma inside a field.** The last field takes everything that is left, so a
+  teacher «Иванов И.И., к.п.н.» needs nothing special. A subject or a room with
+  a comma in it is wrapped in double quotes — `1. "Иностранный язык, второй",
+  305` — and that is what «Экспорт» writes, because without it the export wrote
+  a line the import read back as a different subject in a room called «второй».
+  A doubled `""` inside a quoted field is one literal quote.
+* **A lesson number the звонки do not reach is not written**, and the reply says
+  which ones were skipped. The day view builds its times out of the bell rows,
+  so such a lesson would be stored and then shown nowhere at all — not in the
+  bot, not in the app, not in the widget, not in the сводка. If the paste brings
+  its own `== Звонки ==` block, the lessons are checked against *those*, so one
+  message can legitimately add a ninth bell and a ninth lesson together.
 
 The grammar lives in one place, `services/timetable_io.py`, and the day editor,
 the button editor, the week import and «Экспорт» all speak it. The current day is

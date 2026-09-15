@@ -35,6 +35,7 @@ from app.bot.editor_keyboard import (
 )
 from app.bot.editor_render import render_canteen, render_day, render_slot, slots
 from app.bot.keyboards import WEEKDAY_FULL, Menu, cancel_keyboard
+from app.bot.render import plural
 from app.bot.states import EditorLesson
 from app.models import (
     BellPeriod,
@@ -544,7 +545,18 @@ async def _write_lesson(
         )
         if landed is None:
             await state.clear()
-            await message.answer("В этом дне уже слишком много уроков.")
+            # Say which ceiling was hit. Almost always it is the bells, and
+            # «слишком много уроков» sent an admin looking for a limit on the
+            # timetable when what they needed was one more row in «🔔 Звонки».
+            rings = await timetable_edit.rings(session, school_class.id)
+            await message.answer(
+                f"В расписании звонков {rings} "
+                f"{plural(rings, 'урок', 'урока', 'уроков')}, и все заняты.\n\n"
+                "Добавьте звонок в «🔔 Звонки» — урок без своего звонка "
+                "не показывается ни в приложении, ни в виджете."
+                if rings
+                else "В этом дне уже слишком много уроков."
+            )
             return
         action, note = "timetable.add", f"добавлен урок {landed}: {subject}"
     else:
