@@ -177,17 +177,24 @@ def render_slot(index: int, rows: list[TimetableEntry], period: BellPeriod | Non
 
 _TAG = re.compile(r"<[^>]+>")
 
+#: What ``answerCallbackQuery`` takes. Telegram's own ceiling, and it is not a
+#: soft one: 201 characters is a 400, which on this surface is a spinner that
+#: never stops rather than a message that arrives clipped.
+ALERT_MAX = 200
+
 
 def as_alert(text: str) -> str:
     """One of the cards above, for ``answerCallbackQuery`` instead of a message.
 
-    A callback answer has no parse mode — Telegram shows the string exactly as
-    given — so the slot card handed to a viewer's popup arrived with its markup
-    visible: «<b>Урок 2</b>» on the first line of the alert. Dropping the tags
-    and putting the escaped characters back is what turns the same card into
-    the plain text that surface actually takes.
+    Two things that surface needs and a message does not. It has no parse mode
+    — Telegram shows the string exactly as given — so the slot card handed to a
+    viewer's popup arrived with its markup visible, «<b>Урок 2</b>» on the
+    first line. And it is 200 characters long: a split slot whose two halves
+    both carry a long subject, a room and a teacher reaches 284 without trying,
+    and that press answered nothing at all.
     """
-    return unescape(_TAG.sub("", text))
+    plain = unescape(_TAG.sub("", text))
+    return plain if len(plain) <= ALERT_MAX else plain[: ALERT_MAX - 1].rstrip() + "…"
 
 
 def render_canteen(canteen_after: int | None, periods: dict[int, BellPeriod]) -> str:

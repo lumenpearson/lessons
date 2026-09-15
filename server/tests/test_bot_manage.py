@@ -9,6 +9,7 @@ the transactions - not Telegram's transport.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import date as Date
 from datetime import datetime, timedelta
@@ -20,13 +21,14 @@ from sqlalchemy import select
 from app.bot.handlers.manage import (
     audit_page,
     bells_create,
-    bells_list,
     bells_delete,
     bells_edit,
+    bells_list,
     bells_make_default,
     bells_new_name,
     bells_new_rows,
     bells_rows_apply,
+    calendar_card,
     calendar_rotate,
     class_delete_apply,
     class_delete_prompt,
@@ -49,7 +51,6 @@ from app.bot.handlers.manage import (
     cmd_request,
     cmd_stats,
     cmd_subjects,
-    calendar_card,
     device_revoke,
     device_unlink,
     devices_list,
@@ -66,10 +67,10 @@ from app.bot.handlers.manage import (
     import_apply,
     import_cancel,
     import_preview,
-    subjects_list,
     request_approve,
     request_decline,
     request_message,
+    subject_add,
     subject_colour_pick,
     subject_colour_typed,
     subject_create,
@@ -80,13 +81,31 @@ from app.bot.handlers.manage import (
     subject_short_name,
     subject_teacher,
     subjects_collect,
+    subjects_list,
     term_edit_apply,
     term_edit_prompt,
     terms_list,
     terms_scheme,
 )
 from app.bot.handlers.timetable import timetable_apply
-from app.bot.manage_render import split_text, time_ago
+from app.bot.manage_keyboards import (
+    bells_list_keyboard,
+    device_keyboard,
+    holiday_list_keyboard,
+    subject_list_keyboard,
+)
+from app.bot.manage_render import (
+    BELLS_MAX,
+    DEVICES_MAX,
+    LIST_MAX,
+    SUBJECTS_MAX,
+    render_bells,
+    render_devices,
+    render_holidays,
+    render_subjects,
+    split_text,
+    time_ago,
+)
 from app.bot.middlewares import active_class, prefs_key
 from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
@@ -1753,9 +1772,10 @@ async def test_the_bells_card_says_how_many_schedules_it_did_not_draw(session, s
     message = FakeMessage()
     await cmd_bells(message, FakeState(), session, school_class, Role.ADMIN)
 
-    # Thirty-one in the class, twenty on the card.
-    assert message.last.count("Расписание ") == 19
-    assert "… и ещё 11" in message.last
+    # Thirty-one in the class, ten on the card — the number of ✏️ buttons
+    # the keyboard under it offers.
+    assert message.last.count("Расписание ") == 9
+    assert "… и ещё 21" in message.last
     assert "основное расписание класса" in message.last
 
 
@@ -2761,3 +2781,919 @@ async def test_a_term_number_that_is_not_a_number_is_refused(session, school_cla
     assert callback.alerted
     assert callback.message.replies == []
     assert state.state is None
+
+
+# --------------------------------------------------------------------------
+# Проверка прав на каждом шаге
+# --------------------------------------------------------------------------
+
+
+async def _fixtures_for_every_step(session, school_class):
+    """One row of every kind the management handlers take an id for."""
+    subject = Subject(class_id=school_class.id, name="Астрономия")
+    spare = BellSchedule(class_id=school_class.id, name="Сокращённое")
+    device = DeviceToken(token_hash="hash-guard", class_id=school_class.id, telegram_id=42)
+    override = DayOverride(
+        class_id=school_class.id, date=Date(2027, 3, 12), kind=DayKind.HOLIDAY
+    )
+    request = AccessRequest(
+        class_id=school_class.id,
+        telegram_id=55,
+        requested_role=Role.EDITOR,
+        status="pending",
+    )
+    session.add_all([subject, spare, device, override, request])
+    await session.commit()
+    return subject, spare, device, override, request
+
+
+async def _row_counts(session) -> dict[str, int]:
+    counts = {}
+    for model in (
+        Subject,
+        BellSchedule,
+        BellPeriod,
+        DeviceToken,
+        DayOverride,
+        AccessRequest,
+        BotUser,
+        TimetableEntry,
+    ):
+        counts[model.__name__] = len(list(await session.scalars(select(model))))
+    return counts
+
+
+async def test_every_management_step_checks_the_role_for_itself(session, school_class):
+    """FSM state is per-user and therefore attacker-controlled.
+
+    A client can put itself into ``EditSubject.name`` and send a message, so a
+    step that trusted the step before it would be a rename with no permission
+    check at all. The same goes for a callback: the payload is whatever the
+    client sent. This presses every management step as a наблюдатель and
+    expects each one to refuse on its own — and the database to be untouched
+    afterwards, which is the part a refusal that merely stopped drawing would
+    not give.
+    """
+    subject, spare, device, override, request = await _fixtures_for_every_step(
+        session, school_class
+    )
+    before = await _row_counts(session)
+    viewer = Role.VIEWER
+    day = override.date.isoformat()
+
+    async def press(name, call):
+        callback = FakeCallback(message=FakeEditable())
+        await call(callback)
+        assert callback.alerted, f"{name} did not refuse"
+        assert callback.message.replies == [], f"{name} drew a page for a наблюдатель"
+
+    async def send(name, call, data=None):
+        message = FakeMessage(text="что угодно")
+        state = FakeState(data=dict(data or {}))
+        await call(message, state)
+        assert message.replies == [], f"{name} answered a наблюдатель"
+        assert state.cleared, f"{name} left the state open"
+
+    await press(
+        "subject_field",
+        lambda cb: subject_field(
+            cb,
+            SimpleNamespace(action="field", value=f"name:{subject.id}"),
+            FakeState(),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "subject_colour_pick",
+        lambda cb: subject_colour_pick(
+            cb,
+            SimpleNamespace(action="colour", value=f"{subject.id}:5B6ABF"),
+            FakeState(),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "subject_delete",
+        lambda cb: subject_delete(
+            cb,
+            SimpleNamespace(action="delete", value=str(subject.id)),
+            FakeState(),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "subject_add",
+        lambda cb: subject_add(cb, FakeState(), school_class, viewer),
+    )
+    await press(
+        "subjects_collect",
+        lambda cb: subjects_collect(cb, FakeState(), session, school_class, viewer),
+    )
+    await press(
+        "subjects_list",
+        lambda cb: subjects_list(cb, FakeState(), session, school_class, viewer),
+    )
+    await press(
+        "holidays_list",
+        lambda cb: holidays_list(cb, FakeState(), session, school_class, viewer),
+    )
+    await press(
+        "holiday_add", lambda cb: holiday_add(cb, FakeState(), school_class, viewer)
+    )
+    await press(
+        "holiday_pick_date",
+        lambda cb: holiday_pick_date(
+            cb,
+            SimpleNamespace(action="pick_date", value=day),
+            FakeState(),
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "holiday_kind",
+        lambda cb: holiday_kind(
+            cb,
+            SimpleNamespace(action="kind", value=f"{day}:holiday"),
+            FakeState(),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "holiday_bells",
+        lambda cb: holiday_bells(
+            cb,
+            SimpleNamespace(action="bells", value=f"{day}:{spare.id}"),
+            FakeState(),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "holiday_delete",
+        lambda cb: holiday_delete(
+            cb,
+            SimpleNamespace(action="delete", value=day),
+            FakeState(),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "holiday_period_start",
+        lambda cb: holiday_period_start(cb, FakeState(), school_class, viewer),
+    )
+    await press(
+        "bells_list", lambda cb: bells_list(cb, FakeState(), session, school_class, viewer)
+    )
+    await press(
+        "bells_edit",
+        lambda cb: bells_edit(
+            cb,
+            SimpleNamespace(action="edit", value=str(spare.id)),
+            FakeState(),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press("bells_create", lambda cb: bells_create(cb, FakeState(), school_class, viewer))
+    await press(
+        "bells_make_default",
+        lambda cb: bells_make_default(
+            cb,
+            SimpleNamespace(action="default", value=str(spare.id)),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "bells_delete",
+        lambda cb: bells_delete(
+            cb,
+            SimpleNamespace(action="delete", value=str(spare.id)),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "devices_list",
+        lambda cb: devices_list(cb, FakeState(), session, school_class, viewer),
+    )
+    await press(
+        "device_revoke",
+        lambda cb: device_revoke(
+            cb,
+            SimpleNamespace(action="revoke", value=str(device.id)),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "device_unlink",
+        lambda cb: device_unlink(
+            cb,
+            SimpleNamespace(action="unlink", value=str(device.id)),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "audit_page",
+        lambda cb: audit_page(
+            cb,
+            SimpleNamespace(action="page", value="30"),
+            FakeState(),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "class_root", lambda cb: class_root(cb, FakeState(), session, school_class, viewer)
+    )
+    await press(
+        "class_field_prompt",
+        lambda cb: class_field_prompt(
+            cb, SimpleNamespace(action="rename"), FakeState(), school_class, viewer
+        ),
+    )
+    await press(
+        "class_delete_prompt",
+        lambda cb: class_delete_prompt(cb, FakeState(), school_class, viewer),
+    )
+    await press(
+        "class_diary_bind", lambda cb: class_diary_bind(cb, session, school_class, viewer)
+    )
+    await press(
+        "calendar_rotate", lambda cb: calendar_rotate(cb, session, school_class, viewer)
+    )
+    await press(
+        "import_cancel", lambda cb: import_cancel(cb, FakeState(), school_class, viewer)
+    )
+    await press(
+        "import_apply",
+        lambda cb: import_apply(cb, FakeState(), session, school_class, viewer),
+    )
+    await press(
+        "request_approve",
+        lambda cb: request_approve(
+            cb,
+            SimpleNamespace(action="approve", value=str(request.id)),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "request_decline",
+        lambda cb: request_decline(
+            cb,
+            SimpleNamespace(action="decline", value=str(request.id)),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "terms_list", lambda cb: terms_list(cb, FakeState(), session, school_class, viewer)
+    )
+    await press(
+        "terms_scheme",
+        lambda cb: terms_scheme(
+            cb,
+            SimpleNamespace(action="scheme", value="semester"),
+            FakeState(),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+    await press(
+        "term_edit_prompt",
+        lambda cb: term_edit_prompt(
+            cb, SimpleNamespace(action="edit", value="1"), FakeState(), school_class, viewer
+        ),
+    )
+
+    subject_state = {"subject_id": subject.id}
+    await send(
+        "subject_rename",
+        lambda m, st: subject_rename(m, st, session, school_class, viewer),
+        subject_state,
+    )
+    await send(
+        "subject_short_name",
+        lambda m, st: subject_short_name(m, st, session, school_class, viewer),
+        subject_state,
+    )
+    await send(
+        "subject_teacher",
+        lambda m, st: subject_teacher(m, st, session, school_class, viewer),
+        subject_state,
+    )
+    await send(
+        "subject_colour_typed",
+        lambda m, st: subject_colour_typed(m, st, session, school_class, viewer),
+        subject_state,
+    )
+    await send(
+        "subject_create",
+        lambda m, st: subject_create(m, st, session, school_class, viewer),
+    )
+    await send(
+        "holiday_typed_date",
+        lambda m, st: holiday_typed_date(m, st, school_class, viewer),
+    )
+    await send(
+        "holiday_note",
+        lambda m, st: holiday_note(m, st, session, school_class, viewer),
+        {"date": day},
+    )
+    await send(
+        "holiday_period_apply",
+        lambda m, st: holiday_period_apply(m, st, session, school_class, viewer),
+    )
+    await send(
+        "bells_rows_apply",
+        lambda m, st: bells_rows_apply(m, st, session, school_class, viewer),
+        {"schedule_id": spare.id},
+    )
+    await send("bells_new_name", lambda m, st: bells_new_name(m, st, school_class, viewer))
+    await send(
+        "bells_new_rows",
+        lambda m, st: bells_new_rows(m, st, session, school_class, viewer),
+        {"name": "Суббота"},
+    )
+    await send(
+        "class_field_apply",
+        lambda m, st: class_field_apply(m, st, session, school_class, viewer),
+        {"field": "rename"},
+    )
+    await send(
+        "class_delete_apply",
+        lambda m, st: class_delete_apply(m, st, session, school_class, viewer),
+    )
+    await send("import_preview", lambda m, st: import_preview(m, st, school_class, viewer))
+    await send(
+        "term_edit_apply",
+        lambda m, st: term_edit_apply(m, st, session, school_class, viewer),
+        {"term_index": 1},
+    )
+
+    assert await _row_counts(session) == before
+    assert school_class.name == "9А"
+    assert school_class.diary_provider is None
+
+
+async def test_a_crafted_id_finds_nothing_rather_than_somebody_elses_row(
+    session, school_class
+):
+    """Callback data is user-supplied, so every id is re-scoped by the query
+    that reads it. A payload carrying a word where a number belongs must land
+    on «не найдено», not on an exception and not on another class's row."""
+    subject, spare, device, override, request = await _fixtures_for_every_step(
+        session, school_class
+    )
+    before = await _row_counts(session)
+
+    async def press(name, call):
+        callback = FakeCallback(message=FakeEditable())
+        await call(callback)
+        assert callback.alerted, f"{name} accepted a crafted id"
+        assert callback.message.replies == [], name
+
+    await press(
+        "subject_field",
+        lambda cb: subject_field(
+            cb,
+            SimpleNamespace(action="field", value="name:взлом"),
+            FakeState(),
+            session,
+            school_class,
+            Role.ADMIN,
+        ),
+    )
+    await press(
+        "subject_colour_pick",
+        lambda cb: subject_colour_pick(
+            cb,
+            SimpleNamespace(action="colour", value="взлом:5B6ABF"),
+            FakeState(),
+            session,
+            school_class,
+            Role.ADMIN,
+        ),
+    )
+    await press(
+        "subject_delete",
+        lambda cb: subject_delete(
+            cb,
+            SimpleNamespace(action="delete", value="взлом"),
+            FakeState(),
+            session,
+            school_class,
+            Role.ADMIN,
+        ),
+    )
+    await press(
+        "bells_edit",
+        lambda cb: bells_edit(
+            cb,
+            SimpleNamespace(action="edit", value="взлом"),
+            FakeState(),
+            session,
+            school_class,
+            Role.ADMIN,
+        ),
+    )
+    await press(
+        "bells_make_default",
+        lambda cb: bells_make_default(
+            cb,
+            SimpleNamespace(action="default", value="взлом"),
+            session,
+            school_class,
+            Role.ADMIN,
+        ),
+    )
+    await press(
+        "device_revoke",
+        lambda cb: device_revoke(
+            cb,
+            SimpleNamespace(action="revoke", value="взлом"),
+            session,
+            school_class,
+            Role.ADMIN,
+        ),
+    )
+    await press(
+        "device_unlink",
+        lambda cb: device_unlink(
+            cb,
+            SimpleNamespace(action="unlink", value="взлом"),
+            session,
+            school_class,
+            Role.ADMIN,
+        ),
+    )
+    await press(
+        "request_decline",
+        lambda cb: request_decline(
+            cb,
+            SimpleNamespace(action="decline", value="взлом"),
+            session,
+            school_class,
+            Role.ADMIN,
+        ),
+    )
+    await press(
+        "holiday_kind",
+        lambda cb: holiday_kind(
+            cb,
+            SimpleNamespace(action="kind", value="никогда:holiday"),
+            FakeState(),
+            session,
+            school_class,
+            Role.ADMIN,
+        ),
+    )
+    await press(
+        "holiday_kind unknown tag",
+        lambda cb: holiday_kind(
+            cb,
+            SimpleNamespace(action="kind", value=f"{override.date.isoformat()}:праздник"),
+            FakeState(),
+            session,
+            school_class,
+            Role.ADMIN,
+        ),
+    )
+    await press(
+        "holiday_bells",
+        lambda cb: holiday_bells(
+            cb,
+            SimpleNamespace(action="bells", value="никогда:1"),
+            FakeState(),
+            session,
+            school_class,
+            Role.ADMIN,
+        ),
+    )
+    await press(
+        "holiday_bells unknown schedule",
+        lambda cb: holiday_bells(
+            cb,
+            SimpleNamespace(
+                action="bells", value=f"{override.date.isoformat()}:{spare.id + 999}"
+            ),
+            FakeState(),
+            session,
+            school_class,
+            Role.ADMIN,
+        ),
+    )
+    await press(
+        "holiday_delete",
+        lambda cb: holiday_delete(
+            cb,
+            SimpleNamespace(action="delete", value="никогда"),
+            FakeState(),
+            session,
+            school_class,
+            Role.ADMIN,
+        ),
+    )
+
+    assert await _row_counts(session) == before
+    await session.refresh(device)
+    assert device.revoked is False
+    assert device.telegram_id == 42
+    await session.refresh(override)
+    assert override.kind is DayKind.HOLIDAY
+    assert override.bell_schedule_id is None
+
+
+# --------------------------------------------------------------------------
+# Мелочи, у которых есть своя ветка
+# --------------------------------------------------------------------------
+
+
+async def test_each_text_field_of_a_subject_opens_its_own_prompt(session, school_class):
+    subject = await _subject(session, school_class, name="Алгебра")
+
+    expected = {
+        "name": "Новое название",
+        "short": "узких экранов",
+        "teacher": "Кто ведёт",
+    }
+    for tag, wording in expected.items():
+        callback = FakeCallback(message=FakeEditable())
+        state = FakeState()
+        await subject_field(
+            callback,
+            SimpleNamespace(action="field", value=f"{tag}:{subject.id}"),
+            state,
+            session,
+            school_class,
+            Role.ADMIN,
+        )
+        assert "Алгебра" in callback.message.last, tag
+        assert wording in callback.message.last, tag
+        assert state.state is not None, tag
+        assert state.data["subject_id"] == subject.id, tag
+
+
+async def test_the_add_subject_button_asks_for_a_name(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await subject_add(callback, state, school_class, Role.ADMIN)
+
+    assert "Название нового предмета" in callback.message.last
+    assert state.state is not None
+
+
+async def test_a_subject_deleted_while_its_prompt_was_open_says_so(session, school_class):
+    """Every update may reach a fresh process and an hour may pass between the
+    prompt and the answer; the row it named can be gone by then."""
+    subject = await _subject(session, school_class, name="Астрономия")
+    gone = subject.id
+    await session.delete(subject)
+    await session.commit()
+
+    for handler in (subject_short_name, subject_teacher, subject_colour_typed):
+        message = FakeMessage(text="что-нибудь")
+        state = FakeState(data={"subject_id": gone})
+        await handler(message, state, session, school_class, Role.ADMIN)
+        assert "уже удалён" in message.last, handler.__name__
+        assert state.cleared, handler.__name__
+
+
+async def test_the_no_colour_button_clears_the_colour(session, school_class):
+    subject = await _subject(session, school_class, name="Алгебра", color="#5B6ABF")
+
+    callback = FakeCallback(message=FakeEditable())
+    await subject_colour_pick(
+        callback,
+        SimpleNamespace(action="colour", value=f"{subject.id}:none"),
+        FakeState(),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    await session.refresh(subject)
+    assert subject.color is None
+    assert "Цвет: —" in callback.message.last
+
+
+async def test_a_colour_button_carrying_something_that_is_not_a_colour_is_refused(
+    session, school_class
+):
+    subject = await _subject(session, school_class, name="Алгебра", color="#5B6ABF")
+
+    callback = FakeCallback(message=FakeEditable())
+    await subject_colour_pick(
+        callback,
+        SimpleNamespace(action="colour", value=f"{subject.id}:зелёный"),
+        FakeState(),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    await session.refresh(subject)
+    assert subject.color == "#5B6ABF"
+    assert callback.alerted
+
+
+async def test_a_period_that_is_not_two_dates_marks_nothing(session, school_class):
+    for text in ("26 октября", "05.11-26.10", ""):
+        message = FakeMessage(text=text)
+        state = FakeState()
+        await holiday_period_apply(message, state, session, school_class, Role.ADMIN)
+
+        assert "Не понял период" in message.last, text
+        assert not state.cleared, text
+    assert await session.scalar(select(DayOverride)) is None
+
+
+# --------------------------------------------------------------------------
+# Пустые и почти пустые страницы
+# --------------------------------------------------------------------------
+
+
+async def test_a_class_with_nothing_in_it_draws_every_page_as_a_sentence(session):
+    """A brand-new class has no timetable, no subjects, no bells and no
+    phones. Each of those pages has an empty branch, and an empty branch is
+    where a renderer most often reaches for something that is not there."""
+    bare = SchoolClass(name="10Б", join_code="BARE01")
+    session.add(bare)
+    await session.commit()
+
+    subjects = FakeMessage()
+    await cmd_subjects(subjects, FakeState(), session, bare, Role.OWNER)
+    assert "Список пуст" in subjects.last
+
+    bells = FakeMessage()
+    await cmd_bells(bells, FakeState(), session, bare, Role.OWNER)
+    assert "Ни одного расписания ещё нет" in bells.last
+
+    devices = FakeMessage()
+    await cmd_devices(devices, FakeState(), session, bare, Role.OWNER)
+    assert "Ни одного телефона не подключено" in devices.last
+
+    holidays = FakeMessage()
+    await cmd_holidays(holidays, FakeState(), session, bare, Role.OWNER)
+    assert "Впереди особых дней нет" in holidays.last
+
+    log = FakeMessage()
+    await cmd_log(log, FakeState(), session, bare, Role.OWNER)
+    assert "Записей пока нет" in log.last
+
+    card = FakeMessage()
+    await cmd_class(card, FakeState(), session, bare, Role.OWNER)
+    assert "👥 Участников: 0 · 📱 устройств: 0" in card.last
+    assert "🏫 Школа: —" in card.last
+    assert "Запросов доступа" not in card.last
+
+    export = FakeMessage()
+    await cmd_export(export, FakeState(), session, bare, Role.OWNER)
+    assert "экспортировать нечего" in export.last
+
+    found = FakeMessage()
+    await cmd_find(found, _command("параграф"), session, bare, Role.OWNER)
+    assert "Ничего не нашлось" in found.last
+
+    # And none of them said «None» or «0 дн.» along the way.
+    for message in (subjects, bells, devices, holidays, log, card, export, found):
+        assert "None" not in message.last
+
+
+async def test_a_subject_row_carries_the_short_name_and_the_teacher(session, school_class):
+    """The list row is where an admin checks that a subject is filled in, so
+    every filled column has to show on it."""
+    await _subject(
+        session,
+        school_class,
+        name="Алгебра и начала анализа",
+        short_name="Алгебра",
+        teacher="Иванова И. И.",
+        color="#5B6ABF",
+    )
+
+    message = FakeMessage()
+    await cmd_subjects(message, FakeState(), session, school_class, Role.ADMIN)
+
+    row = next(
+        line for line in message.last.splitlines() if "Алгебра и начала анализа" in line
+    )
+    assert "Алгебра" in row
+    assert "Иванова И. И." in row
+    assert "■ #5B6ABF" in row
+
+
+async def test_today_is_marked_on_the_special_days_card(session, school_class):
+    """«Сегодня» is the one row on that page an admin might act on this
+    morning, and the date alone does not say which one it is."""
+    today = datetime.now(school_class.tz).date()
+    session.add(DayOverride(class_id=school_class.id, date=today, kind=DayKind.HOLIDAY))
+    session.add(
+        DayOverride(
+            class_id=school_class.id, date=today + timedelta(days=1), kind=DayKind.REMOTE
+        )
+    )
+    await session.commit()
+
+    message = FakeMessage()
+    await cmd_holidays(message, FakeState(), session, school_class, Role.EDITOR)
+
+    lines = message.last.splitlines()
+    marked = [line for line in lines if "сегодня" in line]
+    assert len(marked) == 1
+    assert f"{today:%d.%m}" in marked[0]
+    assert "🏖 Каникулы / выходной" in marked[0]
+
+
+async def test_the_class_card_counts_the_people_waiting_at_the_door(session, school_class):
+    session.add(
+        AccessRequest(
+            class_id=school_class.id,
+            telegram_id=55,
+            requested_role=Role.EDITOR,
+            status="pending",
+        )
+    )
+    session.add(
+        AccessRequest(
+            class_id=school_class.id,
+            telegram_id=56,
+            requested_role=Role.EDITOR,
+            status="declined",
+        )
+    )
+    await session.commit()
+
+    message = FakeMessage()
+    await cmd_class(message, FakeState(), session, school_class, Role.ADMIN)
+
+    # The one that was declined is not waiting for anybody.
+    assert "🙋 Запросов доступа: <b>1</b>" in message.last
+
+
+async def test_a_search_hit_says_сегодня_and_завтра_before_it_says_a_date(
+    session, school_class
+):
+    """The dates a search turns up are mostly the next two days, and «завтра»
+    is what somebody looking for their homework actually needs to read."""
+    today = datetime.now(school_class.tz).date()
+    for offset, text in ((0, "на сегодня"), (1, "на завтра"), (5, "на потом")):
+        session.add(
+            Homework(
+                class_id=school_class.id,
+                due_date=today + timedelta(days=offset),
+                subject_name="Алгебра",
+                text=f"параграф {text}",
+            )
+        )
+    await session.commit()
+
+    message = FakeMessage()
+    await cmd_find(message, _command("параграф"), session, school_class, Role.VIEWER)
+
+    card = message.last
+    assert "(сегодня, " in card
+    assert "(завтра, " in card
+    later = today + timedelta(days=5)
+    assert f"({later.day} " in card
+
+
+async def test_a_member_with_no_username_is_named_not_numbered(session, school_class):
+    """An @username is the best handle, a name is the next best, and the id is
+    the fallback — because an id is at least something an admin can act on."""
+    session.add(
+        BotUser(
+            telegram_id=42,
+            class_id=school_class.id,
+            role=Role.ADMIN,
+            full_name="Мария Петровна",
+        )
+    )
+    await audit.record(session, school_class.id, 42, "test", "переименован предмет")
+    await audit.record(session, school_class.id, 999, "test", "чужак что-то сделал")
+    await session.commit()
+
+    message = FakeMessage()
+    await cmd_log(message, FakeState(), session, school_class, Role.ADMIN)
+
+    assert "Мария Петровна" in message.last
+    assert "· 999 ·" in message.last
+
+
+def test_a_line_too_long_for_one_message_is_cut_rather_than_dropped():
+    """An export doubles as the class's backup, so losing a line of somebody's
+    timetable to keep the formatting tidy would be the wrong trade."""
+    long_line = "1. " + "Предмет" * 200
+    parts = split_text(f"== Понедельник ==\n{long_line}\n2. Физика", limit=100)
+
+    assert all(len(part) <= 100 for part in parts)
+    assert "".join(parts).count("Предмет") == 200
+    assert parts[0] == "== Понедельник =="
+    assert parts[-1].endswith("2. Физика")
+    # The seams fall inside the long line and nowhere else: every part but the
+    # first and the last is a slice of it, and nothing is invented or lost.
+    body = f"== Понедельник ==\n{long_line}\n2. Физика"
+    assert "".join(parts).replace("\n", "") == body.replace("\n", "")
+
+
+def test_splitting_nothing_gives_one_empty_message():
+    """``cmd_export`` sends one message per part; an empty list would send
+    none at all and look like a command that did nothing."""
+    assert split_text("") == [""]
+
+
+# --------------------------------------------------------------------------
+# Каждая нарисованная строка достижима
+# --------------------------------------------------------------------------
+
+
+def _reachable(markup, values: list[str]) -> int:
+    """How many of ``values`` some button on the keyboard actually carries.
+
+    Asking the keyboard about the rows by name rather than counting its rows:
+    an action row («➕ Добавить», «‹ Назад») is not a row of the list, and the
+    two separators here are both real — ``CallbackData`` packs with ``|`` or
+    ``:`` depending on the payload.
+    """
+    carried = {
+        re.split(r"[|:]", button.callback_data)[-1]
+        for row in markup.inline_keyboard
+        for button in row
+    }
+    return sum(1 for value in values if value in carried)
+
+
+def test_no_list_page_draws_a_row_the_keyboard_cannot_reach():
+    """Three of these four pages used to draw more rows than they offered
+    buttons for — forty предметов above thirty ✏️, twenty расписаний above
+    ten — so the tail sat on the screen with no way to open it and nothing
+    saying it was out of reach. «… и ещё N» is now the only way a row goes
+    missing, and it counts from the same number the keyboard builds from."""
+    count = 60
+
+    subjects = [
+        SimpleNamespace(id=n, name=f"Предмет {n}", short_name=None, teacher=None, color=None)
+        for n in range(1, count + 1)
+    ]
+    assert render_subjects(subjects).count("Предмет ") == SUBJECTS_MAX
+    assert f"… и ещё {count - SUBJECTS_MAX}" in render_subjects(subjects)
+    ids = [str(subject.id) for subject in subjects]
+    assert _reachable(subject_list_keyboard(subjects, can_edit=True), ids) == SUBJECTS_MAX
+
+    schedules = [
+        SimpleNamespace(id=n, name=f"Звонки {n}", periods=[]) for n in range(1, count + 1)
+    ]
+    assert render_bells(schedules, None).count("Звонки ") == BELLS_MAX
+    assert f"… и ещё {count - BELLS_MAX}" in render_bells(schedules, None)
+    ids = [str(schedule.id) for schedule in schedules]
+    assert _reachable(bells_list_keyboard(schedules, None), ids) == BELLS_MAX
+
+    devices = [
+        SimpleNamespace(
+            id=n, device_name=f"Телефон {n}", telegram_id=None, last_seen_at=None
+        )
+        for n in range(1, count + 1)
+    ]
+    assert render_devices(devices, {}).count("Телефон ") == DEVICES_MAX
+    assert f"… и ещё {count - DEVICES_MAX}" in render_devices(devices, {})
+    ids = [str(device.id) for device in devices]
+    assert _reachable(device_keyboard(devices), ids) == DEVICES_MAX
+
+    overrides = [
+        DayOverride(
+            id=n,
+            class_id=1,
+            date=Date(2026, 9, 1) + timedelta(days=n),
+            kind=DayKind.HOLIDAY,
+            note=f"Поездка {n}",
+        )
+        for n in range(1, count + 1)
+    ]
+    assert render_holidays(overrides, {}, Date(2026, 9, 1)).count("Поездка ") == LIST_MAX
+    assert f"… и ещё {count - LIST_MAX}" in render_holidays(overrides, {}, Date(2026, 9, 1))
+    days = [override.date.isoformat() for override in overrides]
+    assert _reachable(holiday_list_keyboard(overrides, can_edit=True), days) == LIST_MAX

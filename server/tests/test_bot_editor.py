@@ -1023,3 +1023,44 @@ async def test_marking_the_canteen_with_no_bells_at_all_says_so(session, school_
 
     assert callback.alerted
     assert callback.answers[-1][0] == "Звонков нет"
+
+
+async def test_a_long_split_slot_still_fits_the_alert_telegram_will_take(
+    session, school_class
+):
+    """200 characters is Telegram's ceiling on a callback answer, and going
+    over it is a 400 — which on this surface is a press that answers nothing.
+    Two halves with a long subject, a room and a teacher reach 284."""
+    await editor.editor_parity(
+        FakeCallback(),
+        EditorAction(action="split", day=1, index=2),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+    for parity in (WeekParity.ODD, WeekParity.EVEN):
+        await timetable_edit.edit_lesson(
+            session,
+            school_class.id,
+            1,
+            2,
+            parity,
+            subject="Основы безопасности жизнедеятельности и начальной военной подготовки",
+            room="Кабинет 214, второй этаж, левое крыло",
+            teacher="Иванова-Петрова Александра Владимировна",
+        )
+    await session.commit()
+
+    callback = FakeCallback()
+    await editor.editor_slot(
+        callback,
+        EditorAction(action="slot", day=1, index=2),
+        session,
+        school_class,
+        Role.VIEWER,
+    )
+
+    shown = callback.answers[-1][0]
+    assert len(shown) <= editor_render.ALERT_MAX
+    assert shown.endswith("…")
+    assert shown.startswith("Урок 2")

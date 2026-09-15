@@ -1279,25 +1279,26 @@ async def test_today_draws_the_class_day_with_the_day_pager_under_it(
     assert "Алгебра" in message.last or "Уроков нет." in message.last
 
 
-async def test_today_on_the_fixture_monday_lists_the_template(session, school_class):
-    monday = datetime.now(school_class.tz).date()
-    monday -= timedelta(days=monday.weekday())
-    entries = list(
-        await session.scalars(
-            select(TimetableEntry).where(TimetableEntry.class_id == school_class.id)
-        )
+async def test_today_lists_the_template_of_whatever_weekday_today_is(session, school_class):
+    """The fixture's three lessons, moved onto today in the class's own zone —
+    which is the zone «сегодня» is decided in, not the server's."""
+    today = datetime.now(school_class.tz).date()
+    entries = await session.scalars(
+        select(TimetableEntry).where(TimetableEntry.class_id == school_class.id)
     )
     for entry in entries:
-        entry.weekday = datetime.now(school_class.tz).date().isoweekday()
+        entry.weekday = today.isoweekday()
     await session.commit()
 
     message = FakeMessage(text="/today")
     await cmd_today(message, session, school_class)
 
+    assert message.last.startswith(f"<b>Сегодня, {today.day} ")
     assert "1. <b>Алгебра</b>" in message.last
     assert "каб. 214" in message.last
     assert "3. <b>История</b>" in message.last
-    assert monday <= datetime.now(school_class.tz).date()
+    # The bells the fixture pasted, not invented times.
+    assert "<code>08:30–09:15</code>" in message.last
 
 
 async def test_today_offers_a_stranger_the_contact_button_not_a_timetable(session):

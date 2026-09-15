@@ -29,6 +29,17 @@ CHUNK_LIMIT = 4000
 #: half; past that the reader scrolls instead of reading.
 LIST_MAX = 20
 
+#: What each list page draws, where the keyboard under it decides the number.
+#: Three of the four used to draw more rows than they offered buttons for —
+#: forty subjects above thirty ✏️ buttons, twenty расписания звонков above ten
+#: — so the tail was visible, unreachable, and unmentioned by «… и ещё N».
+#: These are the same numbers ``manage_keyboards`` builds its rows from, and
+#: they differ per page because the rows do: a schedule carries three buttons
+#: and twelve lines of times, a subject one button and one line.
+SUBJECTS_MAX = 30
+BELLS_MAX = 10
+DEVICES_MAX = 15
+
 #: What one message may grow to. Telegram's ceiling is 4096 characters *after*
 #: entity parsing; the margin covers the tags. Every list here is already
 #: capped by row count, but a row carries free text — a note, a задание, an
@@ -169,7 +180,7 @@ def render_subjects(subjects: list) -> str:
         lines.append("<i>Список пуст. «🔄 Собрать из расписания» создаст его по урокам.</i>")
         return "\n".join(lines)
 
-    for subject in subjects[: LIST_MAX * 2]:
+    for subject in subjects[:SUBJECTS_MAX]:
         parts = [f"<b>{escape(subject.name)}</b>"]
         if subject.short_name:
             parts.append(escape(subject.short_name))
@@ -177,7 +188,7 @@ def render_subjects(subjects: list) -> str:
             parts.append(escape(subject.teacher))
         parts.append(swatch(subject.color))
         lines.append("• " + " · ".join(parts))
-    lines.extend(more_line(len(subjects), LIST_MAX * 2))
+    lines.extend(more_line(len(subjects), SUBJECTS_MAX))
     return clamp(lines)
 
 
@@ -245,7 +256,7 @@ def render_bells(schedules: list, default_id: int | None) -> str:
         lines.append("<i>Ни одного расписания ещё нет.</i>")
         return "\n".join(lines)
 
-    for schedule in schedules[:LIST_MAX]:
+    for schedule in schedules[:BELLS_MAX]:
         star = "⭐ " if schedule.id == default_id else ""
         periods = schedule.periods
         lines.append(
@@ -259,9 +270,9 @@ def render_bells(schedules: list, default_id: int | None) -> str:
         lines.extend(more_line(len(periods), 12))
         lines.append("")
     # Every other list on these pages says how much it hid, and this one did
-    # not: a class past LIST_MAX schedules simply lost the tail of them, with
-    # no line to say so and no button below to reach them either.
-    lines.extend(more_line(len(schedules), LIST_MAX))
+    # not: a class past the cap simply lost the tail of them, with no line to
+    # say so.
+    lines.extend(more_line(len(schedules), BELLS_MAX))
     lines.append("⭐ — основное расписание класса.")
     return clamp(lines)
 
@@ -294,7 +305,7 @@ def render_devices(devices: list, owners: dict[int, tuple[str, Role | None]]) ->
         )
         return "\n".join(lines)
 
-    for device in devices[:LIST_MAX]:
+    for device in devices[:DEVICES_MAX]:
         name = escape(device.device_name or f"Устройство {device.id}")
         if device.telegram_id is None:
             link = "не привязан"
@@ -308,7 +319,7 @@ def render_devices(devices: list, owners: dict[int, tuple[str, Role | None]]) ->
             else f"был {time_ago(device.last_seen_at)}"
         )
         lines.append(f"📱 <b>{name}</b> · {link} · {seen}")
-    lines.extend(more_line(len(devices), LIST_MAX))
+    lines.extend(more_line(len(devices), DEVICES_MAX))
     return clamp(lines)
 
 
@@ -430,11 +441,9 @@ def render_import_preview(days: dict[int, list], rejected: list[str], bells: int
         )
     if bells:
         lines.append(f"• Звонки: {plural(bells, 'урок', 'урока', 'уроков')}")
-    if not days and not bells:
-        lines.append(
-            "<i>Ни одного дня не распознано — нужен заголовок "
-            "вида «== Понедельник ==».</i>"
-        )
+    # A paste that yielded neither days nor bells never reaches here: the
+    # handler answers it with the whole of IMPORT_HELP instead, because at that
+    # point there is nothing to preview and the question is what to send.
     if rejected:
         lines.append("")
         lines.append("⚠️ Не разобрал строки:")
