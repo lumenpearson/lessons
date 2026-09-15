@@ -177,7 +177,7 @@ cd android
 | --- | --- |
 | `ruff check app tests scripts migrations` | чисто |
 | `python -m pytest -q` | 1024 теста, зелёных, около четырёх минут |
-| `./gradlew test` | 528 тестов, зелёных, все пять модулей |
+| `./gradlew test` | 549 тестов, зелёных, все пять модулей |
 | `./gradlew assembleDebug` | APK собирается |
 | `./gradlew assembleRelease` | APK собирается, R8 и сжатие ресурсов проходят |
 
