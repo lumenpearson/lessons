@@ -10,11 +10,12 @@ import org.junit.Test
  * The join screen's wording, over what the repository answered.
  *
  * `JoinFailureTest` in `:core:data` pins which status means which failure; this
- * pins that the screen keeps them apart afterwards. The pair that matters is
- * the `403` and the `404`: both arrive as a code that did not work, and only
+ * pins that the screen keeps them apart afterwards. The pair that matters most
+ * is the `403` and the `404`: both arrive as a code that did not work, and only
  * one of them is worth checking with the person who handed the code out. The
  * other has to point at the bot, which is the one place the person holding a
- * class code would never think to look.
+ * class code would never think to look. The `429` is the third: the code was
+ * never looked at, and the answer is a length of time.
  */
 class JoinErrorTest {
 
@@ -28,10 +29,43 @@ class JoinErrorTest {
         assertEquals(JoinError.UnknownCode, JoinError.of(JoinFailure.UnknownCode))
     }
 
+    @Test
+    fun `a throttled attempt is told in minutes, rounded up`() {
+        // Rounded up, because «попробуйте через 15 минут» that is really 15:01
+        // is one more refusal; and nobody waits 901 seconds, so the seconds the
+        // header carries are not what goes on screen.
+        assertEquals(
+            JoinError.TooManyAttempts(minutes = 16),
+            JoinError.of(JoinFailure.TooManyAttempts(retryAfterSeconds = 901)),
+        )
+        assertEquals(
+            JoinError.TooManyAttempts(minutes = 15),
+            JoinError.of(JoinFailure.TooManyAttempts(retryAfterSeconds = 900)),
+        )
+    }
+
+    @Test
+    fun `a wait shorter than a minute is still a minute, never zero`() {
+        // «Подождите 0 минут» is an instruction to do nothing, next to a button
+        // that will refuse again.
+        assertEquals(
+            JoinError.TooManyAttempts(minutes = 1),
+            JoinError.of(JoinFailure.TooManyAttempts(retryAfterSeconds = 3)),
+        )
+    }
+
+    @Test
+    fun `a throttled attempt with no number is a wait without one`() {
+        assertEquals(
+            JoinError.TooManyAttempts(minutes = null),
+            JoinError.of(JoinFailure.TooManyAttempts(retryAfterSeconds = null)),
+        )
+    }
+
     /**
      * Everything else keeps the server's own message under «Не удалось
      * подключиться: …», which is what this screen did for every failure before
-     * the two above were split out.
+     * the three above were split out.
      */
     @Test
     fun `anything else is still shown verbatim`() {

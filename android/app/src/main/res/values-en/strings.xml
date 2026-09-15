@@ -62,6 +62,11 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="join_error_generic">Could not join. Check the code and your network connection.</string>
     <string name="join_error_unknown_code">No such code. Check it with whoever gave it to you.</string>
     <string name="join_error_invite_only">This class admits phones by personal invite only. Take your own code from the bot: menu → “📱 Подключить телефон”.</string>
+    <string name="join_error_too_many">Too many attempts. Wait a little and try again.</string>
+    <plurals name="join_error_too_many_wait">
+        <item quantity="one">Too many attempts. Try again in %1$d minute.</item>
+        <item quantity="other">Too many attempts. Try again in %1$d minutes.</item>
+    </plurals>
     <string name="join_what_you_get">What you get once you have joined</string>
     <string name="join_feature_timetable">Timetable and substitutions</string>
     <string name="join_feature_timetable_description">The whole week, with rooms and substitutions.</string>

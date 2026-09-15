@@ -23,9 +23,18 @@ from app.api.public import (
 )
 from app.config import get_settings
 from app.main import app
-from app.models import BellPeriod, BellSchedule, DeviceToken, Role, SchoolClass, TimetableEntry
+from app.models import (
+    BellPeriod,
+    BellSchedule,
+    DeviceInvite,
+    DeviceToken,
+    Role,
+    SchoolClass,
+    TimetableEntry,
+)
 from app.schemas import _clean_optional_text
 from app.security import JoinThrottle, client_bucket
+from app.services import device_invites
 
 
 @pytest.fixture
@@ -56,6 +65,26 @@ async def test_deleting_a_class_takes_its_children_with_it(session, school_class
     for model in (TimetableEntry, DeviceToken, BellSchedule):
         rows = (await session.scalars(select(model).where(model.class_id == class_id))).all()
         assert rows == [], f"{model.__name__} rows outlived their class"
+
+
+async def test_deleting_a_class_takes_its_unspent_connect_codes_with_it(session, school_class):
+    """A personal code outliving its class is a code that opens nothing.
+
+    Worth its own test rather than a name added to the list above, because the
+    row can be *live* at the moment the class goes: `find_live` would hand it
+    to `/join`, which would then look the class up and find nothing. Both
+    halves of the guard are at issue — the `ondelete="CASCADE"` on the model
+    and the `PRAGMA foreign_keys=ON` that makes SQLite honour it at all.
+    """
+    class_id = school_class.id
+    await device_invites.mint(session, telegram_id=770, class_id=class_id)
+    assert (await session.scalars(select(DeviceInvite))).all()
+
+    await session.delete(school_class)
+    await session.commit()
+
+    left = (await session.scalars(select(DeviceInvite))).all()
+    assert left == [], "a connect code outlived the class it was minted for"
 
 
 async def test_deleting_a_bell_schedule_takes_its_periods(session, school_class):

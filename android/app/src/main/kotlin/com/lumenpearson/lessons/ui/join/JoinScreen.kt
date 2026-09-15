@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -308,6 +309,9 @@ internal fun JoinError?.asText(): String? = when (this) {
     JoinError.InvalidCode -> stringResource(R.string.join_error_invalid_code, ClassCodeLengths.first, ClassCodeLengths.last)
     JoinError.UnknownCode -> stringResource(R.string.join_error_unknown_code)
     JoinError.InviteOnly -> stringResource(R.string.join_error_invite_only)
+    is JoinError.TooManyAttempts -> minutes
+        ?.let { pluralStringResource(R.plurals.join_error_too_many_wait, it, it) }
+        ?: stringResource(R.string.join_error_too_many)
     is JoinError.Rejected ->
         detail?.let { stringResource(R.string.join_error_rejected, it) }
             ?: stringResource(R.string.join_error_generic)

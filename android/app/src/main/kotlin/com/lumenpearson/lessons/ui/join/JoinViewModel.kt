@@ -45,15 +45,30 @@ sealed interface JoinError {
      */
     data object InviteOnly : JoinError
 
+    /**
+     * Too many failed attempts from this address; [minutes] is how long the
+     * throttle says to wait, rounded up, or null when it would not say.
+     *
+     * Minutes rather than the seconds the header carries: nobody waits 743
+     * seconds, and a number that precise invites watching it rather than
+     * putting the phone down.
+     */
+    data class TooManyAttempts(val minutes: Int?) : JoinError
+
     /** The server refused the code some other way, or was unreachable. */
     data class Rejected(val detail: String?) : JoinError
 
     companion object {
 
         /** What the repository answered, as something the screen can word. */
-        fun of(failure: Throwable): JoinError = when (JoinFailure.of(failure)) {
+        fun of(failure: Throwable): JoinError = when (val classified = JoinFailure.of(failure)) {
             JoinFailure.InviteOnly -> InviteOnly
             JoinFailure.UnknownCode -> UnknownCode
+            is JoinFailure.TooManyAttempts -> TooManyAttempts(
+                // Rounded up, and never to zero: «подождите 0 минут» is an
+                // instruction to do nothing, and the wait is real.
+                minutes = classified.retryAfterSeconds?.let { (it + 59) / 60 }?.coerceAtLeast(1),
+            )
             else -> Rejected(failure.message?.takeIf { it.isNotBlank() })
         }
     }

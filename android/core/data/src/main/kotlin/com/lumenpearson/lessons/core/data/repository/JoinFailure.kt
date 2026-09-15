@@ -38,6 +38,24 @@ sealed class JoinFailure(message: String, cause: Throwable? = null) :
     /** `404`: no class and no live invite answers to this code. */
     data object UnknownCode : JoinFailure("No class or invite answers to this code")
 
+    /**
+     * `429`: the throttle has stopped counting and started refusing.
+     *
+     * [retryAfterSeconds] comes from the `Retry-After` header the server sends
+     * with it, and it is the whole reason this is not a [Rejected]: every other
+     * refusal on this screen is answered by doing something to the code, and
+     * this one is answered by waiting a knowable length of time. Rendered as
+     * «HTTP 429 Too Many Requests», which is what happened before, it is an
+     * English sentence on a Russian screen that tells somebody to check a code
+     * that was probably right.
+     *
+     * Null when the header is missing or unreadable — a proxy may strip it —
+     * and the screen then says to wait without saying how long, which is still
+     * the truth.
+     */
+    data class TooManyAttempts(val retryAfterSeconds: Int?) :
+        JoinFailure("Too many join attempts")
+
     /** No answer at all: no network, a wrong address, a dead server. */
     data class Offline(val reason: Throwable) :
         JoinFailure(reason.message ?: "Could not reach the server", reason)
@@ -45,9 +63,10 @@ sealed class JoinFailure(message: String, cause: Throwable? = null) :
     /**
      * Anything else the server said, kept verbatim.
      *
-     * The rate limiter's `429` lands here, as does every `5xx`. The screen
-     * shows [message] after «Не удалось подключиться:», which is what it did
-     * for all of these before this type existed.
+     * Every `5xx` lands here. The screen shows [message] after «Не удалось
+     * подключиться:», which is what it did for all of these before this type
+     * existed — an English tail on a Russian line, and the right trade for a
+     * failure nobody can act on except by reporting it.
      */
     data class Rejected(val code: Int?, val reason: Throwable?) :
         JoinFailure(reason?.message ?: "The server refused this code", reason)
@@ -65,15 +84,33 @@ sealed class JoinFailure(message: String, cause: Throwable? = null) :
         /**
          * The rule, over a status alone.
          *
-         * Neither of the two named codes needs the server's `detail` to be read:
-         * `POST /join` raises exactly one `403` and exactly one `404`, so the
-         * status is the whole answer, and a message we would have to match on
-         * is a Russian sentence somebody will reword.
+         * None of the three named codes needs the server's `detail` to be read:
+         * `POST /join` raises exactly one `403`, one `404` and one `429`, so
+         * the status is the whole answer, and a message we would have to match
+         * on is a Russian sentence somebody will reword.
          */
         fun ofStatus(code: Int, reason: Throwable? = null): JoinFailure = when (code) {
             403 -> InviteOnly
             404 -> UnknownCode
+            429 -> TooManyAttempts(retryAfterSeconds = retryAfterOf(reason))
             else -> Rejected(code = code, reason = reason)
         }
+
+        /**
+         * `Retry-After` off the response, in seconds, when it is there and is a
+         * number.
+         *
+         * Only the delta-seconds form is read. The HTTP date form is legal and
+         * this server never sends it, and parsing a date against a phone clock
+         * that may be wrong would turn a missing header — which the screen
+         * already handles — into a confidently wrong number of minutes.
+         */
+        private fun retryAfterOf(reason: Throwable?): Int? = (reason as? HttpException)
+            ?.response()
+            ?.headers()
+            ?.get("Retry-After")
+            ?.trim()
+            ?.toIntOrNull()
+            ?.takeIf { it > 0 }
     }
 }
