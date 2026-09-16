@@ -191,9 +191,12 @@ async def diary_sign_out(
     if school_class is None:
         await callback.answer("Нет доступа", show_alert=True)
         return
-    row = await _session_for(session, callback.from_user.id, school_class.id)
-    if row is not None:
-        await diary_service.sign_out(session, row)
+    # Every session this account holds here, not the newest one: see
+    # ``services.diary.sign_out_here``. A leftover row is a «Выйти» that says
+    # so and does not do it.
+    await diary_service.sign_out_here(
+        session, telegram_id=callback.from_user.id, class_id=school_class.id
+    )
     await _offer_sign_in(callback)
     await callback.answer("Вы вышли из дневника")
 

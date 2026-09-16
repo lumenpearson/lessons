@@ -21,11 +21,13 @@ from datetime import UTC, datetime
 from datetime import date as Date
 from typing import Any
 
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crypto import diary_enabled, seal, unseal
+from app.db import rows_affected
 from app.models import DiaryOverride, DiarySession
 from app.providers.petersburg import (
     PetersburgClient,
@@ -294,6 +296,32 @@ async def sign_out(session: AsyncSession, row: DiarySession) -> None:
     can be called without a browser, and its token expires on its own."""
     await session.delete(row)
     await session.commit()
+
+
+async def sign_out_here(
+    session: AsyncSession, *, telegram_id: int, class_id: int
+) -> int:
+    """Forget every session this Telegram account holds in this class.
+
+    The bot has no notion of «this browser session»: every one of its screens
+    finds a session by (telegram_id, class_id) and by nothing else, so its
+    «Выйти» means all of them. And there can be several — nothing expires an
+    earlier sign-in, ``api/diary_web`` opens a row and leaves the ones already
+    there, so somebody who signed in again from an older «🔐 Войти» card holds
+    two. Dropping only the newest left «вы вышли» sitting over a diary that
+    the next press walked straight back into.
+
+    Scoped to the one class on purpose: a parent in two of them is signing out
+    of one child, not both. @return how many rows went.
+    """
+    result = await session.execute(
+        sa_delete(DiarySession).where(
+            DiarySession.telegram_id == telegram_id,
+            DiarySession.class_id == class_id,
+        )
+    )
+    await session.commit()
+    return rows_affected(result)
 
 
 async def _refresh_quietly(session: AsyncSession, row: DiarySession) -> None:

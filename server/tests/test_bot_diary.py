@@ -192,6 +192,56 @@ async def test_signing_out_drops_the_session_and_returns_the_door(session, schoo
     assert "Пароль не вводится в чат" in callback.message.last
 
 
+async def test_signing_out_leaves_no_session_behind_to_walk_back_in_on(
+    session, school_class
+):
+    """Nothing expires a previous sign-in, so two are ordinary rather than rare.
+
+    `api/diary_web` opens a row per успешный вход and never touches the ones
+    already there, and the bot happily hands out a second ticket — so somebody
+    who signed in again from an older «🔐 Войти» card holds two live sessions.
+    `_session_for` answers with the newest, and dropping only that one left
+    «Выйти» saying «вы вышли» while «📒 Мой дневник» walked straight back into
+    the diary: on a phone that has changed hands, into somebody else's child.
+    """
+    await _bind(session, school_class)
+    older = await _open_session(session, telegram_id=MINE, class_id=school_class.id)
+    older.token_hash = hash_token("first-sign-in")
+    await session.commit()
+    newer = DiarySession(
+        token_hash=hash_token("second-sign-in"),
+        upstream_token=seal("upstream"),
+        login="user42@example.com",
+        telegram_id=MINE,
+        class_id=school_class.id,
+    )
+    session.add(newer)
+    await session.commit()
+
+    await handlers.diary_sign_out(FakeCallback(user_id=MINE), session, school_class)
+
+    assert await handlers._session_for(session, MINE, school_class.id) is None
+
+
+async def test_signing_out_of_one_class_leaves_the_other_class_alone(
+    session, school_class
+):
+    """The bot addresses a session by (telegram_id, class_id) and nothing else,
+    so «Выйти» in one class must not sign a parent out of the other child."""
+    await _bind(session, school_class)
+    other = SchoolClass(name="5Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    await _open_session(session, telegram_id=MINE, class_id=school_class.id)
+    elsewhere = await _open_session(session, telegram_id=MINE, class_id=other.id)
+
+    await handlers.diary_sign_out(FakeCallback(user_id=MINE), session, school_class)
+
+    still = await handlers._session_for(session, MINE, other.id)
+    assert still is not None
+    assert still.id == elsewhere.id
+
+
 # --------------------------------------------------------------------------
 # Rendering
 # --------------------------------------------------------------------------
