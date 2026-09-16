@@ -7,7 +7,7 @@ called directly with the same stubs as ``test_bot_handlers``.
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -23,7 +23,13 @@ from app.bot.handlers.reminders import (
     reminder_time_prompt,
     reminder_toggle,
 )
-from app.bot.handlers.start import cmd_help, cmd_start_link, cmd_today, cmd_tomorrow
+from app.bot.handlers.start import (
+    cmd_help,
+    cmd_start_link,
+    cmd_today,
+    cmd_tomorrow,
+    on_contact,
+)
 from app.bot.handlers.tasks import (
     cmd_homework,
     cmd_task,
@@ -72,6 +78,7 @@ from app.models import (
 )
 from app.schedule import ResolvedDay, ResolvedEvent, ResolvedHomework, ResolvedLesson
 from app.security import hash_token, new_token
+from app.services import reminders
 
 # 2026-09-07 is a Monday in ISO week 37 - an odd week, «числитель».
 MONDAY = date(2026, 9, 7)
@@ -624,6 +631,105 @@ def test_homework_digest_is_backwards_compatible_and_strikes_done_items():
     assert "• <b>Физика</b>: § 2" in ticked
 
 
+#: The longest message Telegram will deliver, counted after entity parsing.
+#: Not a constant of ours - it is theirs, and a message past it is refused
+#: whole rather than clipped.
+TELEGRAM_TEXT_LIMIT = 4096
+
+
+def a_fortnight_of_homework() -> list[ResolvedDay]:
+    """Three заданий a day for the fortnight the digest asks the resolver for.
+
+    Nothing exotic: «Домашнее задание» looks fourteen days ahead, and three
+    subjects setting something each day is an ordinary week in a ninth year.
+    """
+    return [
+        day(
+            MONDAY + timedelta(days=offset),
+            homework=[
+                ResolvedHomework(
+                    subject,
+                    "Прочитать параграф 12, ответить на вопросы 1-5 письменно, "
+                    "решить задачи 340, 341 и 342 из учебника",
+                    id=offset * 10 + n,
+                )
+                for n, subject in enumerate(("Алгебра", "Физика", "История"))
+            ],
+        )
+        for offset in range(14)
+    ]
+
+
+class FakeContactMessage(FakeMessage):
+    """A shared contact, and the keyboard each reply was sent with."""
+
+    def __init__(self, phone: str, user_id: int = 555) -> None:
+        super().__init__(text=None, user_id=user_id)
+        self.contact = SimpleNamespace(user_id=user_id, phone_number=phone)
+        self.markups: list[object] = []
+
+    async def answer(self, text: str, reply_markup=None, **_) -> None:
+        self.replies.append(text)
+        self.markups.append(reply_markup)
+
+
+async def test_sharing_a_contact_draws_the_menu_of_the_role_you_actually_have(
+    session, school_class
+):
+    """An unused invite may name a role below the one the person already holds.
+
+    `claim_phone_invites` keeps the higher role — that much was already true —
+    but the reply and the keyboard were built from the invite, so an admin
+    sharing their number was told they were a наблюдатель and handed a
+    наблюдатель's menu, with «🧩 Расписание», «👥 Доступ» and «⚙️ Класс» gone.
+    """
+    session.add(BotUser(telegram_id=555, class_id=school_class.id, role=Role.ADMIN))
+    session.add(PhoneInvite(class_id=school_class.id, phone="79001234567", role=Role.VIEWER))
+    await session.commit()
+
+    message = FakeContactMessage("+7 900 123-45-67")
+    await on_contact(message, session)
+
+    assert Role.ADMIN.title_ru in message.replies[0]
+    assert "👥 Доступ" in buttons(message.markups[-1])
+
+
+def test_the_homework_digest_stays_inside_the_message_telegram_will_send():
+    """A fortnight of ordinary homework used to build 5371 characters.
+
+    Telegram refuses the whole message over 4096 - so «📝 Домашнее задание»
+    answered «что-то пошло не так» and /homework answered nothing at all, for
+    exactly the classes that use the feature most.
+    """
+    text = render_homework_digest(a_fortnight_of_homework(), MONDAY)
+
+    assert len(text) <= TELEGRAM_TEXT_LIMIT
+    # Cut, and said so: a digest that silently stops after the eighth day is
+    # the failure «… и ещё N» exists to name.
+    assert "… и ещё" in text
+
+
+def test_every_homework_row_drawn_has_a_button_under_it():
+    """The rule this project already holds for the management pages.
+
+    The digest drew every задание of the fortnight and the keyboard offered
+    twelve buttons, so the rest were visible, untickable and unmentioned.
+    """
+    days = a_fortnight_of_homework()
+    ids = {
+        (one.date, item.subject): item.id
+        for one in days
+        for item in one.homework
+    }
+
+    text = render_homework_digest(days, MONDAY)
+    keyboard = homework_tick_keyboard(days, MONDAY, set(), ids, [])
+
+    drawn = [line for line in text.splitlines() if line.startswith(("• ", "✅ "))]
+    pressable = [label for label in buttons(keyboard) if label.startswith(("☐ ", "✅ "))]
+    assert len(drawn) == len(pressable)
+
+
 def test_tick_keyboard_labels_and_cap():
     days = [
         day(MONDAY, homework=[ResolvedHomework("Алгебра", "№ 1")]),
@@ -768,6 +874,24 @@ async def test_setting_a_digest_time(session, school_class):
     )
     await session.refresh(settings)
     assert settings.morning_at is None
+
+
+async def test_a_digest_time_already_past_today_starts_tomorrow(session, school_class):
+    """The tick asks only whether the class clock is past the time and whether
+    it was sent today, so a morning digest set in the evening used to arrive
+    five minutes later — «☀️ Доброе утро!» over a day that was already over."""
+    state = FakeState(data={"kind": "morning"}, state=SetReminderTime.kind)
+    message = FakeMessage(text="0:00")
+
+    await reminder_time_apply(message, state, session, school_class, Role.VIEWER)
+
+    settings = await session.scalar(select(ReminderSettings))
+    assert settings.morning_at == time(0, 0)
+    # Midnight is behind every wall clock there is, so this holds whenever the
+    # suite runs.
+    today = reminders.local_now(datetime.now(UTC), school_class).date()
+    assert settings.last_morning_sent == today
+    assert await reminders.due_digests(session, datetime.now(UTC)) == []
 
 
 async def test_time_step_refuses_a_forged_kind_and_a_stranger(session, school_class):

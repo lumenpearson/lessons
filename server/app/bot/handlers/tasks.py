@@ -39,6 +39,7 @@ from app.bot.keyboards import (
 )
 from app.bot.render import (
     WEEKDAYS_SHORT,
+    homework_digest_keys,
     human_date,
     render_homework_digest,
     render_task_list,
@@ -58,10 +59,6 @@ TASK_HELP = (
     "Понимаю «до 15.09», «завтра», «послезавтра», «в пятницу», «к понедельнику», "
     "«в 18:00»; «!» — важно, «?» — не срочно."
 )
-
-#: Homework buttons in one keyboard. More than this does not fit on a phone
-#: above the message, and two weeks of homework rarely reach it.
-HOMEWORK_BUTTONS_MAX = 12
 
 #: How far ahead the digest looks, in days - the same window the app shows.
 HOMEWORK_DAYS = 14
@@ -456,31 +453,34 @@ def homework_tick_keyboard(
     ids: dict[tuple[Date, str], int],
     extra_rows: list[list[InlineKeyboardButton]] | None = None,
 ) -> InlineKeyboardMarkup:
-    """One «☐/✅ Предмет · день» button per upcoming homework, in digest order.
+    """One «☐/✅ Предмет · день» button per drawn homework row, in digest order.
+
+    Built from ``render.homework_digest_keys`` rather than from ``days``, so
+    the buttons are exactly the rows the message above them shows. Walking
+    ``days`` here and capping separately is how the two came apart: the digest
+    drew a whole fortnight and the keyboard stopped at twelve, leaving the rest
+    visible, untickable and unmentioned by any «… и ещё N».
 
     ``ids`` maps (due date, subject) to the homework row id; an item the
     resolver shows but ``ids`` does not know (a race with a deletion) gets no
     button rather than a broken one.
     """
     rows: list[list[InlineKeyboardButton]] = []
-    for day in days:
-        if day.date < today:
+    for key in homework_digest_keys(days, today, done):
+        homework_id = ids.get(key)
+        if homework_id is None:
             continue
-        for item in day.homework:
-            key = (day.date, item.subject)
-            homework_id = ids.get(key)
-            if homework_id is None or len(rows) >= HOMEWORK_BUTTONS_MAX:
-                continue
-            mark = "✅" if key in done else "☐"
-            rows.append(
-                [
-                    InlineKeyboardButton(
-                        text=f"{mark} {cut(item.subject, 20)} · {_day_short(day.date, today)}",
-                        callback_data=HomeworkTick(action="toggle", value=str(homework_id)).pack(),
-                        style=SUCCESS if key in done else None,
-                    )
-                ]
-            )
+        due, subject = key
+        mark = "✅" if key in done else "☐"
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{mark} {cut(subject, 20)} · {_day_short(due, today)}",
+                    callback_data=HomeworkTick(action="toggle", value=str(homework_id)).pack(),
+                    style=SUCCESS if key in done else None,
+                )
+            ]
+        )
     rows.extend(extra_rows or [])
     rows.append([InlineKeyboardButton(text="‹ Меню", callback_data=Menu(action="root").pack())])
     return InlineKeyboardMarkup(inline_keyboard=rows)

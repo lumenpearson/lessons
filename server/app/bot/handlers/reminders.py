@@ -9,6 +9,8 @@ the class's zone, never the server's.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from aiogram import F, Router
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
@@ -240,10 +242,21 @@ async def reminder_time_apply(
     settings = await reminder_service.settings_for(
         session, school_class.id, message.from_user.id
     )
+    # A time that has already gone by today was never due today. The tick asks
+    # only whether the class clock is past it and whether it was sent today, so
+    # «7:30» set at ten in the evening arrived five minutes later as «☀️ Доброе
+    # утро!» about a day that was already over. Counting today as accounted for
+    # is how the tick itself marks a day it had nothing to say about.
+    now = reminder_service.local_now(datetime.now(UTC), school_class)
+    passed_today = parsed <= now.time()
     if kind == "morning":
         settings.morning_at = parsed
+        if passed_today:
+            settings.last_morning_sent = now.date()
     else:
         settings.evening_at = parsed
+        if passed_today:
+            settings.last_evening_sent = now.date()
     await session.commit()
     await state.clear()
 

@@ -112,6 +112,26 @@ async def test_claiming_never_downgrades_an_existing_role(session, school_class)
     assert await get_role(session, 555, school_class.id) is Role.ADMIN
 
 
+async def test_claiming_reports_the_role_the_person_ends_up_with(session, school_class):
+    """What this returns is what the bot draws the main menu from.
+
+    `handlers/start.on_contact` reads `granted[0]` and hands that role to
+    `main_menu`, so reporting the invite's role rather than the effective one
+    tells an admin they are a наблюдатель and takes «🧩 Расписание»,
+    «👥 Доступ» and «⚙️ Класс» off their screen — while the stored role, which
+    the rule above keeps, is still ADMIN.
+    """
+    session.add(BotUser(telegram_id=555, class_id=school_class.id, role=Role.ADMIN))
+    session.add(
+        PhoneInvite(class_id=school_class.id, phone="79001234567", role=Role.VIEWER)
+    )
+    await session.commit()
+
+    granted = await claim_phone_invites(session, 555, "+79001234567", None, None)
+
+    assert [role for _, role in granted] == [Role.ADMIN]
+
+
 async def test_an_unmatched_number_grants_nothing(session, school_class):
     granted = await claim_phone_invites(session, 555, "+79990000000", None, None)
     assert granted == []
