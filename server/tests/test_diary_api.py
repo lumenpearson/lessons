@@ -301,6 +301,36 @@ async def test_an_impossible_or_enormous_range_is_refused(client, upstream, wind
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize("window", ["from=9999-12-31", "from=9999-12-25&to=9999-12-31"])
+async def test_a_date_at_the_end_of_the_calendar_is_refused_not_crashed(
+    client, upstream, window
+):
+    """`from` with no `to` is `start + 14 days`, and near `date.max` that
+    arithmetic raises OverflowError instead of returning a date. It reached the
+    app as a 500 on a query string, where every other unusable range on this
+    surface is a 422 that says what was wrong."""
+    token = await sign_in(client, upstream)
+    upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
+    response = await client.get(
+        f"/api/v1/diary/students/4021/schedule?{window}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 422, response.text
+
+
+async def test_an_ordinary_range_still_opens_its_default_window(client, upstream):
+    """The bound is a bound, not a narrowing: a real school date still works
+    with no `to` at all."""
+    token = await sign_in(client, upstream)
+    upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
+    upstream.routes[SCHEDULE_PATH] = {"items": []}
+    response = await client.get(
+        "/api/v1/diary/students/4021/schedule?from=2026-09-07",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200, response.text
+
+
 # ---- the session ending ---------------------------------------------------
 
 

@@ -343,6 +343,34 @@ async def test_plausible_start_dates_are_accepted(client, school_class, start):
     assert response.status_code == 200, response.text
 
 
+@pytest.mark.parametrize("window", [{"from": "9999-12-31"}, {"from": "9999-12-20"}])
+async def test_an_absurd_homework_window_is_rejected_cleanly(client, school_class, window):
+    """`/homework` derives its default end from `from` before anything checks
+    `from` at all, and `start + 21 days` within three weeks of `date.max`
+    raises OverflowError rather than returning a date. `/bundle` has answered
+    422 to the same date since the first audit; this one answered 500, to a
+    query string any device token can type.
+    """
+    token = await _token(client)
+    response = await client.get(
+        "/api/v1/homework",
+        params=window,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 422, response.text
+
+
+async def test_a_plausible_homework_window_still_defaults_its_end(client, school_class):
+    """The bound must not have narrowed the window the app actually asks for."""
+    token = await _token(client)
+    response = await client.get(
+        "/api/v1/homework",
+        params={"from": "2026-09-07"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200, response.text
+
+
 # --------------------------------------------------------------------------
 # Control characters in client input reach a text column; Postgres rejects NUL.
 # --------------------------------------------------------------------------

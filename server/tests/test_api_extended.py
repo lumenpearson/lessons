@@ -578,6 +578,36 @@ async def test_task_validation(client, session, school_class):
     assert response.json()["homework_id"] == own.id
 
 
+async def test_a_patch_may_not_null_a_column_that_cannot_be_null(
+    client, session, school_class
+):
+    """``TaskPatch`` tells "absent" and "null" apart so that null can *clear* a
+    field - and both of these columns are NOT NULL. Sending null used to reach
+    the UPDATE and come back as a 500 out of an IntegrityError, on a request
+    the app makes by clearing a text box. ``ClassPatch`` and ``SubjectPatch``
+    have refused the same shape since they were written.
+    """
+    token = await _linked_token(client, session, school_class, VIEWER_ID, Role.VIEWER)
+    created = await client.post("/api/v1/tasks", json={"title": "x"}, headers=_auth(token))
+    assert created.status_code == 201, created.text
+    task_id = created.json()["id"]
+
+    for body in [{"title": None}, {"priority": None}]:
+        response = await client.patch(
+            f"/api/v1/tasks/{task_id}", json=body, headers=_auth(token)
+        )
+        assert response.status_code == 422, (body, response.text)
+
+    # The nullable neighbours still clear, which is what the null is *for*.
+    response = await client.patch(
+        f"/api/v1/tasks/{task_id}",
+        json={"notes": None, "due_date": None, "subject_name": None},
+        headers=_auth(token),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["notes"] is None
+
+
 async def test_an_aware_remind_at_is_stored_as_class_wall_time(client, session, school_class):
     token = await _linked_token(client, session, school_class, VIEWER_ID, Role.VIEWER)
     response = await client.post(

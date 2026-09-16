@@ -369,15 +369,26 @@ class TaskPatch(BaseModel):
     remind_at: datetime | None = None
     done: bool | None = None
 
+    # An absent field is never validated, so these two run only on a value the
+    # client actually sent - which is how an explicit ``null`` is refused while
+    # "leave it alone" stays the default, exactly as ``ClassPatch`` does it.
+    # Both columns are NOT NULL, and without the refusal ``{"title": null}``
+    # reached the UPDATE: an IntegrityError forty frames down, which the app
+    # sees as a 500 on a field it merely cleared.
     @field_validator("title")
     @classmethod
-    def _clean_title(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
+    def _clean_title(cls, value: str | None) -> str:
         cleaned = _clean_optional_text(value)
         if cleaned is None:
             raise ValueError("title must not be blank")
         return cleaned
+
+    @field_validator("priority")
+    @classmethod
+    def _priority_when_present(cls, value: int | None) -> int:
+        if value is None:
+            raise ValueError("priority must not be null")
+        return value
 
     _clean_subject = field_validator("subject_name")(_clean_optional_text)
     _clean_notes = field_validator("notes")(_clean_notes)

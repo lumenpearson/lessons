@@ -20,6 +20,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START
 from app.db import get_session
 from app.models import DiarySession
 from app.providers.petersburg import (
@@ -58,8 +59,25 @@ router = APIRouter(prefix="/api/v1/diary", tags=["diary"])
 MAX_RANGE_DAYS = 62
 DEFAULT_RANGE_DAYS = 14
 
+#: The widest dates a request may name — literally `/bundle`'s own pair,
+#: imported rather than repeated, because a second copy of a bound that must
+#: agree with the first is a bound that eventually does not.
+#:
+#: They are needed here for the same reason: `from` is arbitrary client input
+#: and the default window is `start + 14 days` on top of it, which within a
+#: fortnight of `date.max` raises OverflowError — a 500 out of a query string,
+#: where every other bad date on this surface is a 422 saying what was wrong.
+MIN_DATE = MIN_BUNDLE_START
+MAX_DATE = MAX_BUNDLE_START
+
 
 def _range(date_from: Date | None, date_to: Date | None) -> tuple[Date, Date]:
+    for day in (date_from, date_to):
+        if day is not None and not (MIN_DATE <= day <= MAX_DATE):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"dates must be between {MIN_DATE.isoformat()} and {MAX_DATE.isoformat()}",
+            )
     # The diary's own day, not the server's: see `petersburg.TIMEZONE`.
     start = date_from or diary_today()
     end = date_to or start + timedelta(days=DEFAULT_RANGE_DAYS)
