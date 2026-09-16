@@ -178,7 +178,20 @@ class PetersburgClient:
         response = await self._raw("POST", "/api/user/auth/login", json=payload)
         if response.status_code in (400, 401, 403):
             raise BadCredentials()
-        data = self._unwrap(response)
+        try:
+            data = self._unwrap(response)
+        except SessionExpired as failure:
+            # _unwrap reads a 200 that is not JSON as "your session ended and
+            # you are looking at their login page", which is the right reading
+            # of every other call and the wrong one here: nobody is signed in
+            # yet. Left alone it reached the phone as 401 with
+            # `X-Diary-Reauth: required`, which is the app's instruction to ask
+            # for the password again - on the sign-in screen the person is
+            # already looking at. They retype it, the upstream is still serving
+            # HTML, and the loop has no way out and no hint that the password
+            # is not what is wrong. A 502 says the diary answered strangely,
+            # which is what happened.
+            raise UnexpectedResponse() from failure
 
         # The token arrives twice - in the body and as a cookie - and the two
         # have been seen to differ, with the cookie being the one later calls

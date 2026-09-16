@@ -23,8 +23,15 @@ log = logging.getLogger(__name__)
 #: The register shouts. Names are stored upper case («МУНИЦИПАЛЬНОЕ БЮДЖЕТНОЕ
 #: ОБЩЕОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ…»), which is unreadable in a list of five,
 #: so the long words are lowered and the abbreviations left alone.
+#:
+#: One letter before the ending, not two: «СОШ», «ООШ» and «НОШ» are three
+#: letters altogether, and requiring two in front of «ОШ» meant the commonest
+#: abbreviation on a Russian school's sign was not an abbreviation here at all
+#: - «МБОУ "СОШ № 197"» came out as «МБОУ "Сош № 197"». «МБОУ» and «МОУ» were
+#: matched either way, which is why it went unnoticed; nothing ending in «ОШ»
+#: has ever been long enough to match.
 _ABBREVIATIONS = re.compile(
-    r"^(?:[А-ЯЁ]{2,}(?:БОУ|ОУ|ОШ|У)|[A-Z]{2,})$",
+    r"^(?:[А-ЯЁ]+(?:БОУ|ОУ|ОШ|У)|[A-Z]{2,})$",
 )
 
 #: Statuses the register uses. Only the first means "operating".

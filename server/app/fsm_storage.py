@@ -101,7 +101,18 @@ class DatabaseStorage(BaseStorage):
             record.data = encoded
             record.updated_at = datetime.utcnow()
 
-        await self._write(key, apply, create=True, initial_data=encoded)
+        # Same rule as set_state's, and for the same reason: a row that holds
+        # an empty dict says exactly what no row says. It matters because
+        # aiogram's `state.clear()` is `set_state(None)` followed by
+        # `set_data({})` - the first half already declines to create a row, and
+        # the second used to create one anyway. The bot clears state in 113
+        # places, most of them a menu button resetting a flow the person was
+        # never in, so every such press was an INSERT and a commit against a
+        # database in another region to record nothing at all.
+        #
+        # An existing row is still written: that is the clear actually doing
+        # its work.
+        await self._write(key, apply, create=bool(data), initial_data=encoded)
 
     async def _write(
         self,

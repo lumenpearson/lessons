@@ -58,6 +58,28 @@ def test_a_child_with_no_education_row_is_skipped():
     assert m.to_students([child(educations=None)]) == []
 
 
+def test_a_child_is_found_through_whichever_education_row_carries_a_handle():
+    """Two education rows is a pupil who changed school, and the upstream does
+    not promise which one comes first. Reading only ``educations[0]`` meant one
+    unreadable entry took the whole child off the screen: a parent of one was
+    told they have no children at all, which reads as the account being wrong."""
+    assert m.to_students([child(educations=[None, {"education_id": 90210}])])[0].education_id == (
+        90210
+    )
+    moved = m.to_students(
+        [
+            child(
+                educations=[
+                    {"group_name": "8А", "institution_name": "Старая школа"},
+                    {"education_id": 90211, "group_name": "9А", "institution_name": "ГБОУ № 1"},
+                ]
+            )
+        ]
+    )
+    assert [student.education_id for student in moved] == [90211]
+    assert moved[0].class_name == "9А"
+
+
 def test_a_child_with_no_identity_is_skipped():
     assert m.to_students([child(identity={})]) == []
 
@@ -273,6 +295,24 @@ def test_dates_are_read_in_every_format_the_upstream_has_used():
     assert m.parse_date("15.09.2026 10:25:00") == date(2026, 9, 15)
     assert m.parse_date("не дата") is None
     assert m.parse_date(None) is None
+
+
+def test_a_time_is_read_out_of_either_spelling_of_a_datetime():
+    """The lesson endpoints carry the start inside a whole datetime, and the
+    two spellings are «14.09.2026 10:25:00» and the ISO «2026-09-14T10:25:00».
+    parse_date takes either; a time that took only the first left every lesson
+    of an ISO-speaking endpoint with a date and a blank where the bell is."""
+    assert m.parse_time("10:25") == time(10, 25)
+    assert m.parse_time("14.09.2026 10:25:00") == time(10, 25)
+    assert m.parse_time("2026-09-14T10:25:00") == time(10, 25)
+    assert m.parse_time("не время") is None
+    assert m.parse_time(None) is None
+
+    lesson = m.to_lessons(
+        [{"datetime_from": "2026-09-14T10:25:00", "datetime_to": "2026-09-14T11:10:00",
+          "subject": "Физика"}]
+    )[0]
+    assert (lesson.starts_at, lesson.ends_at) == (time(10, 25), time(11, 10))
 
 
 def test_identity_id_reads_both_shapes():

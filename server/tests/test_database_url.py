@@ -115,6 +115,19 @@ def test_describe_never_leaks_the_password():
     assert "sslmode" not in rendered
 
 
+def test_describe_never_leaks_a_password_that_contains_an_at_sign():
+    """«ever» includes the generated password with an unescaped «@» in it.
+
+    Both libpq and asyncpg read the host as what follows the *last* «@», so
+    such a URL connects; cutting at the first one left the tail of the password
+    in the line this function exists to make safe to print.
+    """
+    rendered = describe("postgresql://user:pa@ss@ep-x.eu-central-1.aws.neon.tech/neondb")
+
+    assert rendered == "postgresql://ep-x.eu-central-1.aws.neon.tech/neondb"
+    assert "ss" not in rendered.split("//", 1)[1].split(".", 1)[0]
+
+
 # ---- the documented form, and the verify-* modes ---------------------------
 
 

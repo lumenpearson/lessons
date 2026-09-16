@@ -112,6 +112,28 @@ async def test_setting_no_state_on_an_unknown_key_stores_nothing():
         assert await session.get(FsmRecord, "42:1:777:0::default") is None
 
 
+async def test_clearing_a_conversation_nobody_started_writes_nothing():
+    """``state.clear()`` is ``set_state(None)`` and then ``set_data({})``.
+
+    The first half already refused to store "no state". The second stored an
+    empty dict, which says the same nothing - and the bot clears state in over
+    a hundred places, most of them a menu button resetting a flow the person
+    was never in. Each one was an INSERT and a commit against a database in
+    another region, for a row whose whole content is that there is nothing.
+    """
+    store = storage()
+    await store.set_state(key(user=778), None)
+    await store.set_data(key(user=778), {})
+
+    async with SessionLocal() as session:
+        assert await session.get(FsmRecord, "42:1:778:0::default") is None
+
+    # A clear of something real still clears it.
+    await store.set_data(key(user=778), {"subject": "Алгебра"})
+    await store.set_data(key(user=778), {})
+    assert await store.get_data(key(user=778)) == {}
+
+
 async def test_corrupt_data_restarts_the_flow_instead_of_wedging_it():
     store = storage()
     await store.set_data(key(), {"ok": True})

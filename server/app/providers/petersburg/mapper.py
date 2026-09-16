@@ -122,6 +122,13 @@ def parse_date(raw: Any) -> Date | None:
 def parse_time(raw: Any) -> Time | None:
     if isinstance(raw, str):
         candidate = raw.strip()
+        # A lesson's start arrives inside a whole datetime as often as on its
+        # own, and that datetime comes in two spellings: «14.09.2026 10:25:00»
+        # and the ISO «2026-09-14T10:25:00». parse_date and parse_datetime both
+        # take either; this one used to take only the first, so an endpoint
+        # answering in ISO gave every lesson a date and no time at all - a card
+        # with a blank where the bell is, and nothing logged to say why.
+        candidate = candidate.replace("T", " ")
         if " " in candidate:
             candidate = candidate.split(" ")[-1]
         for fmt in _TIME_FORMATS:
@@ -153,13 +160,23 @@ def to_students(items: list[dict[str, Any]]) -> list[Student]:
     students: list[Student] = []
     for item in items:
         # A pupil with no education row has nothing later calls can ask about,
-        # so there is nothing to show and nothing to select.
+        # so there is nothing to show and nothing to select. "No education row"
+        # means no *usable* one, though, not "the first one is unusable": a
+        # pupil who changed school carries two, and one unreadable entry in
+        # that list used to take the whole child off the screen - a parent with
+        # one child was told they have none, which reads as the account being
+        # wrong rather than as one row the upstream sent oddly.
         educations = item.get("educations")
-        education = educations[0] if isinstance(educations, list) and educations else None
-        if not isinstance(education, dict):
-            continue
-        education_id = number(education, "education_id", "id")
-        if education_id is None:
+        education = None
+        education_id = None
+        for candidate in educations if isinstance(educations, list) else ():
+            if not isinstance(candidate, dict):
+                continue
+            found = number(candidate, "education_id", "id")
+            if found is not None:
+                education, education_id = candidate, found
+                break
+        if education is None or education_id is None:
             continue
 
         student_id = identity_id(item)

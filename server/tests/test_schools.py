@@ -77,6 +77,18 @@ def test_abbreviations_keep_their_case_and_words_do_not():
     assert m.humanise("ШКОЛА № 2") == "Школа № 2"
 
 
+def test_the_abbreviation_on_every_second_school_sign_is_one_of_them():
+    """«СОШ», «ООШ» and «НОШ» are three letters, and the rule wanted two in
+    front of the «ОШ». The one abbreviation more common than «МБОУ» was
+    therefore lowered like a word, on a name a person has to recognise in a
+    list of five."""
+    assert m.humanise('МБОУ "СОШ № 197"') == 'МБОУ "СОШ № 197"'
+    assert m.humanise("МКОУ ООШ ПЕТРОВО") == "МКОУ ООШ Петрово"
+    assert m.humanise("МБОУ НОШ № 5") == "МБОУ НОШ № 5"
+    # And the words around them are still words.
+    assert m.humanise("ГБОУ ЛИЦЕЙ № 144") == "ГБОУ Лицей № 144"
+
+
 def test_only_the_first_word_is_capitalised():
     """«Средняя Школа» reads as two proper nouns; nobody writes it that way."""
     assert m.humanise("ОСНОВНАЯ ОБЩЕОБРАЗОВАТЕЛЬНАЯ ШКОЛА") == "Основная общеобразовательная школа"

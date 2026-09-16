@@ -134,5 +134,9 @@ def describe(raw: str) -> str:
         return raw
     scheme, rest = raw.split("://", 1)
     if "@" in rest:
-        rest = rest.split("@", 1)[1]
+        # From the *last* "@", not the first. A generated password may contain
+        # one unescaped - libpq and asyncpg both read the host as whatever
+        # follows the final "@" - and splitting at the first put the tail of
+        # that password into the line this function exists to make printable.
+        rest = rest.rsplit("@", 1)[1]
     return f"{scheme}://{rest.split('?', 1)[0]}"

@@ -8,6 +8,8 @@ from zoneinfo import ZoneInfo
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.timezones import resolve
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -95,7 +97,16 @@ class Settings(BaseSettings):
 
     @property
     def tz(self) -> ZoneInfo:
-        return ZoneInfo(self.timezone)
+        """The deployment's own zone, for the handlers that have no class yet.
+
+        Resolved rather than constructed, the same way ``SchoolClass.tz`` is.
+        A typo in ``TIMEZONE`` used to be tolerated on a class's column and
+        fatal in this setting: «/start» from somebody with no class raised
+        ZoneInfoNotFoundError inside the handler, so the button did nothing and
+        the only trace was in the server log — while a class with the same typo
+        stored on it went on rendering its day. One zone name, one rule.
+        """
+        return resolve(self.timezone)
 
     @property
     def bot_enabled(self) -> bool:
