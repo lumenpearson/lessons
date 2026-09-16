@@ -667,3 +667,75 @@ async def test_a_failed_last_seen_write_still_serves_the_bundle(client, school_c
     assert response.status_code == 200, response.text
     assert response.json()["school_class"]["name"] == school_class.name
     assert calls["n"] >= 1
+
+
+# --------------------------------------------------------------------------
+# `GET /bundle` seeds a brand-new class's terms on the read path, and every
+# phone in that class polls it on the same timer - so "idempotent" is not
+# enough on its own.
+# --------------------------------------------------------------------------
+
+
+async def test_the_bundle_that_loses_the_seeding_race_still_answers_the_phone(
+    client, school_class
+):
+    """Two devices seeding one class at once, and both get a timetable.
+
+    The bundle is a read that writes: a class with no terms for this year gets
+    them here, because the alternative is an empty calendar on the first phone
+    to open it. Two requests arriving together both find the year unseeded and
+    both insert index 1, and the second loses `uq_term_slot` — which on Postgres
+    poisons the request's whole transaction and answers a 500 to a phone that
+    asked for a timetable. `terms.ensure` now seeds inside a savepoint and the
+    loser concedes to the winner's rows, which are the same four dates.
+
+    The rival commits from a second connection while this request is between
+    its read and its insert, hooked onto the flush that sends that insert —
+    `last_seen_at` is already written and committed by then, so the only
+    statement in the window is the one the race is about.
+    """
+    from app.db import SessionLocal, get_session
+    from app.models import Term
+    from app.services import terms as terms_service
+
+    token = await _token(client)
+    start = date(2026, 9, 7)
+    year = terms_service.opening_year_of(start)
+    class_id = school_class.id
+
+    async def a_session_that_loses_the_race():
+        async with SessionLocal() as db:
+            real_flush = db.flush
+
+            async def flush_once_a_rival_has_seeded(*args, **kwargs):
+                if any(isinstance(obj, Term) for obj in db.new):
+                    db.flush = real_flush
+                    async with SessionLocal() as rival:
+                        klass = await rival.get(SchoolClass, class_id)
+                        await terms_service.ensure(rival, klass, year)
+                        await rival.commit()
+                return await real_flush(*args, **kwargs)
+
+            db.flush = flush_once_a_rival_has_seeded
+            yield db
+
+    app.dependency_overrides[get_session] = a_session_that_loses_the_race
+    try:
+        response = await client.get(
+            "/api/v1/bundle",
+            params={"start": start.isoformat(), "days": 1},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    finally:
+        app.dependency_overrides.pop(get_session)
+
+    assert response.status_code == 200, response.text
+    served = response.json()["school_class"]["terms"]
+    assert [term["index"] for term in served] == [1, 2, 3, 4]
+
+    async with SessionLocal() as after:
+        stored = await terms_service.read(after, class_id, year)
+    assert len(stored) == 4, "one set of four, not the two the race tried to write"
+    assert [term.starts_on.isoformat() for term in stored] == [
+        term["starts_on"] for term in served
+    ]

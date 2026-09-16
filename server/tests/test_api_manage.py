@@ -18,11 +18,12 @@ from typing import Any
 import httpx
 import pytest
 from httpx import ASGITransport
-from sqlalchemy import event, select, text
+from sqlalchemy import event, func, select, text
+from sqlalchemy import update as sa_update
 
 from app.api import manage
 from app.config import get_settings
-from app.db import engine
+from app.db import SessionLocal, engine
 from app.fsm_storage import FsmRecord  # noqa: F401 - registers fsm_states before create_all
 from app.main import app
 from app.models import (
@@ -430,6 +431,43 @@ async def test_subjects_list_is_open_to_an_editor(client, session, school_class)
     assert [row["name"] for row in body] == ["Алгебра", "История", "Физика"]
     assert next(row for row in body if row["name"] == "Алгебра")["teacher"] == "Иванова"
     assert body[0]["teacher"] == "Иванова" and body[0]["id"]
+
+
+async def test_the_subjects_screen_keeps_the_linking_it_just_did(client, session, school_class):
+    """The list adopts what the timetable uses and points the lessons at the
+    rows — and it used to commit only when it had *created* something. A class
+    whose dictionary was already complete but whose lessons were not yet linked
+    therefore had the UPDATEs run and thrown away when the session closed, on
+    every read, forever. It healed only because `/bundle` commits
+    unconditionally and some phone eventually polls it; the screen that exists
+    to edit this list did the work and dropped it.
+    """
+    # The dictionary already holds all three of the fixture Monday's subjects,
+    # so nothing is created — but the lessons still point at nothing.
+    for name in ("Алгебра", "Физика", "История"):
+        await _subject(session, school_class, name)
+    await session.execute(
+        sa_update(TimetableEntry)
+        .where(TimetableEntry.class_id == school_class.id)
+        .values(subject_id=None)
+    )
+    await session.commit()
+
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    assert (await client.get("/api/v1/manage/subjects", headers=_auth(token))).status_code == 200
+
+    # Read on a session of its own: the request's own session is long gone, and
+    # what is being asked is whether anything was written down at all.
+    async with SessionLocal() as fresh:
+        unlinked = await fresh.scalar(
+            select(func.count())
+            .select_from(TimetableEntry)
+            .where(
+                TimetableEntry.class_id == school_class.id,
+                TimetableEntry.subject_id.is_(None),
+            )
+        )
+    assert unlinked == 0
 
 
 async def test_subject_create_and_colour_normalisation(client, session, school_class):

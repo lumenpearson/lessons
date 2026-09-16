@@ -426,6 +426,14 @@ async def bundle(
     # has none, and the first person to open its calendar should see the
     # conventional ones rather than nothing. `ensure` is idempotent, so this
     # writes on exactly one request per class per year and reads on the rest.
+    #
+    # That one request is regularly several: every phone in the class polls
+    # this endpoint on the same timer, so the first read of a brand-new class
+    # is as many simultaneous seedings as there are devices. Both services
+    # therefore insert inside a savepoint and concede to whoever got there
+    # first (`terms.ensure`, `subjects._adopt`) - the loser returns the winner's
+    # rows and answers the same bundle, rather than taking this read's whole
+    # transaction down with a unique-constraint violation.
     year = terms_service.opening_year_of(today)
     terms = await terms_service.ensure(session, school_class, year)
     # Same reasoning for the subject dictionary: a class whose timetable was

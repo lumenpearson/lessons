@@ -25,6 +25,7 @@ from datetime import date as Date
 
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import SchoolClass, Term, TermKind
@@ -104,6 +105,7 @@ async def ensure(
     year: int,
     *,
     kind: TermKind | None = None,
+    _retry: bool = True,
 ) -> list[Term]:
     """This class's terms for ``year``, seeding the conventional set if absent.
 
@@ -121,6 +123,17 @@ async def ensure(
     any phone* delete four четверти whose dates an admin had spent an evening
     correcting, and write two conventional полугодия over them. Nothing would
     have asked, and the audit log would not carry it either.
+
+    **Idempotent is not the same as race-safe**, and being called from a read
+    is what makes the difference matter: every phone in a brand-new class polls
+    ``/bundle`` on the same timer, so two requests both finding the year unseeded
+    is the ordinary case rather than a rare one. Both then insert index 1,
+    ``uq_term_slot`` refuses the second, and on Postgres that IntegrityError
+    poisons the whole transaction — a 500 from a read, on exactly the first
+    request this seeding exists for. So the insert goes in a savepoint, the way
+    :func:`app.services.subjects._adopt` does, and **the loser concedes**: it
+    rolls back its four rows and returns the winner's, which are the same four
+    dates. Both callers answer a correct bundle; neither writes twice.
     """
     existing = await read(session, school_class.id, year)
     wanted = kind or scheme_of(school_class)
@@ -146,8 +159,22 @@ async def ensure(
         )
         for index, (starts, ends) in enumerate(default_term_bounds(year, wanted), start=1)
     ]
-    session.add_all(seeded)
-    await session.flush()
+    try:
+        async with session.begin_nested():
+            session.add_all(seeded)
+            await session.flush()
+    except IntegrityError:
+        # Somebody seeded this same year between our read and our insert. The
+        # savepoint took our four rows back with it, so the caller's
+        # transaction is still usable and still owns whatever else is in it.
+        conceded = await read(session, school_class.id, year)
+        if kind is None or not _retry or (conceded and conceded[0].kind is wanted):
+            return conceded
+        # An explicit scheme change is the one caller that must not quietly
+        # accept the other set: «10 класс, полугодия» would answer «сделано»
+        # and leave four четверти on the screen. The rival's rows are now the
+        # `existing` the branch above replaces, so one more pass does it.
+        return await ensure(session, school_class, year, kind=kind, _retry=False)
     return seeded
 
 

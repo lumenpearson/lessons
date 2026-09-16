@@ -419,8 +419,16 @@ async def subjects_list(
     never emptily lying about a class with thirty-five lessons in it. Free once
     the two agree, which after the first read they do.
     """
-    if await subjects_service.sync_from_timetable(session, school_class.id):
-        await session.commit()
+    # Committed whatever the count says, the way `public.bundle` does it. The
+    # number that comes back is how many dictionary entries were *created*, and
+    # the function also links the timetable rows to them — so a class whose
+    # dictionary was already complete but whose lessons were not yet pointed at
+    # it got its UPDATEs run and then dropped when the session closed, on every
+    # read, forever. It healed only because `/bundle` commits unconditionally
+    # and a phone polls it; the screen that exists to edit this list did the
+    # work and threw it away.
+    await subjects_service.sync_from_timetable(session, school_class.id)
+    await session.commit()
     rows = await session.scalars(
         select(Subject).where(Subject.class_id == school_class.id).order_by(Subject.name)
     )
