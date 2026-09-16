@@ -27,6 +27,7 @@ from html import escape
 from typing import Any
 
 from sqlalchemy import and_, or_, select
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -108,6 +109,26 @@ async def settings_for(
         # the unique constraint and simply reads what the other wrote.
         await session.rollback()
     return await session.scalar(query)
+
+
+async def drop_for(session: AsyncSession, *, telegram_id: int, class_id: int) -> int:
+    """Unsubscribe one person from one class. @return how many rows went.
+
+    Called when their membership goes. Nothing on the sending side asks whether
+    a subscriber is still in the class - :func:`due_digests` joins the class and
+    not the membership, and ``notify_subscribers`` selects on the flag alone -
+    so a row left behind here keeps delivering the class's timetable, its
+    homework and every замена into the chat of somebody who was removed from it,
+    for as long as the class exists. Staged, not committed: the caller commits
+    it with the removal it belongs to, like the connect codes dropped beside it.
+    """
+    result = await session.execute(
+        sa_delete(ReminderSettings).where(
+            ReminderSettings.class_id == class_id,
+            ReminderSettings.telegram_id == telegram_id,
+        )
+    )
+    return rows_affected(result)
 
 
 # --------------------------------------------------------------------------

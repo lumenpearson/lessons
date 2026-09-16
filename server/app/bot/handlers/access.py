@@ -33,7 +33,7 @@ from app.bot.roles import can_grant
 from app.bot.states import AddInvite
 from app.models import AccessRequest, BotUser, JoinMode, PhoneInvite, Role, SchoolClass
 from app.security import normalise_phone
-from app.services import audit, device_invites
+from app.services import audit, device_invites, reminders
 
 router = Router(name="access")
 
@@ -573,6 +573,11 @@ async def revoke(
     await device_invites.drop_for(
         session, telegram_id=member.telegram_id, class_id=school_class.id
     )
+    # Their subscriptions go the same way, and for the same reason: nothing on
+    # the sending side re-reads the membership, so a settings row left behind
+    # keeps the digests and every замена arriving in the chat of somebody who
+    # is no longer in the class.
+    await reminders.drop_for(session, telegram_id=member.telegram_id, class_id=school_class.id)
     await session.delete(member)
     await session.commit()
     await callback.message.edit_text("🚫 Доступ убран.", reply_markup=back_to_menu())

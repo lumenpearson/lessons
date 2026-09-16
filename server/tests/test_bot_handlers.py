@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date, time
+from datetime import UTC, date, datetime, time
 from types import SimpleNamespace
 from typing import Any
 
@@ -69,12 +69,13 @@ from app.models import (
     LessonOverride,
     OverrideAction,
     PhoneInvite,
+    ReminderSettings,
     Role,
     SchoolClass,
     TimetableEntry,
 )
 from app.models import OverrideAction as OverrideActionEnum
-from app.services import device_invites
+from app.services import device_invites, notify, reminders
 
 MONDAY = date(2026, 9, 7)
 
@@ -1076,6 +1077,50 @@ async def test_revoking_a_crafted_id_finds_nobody_rather_than_raising(session, s
 
     assert callback.alerted
     assert await session.scalar(select(BotUser).where(BotUser.telegram_id == 99)) is not None
+
+
+async def test_revoking_access_takes_the_class_messages_with_it(session, school_class):
+    """Nothing on the sending side re-reads the membership.
+
+    The digest tick joins the class and not the member list, and
+    ``notify_subscribers`` selects on the flag alone — so a settings row left
+    behind by a revoke keeps the class's homework, its timetable and every
+    замена arriving in the chat of somebody who was removed from it, with
+    nothing in the bot that could show it, let alone switch it off.
+    """
+    session.add(BotUser(telegram_id=99, class_id=school_class.id, role=Role.EDITOR))
+    settings = await reminders.settings_for(session, school_class.id, 99)
+    settings.morning_at = time(7, 30)
+    settings.notify_homework = True
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await revoke(
+        callback,
+        SimpleNamespace(action="revoke", value="99"),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+    assert await session.scalar(select(BotUser).where(BotUser.telegram_id == 99)) is None
+
+    reached: list[int] = []
+
+    async def _send(chat_id: int, text: str, **_: Any) -> None:
+        reached.append(chat_id)
+
+    delivered = await notify.notify_subscribers(
+        session,
+        SimpleNamespace(send_message=_send),
+        school_class,
+        "📝 Новое задание",
+        kind="homework",
+        exclude=None,
+    )
+    assert (delivered, reached) == (0, [])
+    # 07:30 on that Monday in Moscow, which is when their digest was set for.
+    assert await reminders.due_digests(session, datetime(2026, 9, 7, 4, 30, tzinfo=UTC)) == []
+    assert await session.scalar(select(ReminderSettings)) is None
 
 
 async def test_a_role_press_with_no_number_behind_it_asks_to_start_again(session, school_class):
