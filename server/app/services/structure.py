@@ -137,13 +137,18 @@ async def apply_timetable(
     than refreshed here because a bulk delete left its ``periods`` stale and
     only the caller knows whether it is about to be read.
 
-    **A lesson past the last bell is not written.** The resolver takes a
-    lesson's times from the bell row of the same number, so such a row used to
-    be stored, counted in «уроков добавлено» and then shown nowhere at all.
-    The ceiling is what the class will ring *after* this import, not before:
-    a paste that brings a «== Звонки ==» block with eight rows may legitimately
-    bring an eighth lesson with it, and checking against the old schedule would
-    reject the very line that the same paste makes valid.
+    **A lesson with no bell of its own number is not written.** The resolver
+    takes a lesson's times from the bell row of the same number, so such a row
+    used to be stored, counted in «уроков добавлено» and then shown nowhere at
+    all. What is checked is what the class will ring *after* this import, not
+    before: a paste that brings a «== Звонки ==» block with eight rows may
+    legitimately bring an eighth lesson with it, and checking against the old
+    schedule would reject the very line that the same paste makes valid.
+
+    The numbers, not how many of them there are. Counting the rows is the same
+    answer only while they run 1..N with no gap, and a «== Звонки ==» block may
+    leave one — at which point the count refused «4. Химия», which had a bell,
+    and would have admitted a third lesson, which had none.
     """
     if days:
         await session.execute(
@@ -153,14 +158,17 @@ async def apply_timetable(
             )
         )
 
-    ceiling = len(bells) if bells else await timetable_edit.rings(session, school_class.id)
-    ceiling = min(timetable_edit.MAX_INDEX, ceiling or timetable_edit.MAX_INDEX)
+    rung = (
+        {index for index, _start, _end in bells}
+        if bells
+        else await timetable_edit.rung_indexes(session, school_class.id)
+    )
 
     total = 0
     unrung: list[int] = []
     for weekday, rows in days.items():
         for index, subject, room, teacher, parity in rows:
-            if index > ceiling:
+            if not timetable_edit.can_ring(rung, index):
                 unrung.append(index)
                 continue
             # A paste is where a class's subjects usually come into existence,

@@ -15,6 +15,7 @@ import pytest
 from aiogram.exceptions import TelegramForbiddenError
 from sqlalchemy import select
 
+from app.crypto import seal
 from app.db import SessionLocal
 from app.models import (
     BellPeriod,
@@ -23,6 +24,7 @@ from app.models import (
     DayKind,
     DayOverride,
     DeviceToken,
+    DiarySession,
     EventKind,
     Homework,
     HomeworkDone,
@@ -1323,3 +1325,124 @@ def test_the_last_field_keeps_its_commas_without_quoting():
     assert timetable_io.parse_lesson_line("1. Физика, 305, Иванов И.И., к.п.н.") == (
         1, "Физика", "305", "Иванов И.И., к.п.н.", WeekParity.ANY,
     )
+
+
+# --------------------------------------------------------------------------
+# The diary's clock
+# --------------------------------------------------------------------------
+
+
+class _FakeDiaryClient:
+    """Enough of ``PetersburgClient`` for one call. ``token`` is read by
+    ``DiaryService._remember_token`` on the way out of every call."""
+
+    def __init__(self, items: list[dict[str, Any]]) -> None:
+        self.items = items
+        self.token = "upstream-token"
+
+    async def periods(self, group_id: int) -> list[dict[str, Any]]:
+        return self.items
+
+
+async def test_the_current_period_is_read_off_the_diary_clock_not_the_server(
+    session, school_class, monkeypatch
+):
+    """Which четверть is «текущая» decides what `GET /diary/.../subjects`
+    answers when no period is named, and it answers with an **empty list** when
+    none of them is current.
+
+    Vercel runs in UTC and the diary is one city's, three hours ahead. Asked
+    with the server's own clock, a pupil opening «Дневник» after nine in the
+    evening on the first day of a quarter was still in yesterday - which is
+    каникулы, between two periods - and got no subjects at all. The provider
+    exports ``today()`` for exactly this; every other "today" in this project
+    comes from the class's zone for the same reason.
+    """
+    from app.providers.petersburg import client as petersburg_client
+    from app.services import diary as diary_service
+
+    server_today = date.today()
+    # It is already tomorrow where the diary is, and tomorrow opens a quarter.
+    school_today = server_today + timedelta(days=1)
+
+    class _SchoolClock:
+        @staticmethod
+        def now(tz=None):
+            return datetime.combine(school_today, time(0, 30), tzinfo=tz)
+
+    monkeypatch.setattr(petersburg_client, "datetime", _SchoolClock)
+
+    row = DiarySession(
+        token_hash=hash_token(new_token()),
+        upstream_token=seal("upstream-token"),
+        login="ivan@example.test",
+    )
+    session.add(row)
+    await session.commit()
+
+    service = diary_service.DiaryService(session, row)
+    service.client = _FakeDiaryClient(
+        [
+            {
+                "identity": {"id": 1},
+                "name": "1 четверть",
+                "date_from": (server_today - timedelta(days=60)).strftime("%d.%m.%Y"),
+                "date_to": server_today.strftime("%d.%m.%Y"),
+            },
+            {
+                "identity": {"id": 2},
+                "name": "2 четверть",
+                "date_from": school_today.strftime("%d.%m.%Y"),
+                "date_to": (school_today + timedelta(days=60)).strftime("%d.%m.%Y"),
+            },
+        ]
+    )
+
+    found = await service.periods(group_id=1)
+    current = [period.name for period in found if period.is_current]
+
+    assert current == ["2 четверть"], (
+        "the quarter that opened today where the school is has to be the current one"
+    )
+
+
+async def test_two_overlapping_ticks_do_not_send_one_task_reminder_twice(
+    session, school_class
+):
+    """A task reminder is claimed by the database, the same as a digest is.
+
+    It used to be claimed by writing ``remind_at = None`` onto the loaded row
+    and committing — which answers the tick that dies halfway through, and not
+    the tick that overlaps. `reminders.yml` gives `curl` five minutes and
+    killing the request does not kill the serverless invocation it started, so
+    this deployment has the overlapping one: `due_task_reminders` hands out up
+    to two hundred rows and `send_due` clears each as it reaches it, so the
+    window for the last of them is however long the rest took to send. A second
+    tick selecting inside that window held the same rows with ``remind_at``
+    still set, cleared an already-cleared column without complaint, and sent
+    the reminder a second time.
+    """
+    task = await tasks.add_task(
+        session,
+        school_class.id,
+        42,
+        "Взять форму",
+        remind_at=datetime(2026, 9, 7, 7, 0),
+    )
+
+    async with SessionLocal() as overlapping:
+        # The second tick selected this row a moment ago and is still working
+        # through the ones before it.
+        held, _klass = (await reminders.due_task_reminders(overlapping, MOSCOW_0730))[0]
+        assert held.remind_at is not None
+
+        # The first tick reaches the same row, claims it and sends.
+        bot = FakeBot()
+        assert (await reminders.send_due(session, bot, MOSCOW_0730))["tasks"] == 1
+        assert len(bot.sent) == 1
+
+        # The second tick now reaches the row it is holding. What decides is
+        # the database, not the value this tick still has in memory.
+        assert await reminders.claim_task(overlapping, held) is False
+
+    assert task.remind_at is None

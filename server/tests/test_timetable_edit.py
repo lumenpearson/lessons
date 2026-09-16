@@ -10,6 +10,8 @@ so it is what gets the coverage.
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from sqlalchemy import select
 
@@ -284,3 +286,167 @@ async def test_an_import_that_brings_its_own_bells_may_bring_the_lessons_too(
     await session.commit()
 
     assert total == 9 and unrung == []
+
+
+async def test_a_bell_schedule_with_a_gap_is_read_by_its_numbers_not_its_count(
+    session, school_class
+):
+    """«Сколько звонков» and «какие уроки они звонят» are different questions.
+
+    A «== Звонки ==» block may leave a hole — a school that numbers its lessons
+    1, 2, 4 because the third slot is a пересменка — and the resolver keys a
+    lesson's times on the bell row of *the same number*. Counting the rows
+    answered both questions with «three», which got both halves wrong at once:
+    «4. Химия», which has a bell, was dropped and reported as having none, and
+    a third lesson, which has none, would have been written and then drawn
+    nowhere.
+    """
+    from datetime import time
+
+    from app.services import structure
+
+    bells = [(1, time(8, 0), time(8, 45)), (2, time(9, 0), time(9, 45)),
+             (4, time(11, 0), time(11, 45))]
+    rows = [
+        (1, "Алгебра", None, None, WeekParity.ANY),
+        (2, "Физика", None, None, WeekParity.ANY),
+        (4, "Химия", None, None, WeekParity.ANY),
+    ]
+    total, _schedule, unrung = await structure.apply_timetable(
+        session, school_class, {5: rows}, bells
+    )
+    await session.commit()
+
+    assert unrung == [], "bell 4 is right there in the same paste"
+    assert total == 3
+    assert [index for index, _, _ in await _day(session, school_class.id, 5)] == [1, 2, 4]
+
+
+async def test_an_import_refuses_a_lesson_whose_number_falls_in_the_gap(
+    session, school_class
+):
+    """The other half of the same rule: a number below the last bell is not a
+    number that has one."""
+    from datetime import time
+
+    from app.services import structure
+
+    bells = [(1, time(8, 0), time(8, 45)), (2, time(9, 0), time(9, 45)),
+             (4, time(11, 0), time(11, 45))]
+    rows = [(index, f"Урок {index}", None, None, WeekParity.ANY) for index in (1, 2, 3, 4)]
+    total, _schedule, unrung = await structure.apply_timetable(
+        session, school_class, {5: rows}, bells
+    )
+    await session.commit()
+
+    assert unrung == [3]
+    assert total == 3
+    assert [index for index, _, _ in await _day(session, school_class.id, 5)] == [1, 2, 4]
+
+
+async def test_the_editor_reads_the_gapped_schedule_the_same_way(session, school_class):
+    """`add_lesson` shares the rule, so the button editor and the paste agree.
+
+    The count said «three bells, all taken» after the second lesson: it refused
+    the fourth, which rings, and would have taken a third, which does not.
+    """
+    from datetime import time
+
+    from app.models import BellSchedule
+    from app.services import structure
+
+    bells_row = await session.get(BellSchedule, school_class.bell_schedule_id)
+    await structure.write_bell_periods(
+        session,
+        bells_row,
+        [(1, time(8, 0), time(8, 45)), (2, time(9, 0), time(9, 45)),
+         (4, time(11, 0), time(11, 45))],
+    )
+    await session.commit()
+
+    assert await edit.rings(session, school_class.id) == 3
+    assert await edit.rung_indexes(session, school_class.id) == {1, 2, 4}
+    assert await edit.add_lesson(session, school_class.id, 6, subject="Алгебра") == 1
+    assert await edit.add_lesson(session, school_class.id, 6, subject="Физика") == 2
+    # The next lesson is the next one that rings — the fourth, not a third
+    # that would be stored and then drawn nowhere.
+    assert await edit.add_lesson(session, school_class.id, 6, subject="Химия") == 4
+    # And there is no fifth bell, so the day is full at three lessons.
+    assert await edit.add_lesson(session, school_class.id, 6, subject="Лишний") is None
+    await session.commit()
+
+    assert [index for index, _, _ in await _day(session, school_class.id, 6)] == [1, 2, 4]
+
+
+# ---- a slot is one lesson, or two halves ----------------------------------
+
+
+async def test_a_parity_row_may_not_be_created_beside_a_weekly_one(session, school_class):
+    """Two rows that both answer for the same week is a lesson the resolver has
+    to guess at.
+
+    `uq_timetable_cell` is (class, weekday, index, parity), so «каждую неделю»
+    and «числитель» at lesson 1 satisfy it — and both pass the resolver's parity
+    filter on an odd week. The template is loaded with no ``ORDER BY``, so which
+    of the two subjects a phone drew was whatever the database handed back
+    first. The paste path has refused this since `timetable_io._conflicts`; the
+    editor's button refuses it in the handler. The service is where both of them
+    reach the database, so the rule belongs here too.
+    """
+    from app.schedule import ScheduleResolver
+
+    written = await edit.edit_lesson(
+        session, school_class.id, 1, 1, WeekParity.ODD,
+        subject="Тень", room=None, teacher=None,
+    )
+    await session.commit()
+
+    assert written is False
+    assert await _day(session, school_class.id) == [
+        (1, "Алгебра", "any"),
+        (2, "Физика", "any"),
+        (3, "История", "any"),
+    ]
+    day = (await ScheduleResolver(session, school_class).resolve_range(date(2026, 9, 7), 1))[0]
+    assert [lesson.subject for lesson in day.lessons] == ["Алгебра", "Физика", "История"]
+
+
+async def test_a_weekly_row_may_not_be_created_beside_a_split_slot(session, school_class):
+    """The same rule from the other side: a slot that already alternates cannot
+    also hold a lesson that happens every week."""
+    await edit.split_parity(session, school_class.id, 1, 2)
+    await session.commit()
+
+    assert await edit.edit_lesson(
+        session, school_class.id, 1, 2, WeekParity.ANY,
+        subject="Тень", room=None, teacher=None,
+    ) is False
+    await session.commit()
+
+    assert [parity for index, _, parity in await _day(session, school_class.id) if index == 2] == [
+        "even",
+        "odd",
+    ]
+
+
+async def test_the_missing_half_of_a_split_slot_can_still_be_written(session, school_class):
+    """A paste may bring «3. История [чис]» with no знаменатель under it, and
+    filling the other half in is one edit rather than a retyped day."""
+    from app.models import TimetableEntry as Entry
+
+    session.add(
+        Entry(class_id=school_class.id, weekday=4, index=1,
+              subject_name="История", parity=WeekParity.ODD)
+    )
+    await session.commit()
+
+    assert await edit.edit_lesson(
+        session, school_class.id, 4, 1, WeekParity.EVEN,
+        subject="Обществознание", room=None, teacher=None,
+    ) is True
+    await session.commit()
+
+    assert await _day(session, school_class.id, 4) == [
+        (1, "Обществознание", "even"),
+        (1, "История", "odd"),
+    ]

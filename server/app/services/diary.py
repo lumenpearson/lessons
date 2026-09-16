@@ -32,6 +32,9 @@ from app.providers.petersburg import (
     SessionExpired,
 )
 from app.providers.petersburg import mapper as m
+from app.providers.petersburg import (
+    today as upstream_today,
+)
 from app.providers.petersburg.models import (
     AcademicPeriod,
     AttendanceEvent,
@@ -340,7 +343,15 @@ class DiaryService:
         return await self._call(lambda: self.client.children(), m.to_students)
 
     async def periods(self, group_id: int) -> list[AcademicPeriod]:
-        today = Date.today()
+        # The upstream's own clock, not the server's. This decides which
+        # четверть is «текущая», and `api/diary.py` answers «какие предметы»
+        # with nothing at all when no period is current — so on the evening of
+        # the day a quarter opens, a server running in UTC (which Vercel does)
+        # was still in yesterday, which is каникулы, and the subjects screen
+        # came back empty. Every other "today" in this project comes from
+        # `SchoolClass.timezone`; a diary session has no class behind it, and
+        # `petersburg.today()` is the clock of the one city whose diary this is.
+        today = upstream_today()
         return await self._call(
             lambda: self.client.periods(group_id), lambda items: m.to_periods(items, today)
         )

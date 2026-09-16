@@ -203,6 +203,36 @@ async def claim(
     return rows_affected(claimed) > 0
 
 
+async def claim_task(session: AsyncSession, task: PersonalTask) -> bool:
+    """Take this one-off reminder, or report that another tick already has.
+
+    The task path used to write ``remind_at = None`` onto the loaded row and
+    commit it, which answers the tick that dies halfway through and not the
+    tick that overlaps — the distinction :func:`claim` is written around, and
+    the one this deployment actually has. :func:`due_task_reminders` selects
+    everything due and :func:`send_due` clears each row as it reaches it, so
+    the window for the hundredth reminder is however long the ninety-nine
+    before it took to send; a second tick selecting inside that window held the
+    same rows with ``remind_at`` still set, and cleared an already-cleared
+    column happily. Nothing said no, and the reminder went out twice.
+
+    ``UPDATE … WHERE remind_at IS NOT NULL`` puts the decision in the one place
+    that can make it once. @return whether this caller may send.
+    """
+    claimed = await session.execute(
+        sa_update(PersonalTask)
+        .where(PersonalTask.id == task.id, PersonalTask.remind_at.is_not(None))
+        .values(remind_at=None)
+    )
+    await session.commit()
+    if rows_affected(claimed) == 0:
+        return False
+    # The statement went round the ORM, so the loaded row still carries the old
+    # value and the caller renders it straight afterwards.
+    task.remind_at = None
+    return True
+
+
 async def due_task_reminders(
     session: AsyncSession, now_utc: datetime
 ) -> list[tuple[PersonalTask, SchoolClass]]:
@@ -378,8 +408,11 @@ async def send_due(session: AsyncSession, bot: Any, now_utc: datetime) -> dict[s
 
     for task, school_class in await due_task_reminders(session, now_utc):
         today = local_now(now_utc, school_class).date()
-        task.remind_at = None
-        await session.commit()
+        # Claimed the same way a digest is, and for the same reason: marking
+        # before sending answers the tick that dies, only the database answers
+        # the tick that overlaps.
+        if not await claim_task(session, task):
+            continue
         try:
             await bot.send_message(task.telegram_id, render_task_reminder(task, today))
         except Exception:  # noqa: BLE001 - same reasoning as above
