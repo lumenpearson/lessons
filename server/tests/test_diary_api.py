@@ -17,6 +17,7 @@ from httpx import ASGITransport
 from sqlalchemy import select
 
 from app.api import diary as diary_api
+from app.config import get_settings
 from app.db import SessionLocal
 from app.main import app
 from app.models import DiaryLinkCode, DiarySession
@@ -130,6 +131,45 @@ async def test_login_returns_a_token_of_ours_and_never_the_upstream_one(
     assert row.upstream_token != "cookie-token"
     assert service.upstream_of(row) == "cookie-token"
     assert row.login == "parent@example.com"
+
+
+@pytest.fixture
+def no_diary_secret(monkeypatch):
+    """Runs one test on a deployment that has no ``DIARY_SECRET``.
+
+    ``get_settings`` is ``lru_cache``d, so patching the attribute on the one
+    object every caller holds is what actually changes the answer, exactly as
+    ``tests/test_diary_crypto.py`` does it.
+    """
+    monkeypatch.setattr(get_settings(), "diary_secret", "", raising=False)
+    yield
+    get_settings.cache_clear()
+
+
+async def test_signing_in_without_a_key_is_refused_rather_than_crashing(
+    client, upstream, no_diary_secret
+):
+    """No key means the diary is off, and «off» has to be an answer.
+
+    ``app/crypto.py`` makes that refusal deliberate — a fallback to plaintext
+    would be invisible — and ``services/diary.sign_in`` raises ``DiaryDisabled``
+    before the password leaves the building. But ``_guard`` only knows the
+    *upstream's* failures, so this one walked out of the handler: FastAPI turns
+    that into a bare 500 on an endpoint anybody can POST to, with a stack trace
+    per attempt and nothing for the app to show. ``POST /diary/signin`` — the
+    other door onto the same service — has always answered 503 in words.
+    """
+    upstream.routes[LOGIN_PATH] = with_token
+
+    response = await client.post(
+        "/api/v1/diary/login", json={"login": "parent@example.com", "password": "correct"}
+    )
+
+    assert response.status_code == 503, response.text
+    assert response.json()["detail"] == "Дневник на этом сервере выключен."
+    # And nothing was sent upstream: refusing after the password has already
+    # been handed to a third party would be the worse half of the same bug.
+    assert upstream.seen == []
 
 
 async def test_the_password_is_never_written_anywhere(client, upstream, session):

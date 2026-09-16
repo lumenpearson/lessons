@@ -180,7 +180,20 @@ async def login(
     upstream session eventually expires, requests answer 401 with
     ``X-Diary-Reauth: required`` and the app asks for it again.
     """
-    token, row = await _guard(service.sign_in(session, payload.login, payload.password))
+    try:
+        token, row = await _guard(service.sign_in(session, payload.login, payload.password))
+    except service.DiaryDisabled as failure:
+        # No ``DIARY_SECRET``, so the feature is off — see ``app/crypto.py``
+        # for why that is a refusal rather than a fallback. ``_guard`` knows
+        # the *upstream's* failures and nothing else, so this one went out of
+        # the handler: a bare 500 on an unauthenticated endpoint, a stack trace
+        # per attempt, and nothing for the app to put on the screen. The other
+        # door onto the same service, ``POST /diary/signin``, has always
+        # answered 503 and said so in words; this is that answer.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Дневник на этом сервере выключен.",
+        ) from failure
     return DiaryLoginOut(token=token, login=row.login)
 
 
