@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date as Date
 from datetime import datetime, timedelta
+from datetime import time as Time
 from types import SimpleNamespace
 from typing import Any
 
@@ -1458,6 +1459,18 @@ async def test_a_shortened_day_asks_which_bells_and_then_carries_their_name(
     marked shortened with no bells behind it changes nothing at all."""
     short = BellSchedule(class_id=school_class.id, name="Сокращённое")
     session.add(short)
+    await session.flush()
+    # With rows in it: a schedule that rings nothing is refused now, because a
+    # day pointed at one draws nothing - see the test below.
+    for index in (1, 2, 3):
+        session.add(
+            BellPeriod(
+                schedule_id=short.id,
+                index=index,
+                starts_at=Time(8 + index, 0),
+                ends_at=Time(8 + index, 30),
+            )
+        )
     await session.commit()
 
     day = Date(2027, 3, 12)
@@ -1490,6 +1503,44 @@ async def test_a_shortened_day_asks_which_bells_and_then_carries_their_name(
     assert "12.03" in card.last
     assert "⏱ Сокращённые уроки" in card.last
     assert "🔔 Сокращённое" in card.last
+
+
+async def test_a_day_is_not_pointed_at_a_bell_schedule_that_rings_nothing(
+    session, school_class
+):
+    """«🔔 Звонки» creates a schedule empty and the times are typed in later,
+    so an empty one is an ordinary state to be in — but a day pointed at it
+    draws no lessons at all, because the resolver takes each lesson's times
+    from the bell row of its own number. The card said «⏱ Сокращённые уроки»
+    over an empty day on every phone, in the widget and in the calendar feed,
+    and nothing anywhere said why. `api/edit.day_put` refuses it too."""
+    empty = BellSchedule(class_id=school_class.id, name="Пустое")
+    session.add(empty)
+    await session.commit()
+
+    day = Date(2027, 3, 12)
+    await holiday_kind(
+        FakeCallback(message=FakeEditable()),
+        SimpleNamespace(action="kind", value=f"{day.isoformat()}:shortened"),
+        FakeState(),
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+
+    picked = FakeCallback(message=FakeEditable())
+    await holiday_bells(
+        picked,
+        SimpleNamespace(action="bells", value=f"{day.isoformat()}:{empty.id}"),
+        FakeState(),
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+
+    override = await session.scalar(select(DayOverride).where(DayOverride.date == day))
+    assert override.bell_schedule_id is None
+    assert "ещё нет ни одного урока" in (picked.answers[-1][0] or "")
 
 
 async def test_leaving_the_usual_bells_on_a_shortened_day_stores_no_schedule(

@@ -24,6 +24,7 @@ from app.fsm_storage import FsmRecord  # registers fsm_states before create_all 
 from app.main import app
 from app.models import (
     AuditEntry,
+    BellPeriod,
     BellSchedule,
     BotUser,
     DayEvent,
@@ -1003,6 +1004,55 @@ async def test_events_add_and_delete(client, session, school_class, recording_bo
     assert "Экскурсия" in recording_bot.sent[0][1]
 
 
+async def test_a_day_cannot_ring_a_bell_schedule_that_has_no_rows(
+    client, session, school_class, recording_bot
+):
+    """«Сокращённые уроки» has to ring something, and an empty schedule rings nothing.
+
+    `POST /api/v1/manage/bells` may create a schedule with no rows on purpose —
+    «a schedule may be created empty and filled in afterwards», says
+    `BellScheduleIn` — so this is a state a class really reaches: make the
+    short schedule, point Friday at it, fill the times in later. The resolver
+    takes a lesson's times from the bell row of the *same number*, so until
+    those rows exist the day draws nothing at all: an empty Friday on every
+    phone, in the widget and in the calendar feed, under a card that says
+    «⏱ Сокращённые уроки», with nothing logged anywhere.
+
+    Worse, `timetable_edit.rung_indexes_on` falls back to the class's default
+    bells when the named schedule has no rows, so a замена for that day is
+    accepted at any number the *ordinary* day rings — the one check that exists
+    to stop a lesson being stored where nothing can draw it.
+
+    Refused at the door, which is the decision `day_put` already makes for a
+    shortened day with no schedule at all.
+    """
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    day = (MONDAY + timedelta(days=7)).isoformat()
+
+    empty = BellSchedule(class_id=school_class.id, name="Пустое")
+    session.add(empty)
+    await session.commit()
+
+    refused = await client.put(
+        "/api/v1/days",
+        json={"date": day, "kind": "shortened", "bell_schedule_id": empty.id},
+        headers=_auth(token),
+    )
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["detail"] == "в этом расписании звонков нет ни одного урока"
+
+    # Nothing was written, so nothing draws an empty day and no замена can be
+    # hung on one.
+    assert (
+        await session.scalar(select(DayOverride).where(DayOverride.class_id == school_class.id))
+    ) is None
+    bundle = await client.get(
+        "/api/v1/bundle", params={"start": day, "days": 1}, headers=_auth(token)
+    )
+    drawn = bundle.json()["days"][0]
+    assert drawn["kind"] == "normal" and len(drawn["lessons"]) == 3
+
+
 async def test_days_set_and_clear(client, session, school_class, recording_bot):
     await _subscriber(session, school_class, 7001, notify_changes=True)
     token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
@@ -1033,6 +1083,17 @@ async def test_days_set_and_clear(client, session, school_class, recording_bot):
     foreign_class = SchoolClass(name="11Б", join_code=new_join_code())
     session.add(foreign_class)
     await session.flush()
+    # With rows in it, because a schedule that rings nothing is now refused —
+    # see `test_a_day_cannot_ring_a_bell_schedule_that_has_no_rows`.
+    for index in (1, 2, 3):
+        session.add(
+            BellPeriod(
+                schedule_id=other_bells.id,
+                index=index,
+                starts_at=time(8 + index, 0),
+                ends_at=time(8 + index, 30),
+            )
+        )
     foreign_bells = BellSchedule(class_id=foreign_class.id, name="Чужое")
     session.add(foreign_bells)
     await session.commit()

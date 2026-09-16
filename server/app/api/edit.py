@@ -30,6 +30,7 @@ from app.bot.render import human_date
 from app.config import get_settings
 from app.db import get_session
 from app.models import (
+    BellPeriod,
     BellSchedule,
     DayEvent,
     DayKind,
@@ -456,6 +457,28 @@ async def day_put(
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="bell_schedule_id is not in this class",
+            )
+        # And that it rings something. A schedule may legitimately be created
+        # empty and filled in later (`BellScheduleIn.periods` defaults to an
+        # empty list and says so), and the resolver takes a lesson's times from
+        # the bell row of the same number - so a day pointed at an empty one
+        # draws no lessons at all while the card above them says «сокращённые
+        # уроки». Nothing fails: the phone, the widget, the calendar feed and
+        # the morning digest all agree there is no school that day, and a
+        # замена written for it is accepted at any number because
+        # `timetable_edit.rung_indexes_on` falls back to the class default when
+        # the named schedule has no rows. This is the same decision the check
+        # underneath already makes for a shortened day with no schedule at all,
+        # and it is made for the same reason.
+        rings = await session.scalar(
+            select(BellPeriod.id)
+            .where(BellPeriod.schedule_id == payload.bell_schedule_id)
+            .limit(1)
+        )
+        if rings is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="в этом расписании звонков нет ни одного урока",
             )
 
     # «Сокращённые уроки» is a claim about the times, and the times come from a

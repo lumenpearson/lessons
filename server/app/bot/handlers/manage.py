@@ -1065,6 +1065,23 @@ async def holiday_bells(
         if schedule is None:
             await callback.answer("Расписание звонков не найдено", show_alert=True)
             return
+        # A schedule with no rows is legitimate — «🔔 Звонки» creates it empty
+        # and the times are typed in afterwards — but a day pointed at one
+        # draws no lessons at all, because the resolver takes a lesson's times
+        # from the bell row of its own number. The card would say «⏱ Сокращённые
+        # уроки» over an empty day on every phone, in the widget and in the
+        # calendar feed, and nothing would be logged. `api/edit.day_put` refuses
+        # the same thing for the same reason.
+        rings = await session.scalar(
+            select(BellPeriod.id).where(BellPeriod.schedule_id == schedule.id).limit(1)
+        )
+        if rings is None:
+            await callback.answer(
+                f"В «{schedule.name}» ещё нет ни одного урока — "
+                "заполните звонки, иначе день будет пустым.",
+                show_alert=True,
+            )
+            return
         override.bell_schedule_id = schedule.id
         summary = f"{day:%d.%m}: звонки «{schedule.name}»"
     else:

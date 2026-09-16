@@ -100,8 +100,19 @@ async def rung_indexes_on(session: AsyncSession, class_id: int, day: Date) -> se
     — four rows where the ordinary day has seven. A замена written for such a
     date against the class's default bells would pass a check and still be
     drawn nowhere, which is the whole failure this is here to prevent.
-    Falls back to the default exactly as ``ScheduleResolver._bells_for`` does,
-    including when the override names a schedule that has since been deleted.
+    A day that names no schedule of its own takes the class default, and so
+    does one whose schedule holds no rows — deliberately, and **not** the same
+    answer ``ScheduleResolver._bells_for`` gives. Its map is built from the
+    class's schedules, so an empty one is in it as an empty dict and such a day
+    draws nothing at all. Answering «nothing» here would not refuse the замена:
+    :func:`can_ring` reads an empty set as «this class has not set its bells up
+    yet» and waves every number through, so the day that draws nothing would
+    accept *more* than the ordinary one. Both surfaces that point a day at a
+    schedule now refuse an empty one outright (``api/edit.day_put`` and the
+    bot's «⏱ Сокращённый день»), which is what actually keeps the two apart.
+    A day pointed at one *before* that check existed is the one case where the
+    two still disagree, and it errs towards the ordinary bells.
+    (A schedule deleted outright cannot be named here: the key is SET NULL.)
     """
     schedule_id = await session.scalar(
         select(DayOverride.bell_schedule_id).where(
