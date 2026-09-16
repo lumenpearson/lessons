@@ -39,7 +39,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 1242 tests, about four and a half minutes
+- **`python -m pytest -q`** — 1277 tests, about four and a half minutes
 - **`python -m mypy`** — one question, of all 78 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. Not in CI — the
@@ -260,6 +260,35 @@ points Hilt does not inject cleanly.
   what is drawn is what can be pressed, and
   `test_no_list_page_draws_a_row_the_keyboard_cannot_reach` holds it. Nothing
   paginates, so past the cap a row is only a number.
+- **Callback data is whatever the client sent, and a bare conversion on it is not
+  a small bug.** `int(callback_data.value)` does not refuse a press it cannot parse
+  — it raises out of the handler, so `callback.answer()` is never reached and the
+  button keeps its spinner until Telegram gives up. Every handler module carries a
+  guard for this: `_int_or_none` in `manage.py`, `tasks.py` and `access.py`,
+  `_date_or_none` in `calendar.py` and `content.py`, `_role_or_none` in
+  `access.py`, `_kind_or_none` and `_index_or_none` in `content.py`, and
+  `shift_days`/`shift_weeks` in `keyboards.py` for the offsets (`timedelta(
+  days=999999999)` is an OverflowError, not a far-away day). Check the value
+  **where it is picked**, not where it is finally read: a value carried through
+  three questions raises in front of somebody who has just typed a time and a
+  title, and looks like their answer was the problem.
+- **Two screens can match one press.** Both role pickers send a `RolePick`, and the
+  only thing telling them apart is that the invite flow leaves `target` empty. While
+  the invite handler's filter was a bare `RolePick.filter()` it swallowed both,
+  because it is registered first — so a role pressed on an older «Новая роль» card
+  created a phone invite and said so in a sentence about the number. Split a shared
+  payload on a field, never on registration order;
+  `test_the_two_role_pickers_never_match_the_same_press` holds it.
+- **`ResourceTranslationTest` covers every module that ships strings**, not just
+  `:app` — `:core:data`, `:core:designsystem` and `:widget` have their own
+  `values/` and went unguarded for a long time, which is how the countdown on the
+  home screen stayed Russian under an English caption. It discovers the modules
+  rather than listing them, and counts a `<plurals>`' arguments per form (Russian
+  has four forms and English two; over the concatenated text they can never agree).
+  What it cannot see is a Russian string written into Kotlin, because that word is
+  in neither folder — `grep -rnP '"[^"]*[\x{0400}-\x{04FF}]' */src/main` is the
+  check for that, and today it finds only `@Preview` data, maintainer-facing report
+  bodies, and the timezone list, whose file documents the choice.
 - **A renderer is written against the type it is handed, and nothing checks that but you.**
   «🗓 Четверти» crashed on every press in production because the card printed `term.days`
   and `days` lived on a flattened copy of a term that nothing ever constructed. There is
