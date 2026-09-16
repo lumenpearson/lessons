@@ -41,9 +41,17 @@ from app.bot.handlers.content import (
     override_clear,
     override_subject,
 )
-from app.bot.handlers.start import cmd_code, phone_code
+from app.bot.handlers.start import cmd_code, phone_code, show_day
 from app.bot.handlers.timetable import bells_apply, timetable_apply
-from app.bot.keyboards import AccessAction, EventAction, HomeworkAction, RolePick
+from app.bot.handlers.week import week_text
+from app.bot.keyboards import (
+    AccessAction,
+    EventAction,
+    HomeworkAction,
+    RolePick,
+    shift_days,
+    shift_weeks,
+)
 from app.bot.roles import list_memberships
 from app.models import (
     AuditEntry,
@@ -1107,3 +1115,42 @@ async def test_the_classes_a_person_is_in_come_back_in_a_stated_order(session, s
     await session.commit()
     again = await list_memberships(session, 42)
     assert [member.class_id for member in again] == [school_class.id, second.id]
+
+
+# --------------------------------------------------------------------------
+# Смещение дня из callback-данных
+# --------------------------------------------------------------------------
+
+
+def test_a_day_offset_that_is_not_a_date_comes_back_as_nothing():
+    """``timedelta(days=999999999)`` is an OverflowError, not a far-away day,
+    and the number arrives in callback data — whatever the client sent, not
+    only what this bot put on a ‹ › button."""
+    assert shift_days(date(2026, 9, 16), 1) == date(2026, 9, 17)
+    assert shift_days(date(2026, 9, 16), -1) == date(2026, 9, 15)
+    assert shift_days(date(2026, 9, 16), 999_999_999) is None
+    assert shift_days(date(2026, 9, 16), -999_999_999) is None
+    # The bounds are date's own: one day past the last one it can hold.
+    assert shift_days(date(9999, 12, 31), 1) is None
+    assert shift_weeks(date(2026, 9, 16), 1) == date(2026, 9, 23)
+    assert shift_weeks(date(2026, 9, 16), 999_999_999) is None
+
+
+async def test_paging_the_day_view_past_every_date_is_refused(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+
+    await show_day(
+        callback,
+        SimpleNamespace(offset=999_999_999),
+        session,
+        school_class,
+        Role.VIEWER,
+    )
+
+    assert callback.alerted
+    assert not callback.message.replies
+
+
+async def test_paging_the_week_view_past_every_date_is_refused(session, school_class):
+    text = await week_text(session, school_class, 999_999_999)
+    assert "Такой недели нет" in text

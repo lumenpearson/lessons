@@ -19,7 +19,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot.keyboards import Menu, WeekNav, next_keyboard, week_nav
+from app.bot.keyboards import Menu, WeekNav, next_keyboard, shift_weeks, week_nav
 from app.bot.render import INVISIBLE, render_next, render_week
 from app.models import Role, SchoolClass, TimetableEntry, WeekParity
 from app.schedule import ScheduleResolver
@@ -56,7 +56,12 @@ async def _parity_matters(session: AsyncSession, school_class: SchoolClass) -> b
 async def week_text(session: AsyncSession, school_class: SchoolClass, offset: int) -> str:
     """Monday–Saturday of the week ``offset`` weeks from the current one."""
     today = _now(school_class).date()
-    monday = today - timedelta(days=today.weekday()) + timedelta(weeks=offset)
+    anchor = shift_weeks(today, offset)
+    if anchor is None:
+        # The offset came off a ‹ › button in callback data; a crafted one is
+        # an OverflowError rather than a far-away Monday.
+        return "Такой недели нет."
+    monday = anchor - timedelta(days=anchor.weekday())
     days = await ScheduleResolver(session, school_class).resolve_range(monday, 6)
     return render_week(days, today, await _parity_matters(session, school_class))
 

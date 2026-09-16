@@ -40,7 +40,7 @@ from app.bot.diary_render import (
     render_signed_out,
     render_week,
 )
-from app.bot.keyboards import Menu
+from app.bot.keyboards import Menu, shift_days, shift_weeks
 from app.config import get_settings
 from app.crypto import diary_enabled
 from app.models import DiarySession, Role, SchoolClass
@@ -338,11 +338,15 @@ async def _body(
     )
 
     if view == "day":
-        day = today + timedelta(days=offset)
+        day = shift_days(today, offset)
+        if day is None:
+            return "Такого дня нет."
         return render_day(await service.schedule(student, day, day), day, today)
 
     if view == "week":
-        anchor = today + timedelta(weeks=offset)
+        anchor = shift_weeks(today, offset)
+        if anchor is None:
+            return "Такой недели нет."
         start = anchor - timedelta(days=anchor.weekday())
         end = start + timedelta(days=5)
         return render_week(await service.schedule(student, start, end), start, today)

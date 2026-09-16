@@ -49,9 +49,19 @@ def new_join_code(length: int = JOIN_CODE_LENGTH) -> str:
 def client_bucket(raw: str) -> str:
     """Hashes a client address into the key the throttle counts against.
 
-    A bucket only ever needs to tell two clients apart. Keeping the addresses
-    themselves would mean storing personal data to answer a question that does
-    not need it, so what lands in the table is a digest.
+    A bucket only ever needs to tell two clients apart, so the address itself
+    never has to be written down: what lands in the table, and in anything that
+    dumps the table, is a digest.
+
+    It is **not** anonymisation, and it would be worse than useless to record
+    it as such. The whole IPv4 space is four billion candidates — a laptop
+    walks it against an unkeyed SHA-256 in seconds — so anyone holding both the
+    table and the intent can recover the addresses. Making that untrue needs a
+    key the attacker does not have (an HMAC under a server secret), which this
+    does not have, because a throttle that stops working when a secret is unset
+    is a worse failure than the one it would fix. What the digest buys is that
+    the address is not sitting in plain sight; treat the column as personal
+    data anyway.
     """
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
