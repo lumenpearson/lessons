@@ -244,6 +244,15 @@ async def remove_lesson(session: AsyncSession, class_id: int, weekday: int, inde
     Closing the gap is the point: a day numbered 1, 2, 4 reads as a lost lesson
     rather than as a deleted one, and the bells would hand lesson 4 the fourth
     bell when it is now the third thing that happens.
+
+    Unless closing it would move a lesson onto a number the class does not
+    ring. :func:`add_lesson` already refuses an insert for that reason — «adding
+    a second lesson quietly costs the seventh» — and the delete is the same
+    move in the other direction: with bells numbered 1, 2, 4, deleting the
+    second lesson slid the fourth onto a third number that rings nothing, and
+    the resolver then drew it on no phone, in no widget, in no digest and in no
+    calendar feed. The deletion still happens; it is the renumbering that is
+    skipped, which leaves the day reading exactly like the bells do.
     """
     result = await session.execute(
         sa_delete(TimetableEntry).where(
@@ -254,7 +263,10 @@ async def remove_lesson(session: AsyncSession, class_id: int, weekday: int, inde
     )
     removed = rows_affected(result)
     if removed:
-        await _shift(session, class_id, weekday, at_least=index + 1, by=-1)
+        rung = await rung_indexes(session, class_id)
+        moved = [used for used in await _indexes(session, class_id, weekday) if used > index]
+        if all(can_ring(rung, one - 1) for one in moved):
+            await _shift(session, class_id, weekday, at_least=index + 1, by=-1)
     return removed
 
 

@@ -321,10 +321,14 @@ async def test_two_reads_healing_one_class_at_once_concede_rather_than_raise(
             return await real_flush(*args, **kwargs)
 
         loser.flush = flush_after_a_rival_healed
-        await subjects.sync_from_timetable(loser, class_id)
+        created = await subjects.sync_from_timetable(loser, class_id)
         # The caller's transaction survived the conflict - that is the whole
         # point of the savepoint, and on Postgres the only thing that saves it.
         await loser.commit()
+
+    # And it says what it did: conceding is finding a row, not writing one, and
+    # «🔄 Собрать из расписания» prints this number back at an admin.
+    assert created == 0
 
     async with SessionLocal() as after:
         assert await _names(after, class_id) == ["Алгебра", "История", "Физика"]

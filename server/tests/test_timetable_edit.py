@@ -348,6 +348,62 @@ async def test_an_import_refuses_a_lesson_whose_number_falls_in_the_gap(
     assert [index for index, _, _ in await _day(session, school_class.id, 5)] == [1, 2, 4]
 
 
+async def test_deleting_a_lesson_does_not_slide_another_onto_a_number_with_no_bell(
+    session, school_class
+):
+    """`add_lesson` refuses an insert that would push a lesson onto an unrung
+    number; the delete is the same move the other way and did not.
+
+    With bells at 1, 2 and 4 — a school whose third slot is a пересменка, which
+    the grammar accepts — deleting the second lesson slid the fourth onto a
+    third number that rings nothing, and the resolver draws a lesson only where
+    its own bell is. The lesson was gone from every phone, widget, digest and
+    the calendar feed while the editor still listed it.
+    """
+    from datetime import time
+
+    from app.services import structure, timetable_edit
+
+    bells = [(1, time(8, 0), time(8, 45)), (2, time(9, 0), time(9, 45)),
+             (4, time(11, 0), time(11, 45))]
+    rows = [
+        (1, "Алгебра", None, None, WeekParity.ANY),
+        (2, "Физика", None, None, WeekParity.ANY),
+        (4, "Химия", None, None, WeekParity.ANY),
+    ]
+    await structure.apply_timetable(session, school_class, {5: rows}, bells)
+    await session.commit()
+
+    assert await timetable_edit.remove_lesson(session, school_class.id, 5, 2) == 1
+    await session.commit()
+
+    kept = await _day(session, school_class.id, 5)
+    assert [index for index, _, _ in kept] == [1, 4]
+    assert [subject for _, subject, _ in kept] == ["Алгебра", "Химия"]
+
+
+async def test_deleting_a_lesson_still_closes_the_gap_when_every_number_rings(
+    session, school_class
+):
+    """The renumbering is the point when it can be done: a day left at 1, 2, 4
+    under bells that ring 1..7 reads as a lost lesson rather than a deleted
+    one."""
+    from app.services import timetable_edit
+
+    for index, subject in ((1, "Алгебра"), (2, "Физика"), (3, "Химия")):
+        await timetable_edit.add_lesson(
+            session, school_class.id, 5, subject=subject, at=index
+        )
+    await session.commit()
+
+    assert await timetable_edit.remove_lesson(session, school_class.id, 5, 2) == 1
+    await session.commit()
+
+    kept = await _day(session, school_class.id, 5)
+    assert [index for index, _, _ in kept] == [1, 2]
+    assert [subject for _, subject, _ in kept] == ["Алгебра", "Химия"]
+
+
 async def test_the_editor_reads_the_gapped_schedule_the_same_way(session, school_class):
     """`add_lesson` shares the rule, so the button editor and the paste agree.
 
