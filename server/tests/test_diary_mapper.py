@@ -224,6 +224,71 @@ def test_a_lesson_is_read_through_whichever_names_the_upstream_used():
     assert second.starts_at == time(10, 25)
 
 
+def test_a_field_the_upstream_wrapped_in_an_object_is_still_read():
+    """The undocumented half of this API grows objects where strings were.
+
+    ``"subject": "Физика"`` turning into ``"subject": {"id": 7, "name":
+    "Физика"}`` is not a broken row - it is the same lesson, one rename later.
+    Every reader here takes a string or a number, so before the object was
+    looked into, that rename dropped the subject, and a lesson with no subject
+    is dropped whole: a week of lessons became an empty week, on the phone and
+    in the card, with nothing in the log to say why.
+    """
+    lesson = m.to_lessons(
+        [
+            {
+                "date": {"value": "14.09.2026"},
+                "subject": {"id": 7, "name": "Физика"},
+                "number": {"value": 3},
+                "office": {"name": "305"},
+                "teacher": {"fullname": "Иванова И.И."},
+                "task": {"text": "§12, № 3-5"},
+            }
+        ]
+    )[0]
+    assert lesson.date == date(2026, 9, 14)
+    assert lesson.subject == "Физика"
+    assert lesson.number == 3
+    assert lesson.room == "305"
+    assert lesson.teacher == "Иванова И.И."
+    assert lesson.homework == "§12, № 3-5"
+
+
+def test_an_object_with_no_scalar_in_it_is_still_just_unreadable():
+    """The unwrapping is one level and only to a scalar. A deeper walk would
+    have to guess which nested string was meant, and a guess here puts a
+    teacher's surname in the room column."""
+    assert m.to_lessons([{"date": "14.09.2026", "subject": {"parts": ["Физика"]}}]) == []
+
+
+def test_a_whole_batch_nobody_could_read_is_logged_rather_than_answered_empty(caplog):
+    """One unreadable row is a bad row; all of them is a shape change.
+
+    Dropping what cannot be read is deliberate, and that is exactly why the
+    total loss has to say something: an empty week from a renamed field and an
+    empty week from a holiday are the same answer to every caller above this
+    file. The keys are in the line because they are what the next spelling in
+    ``_LESSON_SUBJECT`` and friends has to be.
+    """
+    items = [
+        {"lessonDate": "14.09.2026", "subjectTitle": "Физика"},
+        {"lessonDate": "15.09.2026", "subjectTitle": "Алгебра"},
+    ]
+    with caplog.at_level("WARNING"):
+        assert m.to_lessons(items) == []
+
+    assert "2 lesson row(s) in, none readable" in caplog.text
+    assert "lessonDate, subjectTitle" in caplog.text
+
+
+def test_an_ordinary_empty_answer_is_not_reported_as_a_shape_change(caplog):
+    """No rows at all is a week with no lessons in it, which is not news."""
+    with caplog.at_level("WARNING"):
+        assert m.to_lessons([]) == []
+        assert m.to_marks([]) == []
+    assert caplog.text == ""
+
+
 def test_a_row_that_is_not_a_lesson_is_skipped_rather_than_failing_the_week():
     items = [
         {"subject_name": "Физика"},  # no date

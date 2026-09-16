@@ -57,6 +57,36 @@ _TIME_FORMATS = ("%H:%M:%S", "%H:%M")
 # ---------------------------------------------------------------------------
 
 
+#: What the scalar is called when the upstream wraps a field in an object.
+#: The other way this API changes is exactly this: ``"subject": "Алгебра"``
+#: becomes ``"subject": {"id": 7, "name": "Алгебра"}``, and the reader that
+#: expected a string sees a dict, fails its isinstance check and answers None.
+#: One such field is the difference between a week of lessons and an empty
+#: week, with no error anywhere - so the object is looked into rather than
+#: refused.
+_WRAPPED = ("name", "title", "value", "text", "short_name", "fullname", "id")
+
+
+def unwrap(value: Any) -> Any:
+    """The scalar inside a one-level object, or the value unchanged.
+
+    Only one level, and only a scalar: a deeper walk would start guessing which
+    of several nested strings is the one meant, and guessing wrong here puts a
+    teacher's surname where a room number belongs.
+    """
+    if not isinstance(value, dict):
+        return value
+    for name in _WRAPPED:
+        inner = value.get(name)
+        if isinstance(inner, bool):
+            continue
+        if isinstance(inner, str) and inner.strip():
+            return inner
+        if isinstance(inner, int | float):
+            return inner
+    return None
+
+
 def pick(source: dict[str, Any], *names: str) -> Any:
     """First present, non-empty value among ``names``.
 
@@ -66,10 +96,30 @@ def pick(source: dict[str, Any], *names: str) -> Any:
     in this tuple, not an outage.
     """
     for name in names:
-        value = source.get(name)
+        value = unwrap(source.get(name))
         if value not in (None, "", [], {}):
             return value
     return None
+
+
+def note_if_nothing_read(kind: str, items: list[Any], mapped: list[Any]) -> None:
+    """Say so when a whole batch read as nothing.
+
+    Dropping the row that cannot be read is right - a week of marks is worth
+    more than an error page - but *every* row unreadable is not a bad row, it
+    is a shape this file no longer recognises, and silence is the one answer
+    that looks exactly like a quiet week. The keys are logged because they are
+    what the next name in a tuple above has to be.
+    """
+    if not items or mapped:
+        return
+    keys = sorted({key for item in items if isinstance(item, dict) for key in item})
+    log.warning(
+        "petersburg: %d %s row(s) in, none readable; keys seen: %s",
+        len(items),
+        kind,
+        ", ".join(keys[:20]) or "(no dict rows at all)",
+    )
 
 
 def text(source: dict[str, Any], *names: str) -> str | None:
@@ -195,6 +245,7 @@ def to_students(items: list[dict[str, Any]]) -> list[Student]:
                 group_id=number(education, "group_id"),
             )
         )
+    note_if_nothing_read("student", items, students)
     return students
 
 
@@ -216,6 +267,7 @@ def to_periods(items: list[dict[str, Any]], today: Date) -> list[AcademicPeriod]
                 is_current=bool(starts and ends and starts <= today <= ends),
             )
         )
+    note_if_nothing_read("period", items, periods)
     return periods
 
 
@@ -226,6 +278,7 @@ def to_subjects(items: list[dict[str, Any]]) -> list[Subject]:
         if name is None:
             continue
         subjects.append(Subject(id=number(item, "subject_id") or identity_id(item), name=name))
+    note_if_nothing_read("subject", items, subjects)
     return subjects
 
 
@@ -258,6 +311,7 @@ def to_teachers(items: list[dict[str, Any]]) -> list[Teacher]:
                 subjects=subjects,
             )
         )
+    note_if_nothing_read("teacher", items, teachers)
     return teachers
 
 
@@ -310,6 +364,7 @@ def to_marks(items: list[dict[str, Any]]) -> list[Mark]:
                 comment=text(item, "estimate_comment", "comment"),
             )
         )
+    note_if_nothing_read("mark", items, marks)
     marks.sort(key=lambda mark: (mark.date or Date.min, mark.subject_name))
     return marks
 
@@ -355,6 +410,7 @@ def to_lessons(items: list[dict[str, Any]]) -> list[DiaryLesson]:
                 topic=text(item, *_LESSON_TOPIC),
             )
         )
+    note_if_nothing_read("lesson", items, lessons)
     lessons.sort(key=lambda lesson: (lesson.date, lesson.number or 0, lesson.subject))
     return lessons
 
@@ -430,5 +486,6 @@ def to_attendance(items: list[dict[str, Any]]) -> list[AttendanceEvent]:
         events.append(
             AttendanceEvent(at=at, direction=_direction(text(item, "direction") or ""))
         )
+    note_if_nothing_read("attendance", items, events)
     events.sort(key=lambda event: event.at, reverse=True)
     return events
