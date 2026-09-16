@@ -362,3 +362,62 @@ def test_the_new_parity_rule_did_not_swap_any_year_that_was_already_right():
             old = WeekParity.ODD if day.isocalendar().week % 2 == 1 else WeekParity.EVEN
             assert week_parity(day) is old, f"{day} changed meaning"
             day += timedelta(days=1)
+
+
+# --------------------------------------------------------------------------
+# Лето
+# --------------------------------------------------------------------------
+
+
+async def test_the_weekly_template_stops_at_the_end_of_the_school_year(session, school_class):
+    """`SCHOOL_YEAR_END_MONTH` is 5 and the comment above it says June onwards
+    must not keep repeating the template, «because it would show lessons that
+    nobody is going to». Nothing enforced it: the constant was read only by
+    `school_year_bounds`. So a Monday in July drew Алгебра, Физика, История on
+    the phone, in the widget and in the calendar feed."""
+    resolver = ScheduleResolver(session, school_class)
+
+    # A Monday in each of the three months that are not the school year.
+    for summer_monday in (Date(2027, 6, 7), Date(2027, 7, 5), Date(2027, 8, 30)):
+        day = (await resolver.resolve_range(summer_monday, 1))[0]
+        assert day.lessons == [], f"{summer_monday} drew {len(day.lessons)} lessons"
+        assert day.kind is DayKind.HOLIDAY
+
+    # And the first teaching Monday of the year that follows still does.
+    september = (await resolver.resolve_range(Date(2027, 9, 6), 1))[0]
+    assert [lesson.subject for lesson in september.lessons] == [
+        "Алгебра",
+        "Физика",
+        "История",
+    ]
+
+
+async def test_a_summer_day_keeps_what_was_put_on_it_by_hand(session, school_class):
+    """It is the lessons that are out of season, not the day: an экскурсия in
+    June is a real thing, and so is homework set for it."""
+    from app.models import DayEvent, EventKind, Homework
+
+    session.add(
+        DayEvent(
+            class_id=school_class.id,
+            date=Date(2027, 6, 7),
+            starts_at=time(10, 0),
+            ends_at=time(12, 0),
+            title="Экскурсия",
+            kind=EventKind.TRIP,
+        )
+    )
+    session.add(
+        Homework(
+            class_id=school_class.id,
+            due_date=Date(2027, 6, 7),
+            subject_name="Алгебра",
+            text="§5",
+        )
+    )
+    await session.commit()
+
+    day = (await ScheduleResolver(session, school_class).resolve_range(Date(2027, 6, 7), 1))[0]
+    assert day.lessons == []
+    assert [event.title for event in day.events] == ["Экскурсия"]
+    assert [item.subject for item in day.homework] == ["Алгебра"]

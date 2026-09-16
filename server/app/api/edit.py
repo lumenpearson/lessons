@@ -53,7 +53,8 @@ from app.schemas import (
     OverrideIn,
     OverrideOut,
 )
-from app.services import audit, linking, notify, subjects
+from app.services import audit, linking, notify, subjects, timetable_edit
+from app.services import homework as homework_service
 from app.services import tasks as task_service
 
 log = logging.getLogger(__name__)
@@ -154,32 +155,17 @@ async def homework_put(
     subject per day, and sending it again replaces the text."""
     _check_date(payload.due_date)
     actor = device.telegram_id
-    # The class's spelling, so that «алгебра» from a phone updates the «Алгебра»
-    # already set for that day instead of founding a second задание beside it.
-    subject_name = await subjects.spelling(session, school_class.id, payload.subject)
-    existing = await session.scalar(
-        select(Homework).where(
-            Homework.class_id == school_class.id,
-            Homework.due_date == payload.due_date,
-            Homework.subject_name == subject_name,
-        )
+    existing, created = await homework_service.upsert(
+        session,
+        school_class.id,
+        payload.due_date,
+        payload.subject,
+        payload.text,
+        actor,
+        attachment_url=payload.attachment_url,
     )
-    if existing is None:
-        existing = Homework(
-            class_id=school_class.id,
-            due_date=payload.due_date,
-            subject_name=subject_name,
-            text=payload.text,
-            attachment_url=payload.attachment_url,
-            created_by=actor,
-        )
-        session.add(existing)
-        action, verb = "homework.add", "добавлено"
-    else:
-        existing.text = payload.text
-        existing.attachment_url = payload.attachment_url
-        existing.created_by = actor
-        action, verb = "homework.update", "обновлено"
+    subject_name = existing.subject_name
+    action, verb = ("homework.add", "добавлено") if created else ("homework.update", "обновлено")
 
     when = human_date(payload.due_date, _today(school_class))
     await audit.record(
@@ -281,6 +267,19 @@ async def override_put(
         return OverrideOut(date=payload.date, index=payload.index, action="clear")
 
     if existing is None:
+        # A замена at a number the day has no bell for is stored, written to
+        # the log, announced to everybody with «🔁 Замена … урок №8» — and
+        # drawn by nothing, because the resolver takes a lesson's times from
+        # the bell row of the same number and drops what has none. The
+        # timetable learned this; this, the other way a lesson changes, had no
+        # check at all. Only on create: an existing row at a bad number must
+        # stay clearable, which is how a class gets out of one.
+        rung = await timetable_edit.rung_indexes_on(session, school_class.id, payload.date)
+        if not timetable_edit.can_ring(rung, payload.index):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"нет звонка для урока №{payload.index} в этот день",
+            )
         existing = LessonOverride(
             class_id=school_class.id,
             date=payload.date,

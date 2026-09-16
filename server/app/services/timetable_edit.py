@@ -23,13 +23,15 @@ audit line lands with it or not at all, the same rule the rest of
 
 from __future__ import annotations
 
+from datetime import date as Date
+
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import rows_affected
-from app.models import BellPeriod, SchoolClass, TimetableEntry, WeekParity
+from app.models import BellPeriod, DayOverride, SchoolClass, TimetableEntry, WeekParity
 from app.services import subjects
 
 #: Where a row waits while another takes its number.
@@ -88,6 +90,33 @@ async def rung_indexes(session: AsyncSession, class_id: int) -> set[int]:
         .where(SchoolClass.id == class_id)
     )
     return {int(index) for index in rows}
+
+
+async def rung_indexes_on(session: AsyncSession, class_id: int, day: Date) -> set[int]:
+    """The lesson numbers this class rings **on one date**.
+
+    Not the same question as :func:`rung_indexes`: a день marked «сокращённый»
+    points at its own bell schedule, and that schedule is usually the short one
+    — four rows where the ordinary day has seven. A замена written for such a
+    date against the class's default bells would pass a check and still be
+    drawn nowhere, which is the whole failure this is here to prevent.
+    Falls back to the default exactly as ``ScheduleResolver._bells_for`` does,
+    including when the override names a schedule that has since been deleted.
+    """
+    schedule_id = await session.scalar(
+        select(DayOverride.bell_schedule_id).where(
+            DayOverride.class_id == class_id, DayOverride.date == day
+        )
+    )
+    if schedule_id is not None:
+        rows = list(
+            await session.scalars(
+                select(BellPeriod.index).where(BellPeriod.schedule_id == schedule_id)
+            )
+        )
+        if rows:
+            return {int(index) for index in rows}
+    return await rung_indexes(session, class_id)
 
 
 def can_ring(rung: set[int], index: int) -> bool:

@@ -57,8 +57,11 @@ from app.bot.roles import list_memberships
 from app.models import (
     AuditEntry,
     BellPeriod,
+    BellSchedule,
     BotUser,
     DayEvent,
+    DayKind,
+    DayOverride,
     DeviceInvite,
     EventKind,
     Homework,
@@ -1189,3 +1192,91 @@ async def test_a_lesson_number_that_is_not_a_number_is_refused_at_the_press():
 
     assert callback.alerted
     assert "index" not in state.data
+
+
+# --------------------------------------------------------------------------
+# Урок, которого класс не звонит
+# --------------------------------------------------------------------------
+
+
+async def test_a_replacement_with_no_bell_behind_it_is_refused(session, school_class):
+    """The resolver takes a lesson's times from the bell row of the same
+    number, so a замена at a number the day does not ring is stored, written to
+    the log, announced to everybody with «🔁 Замена … урок №8» — and drawn by
+    nothing. The timetable learned this; the other way a lesson changes had no
+    check at all."""
+    message = FakeMessage(text="Химия, 301")
+    state = FakeState(data={"date": MONDAY.isoformat(), "index": "8"})
+
+    await override_subject(message, state, session, school_class, Role.EDITOR)
+
+    assert "нет звонка" in message.last
+    assert await session.scalar(select(LessonOverride)) is None
+    assert await session.scalar(select(AuditEntry)) is None
+
+
+async def test_a_replacement_on_a_lesson_that_rings_still_lands(session, school_class):
+    message = FakeMessage(text="Химия, 301")
+    state = FakeState(data={"date": MONDAY.isoformat(), "index": "2"})
+
+    await override_subject(message, state, session, school_class, Role.EDITOR)
+
+    written = await session.scalar(select(LessonOverride))
+    assert written is not None
+    assert written.subject_name == "Химия"
+
+
+async def test_a_shortened_day_is_measured_by_its_own_bells(session, school_class):
+    """A день marked «сокращённый» points at its own schedule, and that one is
+    usually shorter than the class's usual. Checking against the default bells
+    would pass a замена the day cannot draw."""
+    short = BellSchedule(class_id=school_class.id, name="Сокращённые")
+    session.add(short)
+    await session.flush()
+    session.add(
+        BellPeriod(schedule_id=short.id, index=1, starts_at=time(9, 0), ends_at=time(9, 30))
+    )
+    session.add(
+        DayOverride(
+            class_id=school_class.id,
+            date=MONDAY,
+            kind=DayKind.SHORTENED,
+            bell_schedule_id=short.id,
+        )
+    )
+    await session.commit()
+
+    message = FakeMessage(text="Химия")
+    state = FakeState(data={"date": MONDAY.isoformat(), "index": "3"})
+    await override_subject(message, state, session, school_class, Role.EDITOR)
+
+    assert "нет звонка" in message.last
+    assert await session.scalar(select(LessonOverride)) is None
+
+
+async def test_a_pasted_day_reports_the_lessons_it_actually_wrote(session, school_class):
+    """This handler used to do its own delete-and-insert, which made it the one
+    way into the template with none of the checking `apply_timetable`
+    documents: paste eight lessons into a class that rings seven and it said
+    «сохранено уроков — 8» and listed all eight, while the eighth was on no
+    phone."""
+    message = FakeMessage(
+        text="\n".join(f"{index}. Предмет{index}" for index in range(1, 9))
+    )
+    state = FakeState(data={"weekday": 2})
+
+    await timetable_apply(message, state, session, school_class, Role.ADMIN)
+
+    entries = list(
+        await session.scalars(
+            select(TimetableEntry).where(
+                TimetableEntry.class_id == school_class.id, TimetableEntry.weekday == 2
+            )
+        )
+    )
+    # The fixture class rings seven, so the eighth is not written — and the
+    # reply says so rather than counting it.
+    assert len(entries) == 7
+    assert "сохранено уроков — 7" in message.last
+    assert "Предмет8" not in message.last
+    assert "Не добавлены уроки № 8" in message.last

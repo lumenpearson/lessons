@@ -39,14 +39,14 @@ from app.config import get_settings
 from app.models import (
     DayEvent,
     EventKind,
-    Homework,
     LessonOverride,
     OverrideAction,
     Role,
     SchoolClass,
 )
 from app.schedule import ScheduleResolver
-from app.services import audit, notify, subjects
+from app.services import audit, notify, subjects, timetable_edit
+from app.services import homework as homework_service
 
 router = Router(name="content")
 
@@ -83,6 +83,12 @@ def _shorten(text: str) -> str:
 #: The answer a day picker gives to a date it cannot read.
 BAD_DATE = "Непонятная дата. Откройте календарь заново."
 BAD_PICK = "Не понял, что выбрано. Откройте экран заново."
+#: Said in full rather than «не получилось»: the number is the thing that
+#: is wrong, and «🔔 Звонки» is where it is put right.
+NO_BELL = (
+    "В этот день нет звонка для урока №{index}, поэтому замену никто бы не "
+    "увидел. Добавьте звонок в «🔔 Звонки» или выберите другой урок."
+)
 
 
 def _date_or_none(raw: str) -> Date | None:
@@ -307,33 +313,15 @@ async def homework_text(
 
     data = await state.get_data()
     due = Date.fromisoformat(data["due"])
-    # The class's spelling, so a typed «алгебра» updates the «Алгебра» already
-    # set for that day rather than founding a second задание beside it — both
-    # of which would then go out in the evening digest.
-    subject = await subjects.spelling(session, school_class.id, data["subject"])
-
-    existing = await session.scalar(
-        select(Homework).where(
-            Homework.class_id == school_class.id,
-            Homework.due_date == due,
-            Homework.subject_name == subject,
-        )
+    # Through the service, which owns «one задание per subject per day» for
+    # both shells — including the class's spelling, so a typed «алгебра»
+    # updates the «Алгебра» already set for that day rather than founding a
+    # second задание beside it, and both going out in the evening digest.
+    written, created = await homework_service.upsert(
+        session, school_class.id, due, data["subject"], text, message.from_user.id
     )
-    if existing is not None:
-        existing.text = text
-        existing.created_by = message.from_user.id
-        verb = "обновлено"
-    else:
-        session.add(
-            Homework(
-                class_id=school_class.id,
-                due_date=due,
-                subject_name=subject,
-                text=text,
-                created_by=message.from_user.id,
-            )
-        )
-        verb = "добавлено"
+    subject = written.subject_name
+    verb = "добавлено" if created else "обновлено"
 
     await audit.record(
         session,
@@ -479,7 +467,16 @@ async def _save_override(
     action: OverrideAction,
     subject: str | None = None,
     room: str | None = None,
-) -> None:
+) -> bool:
+    """Write the замена, or report that this day has no such lesson to change.
+
+    The resolver takes a lesson's times from the bell row of the same number,
+    so a замена at a number the day does not ring is stored, logged, announced
+    to everybody with «🔁 Замена … урок №8» and then drawn by nothing. Checked
+    on create only — an existing row at a bad number has to stay clearable,
+    which is how a class gets out of one — and against *this day's* bells,
+    because a сокращённый день rings a shorter schedule than the class's usual.
+    """
     existing = await session.scalar(
         select(LessonOverride).where(
             LessonOverride.class_id == class_id,
@@ -488,6 +485,9 @@ async def _save_override(
         )
     )
     if existing is None:
+        rung = await timetable_edit.rung_indexes_on(session, class_id, day)
+        if not timetable_edit.can_ring(rung, index):
+            return False
         existing = LessonOverride(class_id=class_id, date=day, index=index, action=action)
         session.add(existing)
     existing.action = action
@@ -500,6 +500,7 @@ async def _save_override(
     existing.room = room
     # Staged, not committed: the caller commits it together with its audit
     # line, so a замена and the record of who made it land as one fact.
+    return True
 
 
 @router.message(AddOverride.subject)
@@ -524,7 +525,7 @@ async def override_subject(
     day = Date.fromisoformat(data["date"])
     index = int(data["index"])
 
-    await _save_override(
+    written = await _save_override(
         session,
         school_class.id,
         day,
@@ -533,6 +534,10 @@ async def override_subject(
         subject=subject.strip()[:120],
         room=(room.strip()[:32] or None),
     )
+    if not written:
+        await state.clear()
+        await message.answer(NO_BELL.format(index=index))
+        return
     await audit.record(
         session,
         school_class.id,
@@ -575,7 +580,10 @@ async def override_cancel(
     data = await state.get_data()
     day = Date.fromisoformat(data["date"])
     index = int(data["index"])
-    await _save_override(session, school_class.id, day, index, OverrideAction.CANCEL)
+    if not await _save_override(session, school_class.id, day, index, OverrideAction.CANCEL):
+        await state.clear()
+        await callback.answer(NO_BELL.format(index=index), show_alert=True)
+        return
     await audit.record(
         session,
         school_class.id,

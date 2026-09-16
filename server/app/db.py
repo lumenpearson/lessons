@@ -140,7 +140,7 @@ def rows_affected(result: Any) -> int:
 #: inside a request. A constant that has to be kept in step by hand would rot,
 #: so ``tests/test_schema_version.py`` pins it to the real head and fails the
 #: build if a new revision lands without updating it.
-EXPECTED_REVISION = "0011"
+EXPECTED_REVISION = "0013"
 
 
 async def current_revision(session: AsyncSession) -> str | None:
@@ -150,6 +150,14 @@ async def current_revision(session: AsyncSession) -> str | None:
     SQLite bootstrapped by ``create_all``, which never gets an
     ``alembic_version`` table. That is a normal state for development, so it is
     reported as «unknown» rather than treated as a fault.
+
+    Swallowing the error is not enough on Postgres: a statement that raises
+    leaves its transaction aborted, and every statement after it on the same
+    session fails with ``InFailedSQLTransactionError`` no matter what it asks.
+    So the session is rolled back before the answer is returned, and this
+    function is safe to call anywhere rather than only last. It was only ever
+    harmless because ``/api/v1/warmup`` happens to ask it last — a fact about
+    that caller, which the next one will not know.
     """
     from sqlalchemy import text as sa_text
 
@@ -157,5 +165,6 @@ async def current_revision(session: AsyncSession) -> str | None:
         result = await session.execute(sa_text("SELECT version_num FROM alembic_version"))
         row = result.first()
     except Exception:  # noqa: BLE001 - a missing table is an answer, not a crash
+        await session.rollback()
         return None
     return str(row[0]) if row else None
