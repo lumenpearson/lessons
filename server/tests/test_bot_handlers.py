@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from aiogram.types import CallbackQuery, User
 from sqlalchemy import select
 
 from app.bot.handlers import content
@@ -23,8 +24,10 @@ from app.bot.handlers.access import (
     apply_role,
     invite_phone,
     invite_role,
+    revoke,
     switch_join_mode,
 )
+from app.bot.handlers.access import router as access_router
 from app.bot.handlers.content import (
     _parse_time_range,
     event_pick_kind,
@@ -40,7 +43,8 @@ from app.bot.handlers.content import (
 )
 from app.bot.handlers.start import cmd_code, phone_code
 from app.bot.handlers.timetable import bells_apply, timetable_apply
-from app.bot.keyboards import AccessAction, EventAction, HomeworkAction
+from app.bot.keyboards import AccessAction, EventAction, HomeworkAction, RolePick
+from app.bot.roles import list_memberships
 from app.models import (
     AuditEntry,
     BellPeriod,
@@ -54,6 +58,7 @@ from app.models import (
     OverrideAction,
     PhoneInvite,
     Role,
+    SchoolClass,
     TimetableEntry,
 )
 from app.models import OverrideAction as OverrideActionEnum
@@ -959,3 +964,146 @@ async def test_the_class_code_stays_admin_only(session, school_class):
     message = FakeMessage()
     await cmd_code(message, school_class, Role.EDITOR)
     assert school_class.join_code not in message.last
+
+
+# --------------------------------------------------------------------------
+# Доступ: то, что приходит из callback-данных
+# --------------------------------------------------------------------------
+
+
+def _role_press(target: str) -> CallbackQuery:
+    """A RolePick press as Telegram delivers it, so the registered filters can
+    be asked about it rather than guessed at."""
+    return CallbackQuery(
+        id="1",
+        from_user=User(id=42, is_bot=False, first_name="Тестер"),
+        chat_instance="chat",
+        data=RolePick(role=Role.EDITOR.value, target=target).pack(),
+    )
+
+
+def _callback_filters(handler: Any) -> list[Any]:
+    for registered in access_router.callback_query.handlers:
+        if registered.callback is handler:
+            return [
+                one.callback
+                for one in registered.filters
+                if type(one.callback).__name__ == "CallbackQueryFilter"
+            ]
+    raise AssertionError("handler is not registered on the access router")
+
+
+async def test_the_two_role_pickers_never_match_the_same_press():
+    """Both flows put up a picker of roles and both send back a ``RolePick``;
+    the member flow puts the member's id in ``target`` and the invite flow
+    leaves it empty. While the invite handler matched *any* RolePick, an admin
+    part-way through «пригласить по номеру» who pressed a role on an older
+    «Новая роль» card had a phone invite created instead — and was told so in
+    a sentence naming the number, not the person."""
+    for filter_ in _callback_filters(invite_role):
+        assert not await filter_(_role_press("99"))
+        assert await filter_(_role_press(""))
+    for filter_ in _callback_filters(apply_role):
+        assert await filter_(_role_press("99"))
+        assert not await filter_(_role_press(""))
+
+
+async def test_a_crafted_member_id_is_refused_rather_than_raised(session, school_class):
+    """Callback data is whatever the client sent. A bare ``int()`` on it does
+    not refuse the press — it raises out of the handler, so nothing answers the
+    callback and the button spins until Telegram gives up."""
+    session.add(BotUser(telegram_id=99, class_id=school_class.id, role=Role.EDITOR))
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await apply_role(
+        callback,
+        SimpleNamespace(role=Role.VIEWER.value, target="взлом"),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    untouched = await session.scalar(select(BotUser).where(BotUser.telegram_id == 99))
+    assert untouched.role is Role.EDITOR
+
+
+async def test_a_role_that_is_not_a_role_is_refused_rather_than_raised(session, school_class):
+    """``Role("начальник")`` is a ``ValueError``, and the picker's payload is
+    as forgeable as the id beside it."""
+    session.add(BotUser(telegram_id=99, class_id=school_class.id, role=Role.EDITOR))
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await apply_role(
+        callback,
+        SimpleNamespace(role="начальник", target="99"),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    untouched = await session.scalar(select(BotUser).where(BotUser.telegram_id == 99))
+    assert untouched.role is Role.EDITOR
+
+
+async def test_revoking_a_crafted_id_finds_nobody_rather_than_raising(session, school_class):
+    session.add(BotUser(telegram_id=99, class_id=school_class.id, role=Role.EDITOR))
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await revoke(
+        callback,
+        SimpleNamespace(action="revoke", value="никогда"),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    assert await session.scalar(select(BotUser).where(BotUser.telegram_id == 99)) is not None
+
+
+async def test_a_role_press_with_no_number_behind_it_asks_to_start_again(session, school_class):
+    """FSM state lives in the database and outlives the process that wrote it,
+    so the two screens of this flow can be separated by a redeploy. Reaching
+    into the data for a key that is not there raised a ``KeyError`` where an
+    admin only needed to be asked for the number again."""
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(data={})
+
+    await invite_role(
+        callback,
+        SimpleNamespace(role=Role.EDITOR.value, target=""),
+        state,
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    assert state.cleared
+    assert await session.scalar(select(PhoneInvite)) is None
+
+
+async def test_the_classes_a_person_is_in_come_back_in_a_stated_order(session, school_class):
+    """Three things read this list as if its order meant something: the class
+    the middleware falls back to, the one ``default_class_for`` picks, and the
+    order of the «🔀 Сменить класс» buttons. An unordered ``SELECT`` promises
+    none of it."""
+    second = SchoolClass(name="9Б", join_code="SECOND01")
+    session.add(second)
+    await session.flush()
+    session.add(BotUser(telegram_id=42, class_id=school_class.id, role=Role.ADMIN))
+    session.add(BotUser(telegram_id=42, class_id=second.id, role=Role.VIEWER))
+    await session.commit()
+
+    memberships = await list_memberships(session, 42)
+    assert [member.class_id for member in memberships] == [school_class.id, second.id]
+    # And the same order twice, after a write that could have moved a row.
+    memberships[1].full_name = "Тестер"
+    await session.commit()
+    again = await list_memberships(session, 42)
+    assert [member.class_id for member in again] == [school_class.id, second.id]

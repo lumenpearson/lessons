@@ -52,8 +52,21 @@ async def require_role(
 
 
 async def list_memberships(session: AsyncSession, telegram_id: int) -> list[BotUser]:
+    """Every class this account is in, oldest membership first.
+
+    The order is stated rather than left to the database because three things
+    read it as if it were: the class the middleware falls back to, the one
+    ``default_class_for`` picks, and the order of the «🔀 Сменить класс»
+    buttons. An unordered ``SELECT`` is free to hand back a different order
+    after any write, so a parent with two children could aim at the second
+    button and open the other child — and the fallback class could differ
+    between two taps. SQLite happens to return insertion order, which is why
+    the tests never saw it; Postgres makes no such promise.
+    """
     return list(
-        await session.scalars(select(BotUser).where(BotUser.telegram_id == telegram_id))
+        await session.scalars(
+            select(BotUser).where(BotUser.telegram_id == telegram_id).order_by(BotUser.id)
+        )
     )
 
 
