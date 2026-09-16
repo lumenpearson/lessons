@@ -149,6 +149,8 @@ The access key you were given and a copy of the timetable stay on the device, so
     <!-- Week -->
     <string name="week_title">Calendar</string>
     <string name="week_range">%1$s — %2$s</string>
+    <string name="term_quarter">quarter %1$d</string>
+    <string name="term_semester">semester %1$d</string>
     <string name="week_previous">Previous week</string>
     <string name="week_next">Next week</string>
     <string name="week_current">Current week</string>
