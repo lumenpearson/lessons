@@ -238,13 +238,17 @@ async def timetable_apply(
     # 8», listed all eight, and the eighth was on no phone. Replacing the whole
     # weekday in one transaction is still what happens; it is the service that
     # does it now, exactly as the week import does.
-    total, _bells_written, unrung = await structure.apply_timetable(
-        session, school_class, {weekday: parsed}, []
-    )
+    result = await structure.apply_timetable(session, school_class, {weekday: parsed}, [])
+    total = result.written
+    unrung = result.unrung
 
     summary = f"{WEEKDAY_FULL[weekday - 1]}: уроков {total}"
-    if unrung:
-        summary += f", без звонка пропущено {len(unrung)}"
+    if result.dropped:
+        # Rows, not numbers — a number repeats within one weekday too, because
+        # «3. Алгебра (чёт)» and «3. Геометрия (нечёт)» are two rows, and if
+        # the class does not ring a third lesson both are gone while this line
+        # counted one.
+        summary += f", без звонка пропущено {len(result.dropped)}"
     await audit.record(
         session,
         school_class.id,

@@ -255,9 +255,10 @@ async def test_an_import_skips_lessons_it_has_no_bell_for_and_says_which(
     from app.services import structure
 
     rows = [(index, f"Урок {index}", None, None, WeekParity.ANY) for index in range(1, 10)]
-    total, _schedule, unrung = await structure.apply_timetable(
+    result = await structure.apply_timetable(
         session, school_class, {5: rows}, []
     )
+    total, unrung = result.written, result.unrung
     await session.commit()
 
     assert total == 7, "the class rings seven bells, so seven lessons landed"
@@ -280,9 +281,10 @@ async def test_an_import_that_brings_its_own_bells_may_bring_the_lessons_too(
 
     rows = [(index, f"Урок {index}", None, None, WeekParity.ANY) for index in range(1, 10)]
     bells = [(index, time(8, 0), time(8, 45)) for index in range(1, 10)]
-    total, _schedule, unrung = await structure.apply_timetable(
+    result = await structure.apply_timetable(
         session, school_class, {5: rows}, bells
     )
+    total, unrung = result.written, result.unrung
     await session.commit()
 
     assert total == 9 and unrung == []
@@ -312,9 +314,10 @@ async def test_a_bell_schedule_with_a_gap_is_read_by_its_numbers_not_its_count(
         (2, "Физика", None, None, WeekParity.ANY),
         (4, "Химия", None, None, WeekParity.ANY),
     ]
-    total, _schedule, unrung = await structure.apply_timetable(
+    result = await structure.apply_timetable(
         session, school_class, {5: rows}, bells
     )
+    total, unrung = result.written, result.unrung
     await session.commit()
 
     assert unrung == [], "bell 4 is right there in the same paste"
@@ -334,9 +337,10 @@ async def test_an_import_refuses_a_lesson_whose_number_falls_in_the_gap(
     bells = [(1, time(8, 0), time(8, 45)), (2, time(9, 0), time(9, 45)),
              (4, time(11, 0), time(11, 45))]
     rows = [(index, f"Урок {index}", None, None, WeekParity.ANY) for index in (1, 2, 3, 4)]
-    total, _schedule, unrung = await structure.apply_timetable(
+    result = await structure.apply_timetable(
         session, school_class, {5: rows}, bells
     )
+    total, unrung = result.written, result.unrung
     await session.commit()
 
     assert unrung == [3]

@@ -2202,6 +2202,39 @@ async def test_the_applied_import_counts_the_lessons_it_actually_wrote(session, 
     assert "Не добавлены уроки № 8, 9" in card
 
 
+async def test_the_import_card_counts_dropped_rows_not_dropped_numbers(
+    session, school_class
+):
+    """The ceiling is class-wide, so one number over it costs a row on every
+    weekday that carries it. «Не добавлены уроки № 8» is right to say the
+    number once — it is one thing to fix — but the audit line counted the same
+    way and recorded «без звонка пропущено 1» for two lessons that are on no
+    phone, with nothing else in the class to say the second one existed."""
+    from app.models import AuditEntry
+
+    paste = (
+        "== Понедельник ==\n1. Химия\n8. Алгебра\n\n"
+        "== Вторник ==\n1. История\n8. Физика\n"
+    )
+    state = FakeState()
+    await import_preview(FakeMessage(text=paste), state, school_class, Role.ADMIN)
+
+    callback = FakeCallback(message=FakeEditable())
+    await import_apply(callback, state, session, school_class, Role.ADMIN)
+
+    card = callback.message.last
+    assert "• Понедельник: 1" in card and "• Вторник: 1" in card
+    assert "Не добавлены уроки № 8" in card
+
+    summary = await session.scalar(
+        select(AuditEntry.summary).where(
+            AuditEntry.class_id == school_class.id,
+            AuditEntry.action == "timetable.import",
+        )
+    )
+    assert "без звонка пропущено 2" in summary
+
+
 async def test_a_paste_of_bells_alone_is_not_reported_as_nothing_recognised(
     session, school_class
 ):

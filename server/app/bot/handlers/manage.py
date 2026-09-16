@@ -26,8 +26,8 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import UTC, datetime, timedelta
 from datetime import date as Date
-from datetime import datetime, timedelta
 from html import escape
 
 from aiogram import F, Router
@@ -2346,13 +2346,18 @@ async def import_apply(
         await callback.answer("Нечего применять — начните заново: /import", show_alert=True)
         return
 
-    total, schedule, unrung = await structure.apply_timetable(session, school_class, days, bells)
+    result = await structure.apply_timetable(session, school_class, days, bells)
+    total = result.written
+    schedule = result.schedule
+    unrung = result.unrung
 
     summary = f"импорт расписания: дней {len(days)}, уроков {total}"
     if bells:
         summary += f", звонков {len(bells)}"
-    if unrung:
-        summary += f", без звонка пропущено {len(unrung)}"
+    if result.dropped:
+        # Rows, not numbers. «8. Алгебра» under Monday and under Tuesday is two
+        # lessons nobody will see, and this line is the only record of them.
+        summary += f", без звонка пропущено {len(result.dropped)}"
     await audit.record(
         session, school_class.id, callback.from_user.id, "timetable.import", summary
     )
@@ -2365,11 +2370,13 @@ async def import_apply(
     # What was written, not what was parsed. A lesson past the last bell is
     # dropped by ``apply_timetable``, so printing the parsed count put «уроков
     # — 7» directly above «Вторник: 9» — the card contradicting itself on two
-    # consecutive lines. The ceiling is class-wide, so a row is written exactly
-    # when its number is not among the ones ``unrung`` names.
-    dropped = set(unrung)
+    # consecutive lines. The service says which rows it dropped, by weekday, so
+    # this counts them rather than re-deciding the rule a second time here.
+    dropped_per_day: dict[int, int] = {}
+    for weekday, _index in result.dropped:
+        dropped_per_day[weekday] = dropped_per_day.get(weekday, 0) + 1
     for weekday in sorted(days):
-        written = sum(1 for row in days[weekday] if row[0] not in dropped)
+        written = len(days[weekday]) - dropped_per_day.get(weekday, 0)
         lines.append(f"• {WEEKDAY_FULL[weekday - 1]}: {written}")
     if bells:
         lines.append(f"• Звонки: {len(bells)}")
@@ -2730,7 +2737,7 @@ async def request_approve(
 
     request.status = "approved"
     request.decided_by = callback.from_user.id
-    request.decided_at = datetime.utcnow()
+    request.decided_at = datetime.now(UTC).replace(tzinfo=None)
 
     name = mr.person(member.full_name, member.username, member.telegram_id)
     await audit.record(
@@ -2773,7 +2780,7 @@ async def request_decline(
 
     request.status = "declined"
     request.decided_by = callback.from_user.id
-    request.decided_at = datetime.utcnow()
+    request.decided_at = datetime.now(UTC).replace(tzinfo=None)
     await audit.record(
         session,
         school_class.id,

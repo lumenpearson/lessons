@@ -929,6 +929,40 @@ async def test_timetable_import_refuses_a_paste_with_no_day_in_it(
     assert await _audit(session, school_class) == []
 
 
+async def test_the_same_unrung_number_under_two_days_is_two_lessons_gone(
+    client, session, school_class
+):
+    """«Без звонка пропущено N» counts rows, not the numbers they carry.
+
+    The ceiling is class-wide, so «8. Алгебра» under Monday and «8. Физика»
+    under Tuesday are both dropped by a class that rings two bells — two
+    lessons on no phone. While the count came off the distinct numbers, the
+    audit line admitted to one of them and the answer named one, and the only
+    other trace was «уроков 2» against four pasted lines.
+    """
+    token = await _admin(client, session, school_class)
+    text = (
+        "== Понедельник ==\n1. Химия\n8. Алгебра\n\n"
+        "== Вторник ==\n1. История\n8. Физика\n\n"
+        "== Звонки ==\n1. 09:00-09:40\n2. 09:50-10:30\n"
+    )
+    body = (
+        await client.post(
+            "/api/v1/manage/timetable/import",
+            json={"text": text, "replace": True},
+            headers=_auth(token),
+        )
+    ).json()
+
+    assert body["applied"] is True and body["lessons"] == 2
+    assert body["rejected"] == [
+        "понедельник, урок 8: нет такого звонка в расписании звонков",
+        "вторник, урок 8: нет такого звонка в расписании звонков",
+    ]
+    entries = await _audit(session, school_class)
+    assert "без звонка пропущено 2" in entries[0].summary
+
+
 async def test_export_survives_an_import(client, session, school_class):
     """The format is a backup only if it round-trips."""
     token = await _admin(client, session, school_class)

@@ -12,6 +12,7 @@ line describing it lands with it or not at all.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import time as Time
 
 from sqlalchemy import delete as sa_delete
@@ -38,6 +39,33 @@ DEFAULT_SCHEDULE_NAME = "Обычное"
 
 #: One row of a bell schedule as the parsers hand it over.
 BellRow = tuple[int, Time, Time]
+
+
+@dataclass(frozen=True)
+class TimetableImport:
+    """What an import actually did, for the caller to report.
+
+    ``dropped`` carries one entry per row that was thrown away, not one per
+    lesson number: a week paste puts «8. Алгебра» under Monday and Tuesday
+    alike, and the class either rings an eighth lesson or it does not, so both
+    rows go. While the count came off the distinct numbers, the card said
+    «без звонка пропущено 1» for two lessons nobody would ever see, and the
+    arithmetic above it («уроков 14» against sixteen pasted lines) was the only
+    place the second one was mentioned at all.
+    """
+
+    written: int
+    schedule: BellSchedule | None
+    dropped: list[tuple[int, int]]
+
+    @property
+    def unrung(self) -> list[int]:
+        """The lesson numbers to name in «нет таких номеров», each once.
+
+        The numbers are a property of the class's bells, not of the paste, so a
+        number repeated across weekdays is one thing to fix, said once.
+        """
+        return sorted({index for _weekday, index in self.dropped})
 
 
 async def rename_subject(
@@ -125,17 +153,18 @@ async def apply_timetable(
     school_class: SchoolClass,
     days: dict[int, list],
     bells: list[BellRow],
-) -> tuple[int, BellSchedule | None, list[int]]:
+) -> TimetableImport:
     """Replace exactly the weekdays ``days`` names, and the bells if any came.
 
     Days the paste did not mention are left alone, so importing a single day's
     block is a legitimate thing to do. A day that appears with no lessons under
     it is emptied - that is how a paste says «в четверг уроков нет».
 
-    Returns (lessons written, the schedule the bells went into, the lesson
-    numbers that had no bell to ring them). The schedule is handed back rather
-    than refreshed here because a bulk delete left its ``periods`` stale and
-    only the caller knows whether it is about to be read.
+    Returns a :class:`TimetableImport`: how many lessons were written, the
+    schedule the bells went into, and every row that had no bell to ring it as
+    (weekday, lesson number). The schedule is handed back rather than refreshed
+    here because a bulk delete left its ``periods`` stale and only the caller
+    knows whether it is about to be read.
 
     **A lesson with no bell of its own number is not written.** The resolver
     takes a lesson's times from the bell row of the same number, so such a row
@@ -165,11 +194,11 @@ async def apply_timetable(
     )
 
     total = 0
-    unrung: list[int] = []
+    dropped: list[tuple[int, int]] = []
     for weekday, rows in days.items():
         for index, subject, room, teacher, parity in rows:
             if not timetable_edit.can_ring(rung, index):
-                unrung.append(index)
+                dropped.append((weekday, index))
                 continue
             # A paste is where a class's subjects usually come into existence,
             # and where two spellings of one of them usually do too. The
@@ -201,4 +230,4 @@ async def apply_timetable(
             school_class.bell_schedule_id = schedule.id
         await write_bell_periods(session, schedule, bells)
 
-    return total, schedule, sorted(set(unrung))
+    return TimetableImport(written=total, schedule=schedule, dropped=dropped)
