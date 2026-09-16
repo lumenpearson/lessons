@@ -212,7 +212,16 @@ parity — `[чис]`/`[знам]`, `(чис)`/`(знам)`, `[1]`/`[2]`, or a b
   so such a lesson would be stored and then shown nowhere at all — not in the
   bot, not in the app, not in the widget, not in the сводка. If the paste brings
   its own `== Звонки ==` block, the lessons are checked against *those*, so one
-  message can legitimately add a ninth bell and a ninth lesson together.
+  message can legitimately add a ninth bell and a ninth lesson together. The
+  «⚠️ Не добавлены уроки № …» line names each number once — it is one thing to
+  fix — while the журнал counts the rows, because the same number under two
+  weekdays is two lessons gone. The same rule guards the other direction:
+  deleting a lesson closes the gap only when every lesson it moves lands on a
+  number that rings, so a class whose bells are 1, 2, 4 keeps its numbering
+  instead of sliding a lesson onto a third slot that rings nothing. And a
+  «⏱ Сокращённый день» cannot be pointed at a расписание звонков with no rows in
+  it: such a day would draw nothing at all under a card announcing shortened
+  lessons.
 
 The grammar lives in one place, `services/timetable_io.py`, and the day editor,
 the button editor, the week import and «Экспорт» all speak it. The current day is
@@ -401,7 +410,12 @@ overflowed in Cyrillic.
   included), pick a subject from that day's actual lessons (or type one), send
   the text. Re-sending for the same day and subject
   updates the existing entry instead of duplicating it. The digest shows each
-  reader's own «сделал» ticks.
+  reader's own «сделал» ticks. It draws twelve заданий and stops at a length
+  budget below Telegram's 4096, saying «… и ещё N» for the rest: a fortnight of
+  three заданий a day came to 5371 characters, and Telegram refuses the whole
+  message rather than clipping it, so the screen was «что-то пошло не так» and
+  `/homework` was silence. Every row drawn has a tick button under it — the
+  keyboard is built from the rows the renderer chose, not from the days again.
 * **🔄 Замены** — pick a day and a lesson, then either send the replacement
   (`Физика, 214`), cancel the lesson, or restore it to the template. The weekly
   template is never mutated for a one-off change.
@@ -461,8 +475,11 @@ Four views, paged with `‹` `›`: **📅 День**, **🗓 Неделя**, **
 by the day they are *due*), **📊 Оценки** (last 30 days, averaged over digits
 only — «Н» and «Б» are attendance codes in the same column). A parent account
 with several children is asked once, in **👥 Ребёнок**, and the answer is kept on
-the session. **Выйти** drops the session; the upstream is not told, because it
-has no logout that can be called without a browser.
+the session. **Выйти** drops every session this account holds in this class —
+one row is one sign-in and nothing expires an earlier one, so «вышли» that
+dropped only the newest left the next press walking straight back in; the other
+class of a parent with two children is untouched. The upstream is not told,
+because it has no logout that can be called without a browser.
 
 An empty answer is always said, never drawn as a blank: the upstream returns
 nothing for каникулы, for a day it has no data for, and for a journal a teacher

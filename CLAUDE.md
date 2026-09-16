@@ -39,8 +39,8 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 1311 tests, about four and a half minutes
-- **`python -m mypy`** — one question, of all 78 modules, in seconds: does anything reach
+- **`python -m pytest -q`** — 1335 tests, about five minutes
+- **`python -m mypy`** — one question, of all 79 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. Not in CI — the
   owner has not been asked — but run it before you push server code
@@ -255,7 +255,16 @@ points Hilt does not inject cleanly.
   which used to write the template itself instead of going through
   `services/structure.apply_timetable`. Check with `timetable_edit.can_ring`,
   and for a dated write use `rung_indexes_on`, because a сокращённый день points
-  at a shorter schedule than the class's usual.
+  at a shorter schedule than the class's usual. Two more ways in were closed
+  later: **deleting** a lesson closed the gap in the numbering whatever it
+  landed on (bells at 1, 2, 4 lost the fourth lesson onto a third slot that
+  rings nothing — `remove_lesson` now renumbers only when every moved lesson
+  still rings), and a day could be pointed at a bell schedule with **no rows**,
+  which draws nothing at all under a card saying «⏱ Сокращённые уроки» — both
+  `api/edit.day_put` and the bot refuse that now. And when you report what was
+  dropped, count the **rows**, not the numbers: `apply_timetable` hands back
+  (weekday, number) pairs, because one number under two weekdays — or under
+  «чёт» and «нечёт» in one day — is two lessons nobody will see.
 - **The diary sign-in ticket pays for an attempt, and an unreadable answer is
   one.** `api/diary_web` spends the ticket before the sign-in so that whoever
   holds the URL cannot sit and guess against the upstream from our address. Only
@@ -280,6 +289,16 @@ points Hilt does not inject cleanly.
 
 ## Notes
 
+- **A message Telegram will not deliver is a screen that says nothing.** The
+  ceiling is 4096 characters after entity parsing, and the whole message is
+  refused rather than clipped: the homework digest had no bound and a fortnight
+  of three заданий a day came to 5371, so «📝 Домашнее задание» answered «что-то
+  пошло не так» and `/homework` — a plain `answer`, with no callback to
+  apologise on — answered nothing at all. Every renderer that grows with the
+  data carries a budget (`WEEK_TEXT_LIMIT`, `TASK_LINES_MAX`,
+  `HOMEWORK_DIGEST_LIMIT`, `manage_render.clamp`) and says «… и ещё N». Cut a
+  string **before** escaping it: cutting after can leave «&am», which is a
+  refused message of its own.
 - **Everything from outside is escaped before it goes into a message.** The bot sends
   HTML, and Telegram refuses the **whole message** on a stray `<` rather than damaging one
   row — so an unescaped string does not produce a broken line, it produces a blank screen
