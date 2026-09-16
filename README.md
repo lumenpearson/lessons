@@ -177,7 +177,7 @@ cd android
 | --- | --- |
 | `ruff check app tests scripts migrations` | чисто |
 | `python -m mypy` | чисто, 78 модулей — спрашивает, не тянется ли код за атрибутом, которого нет |
-| `python -m pytest -q` | 1277 тестов, зелёных, около четырёх с половиной минут |
+| `python -m pytest -q` | 1311 тестов, зелёных, около четырёх с половиной минут |
 | `./gradlew test` | 559 тестов, зелёных, все пять модулей |
 | `./gradlew assembleDebug` | APK собирается |
 | `./gradlew assembleRelease` | APK собирается, R8 и сжатие ресурсов проходят |
