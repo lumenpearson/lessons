@@ -82,6 +82,7 @@ def _shorten(text: str) -> str:
 
 #: The answer a day picker gives to a date it cannot read.
 BAD_DATE = "Непонятная дата. Откройте календарь заново."
+BAD_PICK = "Не понял, что выбрано. Откройте экран заново."
 
 
 def _date_or_none(raw: str) -> Date | None:
@@ -100,6 +101,32 @@ def _date_or_none(raw: str) -> Date | None:
         return Date.fromisoformat(raw)
     except (TypeError, ValueError):
         return None
+
+
+def _kind_or_none(raw: str) -> EventKind | None:
+    """The boundary ``_date_or_none`` draws, for the other two things this
+    module carries through the FSM state.
+
+    The date obeys it and the kind, on the very next screen, did not: it was
+    stored raw and turned into an ``EventKind`` three questions later, in the
+    handler that saves the event. That is exactly the failure the comment above
+    ``event_pick_day`` warns about — the person had by then typed a time and a
+    title, and what broke was the press before all of it.
+    """
+    try:
+        return EventKind(raw)
+    except ValueError:
+        return None
+
+
+def _index_or_none(raw: str) -> int | None:
+    """Ditto for the lesson number the override flow carries. Read back by
+    three handlers as ``int(data["index"])``, none of which could refuse it."""
+    try:
+        index = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return index if index >= 0 else None
 
 
 def _parse_time_range(raw: str) -> tuple[time, time] | None:
@@ -413,6 +440,10 @@ async def override_pick_index(
     callback_data: OverrideCB,
     state: FSMContext,
 ) -> None:
+    if _index_or_none(callback_data.value) is None:
+        await callback.answer(BAD_PICK, show_alert=True)
+        return
+
     await state.update_data(index=callback_data.value)
     rows = [
         [
@@ -687,6 +718,10 @@ async def event_pick_kind(
     callback_data: EventAction,
     state: FSMContext,
 ) -> None:
+    if _kind_or_none(callback_data.value) is None:
+        await callback.answer(BAD_PICK, show_alert=True)
+        return
+
     await state.update_data(kind=callback_data.value)
     await callback.message.edit_text(
         "Во сколько? Пришлите интервал, например <code>12:30-13:15</code>.",

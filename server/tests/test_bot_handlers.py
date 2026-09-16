@@ -39,6 +39,7 @@ from app.bot.handlers.content import (
     homework_typed_subject,
     override_cancel,
     override_clear,
+    override_pick_index,
     override_subject,
 )
 from app.bot.handlers.start import cmd_code, phone_code, show_day
@@ -1154,3 +1155,37 @@ async def test_paging_the_day_view_past_every_date_is_refused(session, school_cl
 async def test_paging_the_week_view_past_every_date_is_refused(session, school_class):
     text = await week_text(session, school_class, 999_999_999)
     assert "Такой недели нет" in text
+
+
+async def test_an_event_kind_that_is_not_one_is_refused_at_the_press():
+    """The date this flow carries is parsed at the press, with a comment above
+    it saying why: an unreadable value carried through three questions raises
+    out of the handler that finally reads it, and looks to the person like the
+    answer they just typed was the problem. The kind, one screen later, was
+    stored raw and turned into an ``EventKind`` at the very end — after a time
+    and a title had been typed."""
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(data={"date": MONDAY.isoformat()})
+
+    await event_pick_kind(callback, SimpleNamespace(action="pick_kind", value="зло"), state)
+
+    assert callback.alerted
+    assert "kind" not in state.data
+    # The step does not advance either, so the next thing pressed is another
+    # kind — the flow is not left waiting for a time it will never be able to
+    # save.
+    assert state.state is None
+
+
+async def test_a_lesson_number_that_is_not_a_number_is_refused_at_the_press():
+    """Three handlers read this back as ``int(data["index"])`` and none of them
+    could refuse it."""
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(data={"date": MONDAY.isoformat()})
+
+    await override_pick_index(
+        callback, SimpleNamespace(action="pick_index", value="взлом"), state
+    )
+
+    assert callback.alerted
+    assert "index" not in state.data
