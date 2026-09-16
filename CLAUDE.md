@@ -203,7 +203,7 @@ points Hilt does not inject cleanly.
   a half-applied revision cannot claim to be whole. And say what a revision destroys before
   running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
   sentence the owner needs *before* the transaction, not after.
-- **Migrations are Alembic and production is already at `0011`.** `0001` is a guarded
+- **Migrations are Alembic and production is at `0012`; `0013` waits for the merge.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
@@ -213,7 +213,11 @@ points Hilt does not inject cleanly.
   mode and adds the personal connect codes, and `0011` tightens two `diary_overrides`
   timestamps `0009` left nullable while the model builds them `NOT NULL` — a no-op on this
   database, because the DDL for `0009` came from the model, and not one on a deployment
-  that ran the chain through alembic.
+  that ran the chain through alembic. `0012` does the same for eight more timestamps in
+  seven tables that `0003`, `0004` and `0006` left loose — and on this database it was
+  **not** a no-op: all eight really were nullable, and all eight held zero nulls, so it
+  tightened them and rewrote nothing. `0013` adds `uq_homework_per_subject_per_day` and is
+  **applied after the merge, not before** — see the constraint rule below.
   Nothing after `0001` may use `create_all`.
   Beware the enum: `SAEnum(SomeStrEnum)` stores the member **name**, so a `server_default`
   written as `.value` is a string the ORM cannot read back — which on `classes` is a
@@ -221,6 +225,46 @@ points Hilt does not inject cleanly.
   exactly that. A model change needs
   a revision — a live database will not grow a column on its own, and lifespan `create_all`
   runs only for local SQLite.
+- **A constraint migrates in the opposite direction from a column.** The rule
+  above — migration first, merge second — is about code that knows a column the
+  database does not, and it is right for every additive revision in this chain.
+  A `UNIQUE` or a `NOT NULL` is the other way round: it is the **old** code that
+  breaks against it, with an `IntegrityError` nobody catches where a moment
+  earlier there was a duplicate. `0013` is that shape and says so in its own
+  docstring — it goes on *after* the merge, and `services/homework.py` is
+  written to be correct with or without it so the window in between behaves
+  exactly like today. `0012` is the safe shape (eight timestamps that already
+  hold no nulls) and was applied the usual way, before the merge. Read the
+  database before either: `0012` turned out to be a real fix rather than the
+  no-op `0011` was, because all eight columns really were nullable there.
+- **The weekly template stops at the end of the school year, and until recently
+  did not.** `SCHOOL_YEAR_END_MONTH` is 5 and `schedule.py`'s comment says June
+  onwards must not repeat the template; nothing read it, so every summer weekday
+  drew a full day on the phone, in the widget, in the calendar feed and in the
+  morning digest — whose own rule about staying silent on an empty day could
+  never fire, because the day was never empty. `_resolve_day` now asks
+  `school_year_bounds`. A day somebody marked by hand keeps its kind and note,
+  and events and homework are kept either way: it is the lessons that are out of
+  season, not the day.
+- **A lesson number needs a bell of its own number, everywhere a lesson is
+  written.** The resolver takes a lesson's times from the bell row of the same
+  number and drops what has none, so a row at a number the day does not ring is
+  stored, logged, announced and drawn nowhere. Three ways in had to learn this
+  separately: the week import, the button editor, and — later — the замена
+  (`api/edit.py`, `bot/handlers/content.py`) and the bot's single-day paste,
+  which used to write the template itself instead of going through
+  `services/structure.apply_timetable`. Check with `timetable_edit.can_ring`,
+  and for a dated write use `rung_indexes_on`, because a сокращённый день points
+  at a shorter schedule than the class's usual.
+- **The diary sign-in ticket pays for an attempt, and an unreadable answer is
+  one.** `api/diary_web` spends the ticket before the sign-in so that whoever
+  holds the URL cannot sit and guess against the upstream from our address. Only
+  `UpstreamUnavailable` — a transport failure or a 5xx, where nothing ever
+  looked at what was typed — hands it back. A 200 of HTML must not: a login form
+  on Yii refuses a password with the same bytes a captcha arrives in, and this
+  diary has never been opened for real, so from here the two are
+  indistinguishable. The page says «дневник ответил непонятно» instead of
+  blaming the password, which is the part that was actually broken.
 - **Time is naive local wall time, in the class's zone, not the server's.** A bell rings at
   08:30 whether or not the clocks changed. `SchoolClass.timezone` carries the zone; the
   server decides "today" through `school_class.tz` and the client through
