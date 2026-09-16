@@ -78,9 +78,24 @@ _client: httpx.AsyncClient | None = None
 _client_lock = asyncio.Lock()
 
 
+def _token() -> str:
+    """The key as it will actually be sent, or ``""``.
+
+    Trimmed, like ``crypto.cipher()`` trims ``DIARY_SECRET``, and for the same
+    reason: a value pasted into a host's environment form arrives with a
+    trailing newline or a leading space often enough that «set» and «usable»
+    have to be the same question. Untrimmed, a key of spaces was truthy here,
+    went upstream as ``Authorization: Token   `` and came back 401 — which
+    this provider reads as the daily allowance being spent, so the deployment
+    that never had a key was told «Лимит запросов исчерпан» and its owner went
+    to look at their DaData billing.
+    """
+    return get_settings().dadata_token.strip()
+
+
 def configured() -> bool:
     """Whether this deployment has a key. Cheap enough to ask on every screen."""
-    return bool(get_settings().dadata_token)
+    return bool(_token())
 
 
 async def shared_client() -> httpx.AsyncClient:
@@ -119,7 +134,7 @@ async def suggest_schools(
         still the school the child goes to.
     @raises NotConfigured when this deployment has no key.
     """
-    token = get_settings().dadata_token
+    token = _token()
     if not token:
         raise NotConfigured()
 

@@ -121,6 +121,23 @@ async def test_without_a_key_the_school_step_asks_for_the_name_itself(monkeypatc
     assert message.answers[0][0] == handlers.MANUAL_PROMPT
 
 
+async def test_a_key_of_whitespace_asks_for_the_name_too(monkeypatch):
+    """«Set» and «usable» are one question at this screen.
+
+    A key pasted into a host's environment form arrives with a newline often
+    enough to matter, and a search box that answers «Лимит запросов исчерпан»
+    to everything is worse than the honest question — it sends the owner to
+    read their DaData billing for a key they never had.
+    """
+    monkeypatch.setattr(get_settings(), "dadata_token", "  \n ")
+    message, state = _Message(), _State()
+
+    await handlers._ask_school(message, state)
+
+    assert state.state == CreateClass.school_manual
+    assert message.answers[0][0] == handlers.MANUAL_PROMPT
+
+
 async def test_with_a_key_the_school_step_asks_for_a_search(directory):
     message, state = _Message(), _State()
 

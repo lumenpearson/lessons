@@ -286,6 +286,35 @@ def test_an_undated_turnstile_row_is_dropped():
     assert m.to_attendance([{"direction": "input"}]) == []
 
 
+def test_the_russian_spelling_of_a_direction_is_read_as_the_direction_it_is():
+    """«вход» and «выход» differ by two letters and mean opposite things. The
+    field has been seen in English; an undocumented API translated once has
+    been translated twice, and «выход» matched on its first letter reads as a
+    way in."""
+    events = m.to_attendance(
+        [
+            {"direction": "Вход", "datetime": "12.09.2026 08:21:00"},
+            {"direction": "ВЫХОД", "datetime": "12.09.2026 14:02:00"},
+        ]
+    )
+    assert [event.direction for event in events] == ["out", "in"]
+
+
+def test_a_direction_this_code_does_not_know_is_not_reported_as_leaving():
+    """The reader of this row is a parent asking whether their child is in the
+    building. A word nobody here has seen — a third state, a new translation,
+    an empty field — answered that «ушёл», confidently and possibly wrongly.
+    «unknown» is a third answer the screen can give honestly."""
+    events = m.to_attendance(
+        [
+            {"direction": "проход", "datetime": "12.09.2026 08:21:00"},
+            {"direction": "", "datetime": "12.09.2026 09:00:00"},
+            {"datetime": "12.09.2026 10:00:00"},
+        ]
+    )
+    assert [event.direction for event in events] == ["unknown", "unknown", "unknown"]
+
+
 # ---- parsing --------------------------------------------------------------
 
 

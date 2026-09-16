@@ -121,10 +121,17 @@ class HomeworkItem(BaseModel):
 
 
 class AttendanceEvent(BaseModel):
-    """A turnstile record."""
+    """A turnstile record.
+
+    ``direction`` is ``in``, ``out`` or ``unknown``. The third one is not a
+    parsing failure to be tidied away: the upstream is undocumented, and a
+    spelling this code has not seen must not be rendered as the child leaving
+    the building. Anything reading this has three cases to answer, and the
+    third one is «дневник не сказал, куда».
+    """
 
     at: datetime
-    direction: str  # "in" | "out"
+    direction: str  # "in" | "out" | "unknown"
 
 
 class DiaryAccount(BaseModel):

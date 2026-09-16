@@ -19,7 +19,24 @@ dependencies = [
     # The Petersburg diary provider talks to an upstream over HTTP. It was
     # already here as a test dependency (httpx drives the ASGI client); this
     # promotes it, because now a request path uses it.
-    "httpx>=0.28.1",
+    #
+    # The ceiling is not caution, it is a named dependency on something httpx
+    # has announced it is removing. Every diary call is
+    # `client.request(..., cookies=...)` — one family's session, passed per
+    # request through a client that deliberately keeps no cookie jar of its
+    # own (`_NoCookieJar` in providers/petersburg/client.py, so that two
+    # families' sessions can never meet). 0.28 warns that per-request cookies
+    # are "being deprecated" and points at client-level cookies, which is the
+    # one migration this code must not take. A release that dropped the
+    # parameter would not fail the build: every diary call would simply go out
+    # without a session, and every user would be told theirs expired.
+    #
+    # 0.28.1 is the newest release there is (the 1.0 line is dev previews), so
+    # the bound is the next minor, not the next major — the removal may well
+    # land there. Before raising it: check that httpx still accepts
+    # `cookies=` on a request, run tests/test_diary_api.py, and if it is gone,
+    # set the Cookie header on the request instead of moving the jar.
+    "httpx>=0.28.1,<0.29",
     # Fernet, for the one credential that is stored recoverably rather than
     # hashed — the diary's upstream session token (see app/crypto.py). It was
     # already present as somebody's transitive dependency; a security floor is
@@ -43,7 +60,10 @@ include = ["app*", "scripts*"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
-    "httpx>=0.28.1",
+    # Same ceiling as the runtime dependency above, and for the same reason:
+    # the test suite is where a release that dropped per-request cookies would
+    # be noticed, and it cannot notice it from a version the runtime refuses.
+    "httpx>=0.28.1,<0.29",
     "ruff>=0.6",
     "mypy>=1.11",
 ]

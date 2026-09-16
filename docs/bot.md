@@ -443,7 +443,14 @@ history, not on Telegram's servers, not in the notification on a locked screen,
 not in the phone's backup. A ticket is worth **one** sign-in for fifteen
 minutes for one Telegram account in one class; a GET checks it without spending
 it (Telegram fetches link previews by itself), a POST spends it before
-attempting the sign-in, and a malformed form does not spend it at all.
+attempting the sign-in, and a malformed form does not spend it at all. The one
+failure that hands the ticket back is a diary that did not answer — a transport
+error or a 5xx, where nothing ever looked at what was typed. An answer we
+cannot read still costs it: a login form on Yii refuses a password with the
+same «200 с HTML» a captcha arrives in, so forgiving that would turn the link
+into an unlimited password oracle against the upstream from our address. The
+page says so in words rather than blaming the password, which is what it used
+to do for every failure that was not a plain 401.
 
 The session is stored encrypted (`DIARY_SECRET`, `app/crypto.py`). Without that
 key the whole feature refuses at the door rather than falling back to

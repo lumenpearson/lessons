@@ -386,13 +386,49 @@ def to_homework(items: list[dict[str, Any]]) -> list[HomeworkItem]:
     return homework
 
 
+#: The spellings of a turnstile direction that have actually been seen, and the
+#: two languages they arrive in. ``input``/``output`` is what the endpoint sends
+#: today; the Russian pair is what their own screens show, and an undocumented
+#: API that is translated once has been translated twice.
+#:
+#: Prefixes rather than equality because the field has carried «Вход в здание»
+#: as readily as «вход» - and matched on the *first* letter it would have read
+#: «выход» as a way in, which is the one mistake this table exists to prevent.
+_DIRECTION_IN = ("in", "вход", "приход")
+_DIRECTION_OUT = ("out", "вых", "уход")
+
+
+def _direction(raw: str) -> str:
+    """``in``, ``out``, or ``unknown`` for a word this code does not know.
+
+    Not defaulting to ``out``. A turnstile row is read by a parent checking
+    whether their child is in the building, and the previous default answered
+    that question confidently and possibly wrongly: a spelling nobody here has
+    seen - a new translation, a third state like «отказ» - rendered as the
+    child *leaving*. A row that says «непонятно» is worth something, because
+    the reader can go and look; a row that says the wrong thing is worth less
+    than nothing.
+    """
+    word = raw.strip().lower()
+    if word.startswith(_DIRECTION_IN):
+        return "in"
+    if word.startswith(_DIRECTION_OUT):
+        return "out"
+    if word:
+        # Worth a line: it is how a new spelling is noticed before somebody
+        # asks why the turnstile stopped saying anything.
+        log.info("petersburg: unknown turnstile direction %r", raw)
+    return "unknown"
+
+
 def to_attendance(items: list[dict[str, Any]]) -> list[AttendanceEvent]:
     events: list[AttendanceEvent] = []
     for item in items:
         at = parse_datetime(pick(item, "datetime", "date_time", "date"))
         if at is None:
             continue
-        raw = (text(item, "direction") or "").lower()
-        events.append(AttendanceEvent(at=at, direction="in" if raw.startswith("i") else "out"))
+        events.append(
+            AttendanceEvent(at=at, direction=_direction(text(item, "direction") or ""))
+        )
     events.sort(key=lambda event: event.at, reverse=True)
     return events
