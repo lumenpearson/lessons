@@ -36,6 +36,18 @@ from app.db import Base
 # not accumulate rows for people who wandered off months ago.
 STALE_AFTER = timedelta(days=2)
 
+#: The ``destiny`` the class preference lives under - the key
+#: ``app.bot.middlewares.prefs_key`` builds, and the one row in this table that
+#: is not a conversation. It is written once, when somebody presses «🔀 Сменить
+#: класс», and only read afterwards, so its ``updated_at`` stops moving
+#: immediately: the staleness rule above would delete it two days later and drop
+#: a parent of two children back into whichever class happens to come first,
+#: silently, on a screen that promised «все команды теперь про него».
+#:
+#: It lives here rather than beside the middleware because this is the module
+#: that decides what a stale row is; the middleware imports it back.
+PREFS_DESTINY = "prefs"
+
 
 class FsmRecord(Base):
     """One in-progress conversation."""
@@ -175,11 +187,19 @@ class DatabaseStorage(BaseStorage):
         """Nothing to release: sessions are per-call and the engine is shared."""
 
     async def purge_stale(self, older_than: timedelta = STALE_AFTER) -> int:
-        """Delete abandoned conversations. Returns how many rows went."""
+        """Delete abandoned conversations. Returns how many rows went.
+
+        Conversations only: the preference rows are kept whatever their age.
+        See [PREFS_DESTINY] - ``_encode`` puts the destiny last, so that is what
+        the suffix matches.
+        """
         cutoff = datetime.utcnow() - older_than
         async with self._session_factory() as session:
             stale = await session.scalars(
-                select(FsmRecord.key).where(FsmRecord.updated_at < cutoff)
+                select(FsmRecord.key).where(
+                    FsmRecord.updated_at < cutoff,
+                    ~FsmRecord.key.endswith(f":{PREFS_DESTINY}"),
+                )
             )
             keys = list(stale)
             if keys:

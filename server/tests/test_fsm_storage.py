@@ -175,6 +175,34 @@ async def test_purge_removes_only_abandoned_conversations():
     assert await store.get_data(key(user=2)) == {}
 
 
+async def test_the_sweep_keeps_the_class_a_parent_chose():
+    """The class preference is not a conversation.
+
+    It is written once, when «🔀 Сменить класс» is pressed, and only read
+    afterwards — so its ``updated_at`` stops moving that second. Swept with the
+    abandoned conversations, it left a parent of two children back in whichever
+    class comes first, two days after choosing the other one, with nothing said
+    anywhere.
+    """
+    from app.bot.middlewares import preferred_class_id, prefs_key
+
+    store = storage()
+    await store.set_data(prefs_key(77), {"class_id": 5})
+    await store.set_data(key(user=8), {"half": "typed"})
+
+    async with SessionLocal() as session:
+        for encoded in ("0:77:77:0::prefs", "42:1:8:0::default"):
+            row = await session.get(FsmRecord, encoded)
+            row.updated_at = datetime.utcnow() - timedelta(days=30)
+        await session.commit()
+
+    removed = await store.purge_stale()
+
+    assert removed == 1
+    assert await store.get_data(key(user=8)) == {}
+    assert await preferred_class_id(77) == 5
+
+
 async def test_losing_the_insert_race_applies_the_change_instead_of_raising():
     """Two instances see no row, both insert; the loser must land its update
     on the winner's row rather than surface IntegrityError to the handler."""
