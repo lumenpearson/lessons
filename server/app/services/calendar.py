@@ -68,6 +68,10 @@ async def ensure_calendar_token(session: AsyncSession, school_class: SchoolClass
     )
     await session.commit()
     await session.refresh(school_class, ["calendar_token"])
+    # Not reachable: after that commit the column holds somebody's token, ours
+    # or the winner's, and a class deleted in between raises out of `refresh`
+    # rather than arriving here. It is written for the type, which is Optional
+    # because a class that has never published a feed has no secret.
     return school_class.calendar_token or ""
 
 

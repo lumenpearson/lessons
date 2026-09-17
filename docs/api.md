@@ -193,6 +193,13 @@ The validator is a hash of the body with `generated_at` blanked out - that
 field changes on every request and would otherwise defeat the whole point.
 Weak validators (`W/"..."`) and comma-separated lists are accepted.
 
+The Android client does this: it keeps the last tag in its preferences under a
+*signature* of the request it belongs to (class, `start`, `days`), so 1
+September and a class switch simply stop matching and the next sync asks for
+the whole window. A `304` writes nothing to Room and does not wake the widget —
+nothing it draws has changed — but it **does** move the «обновлено N назад»
+mark, because that is a claim about the check rather than about the payload.
+
 ### Field notes
 
 * Times are local wall time (`HH:MM:SS`) in `school_class.timezone`. A bell rings
