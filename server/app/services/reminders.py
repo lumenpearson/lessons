@@ -403,9 +403,18 @@ async def send_due(session: AsyncSession, bot: Any, now_utc: datetime) -> dict[s
         if not await claim(session, settings, kind, today):
             continue
         try:
-            text = await _digest_text(
-                session, school_class, settings.telegram_id, kind, today, cache
-            )
+            # In a savepoint, because «one broken class must not stop the tick»
+            # is a promise the bare `except` cannot keep on Postgres: a
+            # statement that raises there aborts the whole transaction, and the
+            # next `claim()` then fails with InFailedSqlTransaction — so the
+            # tick 500s and the task reminders and all four sweeps behind it
+            # never run. The savepoint is the same shape `terms.ensure` and
+            # `subjects._adopt` use, and it also means a digest that failed
+            # half-built leaves nothing behind.
+            async with session.begin_nested():
+                text = await _digest_text(
+                    session, school_class, settings.telegram_id, kind, today, cache
+                )
         except Exception:  # noqa: BLE001 - one broken class must not stop the tick
             log.exception("could not build %s digest for class %s", kind, school_class.id)
             counts["failed"] += 1

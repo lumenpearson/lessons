@@ -18,6 +18,7 @@ from sqlalchemy import select
 from app.crypto import seal
 from app.db import SessionLocal
 from app.models import (
+    AuditEntry,
     BellPeriod,
     BotUser,
     DayEvent,
@@ -638,6 +639,45 @@ async def test_send_due_sends_marks_and_never_repeats(session, school_class):
     assert first.last_evening_sent == MONDAY
 
 
+async def test_a_digest_that_fails_half_built_leaves_nothing_behind(
+    session, school_class, monkeypatch
+):
+    """«One broken class must not stop the tick» has to be true of the
+    database too, not only of the loop.
+
+    The build runs in a savepoint, so whatever a failed attempt managed to do
+    is undone rather than carried along and committed by the next `claim()`.
+    On Postgres that savepoint is also what keeps the tick alive at all: a
+    statement that raises there aborts the whole transaction, and every later
+    statement — starting with the next class's claim — fails with
+    InFailedSqlTransaction, so the endpoint 500s and the task reminders and the
+    four sweeps behind them never run. That half cannot be reproduced on
+    SQLite, which leaves the session perfectly usable; what is pinned here is
+    the containment, which holds on both.
+    """
+    settings = await reminders.settings_for(session, school_class.id, 42)
+    settings.morning_at = time(7, 30)
+    await session.commit()
+
+    async def write_then_fail(inner, one_class, telegram_id, kind, today, cache):
+        await audit.record(inner, one_class.id, telegram_id, "digest.partial", "не должно остаться")
+        await inner.flush()
+        raise RuntimeError("upstream of the renderer")
+
+    monkeypatch.setattr(reminders, "_digest_text", write_then_fail)
+
+    counts = await reminders.send_due(session, FakeBot(), MOSCOW_0730)
+
+    assert counts["failed"] == 1 and counts["morning"] == 0
+    # Marked all the same: the claim is what stops the next tick retrying a
+    # class whose digest cannot be built, all morning.
+    assert settings.last_morning_sent == MONDAY
+    left = await session.scalars(
+        select(AuditEntry).where(AuditEntry.action == "digest.partial")
+    )
+    assert list(left) == [], "the failed build's write was carried along and committed"
+
+
 async def test_send_due_is_silent_on_a_day_without_lessons(session, school_class):
     settings = await reminders.settings_for(session, school_class.id, 42)
     settings.morning_at = time(7, 30)
@@ -784,6 +824,37 @@ async def test_calendar_token_is_minted_once_and_rotated_on_request(session, sch
     assert school_class.calendar_token == rotated
     async with SessionLocal() as other:
         assert (await other.get(SchoolClass, school_class.id)).calendar_token == rotated
+
+
+async def test_two_requests_minting_the_calendar_token_hand_out_the_same_one(
+    session, school_class
+):
+    """A subscription URL is set up once and never looked at again.
+
+    Both «📅 Календарь» in the bot and `GET /api/v1/calendar` mint the token on
+    first use, and a request that read the class before the other one committed
+    still sees no token — the ordinary shape of two screens opened together.
+    The second write used to overwrite the first, and the first caller had
+    already been handed a URL the database no longer holds: that feed answers
+    404 for ever, to somebody who will never open the screen again.
+    """
+    class_id = school_class.id
+
+    async with SessionLocal() as second, SessionLocal() as first:
+        # The second request loads the class first, while there is still no
+        # token, and only gets to its own write afterwards.
+        stale = await second.get(SchoolClass, class_id)
+        assert stale.calendar_token is None
+
+        winner = await calendar.ensure_calendar_token(
+            first, await first.get(SchoolClass, class_id)
+        )
+        handed_out = await calendar.ensure_calendar_token(second, stale)
+
+    async with SessionLocal() as after:
+        stored = (await after.get(SchoolClass, class_id)).calendar_token
+    assert stored == winner, "the first caller's URL stopped being the class's"
+    assert handed_out == winner
 
 
 async def test_render_ics_writes_lessons_events_homework_and_tasks(session, school_class):

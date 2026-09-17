@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from datetime import date as Date
 from datetime import time as Time
 
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import PersonalTask, SchoolClass, TaskPriority
@@ -45,11 +46,29 @@ _ICS_PRIORITY = {
 
 
 async def ensure_calendar_token(session: AsyncSession, school_class: SchoolClass) -> str:
-    """The class's feed secret, minted on first request and stable after."""
-    if not school_class.calendar_token:
-        school_class.calendar_token = secrets.token_urlsafe(24)
-        await session.commit()
-    return school_class.calendar_token
+    """The class's feed secret, minted on first request and stable after.
+
+    Minted with a conditional UPDATE, and the answer read back from the row
+    rather than from what this request generated. Two people opening «📅
+    Календарь» at once — or a phone and the bot — both saw no token, both
+    minted one and both committed; the second overwrote the first, and the
+    first had already been handed a URL the database no longer holds. A
+    calendar subscription is set up once and never looked at again, so that
+    caller's feed simply answers 404 for ever, with nothing to say why. The
+    loser of the `WHERE calendar_token IS NULL` now writes nothing and takes
+    the winner's token, which is the same answer.
+    """
+    if school_class.calendar_token:
+        return school_class.calendar_token
+
+    await session.execute(
+        sa_update(SchoolClass)
+        .where(SchoolClass.id == school_class.id, SchoolClass.calendar_token.is_(None))
+        .values(calendar_token=secrets.token_urlsafe(24))
+    )
+    await session.commit()
+    await session.refresh(school_class, ["calendar_token"])
+    return school_class.calendar_token or ""
 
 
 async def rotate_calendar_token(session: AsyncSession, school_class: SchoolClass) -> str:

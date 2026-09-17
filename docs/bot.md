@@ -531,6 +531,14 @@ mint device tokens.
 **🔁 Новая ссылка** (admin) rotates the secret; every existing subscription stops
 updating, which is the point.
 
+The secret is minted on first use, by whichever screen asks first — this one or
+`GET /api/v1/calendar` — with a conditional write, and the URL that is printed
+is read back from the row rather than from what that request generated. Two
+screens opened together used to mint two, the second overwrote the first, and
+the first person was handed a link the class no longer had: a subscription is
+set up once and never looked at again, so that feed would have answered 404 for
+ever.
+
 ## Статистика — `/stats`
 
 Lessons a week (a lesson that alternates weeks counts as a half), subjects,
