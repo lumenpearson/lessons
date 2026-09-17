@@ -1053,6 +1053,47 @@ async def test_a_day_cannot_ring_a_bell_schedule_that_has_no_rows(
     assert drawn["kind"] == "normal" and len(drawn["lessons"]) == 3
 
 
+async def test_cancelling_a_lesson_the_day_does_not_have_is_refused(
+    client, session, school_class, recording_bot
+):
+    """«🚫 Урок №7 отменён» about a number nobody was going to be at.
+
+    A замена at an empty number is a legitimate edit — it is how a lesson is
+    *added* to a day — but a cancellation needs something to cancel. The row
+    was stored, written to the журнал and announced to every subscriber, and
+    then the resolver dropped it on the way out, because it only cancels a
+    lesson the day actually has. The bot cannot reach this: it draws its «🚫»
+    under a lesson that exists.
+    """
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    # The class rings seven bells and Monday has three lessons, so the seventh
+    # passes the bell check and still has nothing in it.
+    refused = await client.put(
+        "/api/v1/overrides",
+        json={"date": (MONDAY + timedelta(days=7)).isoformat(), "index": 7, "action": "cancel"},
+        headers=_auth(token),
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert "отменять нечего" in refused.json()["detail"]
+    assert await session.scalar(select(LessonOverride)) is None
+    assert recording_bot.sent == []
+
+    # The other action at the same number is still accepted: that is how a
+    # lesson gets added to a day at all.
+    added = await client.put(
+        "/api/v1/overrides",
+        json={
+            "date": (MONDAY + timedelta(days=7)).isoformat(),
+            "index": 7,
+            "action": "replace",
+            "subject": "Астрономия",
+        },
+        headers=_auth(token),
+    )
+    assert added.status_code == 200, added.text
+
+
 async def test_days_set_and_clear(client, session, school_class, recording_bot):
     await _subscriber(session, school_class, 7001, notify_changes=True)
     token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)

@@ -43,6 +43,7 @@ from app.models import (
     Role,
     SchoolClass,
 )
+from app.schedule import ScheduleResolver
 from app.schemas import (
     DayIn,
     DayOverrideOut,
@@ -281,6 +282,20 @@ async def override_put(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"нет звонка для урока №{payload.index} в этот день",
             )
+        if payload.action == "cancel":
+            # Cancelling needs something to cancel. A замена at an empty number
+            # is a legitimate edit — it is how a lesson is *added* to a day —
+            # but «🚫 Урок №7 отменён» about a number nobody was going to be at
+            # goes into the log and into everybody's chat, and the resolver
+            # drops the row on the way out because it only cancels a lesson the
+            # day actually has. The bot cannot reach this: it draws its «🚫»
+            # under a lesson that exists.
+            day = (await ScheduleResolver(session, school_class).resolve_range(payload.date, 1))[0]
+            if payload.index not in {lesson.index for lesson in day.lessons}:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"в этот день нет урока №{payload.index}, отменять нечего",
+                )
         existing = LessonOverride(
             class_id=school_class.id,
             date=payload.date,

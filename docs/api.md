@@ -435,6 +435,13 @@ and changes the room or teacher), `cancel`, or `clear`, which deletes the row
 and puts the lesson back on the timetable. Answers the stored row with the
 `action` echoed. Subscribers with «замены и события» on are told.
 
+Two `422`s on create, both about a row that would be stored and drawn nowhere:
+the number has no bell that day (`нет звонка для урока №N в этот день` — the
+day view builds its times out of the bell rows), and `cancel` at a number the
+day has no lesson at (`отменять нечего`). `replace` at an empty number is
+fine — that is how a lesson is *added* to a day — and `clear` is always
+allowed, because it is how a class gets out of a row it should not have.
+
 ### `PUT /api/v1/events` → `201 {"id": 42}`
 
 ```json
