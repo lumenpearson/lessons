@@ -70,20 +70,7 @@ class LessonsWidget : GlanceAppWidget() {
         // graph, a corrupt Room file, a DataStore IO error — makes Glance draw
         // its error layout, permanently, where the honest empty state would
         // have told the user what to do and offered them a tap to do it.
-        val snapshot = runCatching { loadSnapshot(context) }.getOrElse {
-            Snapshot(
-                // device clock: the read failed, so there is no timetable to take a zone
-                // from. The empty state this builds names no lesson and no time.
-                now = LocalDateTime.now(),
-                state = null,
-                signedIn = false,
-                today = null,
-                homeworkDay = null,
-                week = emptyList(),
-                options = WidgetOptions(),
-                language = AppLanguage.SYSTEM,
-            )
-        }
+        val snapshot = runCatching { loadSnapshot(context) }.getOrElse { unreadableSnapshot() }
 
         // Once per render, not once per string: the stored choice came back with
         // the snapshot above, and localized() hands the context straight back on
@@ -109,6 +96,30 @@ class LessonsWidget : GlanceAppWidget() {
             }
         }
     }
+
+    /**
+     * What to draw when the read itself failed.
+     *
+     * `signedIn = true` on purpose, although nothing was read and nothing is
+     * known. The flag only chooses between two sentences, and the two are not
+     * equally wrong: «откройте приложение и потяните вниз» is harmless advice
+     * for somebody who has not joined a class, while «введите код класса»
+     * sends somebody who has joined one to the single screen that cannot help
+     * them — which is the exact failure [Snapshot.signedIn] was added to
+     * prevent, reintroduced here on the path where it is least visible.
+     */
+    internal fun unreadableSnapshot(): Snapshot = Snapshot(
+        // device clock: the read failed, so there is no timetable to take a zone
+        // from. The empty state this builds names no lesson and no time.
+        now = LocalDateTime.now(),
+        state = null,
+        signedIn = true,
+        today = null,
+        homeworkDay = null,
+        week = emptyList(),
+        options = WidgetOptions(),
+        language = AppLanguage.SYSTEM,
+    )
 
     /**
      * Everything one render needs, gathered off the composition.
