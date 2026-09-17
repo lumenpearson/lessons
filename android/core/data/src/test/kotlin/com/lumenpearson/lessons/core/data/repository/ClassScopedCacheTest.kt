@@ -227,7 +227,8 @@ class ClassScopedCacheTest {
     /** Reaching the network at all would mean a read went past the cache. */
     private class UnusedLessonsApi : LessonsApi {
         override suspend fun join(body: JoinRequestDto) = error("unused")
-        override suspend fun bundle(start: String, days: Int) = error("unused")
+        override suspend fun bundle(start: String, days: Int, ifNoneMatch: String?) =
+            error("unused")
         override suspend fun health() = error("unused")
         override suspend fun me() = error("unused")
         override suspend fun unlink() = error("unused")

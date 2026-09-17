@@ -134,6 +134,16 @@ internal abstract class TimetableDao {
     @Query("DELETE FROM school_day WHERE class_id = :classId")
     abstract suspend fun deleteDaysOf(classId: Long)
 
+    /**
+     * Move the «обновлено N назад» mark without touching a single row of data.
+     *
+     * For the sync that got a `304`: the window is byte-for-byte what is
+     * cached, so there is nothing to write — but the check did happen, and a
+     * mark left alone keeps growing on a phone that is syncing perfectly.
+     */
+    @Query("UPDATE school_class SET synced_at_epoch_millis = :millis WHERE id = :classId")
+    abstract suspend fun touchSyncedAt(classId: Long, millis: Long)
+
     @Query("DELETE FROM school_class WHERE id = :classId")
     abstract suspend fun deleteSchoolClass(classId: Long)
 

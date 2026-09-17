@@ -320,6 +320,29 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
     }
 
     /**
+     * The ETag of the `/bundle` window this phone already holds, if it is the
+     * window being asked for again.
+     *
+     * Two keys rather than one: the tag is meaningless without the request it
+     * describes, and this app changes that request on 1 September and on every
+     * class switch. A signature that does not match answers `null`, so the next
+     * sync asks for the whole window — which is what it did before any of this
+     * existed, and is the direction that heals itself.
+     */
+    suspend fun bundleTag(signature: String): String? {
+        val prefs = preferences.first()
+        return if (prefs[KEY_BUNDLE_SIGNATURE] == signature) prefs[KEY_BUNDLE_TAG] else null
+    }
+
+    /** @see bundleTag */
+    suspend fun writeBundleTag(signature: String, etag: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_BUNDLE_SIGNATURE] = signature
+            prefs[KEY_BUNDLE_TAG] = etag
+        }
+    }
+
+    /**
      * Points the app at one of the stored classes.
      *
      * The fingerprint goes with it, for the reason [clearSession] spells out:
@@ -450,6 +473,8 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         val KEY_ALERT_QUIET_TO = intPreferencesKey("alert_quiet_to_minutes")
         val KEY_ALERT_SKIP_HOLIDAYS = booleanPreferencesKey("alert_skip_holidays")
         val KEY_SCHEDULE_FINGERPRINT = stringPreferencesKey("alert_schedule_fingerprint")
+        val KEY_BUNDLE_SIGNATURE = stringPreferencesKey("bundle_etag_signature")
+        val KEY_BUNDLE_TAG = stringPreferencesKey("bundle_etag")
 
         val KEY_BASE_URL = stringPreferencesKey("settings_base_url")
         val KEY_THEME_MODE = stringPreferencesKey("settings_theme_mode")

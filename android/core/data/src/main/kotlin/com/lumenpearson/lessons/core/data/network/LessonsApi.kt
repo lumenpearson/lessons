@@ -6,8 +6,10 @@ import com.lumenpearson.lessons.core.data.network.dto.HealthDto
 import com.lumenpearson.lessons.core.data.network.dto.JoinRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.JoinResponseDto
 import com.lumenpearson.lessons.core.data.network.dto.UnlinkResponseDto
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Query
 
@@ -39,12 +41,18 @@ internal interface LessonsApi {
      * window does not depend on the server's idea of "today".
      * @param days server caps this at 280 — a whole school year, which is what
      * the calendar draws and therefore what the repository asks for.
+     * @param ifNoneMatch the tag of the answer this device already holds. The
+     * server compares it and answers `304` with no body when nothing in the
+     * window has changed, which is most polls — hence `Response`, because that
+     * status is the useful half of this call and a body-typed method would
+     * throw on it.
      */
     @GET("api/v1/bundle")
     suspend fun bundle(
         @Query("start") start: String,
         @Query("days") days: Int,
-    ): BundleDto
+        @Header("If-None-Match") ifNoneMatch: String? = null,
+    ): Response<BundleDto>
 
     /**
      * Unauthenticated reachability probe, so "your address is wrong" and "your

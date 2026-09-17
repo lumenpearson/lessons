@@ -65,6 +65,14 @@ internal class InMemoryTimetableDao : TimetableDao() {
     override suspend fun schoolClass(classId: Long): SchoolClassEntity? =
         classes.firstOrNull { it.id == classId }
 
+    override suspend fun touchSyncedAt(classId: Long, millis: Long) {
+        val at = classes.indexOfFirst { it.id == classId }
+        if (at >= 0) {
+            classes[at] = classes[at].copy(syncedAtEpochMillis = millis)
+            touch()
+        }
+    }
+
     override suspend fun days(classId: Long): List<SchoolDayWithDetails> =
         detailsOf(classId, lookahead = false)
 

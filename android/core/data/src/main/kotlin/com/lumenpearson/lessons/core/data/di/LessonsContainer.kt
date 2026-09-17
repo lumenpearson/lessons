@@ -6,6 +6,7 @@ import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.notifications.SchoolAlerts
 import com.lumenpearson.lessons.core.data.network.NetworkModule
+import com.lumenpearson.lessons.core.data.repository.BundleTagStore
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SessionRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
@@ -135,6 +136,21 @@ class DefaultLessonsContainer(
             // tokens too, in the background, with the app closed and nothing on
             // screen to say where they went.
             onTokenRejected = { sessionRepository.leaveActive() },
+            // The ETag of the window this phone already holds, so a poll that
+            // changes nothing costs a hash comparison instead of a school year
+            // of JSON. In the preferences rather than in Room: it describes a
+            // *request*, not a row, and it has to outlive the table that
+            // `replaceAll` wipes on every sync.
+            bundleTags = object : BundleTagStore {
+                override suspend fun tagFor(signature: String): String? =
+                    runCatching { preferences.bundleTag(signature) }.getOrNull()
+
+                override suspend fun remember(signature: String, etag: String) {
+                    // Guarded because it writes: a full disk must cost the next
+                    // sync its shortcut, not the sync that just succeeded.
+                    runCatching { preferences.writeBundleTag(signature, etag) }
+                }
+            },
         )
     }
 
