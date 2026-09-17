@@ -35,10 +35,13 @@ def _instances() -> tuple[Bot, Dispatcher]:
     return _bot, _dispatcher
 
 
-async def handle_update(payload: dict, secret_header: str | None) -> None:
-    """Verify the caller, then feed the update to the dispatcher.
+def authorise(secret_header: str | None) -> None:
+    """Refuse everybody but Telegram. Raises; returns nothing.
 
-    Separated from the route so it can be tested without an HTTP layer.
+    Its own function because the route has to be able to ask *before* it has
+    read the body: parsing a stranger's JSON first is work done for somebody
+    who was never going to be let in, on a serverless function that is billed
+    by the millisecond and sized by the megabyte.
     """
     settings = get_settings()
 
@@ -53,6 +56,17 @@ async def handle_update(payload: dict, secret_header: str | None) -> None:
     # takeover, not merely spam.
     if not secret_header or not _constant_time_equals(secret_header, settings.webhook_secret):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bad secret token")
+
+
+async def handle_update(payload: dict, secret_header: str | None) -> None:
+    """Verify the caller, then feed the update to the dispatcher.
+
+    Separated from the route so it can be tested without an HTTP layer. The
+    check is repeated here rather than assumed: this is the entry point the
+    tests use, and a second constant-time compare costs nothing next to
+    building an `Update`.
+    """
+    authorise(secret_header)
 
     bot, dispatcher = _instances()
     update = Update.model_validate(payload, context={"bot": bot})
@@ -77,6 +91,10 @@ async def telegram_webhook(
     webhook, so a single bad message must not take the whole bot down; the
     failure goes to the log instead.
     """
+    # Who, before what: the body is whatever the caller sent, and until the
+    # secret checks out the caller is not Telegram.
+    authorise(x_telegram_bot_api_secret_token)
+
     try:
         payload = await request.json()
     except Exception:  # noqa: BLE001 - any malformed body is the same answer

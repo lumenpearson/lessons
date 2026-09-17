@@ -16,6 +16,7 @@ from httpx import ASGITransport
 from sqlalchemy import select
 from test_diary_api import LOGIN_PATH, FakeUpstream, with_token  # noqa: F401
 
+from app.api import diary_web as from_app
 from app.config import get_settings
 from app.main import app
 from app.models import DiaryLinkCode, DiarySession, SchoolClass
@@ -76,6 +77,40 @@ async def test_a_get_does_not_spend_the_ticket(web, ticket, session):
 
     row = await session.scalar(select(DiaryLinkCode))
     assert row.used_at is None
+
+
+async def test_an_oversized_body_is_dropped_before_it_is_all_in_memory(web, ticket):
+    """The constant says «before reading it», and now that is true.
+
+    `await request.body()` buffers the whole thing and only then lets anything
+    measure it, which on a serverless function means the megabyte is already in
+    the memory it has least of. The body is read in chunks with a running
+    total, so a sender that keeps talking is cut off at the line rather than
+    after it — this test counts what the app actually pulled.
+    """
+    sent = 0
+    total = 4 * 1024 * 1024
+
+    async def flood():
+        nonlocal sent
+        for _ in range(total // (64 * 1024)):
+            sent += 64 * 1024
+            yield b"x" * (64 * 1024)
+
+    response = await web.post(
+        f"/diary/signin/{ticket}",
+        content=flood(),
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+
+    # Refused as a body that is not this form's, which is also why the ticket
+    # survives: nothing was attempted upstream.
+    assert response.status_code == 400
+    assert sent < total, "the whole flood was read before anything measured it"
+    # One chunk is the smallest thing a reader can pull, and the sender's
+    # chunks are 64 KiB; what matters is that it stopped at the first one over
+    # the line instead of swallowing four megabytes.
+    assert sent <= 64 * 1024, f"read {sent} bytes to refuse a body capped at {from_app.MAX_BODY}"
 
 
 async def test_signing_in_opens_a_session_bound_to_the_telegram_account(

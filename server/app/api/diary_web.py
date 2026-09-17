@@ -178,6 +178,27 @@ async def sign_in_form(
 MAX_BODY = 8 * 1024
 
 
+async def _body_within_limit(request: Request) -> bytes | None:
+    """The body, or ``None`` if it is larger than :data:`MAX_BODY`.
+
+    Read chunk by chunk with a running total. ``await request.body()`` buffers
+    the whole thing first and only then lets anything measure it, so the
+    constant above described a guard that did not exist: the megabyte was
+    already in the function's memory by the time it was called too big. This
+    stops at the first chunk that crosses the line and never holds more than
+    that.
+    """
+    size = 0
+    chunks: list[bytes] = []
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > MAX_BODY:
+            return None
+        if chunk:
+            chunks.append(chunk)
+    return b"".join(chunks)
+
+
 async def _fields(request: Request) -> tuple[str, str] | None:
     """The two fields, or ``None`` for a body that is not this form's.
 
@@ -190,8 +211,8 @@ async def _fields(request: Request) -> tuple[str, str] | None:
     kind = request.headers.get("content-type", "").split(";")[0].strip()
     if kind != "application/x-www-form-urlencoded":
         return None
-    raw = await request.body()
-    if len(raw) > MAX_BODY:
+    raw = await _body_within_limit(request)
+    if raw is None:
         return None
     try:
         fields = parse_qs(raw.decode("utf-8"), keep_blank_values=True)
