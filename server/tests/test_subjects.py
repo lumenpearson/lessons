@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
+from app.db import SessionLocal
 from app.models import Subject, TimetableEntry, WeekParity
 from app.services import structure, subjects, timetable_edit
 
@@ -288,3 +289,50 @@ async def test_spelling_answers_with_the_class_s_own(session, school_class):
     before = await _names(session, school_class.id)
     assert await subjects.spelling(session, school_class.id, "Астрономия") == "Астрономия"
     assert await _names(session, school_class.id) == before
+
+
+# ---- two reads healing the same class at the same instant ------------------
+
+
+async def test_two_reads_healing_one_class_at_once_concede_rather_than_raise(
+    session, school_class
+):
+    """The savepoint in `_adopt`, pinned from the outside.
+
+    Healing runs on the read path, so a class with an empty dictionary has
+    every phone in it try to fill the same one on the same poll. Both find
+    «Алгебра» absent, both insert it, and the loser of `uq_subject_name` would
+    take the whole request down with it on Postgres — a 500 on exactly the
+    first read this healing exists for. The loser concedes to the row that is
+    there and links its lessons to it, which is the same answer.
+    """
+    class_id = school_class.id
+
+    async with SessionLocal() as loser:
+        real_flush = loser.flush
+
+        async def flush_after_a_rival_healed(*args, **kwargs):
+            loser.flush = real_flush
+            # The other request got the whole dictionary in while this one was
+            # between its find and its insert.
+            async with SessionLocal() as rival:
+                await subjects.sync_from_timetable(rival, class_id)
+                await rival.commit()
+            return await real_flush(*args, **kwargs)
+
+        loser.flush = flush_after_a_rival_healed
+        created = await subjects.sync_from_timetable(loser, class_id)
+        # The caller's transaction survived the conflict - that is the whole
+        # point of the savepoint, and on Postgres the only thing that saves it.
+        await loser.commit()
+
+    # And it says what it did: conceding is finding a row, not writing one, and
+    # «🔄 Собрать из расписания» prints this number back at an admin.
+    assert created == 0
+
+    async with SessionLocal() as after:
+        assert await _names(after, class_id) == ["Алгебра", "История", "Физика"]
+        entries = await _entries(after, class_id)
+    assert all(entry.subject_id is not None for entry in entries), (
+        "the loser links its lessons to the rows the winner wrote"
+    )

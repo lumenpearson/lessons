@@ -15,6 +15,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import retrofit2.Response
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -111,13 +112,19 @@ class SyncWindowTest {
         var start: String? = null
         var days: Int? = null
 
-        override suspend fun bundle(start: String, days: Int): BundleDto {
+        override suspend fun bundle(
+            start: String,
+            days: Int,
+            ifNoneMatch: String?,
+        ): Response<BundleDto> {
             this.start = start
             this.days = days
-            return BundleDto(
-                apiVersion = 1,
-                schoolClass = SchoolClassDto(id = 1, name = "9А"),
-                days = emptyList(),
+            return Response.success(
+                BundleDto(
+                    apiVersion = 1,
+                    schoolClass = SchoolClassDto(id = 1, name = "9А"),
+                    days = emptyList(),
+                ),
             )
         }
     }
@@ -125,7 +132,8 @@ class SyncWindowTest {
     /** Every call this test does not make; reaching one is the bug. */
     private class UnusedApi : LessonsApi {
         override suspend fun join(body: JoinRequestDto) = error("unused")
-        override suspend fun bundle(start: String, days: Int) = error("unused")
+        override suspend fun bundle(start: String, days: Int, ifNoneMatch: String?) =
+            error("unused")
         override suspend fun health() = error("unused")
         override suspend fun me() = error("unused")
         override suspend fun unlink() = error("unused")

@@ -33,7 +33,7 @@ from app.bot.keyboards import (
 )
 from app.bot.states import EditBells, EditTimetable
 from app.models import BellPeriod, BellSchedule, Role, SchoolClass, TimetableEntry, WeekParity
-from app.services import audit, subjects, timetable_io
+from app.services import audit, structure, timetable_io
 
 router = Router(name="timetable")
 
@@ -231,44 +231,56 @@ async def timetable_apply(
         )
         return
 
-    # Replacing the whole weekday in one transaction keeps the template and the
-    # message the admin just sent identical — no partial merges to reason about.
-    await session.execute(
-        delete(TimetableEntry).where(
-            TimetableEntry.class_id == school_class.id, TimetableEntry.weekday == weekday
-        )
-    )
-    created: list[TimetableEntry] = []
-    for index, subject, room, teacher, parity in parsed:
-        # Through the dictionary, so a pasted weekday adds its subjects to
-        # «📚 Предметы» and picks up the spelling the class already uses.
-        name, subject_id = await subjects.canonical(session, school_class.id, subject)
-        entry = TimetableEntry(
-            class_id=school_class.id,
-            weekday=weekday,
-            index=index,
-            subject_id=subject_id,
-            subject_name=name,
-            room=room,
-            teacher=teacher,
-            parity=parity,
-        )
-        session.add(entry)
-        created.append(entry)
+    # Through the service, not written here. This handler used to do its own
+    # delete-and-insert, which made it the one way into the template with none
+    # of the checking `apply_timetable` documents at length — paste eight
+    # lessons into a class that rings seven and it answered «сохранено уроков —
+    # 8», listed all eight, and the eighth was on no phone. Replacing the whole
+    # weekday in one transaction is still what happens; it is the service that
+    # does it now, exactly as the week import does.
+    result = await structure.apply_timetable(session, school_class, {weekday: parsed}, [])
+    total = result.written
+    unrung = result.unrung
 
+    summary = f"{WEEKDAY_FULL[weekday - 1]}: уроков {total}"
+    if result.dropped:
+        # Rows, not numbers — a number repeats within one weekday too, because
+        # «3. Алгебра (чёт)» and «3. Геометрия (нечёт)» are two rows, and if
+        # the class does not ring a third lesson both are gone while this line
+        # counted one.
+        summary += f", без звонка пропущено {len(result.dropped)}"
     await audit.record(
         session,
         school_class.id,
         message.from_user.id,
         "timetable.set",
-        f"{WEEKDAY_FULL[weekday - 1]}: уроков {len(parsed)}",
+        summary,
     )
     await session.commit()
     await state.clear()
 
-    lines = [f"✅ {WEEKDAY_FULL[weekday - 1]}: сохранено уроков — {len(parsed)}."]
+    # Read back rather than echoed: what is printed is then what is stored,
+    # which is the whole point of putting the write behind the service.
+    written = list(
+        await session.scalars(
+            select(TimetableEntry)
+            .where(
+                TimetableEntry.class_id == school_class.id,
+                TimetableEntry.weekday == weekday,
+            )
+            .order_by(TimetableEntry.index, TimetableEntry.parity)
+        )
+    )
+
+    lines = [f"✅ {WEEKDAY_FULL[weekday - 1]}: сохранено уроков — {total}."]
     lines.append("")
-    lines.extend(escape(timetable_io.format_lesson_line(entry)) for entry in created)
+    lines.extend(escape(timetable_io.format_lesson_line(entry)) for entry in written)
+    if unrung:
+        numbers = ", ".join(str(index) for index in unrung)
+        lines.append(
+            f"\n⚠️ Не добавлены уроки № {numbers}: в расписании звонков нет "
+            "таких номеров. Добавьте звонки в «🔔 Звонки» и вставьте день заново."
+        )
     if rejected:
         lines.append("")
         lines.append("⚠️ Не разобрал строки:")

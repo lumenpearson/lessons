@@ -12,7 +12,8 @@ from datetime import date
 
 import pytest
 
-from app.models import TermKind
+from app.db import SessionLocal
+from app.models import SchoolClass, TermKind
 from app.schedule import school_year_bounds
 from app.services import terms as service
 
@@ -205,3 +206,96 @@ async def test_moving_a_class_up_a_grade_does_not_destroy_its_edited_terms(
     assert [t.index for t in kept] == [1, 2, 3, 4]
     assert all(t.kind is TermKind.QUARTER for t in kept)
     assert kept[0].ends_on == moved_end
+
+
+# --------------------------------------------------------------------------
+# Two phones polling one brand-new class seed it at the same instant.
+# --------------------------------------------------------------------------
+
+
+async def _seeding_loses_to(other_session, school_class, year, *, kind=None):
+    """Run `ensure` on `other_session` with a rival seeding the same year first.
+
+    The rival commits while this session is between its read and its insert —
+    the window the race lives in — by hooking the flush that sends the insert.
+    Two connections, two transactions, and the loser really does hit
+    ``uq_term_slot``; nothing about the service is patched.
+    """
+    real_flush = other_session.flush
+
+    async def flush_after_a_rival_got_there_first(*args, **kwargs):
+        other_session.flush = real_flush
+        async with SessionLocal() as rival:
+            klass = await rival.get(SchoolClass, school_class.id)
+            await service.ensure(rival, klass, year)
+            await rival.commit()
+        return await real_flush(*args, **kwargs)
+
+    other_session.flush = flush_after_a_rival_got_there_first
+    return await service.ensure(other_session, school_class, year, kind=kind)
+
+
+async def test_two_requests_seeding_one_year_both_get_the_terms(session, school_class):
+    """The loser of the seeding race answers a bundle, not a 500.
+
+    `ensure` is called from `GET /api/v1/bundle`, so a class whose year is
+    unseeded has every phone in it try to seed it on the same poll. Both read
+    an empty set, both insert index 1, and `uq_term_slot` refuses the second —
+    which on Postgres poisons the whole request's transaction. The savepoint
+    keeps that inside `ensure`, and the loser concedes to the rows the winner
+    wrote: the same four dates, so both callers are answered correctly.
+    """
+    school_class.grade = 9
+    await session.commit()
+
+    async with SessionLocal() as loser:
+        klass = await loser.get(SchoolClass, school_class.id)
+        conceded = await _seeding_loses_to(loser, klass, 2026)
+        # The caller's transaction is still usable - that is what the savepoint
+        # buys, and on Postgres the only thing that does.
+        await loser.commit()
+
+    assert [t.index for t in conceded] == [1, 2, 3, 4]
+    assert all(t.kind is TermKind.QUARTER for t in conceded)
+    assert all(t.id is not None for t in conceded)
+
+    async with SessionLocal() as after:
+        stored = await service.read(after, school_class.id, 2026)
+    assert len(stored) == 4, "one set of four, not two"
+    assert [t.starts_on for t in stored] == [t.starts_on for t in conceded]
+
+
+async def test_a_scheme_change_that_loses_the_race_still_changes_the_scheme(
+    session, school_class
+):
+    """`set_scheme` is the one caller that may not accept the other set.
+
+    A read-path seed landing first writes the four четверти the grade implies.
+    Conceding to them would answer «сделано» to an admin who asked for
+    полугодия and leave quarters on the screen, so the losing pass replaces
+    them — which is what a scheme change means when the set already exists.
+
+    Called as `set_scheme` calls it, minus the `term_kind` assignment:
+    on SQLite that pending UPDATE is autoflushed by the read a moment later and
+    holds a write lock on the whole file, so the rival could not commit at all.
+    Postgres locks the rows, not the database; the assignment is made after the
+    race here, and the state it leaves is the same.
+    """
+    school_class.grade = 9  # the rival's read answers «четверти» from this
+    school_class.term_kind = None
+    await session.commit()
+
+    async with SessionLocal() as loser:
+        klass = await loser.get(SchoolClass, school_class.id)
+        changed = await _seeding_loses_to(loser, klass, 2026, kind=TermKind.SEMESTER)
+        klass.term_kind = TermKind.SEMESTER
+        await loser.commit()
+
+    assert [t.index for t in changed] == [1, 2]
+    assert all(t.kind is TermKind.SEMESTER for t in changed)
+
+    async with SessionLocal() as after:
+        stored = await service.read(after, school_class.id, 2026)
+    assert [t.kind for t in stored] == [TermKind.SEMESTER, TermKind.SEMESTER], (
+        "the four quarters the rival seeded are replaced, not kept"
+    )

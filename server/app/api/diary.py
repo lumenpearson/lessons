@@ -20,6 +20,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START
 from app.db import get_session
 from app.models import DiarySession
 from app.providers.petersburg import (
@@ -58,8 +59,25 @@ router = APIRouter(prefix="/api/v1/diary", tags=["diary"])
 MAX_RANGE_DAYS = 62
 DEFAULT_RANGE_DAYS = 14
 
+#: The widest dates a request may name — literally `/bundle`'s own pair,
+#: imported rather than repeated, because a second copy of a bound that must
+#: agree with the first is a bound that eventually does not.
+#:
+#: They are needed here for the same reason: `from` is arbitrary client input
+#: and the default window is `start + 14 days` on top of it, which within a
+#: fortnight of `date.max` raises OverflowError — a 500 out of a query string,
+#: where every other bad date on this surface is a 422 saying what was wrong.
+MIN_DATE = MIN_BUNDLE_START
+MAX_DATE = MAX_BUNDLE_START
+
 
 def _range(date_from: Date | None, date_to: Date | None) -> tuple[Date, Date]:
+    for day in (date_from, date_to):
+        if day is not None and not (MIN_DATE <= day <= MAX_DATE):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"dates must be between {MIN_DATE.isoformat()} and {MAX_DATE.isoformat()}",
+            )
     # The diary's own day, not the server's: see `petersburg.TIMEZONE`.
     start = date_from or diary_today()
     end = date_to or start + timedelta(days=DEFAULT_RANGE_DAYS)
@@ -162,7 +180,20 @@ async def login(
     upstream session eventually expires, requests answer 401 with
     ``X-Diary-Reauth: required`` and the app asks for it again.
     """
-    token, row = await _guard(service.sign_in(session, payload.login, payload.password))
+    try:
+        token, row = await _guard(service.sign_in(session, payload.login, payload.password))
+    except service.DiaryDisabled as failure:
+        # No ``DIARY_SECRET``, so the feature is off — see ``app/crypto.py``
+        # for why that is a refusal rather than a fallback. ``_guard`` knows
+        # the *upstream's* failures and nothing else, so this one went out of
+        # the handler: a bare 500 on an unauthenticated endpoint, a stack trace
+        # per attempt, and nothing for the app to put on the screen. The other
+        # door onto the same service, ``POST /diary/signin``, has always
+        # answered 503 and said so in words; this is that answer.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Дневник на этом сервере выключен.",
+        ) from failure
     return DiaryLoginOut(token=token, login=row.login)
 
 

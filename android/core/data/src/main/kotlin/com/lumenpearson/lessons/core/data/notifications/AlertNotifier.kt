@@ -67,6 +67,25 @@ internal object AlertNotifier {
     private const val ID_HOMEWORK = 0x5A03
     private const val ID_CHANGES = 0x5A04
 
+    /** Every notification this object posts; see [tapRequestCode]. */
+    internal val NotificationIds: List<Int> =
+        listOf(ID_LESSON, ID_MORNING, ID_HOMEWORK, ID_CHANGES)
+
+    /**
+     * The request code of the tap target of the notification with [id].
+     *
+     * One per notification rather than one for the lot, and that is the whole
+     * of it. The four intents differ only by the date they carry, in an extra —
+     * and `Intent.filterEquals`, which is what decides whether two
+     * `PendingIntent`s are the same one, ignores extras. Under a single request
+     * code they were therefore one `PendingIntent`, and `FLAG_UPDATE_CURRENT`
+     * rewrote its date every time anything was posted: the homework reminder at
+     * eight sent that morning's summary to tomorrow, and «расписание
+     * изменилось», which carries no date at all, stripped the date out of both
+     * — so the notification opened whatever tab the app was last on.
+     */
+    internal fun tapRequestCode(id: Int): Int = id
+
     private val clockFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("H:mm")
 
     /**
@@ -277,7 +296,7 @@ internal object AlertNotifier {
             // on one line on any phone; expanding is the difference between
             // "задано по трём предметам" and knowing which three.
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setContentIntent(openApp(context, date))
+            .setContentIntent(openApp(context, id, date))
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .build()
@@ -293,7 +312,7 @@ internal object AlertNotifier {
      * same deep link the widget's day chips use, so there is one way in and one
      * intent contract to keep working.
      */
-    private fun openApp(context: Context, date: LocalDate?): PendingIntent? {
+    private fun openApp(context: Context, id: Int, date: LocalDate?): PendingIntent? {
         val intent = Intent(DeepLink.ACTION_OPEN_DAY)
             .setComponent(ComponentName(context.packageName, MAIN_ACTIVITY))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -302,7 +321,7 @@ internal object AlertNotifier {
         return runCatching {
             PendingIntent.getActivity(
                 context,
-                REQUEST_CODE,
+                tapRequestCode(id),
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
@@ -339,6 +358,4 @@ internal object AlertNotifier {
 
     /** Must match the activity `:app` declares; see [openApp]. */
     private const val MAIN_ACTIVITY = "com.lumenpearson.lessons.MainActivity"
-
-    private const val REQUEST_CODE = 0x5A00
 }

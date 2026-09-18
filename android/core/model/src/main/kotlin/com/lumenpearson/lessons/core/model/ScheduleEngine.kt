@@ -21,8 +21,30 @@ object ScheduleEngine {
 
     fun stateAt(timetable: Timetable, now: LocalDateTime): DayState {
         val today = now.toLocalDate()
-        val day = timetable.day(today) ?: return DayState.NoData(today)
-        return stateAt(day, now, nextHomeworkDay = { timetable.schoolDayAfter(today) })
+        val day = timetable.day(today)
+        if (day != null) {
+            return stateAt(day, now, nextHomeworkDay = { timetable.schoolDayAfter(today) })
+        }
+        // Out of season is not out of data. From 1 June the sync window is the
+        // year *about to* open (`SchoolYear.boundsAt`), so the cache holds
+        // September onwards and nothing for today — and «Расписание ещё не
+        // загружено — откройте приложение и потяните вниз» sat on the home
+        // screen and in the widget every day of the summer, asking for a pull
+        // that could not help. The server reads these dates the same way:
+        // `_resolve_day` stops repeating the template past the end of May and
+        // answers a holiday.
+        if (today !in SchoolYear.boundsAt(today)) {
+            return DayState.DayOff(
+                date = today,
+                kind = DayKind.HOLIDAY,
+                note = null,
+                // The first day of the year about to open: what «дальше» and
+                // the homework card should be pointing at in July.
+                homeworkDay = timetable.schoolDayAfter(today),
+                validUntil = null,
+            )
+        }
+        return DayState.NoData(today)
     }
 
     fun stateAt(

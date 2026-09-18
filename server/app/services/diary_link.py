@@ -23,8 +23,10 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db import rows_affected
 from app.models import DiaryLinkCode
 from app.security import hash_token, new_token
 
@@ -74,13 +76,40 @@ async def claim(session: AsyncSession, code: str) -> DiaryLinkCode | None:
     order is the point: a ticket that survived a wrong password would let
     whoever has the link keep guessing against the upstream from our address,
     which is our address getting rate-limited for somebody else's attack.
+
+    One conditional ``UPDATE`` decides it, exactly as
+    :func:`app.services.device_invites.burn` decides a join, and for the same
+    reason: "one link, one sign-in" is a promise about two requests, not one.
+    Reading the row, checking it in Python and then assigning ``used_at`` lets
+    two ``POST /diary/signin/{code}`` arriving together both read the same live
+    row and both write it — one ticket, two diary sessions on one account. Here
+    the second statement waits on the first's lock, re-checks
+    ``used_at IS NULL`` after it, matches nothing, and the caller gets ``None``.
+
+    The row is read back afterwards because the caller needs the ``telegram_id``
+    and ``class_id`` it carries, and a ``SELECT`` inside the same transaction as
+    the winning ``UPDATE`` can only see the row that update just spent.
     """
+    now = utcnow()
+    result = await session.execute(
+        sa_update(DiaryLinkCode)
+        .where(
+            DiaryLinkCode.code_hash == hash_token(code),
+            DiaryLinkCode.used_at.is_(None),
+            # In the statement rather than compared after it, so that one
+            # statement is the whole decision. It also keeps a refusal from
+            # writing: a timed-out ticket marked used is a row that reads as
+            # «кто-то вошёл» when nobody did, and the page says the same thing
+            # to the person either way.
+            DiaryLinkCode.expires_at > now,
+        )
+        .values(used_at=now)
+    )
+    if rows_affected(result) != 1:
+        return None
     row = await session.scalar(
         select(DiaryLinkCode).where(DiaryLinkCode.code_hash == hash_token(code))
     )
-    if row is None or row.used_at is not None or row.expires_at <= utcnow():
-        return None
-    row.used_at = utcnow()
     await session.commit()
     return row
 
@@ -96,4 +125,4 @@ async def purge(session: AsyncSession) -> int:
         sa_delete(DiaryLinkCode).where(DiaryLinkCode.expires_at <= utcnow())
     )
     await session.commit()
-    return result.rowcount or 0
+    return rows_affected(result)

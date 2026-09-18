@@ -21,17 +21,22 @@ from datetime import UTC, datetime
 from datetime import date as Date
 from typing import Any
 
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crypto import diary_enabled, seal, unseal
+from app.db import rows_affected
 from app.models import DiaryOverride, DiarySession
 from app.providers.petersburg import (
     PetersburgClient,
     SessionExpired,
 )
 from app.providers.petersburg import mapper as m
+from app.providers.petersburg import (
+    today as upstream_today,
+)
 from app.providers.petersburg.models import (
     AcademicPeriod,
     AttendanceEvent,
@@ -293,6 +298,32 @@ async def sign_out(session: AsyncSession, row: DiarySession) -> None:
     await session.commit()
 
 
+async def sign_out_here(
+    session: AsyncSession, *, telegram_id: int, class_id: int
+) -> int:
+    """Forget every session this Telegram account holds in this class.
+
+    The bot has no notion of «this browser session»: every one of its screens
+    finds a session by (telegram_id, class_id) and by nothing else, so its
+    «Выйти» means all of them. And there can be several — nothing expires an
+    earlier sign-in, ``api/diary_web`` opens a row and leaves the ones already
+    there, so somebody who signed in again from an older «🔐 Войти» card holds
+    two. Dropping only the newest left «вы вышли» sitting over a diary that
+    the next press walked straight back into.
+
+    Scoped to the one class on purpose: a parent in two of them is signing out
+    of one child, not both. @return how many rows went.
+    """
+    result = await session.execute(
+        sa_delete(DiarySession).where(
+            DiarySession.telegram_id == telegram_id,
+            DiarySession.class_id == class_id,
+        )
+    )
+    await session.commit()
+    return rows_affected(result)
+
+
 async def _refresh_quietly(session: AsyncSession, row: DiarySession) -> None:
     """Un-expire ``row`` after a rollback, and never raise doing it.
 
@@ -340,7 +371,15 @@ class DiaryService:
         return await self._call(lambda: self.client.children(), m.to_students)
 
     async def periods(self, group_id: int) -> list[AcademicPeriod]:
-        today = Date.today()
+        # The upstream's own clock, not the server's. This decides which
+        # четверть is «текущая», and `api/diary.py` answers «какие предметы»
+        # with nothing at all when no period is current — so on the evening of
+        # the day a quarter opens, a server running in UTC (which Vercel does)
+        # was still in yesterday, which is каникулы, and the subjects screen
+        # came back empty. Every other "today" in this project comes from
+        # `SchoolClass.timezone`; a diary session has no class behind it, and
+        # `petersburg.today()` is the clock of the one city whose diary this is.
+        today = upstream_today()
         return await self._call(
             lambda: self.client.periods(group_id), lambda items: m.to_periods(items, today)
         )

@@ -176,3 +176,60 @@ async def test_a_revision_that_is_not_a_number_does_not_guess_a_direction(sessio
     assert body["status"] == "degraded"
     assert body["schema"] == "a1b2c3d4"
     assert "расходятся" in body["detail"]
+
+
+def test_the_bootstrap_script_leaves_a_database_alembic_can_carry_forward(tmp_path):
+    """``scripts.init_db`` builds the schema from the models and says so.
+
+    The schema ``create_all`` writes is the schema the last revision produces,
+    so a database it made is at the head — but while nothing wrote the row,
+    that database claimed no revision at all, and two things lied about it at
+    once: ``/api/v1/warmup`` called a brand-new database «отстающей» for ever,
+    and a later ``alembic upgrade head`` started from ``0001`` and died on the
+    first column it was told to add to a table that already had it.
+    """
+    import os
+    import sqlite3
+    import subprocess
+    import sys
+
+    database = tmp_path / "boot.db"
+    env = dict(os.environ, DATABASE_URL=f"sqlite+aiosqlite:///{database}")
+    result = subprocess.run(
+        [sys.executable, "-m", "scripts.init_db"],
+        env=env,
+        cwd=str(SERVER_ROOT),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert f"Stamped alembic_version at {EXPECTED_REVISION}" in result.stdout, result.stderr
+
+    stored = sqlite3.connect(database).execute("select version_num from alembic_version").fetchall()
+    assert stored == [(EXPECTED_REVISION,)]
+
+    # The point of the row, rather than the row itself: alembic finds nothing
+    # left to do. Without it the chain runs from the beginning against a schema
+    # that already has everything in it — here that dies on «No support for
+    # ALTER of constraints in SQLite dialect», and on the Postgres this is
+    # actually done to, on the first column 0002 is told to add twice.
+    carried = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        env=env,
+        cwd=str(SERVER_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    assert carried.returncode == 0, carried.stderr
+
+    # Run again: a second bootstrap of the same database must not touch what
+    # the first one recorded, because by then the row may be a real history.
+    again = subprocess.run(
+        [sys.executable, "-m", "scripts.init_db"],
+        env=env,
+        cwd=str(SERVER_ROOT),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert f"Left alembic_version as it was: {EXPECTED_REVISION}" in again.stdout

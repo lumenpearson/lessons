@@ -71,6 +71,8 @@ import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
 import com.lumenpearson.lessons.core.model.DayKind
 import com.lumenpearson.lessons.core.model.Lesson
+import com.lumenpearson.lessons.core.model.Term
+import com.lumenpearson.lessons.core.model.TermKind
 import com.lumenpearson.lessons.ui.common.asDayMonth
 import com.lumenpearson.lessons.ui.common.asFullWeekday
 import com.lumenpearson.lessons.ui.common.asMonthYear
@@ -268,7 +270,25 @@ private fun ScheduleUiState.periodLabel(): String = when (view) {
  * claims the school has one and the app forgot it.
  */
 @Composable
-private fun ScheduleUiState.termLabel(): String? = selectedTerm?.label
+private fun ScheduleUiState.termLabel(): String? = selectedTerm?.label()
+
+/**
+ * «2 четверть» / «1 полугодие», and their English twins.
+ *
+ * Here rather than on [Term], which lives in `:core:model` — a pure JVM module
+ * that has no resources and cannot have any. The sentence was written into that
+ * type, so this header drew a Russian четверть next to an English month for
+ * every phone reading the app in English, and no folder-comparison could see it
+ * because the words were in neither folder.
+ *
+ * `internal` so the test can compose it: the header this feeds is private, and
+ * the one thing worth pinning is that both languages come out of resources.
+ */
+@Composable
+internal fun Term.label(): String = when (kind) {
+    TermKind.QUARTER -> stringResource(R.string.term_quarter, index)
+    TermKind.SEMESTER -> stringResource(R.string.term_semester, index)
+}
 
 /**
  * The page title and the three period controls.

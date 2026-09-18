@@ -33,7 +33,7 @@ from app.bot.editor_keyboard import (
     slot_keyboard,
     subject_picker,
 )
-from app.bot.editor_render import render_canteen, render_day, render_slot, slots
+from app.bot.editor_render import as_alert, render_canteen, render_day, render_slot, slots
 from app.bot.keyboards import WEEKDAY_FULL, Menu, cancel_keyboard
 from app.bot.render import plural
 from app.bot.states import EditorLesson
@@ -186,8 +186,10 @@ async def editor_slot(
 
     _, periods = await _bells(session, school_class)
     if not role.at_least(EDIT_MINIMUM):
+        # The same card, with its tags taken off: an alert has no parse mode,
+        # so it showed a viewer «<b>Урок 2</b>» rather than «Урок 2».
         await callback.answer(
-            render_slot(callback_data.index, group, periods.get(callback_data.index)),
+            as_alert(render_slot(callback_data.index, group, periods.get(callback_data.index))),
             show_alert=True,
         )
         return
@@ -550,7 +552,9 @@ async def _write_lesson(
             # timetable when what they needed was one more row in «🔔 Звонки».
             rings = await timetable_edit.rings(session, school_class.id)
             await message.answer(
-                f"В расписании звонков {rings} "
+                # ``plural`` carries the number; «звонков 3 3 урока» is what
+                # naming it twice produced. Same mistake as «📚 Предметы» had.
+                f"В расписании звонков "
                 f"{plural(rings, 'урок', 'урока', 'уроков')}, и все заняты.\n\n"
                 "Добавьте звонок в «🔔 Звонки» — урок без своего звонка "
                 "не показывается ни в приложении, ни в виджете."

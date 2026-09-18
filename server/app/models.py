@@ -422,7 +422,19 @@ class Homework(Base):
     """Homework due on ``due_date``."""
 
     __tablename__ = "homework"
-    __table_args__ = (Index("ix_homework_lookup", "class_id", "due_date"),)
+    # One задание per subject per day, which both shells already promised and
+    # neither could keep: they read then wrote, so two people saving «Алгебра»
+    # for Friday at the same moment made two rows, the evening digest listed
+    # the subject twice, and ticking one off left the other unticked.
+    # `services/homework.py` turns a lost race into the update it meant to be;
+    # this is what makes it lose. See `migrations/versions/0013`, which must be
+    # applied *after* that code rather than before it.
+    __table_args__ = (
+        Index("ix_homework_lookup", "class_id", "due_date"),
+        UniqueConstraint(
+            "class_id", "due_date", "subject_name", name="uq_homework_per_subject_per_day"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     class_id: Mapped[int] = mapped_column(
@@ -803,7 +815,11 @@ class DiaryLinkCode(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     # Set the moment the form is submitted, successfully or not. One ticket is
     # one attempt: a code that survived a wrong password would let whoever has
-    # the link keep guessing against the upstream from our address.
+    # the link keep guessing against the upstream from our address — and «wrong
+    # password» includes every answer we cannot read, because a login form on
+    # Yii refuses a password with the same 200-of-HTML a captcha arrives in.
+    # The one thing handed back (`api/diary_web._unspend`) is a diary that did
+    # not answer at all, where nothing ever looked at what was typed.
     used_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 

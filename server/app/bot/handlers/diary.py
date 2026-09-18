@@ -40,7 +40,7 @@ from app.bot.diary_render import (
     render_signed_out,
     render_week,
 )
-from app.bot.keyboards import Menu
+from app.bot.keyboards import Menu, shift_days, shift_weeks
 from app.config import get_settings
 from app.crypto import diary_enabled
 from app.models import DiarySession, Role, SchoolClass
@@ -191,9 +191,12 @@ async def diary_sign_out(
     if school_class is None:
         await callback.answer("Нет доступа", show_alert=True)
         return
-    row = await _session_for(session, callback.from_user.id, school_class.id)
-    if row is not None:
-        await diary_service.sign_out(session, row)
+    # Every session this account holds here, not the newest one: see
+    # ``services.diary.sign_out_here``. A leftover row is a «Выйти» that says
+    # so and does not do it.
+    await diary_service.sign_out_here(
+        session, telegram_id=callback.from_user.id, class_id=school_class.id
+    )
     await _offer_sign_in(callback)
     await callback.answer("Вы вышли из дневника")
 
@@ -338,11 +341,15 @@ async def _body(
     )
 
     if view == "day":
-        day = today + timedelta(days=offset)
+        day = shift_days(today, offset)
+        if day is None:
+            return "Такого дня нет."
         return render_day(await service.schedule(student, day, day), day, today)
 
     if view == "week":
-        anchor = today + timedelta(weeks=offset)
+        anchor = shift_weeks(today, offset)
+        if anchor is None:
+            return "Такой недели нет."
         start = anchor - timedelta(days=anchor.weekday())
         end = start + timedelta(days=5)
         return render_week(await service.schedule(student, start, end), start, today)

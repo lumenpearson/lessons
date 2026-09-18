@@ -16,8 +16,10 @@ project that says out loud how long anybody actually gets to eat.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta
 from datetime import time as Time
+from html import escape, unescape
 
 from app.bot.keyboards import WEEKDAY_FULL
 from app.bot.render import WEEKDAYS_SHORT, plural
@@ -44,11 +46,16 @@ def gap_minutes(earlier: Time, later: Time) -> int:
 
 
 def _lesson_text(entry: TimetableEntry) -> str:
-    parts = [entry.subject_name]
+    # Escaped, like every other subject name this project prints: the paste
+    # grammar takes «Алгебра <7>» whole, the bot sends HTML, and an unescaped
+    # «<» makes Telegram refuse the entire message rather than that one row.
+    # ``render.py`` has always escaped the same column; this file did not, so
+    # one typed angle bracket left the editor unable to draw its own day.
+    parts = [escape(entry.subject_name)]
     if entry.room:
-        parts.append(entry.room)
+        parts.append(escape(entry.room))
     if entry.teacher:
-        parts.append(entry.teacher)
+        parts.append(escape(entry.teacher))
     return " · ".join(parts)
 
 
@@ -136,11 +143,14 @@ def render_day(
         minutes = gap_minutes(period.ends_at, next_period.starts_at)
         if minutes <= 0:
             continue
-        word = plural(minutes, "минута", "минуты", "минут")
+        # ``plural`` carries the number itself. Printing ``minutes`` beside it
+        # drew «⏸ перемена · 10 10 минут» — and the one test that read this
+        # line asserted «10 минут», which the doubled string contains.
+        gap = plural(minutes, "минута", "минуты", "минут")
         if canteen_after == index:
-            lines.append(f"    🍽 <b>столовая</b> · {minutes} {word}")
+            lines.append(f"    🍽 <b>столовая</b> · {gap}")
         else:
-            lines.append(f"    ⏸ перемена · {minutes} {word}")
+            lines.append(f"    ⏸ перемена · {gap}")
 
     if show_breaks and not periods:
         lines.append("")
@@ -163,6 +173,28 @@ def render_slot(index: int, rows: list[TimetableEntry], period: BellPeriod | Non
             mark = PARITY_MARK.get(row.parity, "")
             lines.append(f"<b>{mark}</b> · {_lesson_text(row)}")
     return "\n".join(lines)
+
+
+_TAG = re.compile(r"<[^>]+>")
+
+#: What ``answerCallbackQuery`` takes. Telegram's own ceiling, and it is not a
+#: soft one: 201 characters is a 400, which on this surface is a spinner that
+#: never stops rather than a message that arrives clipped.
+ALERT_MAX = 200
+
+
+def as_alert(text: str) -> str:
+    """One of the cards above, for ``answerCallbackQuery`` instead of a message.
+
+    Two things that surface needs and a message does not. It has no parse mode
+    — Telegram shows the string exactly as given — so the slot card handed to a
+    viewer's popup arrived with its markup visible, «<b>Урок 2</b>» on the
+    first line. And it is 200 characters long: a split slot whose two halves
+    both carry a long subject, a room and a teacher reaches 284 without trying,
+    and that press answered nothing at all.
+    """
+    plain = unescape(_TAG.sub("", text))
+    return plain if len(plain) <= ALERT_MAX else plain[: ALERT_MAX - 1].rstrip() + "…"
 
 
 def render_canteen(canteen_after: int | None, periods: dict[int, BellPeriod]) -> str:

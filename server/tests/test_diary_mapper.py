@@ -58,6 +58,28 @@ def test_a_child_with_no_education_row_is_skipped():
     assert m.to_students([child(educations=None)]) == []
 
 
+def test_a_child_is_found_through_whichever_education_row_carries_a_handle():
+    """Two education rows is a pupil who changed school, and the upstream does
+    not promise which one comes first. Reading only ``educations[0]`` meant one
+    unreadable entry took the whole child off the screen: a parent of one was
+    told they have no children at all, which reads as the account being wrong."""
+    assert m.to_students([child(educations=[None, {"education_id": 90210}])])[0].education_id == (
+        90210
+    )
+    moved = m.to_students(
+        [
+            child(
+                educations=[
+                    {"group_name": "8А", "institution_name": "Старая школа"},
+                    {"education_id": 90211, "group_name": "9А", "institution_name": "ГБОУ № 1"},
+                ]
+            )
+        ]
+    )
+    assert [student.education_id for student in moved] == [90211]
+    assert moved[0].class_name == "9А"
+
+
 def test_a_child_with_no_identity_is_skipped():
     assert m.to_students([child(identity={})]) == []
 
@@ -202,6 +224,71 @@ def test_a_lesson_is_read_through_whichever_names_the_upstream_used():
     assert second.starts_at == time(10, 25)
 
 
+def test_a_field_the_upstream_wrapped_in_an_object_is_still_read():
+    """The undocumented half of this API grows objects where strings were.
+
+    ``"subject": "Физика"`` turning into ``"subject": {"id": 7, "name":
+    "Физика"}`` is not a broken row - it is the same lesson, one rename later.
+    Every reader here takes a string or a number, so before the object was
+    looked into, that rename dropped the subject, and a lesson with no subject
+    is dropped whole: a week of lessons became an empty week, on the phone and
+    in the card, with nothing in the log to say why.
+    """
+    lesson = m.to_lessons(
+        [
+            {
+                "date": {"value": "14.09.2026"},
+                "subject": {"id": 7, "name": "Физика"},
+                "number": {"value": 3},
+                "office": {"name": "305"},
+                "teacher": {"fullname": "Иванова И.И."},
+                "task": {"text": "§12, № 3-5"},
+            }
+        ]
+    )[0]
+    assert lesson.date == date(2026, 9, 14)
+    assert lesson.subject == "Физика"
+    assert lesson.number == 3
+    assert lesson.room == "305"
+    assert lesson.teacher == "Иванова И.И."
+    assert lesson.homework == "§12, № 3-5"
+
+
+def test_an_object_with_no_scalar_in_it_is_still_just_unreadable():
+    """The unwrapping is one level and only to a scalar. A deeper walk would
+    have to guess which nested string was meant, and a guess here puts a
+    teacher's surname in the room column."""
+    assert m.to_lessons([{"date": "14.09.2026", "subject": {"parts": ["Физика"]}}]) == []
+
+
+def test_a_whole_batch_nobody_could_read_is_logged_rather_than_answered_empty(caplog):
+    """One unreadable row is a bad row; all of them is a shape change.
+
+    Dropping what cannot be read is deliberate, and that is exactly why the
+    total loss has to say something: an empty week from a renamed field and an
+    empty week from a holiday are the same answer to every caller above this
+    file. The keys are in the line because they are what the next spelling in
+    ``_LESSON_SUBJECT`` and friends has to be.
+    """
+    items = [
+        {"lessonDate": "14.09.2026", "subjectTitle": "Физика"},
+        {"lessonDate": "15.09.2026", "subjectTitle": "Алгебра"},
+    ]
+    with caplog.at_level("WARNING"):
+        assert m.to_lessons(items) == []
+
+    assert "2 lesson row(s) in, none readable" in caplog.text
+    assert "lessonDate, subjectTitle" in caplog.text
+
+
+def test_an_ordinary_empty_answer_is_not_reported_as_a_shape_change(caplog):
+    """No rows at all is a week with no lessons in it, which is not news."""
+    with caplog.at_level("WARNING"):
+        assert m.to_lessons([]) == []
+        assert m.to_marks([]) == []
+    assert caplog.text == ""
+
+
 def test_a_row_that_is_not_a_lesson_is_skipped_rather_than_failing_the_week():
     items = [
         {"subject_name": "Физика"},  # no date
@@ -264,6 +351,35 @@ def test_an_undated_turnstile_row_is_dropped():
     assert m.to_attendance([{"direction": "input"}]) == []
 
 
+def test_the_russian_spelling_of_a_direction_is_read_as_the_direction_it_is():
+    """«вход» and «выход» differ by two letters and mean opposite things. The
+    field has been seen in English; an undocumented API translated once has
+    been translated twice, and «выход» matched on its first letter reads as a
+    way in."""
+    events = m.to_attendance(
+        [
+            {"direction": "Вход", "datetime": "12.09.2026 08:21:00"},
+            {"direction": "ВЫХОД", "datetime": "12.09.2026 14:02:00"},
+        ]
+    )
+    assert [event.direction for event in events] == ["out", "in"]
+
+
+def test_a_direction_this_code_does_not_know_is_not_reported_as_leaving():
+    """The reader of this row is a parent asking whether their child is in the
+    building. A word nobody here has seen — a third state, a new translation,
+    an empty field — answered that «ушёл», confidently and possibly wrongly.
+    «unknown» is a third answer the screen can give honestly."""
+    events = m.to_attendance(
+        [
+            {"direction": "проход", "datetime": "12.09.2026 08:21:00"},
+            {"direction": "", "datetime": "12.09.2026 09:00:00"},
+            {"datetime": "12.09.2026 10:00:00"},
+        ]
+    )
+    assert [event.direction for event in events] == ["unknown", "unknown", "unknown"]
+
+
 # ---- parsing --------------------------------------------------------------
 
 
@@ -273,6 +389,24 @@ def test_dates_are_read_in_every_format_the_upstream_has_used():
     assert m.parse_date("15.09.2026 10:25:00") == date(2026, 9, 15)
     assert m.parse_date("не дата") is None
     assert m.parse_date(None) is None
+
+
+def test_a_time_is_read_out_of_either_spelling_of_a_datetime():
+    """The lesson endpoints carry the start inside a whole datetime, and the
+    two spellings are «14.09.2026 10:25:00» and the ISO «2026-09-14T10:25:00».
+    parse_date takes either; a time that took only the first left every lesson
+    of an ISO-speaking endpoint with a date and a blank where the bell is."""
+    assert m.parse_time("10:25") == time(10, 25)
+    assert m.parse_time("14.09.2026 10:25:00") == time(10, 25)
+    assert m.parse_time("2026-09-14T10:25:00") == time(10, 25)
+    assert m.parse_time("не время") is None
+    assert m.parse_time(None) is None
+
+    lesson = m.to_lessons(
+        [{"datetime_from": "2026-09-14T10:25:00", "datetime_to": "2026-09-14T11:10:00",
+          "subject": "Физика"}]
+    )[0]
+    assert (lesson.starts_at, lesson.ends_at) == (time(10, 25), time(11, 10))
 
 
 def test_identity_id_reads_both_shapes():

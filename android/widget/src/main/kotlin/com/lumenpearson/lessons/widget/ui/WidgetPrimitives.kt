@@ -219,6 +219,38 @@ internal fun HSpace(dp: Int) {
 }
 
 /**
+ * The one thing a timeline row has room for after the subject.
+ *
+ * Pure, and outside the composable, because it is the half that can be wrong and
+ * a Glance composable cannot be asked anything without a launcher.
+ */
+internal enum class RowDetail { REPLACED, ROOM, TEACHER, NONE }
+
+/**
+ * Which of them [lesson] gets, given what the reader asked for.
+ *
+ * The room and the teacher are one setting — only one of the two fits a
+ * phone-width row, so `LessonsWidget` turns «Показывать учителя» on and the room
+ * off together. The fallback is the part that had to be written down: a
+ * timetable carrying a room and no teacher is the ordinary case (the teacher is
+ * optional in the paste grammar and in a замена), and with the teacher chosen
+ * the row dropped the room for a name that was not there — an empty slot beside
+ * a cache that held the answer.
+ */
+internal fun rowDetailFor(lesson: Lesson, options: WidgetOptions, compact: Boolean): RowDetail {
+    val hasRoom = !lesson.room.isNullOrBlank()
+    val hasTeacher = !lesson.teacher.isNullOrBlank()
+    return when {
+        // A substitution is the reason to look at the row at all.
+        lesson.isReplaced -> RowDetail.REPLACED
+        compact -> RowDetail.NONE
+        options.showTeacher && hasTeacher -> RowDetail.TEACHER
+        (options.showRoom || options.showTeacher) && hasRoom -> RowDetail.ROOM
+        else -> RowDetail.NONE
+    }
+}
+
+/**
  * One line of the remaining-day timeline: "▍08:30  Алгебра  каб. 214".
  *
  * [WidgetStrings.time] is always zero-padded to five characters, so the times
@@ -300,17 +332,13 @@ internal fun TimelineRow(
                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
             ),
         )
-        // Only one trailing detail fits on a phone-width widget, so a substitution
-        // notice outranks the room, which outranks the teacher.
-        val room = if (options.showRoom) WidgetStrings.room(context, lesson) else null
-        val trailing: String? = when {
-            // A substitution is the one detail worth the width even here: it is
-            // the reason to look at the row at all.
-            lesson.isReplaced -> context.getString(R.string.widget_lesson_replaced)
-            compact -> null
-            room != null -> room
-            options.showTeacher -> lesson.teacher?.takeIf { it.isNotBlank() }
-            else -> null
+        // Only one trailing detail fits on a phone-width widget; `rowDetailFor`
+        // decides which, and this turns the answer into words.
+        val trailing: String? = when (rowDetailFor(lesson, options, compact)) {
+            RowDetail.REPLACED -> context.getString(R.string.widget_lesson_replaced)
+            RowDetail.ROOM -> WidgetStrings.room(context, lesson)
+            RowDetail.TEACHER -> lesson.teacher
+            RowDetail.NONE -> null
         }
         if (trailing != null) {
             HSpace(6)

@@ -57,6 +57,36 @@ _TIME_FORMATS = ("%H:%M:%S", "%H:%M")
 # ---------------------------------------------------------------------------
 
 
+#: What the scalar is called when the upstream wraps a field in an object.
+#: The other way this API changes is exactly this: ``"subject": "Алгебра"``
+#: becomes ``"subject": {"id": 7, "name": "Алгебра"}``, and the reader that
+#: expected a string sees a dict, fails its isinstance check and answers None.
+#: One such field is the difference between a week of lessons and an empty
+#: week, with no error anywhere - so the object is looked into rather than
+#: refused.
+_WRAPPED = ("name", "title", "value", "text", "short_name", "fullname", "id")
+
+
+def unwrap(value: Any) -> Any:
+    """The scalar inside a one-level object, or the value unchanged.
+
+    Only one level, and only a scalar: a deeper walk would start guessing which
+    of several nested strings is the one meant, and guessing wrong here puts a
+    teacher's surname where a room number belongs.
+    """
+    if not isinstance(value, dict):
+        return value
+    for name in _WRAPPED:
+        inner = value.get(name)
+        if isinstance(inner, bool):
+            continue
+        if isinstance(inner, str) and inner.strip():
+            return inner
+        if isinstance(inner, int | float):
+            return inner
+    return None
+
+
 def pick(source: dict[str, Any], *names: str) -> Any:
     """First present, non-empty value among ``names``.
 
@@ -66,10 +96,30 @@ def pick(source: dict[str, Any], *names: str) -> Any:
     in this tuple, not an outage.
     """
     for name in names:
-        value = source.get(name)
+        value = unwrap(source.get(name))
         if value not in (None, "", [], {}):
             return value
     return None
+
+
+def note_if_nothing_read(kind: str, items: list[Any], mapped: list[Any]) -> None:
+    """Say so when a whole batch read as nothing.
+
+    Dropping the row that cannot be read is right - a week of marks is worth
+    more than an error page - but *every* row unreadable is not a bad row, it
+    is a shape this file no longer recognises, and silence is the one answer
+    that looks exactly like a quiet week. The keys are logged because they are
+    what the next name in a tuple above has to be.
+    """
+    if not items or mapped:
+        return
+    keys = sorted({key for item in items if isinstance(item, dict) for key in item})
+    log.warning(
+        "petersburg: %d %s row(s) in, none readable; keys seen: %s",
+        len(items),
+        kind,
+        ", ".join(keys[:20]) or "(no dict rows at all)",
+    )
 
 
 def text(source: dict[str, Any], *names: str) -> str | None:
@@ -122,6 +172,13 @@ def parse_date(raw: Any) -> Date | None:
 def parse_time(raw: Any) -> Time | None:
     if isinstance(raw, str):
         candidate = raw.strip()
+        # A lesson's start arrives inside a whole datetime as often as on its
+        # own, and that datetime comes in two spellings: «14.09.2026 10:25:00»
+        # and the ISO «2026-09-14T10:25:00». parse_date and parse_datetime both
+        # take either; this one used to take only the first, so an endpoint
+        # answering in ISO gave every lesson a date and no time at all - a card
+        # with a blank where the bell is, and nothing logged to say why.
+        candidate = candidate.replace("T", " ")
         if " " in candidate:
             candidate = candidate.split(" ")[-1]
         for fmt in _TIME_FORMATS:
@@ -153,13 +210,23 @@ def to_students(items: list[dict[str, Any]]) -> list[Student]:
     students: list[Student] = []
     for item in items:
         # A pupil with no education row has nothing later calls can ask about,
-        # so there is nothing to show and nothing to select.
+        # so there is nothing to show and nothing to select. "No education row"
+        # means no *usable* one, though, not "the first one is unusable": a
+        # pupil who changed school carries two, and one unreadable entry in
+        # that list used to take the whole child off the screen - a parent with
+        # one child was told they have none, which reads as the account being
+        # wrong rather than as one row the upstream sent oddly.
         educations = item.get("educations")
-        education = educations[0] if isinstance(educations, list) and educations else None
-        if not isinstance(education, dict):
-            continue
-        education_id = number(education, "education_id", "id")
-        if education_id is None:
+        education = None
+        education_id = None
+        for candidate in educations if isinstance(educations, list) else ():
+            if not isinstance(candidate, dict):
+                continue
+            found = number(candidate, "education_id", "id")
+            if found is not None:
+                education, education_id = candidate, found
+                break
+        if education is None or education_id is None:
             continue
 
         student_id = identity_id(item)
@@ -178,6 +245,7 @@ def to_students(items: list[dict[str, Any]]) -> list[Student]:
                 group_id=number(education, "group_id"),
             )
         )
+    note_if_nothing_read("student", items, students)
     return students
 
 
@@ -199,6 +267,7 @@ def to_periods(items: list[dict[str, Any]], today: Date) -> list[AcademicPeriod]
                 is_current=bool(starts and ends and starts <= today <= ends),
             )
         )
+    note_if_nothing_read("period", items, periods)
     return periods
 
 
@@ -209,6 +278,7 @@ def to_subjects(items: list[dict[str, Any]]) -> list[Subject]:
         if name is None:
             continue
         subjects.append(Subject(id=number(item, "subject_id") or identity_id(item), name=name))
+    note_if_nothing_read("subject", items, subjects)
     return subjects
 
 
@@ -241,6 +311,7 @@ def to_teachers(items: list[dict[str, Any]]) -> list[Teacher]:
                 subjects=subjects,
             )
         )
+    note_if_nothing_read("teacher", items, teachers)
     return teachers
 
 
@@ -293,6 +364,7 @@ def to_marks(items: list[dict[str, Any]]) -> list[Mark]:
                 comment=text(item, "estimate_comment", "comment"),
             )
         )
+    note_if_nothing_read("mark", items, marks)
     marks.sort(key=lambda mark: (mark.date or Date.min, mark.subject_name))
     return marks
 
@@ -338,6 +410,7 @@ def to_lessons(items: list[dict[str, Any]]) -> list[DiaryLesson]:
                 topic=text(item, *_LESSON_TOPIC),
             )
         )
+    note_if_nothing_read("lesson", items, lessons)
     lessons.sort(key=lambda lesson: (lesson.date, lesson.number or 0, lesson.subject))
     return lessons
 
@@ -369,13 +442,50 @@ def to_homework(items: list[dict[str, Any]]) -> list[HomeworkItem]:
     return homework
 
 
+#: The spellings of a turnstile direction that have actually been seen, and the
+#: two languages they arrive in. ``input``/``output`` is what the endpoint sends
+#: today; the Russian pair is what their own screens show, and an undocumented
+#: API that is translated once has been translated twice.
+#:
+#: Prefixes rather than equality because the field has carried «Вход в здание»
+#: as readily as «вход» - and matched on the *first* letter it would have read
+#: «выход» as a way in, which is the one mistake this table exists to prevent.
+_DIRECTION_IN = ("in", "вход", "приход")
+_DIRECTION_OUT = ("out", "вых", "уход")
+
+
+def _direction(raw: str) -> str:
+    """``in``, ``out``, or ``unknown`` for a word this code does not know.
+
+    Not defaulting to ``out``. A turnstile row is read by a parent checking
+    whether their child is in the building, and the previous default answered
+    that question confidently and possibly wrongly: a spelling nobody here has
+    seen - a new translation, a third state like «отказ» - rendered as the
+    child *leaving*. A row that says «непонятно» is worth something, because
+    the reader can go and look; a row that says the wrong thing is worth less
+    than nothing.
+    """
+    word = raw.strip().lower()
+    if word.startswith(_DIRECTION_IN):
+        return "in"
+    if word.startswith(_DIRECTION_OUT):
+        return "out"
+    if word:
+        # Worth a line: it is how a new spelling is noticed before somebody
+        # asks why the turnstile stopped saying anything.
+        log.info("petersburg: unknown turnstile direction %r", raw)
+    return "unknown"
+
+
 def to_attendance(items: list[dict[str, Any]]) -> list[AttendanceEvent]:
     events: list[AttendanceEvent] = []
     for item in items:
         at = parse_datetime(pick(item, "datetime", "date_time", "date"))
         if at is None:
             continue
-        raw = (text(item, "direction") or "").lower()
-        events.append(AttendanceEvent(at=at, direction="in" if raw.startswith("i") else "out"))
+        events.append(
+            AttendanceEvent(at=at, direction=_direction(text(item, "direction") or ""))
+        )
+    note_if_nothing_read("attendance", items, events)
     events.sort(key=lambda event: event.at, reverse=True)
     return events

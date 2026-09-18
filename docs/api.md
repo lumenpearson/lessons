@@ -193,6 +193,13 @@ The validator is a hash of the body with `generated_at` blanked out - that
 field changes on every request and would otherwise defeat the whole point.
 Weak validators (`W/"..."`) and comma-separated lists are accepted.
 
+The Android client does this: it keeps the last tag in its preferences under a
+*signature* of the request it belongs to (class, `start`, `days`), so 1
+September and a class switch simply stop matching and the next sync asks for
+the whole window. A `304` writes nothing to Room and does not wake the widget —
+nothing it draws has changed — but it **does** move the «обновлено N назад»
+mark, because that is a claim about the check rather than about the payload.
+
 ### Field notes
 
 * Times are local wall time (`HH:MM:SS`) in `school_class.timezone`. A bell rings
@@ -434,6 +441,13 @@ of `subject`, `room`, `teacher`; an omitted `subject` keeps the template's
 and changes the room or teacher), `cancel`, or `clear`, which deletes the row
 and puts the lesson back on the timetable. Answers the stored row with the
 `action` echoed. Subscribers with «замены и события» on are told.
+
+Two `422`s on create, both about a row that would be stored and drawn nowhere:
+the number has no bell that day (`нет звонка для урока №N в этот день` — the
+day view builds its times out of the bell rows), and `cancel` at a number the
+day has no lesson at (`отменять нечего`). `replace` at an empty number is
+fine — that is how a lesson is *added* to a day — and `clear` is always
+allowed, because it is how a class gets out of a row it should not have.
 
 ### `PUT /api/v1/events` → `201 {"id": 42}`
 
@@ -692,9 +706,12 @@ Monday-only timetable is not a conflict at all, and a day named with nothing
 under it is emptied - that is how a paste says «в четверг уроков нет».
 `rejected` echoes the lines the parser could not read, so an admin can fix the
 two that were typos rather than re-reading the whole paste. It also carries
-`"урок N: нет такого звонка в расписании звонков"` for every lesson numbered
-past the last bell: the day view builds its times out of the bell rows, so such
-a lesson would be stored, counted in `lessons` and then drawn nowhere at all.
+`"понедельник, урок N: нет такого звонка в расписании звонков"` for every
+lesson numbered past the last bell: the day view builds its times out of the
+bell rows, so such a lesson would be stored, counted in `lessons` and then
+drawn nowhere at all. One line per dropped row, named by its weekday — the
+ceiling is class-wide, so the same number under two weekdays is two lessons
+gone, and one line for both admitted to one of them.
 Those lines are not written, and `lessons` counts only what was. When the same
 paste brings a `== Звонки ==` block, the lessons are checked against **those**,
 so one request can legitimately add a ninth bell and a ninth lesson together.

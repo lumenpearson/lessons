@@ -8,9 +8,13 @@ that decide what somebody sees.
 
 from __future__ import annotations
 
+import httpx
 import pytest
 
+from app.config import get_settings
+from app.providers.dadata import client as dadata_client
 from app.providers.dadata import mapper as m
+from app.providers.dadata.exceptions import NotConfigured
 from app.providers.dadata.models import School
 from app.services import schools as service
 
@@ -75,6 +79,18 @@ def test_abbreviations_keep_their_case_and_words_do_not():
     assert m.humanise("ГБОУ ЛИЦЕЙ № 144") == "ГБОУ Лицей № 144"
     # A number is not a word, and neither is a bare «№».
     assert m.humanise("ШКОЛА № 2") == "Школа № 2"
+
+
+def test_the_abbreviation_on_every_second_school_sign_is_one_of_them():
+    """«СОШ», «ООШ» and «НОШ» are three letters, and the rule wanted two in
+    front of the «ОШ». The one abbreviation more common than «МБОУ» was
+    therefore lowered like a word, on a name a person has to recognise in a
+    list of five."""
+    assert m.humanise('МБОУ "СОШ № 197"') == 'МБОУ "СОШ № 197"'
+    assert m.humanise("МКОУ ООШ ПЕТРОВО") == "МКОУ ООШ Петрово"
+    assert m.humanise("МБОУ НОШ № 5") == "МБОУ НОШ № 5"
+    # And the words around them are still words.
+    assert m.humanise("ГБОУ ЛИЦЕЙ № 144") == "ГБОУ Лицей № 144"
 
 
 def test_only_the_first_word_is_capitalised():
@@ -208,3 +224,53 @@ def test_a_client_with_a_scrolling_list_can_ask_for_everything_at_once():
 def test_a_page_size_of_zero_does_not_divide_by_zero():
     page = service.page_of(many(3), 1, size=0)
     assert page.pages == 3
+
+
+# ---- the key ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("token", ["", "   ", "\n", " \t "])
+def test_a_key_of_whitespace_is_no_key_at_all(monkeypatch, token):
+    """«Set» and «usable» have to be the same question.
+
+    A value pasted into a host's environment form arrives with a space or a
+    newline often enough that this is not hypothetical, and untrimmed it was
+    truthy: the search went upstream as ``Authorization: Token  ``, came back
+    401, and this provider reads a 401 as the daily allowance being spent. So
+    a deployment that never had a key was told «Лимит запросов исчерпан» and
+    its owner went to look at their DaData billing. ``crypto.cipher()`` has
+    always trimmed ``DIARY_SECRET`` for exactly this reason.
+    """
+    monkeypatch.setattr(get_settings(), "dadata_token", token)
+    assert dadata_client.configured() is False
+
+
+async def test_a_key_of_whitespace_is_not_reported_as_a_spent_quota(monkeypatch):
+    """The whole cost of the missing ``strip``, end to end.
+
+    DaData answers a blank key with 401, and 401 here means «the allowance is
+    spent or the key was refused» — the one failure the owner is meant to act
+    on. So the message was «Лимит запросов к справочнику исчерпан» and the
+    owner went and read their billing page, for a deployment that had never
+    had a key. Nothing is sent now, so nothing can come back mislabelled.
+    """
+    monkeypatch.setattr(get_settings(), "dadata_token", "   ")
+
+    def refuses_a_blank_key(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={"message": "Authorization required"})
+
+    async def shared():
+        return httpx.AsyncClient(
+            base_url=dadata_client.BASE_URL,
+            transport=httpx.MockTransport(refuses_a_blank_key),
+        )
+
+    monkeypatch.setattr(dadata_client, "shared_client", shared)
+
+    with pytest.raises(NotConfigured):
+        await dadata_client.suggest_schools("гимназия 3")
+
+
+def test_a_real_key_is_still_a_real_key(monkeypatch):
+    monkeypatch.setattr(get_settings(), "dadata_token", "<redacted>")
+    assert dadata_client.configured() is True

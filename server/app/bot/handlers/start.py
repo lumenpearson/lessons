@@ -31,6 +31,7 @@ from app.bot.keyboards import (
     request_contact,
     school_fallback,
     school_picker,
+    shift_days,
     timezone_picker,
 )
 from app.bot.render import plural, render_day, render_role_help
@@ -513,7 +514,10 @@ async def show_day(
         return
 
     today = _today(school_class).date()
-    target = today + timedelta(days=callback_data.offset)
+    target = shift_days(today, callback_data.offset)
+    if target is None:
+        await callback.answer("Такого дня нет", show_alert=True)
+        return
     resolver = ScheduleResolver(session, school_class)
     days = await resolver.resolve_range(target, 1)
 

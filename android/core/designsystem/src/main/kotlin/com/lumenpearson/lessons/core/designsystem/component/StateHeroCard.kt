@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -26,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.state.asPercent
 import com.lumenpearson.lessons.core.designsystem.state.countdown
-import com.lumenpearson.lessons.core.designsystem.state.formatShortRu
+import com.lumenpearson.lessons.core.designsystem.state.formatCountdown
 import com.lumenpearson.lessons.core.designsystem.state.progressOrNull
 import com.lumenpearson.lessons.core.designsystem.state.visuals
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
@@ -122,7 +123,7 @@ fun StateHeroCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = countdown.formatShortRu(),
+                        text = countdown.formatCountdown(LocalContext.current),
                         style = MaterialTheme.typography.displaySmall,
                         color = scheme.onSurface,
                         maxLines = 1,

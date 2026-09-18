@@ -9,7 +9,7 @@ tests pin what this project does with each answer, not what the service does.
 from __future__ import annotations
 
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 import pytest
@@ -17,10 +17,14 @@ from httpx import ASGITransport
 from sqlalchemy import select
 
 from app.api import diary as diary_api
+from app.config import get_settings
+from app.db import SessionLocal
 from app.main import app
-from app.models import DiarySession
+from app.models import DiaryLinkCode, DiarySession
 from app.providers.petersburg import client as provider_client
+from app.security import hash_token
 from app.services import diary as service
+from app.services import diary_link
 
 LOGIN_PATH = "/api/user/auth/login"
 
@@ -127,6 +131,45 @@ async def test_login_returns_a_token_of_ours_and_never_the_upstream_one(
     assert row.upstream_token != "cookie-token"
     assert service.upstream_of(row) == "cookie-token"
     assert row.login == "parent@example.com"
+
+
+@pytest.fixture
+def no_diary_secret(monkeypatch):
+    """Runs one test on a deployment that has no ``DIARY_SECRET``.
+
+    ``get_settings`` is ``lru_cache``d, so patching the attribute on the one
+    object every caller holds is what actually changes the answer, exactly as
+    ``tests/test_diary_crypto.py`` does it.
+    """
+    monkeypatch.setattr(get_settings(), "diary_secret", "", raising=False)
+    yield
+    get_settings.cache_clear()
+
+
+async def test_signing_in_without_a_key_is_refused_rather_than_crashing(
+    client, upstream, no_diary_secret
+):
+    """No key means the diary is off, and «off» has to be an answer.
+
+    ``app/crypto.py`` makes that refusal deliberate — a fallback to plaintext
+    would be invisible — and ``services/diary.sign_in`` raises ``DiaryDisabled``
+    before the password leaves the building. But ``_guard`` only knows the
+    *upstream's* failures, so this one walked out of the handler: FastAPI turns
+    that into a bare 500 on an endpoint anybody can POST to, with a stack trace
+    per attempt and nothing for the app to show. ``POST /diary/signin`` — the
+    other door onto the same service — has always answered 503 in words.
+    """
+    upstream.routes[LOGIN_PATH] = with_token
+
+    response = await client.post(
+        "/api/v1/diary/login", json={"login": "parent@example.com", "password": "correct"}
+    )
+
+    assert response.status_code == 503, response.text
+    assert response.json()["detail"] == "Дневник на этом сервере выключен."
+    # And nothing was sent upstream: refusing after the password has already
+    # been handed to a third party would be the worse half of the same bug.
+    assert upstream.seen == []
 
 
 async def test_the_password_is_never_written_anywhere(client, upstream, session):
@@ -299,6 +342,36 @@ async def test_an_impossible_or_enormous_range_is_refused(client, upstream, wind
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize("window", ["from=9999-12-31", "from=9999-12-25&to=9999-12-31"])
+async def test_a_date_at_the_end_of_the_calendar_is_refused_not_crashed(
+    client, upstream, window
+):
+    """`from` with no `to` is `start + 14 days`, and near `date.max` that
+    arithmetic raises OverflowError instead of returning a date. It reached the
+    app as a 500 on a query string, where every other unusable range on this
+    surface is a 422 that says what was wrong."""
+    token = await sign_in(client, upstream)
+    upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
+    response = await client.get(
+        f"/api/v1/diary/students/4021/schedule?{window}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 422, response.text
+
+
+async def test_an_ordinary_range_still_opens_its_default_window(client, upstream):
+    """The bound is a bound, not a narrowing: a real school date still works
+    with no `to` at all."""
+    token = await sign_in(client, upstream)
+    upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
+    upstream.routes[SCHEDULE_PATH] = {"items": []}
+    response = await client.get(
+        "/api/v1/diary/students/4021/schedule?from=2026-09-07",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200, response.text
 
 
 # ---- the session ending ---------------------------------------------------
@@ -808,3 +881,71 @@ async def test_a_refresh_that_fails_does_not_replace_the_answer_it_was_helping()
 
     # No exception, and none swallowed silently either — it is logged.
     await service._refresh_quietly(RefusesToRefresh(), row)
+
+
+# --------------------------------------------------------------------------
+# The ticket that carries a person from the chat to the sign-in form.
+# --------------------------------------------------------------------------
+
+
+async def test_a_ticket_two_requests_hold_at_once_is_still_spent_once(session, school_class):
+    """Two `POST /diary/signin/{code}` on one link, and only one gets in.
+
+    `claim` used to read the row, check it in Python and then assign
+    ``used_at``, which answers the request that arrives after the ticket was
+    spent and not the one that arrives *while* it is being spent. Both read the
+    same live row, both passed the check, and both wrote it: one link, two diary
+    sessions on one account, and the second of them signed in with whatever
+    credentials the second form carried. `device_invites.burn` had the right
+    shape for this the whole time - a conditional UPDATE the database decides.
+    """
+    code = await diary_link.mint(session, telegram_id=42, class_id=school_class.id)
+
+    async with SessionLocal() as overlapping:
+        # The second request read the ticket a moment ago and is still parsing
+        # its form. The row it holds is live.
+        held = await overlapping.scalar(
+            select(DiaryLinkCode).where(DiaryLinkCode.code_hash == hash_token(code))
+        )
+        assert held is not None and held.used_at is None
+
+        # The first request reaches the same ticket and spends it.
+        spent = await diary_link.claim(session, code)
+        assert spent is not None
+        # The caller renders the row afterwards, so what it carries has to
+        # survive the statement that spent it.
+        assert (spent.telegram_id, spent.class_id) == (42, school_class.id)
+
+        # The second request now writes. What decides is the database, not the
+        # row this request is still holding in memory.
+        assert await diary_link.claim(overlapping, code) is None, (
+            "one link is worth one sign-in; the loser is told the link is used"
+        )
+
+    async with SessionLocal() as after:
+        rows = list(await after.scalars(select(DiaryLinkCode)))
+    assert len(rows) == 1
+    assert rows[0].used_at is not None
+
+
+async def test_a_ticket_out_of_time_is_refused_without_being_marked_used(session, school_class):
+    """Expiry moved into the statement, and it must not spend the row on its way.
+
+    The refusal is the same sentence on the page either way, but the row is the
+    record: a timed-out ticket marked used reads as «кто-то вошёл» when nobody
+    did.
+    """
+    code = await diary_link.mint(session, telegram_id=42, class_id=school_class.id)
+    row = await session.scalar(
+        select(DiaryLinkCode).where(DiaryLinkCode.code_hash == hash_token(code))
+    )
+    assert row is not None
+    row.expires_at = diary_link.utcnow() - timedelta(minutes=1)
+    await session.commit()
+
+    assert await diary_link.claim(session, code) is None
+    async with SessionLocal() as after:
+        stale = await after.scalar(
+            select(DiaryLinkCode).where(DiaryLinkCode.code_hash == hash_token(code))
+        )
+    assert stale is not None and stale.used_at is None

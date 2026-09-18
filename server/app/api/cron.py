@@ -20,7 +20,7 @@ from sqlalchemy import delete, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.db import SessionLocal, get_session
+from app.db import SessionLocal, get_session, rows_affected
 from app.models import DeviceToken, DiarySession, JoinAttempt
 from app.schemas import TickOut
 from app.services import device_invites, diary_link, reminders
@@ -87,7 +87,7 @@ async def _purge_join_attempts(session: AsyncSession) -> int:
     cutoff = datetime.now(UTC).replace(tzinfo=None) - JOIN_ATTEMPT_TTL
     result = await session.execute(delete(JoinAttempt).where(JoinAttempt.created_at <= cutoff))
     await session.commit()
-    return result.rowcount or 0
+    return rows_affected(result)
 
 
 async def _purge_diary_sessions(session: AsyncSession) -> int:
@@ -108,7 +108,7 @@ async def _purge_diary_sessions(session: AsyncSession) -> int:
         )
     )
     await session.commit()
-    return result.rowcount or 0
+    return rows_affected(result)
 
 
 async def _purge_device_tokens(session: AsyncSession) -> int:
@@ -125,7 +125,7 @@ async def _purge_device_tokens(session: AsyncSession) -> int:
         )
     )
     await session.commit()
-    return result.rowcount or 0
+    return rows_affected(result)
 
 
 async def tick(

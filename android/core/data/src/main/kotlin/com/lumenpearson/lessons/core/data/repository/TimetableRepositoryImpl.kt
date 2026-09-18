@@ -82,6 +82,13 @@ internal class TimetableRepositoryImpl(
      * user to sign out by hand.
      */
     private val onTokenRejected: suspend () -> Unit = {},
+    /**
+     * Where the last window's ETag lives between syncs; see [BundleTagStore].
+     *
+     * Defaulted to the forgetful one so a test that is not about conditional
+     * requests reads exactly as it did before.
+     */
+    private val bundleTags: BundleTagStore = BundleTagStore.None,
 ) : TimetableRepository {
 
     /**
@@ -149,8 +156,30 @@ internal class TimetableRepositoryImpl(
             // `days` is honoured as a floor: a caller asking for more than the
             // year has left still gets the year, and one asking for less still
             // gets it, because a partial cache is what this is fixing.
-            val bundle = api.bundle(start = start.toString(), days = maxOf(span, days.coerceIn(MIN_DAYS, MAX_DAYS)))
-            val timetable = bundle.toDomain(fallbackSyncedAtEpochMillis = clock.millis())
+            val window = maxOf(span, days.coerceIn(MIN_DAYS, MAX_DAYS))
+            // The tag belongs to one class and one window, so the signature
+            // carries both: on 1 September, and on a switch between classes,
+            // the stored tag simply stops matching and the next sync asks for
+            // everything, which is the direction that heals itself.
+            val signature = "${activeClassId.first() ?: 0L}|$start|$window"
+            val response = api.bundle(
+                start = start.toString(),
+                days = window,
+                ifNoneMatch = bundleTags.tagFor(signature),
+            )
+            if (response.code() == HTTP_NOT_MODIFIED) {
+                // Nothing to write: the window is byte-for-byte what is already
+                // cached. The check still happened, though, and «обновлено N
+                // назад» is a claim about *that* — left alone it would keep
+                // growing on a phone that is syncing perfectly. The widget is
+                // deliberately not poked: nothing it draws has changed, and a
+                // redraw per poll is the cost this whole request was avoiding.
+                activeClassId.first()?.let { dao.touchSyncedAt(it, clock.millis()) }
+                return@withContext SyncResult.Success
+            }
+            val body = response.body()
+                ?: return@withContext SyncResult.Failed("Server returned HTTP ${response.code()}")
+            val timetable = body.toDomain(fallbackSyncedAtEpochMillis = clock.millis())
             // The class the *server* resolved the token to, not the one this
             // device thinks is active. They are the same except in the seconds
             // around a switch, and taking the local answer there would file one
@@ -165,6 +194,12 @@ internal class TimetableRepositoryImpl(
                     isNextSchoolDay = true,
                 ),
             )
+            // After the write, not before: a tag remembered for a window that
+            // failed to land would make the next sync ask «changed since?» about
+            // rows this device does not have.
+            response.headers()["ETag"]?.takeIf { it.isNotBlank() }?.let { etag ->
+                bundleTags.remember(signature, etag)
+            }
             onDataChanged()
             SyncResult.Success
         } catch (cancellation: CancellationException) {
@@ -234,5 +269,8 @@ internal class TimetableRepositoryImpl(
         const val MAX_DAYS = 280
 
         const val HTTP_UNAUTHORISED = 401
+
+        /** The whole point of sending `If-None-Match`: a body that is not sent. */
+        const val HTTP_NOT_MODIFIED = 304
     }
 }

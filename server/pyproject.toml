@@ -19,7 +19,24 @@ dependencies = [
     # The Petersburg diary provider talks to an upstream over HTTP. It was
     # already here as a test dependency (httpx drives the ASGI client); this
     # promotes it, because now a request path uses it.
-    "httpx>=0.28.1",
+    #
+    # The ceiling is not caution, it is a named dependency on something httpx
+    # has announced it is removing. Every diary call is
+    # `client.request(..., cookies=...)` — one family's session, passed per
+    # request through a client that deliberately keeps no cookie jar of its
+    # own (`_NoCookieJar` in providers/petersburg/client.py, so that two
+    # families' sessions can never meet). 0.28 warns that per-request cookies
+    # are "being deprecated" and points at client-level cookies, which is the
+    # one migration this code must not take. A release that dropped the
+    # parameter would not fail the build: every diary call would simply go out
+    # without a session, and every user would be told theirs expired.
+    #
+    # 0.28.1 is the newest release there is (the 1.0 line is dev previews), so
+    # the bound is the next minor, not the next major — the removal may well
+    # land there. Before raising it: check that httpx still accepts
+    # `cookies=` on a request, run tests/test_diary_api.py, and if it is gone,
+    # set the Cookie header on the request instead of moving the jar.
+    "httpx>=0.28.1,<0.29",
     # Fernet, for the one credential that is stored recoverably rather than
     # hashed — the diary's upstream session token (see app/crypto.py). It was
     # already present as somebody's transitive dependency; a security floor is
@@ -43,8 +60,55 @@ include = ["app*", "scripts*"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
-    "httpx>=0.28.1",
+    # Same ceiling as the runtime dependency above, and for the same reason:
+    # the test suite is where a release that dropped per-request cookies would
+    # be noticed, and it cannot notice it from a version the runtime refuses.
+    "httpx>=0.28.1,<0.29",
     "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+# Not a type checker in the usual sense - one question, asked of the whole
+# server: does this code reach for an attribute the type does not have?
+#
+# That question is here because it was answered the expensive way. «🗓 Четверти»
+# crashed on every press in production because `_terms_card` printed
+# `term.days`, and `days` lived on a flattened copy of a term that nothing ever
+# constructed. `AttributeError`, an error dialog, and no way to find out short
+# of pressing the button. Removing the property today reproduces it exactly:
+#
+#     app/bot/handlers/manage.py:2831: error: "Term" has no attribute "days"
+#
+# Everything else mypy has to say about this codebase is friction rather than
+# fault, so it is switched off by name below. The numbers are what a full run
+# reported when this was written, and every one of them was read:
+#
+#   union-attr (347)  `callback.message` is `Message | InaccessibleMessage |
+#                     None` in aiogram, and no handler here has ever met an
+#                     inaccessible one. Guarding all 347 would be noise.
+#   arg-type   (128)  handlers take `SchoolClass | None` / `Role | None` from
+#                     the middleware and refuse early; mypy cannot follow the
+#                     refusal through `_allowed()`. Also SQLAlchemy's `where()`
+#                     against a plain `bool`.
+#   call-arg     (4)  aiogram's `CallbackData` builds `__init__` at runtime.
+#   assignment   (3)  a `X | None` narrowed by a branch mypy does not track.
+#   return-value (1)  the same shape, on the way out.
+#   override     (1)  our FSM storage widens a parameter aiogram declares
+#                     narrower, deliberately.
+#
+# If one of those ever hides a real defect, the cost is a bug this check would
+# not have caught - the same position the project was in before it existed.
+# Turning a code back on is one line here.
+[tool.mypy]
+files = ["app"]
+ignore_missing_imports = true
+disable_error_code = [
+    "union-attr",
+    "arg-type",
+    "call-arg",
+    "assignment",
+    "return-value",
+    "override",
 ]
 
 [tool.pytest.ini_options]

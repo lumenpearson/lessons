@@ -86,8 +86,11 @@ async def _on_error(event: ErrorEvent) -> bool:
     an exception, so the only symptom is a bot that stops responding.
 
     An unmodified message is not worth telling anybody about. Anything else is
-    logged and the user is told, and their conversation state is cleared so
-    that the next thing they type is not swallowed by a half-finished flow.
+    logged and the user is told to start again — which matters because their
+    conversation state is *not* cleared here: it lives in the database, and the
+    ``ErrorEvent`` is not the place to reach for a storage key. ``/start``
+    clears it, which is why the sentence names that command rather than
+    apologising in general.
     """
     callback = event.update.callback_query
     error = event.exception
@@ -132,7 +135,7 @@ async def run_polling(stop_event: asyncio.Event) -> None:
     finally:
         await dispatcher.stop_polling()
         polling.cancel()
-        with __import__("contextlib").suppress(asyncio.CancelledError):
+        with suppress(asyncio.CancelledError):
             await polling
         await bot.session.close()
         log.info("Telegram bot stopped")

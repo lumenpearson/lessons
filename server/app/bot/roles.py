@@ -52,8 +52,21 @@ async def require_role(
 
 
 async def list_memberships(session: AsyncSession, telegram_id: int) -> list[BotUser]:
+    """Every class this account is in, oldest membership first.
+
+    The order is stated rather than left to the database because three things
+    read it as if it were: the class the middleware falls back to, the one
+    ``default_class_for`` picks, and the order of the «🔀 Сменить класс»
+    buttons. An unordered ``SELECT`` is free to hand back a different order
+    after any write, so a parent with two children could aim at the second
+    button and open the other child — and the fallback class could differ
+    between two taps. SQLite happens to return insertion order, which is why
+    the tests never saw it; Postgres makes no such promise.
+    """
     return list(
-        await session.scalars(select(BotUser).where(BotUser.telegram_id == telegram_id))
+        await session.scalars(
+            select(BotUser).where(BotUser.telegram_id == telegram_id).order_by(BotUser.id)
+        )
     )
 
 
@@ -96,6 +109,9 @@ async def claim_phone_invites(
     Called when a user shares their contact with the bot. Telegram guarantees the
     number really belongs to that account, which is what makes an invite-by-phone
     safe to auto-apply.
+
+    @return (class, effective role) per invite claimed — the role the account
+        holds in that class afterwards, which is not always the invite's.
     """
     normalised = normalise_phone(phone)
     if not normalised:
@@ -133,7 +149,13 @@ async def claim_phone_invites(
 
         invite.used_by = telegram_id
         invite.used_at = datetime.utcnow()
-        granted.append((school_class, invite.role))
+        # The role they now hold, not the one the invite named. The rule above
+        # keeps the higher of the two, so an invite below somebody's existing
+        # role changes nothing — but the caller draws the main menu from what
+        # is returned here, and an admin was told «роль: Наблюдатель» and given
+        # a наблюдатель's keyboard, with «🧩 Расписание», «👥 Доступ» and
+        # «⚙️ Класс» simply absent.
+        granted.append((school_class, membership.role))
 
     await session.commit()
     return granted

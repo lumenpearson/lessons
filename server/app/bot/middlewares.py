@@ -20,13 +20,14 @@ from aiogram.types import TelegramObject, User
 
 from app.bot.roles import default_class_for, get_role, list_memberships
 from app.db import SessionLocal
-from app.fsm_storage import DatabaseStorage
+from app.fsm_storage import PREFS_DESTINY, DatabaseStorage
 from app.models import SchoolClass
 
-#: The FSM ``destiny`` the class preference lives under. A separate destiny
-#: from the conversations on purpose: clearing a half-finished flow must not
-#: also forget which class the person was working in.
-PREFS_DESTINY = "prefs"
+# ``PREFS_DESTINY`` is imported rather than declared here: it is a separate
+# destiny from the conversations on purpose - clearing a half-finished flow must
+# not also forget which class the person was working in - and the sweep in
+# ``fsm_storage`` is what has to know that this row is not one, so the name
+# lives beside the sweep.
 
 
 def prefs_key(telegram_id: int) -> StorageKey:

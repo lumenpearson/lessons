@@ -14,6 +14,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.bot.button_style import DANGER, PRIMARY, SUCCESS
 from app.bot.keyboards import Menu, back_to_menu
+from app.bot.manage_render import BELLS_MAX, DEVICES_MAX, LIST_MAX, SUBJECTS_MAX
 
 
 class TermAction(CallbackData, prefix="trm"):
@@ -195,7 +196,7 @@ def subject_list_keyboard(
         can_collect = can_edit
 
     rows: list[list[InlineKeyboardButton]] = []
-    for subject in subjects[:30]:
+    for subject in subjects[:SUBJECTS_MAX]:
         rows.append(
             [
                 InlineKeyboardButton(
@@ -305,7 +306,7 @@ def holiday_list_keyboard(
         can_period = can_edit
 
     rows: list[list[InlineKeyboardButton]] = []
-    for override in overrides[:20]:
+    for override in overrides[:LIST_MAX]:
         rows.append(
             [
                 InlineKeyboardButton(
@@ -376,7 +377,7 @@ def bells_pick_keyboard(schedules: list, iso_date: str) -> InlineKeyboardMarkup:
                 ).pack(),
             )
         ]
-        for schedule in schedules[:10]
+        for schedule in schedules[:BELLS_MAX]
     ]
     rows.append(
         [
@@ -391,7 +392,7 @@ def bells_pick_keyboard(schedules: list, iso_date: str) -> InlineKeyboardMarkup:
 
 def bells_list_keyboard(schedules: list, default_id: int | None) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
-    for schedule in schedules[:10]:
+    for schedule in schedules[:BELLS_MAX]:
         sid = str(schedule.id)
         row = [
             InlineKeyboardButton(
@@ -434,7 +435,7 @@ def bells_list_keyboard(schedules: list, default_id: int | None) -> InlineKeyboa
 
 def device_keyboard(devices: list) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
-    for device in devices[:15]:
+    for device in devices[:DEVICES_MAX]:
         did = str(device.id)
         row = [
             InlineKeyboardButton(

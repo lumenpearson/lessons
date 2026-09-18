@@ -366,6 +366,30 @@ class ScheduleResolver:
             for event in sorted(self._events.get(day, []), key=lambda e: e.starts_at)
         ]
 
+        # Outside the school year the weekly template does not apply, and
+        # until now nothing said so. `SCHOOL_YEAR_END_MONTH` is 5 and the
+        # comment above it explains that June onwards must not keep repeating
+        # the template «because it would show lessons that nobody is going
+        # to» — but the constant was only ever read by `school_year_bounds`,
+        # never here. So every weekday of June, July and August drew a full
+        # day: on the phone, in the widget, in the calendar feed, and in a
+        # morning digest whose own rule about staying silent on an empty day
+        # («a subscriber who asked for today's lessons did not ask to be told
+        # «Уроков нет» every morning of the summer») could therefore never
+        # fire. `school_year_bounds` files a summer date under the year that is
+        # about to open, so a day before that year's first teaching day is
+        # exactly the gap between two years.
+        #
+        # A day somebody marked by hand keeps the kind and the note they gave
+        # it; an unmarked one reads as каникулы, which is what it is. Events
+        # and homework are kept either way — an экскурсия in June is a real
+        # thing, and it is the lessons that are out of season, not the day.
+        year_start, year_end = school_year_bounds(day)
+        if not year_start <= day <= year_end:
+            if day_override is None:
+                resolved.kind = DayKind.HOLIDAY
+            return resolved
+
         if kind is DayKind.HOLIDAY:
             return resolved
 

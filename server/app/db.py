@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -110,6 +111,27 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         yield session
 
 
+def rows_affected(result: Any) -> int:
+    """How many rows a DELETE or an UPDATE actually touched.
+
+    Eleven places asked `result.rowcount or 0`, and every one of them was a
+    sweep or a conditional write reporting what it had done. One name for it
+    reads better than eleven copies of the same `or 0`.
+
+    It also gives the cast a single home. `AsyncSession.execute` is typed as
+    returning `Result[Any]`, which declares no `rowcount`; what comes back from
+    a DML statement is a `CursorResult`, which does. That gap is SQLAlchemy's
+    stubs, not ours - but it is the only thing standing between this project
+    and a clean `attr-defined` check, and that check is worth having: it is
+    what would have caught `Term.days`, the missing attribute that crashed
+    «🗓 Четверти» on every press in production.
+
+    `None` becomes 0: a driver is allowed not to report a count, and «не знаю»
+    is closer to nought swept than to a crash in a cron tick.
+    """
+    return getattr(result, "rowcount", None) or 0
+
+
 #: The Alembic revision this code needs the database to be at.
 #:
 #: Hardcoded rather than read from ``migrations/`` because that directory is
@@ -118,7 +140,7 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 #: inside a request. A constant that has to be kept in step by hand would rot,
 #: so ``tests/test_schema_version.py`` pins it to the real head and fails the
 #: build if a new revision lands without updating it.
-EXPECTED_REVISION = "0011"
+EXPECTED_REVISION = "0013"
 
 
 async def current_revision(session: AsyncSession) -> str | None:
@@ -128,6 +150,14 @@ async def current_revision(session: AsyncSession) -> str | None:
     SQLite bootstrapped by ``create_all``, which never gets an
     ``alembic_version`` table. That is a normal state for development, so it is
     reported as «unknown» rather than treated as a fault.
+
+    Swallowing the error is not enough on Postgres: a statement that raises
+    leaves its transaction aborted, and every statement after it on the same
+    session fails with ``InFailedSQLTransactionError`` no matter what it asks.
+    So the session is rolled back before the answer is returned, and this
+    function is safe to call anywhere rather than only last. It was only ever
+    harmless because ``/api/v1/warmup`` happens to ask it last — a fact about
+    that caller, which the next one will not know.
     """
     from sqlalchemy import text as sa_text
 
@@ -135,5 +165,6 @@ async def current_revision(session: AsyncSession) -> str | None:
         result = await session.execute(sa_text("SELECT version_num FROM alembic_version"))
         row = result.first()
     except Exception:  # noqa: BLE001 - a missing table is an answer, not a crash
+        await session.rollback()
         return None
     return str(row[0]) if row else None

@@ -15,14 +15,17 @@ import pytest
 from aiogram.exceptions import TelegramForbiddenError
 from sqlalchemy import select
 
+from app.crypto import seal
 from app.db import SessionLocal
 from app.models import (
+    AuditEntry,
     BellPeriod,
     BotUser,
     DayEvent,
     DayKind,
     DayOverride,
     DeviceToken,
+    DiarySession,
     EventKind,
     Homework,
     HomeworkDone,
@@ -636,6 +639,45 @@ async def test_send_due_sends_marks_and_never_repeats(session, school_class):
     assert first.last_evening_sent == MONDAY
 
 
+async def test_a_digest_that_fails_half_built_leaves_nothing_behind(
+    session, school_class, monkeypatch
+):
+    """«One broken class must not stop the tick» has to be true of the
+    database too, not only of the loop.
+
+    The build runs in a savepoint, so whatever a failed attempt managed to do
+    is undone rather than carried along and committed by the next `claim()`.
+    On Postgres that savepoint is also what keeps the tick alive at all: a
+    statement that raises there aborts the whole transaction, and every later
+    statement — starting with the next class's claim — fails with
+    InFailedSqlTransaction, so the endpoint 500s and the task reminders and the
+    four sweeps behind them never run. That half cannot be reproduced on
+    SQLite, which leaves the session perfectly usable; what is pinned here is
+    the containment, which holds on both.
+    """
+    settings = await reminders.settings_for(session, school_class.id, 42)
+    settings.morning_at = time(7, 30)
+    await session.commit()
+
+    async def write_then_fail(inner, one_class, telegram_id, kind, today, cache):
+        await audit.record(inner, one_class.id, telegram_id, "digest.partial", "не должно остаться")
+        await inner.flush()
+        raise RuntimeError("upstream of the renderer")
+
+    monkeypatch.setattr(reminders, "_digest_text", write_then_fail)
+
+    counts = await reminders.send_due(session, FakeBot(), MOSCOW_0730)
+
+    assert counts["failed"] == 1 and counts["morning"] == 0
+    # Marked all the same: the claim is what stops the next tick retrying a
+    # class whose digest cannot be built, all morning.
+    assert settings.last_morning_sent == MONDAY
+    left = await session.scalars(
+        select(AuditEntry).where(AuditEntry.action == "digest.partial")
+    )
+    assert list(left) == [], "the failed build's write was carried along and committed"
+
+
 async def test_send_due_is_silent_on_a_day_without_lessons(session, school_class):
     settings = await reminders.settings_for(session, school_class.id, 42)
     settings.morning_at = time(7, 30)
@@ -782,6 +824,37 @@ async def test_calendar_token_is_minted_once_and_rotated_on_request(session, sch
     assert school_class.calendar_token == rotated
     async with SessionLocal() as other:
         assert (await other.get(SchoolClass, school_class.id)).calendar_token == rotated
+
+
+async def test_two_requests_minting_the_calendar_token_hand_out_the_same_one(
+    session, school_class
+):
+    """A subscription URL is set up once and never looked at again.
+
+    Both «📅 Календарь» in the bot and `GET /api/v1/calendar` mint the token on
+    first use, and a request that read the class before the other one committed
+    still sees no token — the ordinary shape of two screens opened together.
+    The second write used to overwrite the first, and the first caller had
+    already been handed a URL the database no longer holds: that feed answers
+    404 for ever, to somebody who will never open the screen again.
+    """
+    class_id = school_class.id
+
+    async with SessionLocal() as second, SessionLocal() as first:
+        # The second request loads the class first, while there is still no
+        # token, and only gets to its own write afterwards.
+        stale = await second.get(SchoolClass, class_id)
+        assert stale.calendar_token is None
+
+        winner = await calendar.ensure_calendar_token(
+            first, await first.get(SchoolClass, class_id)
+        )
+        handed_out = await calendar.ensure_calendar_token(second, stale)
+
+    async with SessionLocal() as after:
+        stored = (await after.get(SchoolClass, class_id)).calendar_token
+    assert stored == winner, "the first caller's URL stopped being the class's"
+    assert handed_out == winner
 
 
 async def test_render_ics_writes_lessons_events_homework_and_tasks(session, school_class):
@@ -1323,3 +1396,124 @@ def test_the_last_field_keeps_its_commas_without_quoting():
     assert timetable_io.parse_lesson_line("1. Физика, 305, Иванов И.И., к.п.н.") == (
         1, "Физика", "305", "Иванов И.И., к.п.н.", WeekParity.ANY,
     )
+
+
+# --------------------------------------------------------------------------
+# The diary's clock
+# --------------------------------------------------------------------------
+
+
+class _FakeDiaryClient:
+    """Enough of ``PetersburgClient`` for one call. ``token`` is read by
+    ``DiaryService._remember_token`` on the way out of every call."""
+
+    def __init__(self, items: list[dict[str, Any]]) -> None:
+        self.items = items
+        self.token = "upstream-token"
+
+    async def periods(self, group_id: int) -> list[dict[str, Any]]:
+        return self.items
+
+
+async def test_the_current_period_is_read_off_the_diary_clock_not_the_server(
+    session, school_class, monkeypatch
+):
+    """Which четверть is «текущая» decides what `GET /diary/.../subjects`
+    answers when no period is named, and it answers with an **empty list** when
+    none of them is current.
+
+    Vercel runs in UTC and the diary is one city's, three hours ahead. Asked
+    with the server's own clock, a pupil opening «Дневник» after nine in the
+    evening on the first day of a quarter was still in yesterday - which is
+    каникулы, between two periods - and got no subjects at all. The provider
+    exports ``today()`` for exactly this; every other "today" in this project
+    comes from the class's zone for the same reason.
+    """
+    from app.providers.petersburg import client as petersburg_client
+    from app.services import diary as diary_service
+
+    server_today = date.today()
+    # It is already tomorrow where the diary is, and tomorrow opens a quarter.
+    school_today = server_today + timedelta(days=1)
+
+    class _SchoolClock:
+        @staticmethod
+        def now(tz=None):
+            return datetime.combine(school_today, time(0, 30), tzinfo=tz)
+
+    monkeypatch.setattr(petersburg_client, "datetime", _SchoolClock)
+
+    row = DiarySession(
+        token_hash=hash_token(new_token()),
+        upstream_token=seal("upstream-token"),
+        login="ivan@example.test",
+    )
+    session.add(row)
+    await session.commit()
+
+    service = diary_service.DiaryService(session, row)
+    service.client = _FakeDiaryClient(
+        [
+            {
+                "identity": {"id": 1},
+                "name": "1 четверть",
+                "date_from": (server_today - timedelta(days=60)).strftime("%d.%m.%Y"),
+                "date_to": server_today.strftime("%d.%m.%Y"),
+            },
+            {
+                "identity": {"id": 2},
+                "name": "2 четверть",
+                "date_from": school_today.strftime("%d.%m.%Y"),
+                "date_to": (school_today + timedelta(days=60)).strftime("%d.%m.%Y"),
+            },
+        ]
+    )
+
+    found = await service.periods(group_id=1)
+    current = [period.name for period in found if period.is_current]
+
+    assert current == ["2 четверть"], (
+        "the quarter that opened today where the school is has to be the current one"
+    )
+
+
+async def test_two_overlapping_ticks_do_not_send_one_task_reminder_twice(
+    session, school_class
+):
+    """A task reminder is claimed by the database, the same as a digest is.
+
+    It used to be claimed by writing ``remind_at = None`` onto the loaded row
+    and committing — which answers the tick that dies halfway through, and not
+    the tick that overlaps. `reminders.yml` gives `curl` five minutes and
+    killing the request does not kill the serverless invocation it started, so
+    this deployment has the overlapping one: `due_task_reminders` hands out up
+    to two hundred rows and `send_due` clears each as it reaches it, so the
+    window for the last of them is however long the rest took to send. A second
+    tick selecting inside that window held the same rows with ``remind_at``
+    still set, cleared an already-cleared column without complaint, and sent
+    the reminder a second time.
+    """
+    task = await tasks.add_task(
+        session,
+        school_class.id,
+        42,
+        "Взять форму",
+        remind_at=datetime(2026, 9, 7, 7, 0),
+    )
+
+    async with SessionLocal() as overlapping:
+        # The second tick selected this row a moment ago and is still working
+        # through the ones before it.
+        held, _klass = (await reminders.due_task_reminders(overlapping, MOSCOW_0730))[0]
+        assert held.remind_at is not None
+
+        # The first tick reaches the same row, claims it and sends.
+        bot = FakeBot()
+        assert (await reminders.send_due(session, bot, MOSCOW_0730))["tasks"] == 1
+        assert len(bot.sent) == 1
+
+        # The second tick now reaches the row it is holding. What decides is
+        # the database, not the value this tick still has in memory.
+        assert await reminders.claim_task(overlapping, held) is False
+
+    assert task.remind_at is None

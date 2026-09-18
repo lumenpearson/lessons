@@ -190,6 +190,43 @@ class ScheduleEngineTest {
         assertTrue(state is DayState.NoData)
     }
 
+    /**
+     * Out of season is not out of data, and the two read differently.
+     *
+     * From 1 June the sync window is the year *about to* open, so the cache
+     * legitimately holds September onwards and nothing for today — and «NoData»
+     * puts «Расписание ещё не загружено — откройте приложение и потяните вниз»
+     * on the home screen every day of the summer, asking for a pull that cannot
+     * help. The server already answers these dates as holidays.
+     */
+    @Test
+    fun `a summer date is a holiday rather than missing data`() {
+        val september = LocalDate.of(2027, 9, 6)
+        val cached = timetable(day(date = september, lessons = mondayLessons))
+
+        val state = ScheduleEngine.stateAt(cached, at(LocalDate.of(2027, 7, 20), "09:00"))
+
+        val off = state as DayState.DayOff
+        assertEquals(DayKind.HOLIDAY, off.kind)
+        assertEquals(LocalDate.of(2027, 7, 20), off.date)
+        // And it still knows where to point: the first day of the year that is
+        // about to open is what the homework card should be showing in July.
+        assertEquals(september, off.homeworkDay?.date)
+    }
+
+    @Test
+    fun `a date inside the school year with nothing cached is still NoData`() {
+        // The one the holiday reading must not swallow: mid-October with an
+        // empty cache is «ничего не загрузилось», and pulling down is exactly
+        // what helps.
+        val state = ScheduleEngine.stateAt(
+            timetable(day()),
+            at(LocalDate.of(2026, 10, 15), "09:00"),
+        )
+
+        assertTrue(state is DayState.NoData)
+    }
+
     @Test
     fun `nextTransition returns the upcoming bell`() {
         val tt = timetable(day())

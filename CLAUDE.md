@@ -39,7 +39,11 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 1026 tests, about four minutes
+- **`python -m pytest -q`** — 1340 tests, about five minutes
+- **`python -m mypy`** — one question, of all 79 modules, in seconds: does anything reach
+  for an attribute its type does not have? Configured in `pyproject.toml`, where every
+  other error code is switched off by name with its count and its reason. Not in CI — the
+  owner has not been asked — but run it before you push server code
 - `python -m pytest -q tests/test_schedule.py -k parity` — one file, one test
 - `python -m uvicorn app.main:app --reload` — run it; add `--host 0.0.0.0` for a phone to
   reach it
@@ -199,7 +203,7 @@ points Hilt does not inject cleanly.
   a half-applied revision cannot claim to be whole. And say what a revision destroys before
   running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
   sentence the owner needs *before* the transaction, not after.
-- **Migrations are Alembic and production is already at `0011`.** `0001` is a guarded
+- **Migrations are Alembic and production is at `0012`; `0013` waits for the merge.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
@@ -209,7 +213,11 @@ points Hilt does not inject cleanly.
   mode and adds the personal connect codes, and `0011` tightens two `diary_overrides`
   timestamps `0009` left nullable while the model builds them `NOT NULL` — a no-op on this
   database, because the DDL for `0009` came from the model, and not one on a deployment
-  that ran the chain through alembic.
+  that ran the chain through alembic. `0012` does the same for eight more timestamps in
+  seven tables that `0003`, `0004` and `0006` left loose — and on this database it was
+  **not** a no-op: all eight really were nullable, and all eight held zero nulls, so it
+  tightened them and rewrote nothing. `0013` adds `uq_homework_per_subject_per_day` and is
+  **applied after the merge, not before** — see the constraint rule below.
   Nothing after `0001` may use `create_all`.
   Beware the enum: `SAEnum(SomeStrEnum)` stores the member **name**, so a `server_default`
   written as `.value` is a string the ORM cannot read back — which on `classes` is a
@@ -217,6 +225,55 @@ points Hilt does not inject cleanly.
   exactly that. A model change needs
   a revision — a live database will not grow a column on its own, and lifespan `create_all`
   runs only for local SQLite.
+- **A constraint migrates in the opposite direction from a column.** The rule
+  above — migration first, merge second — is about code that knows a column the
+  database does not, and it is right for every additive revision in this chain.
+  A `UNIQUE` or a `NOT NULL` is the other way round: it is the **old** code that
+  breaks against it, with an `IntegrityError` nobody catches where a moment
+  earlier there was a duplicate. `0013` is that shape and says so in its own
+  docstring — it goes on *after* the merge, and `services/homework.py` is
+  written to be correct with or without it so the window in between behaves
+  exactly like today. `0012` is the safe shape (eight timestamps that already
+  hold no nulls) and was applied the usual way, before the merge. Read the
+  database before either: `0012` turned out to be a real fix rather than the
+  no-op `0011` was, because all eight columns really were nullable there.
+- **The weekly template stops at the end of the school year, and until recently
+  did not.** `SCHOOL_YEAR_END_MONTH` is 5 and `schedule.py`'s comment says June
+  onwards must not repeat the template; nothing read it, so every summer weekday
+  drew a full day on the phone, in the widget, in the calendar feed and in the
+  morning digest — whose own rule about staying silent on an empty day could
+  never fire, because the day was never empty. `_resolve_day` now asks
+  `school_year_bounds`. A day somebody marked by hand keeps its kind and note,
+  and events and homework are kept either way: it is the lessons that are out of
+  season, not the day.
+- **A lesson number needs a bell of its own number, everywhere a lesson is
+  written.** The resolver takes a lesson's times from the bell row of the same
+  number and drops what has none, so a row at a number the day does not ring is
+  stored, logged, announced and drawn nowhere. Three ways in had to learn this
+  separately: the week import, the button editor, and — later — the замена
+  (`api/edit.py`, `bot/handlers/content.py`) and the bot's single-day paste,
+  which used to write the template itself instead of going through
+  `services/structure.apply_timetable`. Check with `timetable_edit.can_ring`,
+  and for a dated write use `rung_indexes_on`, because a сокращённый день points
+  at a shorter schedule than the class's usual. Two more ways in were closed
+  later: **deleting** a lesson closed the gap in the numbering whatever it
+  landed on (bells at 1, 2, 4 lost the fourth lesson onto a third slot that
+  rings nothing — `remove_lesson` now renumbers only when every moved lesson
+  still rings), and a day could be pointed at a bell schedule with **no rows**,
+  which draws nothing at all under a card saying «⏱ Сокращённые уроки» — both
+  `api/edit.day_put` and the bot refuse that now. And when you report what was
+  dropped, count the **rows**, not the numbers: `apply_timetable` hands back
+  (weekday, number) pairs, because one number under two weekdays — or under
+  «чёт» and «нечёт» in one day — is two lessons nobody will see.
+- **The diary sign-in ticket pays for an attempt, and an unreadable answer is
+  one.** `api/diary_web` spends the ticket before the sign-in so that whoever
+  holds the URL cannot sit and guess against the upstream from our address. Only
+  `UpstreamUnavailable` — a transport failure or a 5xx, where nothing ever
+  looked at what was typed — hands it back. A 200 of HTML must not: a login form
+  on Yii refuses a password with the same bytes a captcha arrives in, and this
+  diary has never been opened for real, so from here the two are
+  indistinguishable. The page says «дневник ответил непонятно» instead of
+  blaming the password, which is the part that was actually broken.
 - **Time is naive local wall time, in the class's zone, not the server's.** A bell rings at
   08:30 whether or not the clocks changed. `SchoolClass.timezone` carries the zone; the
   server decides "today" through `school_class.tz` and the client through
@@ -232,6 +289,76 @@ points Hilt does not inject cleanly.
 
 ## Notes
 
+- **A message Telegram will not deliver is a screen that says nothing.** The
+  ceiling is 4096 characters after entity parsing, and the whole message is
+  refused rather than clipped: the homework digest had no bound and a fortnight
+  of three заданий a day came to 5371, so «📝 Домашнее задание» answered «что-то
+  пошло не так» and `/homework` — a plain `answer`, with no callback to
+  apologise on — answered nothing at all. Every renderer that grows with the
+  data carries a budget (`WEEK_TEXT_LIMIT`, `TASK_LINES_MAX`,
+  `HOMEWORK_DIGEST_LIMIT`, `manage_render.clamp`) and says «… и ещё N». Cut a
+  string **before** escaping it: cutting after can leave «&am», which is a
+  refused message of its own.
+- **Everything from outside is escaped before it goes into a message.** The bot sends
+  HTML, and Telegram refuses the **whole message** on a stray `<` rather than damaging one
+  row — so an unescaped string does not produce a broken line, it produces a blank screen
+  and no error anybody sees. The strings that come from outside are: anything the
+  Petersburg diary sends (subject, room, teacher, topic, homework), anything typed into
+  the bot or pasted into the timetable grammar (a subject really can be «Алгебра <7>»),
+  and anything out of the schools registry. `render.py` always did this; `diary_render.py`
+  and `editor_render.py` never did, and both shipped that way.
+  Two related traps in the same family: `plural(n, …)` already contains the number, so
+  `f"{n} {plural(n, …)}"` prints «10 10 минут» — three callers had it, and one had a test
+  that passed because «10 минут» is a substring. And `answerCallbackQuery` takes no parse
+  mode, so a card built for a message shows its own tags in an alert; run it through
+  `editor_render.as_alert` instead — which also cuts at 200 characters, because past
+  that Telegram answers 400 and the press answers nothing at all.
+- **A list page and the keyboard under it read the same number.** `manage_render`
+  declares `SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX` and `LIST_MAX`, and
+  `manage_keyboards` builds its rows from those same names. While there were two
+  numbers, three pages of four drew rows no button could reach and «… и ещё N» said
+  nothing, because it counted from the renderer's number. The values differ on
+  purpose — a bell schedule's row carries three buttons and twelve lines of times, a
+  subject's one of each — so do not "tidy" them into one constant; the rule is that
+  what is drawn is what can be pressed, and
+  `test_no_list_page_draws_a_row_the_keyboard_cannot_reach` holds it. Nothing
+  paginates, so past the cap a row is only a number.
+- **Callback data is whatever the client sent, and a bare conversion on it is not
+  a small bug.** `int(callback_data.value)` does not refuse a press it cannot parse
+  — it raises out of the handler, so `callback.answer()` is never reached and the
+  button keeps its spinner until Telegram gives up. Every handler module carries a
+  guard for this: `_int_or_none` in `manage.py`, `tasks.py` and `access.py`,
+  `_date_or_none` in `calendar.py` and `content.py`, `_role_or_none` in
+  `access.py`, `_kind_or_none` and `_index_or_none` in `content.py`, and
+  `shift_days`/`shift_weeks` in `keyboards.py` for the offsets (`timedelta(
+  days=999999999)` is an OverflowError, not a far-away day). Check the value
+  **where it is picked**, not where it is finally read: a value carried through
+  three questions raises in front of somebody who has just typed a time and a
+  title, and looks like their answer was the problem.
+- **Two screens can match one press.** Both role pickers send a `RolePick`, and the
+  only thing telling them apart is that the invite flow leaves `target` empty. While
+  the invite handler's filter was a bare `RolePick.filter()` it swallowed both,
+  because it is registered first — so a role pressed on an older «Новая роль» card
+  created a phone invite and said so in a sentence about the number. Split a shared
+  payload on a field, never on registration order;
+  `test_the_two_role_pickers_never_match_the_same_press` holds it.
+- **`ResourceTranslationTest` covers every module that ships strings**, not just
+  `:app` — `:core:data`, `:core:designsystem` and `:widget` have their own
+  `values/` and went unguarded for a long time, which is how the countdown on the
+  home screen stayed Russian under an English caption. It discovers the modules
+  rather than listing them, and counts a `<plurals>`' arguments per form (Russian
+  has four forms and English two; over the concatenated text they can never agree).
+  What it cannot see is a Russian string written into Kotlin, because that word is
+  in neither folder — `grep -rnP '"[^"]*[\x{0400}-\x{04FF}]' */src/main` is the
+  check for that, and today it finds only `@Preview` data, maintainer-facing report
+  bodies, and the timezone list, whose file documents the choice.
+- **A renderer is written against the type it is handed, and nothing checks that but you.**
+  «🗓 Четверти» crashed on every press in production because the card printed `term.days`
+  and `days` lived on a flattened copy of a term that nothing ever constructed. There is
+  no compiler here. `python -m mypy` is: it reproduces that exact failure when the property
+  is removed, and it is clean today. If you add a «view» dataclass beside a model, check
+  that something builds it — an unused twin is how a renderer ends up written against the
+  one it will never receive.
 - **An enum column stores the member NAME.** `SAEnum(SomeStrEnum)` writes
   `OPEN`, not `open` — check `bot_users.role` in the live database if you doubt
   it. A `server_default` spelled as `.value` therefore lands an unreadable

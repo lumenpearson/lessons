@@ -29,6 +29,9 @@
     <string name="ds_event_generic">Event</string>
 
     <!-- Countdown captions on the hero card -->
+    <string name="ds_countdown_under_minute">less than a minute</string>
+    <string name="ds_countdown_minutes">%1$d min</string>
+    <string name="ds_countdown_hours_minutes">%1$d h %2$02d min</string>
     <string name="ds_countdown_until_start">until it starts</string>
     <string name="ds_countdown_until_end">left</string>
     <string name="ds_countdown_progress">%1$d%% elapsed</string>

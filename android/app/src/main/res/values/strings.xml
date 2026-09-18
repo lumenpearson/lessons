@@ -138,6 +138,13 @@
     <!-- Неделя -->
     <string name="week_title">Календарь</string>
     <string name="week_range">%1$s — %2$s</string>
+    <!--
+        The term beside the period in the calendar's subtitle: «Октябрь 2026 · 1
+        четверть». It used to be built in `:core:model`, which has no resources,
+        so an English phone read an English month next to a Russian четверть.
+    -->
+    <string name="term_quarter">%1$d четверть</string>
+    <string name="term_semester">%1$d полугодие</string>
     <string name="week_previous">Предыдущая неделя</string>
     <string name="week_next">Следующая неделя</string>
     <string name="week_current">Текущая неделя</string>

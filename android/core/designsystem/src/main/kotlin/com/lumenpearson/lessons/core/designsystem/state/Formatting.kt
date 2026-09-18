@@ -1,5 +1,7 @@
 package com.lumenpearson.lessons.core.designsystem.state
 
+import android.content.Context
+import com.lumenpearson.lessons.core.designsystem.R
 import java.time.Duration
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -27,7 +29,15 @@ fun formatTimeRange(start: LocalTime, end: LocalTime): String =
     "${start.formatHm()} – ${end.formatHm()}"
 
 /**
- * Countdown text: `12 мин`, `1 ч 05 мин`, `меньше минуты`.
+ * Countdown text: `12 мин`, `1 ч 05 мин`, `меньше минуты` — and the English
+ * twins of all three.
+ *
+ * Takes a [Context] rather than being a pure function, which is the whole point
+ * of the change that gave it one: the words used to be Kotlin string literals,
+ * so the largest figure on the home screen came out in Russian under a caption
+ * that came out of `values-en/`. The widget has always worded its own countdown
+ * through resources (`WidgetStrings.duration`); this is the same rule applied
+ * to the card the app draws above it.
  *
  * Rounds *up* rather than truncating, because this always labels time that is
  * still remaining: a truncating "0 мин" that sits there for a full minute is the
@@ -35,14 +45,14 @@ fun formatTimeRange(start: LocalTime, end: LocalTime): String =
  * that drifted past the boundary before the next tick — clamp to zero instead of
  * printing a minus sign.
  */
-fun Duration.formatShortRu(): String {
-    if (isNegative || isZero) return "меньше минуты"
+fun Duration.formatCountdown(context: Context): String {
+    if (isNegative || isZero) return context.getString(R.string.ds_countdown_under_minute)
     val totalMinutes = ceil(seconds / 60.0).toLong()
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
     return when {
-        hours > 0L -> "$hours ч ${minutes.toString().padStart(2, '0')} мин"
-        else -> "$totalMinutes мин"
+        hours > 0L -> context.getString(R.string.ds_countdown_hours_minutes, hours, minutes)
+        else -> context.getString(R.string.ds_countdown_minutes, totalMinutes)
     }
 }
 

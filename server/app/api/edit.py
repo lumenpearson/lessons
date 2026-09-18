@@ -30,6 +30,7 @@ from app.bot.render import human_date
 from app.config import get_settings
 from app.db import get_session
 from app.models import (
+    BellPeriod,
     BellSchedule,
     DayEvent,
     DayKind,
@@ -42,6 +43,7 @@ from app.models import (
     Role,
     SchoolClass,
 )
+from app.schedule import ScheduleResolver
 from app.schemas import (
     DayIn,
     DayOverrideOut,
@@ -53,7 +55,8 @@ from app.schemas import (
     OverrideIn,
     OverrideOut,
 )
-from app.services import audit, linking, notify, subjects
+from app.services import audit, linking, notify, subjects, timetable_edit
+from app.services import homework as homework_service
 from app.services import tasks as task_service
 
 log = logging.getLogger(__name__)
@@ -154,32 +157,17 @@ async def homework_put(
     subject per day, and sending it again replaces the text."""
     _check_date(payload.due_date)
     actor = device.telegram_id
-    # The class's spelling, so that «алгебра» from a phone updates the «Алгебра»
-    # already set for that day instead of founding a second задание beside it.
-    subject_name = await subjects.spelling(session, school_class.id, payload.subject)
-    existing = await session.scalar(
-        select(Homework).where(
-            Homework.class_id == school_class.id,
-            Homework.due_date == payload.due_date,
-            Homework.subject_name == subject_name,
-        )
+    existing, created = await homework_service.upsert(
+        session,
+        school_class.id,
+        payload.due_date,
+        payload.subject,
+        payload.text,
+        actor,
+        attachment_url=payload.attachment_url,
     )
-    if existing is None:
-        existing = Homework(
-            class_id=school_class.id,
-            due_date=payload.due_date,
-            subject_name=subject_name,
-            text=payload.text,
-            attachment_url=payload.attachment_url,
-            created_by=actor,
-        )
-        session.add(existing)
-        action, verb = "homework.add", "добавлено"
-    else:
-        existing.text = payload.text
-        existing.attachment_url = payload.attachment_url
-        existing.created_by = actor
-        action, verb = "homework.update", "обновлено"
+    subject_name = existing.subject_name
+    action, verb = ("homework.add", "добавлено") if created else ("homework.update", "обновлено")
 
     when = human_date(payload.due_date, _today(school_class))
     await audit.record(
@@ -281,6 +269,33 @@ async def override_put(
         return OverrideOut(date=payload.date, index=payload.index, action="clear")
 
     if existing is None:
+        # A замена at a number the day has no bell for is stored, written to
+        # the log, announced to everybody with «🔁 Замена … урок №8» — and
+        # drawn by nothing, because the resolver takes a lesson's times from
+        # the bell row of the same number and drops what has none. The
+        # timetable learned this; this, the other way a lesson changes, had no
+        # check at all. Only on create: an existing row at a bad number must
+        # stay clearable, which is how a class gets out of one.
+        rung = await timetable_edit.rung_indexes_on(session, school_class.id, payload.date)
+        if not timetable_edit.can_ring(rung, payload.index):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"нет звонка для урока №{payload.index} в этот день",
+            )
+        if payload.action == "cancel":
+            # Cancelling needs something to cancel. A замена at an empty number
+            # is a legitimate edit — it is how a lesson is *added* to a day —
+            # but «🚫 Урок №7 отменён» about a number nobody was going to be at
+            # goes into the log and into everybody's chat, and the resolver
+            # drops the row on the way out because it only cancels a lesson the
+            # day actually has. The bot cannot reach this: it draws its «🚫»
+            # under a lesson that exists.
+            day = (await ScheduleResolver(session, school_class).resolve_range(payload.date, 1))[0]
+            if payload.index not in {lesson.index for lesson in day.lessons}:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"в этот день нет урока №{payload.index}, отменять нечего",
+                )
         existing = LessonOverride(
             class_id=school_class.id,
             date=payload.date,
@@ -457,6 +472,28 @@ async def day_put(
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="bell_schedule_id is not in this class",
+            )
+        # And that it rings something. A schedule may legitimately be created
+        # empty and filled in later (`BellScheduleIn.periods` defaults to an
+        # empty list and says so), and the resolver takes a lesson's times from
+        # the bell row of the same number - so a day pointed at an empty one
+        # draws no lessons at all while the card above them says «сокращённые
+        # уроки». Nothing fails: the phone, the widget, the calendar feed and
+        # the morning digest all agree there is no school that day, and a
+        # замена written for it is accepted at any number because
+        # `timetable_edit.rung_indexes_on` falls back to the class default when
+        # the named schedule has no rows. This is the same decision the check
+        # underneath already makes for a shortened day with no schedule at all,
+        # and it is made for the same reason.
+        rings = await session.scalar(
+            select(BellPeriod.id)
+            .where(BellPeriod.schedule_id == payload.bell_schedule_id)
+            .limit(1)
+        )
+        if rings is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="в этом расписании звонков нет ни одного урока",
             )
 
     # «Сокращённые уроки» is a claim about the times, and the times come from a

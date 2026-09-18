@@ -326,6 +326,34 @@ class DiaryRepositoryTest {
         assertEquals(TARGET, rows.first().target)
     }
 
+    /**
+     * The same 401, on a phone whose disk will not take the write.
+     *
+     * DataStore's write side rethrows [IOException], and dropping the dead
+     * token happens inside the `catch` that is turning the refusal into a
+     * `Result` — so a full disk turned a handled 401 into an exception thrown
+     * out of a function whose whole signature promises it will not. Every
+     * caller is a bare `viewModelScope.launch`, which means the process goes
+     * down while the diary screen is open. `signOut` already guards its own
+     * clear, and `TimetableRepositoryImpl` guards the class token's for exactly
+     * this reason; this is the one path that did not.
+     */
+    @Test
+    fun `a 401 whose sign-out cannot be written is still a failure, not a crash`() = runTest {
+        val unwritable = object : DiarySessionStore by store {
+            override suspend fun clearDiarySession() = throw IOException("no space left on device")
+        }
+        val repository = DiaryRepositoryImpl(
+            api = FakeApi(callFailure = httpError(401)),
+            store = unwritable,
+            ioDispatcher = UnconfinedTestDispatcher(),
+        )
+
+        val result = repository.students()
+
+        assertEquals(DiaryFailure.SignInRequired, result.exceptionOrNull())
+    }
+
     private fun repository(api: DiaryApi) = DiaryRepositoryImpl(
         api = api,
         store = store,

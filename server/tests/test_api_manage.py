@@ -18,11 +18,12 @@ from typing import Any
 import httpx
 import pytest
 from httpx import ASGITransport
-from sqlalchemy import event, select, text
+from sqlalchemy import event, func, select, text
+from sqlalchemy import update as sa_update
 
 from app.api import manage
 from app.config import get_settings
-from app.db import engine
+from app.db import SessionLocal, engine
 from app.fsm_storage import FsmRecord  # noqa: F401 - registers fsm_states before create_all
 from app.main import app
 from app.models import (
@@ -430,6 +431,43 @@ async def test_subjects_list_is_open_to_an_editor(client, session, school_class)
     assert [row["name"] for row in body] == ["Алгебра", "История", "Физика"]
     assert next(row for row in body if row["name"] == "Алгебра")["teacher"] == "Иванова"
     assert body[0]["teacher"] == "Иванова" and body[0]["id"]
+
+
+async def test_the_subjects_screen_keeps_the_linking_it_just_did(client, session, school_class):
+    """The list adopts what the timetable uses and points the lessons at the
+    rows — and it used to commit only when it had *created* something. A class
+    whose dictionary was already complete but whose lessons were not yet linked
+    therefore had the UPDATEs run and thrown away when the session closed, on
+    every read, forever. It healed only because `/bundle` commits
+    unconditionally and some phone eventually polls it; the screen that exists
+    to edit this list did the work and dropped it.
+    """
+    # The dictionary already holds all three of the fixture Monday's subjects,
+    # so nothing is created — but the lessons still point at nothing.
+    for name in ("Алгебра", "Физика", "История"):
+        await _subject(session, school_class, name)
+    await session.execute(
+        sa_update(TimetableEntry)
+        .where(TimetableEntry.class_id == school_class.id)
+        .values(subject_id=None)
+    )
+    await session.commit()
+
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    assert (await client.get("/api/v1/manage/subjects", headers=_auth(token))).status_code == 200
+
+    # Read on a session of its own: the request's own session is long gone, and
+    # what is being asked is whether anything was written down at all.
+    async with SessionLocal() as fresh:
+        unlinked = await fresh.scalar(
+            select(func.count())
+            .select_from(TimetableEntry)
+            .where(
+                TimetableEntry.class_id == school_class.id,
+                TimetableEntry.subject_id.is_(None),
+            )
+        )
+    assert unlinked == 0
 
 
 async def test_subject_create_and_colour_normalisation(client, session, school_class):
@@ -889,6 +927,40 @@ async def test_timetable_import_refuses_a_paste_with_no_day_in_it(
     )
     assert response.status_code == 422
     assert await _audit(session, school_class) == []
+
+
+async def test_the_same_unrung_number_under_two_days_is_two_lessons_gone(
+    client, session, school_class
+):
+    """«Без звонка пропущено N» counts rows, not the numbers they carry.
+
+    The ceiling is class-wide, so «8. Алгебра» under Monday and «8. Физика»
+    under Tuesday are both dropped by a class that rings two bells — two
+    lessons on no phone. While the count came off the distinct numbers, the
+    audit line admitted to one of them and the answer named one, and the only
+    other trace was «уроков 2» against four pasted lines.
+    """
+    token = await _admin(client, session, school_class)
+    text = (
+        "== Понедельник ==\n1. Химия\n8. Алгебра\n\n"
+        "== Вторник ==\n1. История\n8. Физика\n\n"
+        "== Звонки ==\n1. 09:00-09:40\n2. 09:50-10:30\n"
+    )
+    body = (
+        await client.post(
+            "/api/v1/manage/timetable/import",
+            json={"text": text, "replace": True},
+            headers=_auth(token),
+        )
+    ).json()
+
+    assert body["applied"] is True and body["lessons"] == 2
+    assert body["rejected"] == [
+        "понедельник, урок 8: нет такого звонка в расписании звонков",
+        "вторник, урок 8: нет такого звонка в расписании звонков",
+    ]
+    entries = await _audit(session, school_class)
+    assert "без звонка пропущено 2" in entries[0].summary
 
 
 async def test_export_survives_an_import(client, session, school_class):

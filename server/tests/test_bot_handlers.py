@@ -9,45 +9,73 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date, time
+from datetime import UTC, date, datetime, time
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from aiogram.types import CallbackQuery, User
 from sqlalchemy import select
 
+from app.bot.handlers import content
 from app.bot.handlers.access import (
     JOIN_MODE_TEXT,
     access_root,
     apply_role,
     invite_phone,
     invite_role,
+    revoke,
     switch_join_mode,
 )
+from app.bot.handlers.access import router as access_router
 from app.bot.handlers.content import (
     _parse_time_range,
+    event_pick_kind,
+    event_time,
+    event_title,
     homework_pick_day,
     homework_pick_subject,
     homework_text,
+    homework_typed_subject,
+    override_cancel,
+    override_clear,
+    override_pick_index,
     override_subject,
 )
-from app.bot.handlers.start import cmd_code, phone_code
+from app.bot.handlers.start import cmd_code, phone_code, show_day
 from app.bot.handlers.timetable import bells_apply, timetable_apply
-from app.bot.keyboards import AccessAction, HomeworkAction
+from app.bot.handlers.week import week_text
+from app.bot.keyboards import (
+    AccessAction,
+    EventAction,
+    HomeworkAction,
+    RolePick,
+    shift_days,
+    shift_weeks,
+)
+from app.bot.roles import list_memberships
 from app.models import (
     AuditEntry,
     BellPeriod,
+    BellSchedule,
     BotUser,
+    DayEvent,
+    DayKind,
+    DayOverride,
     DeviceInvite,
+    EventKind,
     Homework,
     JoinMode,
     LessonOverride,
+    OverrideAction,
     PhoneInvite,
+    ReminderSettings,
     Role,
+    SchoolClass,
     TimetableEntry,
 )
 from app.models import OverrideAction as OverrideActionEnum
-from app.services import device_invites
+from app.services import device_invites, notify, reminders
 
 MONDAY = date(2026, 9, 7)
 
@@ -254,6 +282,218 @@ async def test_bells_refuse_to_wipe_the_schedule_on_a_bad_paste(session, school_
         )
     )
     assert after == before
+
+
+# --------------------------------------------------------------------------
+# Разбор того, что приходит снаружи
+#
+# `_date_or_none` и `_shorten` — граница между payload'ом клиента и состоянием
+# FSM, за которой пять мест читают дату уже не проверяя. Ни одна из двух не
+# вызывалась ни одним тестом.
+# --------------------------------------------------------------------------
+
+
+def test_a_date_out_of_a_callback_payload_is_never_trusted():
+    """A payload is whatever the client sends, not only what was on a button.
+
+    `Date.fromisoformat` on it straight is an unhandled `ValueError` — a 500 in
+    the middleware and «что-то пошло не так» for a person who pressed a
+    calendar. The guard exists for that; this is what it has to swallow.
+    """
+    assert content._date_or_none("2026-09-07") == date(2026, 9, 7)
+    for bad in ("", "вчера", "2026-13-40", "2026-09-07T10:00", None, "07.09.2026"):
+        assert content._date_or_none(bad) is None, bad
+
+
+def test_a_notification_is_shortened_without_losing_the_start():
+    """The digest line carries the assignment, and Telegram is not the place to
+    paste four paragraphs — but the first words are what tells somebody which
+    assignment it is, so the cut is at the end and it is marked."""
+    assert content._shorten("  два   пробела\nи перевод ") == "два пробела и перевод"
+
+    long = "я" * (content.NOTIFY_TEXT_MAX + 50)
+    cut = content._shorten(long)
+    assert len(cut) <= content.NOTIFY_TEXT_MAX
+    assert cut.endswith("…")
+    # Short enough to pass through untouched, including the ellipsis-free edge.
+    exact = "я" * content.NOTIFY_TEXT_MAX
+    assert content._shorten(exact) == exact
+
+
+async def test_typing_a_subject_instead_of_picking_one_moves_the_flow_on(session):
+    """The picker is buttons, but a class with an empty dictionary has none —
+    so the name is typed, and that path had no test at all."""
+    state = FakeState()
+
+    message = FakeMessage(text="  Астрономия  ")
+    await homework_typed_subject(message, state)
+
+    assert state.data["subject"] == "Астрономия"
+    assert "текст задания" in message.last
+
+
+async def test_an_empty_subject_does_not_move_the_flow_on(session):
+    state = FakeState()
+
+    message = FakeMessage(text="   ")
+    await homework_typed_subject(message, state)
+
+    assert "subject" not in state.data
+    assert "название предмета" in message.last
+
+
+# --------------------------------------------------------------------------
+# Событие, целиком
+#
+# Ни один тест никогда не доходил здесь дальше выбора дня: `event_pick_kind`,
+# `event_time` и `event_title` не назывались нигде. Это значит, что событие в
+# классе никто не заводил ни разу, кроме как пальцем — а «Четверти» показали,
+# чего стоит строка, которую не исполняли.
+# --------------------------------------------------------------------------
+
+
+async def test_an_event_is_added_by_walking_the_whole_flow(session, school_class):
+    """Kind, then time, then title — the three steps a person actually takes."""
+    state = FakeState(data={"date": MONDAY.isoformat()})
+
+    callback = FakeCallback(message=FakeEditable())
+    await event_pick_kind(callback, EventAction(action="pick_kind", value="trip"), state)
+    assert state.data["kind"] == "trip"
+    assert "12:30-13:15" in callback.message.last
+
+    await event_time(FakeMessage(text="09:00-11:30"), state)
+    assert state.data["start"] == "09:00:00" and state.data["end"] == "11:30:00"
+
+    message = FakeMessage(text="Поездка в планетарий")
+    await event_title(message, state, session, school_class, Role.EDITOR)
+
+    event = await session.scalar(select(DayEvent))
+    assert event.title == "Поездка в планетарий"
+    assert event.date == MONDAY
+    assert event.starts_at == time(9, 0) and event.ends_at == time(11, 30)
+    assert event.kind is EventKind.TRIP
+    # An excursion replaces lessons; that is the whole reason the flag exists.
+    assert event.covers_lesson is True
+    assert "09:00–11:30" in message.last
+    assert state.cleared
+
+
+async def test_a_meeting_does_not_replace_the_lessons_it_sits_beside(session, school_class):
+    """`covers_lesson` is the difference between «вместо уроков» and «после».
+
+    A parents' meeting in the evening must not blank the school day, and the
+    only thing deciding that is a set literal in the handler.
+    """
+    state = FakeState(data={"date": MONDAY.isoformat(), "kind": "meeting",
+                            "start": "18:00:00", "end": "19:00:00"})
+
+    await event_title(FakeMessage(text="Родительское собрание"), state, session,
+                      school_class, Role.EDITOR)
+
+    event = await session.scalar(select(DayEvent))
+    assert event.kind is EventKind.MEETING
+    assert event.covers_lesson is False
+
+
+async def test_time_that_is_not_a_range_is_refused_and_the_step_holds(session, school_class):
+    """Wrong input must not advance the conversation.
+
+    A flow that moves on regardless asks for a title and then saves an event
+    with whatever times happened to be in the state — which for a fresh
+    conversation is nothing at all, i.e. a `KeyError` two messages later.
+    """
+    state = FakeState(data={"date": MONDAY.isoformat(), "kind": "event"})
+
+    for bad in ("завтра", "25:00-26:00", "13:15-12:30", "12:30", ""):
+        message = FakeMessage(text=bad)
+        await event_time(message, state)
+        assert "Не понял время" in message.last, bad
+        assert "start" not in state.data, bad
+
+
+async def test_an_event_with_no_title_is_not_saved(session, school_class):
+    state = FakeState(data={"date": MONDAY.isoformat(), "kind": "event",
+                            "start": "10:00:00", "end": "11:00:00"})
+
+    message = FakeMessage(text="   ")
+    await event_title(message, state, session, school_class, Role.EDITOR)
+
+    assert await session.scalar(select(DayEvent)) is None
+    assert "название" in message.last
+    # And the conversation stays where it was, so the next line typed is a title.
+    assert not state.cleared
+
+
+async def test_a_viewer_cannot_add_an_event(session, school_class):
+    state = FakeState(data={"date": MONDAY.isoformat(), "kind": "event",
+                            "start": "10:00:00", "end": "11:00:00"})
+
+    await event_title(FakeMessage(text="взлом"), state, session, school_class, Role.VIEWER)
+
+    assert await session.scalar(select(DayEvent)) is None
+    assert state.cleared
+
+
+# --------------------------------------------------------------------------
+# Отмена урока и возврат к расписанию
+#
+# Обе операции разрушающие, обе были без единого теста.
+# --------------------------------------------------------------------------
+
+
+async def test_cancelling_a_lesson_writes_the_override_and_says_so(session, school_class):
+    state = FakeState(data={"date": MONDAY.isoformat(), "index": 2})
+    callback = FakeCallback(message=FakeEditable())
+
+    await override_cancel(callback, state, session, school_class, Role.EDITOR)
+
+    row = await session.scalar(select(LessonOverride))
+    assert row.action is OverrideAction.CANCEL
+    assert row.index == 2 and row.date == MONDAY
+    assert "отменён" in callback.message.last
+    assert state.cleared
+
+
+async def test_putting_a_lesson_back_removes_the_override(session, school_class):
+    cancel = FakeState(data={"date": MONDAY.isoformat(), "index": 2})
+    await override_cancel(FakeCallback(message=FakeEditable()), cancel, session,
+                          school_class, Role.EDITOR)
+    assert await session.scalar(select(LessonOverride)) is not None
+
+    state = FakeState(data={"date": MONDAY.isoformat(), "index": 2})
+    callback = FakeCallback(message=FakeEditable())
+    await override_clear(callback, state, session, school_class, Role.EDITOR)
+
+    assert await session.scalar(select(LessonOverride)) is None
+    assert "по расписанию" in callback.message.last
+
+
+async def test_clearing_a_lesson_that_was_never_changed_is_not_an_error(session, school_class):
+    """«Вернуть по расписанию» on an untouched lesson is a no-op, and has to
+    read as one: the person pressed it because they were not sure."""
+    state = FakeState(data={"date": MONDAY.isoformat(), "index": 5})
+    callback = FakeCallback(message=FakeEditable())
+
+    await override_clear(callback, state, session, school_class, Role.EDITOR)
+
+    assert await session.scalar(select(LessonOverride)) is None
+    assert "по расписанию" in callback.message.last
+    # Nothing happened, so nothing is claimed in the log either.
+    logged = list(await session.scalars(
+        select(AuditEntry).where(AuditEntry.action == "override.clear")
+    ))
+    assert logged == []
+
+
+async def test_a_viewer_can_neither_cancel_a_lesson_nor_restore_one(session, school_class):
+    for handler in (override_cancel, override_clear):
+        state = FakeState(data={"date": MONDAY.isoformat(), "index": 2})
+        callback = FakeCallback(message=FakeEditable())
+
+        await handler(callback, state, session, school_class, Role.VIEWER)
+
+        assert callback.alerted
+        assert await session.scalar(select(LessonOverride)) is None
 
 
 # --------------------------------------------------------------------------
@@ -737,3 +977,351 @@ async def test_the_class_code_stays_admin_only(session, school_class):
     message = FakeMessage()
     await cmd_code(message, school_class, Role.EDITOR)
     assert school_class.join_code not in message.last
+
+
+# --------------------------------------------------------------------------
+# Доступ: то, что приходит из callback-данных
+# --------------------------------------------------------------------------
+
+
+def _role_press(target: str) -> CallbackQuery:
+    """A RolePick press as Telegram delivers it, so the registered filters can
+    be asked about it rather than guessed at."""
+    return CallbackQuery(
+        id="1",
+        from_user=User(id=42, is_bot=False, first_name="Тестер"),
+        chat_instance="chat",
+        data=RolePick(role=Role.EDITOR.value, target=target).pack(),
+    )
+
+
+def _callback_filters(handler: Any) -> list[Any]:
+    for registered in access_router.callback_query.handlers:
+        if registered.callback is handler:
+            return [
+                one.callback
+                for one in registered.filters
+                if type(one.callback).__name__ == "CallbackQueryFilter"
+            ]
+    raise AssertionError("handler is not registered on the access router")
+
+
+async def test_the_two_role_pickers_never_match_the_same_press():
+    """Both flows put up a picker of roles and both send back a ``RolePick``;
+    the member flow puts the member's id in ``target`` and the invite flow
+    leaves it empty. While the invite handler matched *any* RolePick, an admin
+    part-way through «пригласить по номеру» who pressed a role on an older
+    «Новая роль» card had a phone invite created instead — and was told so in
+    a sentence naming the number, not the person."""
+    for filter_ in _callback_filters(invite_role):
+        assert not await filter_(_role_press("99"))
+        assert await filter_(_role_press(""))
+    for filter_ in _callback_filters(apply_role):
+        assert await filter_(_role_press("99"))
+        assert not await filter_(_role_press(""))
+
+
+async def test_a_crafted_member_id_is_refused_rather_than_raised(session, school_class):
+    """Callback data is whatever the client sent. A bare ``int()`` on it does
+    not refuse the press — it raises out of the handler, so nothing answers the
+    callback and the button spins until Telegram gives up."""
+    session.add(BotUser(telegram_id=99, class_id=school_class.id, role=Role.EDITOR))
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await apply_role(
+        callback,
+        SimpleNamespace(role=Role.VIEWER.value, target="взлом"),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    untouched = await session.scalar(select(BotUser).where(BotUser.telegram_id == 99))
+    assert untouched.role is Role.EDITOR
+
+
+async def test_a_role_that_is_not_a_role_is_refused_rather_than_raised(session, school_class):
+    """``Role("начальник")`` is a ``ValueError``, and the picker's payload is
+    as forgeable as the id beside it."""
+    session.add(BotUser(telegram_id=99, class_id=school_class.id, role=Role.EDITOR))
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await apply_role(
+        callback,
+        SimpleNamespace(role="начальник", target="99"),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    untouched = await session.scalar(select(BotUser).where(BotUser.telegram_id == 99))
+    assert untouched.role is Role.EDITOR
+
+
+async def test_revoking_a_crafted_id_finds_nobody_rather_than_raising(session, school_class):
+    session.add(BotUser(telegram_id=99, class_id=school_class.id, role=Role.EDITOR))
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await revoke(
+        callback,
+        SimpleNamespace(action="revoke", value="никогда"),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    assert await session.scalar(select(BotUser).where(BotUser.telegram_id == 99)) is not None
+
+
+async def test_revoking_access_takes_the_class_messages_with_it(session, school_class):
+    """Nothing on the sending side re-reads the membership.
+
+    The digest tick joins the class and not the member list, and
+    ``notify_subscribers`` selects on the flag alone — so a settings row left
+    behind by a revoke keeps the class's homework, its timetable and every
+    замена arriving in the chat of somebody who was removed from it, with
+    nothing in the bot that could show it, let alone switch it off.
+    """
+    session.add(BotUser(telegram_id=99, class_id=school_class.id, role=Role.EDITOR))
+    settings = await reminders.settings_for(session, school_class.id, 99)
+    settings.morning_at = time(7, 30)
+    settings.notify_homework = True
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await revoke(
+        callback,
+        SimpleNamespace(action="revoke", value="99"),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+    assert await session.scalar(select(BotUser).where(BotUser.telegram_id == 99)) is None
+
+    reached: list[int] = []
+
+    async def _send(chat_id: int, text: str, **_: Any) -> None:
+        reached.append(chat_id)
+
+    delivered = await notify.notify_subscribers(
+        session,
+        SimpleNamespace(send_message=_send),
+        school_class,
+        "📝 Новое задание",
+        kind="homework",
+        exclude=None,
+    )
+    assert (delivered, reached) == (0, [])
+    # 07:30 on that Monday in Moscow, which is when their digest was set for.
+    assert await reminders.due_digests(session, datetime(2026, 9, 7, 4, 30, tzinfo=UTC)) == []
+    assert await session.scalar(select(ReminderSettings)) is None
+
+
+async def test_a_role_press_with_no_number_behind_it_asks_to_start_again(session, school_class):
+    """FSM state lives in the database and outlives the process that wrote it,
+    so the two screens of this flow can be separated by a redeploy. Reaching
+    into the data for a key that is not there raised a ``KeyError`` where an
+    admin only needed to be asked for the number again."""
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(data={})
+
+    await invite_role(
+        callback,
+        SimpleNamespace(role=Role.EDITOR.value, target=""),
+        state,
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    assert state.cleared
+    assert await session.scalar(select(PhoneInvite)) is None
+
+
+async def test_the_classes_a_person_is_in_come_back_in_a_stated_order(session, school_class):
+    """Three things read this list as if its order meant something: the class
+    the middleware falls back to, the one ``default_class_for`` picks, and the
+    order of the «🔀 Сменить класс» buttons. An unordered ``SELECT`` promises
+    none of it."""
+    second = SchoolClass(name="9Б", join_code="SECOND01")
+    session.add(second)
+    await session.flush()
+    session.add(BotUser(telegram_id=42, class_id=school_class.id, role=Role.ADMIN))
+    session.add(BotUser(telegram_id=42, class_id=second.id, role=Role.VIEWER))
+    await session.commit()
+
+    memberships = await list_memberships(session, 42)
+    assert [member.class_id for member in memberships] == [school_class.id, second.id]
+    # And the same order twice, after a write that could have moved a row.
+    memberships[1].full_name = "Тестер"
+    await session.commit()
+    again = await list_memberships(session, 42)
+    assert [member.class_id for member in again] == [school_class.id, second.id]
+
+
+# --------------------------------------------------------------------------
+# Смещение дня из callback-данных
+# --------------------------------------------------------------------------
+
+
+def test_a_day_offset_that_is_not_a_date_comes_back_as_nothing():
+    """``timedelta(days=999999999)`` is an OverflowError, not a far-away day,
+    and the number arrives in callback data — whatever the client sent, not
+    only what this bot put on a ‹ › button."""
+    assert shift_days(date(2026, 9, 16), 1) == date(2026, 9, 17)
+    assert shift_days(date(2026, 9, 16), -1) == date(2026, 9, 15)
+    assert shift_days(date(2026, 9, 16), 999_999_999) is None
+    assert shift_days(date(2026, 9, 16), -999_999_999) is None
+    # The bounds are date's own: one day past the last one it can hold.
+    assert shift_days(date(9999, 12, 31), 1) is None
+    assert shift_weeks(date(2026, 9, 16), 1) == date(2026, 9, 23)
+    assert shift_weeks(date(2026, 9, 16), 999_999_999) is None
+
+
+async def test_paging_the_day_view_past_every_date_is_refused(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+
+    await show_day(
+        callback,
+        SimpleNamespace(offset=999_999_999),
+        session,
+        school_class,
+        Role.VIEWER,
+    )
+
+    assert callback.alerted
+    assert not callback.message.replies
+
+
+async def test_paging_the_week_view_past_every_date_is_refused(session, school_class):
+    text = await week_text(session, school_class, 999_999_999)
+    assert "Такой недели нет" in text
+
+
+async def test_an_event_kind_that_is_not_one_is_refused_at_the_press():
+    """The date this flow carries is parsed at the press, with a comment above
+    it saying why: an unreadable value carried through three questions raises
+    out of the handler that finally reads it, and looks to the person like the
+    answer they just typed was the problem. The kind, one screen later, was
+    stored raw and turned into an ``EventKind`` at the very end — after a time
+    and a title had been typed."""
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(data={"date": MONDAY.isoformat()})
+
+    await event_pick_kind(callback, SimpleNamespace(action="pick_kind", value="зло"), state)
+
+    assert callback.alerted
+    assert "kind" not in state.data
+    # The step does not advance either, so the next thing pressed is another
+    # kind — the flow is not left waiting for a time it will never be able to
+    # save.
+    assert state.state is None
+
+
+async def test_a_lesson_number_that_is_not_a_number_is_refused_at_the_press():
+    """Three handlers read this back as ``int(data["index"])`` and none of them
+    could refuse it."""
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(data={"date": MONDAY.isoformat()})
+
+    await override_pick_index(
+        callback, SimpleNamespace(action="pick_index", value="взлом"), state
+    )
+
+    assert callback.alerted
+    assert "index" not in state.data
+
+
+# --------------------------------------------------------------------------
+# Урок, которого класс не звонит
+# --------------------------------------------------------------------------
+
+
+async def test_a_replacement_with_no_bell_behind_it_is_refused(session, school_class):
+    """The resolver takes a lesson's times from the bell row of the same
+    number, so a замена at a number the day does not ring is stored, written to
+    the log, announced to everybody with «🔁 Замена … урок №8» — and drawn by
+    nothing. The timetable learned this; the other way a lesson changes had no
+    check at all."""
+    message = FakeMessage(text="Химия, 301")
+    state = FakeState(data={"date": MONDAY.isoformat(), "index": "8"})
+
+    await override_subject(message, state, session, school_class, Role.EDITOR)
+
+    assert "нет звонка" in message.last
+    assert await session.scalar(select(LessonOverride)) is None
+    assert await session.scalar(select(AuditEntry)) is None
+
+
+async def test_a_replacement_on_a_lesson_that_rings_still_lands(session, school_class):
+    message = FakeMessage(text="Химия, 301")
+    state = FakeState(data={"date": MONDAY.isoformat(), "index": "2"})
+
+    await override_subject(message, state, session, school_class, Role.EDITOR)
+
+    written = await session.scalar(select(LessonOverride))
+    assert written is not None
+    assert written.subject_name == "Химия"
+
+
+async def test_a_shortened_day_is_measured_by_its_own_bells(session, school_class):
+    """A день marked «сокращённый» points at its own schedule, and that one is
+    usually shorter than the class's usual. Checking against the default bells
+    would pass a замена the day cannot draw."""
+    short = BellSchedule(class_id=school_class.id, name="Сокращённые")
+    session.add(short)
+    await session.flush()
+    session.add(
+        BellPeriod(schedule_id=short.id, index=1, starts_at=time(9, 0), ends_at=time(9, 30))
+    )
+    session.add(
+        DayOverride(
+            class_id=school_class.id,
+            date=MONDAY,
+            kind=DayKind.SHORTENED,
+            bell_schedule_id=short.id,
+        )
+    )
+    await session.commit()
+
+    message = FakeMessage(text="Химия")
+    state = FakeState(data={"date": MONDAY.isoformat(), "index": "3"})
+    await override_subject(message, state, session, school_class, Role.EDITOR)
+
+    assert "нет звонка" in message.last
+    assert await session.scalar(select(LessonOverride)) is None
+
+
+async def test_a_pasted_day_reports_the_lessons_it_actually_wrote(session, school_class):
+    """This handler used to do its own delete-and-insert, which made it the one
+    way into the template with none of the checking `apply_timetable`
+    documents: paste eight lessons into a class that rings seven and it said
+    «сохранено уроков — 8» and listed all eight, while the eighth was on no
+    phone."""
+    message = FakeMessage(
+        text="\n".join(f"{index}. Предмет{index}" for index in range(1, 9))
+    )
+    state = FakeState(data={"weekday": 2})
+
+    await timetable_apply(message, state, session, school_class, Role.ADMIN)
+
+    entries = list(
+        await session.scalars(
+            select(TimetableEntry).where(
+                TimetableEntry.class_id == school_class.id, TimetableEntry.weekday == 2
+            )
+        )
+    )
+    # The fixture class rings seven, so the eighth is not written — and the
+    # reply says so rather than counting it.
+    assert len(entries) == 7
+    assert "сохранено уроков — 7" in message.last
+    assert "Предмет8" not in message.last
+    assert "Не добавлены уроки № 8" in message.last

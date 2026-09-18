@@ -12,7 +12,10 @@ to the upstream, written down nowhere. The page holds no state of its own. It
 sets no cookie, because the session it opens belongs to a Telegram account
 rather than to whichever browser happened to be handy. It is reached once,
 with a ticket the bot handed out (``services/diary_link``), and the ticket is
-spent whether the password was right or not.
+spent by an attempt — a right password and a wrong one cost the same. The one
+thing that does not cost it is the diary being unreachable, where nothing ever
+looked at the password and so no guess was made (see ``_unspend``, which says
+why that line is drawn there and not further along).
 
 Three headers do the rest of the work, and each answers a specific leak:
 
@@ -32,17 +35,19 @@ from __future__ import annotations
 
 import logging
 from html import escape
+from typing import NamedTuple
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crypto import diary_enabled
 from app.db import get_session
 from app.models import DiaryLinkCode
-from app.providers.petersburg import PetersburgError, UpstreamUnavailable
+from app.providers.petersburg import BadCredentials, PetersburgError, UpstreamUnavailable
 from app.security import hash_token
 from app.services import diary as diary_service
 from app.services import diary_link
@@ -105,11 +110,20 @@ def _page(title: str, body: str, status: int = 200) -> HTMLResponse:
     )
 
 
-def _closed(message: str, status: int = 400) -> HTMLResponse:
+#: What to do next when the ticket is gone: there is no way back but the bot.
+_ASK_AGAIN = "Вернитесь в бота и запросите ссылку заново."
+
+#: What to do next when the ticket survived, because the failure was the
+#: diary's. Said out loud, because a page that only reports a problem reads as
+#: «start over» and starting over here means a trip back to Telegram.
+_TRY_AGAIN = "Эта ссылка ещё действует — откройте её снова и попробуйте ещё раз."
+
+
+def _closed(message: str, status: int = 400, note: str = _ASK_AGAIN) -> HTMLResponse:
     return _page(
         "Дневник",
         f"<h1>Не получилось</h1><p class=sub>{escape(message)}</p>"
-        "<p class=note>Вернитесь в бота и запросите ссылку заново.</p>",
+        f"<p class=note>{escape(note)}</p>",
         status=status,
     )
 
@@ -164,6 +178,27 @@ async def sign_in_form(
 MAX_BODY = 8 * 1024
 
 
+async def _body_within_limit(request: Request) -> bytes | None:
+    """The body, or ``None`` if it is larger than :data:`MAX_BODY`.
+
+    Read chunk by chunk with a running total. ``await request.body()`` buffers
+    the whole thing first and only then lets anything measure it, so the
+    constant above described a guard that did not exist: the megabyte was
+    already in the function's memory by the time it was called too big. This
+    stops at the first chunk that crosses the line and never holds more than
+    that.
+    """
+    size = 0
+    chunks: list[bytes] = []
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > MAX_BODY:
+            return None
+        if chunk:
+            chunks.append(chunk)
+    return b"".join(chunks)
+
+
 async def _fields(request: Request) -> tuple[str, str] | None:
     """The two fields, or ``None`` for a body that is not this form's.
 
@@ -176,8 +211,8 @@ async def _fields(request: Request) -> tuple[str, str] | None:
     kind = request.headers.get("content-type", "").split(";")[0].strip()
     if kind != "application/x-www-form-urlencoded":
         return None
-    raw = await request.body()
-    if len(raw) > MAX_BODY:
+    raw = await _body_within_limit(request)
+    if raw is None:
         return None
     try:
         fields = parse_qs(raw.decode("utf-8"), keep_blank_values=True)
@@ -210,18 +245,31 @@ async def sign_in_submit(
     ticket = await diary_link.claim(session, code)
     if ticket is None:
         return _closed("Ссылка уже использована или устарела.", status=410)
+    # Read before the call, not after: the rollback below expires the instance,
+    # and reading an attribute off an expired one inside an async session is
+    # lazy IO where none is allowed.
+    ticket_id = ticket.id
 
     try:
         _, opened = await diary_service.sign_in(
             session, login, password, telegram_id=ticket.telegram_id
         )
     except PetersburgError as error:
-        # The ticket is already spent, so a wrong password means a new link.
-        # That is the cost of not letting whoever holds this URL sit and guess
-        # against the upstream from our address.
-        return _closed(_why(error), status=401)
+        # A wrong password costs the ticket; the diary being down does not.
+        verdict = _why(error)
+        if verdict.keep_ticket:
+            await _unspend(session, ticket_id)
+        return _closed(
+            verdict.message,
+            status=verdict.status,
+            note=_TRY_AGAIN if verdict.keep_ticket else _ASK_AGAIN,
+        )
     except Exception:  # noqa: BLE001 - never let an upstream shape reach the page
         log.exception("diary sign-in failed")
+        # The ticket stays spent. This catches everything, including whatever
+        # we might raise *after* the upstream has already judged the password,
+        # so it cannot be told apart from an attempt — and an attempt is what
+        # the ticket pays for.
         return _closed("Что-то пошло не так. Попробуйте ещё раз.", status=500)
 
     opened.class_id = ticket.class_id
@@ -236,11 +284,76 @@ async def sign_in_submit(
     )
 
 
-def _why(error: PetersburgError) -> str:
-    """The upstream's failure, said in a way the reader can act on."""
+class _Verdict(NamedTuple):
+    """What to say, what to answer, and whether the ticket is forfeit."""
+
+    message: str
+    status: int
+    #: True when the failure was the diary's rather than the person's, so the
+    #: ticket goes back and the same link still opens the form.
+    keep_ticket: bool
+
+
+def _why(error: PetersburgError) -> _Verdict:
+    """The upstream's failure, said in a way the reader can act on.
+
+    Only :class:`BadCredentials` is «неверный пароль». Everything else said so
+    too until this was fixed, and the failure that matters is
+    :class:`UnexpectedResponse`: the upstream answers a *200 of HTML* when it
+    is in maintenance or showing a captcha, which ``PetersburgClient.login``
+    turns into exactly that type (see the comment there — the phone's half of
+    this was fixed first). Rendered as «неверный логин или пароль» it sends
+    somebody to retype a password that was right, over and over, with nothing
+    anywhere hinting that the diary is the thing that is broken.
+    """
+    if isinstance(error, BadCredentials):
+        return _Verdict("Неверный логин или пароль.", 401, keep_ticket=False)
     if isinstance(error, UpstreamUnavailable):
-        return "Дневник сейчас не отвечает. Попробуйте позже."
-    return "Неверный логин или пароль."
+        return _Verdict(
+            "Дневник сейчас не отвечает — дело не в пароле. Попробуйте через "
+            "несколько минут.",
+            503,
+            keep_ticket=True,
+        )
+    # UnexpectedResponse, SessionExpired and any future member of the family.
+    # The address is named on purpose: opening the diary in a browser is the
+    # one check that tells the person which of the two is broken, and it is
+    # also where a captcha would be waiting for them.
+    #
+    # The ticket is spent all the same, and that is not an oversight. This
+    # branch is «the upstream answered something we could not read», and a 200
+    # of HTML is exactly what a login form built on Yii returns for a *wrong
+    # password* as well as for a captcha — we have never opened this diary for
+    # real (see the README's honest status), so we cannot tell the two apart
+    # from here. Handing the ticket back on a verdict we cannot read would turn
+    # this URL into an unlimited password oracle against the upstream from our
+    # address, which is the one thing spending it early exists to prevent. Only
+    # `UpstreamUnavailable` — a transport failure or a 5xx, where nothing ever
+    # looked at the password — is safe to forgive.
+    return _Verdict(
+        "Дневник ответил непонятно — обычно это технические работы или проверка "
+        "«я не робот». Пароль, скорее всего, ни при чём: откройте "
+        "dnevnik2.petersburgedu.ru в браузере, а потом попросите у бота новую ссылку.",
+        502,
+        keep_ticket=False,
+    )
+
+
+async def _unspend(session: AsyncSession, ticket_id: int) -> None:
+    """Give the ticket back.
+
+    The ticket is spent before the sign-in it authorises, and that order is
+    right: it is what stops whoever holds the URL guessing passwords against
+    the upstream from our address. But it is a rule about *guesses*, and a
+    diary that is down or serving a captcha refuses everybody identically —
+    nobody can aim at that outcome, so nothing is learnt by provoking it.
+    Charging a person a trip back to Telegram for the upstream's maintenance
+    window buys no safety at all. The fifteen minutes still run out.
+    """
+    await session.execute(
+        sa_update(DiaryLinkCode).where(DiaryLinkCode.id == ticket_id).values(used_at=None)
+    )
+    await session.commit()
 
 
 async def _peek(session: AsyncSession, code: str) -> DiaryLinkCode | None:

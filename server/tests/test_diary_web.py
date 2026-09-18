@@ -16,6 +16,7 @@ from httpx import ASGITransport
 from sqlalchemy import select
 from test_diary_api import LOGIN_PATH, FakeUpstream, with_token  # noqa: F401
 
+from app.api import diary_web as from_app
 from app.config import get_settings
 from app.main import app
 from app.models import DiaryLinkCode, DiarySession, SchoolClass
@@ -76,6 +77,40 @@ async def test_a_get_does_not_spend_the_ticket(web, ticket, session):
 
     row = await session.scalar(select(DiaryLinkCode))
     assert row.used_at is None
+
+
+async def test_an_oversized_body_is_dropped_before_it_is_all_in_memory(web, ticket):
+    """The constant says «before reading it», and now that is true.
+
+    `await request.body()` buffers the whole thing and only then lets anything
+    measure it, which on a serverless function means the megabyte is already in
+    the memory it has least of. The body is read in chunks with a running
+    total, so a sender that keeps talking is cut off at the line rather than
+    after it — this test counts what the app actually pulled.
+    """
+    sent = 0
+    total = 4 * 1024 * 1024
+
+    async def flood():
+        nonlocal sent
+        for _ in range(total // (64 * 1024)):
+            sent += 64 * 1024
+            yield b"x" * (64 * 1024)
+
+    response = await web.post(
+        f"/diary/signin/{ticket}",
+        content=flood(),
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+
+    # Refused as a body that is not this form's, which is also why the ticket
+    # survives: nothing was attempted upstream.
+    assert response.status_code == 400
+    assert sent < total, "the whole flood was read before anything measured it"
+    # One chunk is the smallest thing a reader can pull, and the sender's
+    # chunks are 64 KiB; what matters is that it stopped at the first one over
+    # the line instead of swallowing four megabytes.
+    assert sent <= 64 * 1024, f"read {sent} bytes to refuse a body capped at {from_app.MAX_BODY}"
 
 
 async def test_signing_in_opens_a_session_bound_to_the_telegram_account(
@@ -215,3 +250,112 @@ async def test_the_class_a_ticket_was_minted_in_is_the_one_it_signs_into(
 
     assert claimed.class_id == other.id
     assert claimed.class_id != school_class.id
+
+
+# ---- whose fault the failure was ------------------------------------------
+
+
+def _maintenance(request: httpx.Request) -> httpx.Response:
+    """What the upstream sends while it is down or showing a captcha: a 200,
+    and a page. It is the shape ``PetersburgClient.login`` turns into
+    ``UnexpectedResponse``."""
+    return httpx.Response(200, text="<html><body>Технические работы</body></html>")
+
+
+def _refuses(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(503, text="upstream down")
+
+
+async def test_a_diary_in_maintenance_is_not_reported_as_a_wrong_password(
+    web, upstream, ticket
+):
+    """The password was right. The diary was serving HTML.
+
+    Told «Неверный логин или пароль» the person retypes a correct password
+    forever: nothing on the page, in the bot or in the app suggests the diary
+    is what is broken, and the ticket they would need for another go is gone.
+    """
+    upstream.routes[LOGIN_PATH] = _maintenance
+
+    response = await web.post(
+        f"/diary/signin/{ticket}",
+        data={"login": "parent@example.com", "password": "correct"},
+    )
+
+    assert "Неверный логин или пароль" not in response.text
+    assert "dnevnik2.petersburgedu.ru" in response.text
+    assert response.status_code == 502
+
+
+async def test_an_unreadable_answer_still_costs_the_ticket(web, upstream, ticket, session):
+    """The message changes; the economics do not, and that is deliberate.
+
+    A 200 of HTML is what this upstream sends for a captcha — and it is also
+    what a login form built on Yii sends for a **wrong password**. Nobody has
+    ever opened this diary for real, so from here the two are the same bytes.
+    Handing the ticket back on a verdict we cannot read would make this URL an
+    unlimited password oracle against the upstream from our address, which is
+    the single thing spending the ticket early exists to prevent.
+    """
+    upstream.routes[LOGIN_PATH] = _maintenance
+
+    answer = await web.post(
+        f"/diary/signin/{ticket}",
+        data={"login": "parent@example.com", "password": "correct"},
+    )
+    assert answer.status_code == 502
+    # The point of the fix: it no longer blames the password.
+    assert "Неверный логин или пароль" not in answer.text
+    assert "технические работы" in answer.text
+
+    row = await session.scalar(select(DiaryLinkCode))
+    await session.refresh(row)
+    assert row.used_at is not None, "an unreadable verdict is still an attempt"
+
+    upstream.routes[LOGIN_PATH] = with_token
+    second = await web.post(
+        f"/diary/signin/{ticket}",
+        data={"login": "parent@example.com", "password": "correct"},
+    )
+    assert second.status_code == 410
+
+
+async def test_a_diary_that_does_not_answer_says_so_and_keeps_the_ticket(
+    web, upstream, ticket, session
+):
+    upstream.routes[LOGIN_PATH] = _refuses
+
+    response = await web.post(
+        f"/diary/signin/{ticket}",
+        data={"login": "parent@example.com", "password": "correct"},
+    )
+
+    assert response.status_code == 503
+    assert "Неверный логин или пароль" not in response.text
+    assert "не отвечает" in response.text
+
+    row = await session.scalar(select(DiaryLinkCode))
+    await session.refresh(row)
+    assert row.used_at is None
+
+
+async def test_our_own_crash_still_costs_the_ticket(web, upstream, ticket, session, monkeypatch):
+    """This branch catches everything, including whatever we might raise
+    *after* the upstream has already judged the password — so it cannot be
+    told apart from an attempt, and an attempt is what the ticket pays for.
+    Forgiving it would be a second way to get a free guess."""
+
+    async def explodes(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("app.api.diary_web.diary_service.sign_in", explodes)
+
+    response = await web.post(
+        f"/diary/signin/{ticket}",
+        data={"login": "parent@example.com", "password": "correct"},
+    )
+
+    assert response.status_code == 500
+    row = await session.scalar(select(DiaryLinkCode))
+    await session.refresh(row)
+    assert row.used_at is not None

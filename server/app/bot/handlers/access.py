@@ -33,7 +33,7 @@ from app.bot.roles import can_grant
 from app.bot.states import AddInvite
 from app.models import AccessRequest, BotUser, JoinMode, PhoneInvite, Role, SchoolClass
 from app.security import normalise_phone
-from app.services import audit, device_invites
+from app.services import audit, device_invites, reminders
 
 router = Router(name="access")
 
@@ -68,6 +68,29 @@ def _grantable_roles(actor: Role) -> list[Role]:
     return [role for role in (Role.VIEWER, Role.EDITOR, Role.ADMIN) if can_grant(actor, role)]
 
 
+def _int_or_none(raw: str) -> int | None:
+    """A telegram id out of callback data, or ``None`` for a crafted one.
+
+    The same shape ``manage.py`` and ``tasks.py`` carry, and for the same
+    reason: a client may send any string as callback data, and a bare ``int()``
+    on it does not refuse the press — it raises out of the handler, so nothing
+    ever answers the callback and the button spins until Telegram gives up.
+    """
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _role_or_none(raw: str) -> Role | None:
+    """Ditto for the role a picker sends back. ``Role("наблюдтель")`` is a
+    ``ValueError``, and one typo away from a real member of the enum."""
+    try:
+        return Role(raw)
+    except ValueError:
+        return None
+
+
 @router.callback_query(Menu.filter(F.action == "access"))
 async def access_root(
     callback: CallbackQuery,
@@ -87,7 +110,11 @@ async def access_root(
         )
     )
     invites = list(
-        await session.scalars(select(PhoneInvite).where(PhoneInvite.class_id == school_class.id))
+        await session.scalars(
+            select(PhoneInvite)
+            .where(PhoneInvite.class_id == school_class.id)
+            .order_by(PhoneInvite.id)
+        )
     )
     pending = list(
         await session.scalars(
@@ -303,7 +330,12 @@ async def invite_phone(
     await state.set_state(AddInvite.role)
 
 
-@router.callback_query(AddInvite.role, RolePick.filter())
+# ``target`` is empty only on the picker this flow puts up; the member flow's
+# picker carries the member's id. Without that half of the filter this
+# handler swallowed both — an admin part-way through «пригласить по номеру»
+# who pressed a role on an older «Новая роль» card created a phone invite
+# instead, and was told so in a sentence about a different person.
+@router.callback_query(AddInvite.role, RolePick.filter(F.target == ""))
 async def invite_role(
     callback: CallbackQuery,
     callback_data: RolePick,
@@ -316,13 +348,19 @@ async def invite_role(
         await callback.answer("Нет доступа", show_alert=True)
         return
 
-    target = Role(callback_data.role)
-    if not can_grant(role, target):
+    target = _role_or_none(callback_data.role)
+    if target is None or not can_grant(role, target):
         await callback.answer("Нельзя выдать роль выше вашей", show_alert=True)
         return
 
     data = await state.get_data()
-    phone = data["phone"]
+    phone = data.get("phone")
+    if not phone:
+        # The state outlived the number it was collected with — a redeploy
+        # between the two screens is enough. Better to ask again than to raise.
+        await state.clear()
+        await callback.answer("Начните заново: номер не сохранился", show_alert=True)
+        return
 
     existing = await session.scalar(
         select(PhoneInvite).where(
@@ -448,15 +486,20 @@ async def apply_role(
         await callback.answer("Нет доступа", show_alert=True)
         return
 
-    target_role = Role(callback_data.role)
-    if not can_grant(role, target_role):
+    target_role = _role_or_none(callback_data.role)
+    if target_role is None or not can_grant(role, target_role):
         await callback.answer("Нельзя выдать роль выше вашей", show_alert=True)
         return
 
-    member = await session.scalar(
-        select(BotUser).where(
-            BotUser.class_id == school_class.id,
-            BotUser.telegram_id == int(callback_data.target),
+    telegram_id = _int_or_none(callback_data.target)
+    member = (
+        None
+        if telegram_id is None
+        else await session.scalar(
+            select(BotUser).where(
+                BotUser.class_id == school_class.id,
+                BotUser.telegram_id == telegram_id,
+            )
         )
     )
     if member is None:
@@ -498,10 +541,15 @@ async def revoke(
         await callback.answer("Только для администраторов", show_alert=True)
         return
 
-    member = await session.scalar(
-        select(BotUser).where(
-            BotUser.class_id == school_class.id,
-            BotUser.telegram_id == int(callback_data.value),
+    telegram_id = _int_or_none(callback_data.value)
+    member = (
+        None
+        if telegram_id is None
+        else await session.scalar(
+            select(BotUser).where(
+                BotUser.class_id == school_class.id,
+                BotUser.telegram_id == telegram_id,
+            )
         )
     )
     if member is None:
@@ -525,6 +573,11 @@ async def revoke(
     await device_invites.drop_for(
         session, telegram_id=member.telegram_id, class_id=school_class.id
     )
+    # Their subscriptions go the same way, and for the same reason: nothing on
+    # the sending side re-reads the membership, so a settings row left behind
+    # keeps the digests and every замена arriving in the chat of somebody who
+    # is no longer in the class.
+    await reminders.drop_for(session, telegram_id=member.telegram_id, class_id=school_class.id)
     await session.delete(member)
     await session.commit()
     await callback.message.edit_text("🚫 Доступ убран.", reply_markup=back_to_menu())

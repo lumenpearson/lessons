@@ -426,6 +426,14 @@ async def bundle(
     # has none, and the first person to open its calendar should see the
     # conventional ones rather than nothing. `ensure` is idempotent, so this
     # writes on exactly one request per class per year and reads on the rest.
+    #
+    # That one request is regularly several: every phone in the class polls
+    # this endpoint on the same timer, so the first read of a brand-new class
+    # is as many simultaneous seedings as there are devices. Both services
+    # therefore insert inside a savepoint and concede to whoever got there
+    # first (`terms.ensure`, `subjects._adopt`) - the loser returns the winner's
+    # rows and answers the same bundle, rather than taking this read's whole
+    # transaction down with a unique-constraint violation.
     year = terms_service.opening_year_of(today)
     terms = await terms_service.ensure(session, school_class, year)
     # Same reasoning for the subject dictionary: a class whose timetable was
@@ -517,10 +525,15 @@ def _linked_id(device: DeviceToken) -> int:
     return device.telegram_id
 
 
-def _check_range(start: Date, end: Date, max_days: int) -> None:
-    if not (MIN_BUNDLE_START <= start <= MAX_BUNDLE_START) or not (
-        MIN_BUNDLE_START <= end <= MAX_BUNDLE_START
-    ):
+def _check_bounds(*days: Date) -> None:
+    """Refuse a date a school timetable cannot plausibly mean.
+
+    Split out of ``_check_range`` because the callers have to reach it
+    *before* they derive the other end of the window: ``end = start +
+    timedelta(...)`` raises OverflowError within three weeks of ``date.max``,
+    and that is a 500 on a query string anybody with a device token can type.
+    """
+    if any(not (MIN_BUNDLE_START <= day <= MAX_BUNDLE_START) for day in days):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
@@ -528,6 +541,10 @@ def _check_range(start: Date, end: Date, max_days: int) -> None:
                 f"and {MAX_BUNDLE_START.isoformat()}"
             ),
         )
+
+
+def _check_range(start: Date, end: Date, max_days: int) -> None:
+    _check_bounds(start, end)
     if end < start:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="to must not precede from"
@@ -623,6 +640,11 @@ async def homework_list(
 ) -> list[HomeworkItemOut]:
     """Homework due in a window, each row with this person's own tick."""
     start = from_ or _today(school_class)
+    # Bounded before the default window is derived from it, not after: `from`
+    # is arbitrary client input and `start + 21 days` overflows within three
+    # weeks of `date.max`, which the app saw as a 500 rather than as the 422
+    # the same date has always got from `/bundle`.
+    _check_bounds(start)
     end = to or start + timedelta(days=HOMEWORK_DEFAULT_DAYS)
     _check_range(start, end, MAX_HOMEWORK_DAYS)
 

@@ -37,6 +37,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class, current_device
+from app.bot.render import WEEKDAYS
 from app.bot.roles import can_grant
 from app.config import get_settings
 from app.db import get_session
@@ -419,8 +420,16 @@ async def subjects_list(
     never emptily lying about a class with thirty-five lessons in it. Free once
     the two agree, which after the first read they do.
     """
-    if await subjects_service.sync_from_timetable(session, school_class.id):
-        await session.commit()
+    # Committed whatever the count says, the way `public.bundle` does it. The
+    # number that comes back is how many dictionary entries were *created*, and
+    # the function also links the timetable rows to them — so a class whose
+    # dictionary was already complete but whose lessons were not yet pointed at
+    # it got its UPDATEs run and then dropped when the session closed, on every
+    # read, forever. It healed only because `/bundle` commits unconditionally
+    # and a phone polls it; the screen that exists to edit this list did the
+    # work and threw it away.
+    await subjects_service.sync_from_timetable(session, school_class.id)
+    await session.commit()
     rows = await session.scalars(
         select(Subject).where(Subject.class_id == school_class.id).order_by(Subject.name)
     )
@@ -832,18 +841,24 @@ async def timetable_import(
             rejected=rejected,
         )
 
-    total, schedule, unrung = await structure.apply_timetable(session, school_class, days, bells)
+    result = await structure.apply_timetable(session, school_class, days, bells)
+    total = result.written
+    schedule = result.schedule
     # Reported, not silently dropped: a lesson past the last bell has nowhere
     # to be drawn, and «applied: true, lessons: N» with N short of what was
-    # pasted is exactly the answer that hides it.
+    # pasted is exactly the answer that hides it. One line per dropped row,
+    # named by its weekday: the same number under two weekdays is two lessons
+    # gone, and while this counted the distinct numbers it admitted to one.
     rejected = rejected + [
-        f"урок {index}: нет такого звонка в расписании звонков" for index in unrung
+        f"{WEEKDAYS[weekday - 1]}, урок {index}: "
+        "нет такого звонка в расписании звонков"
+        for weekday, index in result.dropped
     ]
     summary = f"импорт расписания: дней {len(days)}, уроков {total}"
     if bells:
         summary += f", звонков {len(bells)}"
-    if unrung:
-        summary += f", без звонка пропущено {len(unrung)}"
+    if result.dropped:
+        summary += f", без звонка пропущено {len(result.dropped)}"
     await audit.record(
         session, school_class.id, actor.telegram_id, "timetable.import", summary
     )
@@ -1174,7 +1189,7 @@ async def request_approve(
 
     request.status = "approved"
     request.decided_by = actor.telegram_id
-    request.decided_at = datetime.utcnow()
+    request.decided_at = datetime.now(UTC).replace(tzinfo=None)
     who = _person(member.full_name, member.username, member.telegram_id)
     await audit.record(
         session,
@@ -1208,7 +1223,7 @@ async def request_decline(
 
     request.status = "declined"
     request.decided_by = actor.telegram_id
-    request.decided_at = datetime.utcnow()
+    request.decided_at = datetime.now(UTC).replace(tzinfo=None)
     await audit.record(
         session,
         school_class.id,

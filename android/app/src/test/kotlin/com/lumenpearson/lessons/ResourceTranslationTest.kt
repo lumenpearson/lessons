@@ -21,6 +21,13 @@ import org.w3c.dom.Node
  * because `R` cannot answer the question: by the time resources are compiled,
  * "this name is missing from English" has already been turned into "this name
  * falls back", which is the behaviour under test.
+ *
+ * It reads **every** module that ships strings, not only `:app`. It used to
+ * read one, which is how three of the four went unguarded: `:core:designsystem`
+ * draws the hero card, `:widget` draws the home screen and `:core:data` words
+ * its own failures, and a name missing from any of their `values-en/` falls
+ * back exactly the same way. Reading the source tree is what makes that
+ * possible from a test that lives in `:app`.
  */
 class ResourceTranslationTest {
 
@@ -34,9 +41,12 @@ class ResourceTranslationTest {
      */
     private data class Resource(val name: String, val arguments: Set<String>)
 
+
     @Test
     fun `every translatable string has an English counterpart`() {
-        val missing = (defaultResources.keys - englishResources.keys).sorted()
+        val missing = modules.flatMap { module ->
+            (module.default.keys - module.english.keys).sorted().map { "${module.module}/$it" }
+        }
         assertTrue(
             "Missing from values-en/: $missing. Android would fall back to the " +
                 "Russian for each of these, mid-screen.",
@@ -51,7 +61,9 @@ class ResourceTranslationTest {
      */
     @Test
     fun `values-en carries nothing the default locale does not`() {
-        val extra = (englishResources.keys - defaultResources.keys).sorted()
+        val extra = modules.flatMap { module ->
+            (module.english.keys - module.default.keys).sorted().map { "${module.module}/$it" }
+        }
         assertTrue("Only in values-en/: $extra", extra.isEmpty())
     }
 
@@ -65,16 +77,17 @@ class ResourceTranslationTest {
      */
     @Test
     fun `placeholders match between Russian and English`() {
-        val mismatched = defaultResources.values
-            .mapNotNull { russian ->
-                val english = englishResources[russian.name] ?: return@mapNotNull null
+        val mismatched = modules.flatMap { module ->
+            module.default.values.mapNotNull { russian ->
+                val english = module.english[russian.name] ?: return@mapNotNull null
                 if (russian.arguments == english.arguments) {
                     null
                 } else {
-                    "${russian.name}: ru=${russian.arguments.sorted()} en=${english.arguments.sorted()}"
+                    "${module.module}/${russian.name}: " +
+                        "ru=${russian.arguments.sorted()} en=${english.arguments.sorted()}"
                 }
             }
-            .sorted()
+        }.sorted()
         assertTrue(
             "Format arguments differ between the two locales: $mismatched",
             mismatched.isEmpty(),
@@ -90,10 +103,11 @@ class ResourceTranslationTest {
      */
     @Test
     fun `English plurals carry the English quantities`() {
-        val wrong = englishPluralQuantities
-            .filterValues { it != setOf("one", "other") }
-            .map { (name, quantities) -> "$name: ${quantities.sorted()}" }
-            .sorted()
+        val wrong = modules.flatMap { module ->
+            module.englishPlurals
+                .filterValues { it != setOf("one", "other") }
+                .map { (name, quantities) -> "${module.module}/$name: ${quantities.sorted()}" }
+        }.sorted()
         assertTrue(
             "English plurals must have exactly one/other: $wrong",
             wrong.isEmpty(),
@@ -103,21 +117,47 @@ class ResourceTranslationTest {
     /** The mirror is per file, not just per name; a stray file would be invisible above. */
     @Test
     fun `every Russian strings file has an English file beside it`() {
-        val expected = defaultFiles.map { it.name }.sorted()
-        val actual = englishFiles.map { it.name }.sorted()
-        assertEquals(expected, actual)
+        for (module in modules) {
+            assertEquals(
+                module.module,
+                module.defaultFiles.map { it.name }.sorted(),
+                module.englishFiles.map { it.name }.sorted(),
+            )
+        }
     }
 
-    private val defaultFiles: List<File> get() = stringFiles("values")
+    /** The guard is only as wide as the list it walks, so the list is asserted. */
+    @Test
+    fun `every module that ships strings is covered`() {
+        assertEquals(
+            listOf("app", "core/data", "core/designsystem", "widget"),
+            modules.map { it.module },
+        )
+    }
 
-    private val englishFiles: List<File> get() = stringFiles("values-en")
+    /** One module's two folders, already parsed. */
+    private data class Translations(
+        val module: String,
+        val defaultFiles: List<File>,
+        val englishFiles: List<File>,
+        val default: Map<String, Resource>,
+        val english: Map<String, Resource>,
+        val englishPlurals: Map<String, Set<String>>,
+    )
 
-    private val defaultResources: Map<String, Resource> by lazy { parse(defaultFiles) }
-
-    private val englishResources: Map<String, Resource> by lazy { parse(englishFiles) }
-
-    private val englishPluralQuantities: Map<String, Set<String>> by lazy {
-        pluralQuantities(englishFiles)
+    private val modules: List<Translations> by lazy {
+        resDirectories.map { (module, res) ->
+            val defaultFiles = stringFiles(res, "values")
+            val englishFiles = stringFiles(res, "values-en")
+            Translations(
+                module = module,
+                defaultFiles = defaultFiles,
+                englishFiles = englishFiles,
+                default = parse(defaultFiles),
+                english = parse(englishFiles),
+                englishPlurals = pluralQuantities(englishFiles),
+            )
+        }
     }
 
     private companion object {
@@ -127,9 +167,9 @@ class ResourceTranslationTest {
          * copy is covered the day it is added rather than the day somebody
          * remembers to list it here.
          */
-        fun stringFiles(folder: String): List<File> {
-            val directory = File(resDirectory, folder)
-            assertTrue("No $folder/ in ${resDirectory.absolutePath}", directory.isDirectory)
+        fun stringFiles(res: File, folder: String): List<File> {
+            val directory = File(res, folder)
+            assertTrue("No $folder/ in ${res.absolutePath}", directory.isDirectory)
             return directory.listFiles()
                 .orEmpty()
                 .filter { it.name.startsWith("strings") && it.name.endsWith(".xml") }
@@ -138,27 +178,33 @@ class ResourceTranslationTest {
         }
 
         /**
-         * `app/src/main/res`, found from wherever the test runner happens to
+         * Every module's `src/main/res` that has a `values/strings.xml`, paired
+         * with the module path, found from wherever the test runner happens to
          * have started. Gradle runs unit tests with the module directory as the
          * working directory; running them from the repository root, as an IDE
-         * sometimes does, has to work too.
+         * sometimes does, has to work too — so the walk is upwards, for the
+         * directory holding `settings.gradle.kts`.
+         *
+         * Discovered rather than listed, so a module that starts shipping
+         * strings is guarded the day it does, not the day somebody remembers.
          */
-        val resDirectory: File by lazy {
-            val candidates = listOf(
-                "src/main/res",
-                "app/src/main/res",
-                "android/app/src/main/res",
-                "../app/src/main/res",
-            )
+        val resDirectories: List<Pair<String, File>> by lazy {
             var directory: File? = File("").absoluteFile
             while (directory != null) {
-                for (candidate in candidates) {
-                    val resolved = File(directory, candidate)
-                    if (File(resolved, "values/strings.xml").isFile) return@lazy resolved
+                if (File(directory, "settings.gradle.kts").isFile) {
+                    val root = directory
+                    val candidates = root.listFiles().orEmpty().flatMap { child ->
+                        listOf(child) + child.listFiles().orEmpty().toList()
+                    }
+                    return@lazy candidates
+                        .filter { File(it, "src/main/res/values/strings.xml").isFile }
+                        .map { it.relativeTo(root).invariantSeparatorsPath to File(it, "src/main/res") }
+                        .sortedBy { it.first }
+                        .also { assertTrue("No module ships strings under $root", it.isNotEmpty()) }
                 }
                 directory = directory.parentFile
             }
-            error("Could not find app/src/main/res from ${File("").absolutePath}")
+            error("Could not find the Gradle root from ${File("").absolutePath}")
         }
 
         /** Named resources, skipping anything the Russian marks as untranslatable. */
@@ -168,7 +214,12 @@ class ResourceTranslationTest {
                 if (element.getAttribute("translatable") == "false") continue
                 val name = element.getAttribute("name")
                 check(!containsKey(name)) { "Duplicate resource name: $name" }
-                put(name, Resource(name, formatArguments(element.textContent)))
+                val arguments = if (element.tagName == "plurals") {
+                    pluralArguments(element)
+                } else {
+                    formatArguments(element.textContent)
+                }
+                put(name, Resource(name, arguments))
             }
         }
 
@@ -212,6 +263,24 @@ class ResourceTranslationTest {
                 val index = match.groupValues[1].removeSuffix("$").toIntOrNull() ?: next++
                 "$index:$conversion"
             }.toSet()
+        }
+
+        /**
+         * A `<plurals>`, measured per form rather than over the whole element.
+         *
+         * Reading `textContent` off the element concatenates every form, and an
+         * argument with no explicit index takes the next position — so four
+         * Russian forms of «%d урока» came out as `1:d 2:d 3:d 4:d` against
+         * English's `1:d 2:d`, and the two locales could not agree by
+         * construction. `:app` never showed it because every plural there
+         * spells `%1$d`; the widget's spells `%d`, which is equally valid and
+         * is what this measured wrong.
+         */
+        fun pluralArguments(element: Element): Set<String> {
+            val items = element.getElementsByTagName("item")
+            return (0 until items.length)
+                .flatMap { formatArguments(items.item(it).textContent) }
+                .toSet()
         }
 
         /** `%1$s`, `%d`, `%.2f`, `%%` — enough of the grammar to tell them apart. */

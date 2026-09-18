@@ -112,6 +112,28 @@ async def test_setting_no_state_on_an_unknown_key_stores_nothing():
         assert await session.get(FsmRecord, "42:1:777:0::default") is None
 
 
+async def test_clearing_a_conversation_nobody_started_writes_nothing():
+    """``state.clear()`` is ``set_state(None)`` and then ``set_data({})``.
+
+    The first half already refused to store "no state". The second stored an
+    empty dict, which says the same nothing - and the bot clears state in over
+    a hundred places, most of them a menu button resetting a flow the person
+    was never in. Each one was an INSERT and a commit against a database in
+    another region, for a row whose whole content is that there is nothing.
+    """
+    store = storage()
+    await store.set_state(key(user=778), None)
+    await store.set_data(key(user=778), {})
+
+    async with SessionLocal() as session:
+        assert await session.get(FsmRecord, "42:1:778:0::default") is None
+
+    # A clear of something real still clears it.
+    await store.set_data(key(user=778), {"subject": "Алгебра"})
+    await store.set_data(key(user=778), {})
+    assert await store.get_data(key(user=778)) == {}
+
+
 async def test_corrupt_data_restarts_the_flow_instead_of_wedging_it():
     store = storage()
     await store.set_data(key(), {"ok": True})
@@ -151,6 +173,34 @@ async def test_purge_removes_only_abandoned_conversations():
     assert removed == 1
     assert await store.get_data(key(user=1)) == {"fresh": True}
     assert await store.get_data(key(user=2)) == {}
+
+
+async def test_the_sweep_keeps_the_class_a_parent_chose():
+    """The class preference is not a conversation.
+
+    It is written once, when «🔀 Сменить класс» is pressed, and only read
+    afterwards — so its ``updated_at`` stops moving that second. Swept with the
+    abandoned conversations, it left a parent of two children back in whichever
+    class comes first, two days after choosing the other one, with nothing said
+    anywhere.
+    """
+    from app.bot.middlewares import preferred_class_id, prefs_key
+
+    store = storage()
+    await store.set_data(prefs_key(77), {"class_id": 5})
+    await store.set_data(key(user=8), {"half": "typed"})
+
+    async with SessionLocal() as session:
+        for encoded in ("0:77:77:0::prefs", "42:1:8:0::default"):
+            row = await session.get(FsmRecord, encoded)
+            row.updated_at = datetime.utcnow() - timedelta(days=30)
+        await session.commit()
+
+    removed = await store.purge_stale()
+
+    assert removed == 1
+    assert await store.get_data(key(user=8)) == {}
+    assert await preferred_class_id(77) == 5
 
 
 async def test_losing_the_insert_race_applies_the_change_instead_of_raising():

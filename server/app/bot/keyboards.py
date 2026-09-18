@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import date as Date
+from datetime import timedelta
+
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import (
     InlineKeyboardButton,
@@ -32,6 +35,35 @@ class Menu(CallbackData, prefix="m"):
 
 class DayNav(CallbackData, prefix="day"):
     offset: int
+
+
+def shift_days(today: Date, offset: int) -> Date | None:
+    """``today`` moved by ``offset`` days, or ``None`` if that is not a date.
+
+    The offset arrives in callback data, which is whatever the client sent and
+    not only what this bot put on a ‹ › button. ``timedelta(days=999999999)``
+    is an ``OverflowError``, not a large date, and it raised out of three
+    handlers — the day view, the week view and the diary — where all that was
+    wanted was to refuse the press.
+
+    Attempting the arithmetic rather than range-checking the number, for the
+    same reason ``calendar._month_or_none`` builds the date rather than
+    checking the parts: the bounds belong to ``date`` and it already knows
+    them.
+    """
+    try:
+        return today + timedelta(days=offset)
+    except (OverflowError, ValueError):
+        return None
+
+
+def shift_weeks(today: Date, offset: int) -> Date | None:
+    """``shift_days`` for the two views that page a week at a time. Separate
+    because a week's worth of overflow starts seven times sooner."""
+    try:
+        return today + timedelta(weeks=offset)
+    except (OverflowError, ValueError):
+        return None
 
 
 class HomeworkAction(CallbackData, prefix="hw"):

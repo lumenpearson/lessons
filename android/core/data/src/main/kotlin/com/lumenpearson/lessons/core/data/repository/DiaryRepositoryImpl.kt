@@ -210,7 +210,16 @@ internal class DiaryRepositoryImpl(
         } catch (failure: Exception) {
             val classified = DiaryFailure.of(failure, unprocessable)
             if (clearOnSignInRequired && classified is DiaryFailure.SignInRequired) {
-                store.clearDiarySession()
+                // Guarded, because it writes: the store is DataStore, whose
+                // write side rethrows `IOException`, and this runs inside the
+                // `catch` that is turning a refusal into a `Result`. A full
+                // disk therefore threw out of a function that promises not to,
+                // into the bare `viewModelScope.launch` every caller uses — so
+                // the one thing worse than staying signed in on a dead token
+                // was the app disappearing while the screen was open. The
+                // token stays until the next failure tries again; see
+                // `signOut`, which has always guarded its own clear.
+                runCatching { store.clearDiarySession() }
             }
             Result.failure(classified)
         }

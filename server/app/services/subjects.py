@@ -122,11 +122,18 @@ async def ensure(session: AsyncSession, class_id: int, name: str) -> Subject | N
         )
         .limit(1)
     )
-    return await _adopt(session, class_id, normalise(in_use) or cleaned)
+    subject, _created = await _adopt(session, class_id, normalise(in_use) or cleaned)
+    return subject
 
 
-async def _adopt(session: AsyncSession, class_id: int, name: str) -> Subject | None:
+async def _adopt(
+    session: AsyncSession, class_id: int, name: str
+) -> tuple[Subject | None, bool]:
     """Insert one dictionary entry, conceding to whoever got there first.
+
+    @return the row and whether *this* call is the one that made it. The second
+        half is not bookkeeping: «🔄 Собрать из расписания» reports the number
+        back, and a concession is a row that was already there.
 
     In a savepoint rather than bare, because this is reached from the read
     path: a class whose dictionary was never filled has every phone in it poll
@@ -145,8 +152,8 @@ async def _adopt(session: AsyncSession, class_id: int, name: str) -> Subject | N
             session.add(subject)
             await session.flush()
     except IntegrityError:
-        return await find(session, class_id, name)
-    return subject
+        return await find(session, class_id, name), False
+    return subject, True
 
 
 async def canonical(session: AsyncSession, class_id: int, name: str) -> tuple[str, int | None]:
@@ -255,10 +262,13 @@ async def sync_from_timetable(session: AsyncSession, class_id: int) -> int:
 
     created = 0
     for name in missing:
-        subject = await _adopt(session, class_id, name)
+        subject, adopted = await _adopt(session, class_id, name)
         if subject is None:
             continue
-        created += 1
+        # Only what this call actually created. The savepoint above concedes to
+        # a racing insert and hands back the row that won, and counting that as
+        # ours told an admin «добавлено 4» about a dictionary that gained one.
+        created += adopted
         known[_fold(name)] = subject
 
     for name in sorted(set(names)):

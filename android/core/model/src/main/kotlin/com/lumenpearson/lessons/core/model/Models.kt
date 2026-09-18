@@ -114,12 +114,13 @@ data class Term(
 ) {
     operator fun contains(date: LocalDate): Boolean = date >= startsOn && date <= endsOn
 
-    /** «2 четверть» / «1 полугодие», for a heading. */
-    val label: String
-        get() = when (kind) {
-            TermKind.QUARTER -> "$index четверть"
-            TermKind.SEMESTER -> "$index полугодие"
-        }
+    // No `label` here, deliberately. «2 четверть» used to be built in this file
+    // — a pure JVM module with no resources and no way to have any — and the
+    // calendar's header drew it beside a period label that *did* come out of
+    // `values-en/`, so an English phone read «October 2026 · 1 четверть». The
+    // wording now lives with the screen that shows it; see `Term.label()` in
+    // `:app`'s `ui/week`. This type carries the index and the kind, which is
+    // everything a sentence needs and nothing a language decides.
 }
 
 data class SchoolClassInfo(

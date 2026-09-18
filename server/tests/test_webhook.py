@@ -90,6 +90,31 @@ async def test_nothing_is_dispatched_when_the_secret_fails(configured, _no_real_
     assert _no_real_dispatch == []
 
 
+async def test_a_forged_delivery_is_refused_before_its_body_is_read(configured):
+    """Who, then what.
+
+    Nothing was ever *done* with a forged update — the secret check has always
+    been there — but it ran after the body had been parsed, so anybody who
+    knows the URL could make the function decode however much JSON they liked
+    before being turned away. On a platform billed by the millisecond and
+    sized by the megabyte, that is the whole cost of the request.
+    """
+    read = False
+
+    class SpyRequest:
+        @staticmethod
+        async def json() -> dict:
+            nonlocal read
+            read = True
+            return _update()
+
+    with pytest.raises(HTTPException) as raised:
+        await telegram.telegram_webhook(SpyRequest(), "not-the-secret")
+
+    assert raised.value.status_code == 403
+    assert read is False, "the stranger's body was parsed before they were refused"
+
+
 async def test_the_endpoint_refuses_to_work_without_a_configured_secret(monkeypatch):
     """A deployment that forgot the secret must not serve an open endpoint."""
     settings = Settings(

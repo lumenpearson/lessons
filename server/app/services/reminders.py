@@ -27,11 +27,13 @@ from html import escape
 from typing import Any
 
 from sqlalchemy import and_, or_, select
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.render import MONTHS_GENITIVE, human_date, relative_day_name, render_day
+from app.db import rows_affected
 from app.models import Homework, PersonalTask, ReminderSettings, SchoolClass
 from app.schedule import ResolvedDay, ScheduleResolver
 from app.services.tasks import homework_ticks
@@ -107,6 +109,26 @@ async def settings_for(
         # the unique constraint and simply reads what the other wrote.
         await session.rollback()
     return await session.scalar(query)
+
+
+async def drop_for(session: AsyncSession, *, telegram_id: int, class_id: int) -> int:
+    """Unsubscribe one person from one class. @return how many rows went.
+
+    Called when their membership goes. Nothing on the sending side asks whether
+    a subscriber is still in the class - :func:`due_digests` joins the class and
+    not the membership, and ``notify_subscribers`` selects on the flag alone -
+    so a row left behind here keeps delivering the class's timetable, its
+    homework and every замена into the chat of somebody who was removed from it,
+    for as long as the class exists. Staged, not committed: the caller commits
+    it with the removal it belongs to, like the connect codes dropped beside it.
+    """
+    result = await session.execute(
+        sa_delete(ReminderSettings).where(
+            ReminderSettings.class_id == class_id,
+            ReminderSettings.telegram_id == telegram_id,
+        )
+    )
+    return rows_affected(result)
 
 
 # --------------------------------------------------------------------------
@@ -199,7 +221,37 @@ async def claim(
         .values({column: day})
     )
     await session.commit()
-    return bool(claimed.rowcount)
+    return rows_affected(claimed) > 0
+
+
+async def claim_task(session: AsyncSession, task: PersonalTask) -> bool:
+    """Take this one-off reminder, or report that another tick already has.
+
+    The task path used to write ``remind_at = None`` onto the loaded row and
+    commit it, which answers the tick that dies halfway through and not the
+    tick that overlaps — the distinction :func:`claim` is written around, and
+    the one this deployment actually has. :func:`due_task_reminders` selects
+    everything due and :func:`send_due` clears each row as it reaches it, so
+    the window for the hundredth reminder is however long the ninety-nine
+    before it took to send; a second tick selecting inside that window held the
+    same rows with ``remind_at`` still set, and cleared an already-cleared
+    column happily. Nothing said no, and the reminder went out twice.
+
+    ``UPDATE … WHERE remind_at IS NOT NULL`` puts the decision in the one place
+    that can make it once. @return whether this caller may send.
+    """
+    claimed = await session.execute(
+        sa_update(PersonalTask)
+        .where(PersonalTask.id == task.id, PersonalTask.remind_at.is_not(None))
+        .values(remind_at=None)
+    )
+    await session.commit()
+    if rows_affected(claimed) == 0:
+        return False
+    # The statement went round the ORM, so the loaded row still carries the old
+    # value and the caller renders it straight afterwards.
+    task.remind_at = None
+    return True
 
 
 async def due_task_reminders(
@@ -351,9 +403,18 @@ async def send_due(session: AsyncSession, bot: Any, now_utc: datetime) -> dict[s
         if not await claim(session, settings, kind, today):
             continue
         try:
-            text = await _digest_text(
-                session, school_class, settings.telegram_id, kind, today, cache
-            )
+            # In a savepoint, because «one broken class must not stop the tick»
+            # is a promise the bare `except` cannot keep on Postgres: a
+            # statement that raises there aborts the whole transaction, and the
+            # next `claim()` then fails with InFailedSqlTransaction — so the
+            # tick 500s and the task reminders and all four sweeps behind it
+            # never run. The savepoint is the same shape `terms.ensure` and
+            # `subjects._adopt` use, and it also means a digest that failed
+            # half-built leaves nothing behind.
+            async with session.begin_nested():
+                text = await _digest_text(
+                    session, school_class, settings.telegram_id, kind, today, cache
+                )
         except Exception:  # noqa: BLE001 - one broken class must not stop the tick
             log.exception("could not build %s digest for class %s", kind, school_class.id)
             counts["failed"] += 1
@@ -377,8 +438,11 @@ async def send_due(session: AsyncSession, bot: Any, now_utc: datetime) -> dict[s
 
     for task, school_class in await due_task_reminders(session, now_utc):
         today = local_now(now_utc, school_class).date()
-        task.remind_at = None
-        await session.commit()
+        # Claimed the same way a digest is, and for the same reason: marking
+        # before sending answers the tick that dies, only the database answers
+        # the tick that overlaps.
+        if not await claim_task(session, task):
+            continue
         try:
             await bot.send_message(task.telegram_id, render_task_reminder(task, today))
         except Exception:  # noqa: BLE001 - same reasoning as above

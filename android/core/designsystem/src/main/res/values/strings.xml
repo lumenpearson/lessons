@@ -33,6 +33,15 @@
     <string name="ds_event_generic">Мероприятие</string>
 
     <!-- Countdown captions on the hero card -->
+    <!--
+        The figure itself, at the largest type size on the home screen. It used
+        to be built in Kotlin with these words written into it, so an English
+        phone read «12 мин» under an English caption. The minutes are padded in
+        the two-part form so the number does not change width between 09 and 10.
+    -->
+    <string name="ds_countdown_under_minute">меньше минуты</string>
+    <string name="ds_countdown_minutes">%1$d мин</string>
+    <string name="ds_countdown_hours_minutes">%1$d ч %2$02d мин</string>
     <string name="ds_countdown_until_start">до начала</string>
     <string name="ds_countdown_until_end">до конца</string>
     <string name="ds_countdown_progress">Пройдено %1$d%%</string>

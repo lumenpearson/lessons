@@ -36,6 +36,18 @@ from app.db import Base
 # not accumulate rows for people who wandered off months ago.
 STALE_AFTER = timedelta(days=2)
 
+#: The ``destiny`` the class preference lives under - the key
+#: ``app.bot.middlewares.prefs_key`` builds, and the one row in this table that
+#: is not a conversation. It is written once, when somebody presses «🔀 Сменить
+#: класс», and only read afterwards, so its ``updated_at`` stops moving
+#: immediately: the staleness rule above would delete it two days later and drop
+#: a parent of two children back into whichever class happens to come first,
+#: silently, on a screen that promised «все команды теперь про него».
+#:
+#: It lives here rather than beside the middleware because this is the module
+#: that decides what a stale row is; the middleware imports it back.
+PREFS_DESTINY = "prefs"
+
 
 class FsmRecord(Base):
     """One in-progress conversation."""
@@ -101,7 +113,18 @@ class DatabaseStorage(BaseStorage):
             record.data = encoded
             record.updated_at = datetime.utcnow()
 
-        await self._write(key, apply, create=True, initial_data=encoded)
+        # Same rule as set_state's, and for the same reason: a row that holds
+        # an empty dict says exactly what no row says. It matters because
+        # aiogram's `state.clear()` is `set_state(None)` followed by
+        # `set_data({})` - the first half already declines to create a row, and
+        # the second used to create one anyway. The bot clears state in 113
+        # places, most of them a menu button resetting a flow the person was
+        # never in, so every such press was an INSERT and a commit against a
+        # database in another region to record nothing at all.
+        #
+        # An existing row is still written: that is the clear actually doing
+        # its work.
+        await self._write(key, apply, create=bool(data), initial_data=encoded)
 
     async def _write(
         self,
@@ -164,11 +187,19 @@ class DatabaseStorage(BaseStorage):
         """Nothing to release: sessions are per-call and the engine is shared."""
 
     async def purge_stale(self, older_than: timedelta = STALE_AFTER) -> int:
-        """Delete abandoned conversations. Returns how many rows went."""
+        """Delete abandoned conversations. Returns how many rows went.
+
+        Conversations only: the preference rows are kept whatever their age.
+        See [PREFS_DESTINY] - ``_encode`` puts the destiny last, so that is what
+        the suffix matches.
+        """
         cutoff = datetime.utcnow() - older_than
         async with self._session_factory() as session:
             stale = await session.scalars(
-                select(FsmRecord.key).where(FsmRecord.updated_at < cutoff)
+                select(FsmRecord.key).where(
+                    FsmRecord.updated_at < cutoff,
+                    ~FsmRecord.key.endswith(f":{PREFS_DESTINY}"),
+                )
             )
             keys = list(stale)
             if keys:

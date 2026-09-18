@@ -26,8 +26,8 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import UTC, datetime, timedelta
 from datetime import date as Date
-from datetime import datetime, timedelta
 from html import escape
 
 from aiogram import F, Router
@@ -706,8 +706,10 @@ async def subject_delete(
     in_use = await subjects_service.lessons_using(session, school_class.id, subject)
     if in_use:
         await callback.answer(
+            # ``plural`` carries the number itself — printing it again beside
+            # the call produced «стоит в расписании: 1 1 урок».
             f"«{subject.name}» стоит в расписании: "
-            f"{in_use} {plural(in_use, 'урок', 'урока', 'уроков')}. "
+            f"{plural(in_use, 'урок', 'урока', 'уроков')}. "
             "Сначала уберите их из расписания.",
             show_alert=True,
         )
@@ -1062,6 +1064,23 @@ async def holiday_bells(
         )
         if schedule is None:
             await callback.answer("Расписание звонков не найдено", show_alert=True)
+            return
+        # A schedule with no rows is legitimate — «🔔 Звонки» creates it empty
+        # and the times are typed in afterwards — but a day pointed at one
+        # draws no lessons at all, because the resolver takes a lesson's times
+        # from the bell row of its own number. The card would say «⏱ Сокращённые
+        # уроки» over an empty day on every phone, in the widget and in the
+        # calendar feed, and nothing would be logged. `api/edit.day_put` refuses
+        # the same thing for the same reason.
+        rings = await session.scalar(
+            select(BellPeriod.id).where(BellPeriod.schedule_id == schedule.id).limit(1)
+        )
+        if rings is None:
+            await callback.answer(
+                f"В «{schedule.name}» ещё нет ни одного урока — "
+                "заполните звонки, иначе день будет пустым.",
+                show_alert=True,
+            )
             return
         override.bell_schedule_id = schedule.id
         summary = f"{day:%d.%m}: звонки «{schedule.name}»"
@@ -2298,9 +2317,7 @@ async def import_preview(
         return
 
     await state.update_data(raw=raw)
-    preview = mr.render_import_preview(days, rejected)
-    if bells:
-        preview += f"\n• Звонки: {len(bells)} уроков"
+    preview = mr.render_import_preview(days, rejected, len(bells))
     await message.answer(preview, reply_markup=import_keyboard())
 
 
@@ -2346,13 +2363,18 @@ async def import_apply(
         await callback.answer("Нечего применять — начните заново: /import", show_alert=True)
         return
 
-    total, schedule, unrung = await structure.apply_timetable(session, school_class, days, bells)
+    result = await structure.apply_timetable(session, school_class, days, bells)
+    total = result.written
+    schedule = result.schedule
+    unrung = result.unrung
 
     summary = f"импорт расписания: дней {len(days)}, уроков {total}"
     if bells:
         summary += f", звонков {len(bells)}"
-    if unrung:
-        summary += f", без звонка пропущено {len(unrung)}"
+    if result.dropped:
+        # Rows, not numbers. «8. Алгебра» under Monday and under Tuesday is two
+        # lessons nobody will see, and this line is the only record of them.
+        summary += f", без звонка пропущено {len(result.dropped)}"
     await audit.record(
         session, school_class.id, callback.from_user.id, "timetable.import", summary
     )
@@ -2362,8 +2384,17 @@ async def import_apply(
     await state.clear()
 
     lines = [f"✅ Импорт применён: {len(days)} дн., уроков — {total}."]
+    # What was written, not what was parsed. A lesson past the last bell is
+    # dropped by ``apply_timetable``, so printing the parsed count put «уроков
+    # — 7» directly above «Вторник: 9» — the card contradicting itself on two
+    # consecutive lines. The service says which rows it dropped, by weekday, so
+    # this counts them rather than re-deciding the rule a second time here.
+    dropped_per_day: dict[int, int] = {}
+    for weekday, _index in result.dropped:
+        dropped_per_day[weekday] = dropped_per_day.get(weekday, 0) + 1
     for weekday in sorted(days):
-        lines.append(f"• {WEEKDAY_FULL[weekday - 1]}: {len(days[weekday])}")
+        written = len(days[weekday]) - dropped_per_day.get(weekday, 0)
+        lines.append(f"• {WEEKDAY_FULL[weekday - 1]}: {written}")
     if bells:
         lines.append(f"• Звонки: {len(bells)}")
     if unrung:
@@ -2723,7 +2754,7 @@ async def request_approve(
 
     request.status = "approved"
     request.decided_by = callback.from_user.id
-    request.decided_at = datetime.utcnow()
+    request.decided_at = datetime.now(UTC).replace(tzinfo=None)
 
     name = mr.person(member.full_name, member.username, member.telegram_id)
     await audit.record(
@@ -2766,7 +2797,7 @@ async def request_decline(
 
     request.status = "declined"
     request.decided_by = callback.from_user.id
-    request.decided_at = datetime.utcnow()
+    request.decided_at = datetime.now(UTC).replace(tzinfo=None)
     await audit.record(
         session,
         school_class.id,

@@ -83,6 +83,36 @@ class AlertPlannerTest {
         assertEquals("Алгебра", (next as SchoolAlert.LessonSoon).lesson.subject)
     }
 
+    /**
+     * The one stored minute value nothing clamped.
+     *
+     * The two clock times go through `minutesToTime`, which coerces them; this
+     * one went straight into the arithmetic and into a `getQuantityString`, so
+     * a preference file that came back wrong — an interrupted write, a hand
+     * edit, a future build storing something else under the key — planned an
+     * alert *after* the lesson started and captioned it «Через -5 минуты».
+     */
+    @Test
+    fun `a lead nobody could have chosen is clamped rather than obeyed`() {
+        val table = timetable(day(monday))
+
+        val negative = AlertPlanner.next(
+            table,
+            AlertPreferences(lessonSoon = true, lessonLeadMinutes = -5),
+            at(monday, "06:00"),
+        ) as SchoolAlert.LessonSoon
+        assertEquals(at(monday, "08:30"), negative.at)
+        assertEquals(0, negative.leadMinutes)
+
+        val absurd = AlertPlanner.next(
+            table,
+            AlertPreferences(lessonSoon = true, lessonLeadMinutes = 10_000),
+            at(monday, "06:00"),
+        ) as SchoolAlert.LessonSoon
+        assertEquals(AlertPreferences.MaxLeadMinutes, absurd.leadMinutes)
+        assertEquals(at(monday, "07:30"), absurd.at)
+    }
+
     /** The whole point of the horizon: the alarm chain has to cross a weekend. */
     @Test
     fun `the next alert can be on a later day`() {

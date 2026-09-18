@@ -23,12 +23,15 @@ audit line lands with it or not at all, the same rule the rest of
 
 from __future__ import annotations
 
+from datetime import date as Date
+
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import BellPeriod, SchoolClass, TimetableEntry, WeekParity
+from app.db import rows_affected
+from app.models import BellPeriod, DayOverride, SchoolClass, TimetableEntry, WeekParity
 from app.services import subjects
 
 #: Where a row waits while another takes its number.
@@ -51,11 +54,11 @@ MAX_INDEX = 20
 async def rings(session: AsyncSession, class_id: int) -> int:
     """How many lessons the class's default bells actually ring.
 
-    The real ceiling on a weekday, and it is not a constant. The resolver
-    builds a day's timeline out of the bell rows, so a lesson written at an
-    index that has none is stored happily and then dropped: the editor showed
-    it, no phone ever did, and nothing anywhere said so. ``MAX_INDEX`` is only
-    the backstop for a class whose bells are missing altogether.
+    A count, and only a count — it is what «в расписании звонков N уроков»
+    prints. Whether a *particular* lesson number can be shown is
+    :func:`rung_indexes`, because the two are not the same question: a schedule
+    whose rows are 1, 2 and 4 rings three bells and none of them is a third
+    lesson.
     """
     total = await session.scalar(
         select(func.count())
@@ -66,9 +69,77 @@ async def rings(session: AsyncSession, class_id: int) -> int:
     return int(total or 0)
 
 
-async def _ceiling(session: AsyncSession, class_id: int) -> int:
-    """The highest lesson number this class can actually show."""
-    return min(MAX_INDEX, await rings(session, class_id) or MAX_INDEX)
+async def rung_indexes(session: AsyncSession, class_id: int) -> set[int]:
+    """The lesson numbers the class's default bells actually ring.
+
+    The real limit on a weekday, and it is a set rather than a ceiling. The
+    resolver takes a lesson's times from the bell row *of the same number*, so
+    a lesson written at a number no row carries is stored happily and then
+    dropped: the editor showed it, no phone ever did, and nothing anywhere said
+    so. Counting the rows instead answered that with «how many bells are
+    there», which is the same number only while the rows run 1..N with no gap —
+    and a paste may legitimately leave one, at which point the count both
+    refused lesson 4, which had a bell, and admitted lesson 3, which had none.
+
+    Empty means the class has no bells at all, which is not a limit of nought
+    but a class mid-setup: see :func:`can_ring`.
+    """
+    rows = await session.scalars(
+        select(BellPeriod.index)
+        .join(SchoolClass, SchoolClass.bell_schedule_id == BellPeriod.schedule_id)
+        .where(SchoolClass.id == class_id)
+    )
+    return {int(index) for index in rows}
+
+
+async def rung_indexes_on(session: AsyncSession, class_id: int, day: Date) -> set[int]:
+    """The lesson numbers this class rings **on one date**.
+
+    Not the same question as :func:`rung_indexes`: a день marked «сокращённый»
+    points at its own bell schedule, and that schedule is usually the short one
+    — four rows where the ordinary day has seven. A замена written for such a
+    date against the class's default bells would pass a check and still be
+    drawn nowhere, which is the whole failure this is here to prevent.
+    A day that names no schedule of its own takes the class default, and so
+    does one whose schedule holds no rows — deliberately, and **not** the same
+    answer ``ScheduleResolver._bells_for`` gives. Its map is built from the
+    class's schedules, so an empty one is in it as an empty dict and such a day
+    draws nothing at all. Answering «nothing» here would not refuse the замена:
+    :func:`can_ring` reads an empty set as «this class has not set its bells up
+    yet» and waves every number through, so the day that draws nothing would
+    accept *more* than the ordinary one. Both surfaces that point a day at a
+    schedule now refuse an empty one outright (``api/edit.day_put`` and the
+    bot's «⏱ Сокращённый день»), which is what actually keeps the two apart.
+    A day pointed at one *before* that check existed is the one case where the
+    two still disagree, and it errs towards the ordinary bells.
+    (A schedule deleted outright cannot be named here: the key is SET NULL.)
+    """
+    schedule_id = await session.scalar(
+        select(DayOverride.bell_schedule_id).where(
+            DayOverride.class_id == class_id, DayOverride.date == day
+        )
+    )
+    if schedule_id is not None:
+        rows = list(
+            await session.scalars(
+                select(BellPeriod.index).where(BellPeriod.schedule_id == schedule_id)
+            )
+        )
+        if rows:
+            return {int(index) for index in rows}
+    return await rung_indexes(session, class_id)
+
+
+def can_ring(rung: set[int], index: int) -> bool:
+    """Whether lesson ``index`` has somewhere to be drawn.
+
+    A class with no bells yet takes lessons up to :data:`MAX_INDEX`: refusing
+    every one of them until somebody fills «🔔 Звонки» in would be a dead end
+    in the middle of setting a class up.
+    """
+    if index < 1 or index > MAX_INDEX:
+        return False
+    return not rung or index in rung
 
 
 async def _indexes(session: AsyncSession, class_id: int, weekday: int) -> list[int]:
@@ -119,8 +190,8 @@ async def add_lesson(
     """Put a lesson in the day. ``at`` inserts and pushes down; ``None`` appends.
 
     Returns the number it got, or ``None`` when there is no slot for it — the
-    day is at ``MAX_INDEX``, or, far more often, past the last bell the class
-    rings. The second is the one that used to be missing: the row was written,
+    day is at ``MAX_INDEX``, or, far more often, the number has no bell to ring
+    it. The second is the one that used to be missing: the row was written,
     the editor drew it, and :func:`app.schedule.ScheduleResolver` — which takes
     a lesson's times from the bell row of the same number — dropped it from
     every phone, every widget, every digest and the calendar feed, with nothing
@@ -129,20 +200,23 @@ async def add_lesson(
     used = await _indexes(session, class_id, weekday)
     if len(used) >= MAX_INDEX:
         return None
-    ceiling = await _ceiling(session, class_id)
+    rung = await rung_indexes(session, class_id)
 
-    if at is None:
-        index = (used[-1] + 1) if used else 1
-    else:
-        index = max(1, min(at, (used[-1] + 1) if used else 1))
-    if index > ceiling:
+    append_at = (used[-1] + 1) if used else 1
+    # Appending means «the next lesson this class rings», which is not always
+    # the next whole number: a schedule numbered 1, 2, 4 has no third lesson,
+    # and landing on one would write a row the resolver draws nowhere.
+    while rung and append_at <= MAX_INDEX and append_at not in rung:
+        append_at += 1
+    index = append_at if at is None else max(1, min(at, append_at))
+    if not can_ring(rung, index):
         return None
-    # An insert pushes everything below it down, so the day's last lesson is
-    # what has to still fit — otherwise adding a second lesson quietly costs
-    # the seventh.
-    if at is not None and index in used and used[-1] + 1 > ceiling:
-        return None
+    # An insert pushes everything below it down, so every lesson it moves has
+    # to land on a number that rings too — otherwise adding a second lesson
+    # quietly costs the seventh.
     if at is not None and index in used:
+        if any(not can_ring(rung, moved + 1) for moved in used if moved >= index):
+            return None
         await _shift(session, class_id, weekday, at_least=index, by=1)
 
     # The dictionary decides the spelling, and hands back the row to point at:
@@ -170,6 +244,15 @@ async def remove_lesson(session: AsyncSession, class_id: int, weekday: int, inde
     Closing the gap is the point: a day numbered 1, 2, 4 reads as a lost lesson
     rather than as a deleted one, and the bells would hand lesson 4 the fourth
     bell when it is now the third thing that happens.
+
+    Unless closing it would move a lesson onto a number the class does not
+    ring. :func:`add_lesson` already refuses an insert for that reason — «adding
+    a second lesson quietly costs the seventh» — and the delete is the same
+    move in the other direction: with bells numbered 1, 2, 4, deleting the
+    second lesson slid the fourth onto a third number that rings nothing, and
+    the resolver then drew it on no phone, in no widget, in no digest and in no
+    calendar feed. The deletion still happens; it is the renumbering that is
+    skipped, which leaves the day reading exactly like the bells do.
     """
     result = await session.execute(
         sa_delete(TimetableEntry).where(
@@ -178,9 +261,12 @@ async def remove_lesson(session: AsyncSession, class_id: int, weekday: int, inde
             TimetableEntry.index == index,
         )
     )
-    removed = result.rowcount or 0
+    removed = rows_affected(result)
     if removed:
-        await _shift(session, class_id, weekday, at_least=index + 1, by=-1)
+        rung = await rung_indexes(session, class_id)
+        moved = [used for used in await _indexes(session, class_id, weekday) if used > index]
+        if all(can_ring(rung, one - 1) for one in moved):
+            await _shift(session, class_id, weekday, at_least=index + 1, by=-1)
     return removed
 
 
@@ -232,9 +318,20 @@ async def edit_lesson(
 ) -> bool:
     """Rewrite one cell in place, or create it if that parity has no row yet.
 
-    The create half is what makes «задать знаменатель» a single button: a slot
-    that holds one «каждую неделю» row is split by rewriting that row to
-    числитель and adding a знаменатель beside it, and both halves land here.
+    The create half is what fills in a half-written slot: a paste may bring
+    «3. История [чис]» with no знаменатель under it, and writing the other half
+    is one edit rather than a retyped day.
+
+    **A slot is one «каждую неделю» row, or one числитель and one знаменатель.**
+    ``uq_timetable_cell`` does not hold that rule — the parities differ, so the
+    key is satisfied — and nothing else did either: creating a числитель beside
+    an existing «каждую неделю» row left two rows that both pass the resolver's
+    parity filter on an odd week, and :class:`app.schedule.ScheduleResolver`
+    keeps the last one it sees out of a query with no ``ORDER BY``. Which of the
+    two subjects a phone drew was whatever the database happened to hand back
+    first, and it could differ between two reads of the same timetable.
+    ``timetable_io._conflicts`` refuses exactly this on the paste path; the bot's
+    day editor refuses it in the handler. Here is where both meet the database.
     """
     entry = await session.scalar(
         select(TimetableEntry).where(
@@ -244,11 +341,24 @@ async def edit_lesson(
             TimetableEntry.parity == parity,
         )
     )
-    name, subject_id = await subjects.canonical(session, class_id, subject)
     if entry is None:
-        used = await _indexes(session, class_id, weekday)
-        if index not in used:
+        held = list(
+            await session.scalars(
+                select(TimetableEntry.parity).where(
+                    TimetableEntry.class_id == class_id,
+                    TimetableEntry.weekday == weekday,
+                    TimetableEntry.index == index,
+                )
+            )
+        )
+        if not held:
             return False
+        if parity is WeekParity.ANY or WeekParity.ANY in held:
+            return False
+        # Asked for after the refusals, not before: `canonical` adopts the name
+        # into «📚 Предметы», and a subject founded by an edit that was then
+        # turned away is a row in the picker no lesson anywhere uses.
+        name, subject_id = await subjects.canonical(session, class_id, subject)
         session.add(
             TimetableEntry(
                 class_id=class_id,
@@ -263,6 +373,7 @@ async def edit_lesson(
         )
         return True
 
+    name, subject_id = await subjects.canonical(session, class_id, subject)
     entry.subject_id = subject_id
     entry.subject_name = name
     entry.room = room

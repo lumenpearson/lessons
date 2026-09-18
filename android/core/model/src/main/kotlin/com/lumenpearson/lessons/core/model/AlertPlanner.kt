@@ -95,6 +95,9 @@ data class AlertPreferences(
         /** Offered as chips; a slider over minutes would be false precision. */
         val LeadMinuteOptions: List<Int> = listOf(5, 10, 15, 30)
 
+        /** What a stored lead is clamped to; see where it is read. */
+        const val MaxLeadMinutes: Int = 60
+
         /** Early enough to change what goes in the bag. */
         const val DefaultMorningMinutes: Int = 7 * 60
 
@@ -266,18 +269,25 @@ object AlertPlanner {
             val skipped = preferences.skipHolidays && day.kind == DayKind.HOLIDAY
 
             if (preferences.lessonSoon && !skipped) {
+                // Clamped here the way `minutesToTime` clamps the two stored
+                // clock times, and for the same reason: this is the one stored
+                // minute value nothing checked, and it goes straight into a
+                // `getQuantityString`, so a preference file that came back
+                // wrong printed «Через -5 минуты» over a lesson it had already
+                // started. The ceiling is the chips' largest, doubled.
+                val lead = preferences.lessonLeadMinutes.coerceIn(0, MaxLeadMinutes)
                 day.activeLessons.forEach { lesson ->
                     // Crossing midnight is not a real school day, but a 30-minute
                     // lead on a 00:10 lesson would otherwise plan an alert for
                     // the previous day and never be found by a window around it.
-                    val at = date.atTime(lesson.startsAt).minusMinutes(preferences.lessonLeadMinutes.toLong())
+                    val at = date.atTime(lesson.startsAt).minusMinutes(lead.toLong())
                     if (at.toLocalDate() == date && !preferences.isQuiet(at.toLocalTime())) {
                         add(
                             SchoolAlert.LessonSoon(
                                 at = at,
                                 date = date,
                                 lesson = lesson,
-                                leadMinutes = preferences.lessonLeadMinutes,
+                                leadMinutes = lead,
                                 detail = preferences.lessonDetail,
                             ),
                         )
@@ -328,4 +338,6 @@ object AlertPlanner {
         LocalTime.ofSecondOfDay(minutes.coerceIn(0, MinutesPerDay - 1).toLong() * 60L)
 
     private const val MinutesPerDay = AlertPreferences.MinutesPerDay
+
+    private const val MaxLeadMinutes = AlertPreferences.MaxLeadMinutes
 }
