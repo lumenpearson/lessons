@@ -12,8 +12,20 @@ import com.lumenpearson.lessons.core.model.AppFont
 
 /**
  * Google Sans Flex, the typeface Essentials is set in, bundled as the single
- * variable font file the reference ships (`res/font/google_sans_flex.ttf`, MIT
- * from sameerasw/essentials).
+ * variable font file the reference ships (`res/font/google_sans_flex.ttf`).
+ *
+ * **SIL Open Font License 1.1, Copyright 2015 Google LLC.** This comment used
+ * to say "MIT from sameerasw/essentials", which was wrong twice over: a
+ * repository's licence covers what its author may license, and the typeface is
+ * Google's, released by Google under the OFL. The file says so itself — entry
+ * 13 of its `name` table — and that is where the claim now comes from rather
+ * than from where the file was copied. The notice the OFL requires to travel
+ * with every copy is packaged beside it, in
+ * `src/main/assets/licenses/google_sans_flex_OFL.txt`, and the app names the
+ * licence on the «Лицензии» sheet.
+ *
+ * The axes are set at runtime and the file is never rewritten, so nothing here
+ * is a modified version in the licence's sense.
  *
  * Essentials declares the family with one `Normal` entry and lets the platform
  * synthesise everything heavier. That is fine for a settings app, but this one

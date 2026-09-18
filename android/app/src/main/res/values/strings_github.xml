@@ -13,6 +13,7 @@
     <string name="licences_collapse">Свернуть</string>
     <string name="licence_mit">Лицензия MIT</string>
     <string name="licence_apache">Лицензия Apache 2.0</string>
+    <string name="licence_ofl">Лицензия SIL Open Font 1.1</string>
     <string name="credit_essentials">Essentials</string>
     <string name="credit_essentials_note">Sameera Wijerathna. Язык оформления, экраны первого запуска, рябь при нажатии и модификаторы размытия перенесены отсюда.</string>
     <string name="credit_compose">Jetpack Compose и Material 3</string>
@@ -27,6 +28,8 @@
     <string name="credit_jetpack_storage_note">Копия расписания и настройки на устройстве.</string>
     <string name="credit_material_symbols">Material Symbols</string>
     <string name="credit_material_symbols_note">Все значки в приложении и виджете.</string>
+    <string name="credit_google_sans">Google Sans Flex</string>
+    <string name="credit_google_sans_note">Google LLC. Гарнитура, которой набрано приложение. Google Sans — товарный знак Google.</string>
 
     <!-- Сообщить об ошибке -->
     <string name="bug_report_title">Сообщить об ошибке</string>

@@ -9,6 +9,7 @@
     <string name="licences_collapse">Collapse</string>
     <string name="licence_mit">MIT licence</string>
     <string name="licence_apache">Apache 2.0 licence</string>
+    <string name="licence_ofl">SIL Open Font Licence 1.1</string>
     <string name="credit_essentials">Essentials</string>
     <string name="credit_essentials_note">Sameera Wijerathna. The design language, the first-run screens, the press ripple and the blur modifiers were carried over from here.</string>
     <string name="credit_compose">Jetpack Compose and Material 3</string>
@@ -23,6 +24,8 @@
     <string name="credit_jetpack_storage_note">The copy of the timetable and the settings on the device.</string>
     <string name="credit_material_symbols">Material Symbols</string>
     <string name="credit_material_symbols_note">Every icon in the app and in the widget.</string>
+    <string name="credit_google_sans">Google Sans Flex</string>
+    <string name="credit_google_sans_note">Google LLC. The typeface the app is set in. Google Sans is a trademark of Google.</string>
 
     <!-- Report a problem -->
     <string name="bug_report_title">Report a problem</string>

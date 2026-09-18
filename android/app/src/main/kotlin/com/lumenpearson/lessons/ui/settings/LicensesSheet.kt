@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -324,8 +325,9 @@ private val Credits = listOf(
         tone = 5,
         note = R.string.credit_jetpack_storage_note,
     ),
-    // Seven rows over six hues; the wrap lands on the row furthest from the
-    // first one that shares it.
+    // Eight rows over six hues, so two of them wrap. Both land as far as the
+    // list allows from the row they come to share a hue with: slot 6 meets
+    // Essentials at the top, slot 7 meets Compose one below it.
     Credit(
         name = R.string.credit_material_symbols,
         licence = R.string.licence_apache,
@@ -333,6 +335,22 @@ private val Credits = listOf(
         icon = Icons.Rounded.EmojiSymbols,
         tone = 6,
         note = R.string.credit_material_symbols_note,
+    ),
+    // The glyphs, then the letters they are set beside. Its licence travels
+    // in the APK as well as being named here: the OFL asks for the notice to
+    // accompany every copy of the font, and a row on a sheet is not a copy of
+    // anything — see core/designsystem assets/licenses/.
+    Credit(
+        name = R.string.credit_google_sans,
+        licence = R.string.licence_ofl,
+        // What the file itself points at: entries 11 and 12 of its `name`
+        // table both read https://design.google. Google Sans Flex has no
+        // specimen page on fonts.google.com to link instead, and the Code
+        // family that does have one is a different typeface.
+        url = "https://design.google",
+        icon = Icons.Rounded.TextFields,
+        tone = 7,
+        note = R.string.credit_google_sans_note,
     ),
 )
 
