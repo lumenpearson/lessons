@@ -194,8 +194,15 @@ jobs:
       # `always()`, because the report is worth most exactly when the step
       # before it failed: it names the test and shows the assertion without a
       # second ten-minute run.
+      #
+      # `continue-on-error`, because the gate is `./gradlew test`, not this.
+      # When the account's 500 MB of artifact storage is full every upload
+      # fails — and without this, a build whose tests all passed is reported
+      # red for a reason that is not in the diff and cannot be fixed from it.
+      # The step still goes red in the run, so the reason stays visible.
       - name: Upload test reports
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: test-reports
@@ -203,18 +210,28 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - uses: actions/upload-artifact@v7
+      # APKs are kept off pull requests, and the ones that are kept expire in
+      # a week. This is not tidiness: the free plan allows 500 MB of artifact
+      # storage, a run of this job stored 27 MB of debug APK and 5 MB of
+      # release APK for the default *ninety* days, and after about fifteen
+      # runs every upload fails with "Artifact storage quota has been hit" —
+      # which is a red job on a build that passed. `apk.yml` is what exists to
+      # hand somebody an installable APK, on demand, from any branch; a copy
+      # of every pull-request build sitting until December is not.
+      #
+      # `if-no-files-found: error` stays on both: it is the check that the
+      # build produced what it claims.
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-      # Only where one was built. `if-no-files-found: error` is kept on
-      # purpose: it is the check that the build produced what it claims, and
-      # it would otherwise fail every pull request now that the release APK
-      # is not built there.
+          retention-days: 7
       - if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
         with:
           name: app-release-unsigned-key
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+          retention-days: 7
