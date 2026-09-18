@@ -163,6 +163,20 @@ points Hilt does not inject cleanly.
   differ, but until that has been measured again it is the fallback: the promise the bot
   makes («в течение примерно пяти минут») is kept by the external cron in
   `docs/deploy.md`.
+- **A deployment refuses to start rather than keep a local default.** `get_settings()`
+  raises `DeploymentNotConfigured` when `VERCEL` is set and any of `DATABASE_URL`,
+  `BOT_TOKEN`, `WEBHOOK_SECRET`, `RUN_BOT`, `OWNER_IDS` or `TIMEZONE` is missing or
+  unusable, and it lists every one of them at once, because finding the next costs another
+  deploy. This is not tidiness: `DATABASE_URL` set for one Vercel environment and not the
+  other left the SQLite default standing, and the only thing anybody saw was
+  `ModuleNotFoundError: No module named 'aiosqlite'` out of SQLAlchemy's sqlite dialect —
+  a message naming neither the setting, nor the environment it was missing from, nor this
+  project. The check hangs on `VERCEL` because the platform sets it about itself; guessing
+  "this looks like production" anywhere else would one day refuse to start on somebody's
+  laptop. **Do not add an optional setting to that list.** `DIARY_SECRET`, `DADATA_TOKEN`,
+  `PUBLIC_BASE_URL`, `BOT_USERNAME` and `CRON_SECRET` are empty by design and each already
+  refuses in view of whoever it concerns; they are logged as switched off at startup
+  (`Settings.disabled_features`), which is a different decision from making them mandatory.
 - **The widget's size ladder has twelve rungs, and the count is the point.**
   `WidgetSizeClass` (in `:widget`) declares twelve breakpoints because the launcher and
   Glance both pick the **nearest** breakpoint by squared distance, not the largest that
