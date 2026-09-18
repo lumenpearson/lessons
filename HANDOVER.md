@@ -147,7 +147,7 @@ GitHub считает PR влитым только когда коммиты п�
 Влито:   PR #43, PR #44, PR #45 (шесть заходов, 38 коммитов, мердж 26ad184)
 Открыт:  ничего, кроме PR с этим обновлением
 Ветки:   main и dev; dev перезапущена от main после мерджа #45
-Ворота:  ruff чисто, mypy чисто, 1340 серверных тестов, 573 Android, обе сборки
+Ворота:  ruff чисто, mypy чисто, 1362 серверных теста, 573 Android, обе сборки
 База:    прод на `0013` — это голова. `0010`–`0012` применены через коннектор
          Neon ДО мерджа, `0013` (UNIQUE) — ПОСЛЕ, как требует её форма.
          Отдельных действий с базой не осталось
@@ -186,7 +186,7 @@ git checkout -B dev origin/main   # тот же dev, новая точка ст�
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # чисто
-cd server  && python -m pytest -q -n auto                 # 1340 тестов, ~1.5 мин
+cd server  && python -m pytest -q -n auto                 # 1362 теста, ~1.8 мин
 cd server  && python -m mypy                              # чисто, 79 модулей
 cd android && ./gradlew test                             # 573 теста
 cd android && ./gradlew assembleDebug assembleRelease    # обе сборки
