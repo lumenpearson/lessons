@@ -203,7 +203,7 @@ points Hilt does not inject cleanly.
   a half-applied revision cannot claim to be whole. And say what a revision destroys before
   running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
   sentence the owner needs *before* the transaction, not after.
-- **Migrations are Alembic and production is at `0012`; `0013` waits for the merge.** `0001` is a guarded
+- **Migrations are Alembic and production is at `0013`, which is the head.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
@@ -216,8 +216,10 @@ points Hilt does not inject cleanly.
   that ran the chain through alembic. `0012` does the same for eight more timestamps in
   seven tables that `0003`, `0004` and `0006` left loose — and on this database it was
   **not** a no-op: all eight really were nullable, and all eight held zero nulls, so it
-  tightened them and rewrote nothing. `0013` adds `uq_homework_per_subject_per_day` and is
-  **applied after the merge, not before** — see the constraint rule below.
+  tightened them and rewrote nothing. `0013` adds `uq_homework_per_subject_per_day`
+  and was **applied after the merge, not before** — see the constraint rule
+  below; on this database it deleted nothing, because `homework` held no rows
+  and therefore no duplicates.
   Nothing after `0001` may use `create_all`.
   Beware the enum: `SAEnum(SomeStrEnum)` stores the member **name**, so a `server_default`
   written as `.value` is a string the ORM cannot read back — which on `classes` is a
@@ -231,9 +233,9 @@ points Hilt does not inject cleanly.
   A `UNIQUE` or a `NOT NULL` is the other way round: it is the **old** code that
   breaks against it, with an `IntegrityError` nobody catches where a moment
   earlier there was a duplicate. `0013` is that shape and says so in its own
-  docstring — it goes on *after* the merge, and `services/homework.py` is
-  written to be correct with or without it so the window in between behaves
-  exactly like today. `0012` is the safe shape (eight timestamps that already
+  docstring — it went on *after* the merge of PR #45, and `services/homework.py`
+  is written to be correct with or without it so the window in between behaved
+  exactly like production did before. `0012` is the safe shape (eight timestamps that already
   hold no nulls) and was applied the usual way, before the merge. Read the
   database before either: `0012` turned out to be a real fix rather than the
   no-op `0011` was, because all eight columns really were nullable there.
