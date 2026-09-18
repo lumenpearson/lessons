@@ -17,14 +17,16 @@ name: Reminders
 # fire", so a late tick still sends), but a promise of "within five minutes"
 # does not.
 #
-# The cadence below is six-hourly on purpose - four ticks a day, against the
-# 6.7 the five-minute schedule actually delivered, so nothing is lost. It
-# costs four billed minutes a day, because a run of twenty seconds is billed
-# as a whole minute, and its job is only to notice that the external clock
-# has stopped.
+# The five minutes below are kept anyway. That measurement was taken while
+# this repository was private, where a tick of twenty seconds also cost a
+# whole billed minute and 288 of them a day was a reason to ask for less;
+# public, standard runners are not billed, so asking costs nothing and the
+# throttling may well be different. Whether it is has to be measured again -
+# until it has been, the external cron is the clock and this is what notices
+# that the clock stopped.
 on:
   schedule:
-    - cron: "0 */6 * * *"
+    - cron: "*/5 * * * *"
   # Lets you fire a tick from the Actions tab to test the secrets.
   workflow_dispatch:
 

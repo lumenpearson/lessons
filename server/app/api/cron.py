@@ -2,9 +2,9 @@
 
 A serverless deployment has nothing that runs on its own, so the morning and
 evening digests are sent by whoever calls this endpoint - an external cron
-service every five minutes, with the repository's own Actions schedule left
-six-hourly behind it as a fallback, because GitHub delivered 6.7 of the 288
-daily ticks it was asked for. The endpoint does what a scheduler thread would:
+service every five minutes, with the repository's own Actions schedule behind
+it as a fallback rather than as the clock, because GitHub delivered 6.7 of the
+288 daily ticks it was asked for. The endpoint does what a scheduler thread would:
 work out what is due from the class clocks, send it, and sweep the tables that
 grow between calls. It is safe to call twice in a minute and safe to call an
 hour late; ``reminders.send_due`` is built for both.

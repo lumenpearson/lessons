@@ -56,19 +56,18 @@ Android, from `android/`:
 
 - **`./gradlew test`** — all JVM unit tests across the five modules
 - `./gradlew :core:model:test --tests '*ScheduleEngineTest*'` — one module, one class
-- **`./gradlew assembleDebug`** and **`./gradlew assembleRelease`** — CI builds debug on
-  every push and release on merges to `main`, on `workflow_dispatch` and on a `v*` tag,
-  because R8 and resource shrinking are where "worked in debug" stops being true. Run the
-  release one yourself before asking for a merge; a pull request no longer does
+- **`./gradlew assembleDebug`** and **`./gradlew assembleRelease`** — CI builds both on every
+  push, because R8 and resource shrinking are where "worked in debug" stops being true
 - `./gradlew lint` runs the AGP Android lint; CI does not, so do not report it as a gate
 
-CI (`.github/workflows/ci.yml`) is: ruff, pytest (`-n auto`), `./gradlew test`,
-`assembleDebug`, and `assembleRelease` everywhere except a pull request. Nothing else.
-`apk.yml` builds an installable APK on demand or on a `v*` tag; `reminders.yml` is a
-fallback clock, not the clock (see below). The workflows work — do not edit them casually,
-and know what a change costs: every job is billed as whole minutes and the free allowance
-is 2000 a month, which a full run of this one spent twenty-one of before the suite was
-parallelised.
+CI (`.github/workflows/ci.yml`) is: ruff, pytest (`-n auto`), `./gradlew test`, both
+assembles. Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;
+`reminders.yml` is a fallback clock, not the clock (see below). The workflows work — do
+not edit them casually. The repository is public, so standard runners cost nothing; what
+the workflows still carry from the months it was private is in `docs/build.md`, «Минуты
+Actions», and it is worth reading before undoing any of it — `-n auto` and a seven-day
+artifact retention are there because a full run was twenty-one billed minutes and a full
+artifact store reported a passing build as red.
 
 ## Architecture
 
@@ -159,9 +158,11 @@ points Hilt does not inject cleanly.
   **The caller is an external cron service, not GitHub.** `.github/workflows/reminders.yml`
   asked for a tick every five minutes and delivered 6.7 a day over five days of
   measurement, in gaps of two to six and a half hours — GitHub runs schedules on a
-  best-effort basis and that is what the effort came to here. It is now six-hourly and
-  its only job is to notice that the real clock stopped; the promise the bot makes
-  («в течение примерно пяти минут») is kept by the external cron in `docs/deploy.md`.
+  best-effort basis and that is what the effort came to on a private repository. It still
+  asks for five minutes, because public runners cost nothing and the throttling may well
+  differ, but until that has been measured again it is the fallback: the promise the bot
+  makes («в течение примерно пяти минут») is kept by the external cron in
+  `docs/deploy.md`.
 - **The widget's size ladder has twelve rungs, and the count is the point.**
   `WidgetSizeClass` (in `:widget`) declares twelve breakpoints because the launcher and
   Glance both pick the **nearest** breakpoint by squared distance, not the largest that
