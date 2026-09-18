@@ -40,6 +40,15 @@ def _report_bot_exit(task: asyncio.Task) -> None:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
 
+    # Say out loud what is switched off. These are not faults — each is a
+    # documented way to run without a feature — but a deployment missing one
+    # rarely meant to be, and the only other evidence is a screen in the bot
+    # that somebody has to reach before anyone learns of it. The settings that
+    # are *not* optional never get this far: `get_settings` refuses at the
+    # door (app/config.py).
+    for feature in settings.disabled_features():
+        log.warning("%s", feature)
+
     # Bootstrap the schema only for a local SQLite file. On a managed Postgres
     # it is created once by `python -m scripts.init_db`: emitting create_all on
     # every serverless cold start costs a round trip per table before the first

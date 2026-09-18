@@ -108,8 +108,15 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Lint
         run: ruff check app tests scripts migrations
+      # `-n auto`, because this step was the whole run. It was twelve and a
+      # half minutes of a twenty-one minute CI run and is now three and a
+      # half: that started as a bill to cut and stayed for the feedback. The
+      # suite parallelises safely — each xdist worker imports
+      # `tests/conftest.py` in its own process, and that import is what names
+      # the SQLite file, so the workers never share a database. Measured on
+      # four cores: 289 s to 101 s, 1340 passed either way.
       - name: Test
-        run: pytest -q
+        run: pytest -q -n auto
 
   android:
     name: Android
@@ -158,6 +165,11 @@ jobs:
       # people install", and finding that on a pull request costs minutes rather
       # than a bad release.
       #
+      # It was briefly moved off pull requests to save billed minutes, and moved
+      # back when the repository went public and standard runners stopped being
+      # billed at all. Worth remembering if it is ever private again: the gate
+      # is worth about two minutes a push.
+      #
       # `assemble` does not depend on `test`, so a parallel build can finish an
       # APK before a failing test is reported. The invocation still fails and
       # the job with it; the APK uploads below are skipped.
@@ -171,8 +183,16 @@ jobs:
       # `always()`, because the report is worth most exactly when the step
       # before it failed: it names the test and shows the assertion without a
       # second ten-minute run.
+      #
+      # `continue-on-error`, because the gate is `./gradlew test`, not this.
+      # A build whose tests all passed must not be reported red because a
+      # diagnostic could not be stored — which is exactly what a full artifact
+      # store did here, for a reason that was not in the diff and could not be
+      # fixed from it. The step still goes red in the run, so the reason stays
+      # visible rather than swallowed.
       - name: Upload test reports
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: test-reports
@@ -180,13 +200,25 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      # A week, not the default ninety days. Storage is free on a public
+      # repository, but a 27 MB debug APK and a 5 MB release APK per run is
+      # how this repository put every upload into "Artifact storage quota has
+      # been hit" while it was private — a red job on a build that passed —
+      # and nobody has ever wanted the APK of a pull request from two months
+      # ago. `apk.yml` is what keeps its ninety days, because that one exists
+      # to hand somebody an APK.
+      #
+      # `if-no-files-found: error` on both: it is the check that the build
+      # produced what it claims.
       - uses: actions/upload-artifact@v7
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          retention-days: 7
       - uses: actions/upload-artifact@v7
         with:
           name: app-release-unsigned-key
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+          retention-days: 7

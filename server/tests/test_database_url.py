@@ -3,6 +3,12 @@
 Every case here is a real form Neon or Supabase hands out. The cost of getting
 one wrong is a deployment that fails at startup with an error naming a query
 parameter, which tells the reader nothing about what to change.
+
+The endpoint id below is invented, and deliberately: it has the shape Neon
+gives out - adjective, noun, eight hex - which is all `is_pooled` reads, and
+none of the reachability. This file used to carry the project's own endpoint,
+which is a host on the public internet that accepts Postgres connections from
+anywhere, and naming it buys a stranger the target without buying us a test.
 """
 
 from __future__ import annotations
@@ -12,11 +18,11 @@ import pytest
 from app.database_url import describe, is_pooled, normalise_database_url
 
 NEON_POOLED = (
-    "postgresql://user:secret@ep-noisy-sea-b2jc3hzb-pooler.c-6.eu-central-1"
+    "postgresql://user:secret@ep-quiet-lake-a1b2c3d4-pooler.c-6.eu-central-1"
     ".aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 )
 NEON_DIRECT = (
-    "postgresql://user:secret@ep-noisy-sea-b2jc3hzb.c-6.eu-central-1"
+    "postgresql://user:secret@ep-quiet-lake-a1b2c3d4.c-6.eu-central-1"
     ".aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 )
 
@@ -70,8 +76,8 @@ def test_a_direct_host_keeps_caching():
 @pytest.mark.parametrize(
     ("host", "pooled"),
     [
-        ("ep-noisy-sea-b2jc3hzb-pooler.c-6.eu-central-1.aws.neon.tech", True),
-        ("ep-noisy-sea-b2jc3hzb.c-6.eu-central-1.aws.neon.tech", False),
+        ("ep-quiet-lake-a1b2c3d4-pooler.c-6.eu-central-1.aws.neon.tech", True),
+        ("ep-quiet-lake-a1b2c3d4.c-6.eu-central-1.aws.neon.tech", False),
         ("pooler.example.com", True),
         ("db.example.com", False),
     ],

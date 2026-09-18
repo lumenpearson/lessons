@@ -60,6 +60,15 @@ include = ["app*", "scripts*"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
+    # The suite is the single most expensive thing this repository runs: on a
+    # CI runner it was twelve and a half minutes of a twenty-one-minute bill,
+    # and GitHub rounds every job up to a whole minute. `-n auto` spreads it
+    # over the runner's cores and finishes in a third of the time. It is safe
+    # here by construction rather than by luck: `tests/conftest.py` names the
+    # SQLite file from a `mkdtemp` evaluated at import, and each xdist worker
+    # is its own process importing it again, so no two workers ever share a
+    # database.
+    "pytest-xdist>=3.6",
     # Same ceiling as the runtime dependency above, and for the same reason:
     # the test suite is where a release that dropped per-request cookies would
     # be noticed, and it cannot notice it from a version the runtime refuses.

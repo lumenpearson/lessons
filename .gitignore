@@ -25,6 +25,13 @@ captures/
 *.aab
 *.keystore
 !debug.keystore
+# The release keystore is a .jks in every instruction that produces one - the
+# APK workflow writes `release.jks` - and `*.keystore` does not cover that
+# name. A signing key committed once is a key that has to be replaced, because
+# an app already installed can only be updated by the key that signed it.
+*.jks
+*.p12
+keystore.properties
 android/build/
 android/*/build/
 android/app/release/

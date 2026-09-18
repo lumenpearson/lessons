@@ -39,7 +39,8 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 1340 tests, about five minutes
+- **`python -m pytest -q`** — 1362 tests, about five minutes; `-n auto` puts them on
+  every core and finishes in a third of that, which is what CI runs
 - **`python -m mypy`** — one question, of all 79 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. Not in CI — the
@@ -59,9 +60,14 @@ Android, from `android/`:
   push, because R8 and resource shrinking are where "worked in debug" stops being true
 - `./gradlew lint` runs the AGP Android lint; CI does not, so do not report it as a gate
 
-CI (`.github/workflows/ci.yml`) is: ruff, pytest, `./gradlew test`, both assembles. Nothing
-else. `apk.yml` builds an installable APK on demand or on a `v*` tag; `reminders.yml` is the
-server's clock (see below). The workflows work — do not edit them casually.
+CI (`.github/workflows/ci.yml`) is: ruff, pytest (`-n auto`), `./gradlew test`, both
+assembles. Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;
+`reminders.yml` is a fallback clock, not the clock (see below). The workflows work — do
+not edit them casually. The repository is public, so standard runners cost nothing; what
+the workflows still carry from the months it was private is in `docs/build.md`, «Минуты
+Actions», and it is worth reading before undoing any of it — `-n auto` and a seven-day
+artifact retention are there because a full run was twenty-one billed minutes and a full
+artifact store reported a passing build as red.
 
 ## Architecture
 
@@ -144,12 +150,33 @@ points Hilt does not inject cleanly.
 
 - **The server has no clock.** On Vercel nothing runs between requests, so there is no
   scheduler, no background task and no `asyncio` loop that survives a response. The morning
-  and evening digests are driven from outside by `.github/workflows/reminders.yml`, which
-  calls `GET /api/v1/cron/tick` every five minutes with `X-Cron-Secret`. The endpoint marks
-  a digest sent **before** sending it, and works from "what is due and not yet sent today"
-  rather than "did the last tick fire" — so a tick that dies halfway does not send twice and
-  a tick ten minutes late still sends. Anything you are tempted to schedule in-process
-  belongs in that tick instead.
+  and evening digests are driven from outside by whoever calls `GET /api/v1/cron/tick`
+  with `X-Cron-Secret`. The endpoint marks a digest sent **before** sending it, and works
+  from "what is due and not yet sent today" rather than "did the last tick fire" — so a
+  tick that dies halfway does not send twice and a tick ten minutes late still sends.
+  Anything you are tempted to schedule in-process belongs in that tick instead.
+  **The caller is an external cron service, not GitHub.** `.github/workflows/reminders.yml`
+  asked for a tick every five minutes and delivered 6.7 a day over five days of
+  measurement, in gaps of two to six and a half hours — GitHub runs schedules on a
+  best-effort basis and that is what the effort came to on a private repository. It still
+  asks for five minutes, because public runners cost nothing and the throttling may well
+  differ, but until that has been measured again it is the fallback: the promise the bot
+  makes («в течение примерно пяти минут») is kept by the external cron in
+  `docs/deploy.md`.
+- **A deployment refuses to start rather than keep a local default.** `get_settings()`
+  raises `DeploymentNotConfigured` when `VERCEL` is set and any of `DATABASE_URL`,
+  `BOT_TOKEN`, `WEBHOOK_SECRET`, `RUN_BOT`, `OWNER_IDS` or `TIMEZONE` is missing or
+  unusable, and it lists every one of them at once, because finding the next costs another
+  deploy. This is not tidiness: `DATABASE_URL` set for one Vercel environment and not the
+  other left the SQLite default standing, and the only thing anybody saw was
+  `ModuleNotFoundError: No module named 'aiosqlite'` out of SQLAlchemy's sqlite dialect —
+  a message naming neither the setting, nor the environment it was missing from, nor this
+  project. The check hangs on `VERCEL` because the platform sets it about itself; guessing
+  "this looks like production" anywhere else would one day refuse to start on somebody's
+  laptop. **Do not add an optional setting to that list.** `DIARY_SECRET`, `DADATA_TOKEN`,
+  `PUBLIC_BASE_URL`, `BOT_USERNAME` and `CRON_SECRET` are empty by design and each already
+  refuses in view of whoever it concerns; they are logged as switched off at startup
+  (`Settings.disabled_features`), which is a different decision from making them mandatory.
 - **The widget's size ladder has twelve rungs, and the count is the point.**
   `WidgetSizeClass` (in `:widget`) declares twelve breakpoints because the launcher and
   Glance both pick the **nearest** breakpoint by squared distance, not the largest that
@@ -193,9 +220,10 @@ points Hilt does not inject cleanly.
   кода…"}` in the window the correct order creates. `/api/v1/health` deliberately opens no
   connection, so it cannot tell you this.
 - **Apply migrations through the Neon connector, from here.** The owner does not run
-  `alembic upgrade head` by hand and this session has no `DATABASE_URL`; the project is
-  `proud-math-08001107` on the Neon MCP server, and `0005` through `0011` were all applied
-  that way. It is not alembic running — it is the revision's DDL executed as one
+  `alembic upgrade head` by hand and this session has no `DATABASE_URL`; the project is the
+  one named `lessons` on the Neon MCP server — the account has two, so read the name rather
+  than guessing an id, and the id itself stays out of the repository — and `0005` through
+  `0013` were all applied that way. It is not alembic running — it is the revision's DDL executed as one
   transaction, with `alembic_version` stamped in the same transaction — so three things
   follow. Take the DDL from the model rather than writing it out: `CreateTable(...).compile(
   dialect=postgresql.dialect())` prints exactly what `create_all` would build, which is what
