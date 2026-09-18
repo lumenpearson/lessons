@@ -353,6 +353,11 @@ SQLAlchemy хранит enum **именем** члена, а не значени
 
 MIT — см. [LICENSE](LICENSE).
 
-Дизайн-система, шрифт и часть компонентов перенесены из
-[sameerasw/essentials](https://github.com/sameerasw/essentials) (MIT, © sameerasw.com).
-Подробности и оговорка про лицензию шрифта — в [docs/design.md](docs/design.md).
+Дизайн-система и часть компонентов перенесены из
+[sameerasw/essentials](https://github.com/sameerasw/essentials) (MIT, © sameerasw.com);
+что именно взято и что сделано иначе — в [docs/design.md](docs/design.md).
+
+Шрифт **Google Sans Flex** — отдельная лицензия и отдельный правообладатель: SIL Open
+Font License 1.1, © 2015 Google LLC. Текст лицензии едет вместе с гарнитурой, внутри APK
+(`core/designsystem/src/main/assets/licenses/google_sans_flex_OFL.txt`), как OFL и
+требует, и назван в приложении: **Настройки → О приложении → Лицензии**.
