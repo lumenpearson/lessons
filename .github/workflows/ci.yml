@@ -108,8 +108,16 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Lint
         run: ruff check app tests scripts migrations
+      # `-n auto`, because this step was the bill. A full run of this workflow
+      # costs about twenty-one billed minutes and twelve and a half of them
+      # were here — GitHub rounds each job up to a whole minute, so the only
+      # thing that saves anything is finishing sooner. The suite parallelises
+      # safely: each xdist worker imports `tests/conftest.py` in its own
+      # process, and that import is what names the SQLite file, so the workers
+      # never share a database. Measured on four cores: 289 s to 101 s, 1340
+      # passed either way.
       - name: Test
-        run: pytest -q
+        run: pytest -q -n auto
 
   android:
     name: Android
@@ -153,10 +161,16 @@ jobs:
       # to parallelise across the runner's cores, and the library modules'
       # compilation is shared rather than repeated.
       #
-      # Release is built on every run, not only at release time. R8 and resource
-      # shrinking are the classic source of "worked in debug, broken in the APK
-      # people install", and finding that on a pull request costs minutes rather
-      # than a bad release.
+      # Release is built on merges and on demand, not on every pull-request
+      # push. R8 and resource shrinking are the classic source of "worked in
+      # debug, broken in the APK people install", so the gate stays — it just
+      # stands at the merge and at the tag (`apk.yml` runs `test
+      # assembleRelease` on every `v*`) instead of at each of the five pushes
+      # a pull request takes to get there. That is a real trade and it is
+      # bought with minutes: the free allowance is 2000 a month, every job is
+      # rounded up to a whole one, and this workflow was spending about
+      # twenty-one of them per run. Put `assembleRelease` back on the
+      # pull-request line if a broken shrinker ever reaches `main`.
       #
       # `assemble` does not depend on `test`, so a parallel build can finish an
       # APK before a failing test is reported. The invocation still fails and
@@ -166,7 +180,16 @@ jobs:
       # the flag costs a cold JVM for nothing. `setup-gradle` stops it at the
       # end of the job, and the job ends with the runner anyway.
       - name: Test and assemble
-        run: ./gradlew test assembleDebug assembleRelease
+        env:
+          # Via env rather than interpolated into the script: the same habit as
+          # everywhere else in these workflows, even where the value is ours.
+          WITH_RELEASE: ${{ github.event_name != 'pull_request' }}
+        run: |
+          if [ "$WITH_RELEASE" = "true" ]; then
+            ./gradlew test assembleDebug assembleRelease
+          else
+            ./gradlew test assembleDebug
+          fi
 
       # `always()`, because the report is worth most exactly when the step
       # before it failed: it names the test and shows the assertion without a
@@ -185,7 +208,12 @@ jobs:
           name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-      - uses: actions/upload-artifact@v7
+      # Only where one was built. `if-no-files-found: error` is kept on
+      # purpose: it is the check that the build produced what it claims, and
+      # it would otherwise fail every pull request now that the release APK
+      # is not built there.
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7
         with:
           name: app-release-unsigned-key
           path: android/app/build/outputs/apk/release/*.apk

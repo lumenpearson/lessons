@@ -39,7 +39,8 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 1340 tests, about five minutes
+- **`python -m pytest -q`** — 1340 tests, about five minutes; `-n auto` puts them on
+  every core and finishes in a third of that, which is what CI runs
 - **`python -m mypy`** — one question, of all 79 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. Not in CI — the
@@ -55,13 +56,19 @@ Android, from `android/`:
 
 - **`./gradlew test`** — all JVM unit tests across the five modules
 - `./gradlew :core:model:test --tests '*ScheduleEngineTest*'` — one module, one class
-- **`./gradlew assembleDebug`** and **`./gradlew assembleRelease`** — CI builds both on every
-  push, because R8 and resource shrinking are where "worked in debug" stops being true
+- **`./gradlew assembleDebug`** and **`./gradlew assembleRelease`** — CI builds debug on
+  every push and release on merges to `main`, on `workflow_dispatch` and on a `v*` tag,
+  because R8 and resource shrinking are where "worked in debug" stops being true. Run the
+  release one yourself before asking for a merge; a pull request no longer does
 - `./gradlew lint` runs the AGP Android lint; CI does not, so do not report it as a gate
 
-CI (`.github/workflows/ci.yml`) is: ruff, pytest, `./gradlew test`, both assembles. Nothing
-else. `apk.yml` builds an installable APK on demand or on a `v*` tag; `reminders.yml` is the
-server's clock (see below). The workflows work — do not edit them casually.
+CI (`.github/workflows/ci.yml`) is: ruff, pytest (`-n auto`), `./gradlew test`,
+`assembleDebug`, and `assembleRelease` everywhere except a pull request. Nothing else.
+`apk.yml` builds an installable APK on demand or on a `v*` tag; `reminders.yml` is a
+fallback clock, not the clock (see below). The workflows work — do not edit them casually,
+and know what a change costs: every job is billed as whole minutes and the free allowance
+is 2000 a month, which a full run of this one spent twenty-one of before the suite was
+parallelised.
 
 ## Architecture
 
@@ -144,12 +151,17 @@ points Hilt does not inject cleanly.
 
 - **The server has no clock.** On Vercel nothing runs between requests, so there is no
   scheduler, no background task and no `asyncio` loop that survives a response. The morning
-  and evening digests are driven from outside by `.github/workflows/reminders.yml`, which
-  calls `GET /api/v1/cron/tick` every five minutes with `X-Cron-Secret`. The endpoint marks
-  a digest sent **before** sending it, and works from "what is due and not yet sent today"
-  rather than "did the last tick fire" — so a tick that dies halfway does not send twice and
-  a tick ten minutes late still sends. Anything you are tempted to schedule in-process
-  belongs in that tick instead.
+  and evening digests are driven from outside by whoever calls `GET /api/v1/cron/tick`
+  with `X-Cron-Secret`. The endpoint marks a digest sent **before** sending it, and works
+  from "what is due and not yet sent today" rather than "did the last tick fire" — so a
+  tick that dies halfway does not send twice and a tick ten minutes late still sends.
+  Anything you are tempted to schedule in-process belongs in that tick instead.
+  **The caller is an external cron service, not GitHub.** `.github/workflows/reminders.yml`
+  asked for a tick every five minutes and delivered 6.7 a day over five days of
+  measurement, in gaps of two to six and a half hours — GitHub runs schedules on a
+  best-effort basis and that is what the effort came to here. It is now six-hourly and
+  its only job is to notice that the real clock stopped; the promise the bot makes
+  («в течение примерно пяти минут») is kept by the external cron in `docs/deploy.md`.
 - **The widget's size ladder has twelve rungs, and the count is the point.**
   `WidgetSizeClass` (in `:widget`) declares twelve breakpoints because the launcher and
   Glance both pick the **nearest** breakpoint by squared distance, not the largest that
@@ -193,9 +205,10 @@ points Hilt does not inject cleanly.
   кода…"}` in the window the correct order creates. `/api/v1/health` deliberately opens no
   connection, so it cannot tell you this.
 - **Apply migrations through the Neon connector, from here.** The owner does not run
-  `alembic upgrade head` by hand and this session has no `DATABASE_URL`; the project is
-  `proud-math-08001107` on the Neon MCP server, and `0005` through `0011` were all applied
-  that way. It is not alembic running — it is the revision's DDL executed as one
+  `alembic upgrade head` by hand and this session has no `DATABASE_URL`; the project is the
+  one named `lessons` on the Neon MCP server — the account has two, so read the name rather
+  than guessing an id, and the id itself stays out of the repository — and `0005` through
+  `0013` were all applied that way. It is not alembic running — it is the revision's DDL executed as one
   transaction, with `alembic_version` stamped in the same transaction — so three things
   follow. Take the DDL from the model rather than writing it out: `CreateTable(...).compile(
   dialect=postgresql.dialect())` prints exactly what `create_all` would build, which is what

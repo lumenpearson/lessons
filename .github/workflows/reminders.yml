@@ -1,17 +1,30 @@
 name: Reminders
 
 # The server has no scheduler of its own - on Vercel nothing runs between
-# requests - so this workflow is the clock that sends the morning and evening
-# digests. It only calls the tick endpoint; deciding what is due, and sending
-# each digest exactly once, is the server's job (app/services/reminders.py).
+# requests - so something outside it has to call the tick that sends the
+# morning and evening digests. This workflow is the *fallback* clock; the one
+# that keeps time is an external cron service, configured by hand against the
+# same URL (docs/deploy.md, "Часы"). Either only calls the endpoint; deciding
+# what is due, and sending each digest exactly once, is the server's job
+# (app/services/reminders.py).
 #
-# GitHub runs scheduled workflows on a best-effort basis: a tick can arrive
-# ten minutes late or be skipped under load. That is fine here - the endpoint
+# Why a fallback and not the clock. GitHub runs scheduled workflows on a
+# best-effort basis, and on this repository "best effort" was measured: over
+# five days this file asked for a tick every five minutes - 288 a day - and
+# got 6.7 a day, in gaps of two to six and a half hours. A digest due at 07:30
+# went out when a runner happened to be free. The endpoint survives that (it
 # works from "what has not been sent today" rather than "did the last tick
-# fire", so a late tick sends everything that came due in the meantime.
+# fire", so a late tick still sends), but a promise of "within five minutes"
+# does not.
+#
+# The cadence below is six-hourly on purpose - four ticks a day, against the
+# 6.7 the five-minute schedule actually delivered, so nothing is lost. It
+# costs four billed minutes a day, because a run of twenty seconds is billed
+# as a whole minute, and its job is only to notice that the external clock
+# has stopped.
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "0 */6 * * *"
   # Lets you fire a tick from the Actions tab to test the secrets.
   workflow_dispatch:
 
