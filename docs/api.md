@@ -647,7 +647,7 @@ A class keeps several - «Обычное», «Сокращённое», «Суб
 is the default the day view uses when nothing says otherwise.
 
 ```json
-{ "id": 3, "name": "Обычное", "is_default": true,
+{ "id": 3, "name": "Обычное", "is_default": true, "silenced_lessons": 0,
   "periods": [ { "index": 1, "starts_at": "08:30:00", "ends_at": "09:15:00" } ] }
 ```
 
@@ -662,6 +662,16 @@ what editing bells is: move one lesson and every lesson after it shifts.
 Between one and twenty rows, `index` 1-20 and unique, `ends_at` after
 `starts_at`; an empty list is `422`, the same refusal the bot gives: bells are not
 erased by sending nothing.
+
+Both writes answer with `silenced_lessons`: how many weekday rows this request
+stopped ringing. Shrinking a schedule, or pointing the class at a shorter one,
+leaves every lesson at a number past the new last rung stored in the database
+and drawn on no phone, in no widget, in no calendar feed and in no digest —
+nothing is deleted and everything is gone. It is counted in rows rather than in
+numbers, because one number under two weekdays is two lessons nobody will see.
+Zero on a read, on a rename, and on any write that silenced nothing; a client
+that ignores it will report a clean save over a class that just lost six
+lessons, which is what the bot says out loud in an alert.
 
 `DELETE` refuses the class default and any schedule a special day still points
 at (`409`, with the count). Both are a `SET NULL` in the database, which would
