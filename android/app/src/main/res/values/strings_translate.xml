@@ -6,14 +6,14 @@
 -->
 <resources>
 
-    <!-- Строки в настройках -->
+    <!-- The rows in the settings -->
     <string name="translation_group">Перевод</string>
     <string name="translation_mode">Режим исправления</string>
     <string name="translation_mode_description">Долгое нажатие на текст открывает правку. Режим выключается вместе с приложением</string>
     <string name="translation_session">Исправления</string>
     <string name="translation_session_description">Список правок, копирование и отправка</string>
 
-    <!-- Лист с накопленными правками -->
+    <!-- The sheet of accumulated corrections -->
     <string name="translation_session_title">Исправления перевода</string>
     <string name="translation_session_empty">Пока ничего не исправлено</string>
     <string name="translation_session_clear">Очистить всё</string>
@@ -22,7 +22,7 @@
     <string name="translation_session_remove">Убрать правку</string>
     <string name="translation_edit_subtitle">%1$s · было: %2$s</string>
 
-    <!-- Редактор одной строки -->
+    <!-- The editor for one string -->
     <string name="translation_editor_title">Исправить строку</string>
     <string name="translation_editor_key">Ключ</string>
     <string name="translation_editor_file">Файл</string>

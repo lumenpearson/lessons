@@ -1,101 +1,106 @@
-# Дневник — расписание, виджет и бот
+# Дневник — timetable, widget and bot
 
-Расписание уроков, замены, домашнее задание и события класса — для школ России.
-Приложение на Android, админка в Telegram и виджет любого размера, который показывает,
-что происходит прямо сейчас.
+The repository is `lessons`; the product is called «Дневник», which is what a Russian
+school calls the paper diary this replaces.
 
-Учитывает то, чем российская школа отличается от абстрактной: шестидневка, недели по
-числителю и знаменателю, замены, сокращённые дни, каникулы и одиннадцать часовых поясов
-от Калининграда до Камчатки.
+Lessons, substitutions, homework and class events — for schools in Russia. An Android app,
+an admin panel that lives in Telegram, and a widget of any size that shows what is
+happening right now.
 
-> Дизайн и часть компонентов взяты из [sameerasw/essentials](https://github.com/sameerasw/essentials).
-> Что именно и что сделано иначе — в [docs/design.md](docs/design.md).
+It accounts for what makes a Russian school different from an abstract one: a six-day
+week, numerator and denominator weeks, substitutions, shortened days, holidays, and eleven
+time zones from Kaliningrad to Kamchatka.
+
+> The design and some of the components come from
+> [sameerasw/essentials](https://github.com/sameerasw/essentials).
+> What exactly was taken and what was done differently is in [docs/design.md](docs/design.md).
 
 ---
 
-## Что здесь есть
+## What is here
 
-| Часть | Стек | Где про это |
+| Part | Stack | Where it is described |
 | --- | --- | --- |
-| **Приложение** — три вкладки, девять разделов настроек, несколько классов на телефоне, русский и английский | Kotlin 2.4, Compose, Material 3 Expressive | [docs/design.md](docs/design.md) |
-| **Виджет** — двенадцать размеров, семь состояний, работает офлайн | Glance | [docs/widget.md](docs/widget.md) |
-| **Уведомления** — звонок, утренняя сводка, домашка на завтра, замены | локальные будильники, без push | [docs/design.md](docs/design.md#уведомления) |
-| **Бот** — он же админка: роли, расписание, звонки, предметы, журнал, кто пускает телефоны | aiogram 3 | [docs/bot.md](docs/bot.md) |
-| **Сервер** — чтение и запись `/api/v1`, тик напоминаний, календарь | FastAPI, SQLAlchemy 2, Alembic | [docs/api.md](docs/api.md) |
-| **Электронный дневник Петербурга** — расписание, задания и оценки семьи, с правками поверх | отдельный аккаунт, за одной границей | [docs/api.md](docs/api.md#электронный-дневник-петербурга) |
+| **App** — three tabs, nine settings sections, several classes on one phone, Russian and English | Kotlin 2.4, Compose, Material 3 Expressive | [docs/design.md](docs/design.md) |
+| **Widget** — twelve sizes, seven states, works offline | Glance | [docs/widget.md](docs/widget.md) |
+| **Notifications** — the bell, the morning digest, tomorrow's homework, substitutions | local alarms, no push | [docs/design.md](docs/design.md#notifications) |
+| **Bot** — and the admin panel: roles, timetable, bells, subjects, the log, who may connect a phone | aiogram 3 | [docs/bot.md](docs/bot.md) |
+| **Server** — reads and writes over `/api/v1`, the reminder tick, the calendar | FastAPI, SQLAlchemy 2, Alembic | [docs/api.md](docs/api.md) |
+| **Petersburg electronic diary** — the family's timetable, assignments and marks, with corrections laid over them | a separate account, behind one boundary | [docs/api.md](docs/api.md#the-petersburg-electronic-diary) |
 
-Один процесс и одна база: бот и клиентский API живут вместе, а правило, по которому
-что-то меняется, лежит в одном месте для обоих — [docs/architecture.md](docs/architecture.md).
+One process and one database: the bot and the client-facing API live together, and the
+rule by which something changes lives in one place for both —
+[docs/architecture.md](docs/architecture.md).
 
-## Фишка — виджет
+## The point of it is the widget
 
-Виджет отвечает на один вопрос — «что сейчас?» — и когда уроки заканчиваются, сам
-переключается на «что задано»: на завтра, в пятницу на понедельник, и через каникулы
-тоже.
+The widget answers one question — "what now?" — and when the lessons end it switches by
+itself to "what is set": for tomorrow, on Friday for Monday, and across the holidays too.
 
-Он тянется на любой размер и меняет содержимое вместе с ним — от одной строки с
-состоянием и отсчётом на 2×1 до расписания дня вместе с домашним заданием на 5×5 и
-больше. Ступеней двенадцать, а не пять, и это не запас: лаунчер выбирает **ближайший**
-брейкпоинт, а не самый крупный из влезающих, и на пяти ступенях широкий высокий виджет
-оказывался ближе к узкой колонке. Таблица целиком — в [docs/widget.md](docs/widget.md).
+It stretches to any size and changes what it draws along with it — from one line with a
+state and a countdown at 2×1 to the whole day together with its homework at 5×5 and
+larger. There are twelve rungs rather than five, and that is not slack: the launcher picks
+the **nearest** breakpoint, not the largest that fits, and with five rungs a wide tall
+widget ended up closer to the narrow column. The whole table is in
+[docs/widget.md](docs/widget.md).
 
-Состояний семь: **до уроков**, **урок**, **перемена**, **событие**, **после уроков**,
-**выходной**, **нет данных**.
+There are seven states: **before lessons**, **lesson**, **break**, **event**, **after
+lessons**, **day off**, **no data**.
 
-Три вещи делают его пригодным к жизни:
+Three things make it liveable:
 
-* **Работает офлайн.** Room — единственный источник правды, сеть только наполняет его.
-  Отсчёт продолжает идти без интернета.
-* **Не будит телефон зря.** Вместо тика раз в минуту виджет ставит один будильник на
-  момент, когда текст изменится, и учащает обновления только в последние десять минут
-  урока.
-* **Знает время школы, а не телефона.** «Сейчас» считается в часовом поясе класса,
-  поэтому родитель в Москве видит звонки новосибирской школы.
+* **It works offline.** Room is the single source of truth; the network only fills it. The
+  countdown keeps running with no internet.
+* **It does not wake the phone for nothing.** Instead of ticking once a minute, the widget
+  sets one alarm for the moment the text will change, and only quickens in the last ten
+  minutes of a lesson.
+* **It knows the school's time, not the phone's.** "Now" is computed in the class's time
+  zone, so a parent in Moscow sees a Novosibirsk school's bells.
 
-## Для российских школ
+## For Russian schools
 
-| Особенность | Как поддержана |
+| What is particular | How it is supported |
 | --- | --- |
-| Шестидневка | расписание задаётся на понедельник–субботу |
-| Числитель / знаменатель | у урока в шаблоне есть чётность недели |
-| Замены и отмены | отдельные записи на дату, шаблон недели не трогается |
-| Сокращённые дни | своё расписание звонков на конкретную дату |
-| Каникулы | день помечается как выходной, домашка едет на следующий учебный день |
-| 11 часовых поясов | пояс хранится у класса, а не у сервера |
+| A six-day week | the timetable is set for Monday to Saturday |
+| Numerator / denominator | a lesson in the template carries the parity of its week |
+| Substitutions and cancellations | separate rows on a date; the weekly template is untouched |
+| Shortened days | their own bell schedule on a specific date |
+| Holidays | the day is marked as a day off, and homework moves to the next school day |
+| 11 time zones | the zone belongs to the class, not to the server |
 
-Пояс выбирается при создании класса и меняется в «⚙️ Класс → 🕒 Часовой пояс». Время
-звонков при этом не сдвигается — меняется только то, по какому времени считается
-«сейчас».
+The zone is chosen when the class is created and changed in «⚙️ Класс → 🕒 Часовой пояс».
+The bells do not shift when it changes — only the clock by which "now" is decided does.
 
-## Два языка
+## Two languages
 
-Интерфейс русский, перевод английский: экраны, уведомления и виджет целиком. Язык
-выбирается в самом приложении — на первом же экране первого запуска и потом в
-«Оформлении», — а не только в настройках телефона.
+The interface is Russian with an English translation: the screens, the notifications and
+the widget entirely. The language is chosen inside the app — on the very first screen of
+the first run, and later under «Оформление» — rather than only in the phone's settings.
 
-Полнота перевода держится тестом, а не вниманием: Android подставляет русскую строку
-вместо отсутствующей английской молча, поэтому `ResourceTranslationTest` читает оба
-каталога ресурсов и требует пару каждому имени, совпадения аргументов формата и ровно
-`one` + `other` в английских множественных формах.
+The completeness of the translation is held by a test, not by attentiveness: Android
+substitutes a Russian string for a missing English one without a word, so
+`ResourceTranslationTest` reads both resource folders and demands a twin for every name,
+matching format arguments, and exactly `one` + `other` in the English plural forms.
 
-А качество — тем, кто читает. «Настройки → Перевод → Режим исправления» обводит **весь**
-текст приложения и открывает редактор по долгому нажатию на любой надписи; накопленное
-выдаётся готовым куском `values/`, который остаётся прислать. Покрытие — не список
-обёрнутых вручную мест: в приложении один `Text`, и он свой.
+The quality is held by whoever reads it. «Настройки → Перевод → Режим исправления»
+outlines **all** of the app's text and opens an editor on a long press on any of it; what
+accumulates comes out as a ready piece of `values/` that only has to be sent in. The
+coverage is not a list of places wrapped by hand: the app has one `Text`, and it is its
+own.
 
-## Быстрый старт
+## Quick start
 
-### Сервер
+### The server
 
 ```bash
 cd server
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-cp .env.example .env          # впишите BOT_TOKEN и OWNER_IDS
-.venv/bin/python -m scripts.seed_demo        # демо-класс, код DEMO24
+cp .env.example .env          # fill in BOT_TOKEN and OWNER_IDS
+.venv/bin/python -m scripts.seed_demo        # demo class, code DEMO24
 .venv/bin/python -m uvicorn app.main:app --reload
 ```
 
-Проверить:
+To check it:
 
 ```bash
 curl -s localhost:8000/api/v1/health
@@ -104,265 +109,270 @@ TOKEN=$(curl -s -X POST localhost:8000/api/v1/join \
 curl -s "localhost:8000/api/v1/bundle?days=7" -H "Authorization: Bearer $TOKEN" | jq
 ```
 
-Проверки, которые гоняет CI:
+The checks CI runs:
 
 ```bash
 ruff check app tests scripts migrations
 python -m pytest -q
 ```
 
-Схема — Alembic: `alembic upgrade head` с рабочим `DATABASE_URL`, из рабочей копии, а не
-из функции. Как разворачивать на Vercel + Neon или на своём сервере — в
-[docs/deploy.md](docs/deploy.md).
+The schema is Alembic: `alembic upgrade head` with a working `DATABASE_URL`, from a
+working copy rather than from inside a function. How to deploy on Vercel plus Neon, or on
+your own server, is in [docs/deploy.md](docs/deploy.md).
 
-### Бот
+### The bot
 
-1. Токен у [@BotFather](https://t.me/BotFather), свой id у [@userinfobot](https://t.me/userinfobot).
-2. `BOT_TOKEN` и `OWNER_IDS` в `server/.env`.
-3. `/start` в боте → он предложит создать первый класс и выдаст код для приложения.
+1. A token from [@BotFather](https://t.me/BotFather), your own id from [@userinfobot](https://t.me/userinfobot).
+2. `BOT_TOKEN` and `OWNER_IDS` into `server/.env`.
+3. `/start` in the bot → it offers to create the first class and hands out a code for the
+   app.
 
-Роли: **наблюдатель → редактор → администратор → владелец**. Добавить человека
-редактором можно по номеру телефона: админ отправляет номер, человек нажимает «Поделиться
-номером» в боте, и роль выдаётся автоматически. Подробно — [docs/bot.md](docs/bot.md).
+The roles are **observer → editor → administrator → owner**. You can add somebody as an
+editor by phone number: an admin sends the number, the person presses «Поделиться
+номером» in the bot, and the role is granted automatically. In detail —
+[docs/bot.md](docs/bot.md).
 
-### Приложение
+### The app
 
-Готовый APK можно не собирать руками: **Actions → APK → Run workflow**, и через несколько
-минут он лежит в артефактах прогона. Тег `v*` дополнительно создаёт GitHub Release с
-приложенным APK, а само приложение умеет проверять эти релизы и предлагать обновление.
+You do not have to build the APK by hand: **Actions → APK → Run workflow**, and a few
+minutes later it is in the run's artifacts. A `v*` tag additionally creates a GitHub
+Release with the APK attached, and the app itself can check those releases and offer an
+update.
 
-Локально:
+Locally:
 
 ```bash
 cd android
-./gradlew test              # все JVM-тесты пяти модулей
-./gradlew assembleDebug     # или assembleRelease
+./gradlew test              # every JVM test across the five modules
+./gradlew assembleDebug     # or assembleRelease
 ```
 
-Без настроенного keystore release-сборка подписывается debug-ключом: ставится на телефон,
-но публиковать её нельзя. Как подключить свой ключ и как указать приложению адрес
-сервера — в [docs/build.md](docs/build.md).
+With no keystore configured, the release build is signed with the debug key: it installs
+on a phone, but it must not be published. How to plug in your own key, and how to tell the
+app where the server is, is in [docs/build.md](docs/build.md).
 
-При первом запуске приложение проведёт через четыре экрана и попросит код класса — тот,
-что выдал бот командой `/code`. Класс можно перевести в режим, где код класса не пускает
-никого, а телефон заходит по личному одноразовому коду из бота (кнопка «📱 Подключить
-телефон»); поле для кода при этом одно и то же — [docs/bot.md](docs/bot.md#кто-пускает-телефон).
+On first run the app walks through four screens and asks for a class code — the one the
+bot hands out with `/code`. A class can be switched to a mode where the class code lets
+nobody in and a phone joins with a personal one-time code from the bot (the «📱 Подключить
+телефон» button); the field for the code is the same one either way —
+[docs/bot.md](docs/bot.md#who-lets-a-phone-in).
 
-### Телефон, который не только читает
+### A phone that does more than read
 
-Приложение по умолчанию читает. Привязка к Telegram («Настройки → Класс → Telegram»,
-код, `/link <код>` боту) делает его редактором ровно настолько, насколько редактор вы
-сами: права проверяются на сервере по роли аккаунта **в момент запроса**, поэтому на
-телефоне нет второй системы прав и нечему устареть. Администратор видит там же страницу
-управления классом.
+By default the app reads. Linking it to Telegram («Настройки → Класс → Telegram», a code,
+`/link <code>` to the bot) makes it an editor exactly as far as you are an editor
+yourself: the rights are checked on the server against the account's role **at the moment
+of the request**, so there is no second permission system on the phone and nothing to go
+stale. An administrator gets the class management page in the same place.
 
-## Документация
+## Documentation
 
-Указатель — [docs/README.md](docs/README.md). Коротко:
+The index is [docs/README.md](docs/README.md). In short:
 
-* [docs/guide.md](docs/guide.md) — как пользоваться: первый запуск, виджет, уведомления, бот, дневник
-* [docs/architecture.md](docs/architecture.md) — как всё устроено и почему именно так
-* [docs/api.md](docs/api.md) — контракт `/api/v1`, включая дневник Петербурга
-* [docs/bot.md](docs/bot.md) — роли, приглашения по номеру, редактирование расписания
-* [docs/widget.md](docs/widget.md) — размеры, состояния, расписание обновлений
-* [docs/build.md](docs/build.md) — сборка APK, подпись, релизы, подключение к серверу
-* [docs/deploy.md](docs/deploy.md) — Vercel + Neon или свой сервер
-* [docs/design.md](docs/design.md) — дизайн-система и разбор решений в интерфейсе
+* [docs/guide.md](docs/guide.md) — how to use it: first run, widget, notifications, bot, diary
+* [docs/architecture.md](docs/architecture.md) — how it is all put together and why exactly so
+* [docs/api.md](docs/api.md) — the `/api/v1` contract, including the Petersburg diary
+* [docs/bot.md](docs/bot.md) — roles, invitations by phone number, editing the timetable
+* [docs/widget.md](docs/widget.md) — sizes, states, the update schedule
+* [docs/build.md](docs/build.md) — building the APK, signing, releases, pointing it at a server
+* [docs/deploy.md](docs/deploy.md) — Vercel plus Neon, or your own server
+* [docs/design.md](docs/design.md) — the design system and the reasoning behind the interface
 
-Тем, кто собирается писать код: [CONTRIBUTING.md](CONTRIBUTING.md) и
-[CLAUDE.md](CLAUDE.md) — команды, границы и то, что укусит того, кто их не знает.
+For anybody about to write code: [CONTRIBUTING.md](CONTRIBUTING.md) and
+[CLAUDE.md](CLAUDE.md) — the commands, the boundaries, and what will bite anybody who does
+not know them.
 
-## Честный статус
+## Honest status
 
-Прочитайте это до того, как планировать релиз.
+Read this before planning a release.
 
-**Что проверено автоматически.** На чистом клоне в CI и локально:
+**What is checked automatically.** On a clean clone, in CI and locally:
 
-| Проверка | Результат |
+| Check | Result |
 | --- | --- |
-| `ruff check app tests scripts migrations` | чисто |
-| `python -m mypy` | чисто, 79 модулей — спрашивает, не тянется ли код за атрибутом, которого нет |
-| `python -m pytest -q` | 1391 тест, зелёных, около пяти минут (`-n auto` — около полутора) |
-| `./gradlew test` | 605 тестов, зелёных, все пять модулей |
-| `./gradlew assembleDebug` | APK собирается |
-| `./gradlew assembleRelease` | APK собирается, R8 и сжатие ресурсов проходят |
+| `ruff check app tests scripts migrations` | clean |
+| `python -m mypy` | clean, 79 modules — asks whether anything reaches for an attribute that does not exist |
+| `python -m pytest -q` | 1391 tests, green, about five minutes (`-n auto` — about a minute and a half) |
+| `./gradlew test` | 605 tests, green, all five modules |
+| `./gradlew assembleDebug` | the APK builds |
+| `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
 
-Релизная сборка проверяется в том же прогоне, что и отладочная: R8 и сжатие ресурсов —
-классический источник «в debug работало, в APK сломалось», и ловить это на pull request
-дешевле, чем на релизе.
+The release build is checked in the same run as the debug one: R8 and resource shrinking
+are the classic source of "it worked in debug and broke in the APK", and catching that on
+a pull request is cheaper than catching it on a release.
 
-Сервер проверялся вживую: поднимался под uvicorn, отвечал на `join` и `bundle`, отдавал
-замены, события, домашку и `next_school_day`. Движок состояний прошёл проход по всем 1440
-минутам учебного дня и по всем одиннадцати российским часовым поясам.
+The server was checked live: brought up under uvicorn, answering `join` and `bundle`,
+handing back substitutions, events, homework and `next_school_day`. The state engine was
+walked through all 1440 minutes of a school day and through all eleven Russian time zones.
 
-**Чего не проверяет ничто.** Каталога `androidTest` в проекте не существует: ни один
-тест не запускался на устройстве или эмуляторе. Три экрана — список классов, режим
-входа в класс и ошибки подключения — нажимаются в JVM-тестах под Robolectric, с
-русской локалью и шириной телефона, и это настоящие нажатия по настоящим строкам.
-Остальной интерфейс и виджет не нажимал никто: компиляция доказывает, что типы
-сходятся, и ничего не говорит о том, что происходит на экране. Не покрыто ничем:
+**What nothing checks.** There is no `androidTest` directory in this project: not one test
+has run on a device or an emulator. Three screens — the class list, the join mode and the
+connection errors — are pressed in JVM tests under Robolectric, with a Russian locale and
+a phone's width, and those are real presses on real strings. Nobody has pressed the rest
+of the interface or the widget: compilation proves that the types line up and says nothing
+about what happens on the screen. Covered by nothing:
 
-* отрисовка виджета в каждом из двенадцати размеров;
-* точность будильников `TickCadence` в реальном Doze;
-* вёрстка остальных экранов, тёмная тема, динамические цвета;
-* поведение при потере сети и при первой синхронизации;
-* падения в рантайме, которых компилятор не видит.
+* the widget drawn at each of its twelve sizes;
+* the accuracy of the `TickCadence` alarms in real Doze;
+* the layout of the other screens, the dark theme, dynamic colours;
+* the behaviour when the network drops and on the first sync;
+* runtime crashes the compiler cannot see.
 
-Material 3 Expressive и Glance 1.3.0-alpha02 — альфы. Они компилируются, но их поведение
-на разных версиях Android никто не измерял.
+Material 3 Expressive and Glance 1.3.0-alpha02 are alphas. They compile, but nobody has
+measured how they behave across Android versions.
 
-Электронный дневник в боте не открывали ни разу против настоящего
-dnevnik2.petersburgedu.ru — ни вход через страницу, ни один из четырёх экранов.
-Тесты гоняют рукописную заглушку вместо дневника: это единственный честный способ
-проверить интеграцию с недокументированным сервисом, но он ничего не говорит о том,
-что этот сервис на самом деле отвечает. Страницу входа не открывал ни один браузер.
+The electronic diary in the bot has never once been opened against the real
+dnevnik2.petersburgedu.ru — neither the sign-in page nor any of the four screens. The
+tests run a hand-written stub in place of the diary: that is the only honest way to check
+an integration with an undocumented service, but it says nothing about what that service
+actually answers. No browser has ever opened the sign-in page.
 
-**Чётность недель считалась по номеру ISO-недели, и это ломалось раз в пять-шесть
-лет.** В ISO-году с 53 неделями неделя 53 и неделя 1 стоят рядом и обе нечётные:
-понедельник 28 декабря 2026 и понедельник 4 января 2027 оба давали числитель, и
-с января весь знаменатель текущего учебного года выезжал на неделю — в выдаче
-API, в виджете, в сводках и в календаре сразу, и нигде ничего об этом не
-говорилось. Теперь недели считаются от начала учебного года: счёт не может
-разойтись, потому что чередуется он сам. Первая неделя года сохраняет прежнюю
-чётность, так что ни у одного класса числитель и знаменатель местами не
-поменялись — в 2024/25, 2025/26, 2027/28 и 2031/32 оба правила совпадают день в
-день, и расходятся только внутри двух лет, которые старое считало неверно.
+**Week parity was computed from the ISO week number, and that broke once every five or six
+years.** In an ISO year with 53 weeks, week 53 and week 1 stand next to each other and are
+both odd: Monday 28 December 2026 and Monday 4 January 2027 both came out as numerator,
+and from January the whole denominator of the current school year slid by a week — in the
+API's output, in the widget, in the digests and in the calendar all at once, with nothing
+anywhere saying so. Weeks are now counted from the start of the school year: the count
+cannot drift, because it alternates by itself. The first week of the year keeps its
+previous parity, so no class had its numerator and denominator swapped — in 2024/25,
+2025/26, 2027/28 and 2031/32 both rules agree day for day, and they differ only inside the
+two years the old one got wrong.
 
-**UID в календаре были позиционными.** Подписчик держит `homework-…-1..3`;
-удаление первого задания сдвигало два оставшихся в чужие UID, так что у всех, кто
-подписан, два пункта молча превращались в другие предметы — включая уже
-отмеченные, — а третий исчезал. Теперь UID — идентификатор строки.
+**The UIDs in the calendar were positional.** A subscriber holds `homework-…-1..3`;
+deleting the first assignment shifted the remaining two into somebody else's UIDs, so for
+everybody subscribed two entries quietly turned into different subjects — including ones
+already ticked off — and the third disappeared. A UID is now a row's identifier.
 
-**Цепочка уведомлений могла умереть навсегда.** `SchoolAlerts.fire` сначала
-публикует, потом взводит следующий будильник, а публикация защищена не вся:
-канал, локаль и склонение бросают свободно. Одно исключение — и `armNext` не
-выполнялся, приёмник только писал в лог, и уведомлений больше не было до
-синхронизации, перезагрузки или запуска приложения. Каждая публикация теперь
-обёрнута отдельно. Рядом то же у виджета: его неточные будильники ставились
-через `setWindow`, который Doze держит до следующего окна обслуживания, а точный
-будильник звонка взводится предыдущим тиком — телефон экраном вниз с семи утра
-означал, что 8:30 не взведётся вовсе. `SchoolAlerts` от `setWindow` отказывается
-ровно по этой причине; виджет теперь тоже.
+**The notification chain could die for good.** `SchoolAlerts.fire` publishes first and
+arms the next alarm second, and the publishing is not protected all the way through: the
+channel, the locale and the declension all throw freely. One exception and `armNext` never
+ran, the receiver only wrote to the log, and there were no more notifications until a
+sync, a reboot or the app being opened. Each publication is now wrapped separately. The
+widget had the same thing next door: its inexact alarms were set through `setWindow`,
+which Doze holds until the next maintenance window, and the exact alarm for a bell is
+armed by the previous tick — a phone face down since seven in the morning meant 8:30 was
+never armed at all. `SchoolAlerts` refuses `setWindow` for exactly this reason; so does
+the widget now.
 
-**Сводку могли отправить дважды.** Тик выбирает всё, что пора, и помечает
-каждую строку, когда до неё дойдёт, — так что второй тик, начавшийся пока
-работает первый, выбирает те же строки и шлёт их ещё раз. Пометка до отправки
-защищает от тика, который умер на полпути, а это другой отказ; здесь есть оба,
-потому что `reminders.yml` обрывает `curl` по таймауту, а запущенный им
-serverless-вызов продолжает работать. Теперь право на отправку выдаёт условный
-`UPDATE`: решает база, и получает его ровно один.
+**A digest could be sent twice.** The tick selects everything that is due and marks each
+row as it gets to it — so a second tick that starts while the first is still running
+selects the same rows and sends them again. Marking before sending protects against a tick
+that dies halfway, which is a different failure; both are here, because `reminders.yml`
+cuts `curl` off on a timeout while the serverless call it started keeps running. The right
+to send is now granted by a conditional `UPDATE`: the database decides, and exactly one
+gets it.
 
-**День «сокращённые уроки» без своего расписания звонков** показывал обычное
-время: резолвер откатывался к расписанию класса по умолчанию. Это хуже, чем не
-помечать день вовсе, — метку читают и собираются по ней. Бот такой день всегда
-спрашивает, какие звонки ставить; API мог не спросить, теперь отказывает.
+**A "shortened lessons" day with no bell schedule of its own** showed the usual times: the
+resolver fell back to the class's default schedule. That is worse than not marking the day
+at all — people read the mark and plan around it. The bot always asks such a day which
+bells to use; the API could fail to ask, and now refuses.
 
-**Экспорт расписания не экранировал запятые.** «Иностранный язык, второй»
-выгружался как есть и на импорте читался обратно как предмет «Иностранный язык»
-в кабинете «второй» — ничего не отвергалось, ничего не логировалось, строка
-просто становилась двумя другими вещами. Модуль обещает в своей же документации,
-что паста из экспорта переживает импорт без изменений, и не переживала. Теперь
-последнее поле забирает остаток (учитель «Иванов И.И., к.п.н.» пишется без
-всякого синтаксиса), а предмет или кабинет с запятой берётся в кавычки.
-Проверено круговым прогоном на 144 сочетаниях предмета, кабинета, учителя и
-чётности.
+**Exporting a timetable did not escape commas.** «Иностранный язык, второй» was written
+out as it stood and read back on import as the subject «Иностранный язык» in the room
+«второй» — nothing was rejected, nothing was logged, the row simply became two other
+things. The module promises in its own documentation that a paste from an export survives
+an import unchanged, and it did not. Now the last field takes the remainder (a teacher
+«Иванов И.И., к.п.н.» is written with no syntax at all), and a subject or room containing
+a comma is quoted. Verified by a round trip over 144 combinations of subject, room,
+teacher and parity.
 
-**Урок с номером за последним звонком принимался и не показывался нигде.**
-Резолвер строит день из строк расписания звонков, так что такая запись
-сохранялась, считалась в «уроков добавлено» и не рисовалась ни в боте, ни в
-приложении, ни в виджете, ни в сводке. `MAX_INDEX` был константой 20 и к
-звонкам отношения не имел, хотя комментарий над ним и признавал, что «the bells
-only go as far as their own rows do anyway». Теперь потолок — сколько звонков
-класс реально звонит: редактор отказывает и говорит добавить звонок в
-«🔔 Звонки», импорт такие строки не пишет и перечисляет их в ответе. Если паста
-несёт свой блок `== Звонки ==`, уроки сверяются с ним, так что девятый звонок и
-девятый урок законно приезжают одним сообщением.
+**A lesson numbered past the last bell was accepted and shown nowhere.** The resolver
+builds a day out of the bell schedule's rows, so such a row was stored, counted in
+"lessons added", and drawn neither in the bot, nor in the app, nor in the widget, nor in
+the digest. `MAX_INDEX` was the constant 20 and had nothing to do with the bells, even
+though the comment above it admitted that "the bells only go as far as their own rows do
+anyway". The ceiling is now however many bells the class actually rings: the editor
+refuses and says to add a bell under «🔔 Звонки», the import does not write such rows and
+lists them in its answer. If the paste carries its own `== Звонки ==` block, the lessons
+are checked against it, so a ninth bell and a ninth lesson legitimately arrive in one
+message.
 
-**Разбор этой же связки нашёл ещё семь дефектов, и они исправлены.** Проверка
-уникальности предмета сравнивала названия с учётом регистра, тогда как поиск —
-без: «ФИЗИКА» проходила мимо неё, а healing-чтение потом переписывало все уроки
-«Физика» на ту строку, которая случайно осталась. Удаление предмета отменялось
-следующим же чтением. Домашка и замены писались мимо словаря, поэтому «алгебра»
-с телефона заводила второе задание рядом с «Алгеброй» и обе уходили в вечернюю
-сводку. Смена цифры класса с 9 на 10 заставляла первый же запрос с любого
-телефона удалить четверти, даты которых правили руками. Засев словаря на
-read-пути мог уронить `/bundle` в 500, когда класс с пустым словарём опрашивают
-тридцать телефонов сразу. Номер дня в callback редактора не проверялся, и
-`day=0` сохранял урок, которого не видит ни один телефон. Всё семь закрыты
-тестами; на живом классе не проверялось ничего из этого.
+**Going through that same knot found seven more defects, and they are fixed.** The
+uniqueness check on a subject compared names case-sensitively while the lookup did not:
+«ФИЗИКА» walked straight past it, and the healing read then rewrote every «Физика» lesson
+onto whichever row happened to survive. Deleting a subject was undone by the very next
+read. Homework and substitutions were written past the dictionary, so «алгебра» from a
+phone created a second assignment next to «Алгебра» and both went into the evening digest.
+Changing a class's number from 9 to 10 made the first request from any phone delete the
+terms whose dates had been edited by hand. Seeding the dictionary on the read path could
+drop `/bundle` into a 500 when thirty phones polled a class with an empty dictionary at
+once. The day number in the editor's callback was not checked, and `day=0` saved a lesson
+no phone can see. All seven are closed by tests; none of it was checked on a live class.
 
-Связь предметов с расписанием проверена только тестами и на одном живом
-классе — в базе у него было 35 уроков под 20 названиями и пустой список
-предметов, ровно тот случай, ради которого это писалось. Как выглядит
-цветное расписание на телефоне после этого, никто не смотрел.
+The link between subjects and the timetable is checked only by tests and on one live
+class — its database held 35 lessons under 20 names and an empty subject list, exactly the
+case this was written for. What the coloured timetable looks like on a phone afterwards,
+nobody has seen.
 
-Справочник школ ни разу не спрашивали у живой DaData: ключа (`DADATA_TOKEN`) в этой
-среде нет, и все тесты — и сервера, и телефона — гоняют заглушку вместо реестра. Проверено
-другое: без ключа поиск отвечает `503` и словами «введите название вручную», а класс
-создаётся как раньше. Что реестр отвечает на «гимназия 3 Казань» на самом деле — не
-проверял никто.
+The schools registry has never once been asked of a live DaData: there is no key
+(`DADATA_TOKEN`) in this environment, and every test — the server's and the phone's — runs
+a stub in place of the registry. Something else was verified: with no key, the search
+answers `503` with the words «введите название вручную», and a class is created as before.
+What the registry actually answers to «гимназия 3 Казань», nobody has checked.
 
-**Флаг, который ничего не значил.** На карточке класса в боте была кнопка
-«🔓 Открыть класс / 🔒 Закрыть класс» и строка «Тип класса: публичный /
-закрытый». Флаг за ними не читал **ни один** путь кода: администратор, который
-«закрыл» класс, не закрывал ничего, а экран утверждал обратное. Он снят, а не
-переименован, и то, чем он притворялся, теперь делает режим приёма
-(`join_mode`): либо код класса пускает всякого, кто его наберёт, либо не
-пускает никого, и телефон заходит по личному одноразовому коду из бота. Колонка
-`classes.is_public` осталась в базе — удаление колонки не аддитивно, — и её
-больше никто не читает.
+**A flag that meant nothing.** The class card in the bot had a «🔓 Открыть класс / 🔒
+Закрыть класс» button and a «Тип класса: публичный / закрытый» line. **Not one** code path
+read the flag behind them: an administrator who "closed" a class closed nothing, and the
+screen claimed otherwise. It was removed rather than renamed, and what it was pretending
+to be is now done by the join mode (`join_mode`): either the class code lets in anybody who
+types it, or it lets in nobody and a phone joins with a personal one-time code from the
+bot. The `classes.is_public` column stayed in the database — dropping a column is not
+additive — and nothing reads it any more.
 
-**Ревизия `0010` чуть не повторила ту аварию, ради которой написан раздел про
-порядок миграций.** У колонки `join_mode` стояло значение по умолчанию `open`, а
-SQLAlchemy хранит enum **именем** члена, а не значением: в базе лежало бы `open`
-на каждом классе, и первое же ORM-чтение класса упало бы с `LookupError` — а для
-бота это чтение в middleware, то есть разом все апдейты. Поймано до применения;
-в модели и в ревизии теперь `OPEN`, и три теста держат это: один читает колонку
-сырым SQL, второй вставляет строку **без** колонки и читает её через ORM — то
-есть проверяет именно значение по умолчанию, — а третий читает файл ревизии и
-требует в нём `server_default="OPEN"`.
+**Revision `0010` nearly repeated the very outage the section on migration order was
+written for.** The `join_mode` column had a default of `open`, while SQLAlchemy stores an
+enum by the member's **name**, not its value: every class would have held `open` in the
+database, and the first ORM read of a class would have raised `LookupError` — which for
+the bot is a read in the middleware, that is, every update at once. Caught before it was
+applied; the model and the revision now say `OPEN`, and three tests hold it: one reads the
+column with raw SQL, the second inserts a row **without** the column and reads it back
+through the ORM — checking the default specifically — and the third reads the revision file
+and demands `server_default="OPEN"` in it.
 
-Цветные кнопки бота (`app/bot/button_style.py`) проверены только тестами: они утверждают,
-какой стиль стоит на какой кнопке, и ничего не говорят о том, как это выглядит. Живого
-клиента с этими клавиатурами никто не открывал, и на клиенте старше Bot API 9.3 кнопка
-рисуется обычной — цвет нигде не несёт смысла, которого нет в подписи, но проверить это
-глазами стоит на первом же запуске.
+The bot's coloured buttons (`app/bot/button_style.py`) are checked only by tests: they
+assert which style sits on which button and say nothing about how it looks. Nobody has
+opened a live client with those keyboards, and on a client older than Bot API 9.3 a button
+is drawn plain — the colour carries no meaning that is not in the caption anyway, but it is
+worth checking with your eyes on the first run.
 
-**Что было известно и теперь исправлено.** Разбор уже слитого кода нашёл шесть дефектов
-интерфейса и виджета, и они пролежали в списке несколько релизов. Пять закрыты: круг
-смены темы теперь ждёт ту тему, которую показывает; иконки системных полос ждут конца
-волны; морфинг шторки проигрывается; широкий виджет больше не прячет домашку, которую
-показывает узкий; виджет при `NoData` молчит вместо того, чтобы печатать утверждения,
-сделанные из отсутствующих данных. Шестой — снимок экрана на главном потоке — оказался
-не дефектом, а ограничением: `View.draw` обязан идти на UI-потоке. Подробности и причины
-в [docs/design.md](docs/design.md#что-из-этого-списка-уже-исправлено).
+**What was known and is now fixed.** A review of already-merged code found six defects in
+the interface and the widget, and they sat on the list for several releases. Five are
+closed: the theme-change circle now waits for the theme it is showing; the system-bar icons
+wait for the end of the wave; the sheet's morph plays; a wide widget no longer hides the
+homework a narrow one shows; and at `NoData` the widget stays silent instead of printing
+statements made out of absent data. The sixth — taking a screenshot on the main thread —
+turned out to be a limitation rather than a defect: `View.draw` has to run on the UI
+thread. The details and the reasons are in
+[docs/design.md](docs/design.md#what-of-this-list-is-already-fixed).
 
-Ни один из пяти не проверен на экране. Все они про то, что видно глазом, а `androidTest`
-в проекте нет, так что доказано здесь только то, что логика лестницы размеров стала
-монотонной по реальным размерам, а не по ступеням.
+None of the five has been checked on a screen. All of them are about what the eye sees,
+and there is no `androidTest` in this project, so what is proved here is only that the size
+ladder's logic became monotonic over real sizes rather than over rungs.
 
-**Чего нет вовсе.**
+**What does not exist at all.**
 
-* Вложений к домашнему заданию. Поле `attachment_url` в схеме есть, загрузки нет.
-* Привязки класса к записи в реестре. Школу теперь можно найти поиском — и в боте, и в
-  приложении, — но на класс ложится только её название: ни ОГРН, ни ссылки на запись не
-  хранится, так что переименование школы в реестре мимо класса пройдёт незамеченным.
-* Виджет остаётся на системном шрифте: Glance передаёт `fontFamily` как имя системного
-  семейства, а не как ресурс.
+* Attachments to homework. The `attachment_url` field is in the schema; there is no upload.
+* A link between a class and a registry record. A school can now be found by search — in
+  the bot and in the app — but only its name lands on the class: no OGRN, no link to the
+  record is stored, so a school renamed in the registry passes the class unnoticed.
+* The widget stays on the system font: Glance passes `fontFamily` as the name of a system
+  family rather than as a resource.
 
-**Что стоит сделать первым.** Скачать APK из артефактов CI или собрать самому, поставить
-на телефон, добавить виджет и прожить с ним один учебный день. Дальше вопросы только про
-рантайм и вёрстку, а их не видно ниоткуда, кроме настоящего экрана.
+**What to do first.** Download the APK from the CI artifacts or build it yourself, install
+it on a phone, add the widget and live with it for one school day. After that the only
+questions left are about runtime and layout, and those are invisible from anywhere except
+a real screen.
 
-## Лицензия
+## Licence
 
-MIT — см. [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
 
-Дизайн-система и часть компонентов перенесены из
+The design system and some of the components were carried over from
 [sameerasw/essentials](https://github.com/sameerasw/essentials) (MIT, © sameerasw.com);
-что именно взято и что сделано иначе — в [docs/design.md](docs/design.md).
+what exactly was taken and what was done differently is in
+[docs/design.md](docs/design.md).
 
-Шрифт **Google Sans Flex** — отдельная лицензия и отдельный правообладатель: SIL Open
-Font License 1.1, © 2015 Google LLC. Текст лицензии едет вместе с гарнитурой, внутри APK
-(`core/designsystem/src/main/assets/licenses/google_sans_flex_OFL.txt`), как OFL и
-требует, и назван в приложении: **Настройки → О приложении → Лицензии**.
+The **Google Sans Flex** typeface has its own licence and its own rights holder: SIL Open
+Font License 1.1, © 2015 Google LLC. The licence text travels with the typeface, inside the
+APK (`core/designsystem/src/main/assets/licenses/google_sans_flex_OFL.txt`), as OFL
+requires, and is named in the app: **Настройки → О приложении → Лицензии**.

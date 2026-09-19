@@ -24,7 +24,7 @@ class EditClassField(StatesGroup):
 
 
 class EditTerm(StatesGroup):
-    """Both dates of one четверть, typed as one line."""
+    """Both dates of one term, typed as one line."""
 
     span = State()
 

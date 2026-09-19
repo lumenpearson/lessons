@@ -153,7 +153,7 @@ async def homework_put(
     school_class: SchoolClass = Depends(current_class),
     session: AsyncSession = Depends(get_session),
 ) -> HomeworkItemOut:
-    """Upsert by (date, subject), exactly as the bot does: one задание per
+    """Upsert by (date, subject), exactly as the bot does: one assignment per
     subject per day, and sending it again replaces the text."""
     _check_date(payload.due_date)
     actor = device.telegram_id
@@ -224,7 +224,7 @@ async def homework_delete(
 
 
 # --------------------------------------------------------------------------
-# Замены
+# Substitutions
 # --------------------------------------------------------------------------
 
 
@@ -269,7 +269,7 @@ async def override_put(
         return OverrideOut(date=payload.date, index=payload.index, action="clear")
 
     if existing is None:
-        # A замена at a number the day has no bell for is stored, written to
+        # A substitution at a number the day has no bell for is stored, written to
         # the log, announced to everybody with «🔁 Замена … урок №8» — and
         # drawn by nothing, because the resolver takes a lesson's times from
         # the bell row of the same number and drops what has none. The
@@ -283,7 +283,7 @@ async def override_put(
                 detail=f"нет звонка для урока №{payload.index} в этот день",
             )
         if payload.action == "cancel":
-            # Cancelling needs something to cancel. A замена at an empty number
+            # Cancelling needs something to cancel. A substitution at an empty number
             # is a legitimate edit — it is how a lesson is *added* to a day —
             # but «🚫 Урок №7 отменён» about a number nobody was going to be at
             # goes into the log and into everybody's chat, and the resolver
@@ -314,7 +314,7 @@ async def override_put(
         text = f"🚫 Урок №{payload.index} {escape(when)} отменён."
     else:
         existing.action = OverrideAction.REPLACE
-        # The class's spelling: the resolver looks a замена's colour up by
+        # The class's spelling: the resolver looks a substitution's colour up by
         # exact name, so one sent in the wrong case draws grey among coloured
         # lessons.
         existing.subject_name = (
@@ -478,9 +478,10 @@ async def day_put(
         # empty list and says so), and the resolver takes a lesson's times from
         # the bell row of the same number - so a day pointed at an empty one
         # draws no lessons at all while the card above them says «сокращённые
-        # уроки». Nothing fails: the phone, the widget, the calendar feed and
+        # уроки» — shortened lessons. Nothing fails: the phone, the widget, the
+        # calendar feed and
         # the morning digest all agree there is no school that day, and a
-        # замена written for it is accepted at any number because
+        # substitution written for it is accepted at any number because
         # `timetable_edit.rung_indexes_on` falls back to the class default when
         # the named schedule has no rows. This is the same decision the check
         # underneath already makes for a shortened day with no schedule at all,

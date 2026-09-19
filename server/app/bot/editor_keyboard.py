@@ -280,7 +280,7 @@ def canteen_keyboard(
 ) -> InlineKeyboardMarkup:
     """Which break lunch falls on — one button per break, not per lesson.
 
-    The last lesson has no break after it, so it is not offered: a столовая
+    The last lesson has no break after it, so it is not offered: a canteen
     «после шестого» in a six-lesson schedule is a gap of zero minutes that the
     day view would have to decline to draw.
     """

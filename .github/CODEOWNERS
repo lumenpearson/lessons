@@ -1,32 +1,34 @@
-# Владельцы кода назначаются рецензентами автоматически.
-# Синтаксис: https://docs.github.com/articles/about-code-owners
+# Code owners are requested as reviewers automatically.
+# Syntax: https://docs.github.com/articles/about-code-owners
 
 * @lumenpearson
 
-# Правило разрешений и его две двери: бот и /api/v1/manage судят по одной
-# и той же роли, и разойтись им нельзя.
+# The permission rule and its two doors: the bot and /api/v1/manage judge by
+# one and the same role, and they may not drift apart.
 /server/app/bot/roles.py        @lumenpearson
 /server/app/services/           @lumenpearson
 /server/app/api/                @lumenpearson
 
-# Схема базы и миграции: боевая база уже на 0004, откатов там не бывает.
+# The schema and its migrations: production is already at 0013, and there are
+# no rollbacks there.
 /server/app/models.py           @lumenpearson
 /server/migrations/             @lumenpearson
 
-# Движок состояний и лестница размеров виджета — самая логикоёмкая часть
-# продукта и единственная, у которой есть полное покрытие тестами.
+# The state engine and the widget's size ladder: the densest logic in the
+# product, and the only part with full test coverage.
 /android/core/model/            @lumenpearson
 /android/widget/                @lumenpearson
 
-# Версии зависимостей здесь выверены по репозиториям, а не выдуманы.
+# The dependency versions here were checked against their repositories rather
+# than invented.
 /android/gradle/libs.versions.toml  @lumenpearson
 
-# Сборка, подпись и автоматизация.
+# Build, signing and automation.
 /.github/                       @lumenpearson
 /vercel.json                    @lumenpearson
 /requirements.txt               @lumenpearson
 
-# Документы, которые читают люди.
+# The documents people read.
 /docs/                          @lumenpearson
 /README.md                      @lumenpearson
 /CONTRIBUTING.md                @lumenpearson

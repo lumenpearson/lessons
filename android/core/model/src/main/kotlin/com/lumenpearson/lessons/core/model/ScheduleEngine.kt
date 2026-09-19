@@ -57,7 +57,7 @@ object ScheduleEngine {
         val current = lessons.firstOrNull { it.contains(time) }
 
         // An event wins over an empty gap always, and over a running lesson only
-        // when it was marked as covering lessons (актовый зал вместо урока).
+        // when it was marked as covering lessons (the assembly hall instead of a lesson).
         val event = day.events
             .filter { it.contains(time) }
             .firstOrNull { current == null || it.coversLesson }

@@ -1,6 +1,6 @@
-# Ни один файл в репозитории не содержит табуляции и завершающих пробелов, и
-# все заканчиваются переводом строки. Этот файл не вводит новое правило, а
-# записывает то, что уже верно, — чтобы редактор не сломал его первой правкой.
+# No file in this repository contains a tab or trailing whitespace, and every
+# one ends with a newline. This file introduces no new rule: it records what is
+# already true, so that an editor does not break it with its first edit.
 root = true
 
 [*]
@@ -11,17 +11,17 @@ indent_size = 4
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-# Kotlin: kotlin.code.style=official в android/gradle.properties — четыре
-# пробела и сто двадцать колонок. Длиннее сейчас четыре строки во всём дереве,
-# и все четыре — ссылки в комментариях, которые переносить некуда.
+# Kotlin: kotlin.code.style=official in android/gradle.properties — four spaces
+# and a hundred and twenty columns. Four lines in the whole tree are longer, and
+# all four are links inside comments, with nowhere to wrap them.
 [*.{kt,kts}]
 max_line_length = 120
 
-# Python: line-length = 100 в server/pyproject.toml, его же проверяет ruff.
+# Python: line-length = 100 in server/pyproject.toml, which is what ruff checks.
 [*.py]
 max_line_length = 100
 
-# Ресурсы Android и манифесты — четыре пробела, как в values/strings.xml.
+# Android resources and manifests: four spaces, as in values/strings.xml.
 [*.xml]
 indent_size = 4
 
@@ -31,18 +31,19 @@ indent_size = 2
 [*.{properties,cfg,ini}]
 indent_size = 4
 
-# Markdown: проза переносится около восьмидесяти колонок, но таблицы и ссылки
-# длиннее, и обрезать их нечем. Завершающие пробелы не используются как
-# перенос строки ни в одном документе, поэтому их можно чистить.
+# Markdown: prose wraps at around eighty columns, but tables and links run
+# longer and there is nothing to cut them with. No document here uses trailing
+# whitespace as a line break, so it is safe to strip.
 [*.md]
 max_line_length = off
 
-# gradlew.bat в репозитории лежит с CRLF, и иначе cmd.exe разбирает его
-# неправильно. Остальное дерево — LF.
+# gradlew.bat is stored with CRLF, because cmd.exe parses it wrongly otherwise.
+# The rest of the tree is LF.
 [*.bat]
 end_of_line = crlf
 
-# Обёртка Gradle приходит из дистрибутива и правится только его обновлением.
+# The Gradle wrapper comes from the distribution and changes only when it is
+# updated.
 [**/gradle/wrapper/**]
 insert_final_newline = unset
 trim_trailing_whitespace = unset

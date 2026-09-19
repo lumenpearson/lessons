@@ -1,161 +1,158 @@
-# Сборка APK
+# Building the APK
 
-## Через GitHub Actions
+## Through GitHub Actions
 
-### Собрать прямо сейчас
+### Build one right now
 
-**Actions → APK → Run workflow.** Ничего пушить не нужно.
+**Actions → APK → Run workflow.** Nothing has to be pushed.
 
-| Поле | Что делает |
+| Field | What it does |
 | --- | --- |
-| `build_type` | `release` (по умолчанию), `debug` или `both` |
-| `version_name` | что записать в versionName; пусто — значение из `build.gradle.kts` |
+| `build_type` | `release` (the default), `debug` or `both` |
+| `version_name` | what to write as the versionName; empty means the value from `build.gradle.kts` |
 
-APK лежит в артефакте **lessons-apk** на странице прогона, хранится 90 дней.
-`versionCode` всегда равен номеру прогона, поэтому две сборки невозможно
-перепутать.
+The APK lands in the **lessons-apk** artifact on the run's page and is kept for 90 days.
+`versionCode` is always the run number, so two builds cannot be confused with each other.
 
-Обычный CI (`Actions → CI`) собирает и debug, и release на каждом пуше и
-pull request — артефакты `app-debug` и `app-release-unsigned-key`. Release
-собирается всегда, а не только при релизе: R8 и сжатие ресурсов — классический
-источник «в debug работало, а в установленном APK нет», и ловить такое на pull
-request дешевле, чем на пользователях.
+Ordinary CI (`Actions → CI`) builds both debug and release on every push and pull request —
+the artifacts `app-debug` and `app-release-unsigned-key`. Release is built always, not only
+for a release: R8 and resource shrinking are the classic source of "it worked in debug and
+not in the installed APK", and catching that on a pull request is cheaper than catching it
+on users.
 
-Разница с `lessons-apk` только в сроке: артефакты CI живут неделю, а этот —
-девяносто дней, потому что он и существует для того, чтобы кому-то отдать APK.
-Почему неделя — в «Минутах Actions» ниже.
+The only difference from `lessons-apk` is how long it lives: the CI artifacts last a week,
+this one ninety days, because it exists to be handed to somebody. Why a week is in "Actions
+minutes" below.
 
-### Выпустить релиз
+### Cut a release
 
 ```bash
 git tag v0.2.0
 git push origin v0.2.0
 ```
 
-Тег вида `v*` собирает release, создаёт GitHub Release с автоматическими
-release notes и прикладывает APK. `versionName` берётся из тега без `v`.
+A `v*` tag builds release, creates a GitHub Release with automatic release notes and
+attaches the APK. The `versionName` is taken from the tag without the `v`.
 
-### Минуты Actions
+### Actions minutes
 
-**Этот репозиторий публичный, поэтому стандартные раннеры не тарифицируются
-вообще** — ни минуты, ни хранилище артефактов. Раздел оставлен не для отчётности,
-а потому что в нём замеры, из-за которых CI устроен так, как устроен, — и потому
-что всё это вернётся в тот день, когда репозиторий снова станет приватным.
+**This repository is public, so the standard runners are not billed at all** — neither
+minutes nor artifact storage. The section is kept not for accounting but because it holds
+the measurements that made CI the shape it is — and because all of it comes back the day
+the repository becomes private again.
 
-На приватном репозитории бесплатного тарифа — 2000 минут в месяц, и
-тарифицируется **каждая job отдельно, с округлением вверх до целой минуты**
-(Linux — множитель 1): шаг на двадцать секунд стоит минуту. Замерено здесь:
+On a private repository on the free plan there are 2000 minutes a month, and **each job is
+billed separately, rounded up to a whole minute** (Linux, multiplier 1): a twenty-second
+step costs a minute. Measured here:
 
-| Job | Было | Списывалось | Стало |
+| Job | Was | Billed | Became |
 | --- | --- | --- | --- |
-| What changed | 8 с | 1 | 7 с |
-| Android (`test` + оба assemble) | 6 мин 47 с | 7 | — |
-| Server (`ruff` + `pytest`) | 12 мин 43 с | 13 | 3 мин 56 с |
-| **Полный прогон CI** | | **21** | |
+| What changed | 8 s | 1 | 7 s |
+| Android (`test` + both assembles) | 6 min 47 s | 7 | — |
+| Server (`ruff` + `pytest`) | 12 min 43 s | 13 | 3 min 56 s |
+| **A full CI run** | | **21** | |
 
-2000 минут — это было примерно 95 полных прогонов, и почти две трети каждого
-уходило в один шаг `pytest`. Что из этого осталось в CI насовсем:
+2000 minutes was about 95 full runs, and nearly two thirds of each went into one `pytest`
+step. What stayed in CI for good:
 
-- **`pytest -n auto`.** 1340 тестов разложены по ядрам раннера: 289 с → 101 с
-  на четырёх ядрах локально, 12:18 → 3:23 на раннере, те же 1340 зелёных. Это
-  безопасно не по удаче: `tests/conftest.py` берёт путь к SQLite из `mkdtemp`,
-  вычисленного при импорте, а каждый воркер xdist — отдельный процесс со своим
-  импортом, так что общей базы у них не бывает. Началось как экономия, осталось
-  ради скорости ответа.
-- **Артефакты живут неделю, а не девяносто дней.** Хранилище на бесплатном
-  тарифе — 500 МБ, а один прогон клал 27 МБ debug-APK и 5 МБ release-APK на
-  девяносто дней (значение по умолчанию). Примерно через пятнадцать прогонов
-  любая загрузка падает с `Artifact storage quota has been hit` — красная job
-  на сборке, которая прошла. Так и случилось, и вылечить это из workflow было
-  нельзя: только удалить старые артефакты или дождаться, пока истекут. Сняла
-  это публикация — хранилище публичного репозитория не тарифицируется, — но
-  неделя вместо девяноста дней осталась, потому что приватность может
-  вернуться, а APK от pull request двухмесячной давности не нужен никому.
-  Поэтому же загрузка отчётов тестов помечена `continue-on-error`: гейт — это
-  `./gradlew test`, а не то, куда лёг отчёт.
-- **Фильтры путей.** Job «What changed» за восемь секунд решает, какие половины
-  вообще могли сломаться; изменение только в `docs/` не запускает ни одну.
-  Если диапазон коммитов определить не удалось (force push, первый пуш ветки),
-  запускаются обе — пропущенная сборка дороже потраченных десяти минут.
+- **`pytest -n auto`.** 1340 tests spread across the runner's cores: 289 s → 101 s on four
+  cores locally, 12:18 → 3:23 on the runner, the same 1340 green. That is safe by
+  construction rather than by luck: `tests/conftest.py` takes the SQLite path from an
+  `mkdtemp` computed at import time, and every xdist worker is a separate process with its
+  own import, so they never share a database. It started as a saving and stayed for the
+  speed of the answer.
+- **Artifacts live a week, not ninety days.** Storage on the free plan is 500 MB, and one
+  run put a 27 MB debug APK and a 5 MB release APK there for ninety days (the default).
+  After about fifteen runs, any upload fails with `Artifact storage quota has been hit` — a
+  red job on a build that passed. That is exactly what happened, and it could not be cured
+  from inside the workflow: only by deleting old artifacts or waiting for them to expire.
+  Going public removed the problem — a public repository's storage is not billed — but the
+  week instead of ninety days stayed, because privacy can come back and nobody needs the
+  APK from a two-month-old pull request. For the same reason, uploading the test reports is
+  marked `continue-on-error`: the gate is `./gradlew test`, not where the report landed.
+- **Path filters.** The "What changed" job decides in eight seconds which halves could
+  possibly have broken; a change confined to `docs/` runs neither. If the commit range
+  cannot be worked out (a force push, a branch's first push), both run — a skipped build
+  costs more than ten wasted minutes.
 
-И одно, что **не** осталось: release на pull request некоторое время не
-собирался. Это экономило около двух минут на пуш ценой того, что сломанный R8
-находился бы на мердже, а не до него. Минуты перестали чего-то стоить — проверка
-вернулась на место.
+And one thing that did **not** stay: for a while, release was not built on a pull request.
+That saved about two minutes per push at the cost of finding a broken R8 at the merge
+rather than before it. The minutes stopped costing anything, and the check came back.
 
-Отдельно от денег стоят часы. `reminders.yml` просил тик каждые пять минут, то
-есть 288 в сутки, а получал 6.7 — расписания GitHub выполняются «как получится».
-Это не про тариф, это про то, что на расписание Actions нельзя полагаться как на
-часы; время держит внешний cron, см. [deploy.md](deploy.md), «Часы». Просить
-пять минут workflow не перестал: на публичном репозитории это ничего не стоит, а
-поведение расписаний здесь ещё предстоит замерить заново.
+Separate from money are the clocks. `reminders.yml` asked for a tick every five minutes —
+288 a day — and got 6.7: GitHub's schedules run on a best-effort basis. That is not about
+the plan, it is about not being able to rely on an Actions schedule as a clock; the time is
+kept by an external cron, see [deploy.md](deploy.md), "The clock". The workflow has not
+stopped asking for five minutes: on a public repository that costs nothing, and how the
+schedules behave here has yet to be measured again.
 
-### Если репозиторий снова станет приватным
+### If the repository becomes private again
 
-Тогда вернутся и 2000 минут, и 500 МБ, и правило «кончились — workflow не
-запускаются до следующего расчётного периода» (лимит трат по умолчанию нулевой).
-Пути, кроме перечисленного выше: не собирать release на pull request (≈2 минуты
-с пуша), **свой раннер** — `runs-on: self-hosted` и включённая машина, минуты не
-тарифицируются совсем, — или доплатить, порядка $0.008 за Linux-минуту.
+Then the 2000 minutes come back, and the 500 MB, and the rule that once they run out no
+workflow runs until the next billing period (the default spending limit is zero). The ways
+out, besides everything above: do not build release on a pull request (≈2 minutes per
+push); **your own runner** — `runs-on: self-hosted` and a machine switched on, with no
+minutes billed at all; or pay, on the order of $0.008 per Linux minute.
 
-**Свой раннер и публичный репозиторий несовместимы.** Pull request из форка
-выполнит на вашей машине чужой код, и это не теоретическая опасность, а то, о
-чём GitHub пишет отдельным предупреждением. Либо публичный репозиторий с
-раннерами GitHub, либо приватный со своим.
+**Your own runner and a public repository are incompatible.** A pull request from a fork
+will run somebody else's code on your machine, and that is not a theoretical danger — it is
+what GitHub writes a separate warning about. Either a public repository with GitHub's
+runners, or a private one with your own.
 
-### Что публичность меняет ещё
+### What else being public changes
 
-- **Workflow запускаются на pull request из форков.** `ci.yml` к этому готов:
-  это `pull_request`, а не `pull_request_target`, права `contents: read`, ни
-  одного секрета. Но `./gradlew` выполняет код из PR на конфигурации сборки,
-  поэтому в **Settings → Actions → General → Fork pull request workflows from
-  outside collaborators** имеет смысл выбрать *Require approval for all outside
+- **Workflows run on pull requests from forks.** `ci.yml` is ready for that: it is
+  `pull_request`, not `pull_request_target`, its permissions are `contents: read`, and it
+  uses no secret. But `./gradlew` executes code from the pull request at build
+  configuration time, so under **Settings → Actions → General → Fork pull request workflows
+  from outside collaborators** it is worth choosing *Require approval for all outside
   collaborators*.
-- **Артефакты прогонов может скачать кто угодно** — здесь это debug-APK,
-  release-APK, подписанный debug-ключом, и отчёты тестов. Настоящим ключом
-  подписывает только `apk.yml` по тегу, и только когда секреты настроены.
-- **История видна целиком, включая то, что из рабочего дерева убрали.** Учётных
-  данных в ней нет: `BOT_TOKEN`, `OWNER_IDS`, `WEBHOOK_SECRET`, `CRON_SECRET`
-  всегда жили в окружении, ключ подписи — в `LESSONS_KEYSTORE_*`, `.gitignore`
-  закрывает `.env`, `*.keystore`, `*.jks`, `*.p12` и `keystore.properties`, а
-  `server/.env.example` содержит одни заглушки. Но хост боевого эндпоинта Neon
-  и идентификатор проекта успели побывать в тестах и документации, и из истории
-  их не убрать. Это не пароль — подключиться без роли и пароля нельзя, — однако
-  адрес известен, и единственное, что теперь отделяет базу от постороннего, это
-  пароль роли. Сменить его в консоли Neon и обновить `DATABASE_URL` в
-  переменных окружения Vercel — дёшево и закрывает вопрос.
+- **Anybody can download a run's artifacts** — here that is the debug APK, the release APK
+  signed with the debug key, and the test reports. Only `apk.yml` on a tag signs with the
+  real key, and only when the secrets are configured.
+- **The whole history is visible, including what was removed from the working tree.** There
+  are no credentials in it: `BOT_TOKEN`, `OWNER_IDS`, `WEBHOOK_SECRET` and `CRON_SECRET`
+  always lived in the environment, the signing key in `LESSONS_KEYSTORE_*`, `.gitignore`
+  covers `.env`, `*.keystore`, `*.jks`, `*.p12` and `keystore.properties`, and
+  `server/.env.example` contains nothing but placeholders. But the production Neon
+  endpoint's host and the project id did spend time in the tests and the documentation, and
+  they cannot be taken out of the history. That is not a password — nobody connects without
+  a role and a password — but the address is known, and the only thing now standing between
+  the database and a stranger is that role's password. Changing it in the Neon console and
+  updating `DATABASE_URL` in Vercel's environment variables is cheap and closes the
+  question.
 
-## Подпись
+## Signing
 
-Без настройки release-APK подписывается **debug-ключом**. Он ставится на
-телефон, проходит через R8 — то есть годится для теста, — но публиковать его
-нельзя: debug-ключ одинаковый у всех и не даёт никаких гарантий авторства.
-Сводка прогона прямо пишет, каким ключом подписано.
+With nothing configured, the release APK is signed with the **debug key**. It installs on a
+phone and it survives R8 — so it is fine for testing — but it must not be published: the
+debug key is the same for everybody and guarantees no authorship at all. The run summary
+states plainly which key was used.
 
-Неподписанный APK не ставится вообще, поэтому запасной вариант — именно
-debug-ключ, а не его отсутствие.
+An unsigned APK does not install at all, which is why the fallback is the debug key rather
+than no key.
 
-### Настроить свой ключ
+### Configuring your own key
 
-> **Ключ создаётся только на своей машине.** Ни один сайт, генерирующий
-> keystore «онлайн», не годится: у него окажется ваш приватный ключ, а этим
-> ключом подписывается **каждое** обновление приложения — навсегда. Android
-> отказывается ставить обновление, подписанное другим ключом, поэтому потерянный
-> или утёкший ключ нельзя ни заменить, ни отозвать. Придётся публиковать новое
-> приложение с другим `applicationId`, и все, кто установил старое, останутся на
-> нём. Онлайн-генератору здесь нет места даже «на попробовать».
+> **A key is created on your own machine only.** No website that generates a keystore
+> "online" will do: it would end up with your private key, and that key signs **every**
+> update of the app — for ever. Android refuses to install an update signed with a different
+> key, so a lost or leaked key can be neither replaced nor revoked. You would have to
+> publish a new app under a different `applicationId`, and everybody who installed the old
+> one would stay on it. There is no place for an online generator here, not even "just to
+> try".
 >
-> Пароли — другое дело: их можно взять из менеджера паролей. Утечёт пароль —
-> меняется пароль; утечёт ключ — меняется приложение.
+> Passwords are a different matter: those can come from a password manager. A leaked
+> password means changing a password; a leaked key means changing the app.
 
-1. Создайте хранилище. Один раз, вне репозитория, и сразу сделайте копию.
+1. Create the keystore. Once, outside the repository, and make a copy straight away.
 
    ```bash
    keytool -genkeypair -v -keystore release.jks \
      -alias lessons -keyalg RSA -keysize 4096 -validity 10000
    ```
 
-   **На телефоне через Termux** — тот же keytool, из любого JDK:
+   **On a phone, through Termux** — the same keytool, from any JDK:
 
    ```bash
    pkg update && pkg install -y openjdk-17
@@ -163,55 +160,53 @@ debug-ключ, а не его отсутствие.
      -alias lessons -keyalg RSA -keysize 4096 -validity 10000
    ```
 
-   Пароль можно сгенерировать там же, ничего не доустанавливая:
+   A password can be generated there too, with nothing extra installed:
 
    ```bash
    head -c 24 /dev/urandom | base64
    ```
 
-   `-validity 10000` — это 27 лет. Меньше ставить нет смысла: когда сертификат
-   истечёт, обновить приложение будет нечем.
+   `-validity 10000` is 27 years. There is no point in less: once the certificate expires
+   there is nothing left to update the app with.
 
-2. **Store password и key password должны совпадать.** Современный `keytool`
-   создаёт хранилище в формате PKCS12, а он не поддерживает разные пароли:
-   keytool молча оставит один и напечатает предупреждение, которое легко
-   пролистать. Разойдутся — сборка упадёт на подписи, и причина будет
-   неочевидной. Задавайте один пароль и кладите его в оба секрета.
+2. **The store password and the key password have to be the same.** A modern `keytool`
+   creates the keystore in PKCS12 format, which does not support different passwords:
+   keytool quietly keeps one and prints a warning that is easy to scroll past. If they
+   diverge, the build fails at signing and the reason will not be obvious. Set one password
+   and put it in both secrets.
 
-3. Закодируйте хранилище в base64 **одной строкой**:
+3. Encode the keystore as base64 **on a single line**:
 
    ```bash
    base64 -w0 release.jks   # macOS: base64 -i release.jks
    ```
 
-   `-w0` обязателен: без него base64 переносит строки каждые 76 символов, и
-   вставка в поле секрета даст файл, который не декодируется.
+   `-w0` is mandatory: without it base64 wraps every 76 characters, and pasting that into a
+   secret field gives a file that does not decode.
 
-4. Добавьте четыре секрета в **Settings → Secrets and variables → Actions**
-   (у репозитория, не у организации, если не уверены):
+4. Add four secrets under **Settings → Secrets and variables → Actions** (on the
+   repository, not the organisation, if you are unsure):
 
-   | Секрет | Значение |
+   | Secret | Value |
    | --- | --- |
-   | `KEYSTORE_BASE64` | вывод предыдущей команды, целиком, без переносов |
-   | `KEYSTORE_PASSWORD` | пароль хранилища |
-   | `KEY_ALIAS` | `lessons` — то, что стоит после `-alias` |
-   | `KEY_PASSWORD` | тот же пароль, что и `KEYSTORE_PASSWORD` (см. пункт 2) |
+   | `KEYSTORE_BASE64` | the output of the previous command, whole, with no line breaks |
+   | `KEYSTORE_PASSWORD` | the keystore's password |
+   | `KEY_ALIAS` | `lessons` — whatever came after `-alias` |
+   | `KEY_PASSWORD` | the same password as `KEYSTORE_PASSWORD` (see point 2) |
 
-5. Сохраните `release.jks` куда-нибудь, откуда он не пропадёт вместе с
-   телефоном. Секрет в GitHub — не резервная копия: его значение нельзя прочитать
-   обратно, только перезаписать.
+5. Save `release.jks` somewhere it will not disappear along with the phone. A GitHub secret
+   is not a backup: its value cannot be read back, only overwritten.
 
-Проверить, что получилось, можно не выпуская релиз: **Actions → APK → Run
-workflow**. Если `KEYSTORE_BASE64` не задан, прогон не падает, а пишет
-`::warning::` и подписывает debug-ключом — а вот push тега при ненастроенных
-секретах падает намеренно, до сборки, чтобы debug-подписанный APK не уехал в
-публичный релиз.
+You can check the result without cutting a release: **Actions → APK → Run workflow**. If
+`KEYSTORE_BASE64` is not set, the run does not fail — it prints `::warning::` and signs with
+the debug key. Pushing a tag with the secrets unconfigured fails deliberately, before the
+build, so that a debug-signed APK cannot go out in a public release.
 
-Дальше всё автоматически. Workflow декодирует хранилище во временный каталог
-рабочей машины, а не в рабочую копию, и удаляет его до того, как что-либо
-загружается, — так ключ не может утечь через артефакт.
+After that it is automatic. The workflow decodes the keystore into a temporary directory on
+the runner rather than into the working copy, and deletes it before anything is uploaded —
+so the key cannot leak through an artifact.
 
-## Локально
+## Locally
 
 ```bash
 cd android
@@ -219,70 +214,70 @@ cd android
 ./gradlew assembleRelease   # app/build/outputs/apk/release/
 ```
 
-Чтобы подписывать локально своим ключом, положите в `~/.gradle/gradle.properties`
-(файл вне репозитория, туда же, куда обычно кладут секреты):
+To sign locally with your own key, put this in `~/.gradle/gradle.properties` (a file
+outside the repository, where secrets usually go):
 
 ```properties
-lessons.keystore.file=/абсолютный/путь/release.jks
+lessons.keystore.file=/absolute/path/release.jks
 lessons.keystore.password=...
 lessons.key.alias=lessons
 lessons.key.password=...
 ```
 
-Те же четыре значения читаются из переменных окружения
-`LESSONS_KEYSTORE_FILE`, `LESSONS_KEYSTORE_PASSWORD`, `LESSONS_KEY_ALIAS`,
-`LESSONS_KEY_PASSWORD` — это то, что использует CI.
+The same four values are read from the environment variables `LESSONS_KEYSTORE_FILE`,
+`LESSONS_KEYSTORE_PASSWORD`, `LESSONS_KEY_ALIAS` and `LESSONS_KEY_PASSWORD` — which is what
+CI uses.
 
-## Что нужно из окружения
+## What the environment needs
 
 | | |
 | --- | --- |
 | JDK | 21 |
 | Android SDK | compileSdk 37, minSdk 26 |
-| Gradle | через wrapper, 9.5.0 |
+| Gradle | through the wrapper, 9.5.0 |
 
-Wrapper с jar лежит в репозитории, так что `./gradlew` работает на свежем
-клоне без предустановленного Gradle.
+The wrapper and its jar are in the repository, so `./gradlew` works on a fresh clone with
+no Gradle installed.
 
-## Подключить приложение к серверу
+## Pointing the app at a server
 
-Приложению нужен адрес, по которому его достанет **телефон**, а не компьютер.
-`localhost` и `127.0.0.1` в приложении не работают: для телефона это он сам.
+The app needs an address the **phone** can reach, not the computer. `localhost` and
+`127.0.0.1` do not work in the app: to a phone, those are the phone.
 
-1. Запустите сервер так, чтобы он слушал не только петлю:
+1. Start the server so that it listens on more than the loopback:
 
    ```bash
    cd server
    .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
    ```
 
-   `--host 0.0.0.0` обязателен. По умолчанию uvicorn слушает `127.0.0.1` и
-   виден только самому компьютеру.
+   `--host 0.0.0.0` is mandatory. By default uvicorn listens on `127.0.0.1` and is visible
+   only to the computer itself.
 
-2. Узнайте адрес компьютера в локальной сети:
+2. Find the computer's address on the local network:
 
    ```bash
    ip -4 addr | grep -oP '(?<=inet )192\.168\.[0-9.]+'   # Linux
    ipconfig getifaddr en0                                 # macOS
-   ipconfig                                               # Windows, строка IPv4
+   ipconfig                                               # Windows, the IPv4 line
    ```
 
-3. Проверьте с телефона: откройте в браузере `http://<адрес>:8000/api/v1/health`.
-   Должно вернуться `{"status":"ok","api_version":1}`. Если не открылось,
-   проблема в сети, а не в приложении: телефон и компьютер должны быть в одной
-   Wi-Fi сети, а фаервол должен пускать порт 8000.
+3. Check from the phone: open `http://<address>:8000/api/v1/health` in a browser. It should
+   answer `{"status":"ok","api_version":1}`. If it does not open, the problem is the
+   network rather than the app: the phone and the computer have to be on the same Wi-Fi,
+   and the firewall has to let port 8000 through.
 
-4. В приложении нажмите **Сервер** внизу экрана подключения и введите
-   `http://<адрес>:8000/`. Затем введите код класса.
+4. In the app, press **Сервер** at the bottom of the connection screen and enter
+   `http://<address>:8000/`. Then enter the class code.
 
-Код класса выдаёт бот командой `/code`, а `python -m scripts.seed_demo`
-создаёт демо-класс с кодом `DEMO24`.
+The bot hands out a class code with `/code`, and `python -m scripts.seed_demo` creates a
+demo class with the code `DEMO24`.
 
-### Почему HTTP, а не HTTPS
+### Why HTTP and not HTTPS
 
-С Android 9 система блокирует `http://` по умолчанию. Приложение разрешает
-его через `network_security_config.xml`, потому что реальный сценарий — сервер
-в той же школе, доступный по локальному адресу, а сертификат на IP в приватной
-сети публичные CA не выдают. По проводу идут только код класса и расписание:
-ни паролей, ни персональных данных. Если школа настроила TLS, введите
-`https://` — конфигурация к такому адресу не применяется.
+Since Android 9 the system blocks `http://` by default. The app allows it through
+`network_security_config.xml`, because the real scenario is a server in the same school,
+reachable at a local address, and public CAs do not issue certificates for an IP on a
+private network. What travels over that wire is only a class code and a timetable: no
+passwords, no personal data. If the school has configured TLS, enter `https://` — the
+configuration does not apply to such an address.

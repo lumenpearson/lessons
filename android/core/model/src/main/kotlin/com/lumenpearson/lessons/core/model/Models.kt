@@ -82,7 +82,7 @@ data class SchoolDay(
     val lastLesson: Lesson? get() = activeLessons.lastOrNull()
 }
 
-/** Четверти or полугодия — how this class's year is cut up. */
+/** Quarters or half-years — how this class's year is cut up. */
 enum class TermKind {
     QUARTER,
     SEMESTER,
@@ -134,7 +134,7 @@ data class SchoolClassInfo(
     val termKind: TermKind = TermKind.QUARTER,
     val terms: List<Term> = emptyList(),
 ) {
-    /** The term holding [date], or `null` — каникулы are a real answer. */
+    /** The term holding [date], or `null` — the holidays are a real answer. */
     fun termAt(date: LocalDate): Term? = terms.firstOrNull { date in it }
 
     /**

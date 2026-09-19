@@ -102,7 +102,7 @@ class ScheduleEngineEdgeCasesTest {
 
     @Test
     fun `overlapping lessons resolve to the one containing the moment`() {
-        // A замена that was entered without clearing the lesson it replaces.
+        // A substitution that was entered without clearing the lesson it replaces.
         val overlapping = listOf(
             lesson(1, "Алгебра", "08:30", "10:00"),
             lesson(2, "Физика", "09:00", "09:30"),

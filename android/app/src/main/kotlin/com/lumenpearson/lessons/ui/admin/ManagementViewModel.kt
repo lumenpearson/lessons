@@ -65,7 +65,7 @@ data class PendingImport(
  * A type rather than a string because the sentence belongs in
  * `strings_admin.xml` in two languages, and because two of these carry a number
  * that is the whole reason they exist: [SubjectRenamed] says how many timetable,
- * homework and замена rows a rename dragged with it, which is a change nothing
+ * homework and substitution rows a rename dragged with it, which is a change nothing
  * on this page can show, and [Imported] says what an import actually wrote.
  */
 sealed interface ManagementNotice {

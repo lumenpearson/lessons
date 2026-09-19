@@ -7,12 +7,13 @@ turning that into :class:`~app.providers.dadata.models.School` is
 :mod:`app.providers.dadata.mapper`'s job.
 
 Why an API at all, rather than a table shipped with the project: there is no
-official nationwide register of Russian schools to download. Рособрнадзор's
-open-data endpoints — the ones every GitHub project that tried this links to —
-answer 404 today. What does exist is ЕГРЮЛ, the register of legal entities,
-which every school is in because every school is one, and DaData is the search
-over it that people actually use (119 files on GitHub call this exact URL).
-The cost is a request per keystroke-ish search and a key in the environment;
+official nationwide register of Russian schools to download. The open-data
+endpoints of Rosobrnadzor, the federal education watchdog — the ones every
+GitHub project that tried this links to — answer 404 today. What does exist is
+the ЕГРЮЛ company register, which every school is in because every school is
+one, and DaData is the search over it that people actually use (119 files on
+GitHub call this exact URL). The cost is a request per keystroke-ish search and
+a key in the environment;
 the alternative is a snapshot that is wrong by September and says nothing
 about it.
 
@@ -49,15 +50,16 @@ SUGGEST_PARTY = "/suggest/party"
 #: only honest thing to do when twenty arrive is to say so.
 MAX_SUGGESTIONS = 20
 
-#: ОКВЭД for общее образование: начальное (85.12), основное (85.13), среднее
-#: (85.14). Without this filter a search for «гимназия 3» finds the ООО that
-#: rents the building. 85.11 — дошкольное — is deliberately out: a детский сад
+#: The ОКВЭД activity codes for general education: primary (85.12), basic
+#: (85.13) and secondary (85.14). Without this filter a search for «гимназия 3»
+#: finds the company that rents the building. 85.11 — pre-school — is
+#: deliberately out: a nursery
 #: has no 9 «Б».
 SCHOOL_OKVED = ("85.12", "85.13", "85.14")
 
 #: The fallback filter, applied here rather than upstream when the filtered
 #: search finds nothing at all. Some schools are registered under a
-#: neighbouring code in the same group (85.21 колледж, 85.41 дополнительное),
+#: neighbouring code in the same group (85.21 a college, 85.41 supplementary),
 #: and a person who typed their school's exact name would otherwise be told it
 #: does not exist.
 EDUCATION_PREFIX = "85."

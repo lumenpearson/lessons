@@ -199,7 +199,7 @@ async def seed() -> None:
                     )
                 )
 
-        # One замена and one cancellation, so the client has something to render.
+        # One substitution and one cancellation, so the client has something to render.
         next_weekday = today + timedelta(days=1)
         while next_weekday.isoweekday() > 5:
             next_weekday += timedelta(days=1)

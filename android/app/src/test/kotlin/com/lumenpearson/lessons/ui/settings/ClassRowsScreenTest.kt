@@ -152,7 +152,7 @@ class ClassRowsScreenTest {
     fun `the leave row follows the class on screen, not the first one stored`() {
         var left: Session? = null
         show(
-            // 9Б is active while 7А is first in the list — the order a phone is
+            // «9Б» is active while «7А» is first in the list — the order a phone is
             // in right after switching.
             SettingsUiState(session = ninthB, sessions = listOf(seventhA, ninthB)),
             onLeaveClass = { left = it },

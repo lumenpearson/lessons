@@ -1,8 +1,9 @@
 """A register row in, a school out.
 
-Everything peculiar to ЕГРЮЛ is meant to die here: the name in four spellings,
-the address nested two levels down, the status that is a string in one field
-and a code in another, the school whose short name is the empty string.
+Everything peculiar to the ЕГРЮЛ company register is meant to die here: the name
+in four spellings, the address nested two levels down, the status that is a
+string in one field and a code in another, the school whose short name is the
+empty string.
 
 Forgiving on the way in, strict on the way out. A row that cannot be read is
 dropped rather than taking the search with it — one unreadable suggestion out
@@ -76,7 +77,7 @@ def to_school(item: dict[str, Any]) -> School | None:
 def to_schools(items: list[dict[str, Any]]) -> list[School]:
     """The readable ones, in the order the upstream ranked them.
 
-    Deduplicated by ОГРН: a school that has been reorganised can appear twice
+    Deduplicated by registration number: a school that has been reorganised can appear twice
     in one answer under two spellings of the same name, and two identical rows
     in a picker is a question with no right answer.
     """

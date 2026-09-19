@@ -86,7 +86,7 @@ interface ManageRepository {
      * what [before] already holds is not sent at all, for the reason
      * [updateClass] takes a `before` too.
      *
-     * [SubjectSaved.moved] says how many timetable, homework and замена rows a
+     * [SubjectSaved.moved] says how many timetable, homework and substitution rows a
      * rename carried with it — the number that makes a rename believable, since
      * none of those rows are on this screen.
      */

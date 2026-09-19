@@ -85,15 +85,15 @@ async def homework_clashing(
     """The days on which renaming ``old_name`` to ``new_name`` would collide.
 
     Homework is unique per (class, day, subject name) — `0013` — and a rename
-    is a bulk `UPDATE` over the text. So a class that has one задание under
+    is a bulk `UPDATE` over the text. So a class that has one assignment under
     «Алгебра» and another under «Матан» on the same Friday cannot rename the
     first onto the second: the statement raises `IntegrityError` out of the
     middle of a transaction that had already moved the timetable and the
-    замены, nothing is committed, and the whole rename is lost with no message
+    substitutions, nothing is committed, and the whole rename is lost with no message
     anybody can act on.
 
-    The dictionary check the two shells already make does not see this. A
-    задание can be written under a name that is not a dictionary entry at all
+    The dictionary check the two shells already make does not see this. An
+    assignment can be written under a name that is not a dictionary entry at all
     — `subjects.spelling` never founds one — so the colliding name is
     invisible to `subjects.clashing`, and the only configuration that reaches
     the `UPDATE` with a collision is exactly the one it cannot see.
@@ -123,7 +123,7 @@ async def rename_subject(
 ) -> int:
     """Rename the dictionary entry and every row that spells the old name.
 
-    The timetable, the homework and the замены store the subject as text, not
+    The timetable, the homework and the substitutions store the subject as text, not
     as a foreign key - deliberately, so a lesson keeps its name when a subject
     is deleted. The price is that a rename has to be a cascade, and it has to
     happen in the caller's transaction: a half-applied rename would leave the
@@ -148,7 +148,7 @@ async def rename_subject(
     )
     moved += rows_affected(result)
 
-    # Homework and замены carry no link at all: a lesson keeps its name when a
+    # Homework and substitutions carry no link at all: a lesson keeps its name when a
     # subject is deleted, and that is the whole reason they store text.
     for model in (Homework, LessonOverride):
         result = await session.execute(

@@ -1,16 +1,16 @@
-# Пустой issue оставлен включённым намеренно: приложение умеет открыть
-# «новый issue» в браузере с уже заполненными заголовком и телом
-# (SupportSheets.kt, issues/new?title=&body=), и выбор шаблона встал бы поперёк
-# этого пути ровно там, где человек уже написал текст.
+# The blank issue is left enabled deliberately: the app can open "new issue" in a browser
+# with the title and body already filled in (SupportSheets.kt, issues/new?title=&body=),
+# and a template chooser would sit across that path exactly where the person has already
+# written their text.
 blank_issues_enabled: true
 
 contact_links:
-  - name: Уязвимость
+  - name: Vulnerability
     url: https://github.com/lumenpearson/lessons/security/advisories/new
-    about: Не открывайте публичный issue. Сообщите приватно через security advisory.
-  - name: Не собирается APK или не работает подпись
+    about: Do not open a public issue. Report it privately through a security advisory.
+  - name: The APK will not build, or signing does not work
     url: https://github.com/lumenpearson/lessons/blob/main/docs/build.md
-    about: Сборка в Actions, свой ключ, релиз по тегу и подключение приложения к серверу.
-  - name: Не запускается сервер или бот
+    about: Building in Actions, your own key, a release from a tag, and pointing the app at a server.
+  - name: The server or the bot will not start
     url: https://github.com/lumenpearson/lessons/blob/main/docs/deploy.md
-    about: Vercel + Neon или свой сервер, webhook, миграции и почему у сервера нет своих часов.
+    about: Vercel plus Neon or your own server, the webhook, migrations, and why the server has no clock of its own.

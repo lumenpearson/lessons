@@ -42,7 +42,7 @@ class TermCodecTest {
     @Test
     fun `a line that does not parse is dropped, not invented`() {
         // A term with a made-up date shades the wrong weeks of the calendar and
-        // names the wrong четверть. The cache is rebuilt from the server on the
+        // names the wrong term. The cache is rebuilt from the server on the
         // next sync, so dropping costs a redraw and guessing costs correctness.
         val corrupt = """
             1|quarter|2026-09-01|2026-10-31
@@ -64,7 +64,7 @@ class TermCodecTest {
 
     @Test
     fun `an unknown scheme reads as quarters rather than throwing`() {
-        // A server that learns тримест­ры must not stop an older client from
+        // A server that learns trimesters must not stop an older client from
         // drawing a timetable.
         val decoded = decodeTerms("1|trimester|2026-09-01|2026-10-31")
 

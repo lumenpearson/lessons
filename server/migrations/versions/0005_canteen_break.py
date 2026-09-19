@@ -1,17 +1,17 @@
-"""Which break the столовая falls on.
+"""Which break the canteen falls on.
 
 Revision ID: 0005
 Revises: 0004
 Create Date: 2026-09-13
 
 One nullable column on ``bell_schedules``. Lunch is a break, not a lesson and
-not a weekly event: it is the same перемена every day the schedule is in force,
+not a weekly event: it is the same break every day the schedule is in force,
 and it moves with the bells when a shortened day moves them. Modelled as a
 recurring ``DayEvent`` it would have to be re-derived every time a bell row
 shifted by five minutes, and a class that shortened its Thursday would eat at
 the old time until somebody noticed.
 
-``NULL`` means «не отмечена», which is what every existing schedule gets and
+``NULL`` means «не отмечена» — not marked — which is what every existing schedule gets and
 what the day view renders as an ordinary break.
 """
 

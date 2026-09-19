@@ -39,7 +39,7 @@ LIST_MAX = 20
 
 #: What each list page draws, where the keyboard under it decides the number.
 #: Three of the four used to draw more rows than they offered buttons for —
-#: forty subjects above thirty ✏️ buttons, twenty расписания звонков above ten
+#: forty subjects above thirty ✏️ buttons, twenty bell schedules above ten
 #: — so the tail was visible, unreachable, and unmentioned by «… и ещё N».
 #: These are the same numbers ``manage_keyboards`` builds its rows from, and
 #: they differ per page because the rows do: a schedule carries three buttons
@@ -49,7 +49,7 @@ BELLS_MAX = 10
 DEVICES_MAX = 15
 
 #: Every list here is already capped by row count, but a row carries free
-#: text — a note, a задание, an audit summary — and thirty long ones would
+#: text — a note, an assignment, an audit summary — and thirty long ones would
 #: overrun a limit that no row count can express. The budget itself and the
 #: three tools for it live in ``render``, because they are not this module's:
 #: see the comment there.
@@ -184,7 +184,7 @@ def render_subject_card(subject) -> str:
 
 
 # --------------------------------------------------------------------------
-# Особые дни
+# Special days
 # --------------------------------------------------------------------------
 
 #: The «обычный день» kind never has a row of its own - that is what deleting
@@ -222,7 +222,7 @@ def render_period_result(first: Date, last: Date, created: int) -> str:
 
 
 # --------------------------------------------------------------------------
-# Звонки
+# Bells
 # --------------------------------------------------------------------------
 
 
@@ -262,7 +262,7 @@ def render_bell_rows(schedule) -> str:
 
 
 # --------------------------------------------------------------------------
-# Устройства
+# Devices
 # --------------------------------------------------------------------------
 
 
@@ -300,7 +300,7 @@ def render_devices(devices: list, owners: dict[int, tuple[str, Role | None]]) ->
 
 
 # --------------------------------------------------------------------------
-# Журнал
+# The log
 # --------------------------------------------------------------------------
 
 
@@ -330,7 +330,7 @@ def render_audit(entries: list, names: dict[int, str], tz, offset: int = 0) -> s
 
 
 # --------------------------------------------------------------------------
-# Карточка класса
+# The class card
 # --------------------------------------------------------------------------
 
 
@@ -373,7 +373,7 @@ def render_class_card(
 
 
 # --------------------------------------------------------------------------
-# Поиск, импорт, календарь
+# Search, import, calendar
 # --------------------------------------------------------------------------
 
 
@@ -406,7 +406,7 @@ def render_import_preview(days: dict[int, list], rejected: list[str], bells: int
     of the same paste and belongs in the same list. It used to be a line the
     handler glued on after this returned, which put it below the «Применить»
     footer and left a bells-only paste reading «Ни одного дня не распознано» -
-    over a button that was about to rewrite the class's звонки.
+    over a button that was about to rewrite the class's bells.
     """
     lines = ["<b>📥 Импорт расписания</b>", ""]
     for weekday in sorted(days):

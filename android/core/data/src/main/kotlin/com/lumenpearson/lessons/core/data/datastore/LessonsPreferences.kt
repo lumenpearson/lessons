@@ -136,7 +136,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
                 // nothing about the one that is, so the fingerprint stays.
                 // Clearing it would silently swallow the next «расписание
                 // изменилось» for a class the user never touched: the baseline
-                // would be re-set by the following sync, and a замена that
+                // would be re-set by the following sync, and a substitution that
                 // arrived with it would be the thing that set it.
                 next.classId == was -> Unit
                 else -> prefs.activate(next.classId)

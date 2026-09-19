@@ -1,4 +1,4 @@
-"""Четверти and полугодия: the year cut into the pieces a school marks in.
+"""Quarters and half-years: the year cut into the pieces a school marks in.
 
 Two things live here, and they are one rule seen from two ends.
 
@@ -9,7 +9,7 @@ chosen, so "nobody decided, so quarters" stays distinguishable from "an admin
 chose quarters for an eleventh year", which is a thing a school may do.
 
 **The dates are the school's own.** The defaults in `app/schedule.py` are the
-conventional ones and every one of them is meant to be edited: каникулы move, a
+conventional ones and every one of them is meant to be edited: the holidays move, a
 region shifts its spring break, a quarantine eats a week. So terms are rows
 rather than a formula, seeded once per class per year and editable after.
 
@@ -41,7 +41,7 @@ from app.schedule import (
 MIN_GRADE = 1
 MAX_GRADE = 11
 
-# Long enough for "инж" or "ФМ", short enough that it is a suffix and not a
+# Long enough for «инж» or «ФМ», short enough that it is a suffix and not a
 # second name; the column is String(8) and this is the rule behind it.
 MAX_LETTER_LENGTH = 8
 
@@ -61,11 +61,11 @@ def scheme_of(school_class: SchoolClass) -> TermKind:
 
 
 def compose_name(grade: int | None, letter: str | None, fallback: str) -> str:
-    """The display name a grade and a letter make, e.g. 9 + "А" -> "9А".
+    """The display name a grade and a letter make, e.g. 9 + «А» -> «9А».
 
     Falls back to whatever the class was already called when there is no grade
     to compose from — every class created before the number existed has a name
-    and nothing else, and inventing "9" out of "9А" by pattern is the guess this
+    and nothing else, and inventing "9" out of «9А» by pattern is the guess this
     column exists to avoid.
     """
     if grade is None:
@@ -117,11 +117,11 @@ async def ensure(
     **Seeds, never replaces.** A set that already exists is returned as it
     stands, whatever scheme it is in, and only an explicit ``kind`` — which
     reaches here from :func:`set_scheme` and nowhere else — may throw it away.
-    Without that rule the replacement below is reachable from a read: a 9-й
-    класс keeps ``term_kind`` NULL, so :func:`scheme_of` answers from the
+    Without that rule the replacement below is reachable from a read: a class
+    in year 9 keeps ``term_kind`` NULL, so :func:`scheme_of` answers from the
     grade, and moving that class up to 10 makes the *next bundle request from
-    any phone* delete four четверти whose dates an admin had spent an evening
-    correcting, and write two conventional полугодия over them. Nothing would
+    any phone* delete four quarters whose dates an admin had spent an evening
+    correcting, and write two conventional half-years over them. Nothing would
     have asked, and the audit log would not carry it either.
 
     **Idempotent is not the same as race-safe**, and being called from a read
@@ -172,7 +172,7 @@ async def ensure(
             return conceded
         # An explicit scheme change is the one caller that must not quietly
         # accept the other set: «10 класс, полугодия» would answer «сделано»
-        # and leave four четверти on the screen. The rival's rows are now the
+        # and leave four quarters on the screen. The rival's rows are now the
         # `existing` the branch above replaces, so one more pass does it.
         return await ensure(session, school_class, year, kind=kind, _retry=False)
     return seeded
@@ -201,8 +201,8 @@ async def set_bounds(
 
     The checks are the ones a wrong date actually produces: a term that ends
     before it starts renders as a negative length; one that reaches outside the
-    school year claims lessons in July; two that overlap make "which четверть
-    is this" ambiguous on a date that is in both. Each is refused with the
+    school year claims lessons in July; two that overlap make "which quarter is
+    this" ambiguous on a date that is in both. Each is refused with the
     sentence a person can act on rather than silently clamped, because a
     silently clamped date is a date the admin thinks they set.
     """
@@ -249,7 +249,7 @@ _SPAN = re.compile(
 def parse_span(raw: str | None) -> tuple[Date, Date] | None:
     """Two dates typed on one line, or `None` when it is not two dates.
 
-    `None` rather than an exception: "не разобрал" and "эти даты не подходят"
+    `None` rather than an exception: «не разобрал» and «эти даты не подходят»
     are different answers to the person typing, and only the second one is
     worth naming a rule for.
     """
@@ -265,7 +265,7 @@ def parse_span(raw: str | None) -> tuple[Date, Date] | None:
 
 
 def term_at(terms: list[Term], on: Date) -> Term | None:
-    """Which term ``on`` falls in, or `None` — каникулы are a real answer."""
+    """Which term ``on`` falls in, or `None` — the holidays are a real answer."""
     for term in terms:
         if term.starts_on <= on <= term.ends_on:
             return term

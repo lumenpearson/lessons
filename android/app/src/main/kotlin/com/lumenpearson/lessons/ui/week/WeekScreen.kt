@@ -265,8 +265,8 @@ private fun ScheduleUiState.periodLabel(): String = when (view) {
 /**
  * The term the selected day belongs to, appended to the header.
  *
- * Empty during каникулы and for a class whose server has no terms — in both
- * cases the header is just the period, because «—» in place of a четверть
+ * Empty during the holidays and for a class whose server has no terms — in both
+ * cases the header is just the period, because «—» in place of a term name
  * claims the school has one and the app forgot it.
  */
 @Composable
@@ -277,7 +277,7 @@ private fun ScheduleUiState.termLabel(): String? = selectedTerm?.label()
  *
  * Here rather than on [Term], which lives in `:core:model` — a pure JVM module
  * that has no resources and cannot have any. The sentence was written into that
- * type, so this header drew a Russian четверть next to an English month for
+ * type, so this header drew a Russian term name next to an English month for
  * every phone reading the app in English, and no folder-comparison could see it
  * because the words were in neither folder.
  *

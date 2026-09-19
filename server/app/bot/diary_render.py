@@ -2,7 +2,7 @@
 
 Separate from ``render.py`` for the same reason ``editor_render.py`` is: it
 renders somebody else's data. The class's own timetable is this project's —
-resolved, parity-aware, with замены applied. The diary is the school's record
+resolved, parity-aware, with substitutions applied. The diary is the school's record
 of one child, fetched live, and the only honest thing to do with it is show
 what came back and say when it came back empty.
 
@@ -40,10 +40,10 @@ MARK_ICONS = {"5": "🟢", "4": "🟢", "3": "🟡", "2": "🔴", "1": "🔴"}
 ABSENCE_ICONS = {"Н": "⚪", "Б": "⚪", "У": "⚪"}
 
 
-#: A задание or a topic on its row here.
+#: An assignment or a topic on its row here.
 #:
 #: The diary is fourteen days of somebody else's data: the class's own digest
-#: was given a budget after a fortnight of three заданий a day came to 5371
+#: was given a budget after a fortnight of three assignments a day came to 5371
 #: characters, and this view renders the same shape from a source that has no
 #: length limit at all. Measured at 6113 for an ordinary ninth-year fortnight,
 #: which Telegram refuses whole — «📝 Задания» then answered «что-то пошло не

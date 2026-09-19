@@ -153,7 +153,7 @@ val DayState.progressOrNull: Float?
         else -> null
     }
 
-/** The row tone for a non-lesson event; also used by the events list on Сегодня. */
+/** The row tone for a non-lesson event; also used by the events list on the Today tab. */
 @Composable
 fun EventKind.tone(): AccentTone = when (this) {
     // Exams are the only state the app is allowed to make you feel something about.
@@ -174,7 +174,7 @@ private fun EventKind.labelRes(): Int = when (this) {
     EventKind.EVENT -> R.string.ds_event_generic
 }
 
-/** Also used outside the hero card: the events group on Сегодня draws the same glyphs. */
+/** Also used outside the hero card: the events group on the Today tab draws the same glyphs. */
 fun EventKind.icon(): ImageVector = when (this) {
     EventKind.CANTEEN -> Icons.Rounded.Restaurant
     EventKind.EXAM -> Icons.Rounded.EditNote

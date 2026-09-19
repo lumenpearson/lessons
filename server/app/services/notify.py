@@ -1,8 +1,8 @@
 """Immediate messages to the class when something changes.
 
-An editor adding a замена for tomorrow is the moment the class wants to hear
-about it; a digest the next morning is too late for the pupil who would have
-left the textbook at home. So the handlers that write замены, events and
+An editor adding a substitution for tomorrow is the moment the class wants to
+hear about it; a digest the next morning is too late for the pupil who would
+have left the textbook at home. So the handlers that write substitutions, events and
 homework call :func:`notify_subscribers` right after committing, and each
 subscriber's own flags decide whether they hear about it.
 """
@@ -29,8 +29,8 @@ log = logging.getLogger(__name__)
 #: write answers 200.
 #:
 #: It lives here rather than in either shell because both of them announce the
-#: same задание: the rule was in `bot/handlers/content` only, so a задание
-#: typed into the bot arrived cut to 200 characters and the same задание saved
+#: same assignment: the rule was in `bot/handlers/content` only, so an
+#: assignment typed into the bot arrived cut to 200 characters and the same one saved
 #: from a phone arrived whole.
 NOTIFY_TEXT_MAX = 200
 

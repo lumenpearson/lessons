@@ -38,7 +38,7 @@ def is_supported(name: str) -> bool:
 
 
 def label_for(name: str) -> str:
-    """"МСК+2 (UTC+5) · Екатеринбург, Уфа, Пермь", or the raw name if unknown.
+    """«МСК+2 (UTC+5) · Екатеринбург, Уфа, Пермь», or the raw name if unknown.
 
     Unknown names are shown rather than rejected: a school outside Russia can
     still be configured by writing an IANA name directly into the database, and

@@ -204,8 +204,8 @@ private fun DiaryDayCard(
                         item = HomeworkItem(subject = item.subject, text = item.text),
                         // Its own slot, not appended to the subject: the tile's
                         // colour is a hash of the subject, so a word added to
-                        // it draws a corrected Алгебра in a different colour
-                        // from the Алгебра beside it.
+                        // it draws a corrected «Алгебра» in a different colour
+                        // from the «Алгебра» beside it.
                         badge = correctedString(R.string.diary_edited_badge)
                             .takeIf { corrections.hasCorrections },
                         onClick = { onEdit(corrections) }.takeIf { item.correctable },

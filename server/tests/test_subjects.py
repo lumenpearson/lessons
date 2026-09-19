@@ -96,7 +96,7 @@ async def test_editing_a_lesson_relinks_it(session, school_class):
 
 
 async def test_splitting_a_slot_carries_the_link_to_both_halves(session, school_class):
-    """The знаменатель is the same subject until somebody changes it; a half
+    """The denominator half is the same subject until somebody changes it; a half
     that lost its colour would read as two different lessons."""
     await subjects.sync_from_timetable(session, school_class.id)
     await timetable_edit.split_parity(session, school_class.id, 1, 1)
@@ -276,7 +276,7 @@ async def test_a_subject_is_counted_even_before_the_rows_are_linked(session, sch
 
 
 async def test_spelling_answers_with_the_class_s_own(session, school_class):
-    """Homework and замены carry a name and no link, so the spelling is the
+    """Homework and substitutions carry a name and no link, so the spelling is the
     whole of what can be agreed — and it is what the upsert key and the colour
     lookup are both built on."""
     await subjects.sync_from_timetable(session, school_class.id)

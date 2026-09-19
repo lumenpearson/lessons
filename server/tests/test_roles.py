@@ -117,7 +117,7 @@ async def test_claiming_reports_the_role_the_person_ends_up_with(session, school
 
     `handlers/start.on_contact` reads `granted[0]` and hands that role to
     `main_menu`, so reporting the invite's role rather than the effective one
-    tells an admin they are a наблюдатель and takes «🧩 Расписание»,
+    tells an admin they are an observer and takes «🧩 Расписание»,
     «👥 Доступ» and «⚙️ Класс» off their screen — while the stored role, which
     the rule above keeps, is still ADMIN.
     """

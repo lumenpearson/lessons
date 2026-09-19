@@ -3,10 +3,10 @@
 Telegram has no date picker, so a bot either builds the grid people already
 recognise from every other calendar bot — a month, seven columns, arrows to
 step a month — or it offers a list of buttons. This project offered a list of
-the next seven days, which put two things out of reach entirely: a день that
+the next seven days, which put two things out of reach entirely: a day that
 has already happened (homework is written down after the lesson at least as
-often as before it) and anything more than a week out (каникулы are marked a
-month ahead, a контрольная two).
+often as before it) and anything more than a week out (the holidays are marked
+a month ahead, a test two).
 
 Kept out of ``keyboards.py`` because it is one feature with one payload, and
 out of the handlers because the grid is a pure function of a year, a month and
@@ -46,7 +46,7 @@ class CalendarAction(CallbackData, prefix="cal"):
 
 #: The payload a day button carries, per flow. Everything but «day» hands the
 #: date to the flow's existing handler untouched, so the calendar is a new way
-#: into замены, события and особые дни rather than a second implementation of
+#: into the substitutions, events and special days flows rather than a second implementation of
 #: any of them. Their handlers parse ISO dates and keep doing so.
 DAY_PAYLOADS: dict[str, tuple[type[CallbackData], str]] = {
     "hw": (HomeworkAction, "pick_day"),
@@ -77,7 +77,7 @@ def school_year_bounds(today: Date) -> tuple[Date, Date]:
     One school year — 1 September to 31 August — the one ``today`` falls in.
     Anything outside it cannot be planned: in June the timetable for September
     does not exist yet, and a date in the year that ended cannot be taught
-    again. It also means ‹ held down stops at сентябрь instead of walking back
+    again. It also means ‹ held down stops at September instead of walking back
     to 1970, which is the only thing an unbounded calendar reliably does.
     """
     start_year = today.year if today.month >= 9 else today.year - 1
@@ -210,7 +210,7 @@ def month_keyboard(flow: str, year: int, month: int, today: Date) -> InlineKeybo
 
 
 def day_card_keyboard(day: Date, role: Role) -> InlineKeyboardMarkup:
-    """What may be назначено on ``day``, by whoever opened the card.
+    """What may be assigned to ``day``, by whoever opened the card.
 
     A viewer gets the two navigation rows and nothing else. Offering them a
     button that answers «нужна роль редактора» would teach them to distrust

@@ -291,8 +291,8 @@ def test_an_ambiguous_row_still_names_the_fields_it_is_not_applying():
     edit = result[0].edits[0]
     assert edit.field == "room"
     assert edit.value == "204"
-    # This row's own room, as on every other row: `original` means «что в
-    # дневнике сейчас», which is a question about the lesson being drawn. Null
+    # This row's own room, as on every other row: `original` means "what the
+    # diary says now", which is a question about the lesson being drawn. Null
     # would leave the screen showing a typed value with nothing beside it to
     # compare against, on the one row whose whole job is explaining why the
     # correction is not being used.

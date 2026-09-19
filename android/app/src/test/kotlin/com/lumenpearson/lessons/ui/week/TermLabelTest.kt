@@ -73,7 +73,7 @@ class TermLabelTest {
     }
 
     /**
-     * The other scheme. A class taught in полугодия says so, and the two words
+     * The other scheme. A class taught in half-years says so, and the two words
      * are not interchangeable — «2 полугодие» and «2 четверть» are different
      * halves of a different year.
      */

@@ -1,8 +1,8 @@
-"""Day-to-day editing: homework, замены and events. This is what an EDITOR does.
+"""Day-to-day editing: homework, substitutions and events. This is what an EDITOR does.
 
 Every write here does three things, in this order: it saves, it writes one
 line to the audit log in the same transaction, and only then it tells the
-subscribers. The order matters. A notification about a замена that failed to
+subscribers. The order matters. A notification about a substitution that failed to
 save would send thirty people to the wrong room, so nothing is announced
 before it is committed — and ``notify_subscribers`` swallows a single
 recipient's outage rather than failing the edit that caused it.
@@ -305,7 +305,7 @@ async def homework_text(
     # Through the service, which owns «one задание per subject per day» for
     # both shells — including the class's spelling, so a typed «алгебра»
     # updates the «Алгебра» already set for that day rather than founding a
-    # second задание beside it, and both going out in the evening digest.
+    # second assignment beside it, and both going out in the evening digest.
     written, created = await homework_service.upsert(
         session, school_class.id, due, data["subject"], text, message.from_user.id
     )
@@ -348,7 +348,7 @@ async def homework_text(
 
 
 # --------------------------------------------------------------------------
-# Замены
+# Substitutions
 # --------------------------------------------------------------------------
 
 
@@ -463,14 +463,14 @@ async def _save_override(
     subject: str | None = None,
     room: str | None = None,
 ) -> bool:
-    """Write the замена, or report that this day has no such lesson to change.
+    """Write the substitution, or report that this day has no such lesson to change.
 
     The resolver takes a lesson's times from the bell row of the same number,
-    so a замена at a number the day does not ring is stored, logged, announced
+    so a substitution at a number the day does not ring is stored, logged, announced
     to everybody with «🔁 Замена … урок №8» and then drawn by nothing. Checked
     on create only — an existing row at a bad number has to stay clearable,
     which is how a class gets out of one — and against *this day's* bells,
-    because a сокращённый день rings a shorter schedule than the class's usual.
+    because a shortened day rings a shorter schedule than the class's usual.
     """
     existing = await session.scalar(
         select(LessonOverride).where(
@@ -486,7 +486,7 @@ async def _save_override(
         existing = LessonOverride(class_id=class_id, date=day, index=index, action=action)
         session.add(existing)
     existing.action = action
-    # The class's spelling: `app/schedule.py` looks a замена's colour up by
+    # The class's spelling: `app/schedule.py` looks a substitution's colour up by
     # exact name, so one typed in the wrong case draws grey among coloured
     # lessons on every phone.
     existing.subject_name = (
@@ -494,7 +494,7 @@ async def _save_override(
     )
     existing.room = room
     # Staged, not committed: the caller commits it together with its audit
-    # line, so a замена and the record of who made it land as one fact.
+    # line, so a substitution and the record of who made it land as one fact.
     return True
 
 
@@ -776,7 +776,7 @@ async def event_title(
             ends_at=time.fromisoformat(data["end"]),
             title=title[:200],
             kind=kind,
-            # Только «мероприятие» и «экскурсия» обычно идут вместо уроков.
+            # Only «мероприятие» and «экскурсия» usually replace a lesson.
             covers_lesson=kind in {EventKind.EVENT, EventKind.TRIP},
         )
     )

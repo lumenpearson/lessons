@@ -54,10 +54,10 @@ MAX_PER_TICK = 200
 #: Homework lines in an evening digest before «… и ещё N».
 MAX_DIGEST_LINES = 30
 
-#: A задание on its row in the evening digest.
+#: An assignment on its row in the evening digest.
 #:
 #: The line cap above is not a character cap, and a row carries free text the
-#: API accepts at 4000 characters: two ordinary заданий of 2500 and 1800 came
+#: API accepts at 4000 characters: two ordinary assignments of 2500 and 1800 came
 #: to 4397, and six subjects at 700 each to 4376. Past Telegram's ceiling the
 #: whole message is refused — and `send_due` claims the digest *before*
 #: building it, so the evening never goes out and is never retried.
@@ -134,7 +134,7 @@ async def drop_for(session: AsyncSession, *, telegram_id: int, class_id: int) ->
     a subscriber is still in the class - :func:`due_digests` joins the class and
     not the membership, and ``notify_subscribers`` selects on the flag alone -
     so a row left behind here keeps delivering the class's timetable, its
-    homework and every замена into the chat of somebody who was removed from it,
+    homework and every substitution into the chat of somebody who was removed from it,
     for as long as the class exists. Staged, not committed: the caller commits
     it with the removal it belongs to, like the connect codes dropped beside it.
     """
@@ -304,7 +304,7 @@ def render_morning(day: ResolvedDay, today: Date) -> str:
 
 
 def _when(day: Date, today: Date) -> str:
-    """"на завтра, 8 сентября" / "на понедельник, 14 сентября" / "на 21 сентября"."""
+    """«на завтра, 8 сентября» / «на понедельник, 14 сентября» / «на 21 сентября»."""
     label = relative_day_name(day, today)
     if (day - today).days <= 7:
         label += f", {day.day} {MONTHS_GENITIVE[day.month - 1]}"

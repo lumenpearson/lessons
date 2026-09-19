@@ -308,11 +308,11 @@ async def test_bells_refuse_to_wipe_the_schedule_on_a_bad_paste(session, school_
 
 
 # --------------------------------------------------------------------------
-# Разбор того, что приходит снаружи
+# Parsing what arrives from outside
 #
-# `_date_or_none` и `_shorten` — граница между payload'ом клиента и состоянием
-# FSM, за которой пять мест читают дату уже не проверяя. Ни одна из двух не
-# вызывалась ни одним тестом.
+# `_date_or_none` and `_shorten` are the boundary between the client's payload
+# and the FSM state, past which five places read the date without checking it
+# again. Neither of the two was called by any test.
 # --------------------------------------------------------------------------
 
 
@@ -334,8 +334,8 @@ def test_a_notification_is_shortened_without_losing_the_start():
     assignment it is, so the cut is at the end and it is marked.
 
     The rule lives in `services/notify` and not in this file, because the same
-    задание is announced by two shells: it was the bot's alone, so a задание
-    typed into the bot arrived cut to 200 characters and the same задание saved
+    assignment is announced by two shells: it was the bot's alone, so one typed
+    into the bot arrived cut to 200 characters and the same one saved
     from a phone arrived whole — up to the 4000 the API accepts, which past
     Telegram's ceiling is not a notification at all.
     """
@@ -373,12 +373,12 @@ async def test_an_empty_subject_does_not_move_the_flow_on(session):
 
 
 # --------------------------------------------------------------------------
-# Событие, целиком
+# An event, end to end
 #
-# Ни один тест никогда не доходил здесь дальше выбора дня: `event_pick_kind`,
-# `event_time` и `event_title` не назывались нигде. Это значит, что событие в
-# классе никто не заводил ни разу, кроме как пальцем — а «Четверти» показали,
-# чего стоит строка, которую не исполняли.
+# No test here ever got past picking the day: `event_pick_kind`, `event_time`
+# and `event_title` were named nowhere. Which means nobody had ever created an
+# event in a class except with a finger — and «Четверти» showed what a line
+# nothing executes is worth.
 # --------------------------------------------------------------------------
 
 
@@ -465,9 +465,9 @@ async def test_a_viewer_cannot_add_an_event(session, school_class):
 
 
 # --------------------------------------------------------------------------
-# Отмена урока и возврат к расписанию
+# Cancelling a lesson and restoring it to the template
 #
-# Обе операции разрушающие, обе были без единого теста.
+# Both operations are destructive, and both were without a single test.
 # --------------------------------------------------------------------------
 
 
@@ -570,7 +570,7 @@ async def test_a_viewer_cannot_add_homework(session, school_class):
 
 
 # --------------------------------------------------------------------------
-# Замены
+# Substitutions
 # --------------------------------------------------------------------------
 
 
@@ -719,7 +719,7 @@ def _error_event(exception: BaseException, callback: object) -> Any:
 async def test_pressing_a_button_that_changes_nothing_is_answered_quietly():
     """Telegram calls an unchanged re-render a 400, and it is an ordinary press.
 
-    "Сегодня" from the day view and "‹ Меню" from the menu both re-render the
+    «Сегодня» from the day view and «‹ Меню» from the menu both re-render the
     identical message. Unhandled, the exception escaped before `answer()` ran
     and the button kept its loading spinner until Telegram gave up.
     """
@@ -823,7 +823,7 @@ async def test_a_button_from_a_stale_keyboard_is_refused(session, school_class):
 
 
 # --------------------------------------------------------------------------
-# Личный код на телефон и режим входа в класс
+# The personal code for a phone, and the class join mode
 # --------------------------------------------------------------------------
 
 
@@ -1010,7 +1010,7 @@ async def test_the_class_code_stays_admin_only(session, school_class):
 
 
 # --------------------------------------------------------------------------
-# Доступ: то, что приходит из callback-данных
+# Access: what arrives in the callback data
 # --------------------------------------------------------------------------
 
 
@@ -1115,7 +1115,7 @@ async def test_revoking_access_takes_the_class_messages_with_it(session, school_
     The digest tick joins the class and not the member list, and
     ``notify_subscribers`` selects on the flag alone — so a settings row left
     behind by a revoke keeps the class's homework, its timetable and every
-    замена arriving in the chat of somebody who was removed from it, with
+    substitution arriving in the chat of somebody who was removed from it, with
     nothing in the bot that could show it, let alone switch it off.
     """
     session.add(BotUser(telegram_id=99, class_id=school_class.id, role=Role.EDITOR))
@@ -1197,7 +1197,7 @@ async def test_the_classes_a_person_is_in_come_back_in_a_stated_order(session, s
 
 
 # --------------------------------------------------------------------------
-# Смещение дня из callback-данных
+# The day offset out of the callback data
 # --------------------------------------------------------------------------
 
 
@@ -1270,13 +1270,13 @@ async def test_a_lesson_number_that_is_not_a_number_is_refused_at_the_press():
 
 
 # --------------------------------------------------------------------------
-# Урок, которого класс не звонит
+# A lesson the class does not ring
 # --------------------------------------------------------------------------
 
 
 async def test_a_replacement_with_no_bell_behind_it_is_refused(session, school_class):
     """The resolver takes a lesson's times from the bell row of the same
-    number, so a замена at a number the day does not ring is stored, written to
+    number, so a substitution at a number the day does not ring is stored, written to
     the log, announced to everybody with «🔁 Замена … урок №8» — and drawn by
     nothing. The timetable learned this; the other way a lesson changes had no
     check at all."""
@@ -1302,9 +1302,9 @@ async def test_a_replacement_on_a_lesson_that_rings_still_lands(session, school_
 
 
 async def test_a_shortened_day_is_measured_by_its_own_bells(session, school_class):
-    """A день marked «сокращённый» points at its own schedule, and that one is
+    """A day marked «сокращённый» points at its own schedule, and that one is
     usually shorter than the class's usual. Checking against the default bells
-    would pass a замена the day cannot draw."""
+    would pass a substitution the day cannot draw."""
     short = BellSchedule(class_id=school_class.id, name="Сокращённые")
     session.add(short)
     await session.flush()

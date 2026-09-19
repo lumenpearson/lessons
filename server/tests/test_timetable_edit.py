@@ -114,7 +114,7 @@ async def test_moving_past_the_end_is_refused_rather_than_silently_ignored(
 
 
 async def test_moving_a_slot_carries_both_weeks_with_it(session, school_class):
-    """числитель and знаменатель are one slot.
+    """The numerator and the denominator are one slot.
 
     Move them apart and one week's third lesson becomes the other week's
     second — which nobody asked for — and the bells, keyed on the index alone,
@@ -136,7 +136,7 @@ async def test_moving_a_slot_carries_both_weeks_with_it(session, school_class):
     await edit.move_lesson(session, school_class.id, 1, 3, up=True)
     await session.commit()
 
-    # The original row stays числитель and the copy became знаменатель, so
+    # The original row stays the numerator and the copy became the denominator, so
     # «Обществознание» — the half that was edited — is the even one.
     assert await _day(session, school_class.id) == [
         (1, "Алгебра", "any"),
@@ -147,7 +147,7 @@ async def test_moving_a_slot_carries_both_weeks_with_it(session, school_class):
 
 
 async def test_splitting_copies_the_lesson_into_both_weeks(session, school_class):
-    """An empty знаменатель would be a hole the day view has to render every
+    """An empty denominator half would be a hole the day view has to render every
     second week, and the next edit is changing one half anyway."""
     assert await edit.split_parity(session, school_class.id, 1, 1) is True
     await session.commit()
@@ -293,10 +293,10 @@ async def test_an_import_that_brings_its_own_bells_may_bring_the_lessons_too(
 async def test_a_bell_schedule_with_a_gap_is_read_by_its_numbers_not_its_count(
     session, school_class
 ):
-    """«Сколько звонков» and «какие уроки они звонят» are different questions.
+    """"How many bells" and "which lessons they ring" are different questions.
 
     A «== Звонки ==» block may leave a hole — a school that numbers its lessons
-    1, 2, 4 because the third slot is a пересменка — and the resolver keys a
+    1, 2, 4 because the third slot is a shift change — and the resolver keys a
     lesson's times on the bell row of *the same number*. Counting the rows
     answered both questions with «three», which got both halves wrong at once:
     «4. Химия», which has a bell, was dropped and reported as having none, and
@@ -354,7 +354,7 @@ async def test_deleting_a_lesson_does_not_slide_another_onto_a_number_with_no_be
     """`add_lesson` refuses an insert that would push a lesson onto an unrung
     number; the delete is the same move the other way and did not.
 
-    With bells at 1, 2 and 4 — a school whose third slot is a пересменка, which
+    With bells at 1, 2 and 4 — a school whose third slot is a shift change, which
     the grammar accepts — deleting the second lesson slid the fourth onto a
     third number that rings nothing, and the resolver draws a lesson only where
     its own bell is. The lesson was gone from every phone, widget, digest and
@@ -490,7 +490,7 @@ async def test_a_weekly_row_may_not_be_created_beside_a_split_slot(session, scho
 
 
 async def test_the_missing_half_of_a_split_slot_can_still_be_written(session, school_class):
-    """A paste may bring «3. История [чис]» with no знаменатель under it, and
+    """A paste may bring «3. История [чис]» with no denominator half under it, and
     filling the other half in is one edit rather than a retyped day."""
     from app.models import TimetableEntry as Entry
 

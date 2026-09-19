@@ -1,4 +1,4 @@
-"""The school directory: what a ЕГРЮЛ row becomes, and how it is paged.
+"""The school directory: what a company-register row becomes, and how it is paged.
 
 Every payload below is DaData's documented ``suggest/party`` shape. Nothing
 here reaches the network — the point of the provider boundary is that the
@@ -123,7 +123,7 @@ def test_a_liquidated_school_is_kept_and_marked():
 
 def test_one_unreadable_row_does_not_take_the_search_with_it():
     schools = m.to_schools([suggestion(), {"value": "", "data": {}}, suggestion()])
-    # The second copy is a duplicate ОГРН, so one survives, not two.
+    # The second copy is a duplicate registration number, so one survives, not two.
     assert len(schools) == 1
 
 

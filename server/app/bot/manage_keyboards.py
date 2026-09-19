@@ -300,7 +300,7 @@ def colour_keyboard(subject_id: int) -> InlineKeyboardMarkup:
 def holiday_list_keyboard(
     overrides: list, can_edit: bool, can_period: bool | None = None
 ) -> InlineKeyboardMarkup:
-    """Marking one day is an editor's business; a whole период of каникулы
+    """Marking one day is an editor's business; a whole range of holiday days
     rewrites weeks of the class's calendar at once and stays with admins."""
     if can_period is None:
         can_period = can_edit

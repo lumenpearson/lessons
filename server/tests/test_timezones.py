@@ -27,8 +27,8 @@ def test_the_list_spans_kaliningrad_to_kamchatka():
         for name, _, _ in RUSSIAN_TIMEZONES
     ]
     assert offsets == sorted(offsets)
-    assert offsets[0] == 2  # Калининград, UTC+2
-    assert offsets[-1] == 12  # Камчатка, UTC+12
+    assert offsets[0] == 2  # Kaliningrad, UTC+2
+    assert offsets[-1] == 12  # Kamchatka, UTC+12
     assert len(offsets) == 11
 
 

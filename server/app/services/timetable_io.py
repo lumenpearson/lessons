@@ -5,9 +5,10 @@ whole-week import and «Экспорт» agree on what a line means - a paste pr
 by the export has to survive the import unchanged, and a parity suffix typed
 into the day editor has to mean the same thing as one in a week paste.
 
-The line grammar::
+The line grammar — the keywords are Russian because they are typed by the
+people using the bot::
 
-    N. Предмет[, кабинет[, учитель]][ <чётность>]
+    N. subject[, room[, teacher]][ <parity>]
 
 where the parity suffix, always at the very end, is any of ``[чис]``,
 ``[знам]``, ``(чис)``, ``(знам)``, ``[1]``, ``[2]``, or a bare ``числ`` /

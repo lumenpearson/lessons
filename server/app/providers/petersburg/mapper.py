@@ -352,7 +352,7 @@ def classify_mark(item: dict[str, Any]) -> tuple[str, MarkKind]:
 
     The upstream puts grades, absences, lateness and remarks in one list and
     distinguishes them by ``estimate_type_code``. Reading that code here means
-    no consumer ever has to: they get "Н" and :attr:`MarkKind.ABSENCE`.
+    no consumer ever has to: they get «Н» and :attr:`MarkKind.ABSENCE`.
     """
     code = text(item, "estimate_type_code", "type_code")
     value = text(item, "estimate_value_name", "value_name", "value")

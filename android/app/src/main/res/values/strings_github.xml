@@ -6,7 +6,7 @@
 -->
 <resources>
 
-    <!-- Лицензии и благодарности -->
+    <!-- Licences and acknowledgements -->
     <string name="licences_title">Лицензии и благодарности</string>
     <string name="licences_subtitle">Открытый код и люди, благодаря которым приложение существует</string>
     <string name="licences_expand">Развернуть</string>
@@ -31,7 +31,7 @@
     <string name="credit_google_sans">Google Sans Flex</string>
     <string name="credit_google_sans_note">Google LLC. Гарнитура, которой набрано приложение. Google Sans — товарный знак Google.</string>
 
-    <!-- Сообщить об ошибке -->
+    <!-- Report a bug -->
     <string name="bug_report_title">Сообщить об ошибке</string>
     <string name="bug_report_device">Об устройстве</string>
     <string name="bug_report_description_label">Опишите проблему или предложение…</string>
@@ -42,7 +42,7 @@
     <string name="bug_report_open_issue">Открыть issue на GitHub</string>
     <string name="bug_report_email">Отправить письмом</string>
 
-    <!-- Вход через GitHub -->
+    <!-- Signing in through GitHub -->
     <string name="github_sign_in_title">Вход через GitHub</string>
     <string name="github_requesting">Запрашиваем код…</string>
     <string name="github_step_copy">1. Скопируйте код:</string>

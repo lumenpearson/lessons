@@ -451,7 +451,7 @@ class AlertPlannerTest {
     /**
      * The case the holiday rule exists for.
      *
-     * A school marks a week as каникулы and leaves the lesson rows underneath
+     * A school marks a week as holidays and leaves the lesson rows underneath
      * it, because the timetable is generated from the term's grid. Without the
      * rule the phone rings the morning bell every day of the break from a
      * schedule nobody is following.

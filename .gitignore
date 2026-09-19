@@ -43,3 +43,8 @@ android/.kotlin/
 *.iml
 .DS_Store
 .vscode/
+
+# ---- Agent configuration ----
+# Shared agent config is committed (.claude/settings.json, agents/, skills/,
+# commands/); personal overrides are not.
+.claude/settings.local.json

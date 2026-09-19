@@ -74,7 +74,7 @@ internal abstract class TimetableDao {
      * [replaceAll] swaps the class row and the days atomically, so reading them
      * through three separate statements can straddle that swap and return the
      * class from before it with the days from after — an old "обновлено в …"
-     * над a new week, or the reverse. The widget redraws on the sync broadcast,
+     * over a new week, or the reverse. The widget redraws on the sync broadcast,
      * which puts it at exactly that instant.
      */
     @Transaction

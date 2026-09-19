@@ -747,7 +747,7 @@ async def test_homework_in_another_case_updates_the_task_already_set(
     client, session, school_class, recording_bot
 ):
     """Homework upserts on (date, subject_name), so a phone sending «алгебра»
-    used to found a second задание beside the «Алгебра» already there — and
+    used to found a second assignment beside the «Алгебра» already there — and
     both then went out in the evening digest. It also survived a rename, which
     moves homework by exact old name, and afterwards named a subject the class
     no longer had.
@@ -1019,7 +1019,7 @@ async def test_a_day_cannot_ring_a_bell_schedule_that_has_no_rows(
     «⏱ Сокращённые уроки», with nothing logged anywhere.
 
     Worse, `timetable_edit.rung_indexes_on` falls back to the class's default
-    bells when the named schedule has no rows, so a замена for that day is
+    bells when the named schedule has no rows, so a substitution for that day is
     accepted at any number the *ordinary* day rings — the one check that exists
     to stop a lesson being stored where nothing can draw it.
 
@@ -1041,7 +1041,7 @@ async def test_a_day_cannot_ring_a_bell_schedule_that_has_no_rows(
     assert refused.status_code == 422, refused.text
     assert refused.json()["detail"] == "в этом расписании звонков нет ни одного урока"
 
-    # Nothing was written, so nothing draws an empty day and no замена can be
+    # Nothing was written, so nothing draws an empty day and no substitution can be
     # hung on one.
     assert (
         await session.scalar(select(DayOverride).where(DayOverride.class_id == school_class.id))
@@ -1058,9 +1058,9 @@ async def test_cancelling_a_lesson_the_day_does_not_have_is_refused(
 ):
     """«🚫 Урок №7 отменён» about a number nobody was going to be at.
 
-    A замена at an empty number is a legitimate edit — it is how a lesson is
-    *added* to a day — but a cancellation needs something to cancel. The row
-    was stored, written to the журнал and announced to every subscriber, and
+    A substitution at an empty number is a legitimate edit — it is how a lesson
+    is *added* to a day — but a cancellation needs something to cancel. The row
+    was stored, written to the log and announced to every subscriber, and
     then the resolver dropped it on the way out, because it only cancels a
     lesson the day actually has. The bot cannot reach this: it draws its «🚫»
     under a lesson that exists.
@@ -1377,7 +1377,7 @@ async def test_cron_tick_sweeps_the_phones_that_stopped_asking(
     A pupil who reinstalls, clears the app's data or re-enters the code leaves
     the previous token behind — live, able to read the class for as long as the
     class exists, and on the admin's list forever. The cut-off is deliberately
-    far past каникулы: a phone silent since the end of May must still work in
+    far past the summer holidays: a phone silent since the end of May must still work in
     September.
     """
     _configure_cron(monkeypatch)

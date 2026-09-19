@@ -3,7 +3,7 @@
 Role ladder (weakest first): VIEWER -> EDITOR -> ADMIN -> OWNER.
 
 * VIEWER  — reads the schedule and homework in the bot.
-* EDITOR  — writes homework, замены and events. This is the role you hand to a
+* EDITOR  — writes homework, substitutions and events. This is the role you hand to a
             classmate whose phone number you add.
 * ADMIN   — everything an editor can do, plus the weekly timetable, bells and
             granting/revoking EDITOR and VIEWER.
@@ -153,7 +153,7 @@ async def claim_phone_invites(
         # keeps the higher of the two, so an invite below somebody's existing
         # role changes nothing — but the caller draws the main menu from what
         # is returned here, and an admin was told «роль: Наблюдатель» and given
-        # a наблюдатель's keyboard, with «🧩 Расписание», «👥 Доступ» and
+        # an observer's keyboard, with «🧩 Расписание», «👥 Доступ» and
         # «⚙️ Класс» simply absent.
         granted.append((school_class, membership.role))
 

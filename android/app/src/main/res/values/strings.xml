@@ -7,18 +7,18 @@
 
     <string name="app_name">Дневник</string>
 
-    <!-- Навигация -->
+    <!-- Navigation -->
     <string name="nav_today">Сегодня</string>
     <string name="nav_week">Календарь</string>
     <string name="nav_homework">Задания</string>
     <string name="nav_settings">Настройки</string>
 
-    <!-- Общие действия -->
+    <!-- Common actions -->
     <string name="action_save">Сохранить</string>
     <string name="action_cancel">Отмена</string>
     <string name="action_back">Назад</string>
 
-    <!-- Первый запуск -->
+    <!-- First run -->
     <string name="onboarding_welcome_title">Добро пожаловать в «%1$s»</string>
     <string name="onboarding_welcome_subtitle">Расписание, замены и домашние задания вашего класса — в приложении и на главном экране.</string>
     <string name="onboarding_action_begin">Давайте начнём</string>
@@ -43,7 +43,7 @@
     <string name="onboarding_action_later">Потом</string>
     <string name="onboarding_action_continue">Дальше</string>
 
-    <!-- Подключение к классу -->
+    <!-- Joining a class -->
     <string name="join_title">Подключиться к классу</string>
     <string name="join_subtitle">Введите код, который дал классный руководитель</string>
     <string name="join_code_label">Код класса</string>
@@ -71,19 +71,19 @@
     <string name="join_server_section">Сервер</string>
     <string name="join_server_unset">По умолчанию — сервер класса</string>
 
-    <!-- Диалог адреса сервера -->
+    <!-- The server-address dialog -->
     <string name="server_dialog_title">Адрес сервера</string>
     <string name="server_dialog_description">Меняйте только если школа использует свой сервер.</string>
     <string name="server_dialog_label">Адрес</string>
     <string name="server_dialog_placeholder">https://…</string>
 
-    <!-- Сегодня -->
+    <!-- The Today tab -->
     <string name="today_title">Сегодня</string>
     <string name="today_lessons_remaining">Оставшиеся уроки</string>
     <string name="today_lessons_all">Уроки на сегодня</string>
     <string name="today_events">События</string>
 
-    <!-- Календарь -->
+    <!-- Calendar -->
     <string name="schedule_view_week">Неделя</string>
     <string name="schedule_view_month">Месяц</string>
     <string name="schedule_view_day">День</string>
@@ -109,10 +109,10 @@
     <string name="today_no_lessons_title">Уроков нет</string>
     <string name="today_no_lessons_description">Сегодня занятий не запланировано.</string>
 
-    <!-- Виды событий -->
+    <!-- Kinds of event -->
 
-    <!-- Даты -->
-    <!-- Сокращения дней недели, для строки чипов в настройках уведомлений -->
+    <!-- Dates -->
+    <!-- Short weekday names, for the chip row in the notification settings -->
     <string name="weekday_short_monday">Пн</string>
     <string name="weekday_short_tuesday">Вт</string>
     <string name="weekday_short_wednesday">Ср</string>
@@ -124,7 +124,7 @@
     <string name="day_tomorrow">Завтра</string>
     <string name="day_yesterday">Вчера</string>
 
-    <!-- Синхронизация -->
+    <!-- Sync -->
     <string name="sync_never">Ещё не обновлялось</string>
     <string name="sync_at_time">Обновлено в %1$s</string>
     <string name="sync_at_date_time">Обновлено %1$s в %2$s</string>
@@ -135,7 +135,7 @@
     <string name="sync_error_failed">Не удалось обновить: %1$s</string>
     <string name="sync_error_generic">Не удалось обновить расписание</string>
 
-    <!-- Неделя -->
+    <!-- Week -->
     <string name="week_title">Календарь</string>
     <string name="week_range">%1$s — %2$s</string>
     <!--
@@ -153,7 +153,7 @@
     <string name="week_day_off_title">Уроков нет</string>
     <string name="week_day_off_description">Выходной или свободный день.</string>
 
-    <!-- Уроки -->
+    <!-- Lessons -->
     <plurals name="lessons_count">
         <item quantity="one">%1$d урок</item>
         <item quantity="few">%1$d урока</item>
@@ -161,13 +161,13 @@
         <item quantity="other">%1$d урока</item>
     </plurals>
 
-    <!-- Виды дней -->
+    <!-- Kinds of day -->
     <string name="day_kind_normal">Обычный день</string>
     <string name="day_kind_holiday">Каникулы</string>
     <string name="day_kind_shortened">Сокращённый день</string>
     <string name="day_kind_remote">Дистанционно</string>
 
-    <!-- Домашние задания -->
+    <!-- Homework -->
     <string name="homework_title">Задания</string>
     <string name="homework_filter_upcoming">Только будущие</string>
     <string name="homework_filter_all">Все</string>
@@ -176,7 +176,7 @@
     <string name="homework_empty_description">Когда учитель что-то задаст, задание появится здесь.</string>
     <string name="homework_empty_filtered_description">Будущих заданий нет — нажмите «Все», чтобы посмотреть прошлые.</string>
 
-    <!-- Настройки -->
+    <!-- Settings -->
     <string name="settings_title">Настройки</string>
     <string name="settings_sections">Разделы</string>
     <string name="settings_appearance_summary">Тема, цвета, шрифт, его размер и язык</string>
@@ -198,7 +198,7 @@
     <string name="settings_class_group">Ваш класс</string>
     <string name="settings_about_group">Приложение</string>
 
-    <!-- Отладка -->
+    <!-- Debug -->
     <string name="settings_debug">Отчёты о сбоях</string>
     <string name="settings_debug_description">Сохранять на устройстве, что произошло перед закрытием приложения. Отчёт можно отправить разработчику.</string>
     <string name="debug_title">Отладка</string>
@@ -233,7 +233,7 @@
     <string name="settings_text_size_large">Крупнее</string>
     <string name="settings_text_size_huge">Самый крупный</string>
 
-    <!-- Язык -->
+    <!-- Language -->
     <string name="settings_language_group">Язык</string>
     <string name="settings_language">Язык приложения</string>
     <string name="settings_language_description">«Системный» — тот, что выбран в телефоне.</string>
@@ -319,7 +319,7 @@
     <string name="settings_sign_out_all_message">Расписания всех классов будут удалены с устройства. Чтобы вернуться, понадобится код каждого.</string>
     <string name="settings_about">О приложении</string>
 
-    <!-- Уведомления -->
+    <!-- Notifications -->
     <string name="settings_alerts">Уведомления</string>
     <string name="settings_alerts_summary">Звонок, сводка на день, домашка, замены и тихие часы</string>
     <string name="settings_alerts_blocked_group">Доступ</string>

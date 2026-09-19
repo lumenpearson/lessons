@@ -1,143 +1,147 @@
-# Положение об использовании ИИ при написании кода
+# AI usage policy for writing code
 
-## Наша позиция
+## Where we stand
 
-Мы, участники и сопровождающие проекта, признаём инструменты искусственного интеллекта
-обычной частью рабочего процесса. Их использование не требует оправданий и не делает
-вклад менее ценным. Значительная часть этого репозитория написана именно так, и история
-коммитов этого не скрывает.
+We, the contributors and maintainers of this project, treat artificial-intelligence tools
+as an ordinary part of the working process. Using them needs no justification and makes a
+contribution no less valuable. A significant part of this repository was written that way,
+and the commit history does not hide it.
 
-Одновременно мы придерживаемся простого принципа: **ответственность за вклад несёт
-человек, который его отправил, независимо от того, как этот вклад был получен.**
-Инструмент может предложить решение, но выбор, проверку и последствия этого выбора берёт
-на себя автор pull request.
+At the same time we hold to a simple principle: **the person who submits a contribution is
+responsible for it, however that contribution was produced.** A tool can propose a
+solution, but the choice, the verification and the consequences of that choice belong to
+the author of the pull request.
 
-Это положение описывает, что из этого следует на практике. Оно не ограничивает выбор
-инструментов.
+This policy describes what follows from that in practice. It does not restrict the choice
+of tools.
 
-## Что участник подтверждает своим вкладом
+## What a contributor affirms by contributing
 
-Отправляя изменения, вы подтверждаете следующее — так же, как подтверждали бы это для
-кода, написанного вручную:
+By submitting a change you affirm the following — exactly as you would for code written by
+hand:
 
-- условия использования применённого инструмента не накладывают на его результат
-  ограничений, несовместимых с лицензией проекта (MIT), с политикой проекта в отношении
-  интеллектуальной собственности или с [Open Source Definition](https://opensource.org/osd);
-- если результат содержит заимствованные материалы, защищённые авторским правом, у вас
-  есть разрешение правообладателя на их использование, изменение и передачу проекту;
-- вместе с таким вкладом вы приводите указание на права третьих лиц и сведения о
-  применимых лицензионных условиях.
+- the terms of the tool you used place no restriction on its output that is incompatible
+  with the project's licence (MIT), with the project's position on intellectual property,
+  or with the [Open Source Definition](https://opensource.org/osd);
+- if the output contains borrowed material protected by copyright, you have the rights
+  holder's permission to use it, change it and pass it to the project;
+- together with such a contribution you state the third-party rights involved and the
+  licence terms that apply.
 
-Последнее в этом проекте не абстракция. Дизайн-система и часть компонентов перенесены
-из [sameerasw/essentials](https://github.com/sameerasw/essentials) (MIT), и в
-[docs/design.md](docs/design.md) написано, что именно взято и что сделано иначе. Шрифт
-приехал тем же путём, но лицензия у него своя — SIL Open Font License 1.1, © 2015 Google
-LLC, — и это ровно тот случай, ради которого пункт выше написан: лицензия репозитория
-покрывает то, что его автор вправе лицензировать, а не всё, что в нём лежит. Проверять
-надо у самого файла: гарнитура объявляет лицензию в своей таблице `name`. Так же
-устроена и работа с электронным дневником Петербурга: его адреса и параметры установлены
-по открытым клиентам и **использованы как карта, а не скопированы**. Новое заимствование
-описывается так же — иначе через полгода никто не сможет ответить, откуда это взялось.
+The last one is not an abstraction in this project. The design system and some of the
+components were carried over from
+[sameerasw/essentials](https://github.com/sameerasw/essentials) (MIT), and
+[docs/design.md](docs/design.md) says what exactly was taken and what was done differently.
+The typeface arrived the same way, but its licence is its own — SIL Open Font License 1.1,
+© 2015 Google LLC — and that is precisely the case the clause above is written for: a
+repository's licence covers what its author is entitled to license, not everything that
+sits inside it. Check with the file itself: a typeface declares its licence in its own
+`name` table. The work with the Petersburg electronic diary is arranged the same way: its
+addresses and parameters were established from open clients and **used as a map, not
+copied**. A new piece of borrowing is described the same way — otherwise in six months
+nobody will be able to say where it came from.
 
-## Что участник проверяет перед отправкой
+## What a contributor checks before submitting
 
-- **Прочитайте то, что отправляете.** Код, который вы не разобрали построчно, нельзя
-  считать проверенным — и неважно, кто его написал.
-- **Читайте определение, а не только места вызова.** В этом проекте вывод «по вызовам»
-  уже приводил к неверным заключениям, и `docs/design.md` хранит разбор четырнадцати
-  подтверждённых дефектов, половина которых выглядела корректно из любого другого файла.
-- **Проверьте версию зависимости в её репозитории.** Первый прогон CI здесь упал на
-  четырёх версиях, которых не существует ни в одном репозитории; все четыре выглядели
-  правдоподобно. Заголовок `android/gradle/libs.versions.toml` написан после этого.
-- **Проверьте, что строка переведена.** Русская строка без английской пары не ломает
-  сборку, её ловит `ResourceTranslationTest` — и лучше пусть ловит он, чем пользователь.
-- **Приводите доказательства, а не утверждения.** В pull request вставляйте реальный
-  вывод `pytest`, `ruff` и `./gradlew test`. «Всё проходит» доказательством не является.
-- **Не описывайте как пройденное то, что не запускалось.** README ведёт раздел «Честный
-  статус» именно потому, что компиляция ничего не говорит о том, что происходит на
-  экране.
-- **Отдельно указывайте, что вклад не покрывает.** Умолчание вредит проекту сильнее, чем
-  неполнота.
+- **Read what you are submitting.** Code you have not gone through line by line cannot be
+  called verified — and it does not matter who wrote it.
+- **Read the definition, not only the call sites.** In this project, a conclusion drawn
+  "from the callers" has already produced a wrong answer, and `docs/design.md` keeps the
+  analysis of the confirmed defects, half of which looked correct from any other file.
+- **Check a dependency's version in its own repository.** The first CI run here failed on
+  four versions that exist in no repository; all four looked plausible. The header of
+  `android/gradle/libs.versions.toml` was written after that.
+- **Check that a string is translated.** A Russian string with no English twin does not
+  break the build; `ResourceTranslationTest` catches it — and better it than a user.
+- **Bring evidence, not assertions.** Paste the real output of `pytest`, `ruff` and
+  `./gradlew test` into the pull request. "Everything passes" is not evidence.
+- **Do not describe as passed what was never run.** The README keeps an "Honest status"
+  section precisely because compilation says nothing about what happens on the screen.
+- **State separately what the contribution does not cover.** Silence harms the project more
+  than incompleteness does.
 
-Эти требования одинаковы для всех участников. Они перечислены здесь потому, что
-инструменты ИИ производят правдоподобный текст быстрее, чем человек успевает его
-проверить, — и это единственная особенность, которая заслуживает отдельного упоминания.
+These requirements are the same for every contributor. They are listed here because AI
+tools produce plausible text faster than a person can check it — and that is the one
+particularity worth mentioning separately.
 
-## Данные, которые нельзя передавать инструментам
+## Data that may not be given to a tool
 
-Дополняя раздел «Особенности этого проекта» в [Кодексе поведения](CODE_OF_CONDUCT.md): не
-вставляйте в диалог с внешним сервисом то, что этот Кодекс запрещает публиковать.
+Extending the "What is particular about this project" section of the
+[Code of Conduct](CODE_OF_CONDUCT.md): do not paste into a conversation with an external
+service anything that Code forbids publishing.
 
-- токен бота, `WEBHOOK_SECRET`, `CRON_SECRET`, строку подключения к базе, токен
-  устройства и содержимое `server/.env`;
-- пароль и токен сессии электронного дневника — свои или чужие;
-- хранилище ключей для подписи APK, его пароли и содержимое
+- the bot token, `WEBHOOK_SECRET`, `CRON_SECRET`, the database connection string, a device
+  token and the contents of `server/.env`;
+- the password and session token of an electronic diary — yours or anybody else's;
+- the keystore that signs the APK, its passwords and the contents of
   `~/.gradle/gradle.properties`;
-- настоящее расписание с фамилиями учителей, код класса, дамп базы школы.
+- a real timetable with teachers' surnames, a class code, a dump of a school's database.
 
-Отправка данных во внешний сервис равнозначна их публикации: они могут быть сохранены или
-проиндексированы даже после удаления диалога. Для отладки годится демо-класс
-`scripts/seed_demo.py` — он для этого и написан.
+Sending data to an external service is equivalent to publishing it: it may be stored or
+indexed even after the conversation is deleted. For debugging, the demo class from
+`scripts/seed_demo.py` will do — that is what it was written for.
 
-## Указание авторства в коммитах
+## Attribution in commits
 
-У коммита один автор — человек, который отвечает за изменение. Всё остальное в сообщении
-служит тому, чтобы через год можно было понять причину правки.
+A commit has one author: the person who answers for the change. Everything else in the
+message serves one purpose — that a year from now the reason for the edit can still be
+worked out.
 
-Исторически сложившееся соглашение этого репозитория — **оставлять в конце сообщения
-строку `Co-Authored-By`, называющую инструмент**, если он участвовал: так сделано в
-подавляющем большинстве коммитов, и ломать единообразие истории ради нового правила
-незачем. Строка ничего не меняет в распределении ответственности: она называет
-инструмент, а отвечает за изменение тот, кто его отправил.
+The convention this repository grew into is to **keep a `Co-Authored-By` trailer naming the
+tool** at the end of the message when one took part: the overwhelming majority of commits
+do it, and there is no reason to break the consistency of the history for a new rule. The
+trailer changes nothing about where responsibility sits: it names a tool, while the person
+who submitted the change is the one who answers for it.
 
-Чего в сообщении быть не должно — рекламных формулировок и описания процесса вместо
-результата. Заголовок говорит, что изменение позволяет проекту делать, тело — почему;
-«сгенерировано с помощью» не отвечает ни на один из этих вопросов.
+What a message must not contain is promotional phrasing, or a description of the process in
+place of the result. The subject says what the change lets the project do, the body says
+why; "generated with" answers neither question.
 
-## Автоматизированные участники
+## Automated contributors
 
-Проект предполагает, что часть работы выполняют агенты. Сведения о репозитории,
-загружаемые в каждую сессию, лежат в [`CLAUDE.md`](CLAUDE.md): команды, границы модулей и
-перечень того, что укусит того, кто их не знает. Отдельного каталога с правилами для
-агентов здесь нет — правила те же, что для людей, и живут в этом файле и в
+The project assumes that part of the work is done by agents. The information about the
+repository that is loaded into every session lives in [`CLAUDE.md`](CLAUDE.md): the
+commands, the module boundaries, and the list of what will bite anybody who does not know
+them. The agent configuration around it is in [`.claude/`](.claude/README.md) — agents for
+each area of the tree, the procedures they follow, and the permissions a session runs
+under. The rules themselves are the same as for people, and they live in this file and in
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Одно правило существует только из-за агентов: **в этом дереве может параллельно работать
-кто-то ещё.** Посмотрите `git status` перед тем, как трогать файл, который вы не
-открывали, и не откатывайте чужую незакоммиченную работу.
+One rule exists only because of agents: **somebody else may be working in this tree at the
+same time.** Look at `git status` before you touch a file you did not open, and do not
+revert somebody else's uncommitted work.
 
-Агент действует от имени человека, который его запустил. Все обязательства этого
-положения остаются на этом человеке.
+An agent acts on behalf of the person who started it. Every obligation in this policy stays
+with that person.
 
-## Что не запрещается
+## What is not forbidden
 
-Чтобы избежать чрезмерно осторожного толкования — перечислим прямо. Положение не
-запрещает и не ограничивает:
+To head off an over-cautious reading, here it is plainly. This policy does not forbid or
+restrict:
 
-- использование любых инструментов ИИ на любом этапе работы;
-- генерацию кода, тестов, документации, сообщений коммитов и описаний pull request;
-- рефакторинг, поиск ошибок, объяснение чужого кода и обзор изменений с их помощью;
-- работу через агентов, в том числе выполняющих задачи продолжительное время.
+- using any AI tool at any stage of the work;
+- generating code, tests, documentation, commit messages and pull request descriptions;
+- refactoring, hunting bugs, explaining somebody else's code and reviewing changes with
+  their help;
+- working through agents, including ones that run a task for a long time.
 
-Требование ровно одно: вклад должен быть проверен и понят человеком, который его
-отправляет.
+There is exactly one requirement: the contribution must be verified and understood by the
+person submitting it.
 
-## Применение
+## Enforcement
 
-Несоблюдение этого положения рассматривается так же, как несоблюдение любых других
-требований к вкладу, описанных в [CONTRIBUTING.md](CONTRIBUTING.md): изменение
-возвращается на доработку с указанием причины.
+Failing to follow this policy is treated the same way as failing to follow any other
+requirement for a contribution described in [CONTRIBUTING.md](CONTRIBUTING.md): the change
+goes back for rework with the reason stated.
 
-Систематическая отправка непроверенных изменений, а также передача во внешние сервисы
-данных, перечисленных выше, рассматриваются в порядке, описанном в
-[Кодексе поведения](CODE_OF_CONDUCT.md).
+Systematically submitting unverified changes, and passing the data listed above to external
+services, are handled in the manner described in the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Атрибуция
+## Attribution
 
-Раздел «Что участник подтверждает своим вкладом» составлен с опорой на
-[Generative AI Policy](https://www.linuxfoundation.org/legal/generative-ai)
-Linux Foundation.
+The section "What a contributor affirms by contributing" draws on the Linux Foundation's
+[Generative AI Policy](https://www.linuxfoundation.org/legal/generative-ai).
 
-Стилистика и порядок разделов следуют [Кодексу поведения](CODE_OF_CONDUCT.md) этого
-проекта, адаптированному из [Contributor Covenant](https://www.contributor-covenant.org)
-версии 2.1.
+The tone and the order of the sections follow this project's
+[Code of Conduct](CODE_OF_CONDUCT.md), adapted from the
+[Contributor Covenant](https://www.contributor-covenant.org), version 2.1.

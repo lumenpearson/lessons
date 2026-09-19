@@ -81,7 +81,7 @@ class Teacher(BaseModel):
 class Mark(BaseModel):
     """One entry in the register.
 
-    @property value what is written in the cell: "5", "Н", "!" - already
+    @property value what is written in the cell: «5», «Н», «!» - already
         normalised, so a client never has to know which code means absent.
     """
 

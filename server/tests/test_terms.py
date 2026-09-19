@@ -1,4 +1,4 @@
-"""Четверти and полугодия — the rules, not the rendering.
+"""Quarters and half-years — the rules, not the rendering.
 
 The scheme follows the grade until an admin says otherwise, the dates are the
 school's own and therefore editable, and the edits that a school year cannot
@@ -173,7 +173,7 @@ async def test_a_date_resolves_to_the_term_holding_it(session, school_class):
 
 
 async def test_the_summer_belongs_to_no_term(session, school_class):
-    """Каникулы are a real answer, not a missing one."""
+    """The holidays are a real answer, not a missing one."""
     school_class.grade = 9
     seeded = await service.ensure(session, school_class, 2026)
 
@@ -185,10 +185,10 @@ async def test_moving_a_class_up_a_grade_does_not_destroy_its_edited_terms(
 ):
     """`ensure` seeds, it does not replace — and the difference is a read path.
 
-    A 9-й класс keeps `term_kind` NULL, so the scheme is answered from the
-    grade. Promoting the class to 10 therefore made the *next bundle request
-    from any phone* delete four четверти whose dates an admin had corrected by
-    hand and write two conventional полугодия over them, with nothing asked and
+    A class in year 9 keeps `term_kind` NULL, so the scheme is answered from
+    the grade. Promoting the class to 10 therefore made the *next bundle request
+    from any phone* delete four quarters whose dates an admin had corrected by
+    hand and write two conventional half-years over them, with nothing asked and
     no audit line. Only `set_scheme`, which passes `kind` explicitly, may throw
     a set away.
     """
@@ -270,9 +270,9 @@ async def test_a_scheme_change_that_loses_the_race_still_changes_the_scheme(
 ):
     """`set_scheme` is the one caller that may not accept the other set.
 
-    A read-path seed landing first writes the four четверти the grade implies.
+    A read-path seed landing first writes the four quarters the grade implies.
     Conceding to them would answer «сделано» to an admin who asked for
-    полугодия and leave quarters on the screen, so the losing pass replaces
+    half-years and leave quarters on the screen, so the losing pass replaces
     them — which is what a scheme change means when the set already exists.
 
     Called as `set_scheme` calls it, minus the `term_kind` assignment:

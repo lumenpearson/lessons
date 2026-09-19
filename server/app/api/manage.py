@@ -19,7 +19,7 @@ Two rules this module never bends:
   device or request is fetched by ``(id, class_id)``, so an id naming another
   class's row finds nothing rather than editing it.
 
-Days, замены, events and homework are *not* here: they are the day-to-day
+Days, substitutions, events and homework are *not* here: they are the day-to-day
 writes and they already live in ``app.api.edit`` under the editor's role.
 """
 
@@ -479,7 +479,7 @@ async def subject_update(
 ) -> SubjectSavedOut:
     """Rename a subject, or set its short name, teacher or colour.
 
-    A rename is a cascade: the timetable, the homework and the замены store the
+    A rename is a cascade: the timetable, the homework and the substitutions store the
     subject as text, so all three move with it in this one transaction, and
     ``moved`` says how many rows did. Renaming onto a name the class already
     uses is refused - merging two subjects is a different operation, and doing
@@ -547,7 +547,7 @@ async def subject_delete(
     """Deleting a subject the timetable still uses is refused.
 
     It used to be allowed, and it left the lessons alone: the timetable stores
-    the name as well as the link, so the class kept its расписание and lost
+    the name as well as the link, so the class kept its timetable and lost
     only the colour and the teacher. That stopped being true when the
     dictionary started keeping itself. The name is still in the template, so
     the next read adopts it again - the entry returns within one poll, without
@@ -1283,7 +1283,7 @@ async def request_decline(
 
 
 # --------------------------------------------------------------------------
-# Четверти и полугодия
+# Quarters and half-years
 #
 # The same service the bot's editor calls, for the same reason the rest of
 # this module does it that way: «пересекается с периодом 2» decided twice
@@ -1332,7 +1332,7 @@ async def terms_set_scheme(
     school_class: SchoolClass = Depends(current_class),
     session: AsyncSession = Depends(get_session),
 ) -> TermsOut:
-    """Switch between четверти and полугодия, reseeding the year.
+    """Switch between quarters and half-years, reseeding the year.
 
     A replacement rather than an edit: four quarters and two halves do not map
     onto each other, and a leftover third quarter inside a year that has two is

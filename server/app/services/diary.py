@@ -372,10 +372,10 @@ class DiaryService:
 
     async def periods(self, group_id: int) -> list[AcademicPeriod]:
         # The upstream's own clock, not the server's. This decides which
-        # четверть is «текущая», and `api/diary.py` answers «какие предметы»
+        # term is «текущая», and `api/diary.py` answers «какие предметы»
         # with nothing at all when no period is current — so on the evening of
         # the day a quarter opens, a server running in UTC (which Vercel does)
-        # was still in yesterday, which is каникулы, and the subjects screen
+        # was still in yesterday, which is a holiday, and the subjects screen
         # came back empty. Every other "today" in this project comes from
         # `SchoolClass.timezone`; a diary session has no class behind it, and
         # `petersburg.today()` is the clock of the one city whose diary this is.

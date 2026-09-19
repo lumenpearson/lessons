@@ -161,7 +161,7 @@ data class AppSettings(
     val todayWholeDay: Boolean = false,
     /** How many homework rows the home screen previews; see [HOMEWORK_PREVIEW_OPTIONS]. */
     val todayHomeworkPreview: Int = DEFAULT_HOMEWORK_PREVIEW,
-    /** Today's non-lesson entries — линейка, столовая, экскурсия — on the home screen. */
+    /** Today's non-lesson entries — an assembly, lunch, an excursion — on the home screen. */
     val todayShowEvents: Boolean = true,
     /** Which date the calendar's week strip begins on; see [WeekStart]. */
     val weekStart: WeekStart = WeekStart.MONDAY,

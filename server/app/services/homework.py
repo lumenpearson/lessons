@@ -1,4 +1,4 @@
-"""One задание per subject per day, and the rule that makes that true.
+"""One assignment per subject per day, and the rule that makes that true.
 
 Both shells already said this — `api/edit.py:homework_put`'s docstring opens
 with «Upsert by (date, subject)» and the bot's flow does the same thing by hand
@@ -51,16 +51,16 @@ async def upsert(
     actor: int,
     attachment_url: str | None = None,
 ) -> tuple[Homework, bool]:
-    """Save the задание, and say whether it is new.
+    """Save the assignment, and say whether it is new.
 
-    The subject goes through the dictionary first: `app/schedule.py` looks a
-    задание up against the lesson by exact name, so «алгебра» typed on a phone
-    has to become the «Алгебра» the class already uses — otherwise it founds a
-    second задание beside the first instead of replacing it, which is the same
-    duplicate by another route.
+    The subject goes through the dictionary first: `app/schedule.py` looks an
+    assignment up against the lesson by exact name, so «алгебра» typed on a
+    phone has to become the «Алгебра» the class already uses — otherwise it
+    founds a second assignment beside the first instead of replacing it, which
+    is the same duplicate by another route.
 
     Nothing is committed. The caller commits it together with its audit line,
-    so a задание and the record of who set it land as one fact.
+    so an assignment and the record of who set it land as one fact.
     """
     subject_name = await subjects.spelling(session, class_id, subject)
 

@@ -50,7 +50,7 @@ internal fun SchoolClassEntity.toDomain(): SchoolClassInfo = SchoolClassInfo(
  * `index|kind|start|end` per line, and a line that does not parse is dropped.
  *
  * Dropped rather than defaulted: a term with an invented date would shade the
- * wrong weeks of the calendar and name the wrong четверть, and the cache is
+ * wrong weeks of the calendar and name the wrong term, and the cache is
  * rebuilt from the server on the next sync anyway. Nothing here is the source
  * of truth.
  */

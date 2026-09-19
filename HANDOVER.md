@@ -1,1146 +1,1170 @@
-# Где сейчас работа
+# Where the work stands
 
-Рабочий документ, а не часть справочника в `docs/`. Он описывает **состояние на
-момент передачи**, чтобы новая сессия — человека или агента — продолжила с того
-же места, ничего не переоткрывая и не переделывая.
+A working document, not part of the reference set in `docs/`. It describes **the state at
+the moment of handover**, so that a new session — human or agent — continues from the same
+place without reopening or redoing anything.
 
-Последнее обновление: **19 сентября 2026**, после мерджа PR #47, #48 и #49.
-`main` и `dev` сошлись на `7e53bd5`; база на голове `0013`; бой отвечает
-`{"status":"ok","schema":"0013"}`. В предыдущей порции: публикация репозитория
-и всё, что из неё следовало (история просмотрена на секреты, `pytest` в CI
-разложен по ядрам, артефакты живут неделю), деплой, который отказывается
-стартовать вместо того чтобы молча взять локальное умолчание, и лицензия
-Google Sans Flex — она OFL 1.1, а не MIT, как утверждали комментарий и
-документация: текст лицензии теперь едет внутри APK, стоит восьмой строкой в
-«Лицензиях», и `FontLicenceTest` читает `name`-таблицу самого шрифта, чтобы
-заявленное и лежащее рядом не разъехались.
+Last updated: **19 September 2026**, after PRs #47, #48, #49 and #50 were merged and while
+**PR #51 is open** — the agent configuration in `.claude/`, and the whole written layer of
+the project moved into English (see "Everything written about the project is English" in
+section 6). `main` is at `22399e9`, `dev` is ten commits ahead of it; the database is at head
+`0013`; production answers `{"status":"ok","schema":"0013"}`. Two batches earlier: publishing the repository and
+everything that followed from it (the history reviewed for secrets, `pytest` in CI spread
+across cores, artifacts living a week), a deployment that refuses to start rather than
+quietly taking a local default, and the Google Sans Flex licence — it is OFL 1.1 rather than
+MIT, as the comment and the documentation claimed: the licence text now travels inside the
+APK, stands as the eighth row under «Лицензии», and `FontLicenceTest` reads the typeface's
+own `name` table so that what is claimed and what lies beside it cannot drift apart.
 
-**Открыт PR #50** (`dev` → `main`), пять коммитов. Первые два — режим исправления
-перевода на всём тексте приложения (см. «Режим исправления знает про весь текст»
-в разделе 6 и новый раздел `docs/design.md`). Остальные три — **аудит всего
-проекта девятью субагентами по областям**: API, бот, `services`+`schedule`+
-`models`, провайдеры+конфиг+миграции, `:core:model`+`:core:data`,
-дизайн-система+виджет, `:app`, сам режим исправления, и отдельно — сборка, CI,
-скрипты и целостность тестового набора.
+**PR #50 is merged**, five commits; it needed no migration — the model did not change and the
+head stayed `0013`. The first two commits are the translation-correction mode across all of
+the app's text (see "The correction mode knows about all the text" in section 6 and the new
+section of `docs/design.md`). The other three are **an audit of the whole project by nine
+subagents, split by area**: the API, the bot, `services` + `schedule` + `models`, the
+providers + config + migrations, `:core:model` + `:core:data`, the design system + the
+widget, `:app`, the correction mode itself, and separately the build, CI, the scripts and
+the integrity of the test suite.
 
-Тридцать одна находка, все проверены вручную перед починкой; каждая закрыта
-тестом, который падает на коде без неё. Тесты: 1362 → 1391 серверных, 578 → 605
-Android. Самое серьёзное, по одному предложению на пункт:
+Thirty-one findings, every one verified by hand before it was fixed; each closed by a test
+that fails on the code without it. Tests: 1362 → 1391 on the server, 578 → 605 on Android.
+The most serious, one sentence each:
 
-* пять рендереров бота и вечерний дайджест перебирали 4096 символов Telegram —
-  сообщение отклоняется целиком, и `/today` (простой `answer`) отвечал ничем;
-* пустое расписание звонков можно было сделать основным для класса: `/bundle`
-  отдавал ноль уроков, `/now` — «выходной» в понедельник, и расписание при этом
-  лежало нетронутым;
-* переименование предмета на имя, которое есть только в заданиях, падало 500 и
-  теряло переименование целиком;
-* сокращение звонков молча снимало с расписания все уроки выше нового потолка;
-* `401` на `/bundle` не доходил до `onTokenRejected` — `Response<T>` в Retrofit
-  не бросает, — и отозванное устройство сохраняло класс и год чужих данных;
-* `304` на пустой кэш отвечал «успех» навсегда: приложение оставалось пустым;
-* дублирующаяся сессионная кука роняла весь дневник в 500 на каждом вызове;
-* `POST /diary/login` был неограниченным оракулом паролей к чужому сервису;
-* тег релиза мог опубликовать APK, подписанный отладочным ключом, — гейт
-  проверял один секрет из четырёх;
-* `seed_demo` писал туда, куда указывает `DATABASE_URL`, ничего об этом не
-  говоря.
+* five of the bot's renderers and the evening digest went past Telegram's 4096 characters —
+  the message is refused whole, and `/today` (a plain `answer`) replied with nothing;
+* an empty bell schedule could be made a class's default: `/bundle` handed back zero
+  lessons, `/now` said «выходной» on a Monday, and the timetable lay untouched throughout;
+* renaming a subject onto a name that exists only in the homework failed with a 500 and lost
+  the rename entirely;
+* shortening the bells silently took every lesson above the new ceiling off the timetable;
+* a `401` on `/bundle` never reached `onTokenRejected` — a `Response<T>` in Retrofit does not
+  throw — and a revoked device kept a class and a year of somebody else's data;
+* a `304` against an empty cache answered "success" for ever: the app stayed empty;
+* a duplicated session cookie dropped the whole diary into a 500 on every call;
+* `POST /diary/login` was an unlimited password oracle against somebody else's service;
+* a release tag could publish an APK signed with the debug key — the gate checked one secret
+  of four;
+* `seed_demo` wrote to wherever `DATABASE_URL` pointed, saying nothing about it.
 
-**Три теста утверждали дефект как правильное поведение** и заменены. Полный
-список находок и что с каждой сделано — в телах коммитов `5ec62a6`, `afba3c5`,
-`b8d8deb` и `3997b29`.
+**Three tests asserted the defect as correct behaviour** and were replaced. The full list of
+findings and what was done with each is in the bodies of commits `5ec62a6`, `afba3c5`,
+`b8d8deb` and `3997b29`.
 
-Что остаётся незакрытым:
+What is still open:
 
-1. **Внешний cron не заведён.** Пока его нет, сводки уходят тогда, когда GitHub
-   соблаговолит выполнить расписание, — замерено 6.7 раза в сутки вместо 288.
-   Обещание бота «в течение примерно пяти минут» до этого момента неправда.
-   Что именно завести — `docs/deploy.md`, «Часы».
-2. **Хост боевого эндпоинта Neon и идентификатор проекта остались в истории.**
-   Из рабочего дерева они убраны, но репозиторий публичный, а историю это не
-   меняет. Пароль роли владелец сменил и обновил `DATABASE_URL` в Vercel, так
-   что адреса в истории уже недостаточно. **Переменная задана только в области
-   Production:** Preview падает на `ModuleNotFoundError: No module named
-   'aiosqlite'` — это и есть отказ на входе, просто до того, как он научился
-   называть себя. Задать её в Preview или не смотреть на превью-деплои.
+1. **The external cron is not set up.** Until it is, the digests go out whenever GitHub
+   deigns to run the schedule — measured at 6.7 times a day instead of 288. The bot's promise
+   that they arrive "within about five minutes" is untrue until then. What exactly to set up
+   is in `docs/deploy.md`, "The clock".
+2. **The production Neon endpoint's host and the project id stayed in the history.** They are
+   out of the working tree, but the repository is public and that does not change the
+   history. The owner changed the role's password and updated `DATABASE_URL` in Vercel, so
+   the address in the history is no longer enough on its own. **The variable is set for
+   Production only:** Preview fails with `ModuleNotFoundError: No module named 'aiosqlite'` —
+   which is the refusal at the door, just from before it learned to name itself. Either set
+   it for Preview too, or do not look at preview deployments.
 
-Если вы агент: сначала `CLAUDE.md` (правила проекта), потом этот файл (что уже
-сделано и что осталось). Считайте всё ниже проверенным фактом на указанную дату,
-но **перепроверьте ветки и CI перед первым действием** — они живут своей жизнью,
-и этот файл устаревает в тот момент, когда его перестают обновлять.
+If you are an agent: `CLAUDE.md` first (the project's rules), then this file (what is already
+done and what is left), and the agent configuration is in `.claude/` (see section 6, "The
+agent configuration lives in `.claude/`"). Treat everything below as verified fact as of the
+date above, but **re-check the branches and CI before your first action** — they live their
+own lives, and this file goes stale the moment it stops being updated.
 
 ---
 
-## 1. Одним абзацем
+## 1. In one paragraph
 
-**Веток ровно две: `main` и `dev`,** и после PR #43 они сошлись. Вся работа,
-которая копилась в `dev`, теперь в `main`: бывшая рабочая ветка, пять веток
-dependabot — cryptography, asyncpg, AGP, группа androidx и обёртка Gradle — и
-восемь содержательных коммитов поверх. Шесть исходных веток удалены, их PR
-(#35, #36, #38, #39, #41, #42) закрыты со статусом **Closed, а не Merged**:
-GitHub считает PR влитым только когда коммиты попали в его базу, а база у всех
-шести — `main`. Код при этом не потерян: он приехал через #43.
+**There are exactly two branches, `main` and `dev`,** and after PR #43 they met. Everything
+that had piled up in `dev` is now in `main`: the former working branch, five dependabot
+branches — cryptography, asyncpg, AGP, the androidx group and the Gradle wrapper — and eight
+substantive commits on top. The six original branches are deleted and their pull requests
+(#35, #36, #38, #39, #41, #42) are closed with the status **Closed rather than Merged**:
+GitHub counts a pull request as merged only when its commits reached its own base, and the
+base for all six was `main`. The code was not lost: it arrived through #43.
 
-Поверх этого в `dev` легли десять содержательных коммитов:
+On top of that, ten substantive commits landed in `dev`:
 
-* `8ec2e31` — телефон держит несколько классов сразу и переключается между ними;
-* `569bab8` — шесть дефектов, которые четыре аудита нашли в `8ec2e31`. Первый
-  из них серьёзный: `401` по одному классу выкидывал устройство **из всех**;
-* `ce02348` — правки поверх дневника с откатом, и ревизия `0009`;
-* `c6ba66c` — пятнадцать находок двух аудитов по `ce02348`;
-* `59c7a77` — режим приёма у класса, личные коды подключения, ревизии `0010` и
-  `0011`, и семь находок ещё одного аудита;
-* `98c8018` — база доведена до `0011` через коннектор Neon, **до** мерджа;
-* `70b9dcb` — `429` на экране кода говорит, сколько ждать, а не «HTTP 429»;
-* `ab488ad` — двадцать одна находка трёх аудитов: по Android, по боту и по
-  документации;
-* `8aa4ecd` — три экрана приложения нажимаются в сборке (Robolectric в `:app`);
-* `bf74233` — «🗓 Четверти» падала в проде на каждое нажатие; починена;
-* `a58d2be` — проверка «тянется ли код за атрибутом, которого нет», по всему
-  серверу; `rows_affected`; тринадцать тестов на потоки `content.py`;
-* `33deca3` — остальные карточки бота нарисованы в тестах, и восемь из них
-  оказались сломаны;
-* `a9be1c4` — у каждой нарисованной строки есть кнопка, алерт обрезан по
-  потолку Telegram, мёртвый рендерер удалён;
-* `6a1dded` — подделанное нажатие получает отказ, а не вечный спиннер;
-* `f3839c8` — дата, которой нет в календаре, отклоняется, а не роняет
-  обработчик;
-* `c2038e4` — вид события и номер урока проверяются там, где их выбирают;
-* `1d84d89` — далёкая дата отвечает 422, а не 500, и `PATCH /tasks` не кладёт
-  NULL в NOT NULL;
-* `ae8e3b8` — обратный отсчёт и четверть говорят на языке телефона; сторож
-  перевода расширен с одного модуля на все четыре;
-* `8cba40b` — семь находок в адаптерах и плюмбинге: дневник больше не теряет
-  время урока и единственного ребёнка;
-* `94ea9b5` — расписание звонков читается по номерам, а не по числу строк;
-  четыре находки в общих правилах;
-* `4f5471d` — шаблон перестал разворачиваться всё лето; замена и паста дня
-  проверяют звонок; одно задание на предмет в день; ревизии `0012` и `0013`;
-* `3a592c9` — страница входа в дневник перестала винить пароль; `httpx` прибит;
-  турникет, токен из пробелов, откат транзакции в `current_revision`;
-* `69bf4ba` — одна ссылка — один вход; `/bundle` не падает, проиграв гонку за
-  посев четвертей; экран предметов не выбрасывает свою же привязку.
+* `8ec2e31` — a phone holds several classes at once and switches between them;
+* `569bab8` — six defects that four audits found in `8ec2e31`. The first is serious: a `401`
+  on one class threw the device out of **all** of them;
+* `ce02348` — corrections laid over the diary, with an undo, and revision `0009`;
+* `c6ba66c` — fifteen findings from two audits of `ce02348`;
+* `59c7a77` — the class's join mode, the personal connect codes, revisions `0010` and `0011`,
+  and seven findings from one more audit;
+* `98c8018` — the database brought up to `0011` through the Neon connector, **before** the
+  merge;
+* `70b9dcb` — a `429` on the code screen says how long to wait rather than "HTTP 429";
+* `ab488ad` — twenty-one findings from three audits: Android, the bot and the documentation;
+* `8aa4ecd` — three of the app's screens are pressed in the build (Robolectric in `:app`);
+* `bf74233` — «🗓 Четверти» crashed in production on every press; fixed;
+* `a58d2be` — the "does the code reach for an attribute that does not exist" check across the
+  whole server; `rows_affected`; thirteen tests on the flows in `content.py`;
+* `33deca3` — the rest of the bot's cards are drawn in tests, and eight of them turned out to
+  be broken;
+* `a9be1c4` — every drawn row has a button, the alert is cut at Telegram's ceiling, a dead
+  renderer is deleted;
+* `6a1dded` — a forged press gets a refusal rather than an endless spinner;
+* `f3839c8` — a date that is not in the calendar is rejected rather than crashing the handler;
+* `c2038e4` — an event's kind and a lesson's number are checked where they are picked;
+* `1d84d89` — a far-away date answers 422 rather than 500, and `PATCH /tasks` does not put
+  NULL into a NOT NULL;
+* `ae8e3b8` — the countdown and the quarter speak the phone's language; the translation guard
+  is extended from one module to all four;
+* `8cba40b` — seven findings in the adapters and the plumbing: the diary no longer loses a
+  lesson's time or an only child;
+* `94ea9b5` — a bell schedule is read by its numbers rather than by its row count; four
+  findings in the shared rules;
+* `4f5471d` — the template stopped expanding all summer; a substitution and a pasted day
+  check the bell; one assignment per subject per day; revisions `0012` and `0013`;
+* `3a592c9` — the diary sign-in page stopped blaming the password; `httpx` pinned; the
+  turnstile, a token made of spaces, a rolled-back transaction in `current_revision`;
+* `69bf4ba` — one link, one sign-in; `/bundle` does not fail after losing the race to seed
+  the terms; the subjects screen does not throw away its own link.
 
-Четвёртый заход (четыре субагента по четырём непересекающимся зонам, каждая
-находка перепроверена откатом починки здесь, а не на слово):
+The fourth pass (four subagents over four non-overlapping zones, every finding re-checked
+here by reverting the fix rather than taken on trust):
 
-* `ea3afc8` — «без звонка пропущено N» считает строки, а не номера;
-* `24b4841` — дневник замечает смену формы ответа вместо пустой недели;
-* `7712dc7` — `scripts.init_db` штампует `alembic_version`; `requirements.txt`
-  держится вровень с `pyproject.toml` тестами, а не вниманием;
-* `8bec2ff` — выбранный класс пережил подметание брошенных разговоров;
-* `0c99993` — снятый доступ уносит с собой рассылки класса;
-* `8995fa6` — роль в меню, время первой сводки, длина дайджеста ДЗ;
-* `38e8aec` — день нельзя повесить на расписание звонков без строк;
-* `bf2338d` — вход в дневник без `DIARY_SECRET` отвечает 503, а не 500;
-* `591b3a4` — «Выйти» из дневника не оставляет вторую живую сессию;
-* `7c99652` — у каждого уведомления своя цель нажатия; виджет не прячет
-  кабинет ради учителя, которого нет;
-* `cc3935e` — удаление урока не сдвигает соседа на номер без звонка; счётчик
-  «собрать из расписания» перестал считать чужие строки своими.
+* `ea3afc8` — "N skipped, no bell" counts rows rather than numbers;
+* `24b4841` — the diary notices a changed response shape instead of an empty week;
+* `7712dc7` — `scripts.init_db` stamps `alembic_version`; `requirements.txt` is kept level
+  with `pyproject.toml` by tests rather than by attentiveness;
+* `8bec2ff` — the selected class survived the sweeping of abandoned dialogues;
+* `0c99993` — revoked access takes the class's subscriptions with it;
+* `8995fa6` — the role in the menu, the time of the first digest, the length of the homework
+  digest;
+* `38e8aec` — a day cannot be hung on a bell schedule with no rows;
+* `bf2338d` — signing into the diary with no `DIARY_SECRET` answers 503 rather than 500;
+* `591b3a4` — «Выйти» from the diary leaves no second live session behind;
+* `7c99652` — every notification has its own press target; the widget does not hide the room
+  for the sake of a teacher who is not there;
+* `cc3935e` — deleting a lesson does not shift its neighbour onto a number with no bell; the
+  "collect from the timetable" counter stopped counting other classes' rows as its own.
 
-Пятый заход — то, что четвёртый назвал, но не сделал:
+The fifth pass — what the fourth named but did not do:
 
-* `a47d58c` — виджет при упавшем чтении не гонит в «введите код класса»;
-  единственная непроверяемая минутная настройка приведена к диапазону;
-* `1676915` — вебхук проверяет секрет до разбора тела, а потолок тела формы
-  входа меряется по дороге, а не после того, как всё уже в памяти;
-* `a0fe48b` — одна ссылка календаря на класс (условный `UPDATE` и чтение
-  обратно), и сборка дайджеста в savepoint'е, чтобы упавший класс не уносил с
-  собой весь тик на Postgres;
-* `060f385` — отмена урока, которого в этом дне нет, отклоняется: раньше она
-  уходила в журнал и всем подписчикам, а рисовалась нигде.
+* `a47d58c` — on a failed read the widget does not push you to "enter a class code"; the one
+  unverifiable minute setting is brought into a range;
+* `1676915` — the webhook checks the secret before parsing the body, and the sign-in form's
+  body ceiling is measured on the way rather than after everything is already in memory;
+* `a0fe48b` — one calendar link per class (a conditional `UPDATE` and a read back), and the
+  digest assembled inside a savepoint, so that one failing class does not take the whole tick
+  down on Postgres;
+* `060f385` — cancelling a lesson that is not in that day is rejected: it used to go into the
+  log and out to every subscriber, and be drawn nowhere.
 
-Шестой заход — оба решения владельца приняты и сделаны:
+The sixth pass — both of the owner's decisions taken and done:
 
-* `f0ba014` — дата вне учебного года читается как `DayOff(HOLIDAY)`, а не как
-  «нет данных»: летом виджет пишет «Каникулы» и показывает домашку на первое
-  сентября вместо просьбы потянуть вниз, которой нечего было принести. Дата
-  **внутри** года с пустым кэшем осталась `NoData` — там потянуть как раз
-  помогает;
-* `5b10815` — клиент шлёт `If-None-Match`. Тег лежит в DataStore под подписью
-  запроса (класс, `start`, `days`), так что 1 сентября и смена класса просто
-  перестают совпадать и следующая синхронизация просит всё окно. `304` не
-  пишет в Room и **не** будит виджет, но двигает «обновлено N назад»: эта
-  строка — про проверку, а не про данные.
+* `f0ba014` — a date outside the school year reads as `DayOff(HOLIDAY)` rather than "no
+  data": in summer the widget says «Каникулы» and shows the homework for 1 September instead
+  of asking to be pulled down for something that was never coming. A date **inside** the year
+  with an empty cache stayed `NoData` — there, pulling down is exactly what helps;
+* `5b10815` — the client sends `If-None-Match`. The tag sits in DataStore under the request's
+  signature (class, `start`, `days`), so 1 September and a change of class simply stop
+  matching and the next sync asks for the whole window. A `304` does not write to Room and
+  does **not** wake the widget, but it does move "updated N ago": that line is about the
+  check rather than about the data.
 
-**Раздел 3.1 закрыт целиком.** Невзятой запрошенной работы не осталось.
+**Section 3.1 is closed entirely.** No requested work is left untaken.
 
 ```
-Влито:   PR #43, PR #44, PR #45 (шесть заходов, 38 коммитов, мердж 26ad184),
-         затем PR #47, #48 и #49 — `main` на `7e53bd5`
-Открыт:  PR #50 (`dev` → `main`) — режим исправления на всём тексте
-Ветки:   main и dev; dev идёт от `7e53bd5`, то есть от мерджа #49
-Ворота:  ruff чисто, mypy чисто, 1391 серверный тест, 605 Android, обе сборки
-База:    прод на `0013` — это голова. `0010`–`0012` применены через коннектор
-         Neon ДО мерджа, `0013` (UNIQUE) — ПОСЛЕ, как требует её форма.
-         Отдельных действий с базой не осталось
+Merged:  PR #43, PR #44, PR #45 (six passes, 38 commits, merge 26ad184),
+         then PR #47, #48, #49 and #50 — main at 22399e9
+Open:    PR #51 (dev → main) — the agent configuration, and this translation
+Branches: main and dev; dev runs from 22399e9, that is, from the merge of #50
+Gates:   ruff clean, mypy clean, 1391 server tests, 605 Android, both assembles
+Database: production at 0013, which is the head. 0010–0012 were applied through
+         the Neon connector BEFORE the merge, 0013 (a UNIQUE) AFTER, as its
+         shape requires. No separate database action is outstanding
 ```
 
-**Мердж в `main` — это деплой.** Vercel собирает `main` сам. Порядок на этот
-раз был смешанный, и так и задумано: `0010`–`0012` ушли в базу заранее, поэтому
-окно «код знает колонку, которой в базе нет» не открывалось ни на секунду, а
-`0013` — ограничение, о которое ломается **старый** код, — легла сразу после
-мерджа. Между ними `services/homework.py` вёл себя ровно как прод до него.
-Проверить, что сошлось, — одним запросом:
+**A merge to `main` is a deploy.** Vercel builds `main` by itself. The order was mixed this
+time, and deliberately so: `0010`–`0012` went into the database in advance, so the window in
+which the code knows a column the database does not have never opened for a second, while
+`0013` — a constraint that the **old** code breaks against — went on immediately after the
+merge. Between them `services/homework.py` behaved exactly as production did before it. One
+request checks that it all lines up:
 
 ```bash
-curl -s https://<проект>.vercel.app/api/v1/warmup   # {"status":"ok","schema":"0013"}
+curl -s https://<project>.vercel.app/api/v1/warmup   # {"status":"ok","schema":"0013"}
 ```
 
-`"degraded"` здесь означал бы, что деплой не доехал; до применения `0013` тот
-же запрос честно звал базу отстающей, потому что `EXPECTED_REVISION` уже был
+A `"degraded"` here would mean the deploy had not arrived; before `0013` was applied, the
+same request honestly called the database behind, because `EXPECTED_REVISION` was already
 `0013`.
 
-**Пять PR от dependabot теперь можно закрывать без сожалений** — их бампы
-приехали в `main` вместе с `dev`. Если он успел пересоздать их до мерджа, они
-станут пустыми сами.
+**The five dependabot pull requests can now be closed without regret** — their bumps arrived
+in `main` together with `dev`. If it managed to recreate them before the merge, they will
+turn empty by themselves.
 
-### Как продолжить
+### How to continue
 
-`dev` остаётся рабочей веткой, но после мерджа её начинают заново от `main`:
-влитый PR новых коммитов не принимает, а история #45 целиком лежит в `main`.
+`dev` remains the working branch, but after a merge it is restarted from `main`: a merged
+pull request accepts no new commits, and the whole history of #45 is in `main`.
 
 ```bash
 git fetch origin
-git checkout -B dev origin/main   # тот же dev, новая точка старта
+git checkout -B dev origin/main   # the same dev, a new starting point
 ```
 
-Ворота, обе половины (`CLAUDE.md` требует прогонять обе, если тронули обе):
+The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
-cd server  && ruff check app tests scripts migrations   # чисто
-cd server  && python -m pytest -q -n auto                 # 1391 тест, ~1.5 мин
-cd server  && python -m mypy                              # чисто, 79 модулей
-cd android && ./gradlew test                             # 605 тестов
-cd android && ./gradlew assembleDebug assembleRelease    # обе сборки
+cd server  && ruff check app tests scripts migrations   # clean
+cd server  && python -m pytest -q -n auto                # 1391 tests, ~1.5 min
+cd server  && python -m mypy                             # clean, 79 modules
+cd android && ./gradlew test                             # 605 tests
+cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
 ---
 
-## 2. Что сделано
+## 2. What has been done
 
-Снизу вверх. Подробности каждого — в теле коммита и в описании PR #43; здесь
-только чтобы не искать.
+Bottom up. The details of each are in its commit body and in the description of PR #43; this
+is only so that you do not have to go looking.
 
-| Коммит | Что сделал |
+| Commit | What it did |
 | --- | --- |
-| `b7c82d1` | Нижнее затухание начинается там же, где у Essentials (130 dp) |
-| `aacf886` | Три дефекта от сличения с Essentials: `CrashReporter`, `AppLocale`, `derivedStateOf` |
-| `478861e` | Горизонт расписания — учебный год, а не месяц от понедельника |
-| `cf01b96` | Класс по цифре и букве; четверти/полугодия; ревизия `0008` |
-| `d2d8d23` | `CLAUDE.md`: миграции применяются через коннектор Neon |
-| `9b7b907` | Справочник школ за `providers/dadata/`, поиск в боте и в приложении |
-| `af20180` | `401` на классовом токене роняет сессию и кэш |
-| `fc9989f` | Словарь предметов и расписание — один список |
-| `92518c5` | Двенадцать дефектов от двух аудитов свежего кода |
-| `bd4ce41` | Чётность недель, UID календаря, две цепочки будильников |
-| `ef6e530` | Один тик на одну сводку; сокращённый день без звонков — отказ |
-| `c35ebd3` | CI: `setup-android` закреплён на `v4.0.1` + `packages: platform-tools` |
-| `236b259` | Кавычки в экспорте расписания; урок без звонка не пишется |
-| `e5cc939` | `pyproject.toml` вровень с `requirements.txt` после pip-бампов |
-| `bfa1689` | Что compose-bom 2026.09.00 сделал со слоем-перехватчиком |
-| `e55ea2f` | Этот файл — на `dev`, а не на одну рабочую ветку |
-| `a1bbeb5` | Этот файл — по факту: шесть веток закрыты, PR живой один |
-| `8ec2e31` | Несколько классов на одном телефоне и переключение между ними |
-| `569bab8` | Шесть дефектов из аудита `8ec2e31`; `401` роняет один класс, не все |
-| `ce02348` | Правки поверх дневника с откатом; ревизия `0009` |
-| `c6ba66c` | Пятнадцать находок двух аудитов по `ce02348` |
-| `59c7a77` | Режим приёма у класса и личные коды; ревизии `0010` и `0011` |
-| `98c8018` | База доведена до `0011` |
-| `70b9dcb` | `429` на экране кода — в минутах, а не «HTTP 429 Too Many Requests» |
-| `8aa4ecd` | Три экрана приложения нажимаются в сборке: Robolectric в `:app` |
-| `bf74233` | «🗓 Четверти» падала в проде на каждое нажатие; рендеринг накрыт |
-| `a58d2be` | Проверка на «атрибут, которого нет», по всему серверу; `rows_affected` |
-| `33deca3` | Карточки бота нарисованы в тестах; восемь оказались сломаны |
-| `a9be1c4` | Каждая строка списка достижима кнопкой; алерт обрезан по 200 |
-| `6a1dded` | Подделанное нажатие получает отказ; порядок членств задан |
-| `f3839c8` | Смещение дня из callback-данных не переполняет дату |
-| `c2038e4` | Вид события и номер урока проверяются при выборе |
-| `1d84d89` | 422 вместо 500 на далёкой дате; NULL в NOT NULL отклонён |
-| `ae8e3b8` | Отсчёт и четверть локализованы; сторож перевода на все модули |
-| `8cba40b` | Семь находок в провайдерах, конфиге, FSM и разборе URL базы |
-| `94ea9b5` | Звонки по номерам; слот не двоится; четверть по часам дневника |
-| `4f5471d` | Лето без уроков; звонок под заменой и пастой; ревизии `0012`/`0013` |
-| `3a592c9` | Вход в дневник не винит пароль; `httpx` с верхней границей |
-| `69bf4ba` | Две гонки закрыты условным UPDATE и savepoint'ом |
-| `ea3afc8` | Импорт считает выброшенные строки, а не их номера |
-| `24b4841` | Дневник замечает смену формы ответа, а не отвечает пустой неделей |
-| `7712dc7` | Штамп ревизии после `init_db`; зеркало `requirements.txt` под тестом |
-| `8bec2ff` | Выбранный класс не подметается вместе с разговорами |
-| `0c99993` | Снятый доступ уносит рассылки класса |
-| `8995fa6` | Роль в меню, время первой сводки, длина дайджеста ДЗ |
-| `38e8aec` | День не вешается на расписание звонков без строк |
-| `bf2338d` | Вход в дневник без ключа — 503, а не 500 |
-| `591b3a4` | «Выйти» из дневника не оставляет вторую сессию |
-| `7c99652` | Своя цель нажатия у каждого уведомления; кабинет в виджете |
-| `cc3935e` | Удаление урока не сдвигает соседа на номер без звонка |
+| `b7c82d1` | The bottom fade starts where Essentials' does (130 dp) |
+| `aacf886` | Three defects found by comparing against Essentials: `CrashReporter`, `AppLocale`, `derivedStateOf` |
+| `478861e` | The timetable's horizon is a school year, not a month from Monday |
+| `cf01b96` | A class by its number and letter; quarters and half-years; revision `0008` |
+| `d2d8d23` | `CLAUDE.md`: migrations are applied through the Neon connector |
+| `9b7b907` | The schools registry behind `providers/dadata/`, searchable in the bot and the app |
+| `af20180` | A `401` on a class token drops the session and the cache |
+| `fc9989f` | The subject dictionary and the timetable are one list |
+| `92518c5` | Twelve defects from two audits of fresh code |
+| `bd4ce41` | Week parity, the calendar's UIDs, the two alarm chains |
+| `ef6e530` | One tick per digest; a shortened day with no bells is refused |
+| `c35ebd3` | CI: `setup-android` pinned to `v4.0.1` + `packages: platform-tools` |
+| `236b259` | Quoting in the timetable export; a lesson with no bell is not written |
+| `e5cc939` | `pyproject.toml` level with `requirements.txt` after the pip bumps |
+| `bfa1689` | What compose-bom 2026.09.00 did to the intercepting layer |
+| `e55ea2f` | This file, on `dev` rather than on one working branch |
+| `a1bbeb5` | This file, brought to the facts: six branches closed, one live pull request |
+| `8ec2e31` | Several classes on one phone, and switching between them |
+| `569bab8` | Six defects from the audit of `8ec2e31`; a `401` drops one class, not all |
+| `ce02348` | Corrections over the diary, with an undo; revision `0009` |
+| `c6ba66c` | Fifteen findings from two audits of `ce02348` |
+| `59c7a77` | The class's join mode and the personal codes; revisions `0010` and `0011` |
+| `98c8018` | The database brought up to `0011` |
+| `70b9dcb` | The `429` on the code screen, in minutes rather than "HTTP 429 Too Many Requests" |
+| `8aa4ecd` | Three of the app's screens are pressed in the build: Robolectric in `:app` |
+| `bf74233` | «🗓 Четверти» crashed in production on every press; the rendering is covered |
+| `a58d2be` | The "attribute that does not exist" check across the whole server; `rows_affected` |
+| `33deca3` | The bot's cards drawn in tests; eight turned out to be broken |
+| `a9be1c4` | Every row of a list is reachable by a button; the alert is cut at 200 |
+| `6a1dded` | A forged press gets a refusal; the order of memberships is fixed |
+| `f3839c8` | A day offset out of callback data does not overflow the date |
+| `c2038e4` | An event's kind and a lesson's number are checked where they are picked |
+| `1d84d89` | 422 instead of 500 on a far-away date; NULL into a NOT NULL refused |
+| `ae8e3b8` | The countdown and the quarter localised; the translation guard across all modules |
+| `8cba40b` | Seven findings in the providers, the config, the FSM and the database URL parsing |
+| `94ea9b5` | Bells by number; a slot does not double; a quarter on the diary's clock |
+| `4f5471d` | A summer with no lessons; the bell under a substitution and a paste; revisions `0012`/`0013` |
+| `3a592c9` | The diary sign-in does not blame the password; `httpx` with an upper bound |
+| `69bf4ba` | Two races closed with a conditional UPDATE and a savepoint |
+| `ea3afc8` | The import counts dropped rows rather than their numbers |
+| `24b4841` | The diary notices a changed response shape instead of answering with an empty week |
+| `7712dc7` | The revision stamp after `init_db`; the `requirements.txt` mirror under test |
+| `8bec2ff` | The selected class is not swept up along with the dialogues |
+| `0c99993` | Revoked access takes the class's subscriptions with it |
+| `8995fa6` | The role in the menu, the time of the first digest, the length of the homework digest |
+| `38e8aec` | A day is not hung on a bell schedule with no rows |
+| `bf2338d` | Signing into the diary with no key is a 503, not a 500 |
+| `591b3a4` | «Выйти» from the diary leaves no second session |
+| `7c99652` | Each notification has its own press target; the room in the widget |
+| `cc3935e` | Deleting a lesson does not shift its neighbour onto a number with no bell |
 
-**Аудитов на этой ветке было тринадцать.** Четыре по ранней работе
-(шестнадцать находок), четыре по `8ec2e31` (шесть), два по `ce02348`
-(пятнадцать) и один по `59c7a77` (семь); три — по Android, по боту и по документации (`ab488ad`), и два
-последних, которые рисовали карточки бота и нашли девять дефектов
-(`bf74233`, `33deca3`).
-Самая тяжёлая из всех:
-чётность недель считалась по номеру ISO-недели, который не чередуется в
-53-недельном году, — с января 2027 весь знаменатель **текущего** учебного года
-выезжал на неделю, одновременно в API, виджете, сводках и календаре.
+**There were thirteen audits on this branch.** Four of the early work (sixteen findings),
+four of `8ec2e31` (six), two of `ce02348` (fifteen) and one of `59c7a77` (seven); three
+covering Android, the bot and the documentation (`ab488ad`), and the last two, which drew the
+bot's cards and found nine defects (`bf74233`, `33deca3`). The heaviest of the lot: week
+parity was computed from the ISO week number, which does not alternate in a 53-week year — so
+from January 2027 the whole denominator of the **current** school year slid by a week,
+simultaneously in the API, the widget, the digests and the calendar.
 
-**Миграции:** прод на `0011`, и это последняя написанная ревизия. `0007`–`0011`
-применены **до** мерджа через коннектор Neon; подробности и что именно каждая
-сделала — раздел 7, пункт 1. **Перед мерджем с базой делать нечего.**
-
----
-
-## 3. Что НЕ сделано
-
-### 3.1. Фичи, которые запрашивали — все три сделаны
-
-**Невзятой запрошенной работы не осталось.** Раздел оставлен вычеркнутым, а не
-удалён: он показывает, что именно просили и чем это в итоге оказалось.
-
-~~1. **Индивидуальный выбор класса учеником.**~~ Сделано в `8ec2e31`. Телефон
-   держит список членств, показывает одно из них и переключается мгновенно;
-   кэш разложен по классам, так что переключение работает и без сети. Что
-   именно не проверено — раздел 5.
-~~2. **Правки поверх данных dnevnik2 со сбросом.**~~ Сделано в `ce02348`.
-   Нажатие на урок или задание открывает окно, где поля можно переписать; под
-   каждым написано, что в дневнике на самом деле. Наверх не уходит ничего,
-   оценки и турникет править нельзя, в боте правки не показываются (раздел 6).
-~~3. **Два режима при приглашении и обратимое переключение между ними.**~~
-   Постановка уточнена у владельца: это **режим приёма у класса**. Сделано —
-   `join_mode` у класса, `open` или `invite`; в `invite` код класса не пускает
-   никого, а телефон заходит по личному одноразовому коду из бота. Переключение
-   обратимое и не отключает ни одного уже подключённого телефона. Подробности —
-   раздел 6, «Кто пускает телефон».
-
-### 3.2. Чего нет вовсе (давние пробелы, не регрессии)
-
-Совпадает с разделом «Чего нет вовсе» в `README.md`:
-
-- Вложений к домашнему заданию: поле `attachment_url` в схеме есть, загрузки нет.
-- Привязки класса к записи в реестре: хранится только название школы, так что
-  переименование в ЕГРЮЛ пройдёт мимо класса незамеченным.
-- Виджет остаётся на системном шрифте: Glance передаёт `fontFamily` как имя
-  системного семейства, а не как ресурс.
-
-### 3.3. Лицензия шрифта — закрыто, и не так, как здесь было написано
-
-**`google_sans_flex.ttf` под SIL Open Font License 1.1**, Copyright 2015 Google
-LLC. Шрифт объявляет это сам, в таблице `name`, записи 13 и 14. В этом разделе
-и в комментарии `theme/Type.kt` было написано «MIT из Essentials» и вывод, что
-гарнитура несвободная и её надо убрать до публикации; ни то, ни другое не
-подтвердилось, когда файл наконец открыли и прочитали.
-
-Держит это `FontLicenceTest` в `:core:designsystem`: он разбирает таблицу `name`
-каждого шрифта в дереве и требует, чтобы под `assets/licenses/` лежало
-уведомление с тем же копирайтом и той же лицензией, и чтобы это был текст, а не
-ссылка. Раньше связь между файлом и уведомлением держалась ни на чём — переехало
-бы одно, сборка осталась бы зелёной.
-
-Убирать нечего. Сделано то, чего лицензия действительно требует: текст OFL
-положен рядом со шрифтом в `assets/licenses/` — то есть уезжает внутрь APK,
-как «копия лицензии сопровождает копию шрифта», — лицензия названа в
-приложении на листе «Лицензии», а комментарий и `docs/design.md` больше не
-утверждают неправду. Reserved Font Name не объявлен, файл не модифицируется,
-товарный знак «Google Sans» остаётся товарным знаком: вкладывать можно,
-называть им продукт нельзя.
+**Migrations:** production is at `0013`, and that is the last revision written. `0007`–`0012`
+were applied **before** the merge through the Neon connector and `0013` after it; the details
+and what each one did are in section 7, item 1. **There is nothing left to do to the database
+before a merge.**
 
 ---
 
-## 4. Открытых дефектов нет
+## 3. What has NOT been done
 
-Все шестнадцать находок первых четырёх аудитов закрыты, все шесть находок
-четырёх аудитов по `8ec2e31` — тоже (`569bab8`), пятнадцать по `ce02348`
-(`c6ba66c`), семь по `59c7a77` и все находки трёх последних аудитов — по
-Android, по боту и по документации. И пять из шести дефектов, которые
-`docs/design.md` носил в разделе «известно и пока не исправлено».
-Шестой — снимок экрана на главном потоке — оказался не дефектом, а ограничением
-платформы (`View.draw` обязан идти на UI-потоке) и переписан в «Ограничения».
+### 3.1. The features that were requested — all three are done
 
-**Не заводите это заново как баги.** Если аудит новой сессии снова назовёт
-что-то из списка ниже, сначала проверьте по коду, не закрыто ли:
+**No requested work is left untaken.** The section is kept struck through rather than
+deleted: it shows what exactly was asked for and what it turned out to be.
 
-- чётность недель по ISO-номеру → теперь считается от начала учебного года;
-- позиционные UID в календаре → теперь идентификатор строки;
-- `setWindow` в будильниках виджета → теперь `setAndAllowWhileIdle`;
-- `SchoolAlerts.fire` без защиты публикации → каждая публикация в `runCatching`;
-- `mark_sent` после выборки → теперь `claim`, условный `UPDATE`;
-- `MAX_INDEX = 20` как потолок дня → теперь потолок по числу звонков класса;
-- экспорт расписания без экранирования запятых → кавычки + последнее поле
-  забирает остаток;
-- `LARGE` прятал домашку → порог `LARGE_TALL` опущен с 400 до 300 dp;
-- `OverlayLayerTest` «падает» на слое-перехватчике → **не дефект**: тест
-  переписан под compose-bom 2026.09.00, который поменял поведение Compose.
-  Красным он был ровно один раз, при слиянии; см. раздел 6.
+~~1. **A pupil choosing their own class.**~~ Done in `8ec2e31`. The phone keeps a list of
+   memberships, shows one of them and switches instantly; the cache is split by class, so
+   switching works with no network too. What exactly is unverified is in section 5.
+~~2. **Corrections over dnevnik2's data, with a reset.**~~ Done in `ce02348`. Pressing a
+   lesson or an assignment opens a window where the fields can be rewritten; under each it
+   says what the diary actually holds. Nothing goes upstream, marks and the turnstile cannot
+   be corrected, and the bot does not show corrections (section 6).
+~~3. **Two modes on invitation, and a reversible switch between them.**~~ The statement was
+   clarified with the owner: this is the **class's join mode**. Done — `join_mode` on a
+   class, `open` or `invite`; in `invite` the class code lets nobody in and a phone joins
+   with a personal one-time code from the bot. The switch is reversible and disconnects not
+   one already-connected phone. The details are in section 6, "Who lets a phone in".
 
-Шесть находок по многоклассовости, закрытых в `569bab8` — тоже не заводите
-заново:
+### 3.2. What does not exist at all (long-standing gaps, not regressions)
 
-- `onTokenRejected` звал `signOut` → теперь `leaveActive`, и `401` по одному
-  классу роняет только его;
-- список членств декодировался целиком → теперь по записи, одна битая не
-  уносит остальные;
-- `syncNow` с `KEEP` глотал синхронизацию после переключения → теперь у
-  переключения `APPEND_OR_REPLACE`;
-- выход из **не** показываемого класса снимал отпечаток расписания → теперь
-  только когда активный класс действительно сменился;
-- уведомление с прошлого класса оставалось на шторке → переключение его
-  снимает;
-- синхронизация «в полёте» воскрешала строки покинутого класса → `retainOnly`
-  подметает их в начале каждой синхронизации.
+The same as the "What does not exist at all" section of `README.md`:
 
-Находки трёх последних аудитов — тоже закрыты, и вот те из них, которые проще
-всего найти второй раз:
+- Attachments to homework: the `attachment_url` field is in the schema, there is no upload.
+- A link between a class and a registry record: only the school's name is stored, so a rename
+  in the company register passes the class unnoticed.
+- The widget stays on the system font: Glance passes `fontFamily` as the name of a system
+  family rather than as a resource.
 
-- `server_default` у enum написан через `.value` → теперь `.name`; в колонке
-  `OPEN`, и это проверяют три теста (раздел 6);
-- `burn` присваивал атрибут → теперь условный `UPDATE`, и `/join` гасит код до
-  выпуска токена;
-- кнопка режима была toggle'ом → теперь несёт режим, которого хочет;
-- подключение по личному коду не писалось в журнал → теперь `device.link`
-  пишется в `/join`;
-- отзыв участника не убивал его невыданные коды → теперь `drop_for`;
-- `session.refresh` после проглоченного отката стоял вне `try` и мог заменить
-  собой `401` с `X-Diary-Reauth` → теперь `_refresh_quietly`, и то же в
-  `api/deps.py`;
-- `mint` удалял и потраченные коды вместе с живыми → теперь только живые;
-- `_is_iso_date` принимал `20260915` и `2026-W38-1` → теперь только
-  `YYYY-MM-DD`;
-- `429` на экране кода рисовался как «HTTP 429 Too Many Requests» → теперь
-  русская фраза с числом минут из `Retry-After`;
-- `join_error_generic` стал недостижим, и вместо него шла английская фраза →
-  `JoinError.of` читает классифицированный отказ, а не сырой;
-- строка без `target` была нажимаемой и вела в `422` → теперь `correctable`;
-- окно правки могло остаться поверх формы входа → `applyFailure` закрывает его
-  вместе с любым запросом пароля;
-- четыре комментария утверждали то, чего код не делает → переписаны по факту.
+### 3.3. The typeface's licence — closed, and not the way this said
 
-И девять пришли не из аудита, а из того, что карточки бота наконец **нарисовали
-в тесте**. Первый — из продакшена: владелец нажал «🗓 Четверти» и получил диалог
-с ошибкой.
+**`google_sans_flex.ttf` is under SIL Open Font License 1.1**, Copyright 2015 Google LLC. The
+typeface declares that itself, in its `name` table, records 13 and 14. This section and the
+comment in `theme/Type.kt` said "MIT, from Essentials" and concluded that the typeface was
+non-free and had to be removed before publication; neither held up once the file was finally
+opened and read.
 
-- `_terms_card` печатал `term.days`, а у `Term` такого атрибута нет: `days` был
-  у `TermView` — «плоской копии терма для рендерера без сессии», которую **ни
-  один путь кода никогда не создавал**. Строку написали против типа, который до
-  неё не доезжает, и узнать об этом можно было только нажав кнопку. `days`
-  переехал на модель, мёртвый двойник удалён, рендеринг накрыт тестами.
+`FontLicenceTest` in `:core:designsystem` holds this: it parses the `name` table of every
+font in the tree and requires a notice under `assets/licenses/` with the same copyright and
+the same licence, and that it be the text rather than a link. The link between the file and
+the notice used to rest on nothing — move one and the build would stay green.
 
-Остальные восемь — из `33deca3`, и два из них забирали экран целиком:
-
-- **дневник не экранировал ничего**, что прислал внешний сервис: предмет,
-  кабинет, учитель, тема, текст задания. Telegram отказывает **всему сообщению**
-  на одной угловой скобке, так что «реши § 4 при a<b» оставляла родителя без
-  расписания вовсе;
-- **редактор не экранировал название предмета**, а грамматика пасты принимает
-  «Алгебра <7>» целиком — одна скобка, и редактор не рисует день, который
-  редактирует;
-- карточка слота у зрителя показывала собственные теги: у `answerCallbackQuery`
-  нет parse mode → `editor_render.as_alert`;
-- `plural` печатает число сам, а три места печатали его ещё раз («перемена ·
-  10 10 минут»). У одного из трёх **был тест**, и он проходил: «10 минут» —
-  подстрока от «10 10 минут»;
-- превью импорта ставило строку про звонки под собственный футер, и паста из
-  одних звонков читалась «Ни одного дня не распознано» над кнопкой, которая эти
-  звонки сейчас заменит;
-- результат импорта считал разобранное, а не записанное, и противоречил себе на
-  соседних строках;
-- `render_bells` молча терял хвост списка за `LIST_MAX`;
-- `_next_day_line` индексировал пустой список;
-- три списочных страницы из четырёх рисовали больше строк, чем под ними было
-  кнопок: сорок предметов над тридцатью ✏️, двадцать расписаний звонков над
-  десятью, двадцать телефонов над пятнадцатью. Хвост был виден, недостижим и
-  ничем не объяснён; «Особые дни» сходились сами с собой случайно — обе стороны
-  говорили 20. Теперь у каждой страницы одно число на двоих
-  (`manage_render.SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX`, `LIST_MAX`), и это
-  проверяет `test_no_list_page_draws_a_row_the_keyboard_cannot_reach`: он
-  спрашивает клавиатуру по id строки, какие из нарисованных она несёт;
-- алерт из карточки урока мерил 284 символа на сдвоенном уроке —
-  `answerCallbackQuery` отдаёт 400 после 200, то есть вечный спиннер;
-- `diary_render.student_line` не вызывал никто: мёртвый рендерер той же формы,
-  что уронил «🗓 Четверти». Удалён.
-
-**Второй заход по дефектам** (четыре агента по непересекающимся областям плюс
-свой срез; у каждой находки — тест, падающий с настоящей ошибкой, если
-починку убрать):
-
-- **два экрана выбора роли ловили одно нажатие.** Обработчик приглашения по
-  номеру стоял на `RolePick.filter()` — на *любом* нажатии роли, пока висит
-  его состояние. Админ, начавший «пригласить по номеру» и потом нажавший роль
-  на старой карточке «Новая роль», создавал **приглашение на телефон** и
-  получал сообщение об успехе про номер, а не про человека;
-- три голых преобразования из callback-данных в `access.py` (`int(target)`,
-  `int(value)`, `Role(role)`) — единственный файл бота, куда не дошла проверка,
-  закрывшая это в `manage.py`. Голый `int()` не отказывает в нажатии, а
-  **вылетает из обработчика**: `callback.answer()` не вызывается, кнопка
-  крутится, пока Telegram не сдастся;
-- `timedelta(days=…)` из callback-данных в трёх листающих экранах (день,
-  неделя, дневник) — `OverflowError`, а не далёкий день;
-- вид события и номер урока в `content.py` хранились сырыми и превращались в
-  `EventKind` / `int` через три вопроса — ровно то, о чём предупреждает
-  комментарий в том же файле строкой выше;
-- порядок членств не был задан, а его читают как значимый три места, включая
-  **порядок кнопок «🔀 Сменить класс»**;
-- `GET /homework?from=9999-12-31` отвечал 500 (арифметика окна шла до
-  проверки границ); то же в `_range` дневника; `PATCH /tasks` с
-  `{"title": null}` клал NULL в NOT NULL-колонку;
-- дневник терял **время урока**, если апстрим отвечает в ISO, и **ребёнка
-  целиком**, если первая запись `educations` нечитаема; неудачный вход
-  сообщался телефону как «сессия истекла», из-за чего человек перенабирал
-  пароль бесконечно;
-- «МБОУ "СОШ № 197"» рисовалось как «МБОУ "Сош № 197"»; опечатка в `TIMEZONE`
-  роняла `/start`; `state.clear()` писал пустую строку в базу (в боте 113
-  таких мест); `describe()` протекал хвостом пароля, содержащего `@`;
-- на телефоне: обратный отсчёт — самая крупная цифра на главном экране — был
-  по-русски под английской подписью, заголовок календаря читался «October 2026
-  · 1 четверть», а `401` в дневнике **ронял приложение**, если запись на диск
-  не удалась.
-- **потолок уроков считался числом звонков, а не их номерами.** Грамматика
-  пасты допускает пропуск, и класс со звонками 1, 2, 4 получал обе ошибки
-  разом: «4. Химия» отклонялась со словами «нет такого звонка» — про звонок из
-  той же пасты, — а редактор написал бы третий урок, которого класс не звонит;
-- **слот расписания мог получить вторую строку, затеняющую первую.**
-  `uq_timetable_cell` не запрещает «каждую неделю» и «числитель» на одном
-  уроке, обе проходят фильтр чётности, а `_load` выбирает без `ORDER BY` — что
-  нарисует телефон, решала база, и между двумя чтениями ответ мог отличаться;
-- **напоминание о задаче забиралось атрибутом, а не базой.** Дайджесты
-  подчиняются правилу из докстринга модуля, задачи — нет, и два накладывающихся
-  тика присылали «⏰ Напоминание» дважды;
-- «текущая четверть» в дневнике читалась по часам сервера, а не по часам
-  дневника: вечером первого дня четверти экран предметов приходил пустым.
-
-**Не находка, а честная оговорка.** У порядка членств теста, падающего до
-починки, нет: тесты идут на SQLite, а он возвращает порядок вставки и с
-`ORDER BY`, и без него. Оставленный тест — сторож, не воспроизведение.
-
-**Третий заход — то, что владелец назвал по списку** (`4f5471d`, `3a592c9`):
-
-- **шаблон разворачивался в июне, июле и августе.** `SCHOOL_YEAR_END_MONTH`
-  равен 5 и комментарий рядом говорит, что с июня повторять шаблон нельзя, —
-  а `_resolve_day` эту константу не читал. Летний будний день приходил полным
-  на телефон, в виджет, в ленту календаря и в утренний дайджест, у которого
-  **своё** правило молчать на пустом дне не могло сработать ни разу: день не
-  был пустым;
-- **замену можно было записать на номер без звонка** — она попадала в журнал
-  и в уведомление «🔁 Замена … урок №8», а рисовал её никто. Проверка теперь в
-  обеих оболочках и **по звонкам того дня** (`rung_indexes_on`), потому что
-  сокращённый день звонит короче обычного;
-- **паста одного дня из бота шла мимо `apply_timetable`** — единственный вход
-  в шаблон без всей его проверки. Восемь уроков в класс, который звонит семь,
-  давали «сохранено уроков — 8» и список из восьми;
-- **два человека, сохранившие одно задание одновременно, получали два.**
-  Обе оболочки обещали «одно задание на предмет в день» в своих же
-  докстрингах; теперь это один `services/homework.py`;
-- **страница входа в дневник винила пароль за любую чужую ошибку** — человек
-  перенабирал верный пароль, пока не сдавался;
-- `httpx` был без верхней границы при зависимости от устаревающей возможности;
-  турникет читал непонятное направление как «выход»; токен из пробелов
-  выглядел как исчерпанный лимит; `current_revision` оставлял транзакцию
-  Postgres аварийной.
-
-- **две гонки «прочитал — записал».** `diary_link.claim` читал билет, проверял
-  его в Python и потом присваивал `used_at`: два одновременных входа получали
-  две сессии дневника на один аккаунт. И `GET /api/v1/bundle` сеет четверти
-  новому классу — а все телефоны класса опрашивают его по одному таймеру, так
-  что «оба нашли год незасеянным» это обычный случай, и на Postgres второй
-  получал `IntegrityError`, то есть **500 на чтении**;
-- `GET /api/v1/manage/subjects` привязывал уроки к словарю и **коммитил только
-  если что-то создал**: у класса с полным словарём и непривязанными уроками
-  UPDATE'ы выполнялись и выбрасывались при каждом чтении. Лечилось только тем,
-  что `/bundle` коммитит безусловно.
-
-**Где я не согласился с агентом.** Он предлагал возвращать билет входа и на
-«непонятный ответ» дневника. Отличить капчу от неверного пароля мы не умеем:
-форма на Yii отвечает на неверный пароль тем же «200 с HTML». Возврат билета
-на такой ответ сделал бы ссылку неограниченным оракулом для подбора пароля с
-нашего адреса — ровно тем, ради чего билет тратится заранее. Возврат сужен до
-«дневник не ответил вовсе»; сообщение перестало винить пароль в обоих случаях,
-а это и был дефект.
+There is nothing to remove. What was done is what the licence actually requires: the OFL text
+is placed next to the font in `assets/licenses/` — so it travels inside the APK, as "a copy
+of the licence accompanies a copy of the font" — the licence is named in the app on the
+«Лицензии» sheet, and neither the comment nor `docs/design.md` asserts something untrue any
+more. No Reserved Font Name is declared, the file is not modified, and the "Google Sans"
+trademark stays a trademark: bundling is allowed, naming a product after it is not.
 
 ---
 
-## 5. Чего не проверял никто
+## 4. There are no open defects
 
-Это главное, что стоит знать: **вся работа доказана тестами и ничем больше.**
+All sixteen findings of the first four audits are closed, as are all six findings of the four
+audits of `8ec2e31` (`569bab8`), the fifteen of `ce02348` (`c6ba66c`), the seven of `59c7a77`
+and every finding of the last three audits — Android, the bot and the documentation. And five
+of the six defects `docs/design.md` carried under "known and not yet fixed". The sixth — the
+screenshot on the main thread — turned out not to be a defect but a platform limitation
+(`View.draw` is obliged to run on the UI thread) and was rewritten into "Limitations".
 
-- **`androidTest` в проекте по-прежнему нет**, и эмулятор здесь недоступен: у
-  контейнера нет `/dev/kvm` и флагов виртуализации, так что запустить систему
-  можно только полной программной эмуляцией, то есть никак.
-  **Но «никто не нажимал» — уже неправда для трёх экранов.** Robolectric гоняет
-  тестовую обвязку Compose на JVM (так уже жил `:core:designsystem`), и теперь
-  то же есть в `:app`: группа классов, переключатель режима приёма и текст
-  отказа на экране кода композятся, нажимаются и проверяются по строкам —
-  21 тест. Это настоящие нажатия по настоящим строкам, а не заглушки: локаль
-  прибита к `ru-rRU`, иначе Robolectric берёт `values-en/` и тест проверяет
-  перевод вместо источника.
-  Чего это **не** доказывает: как оно выглядит. Ни вёрстки, ни тёмной темы, ни
-  анимаций, ни динамических цветов, ни виджета — про него доказано ровно то,
-  что лестница размеров монотонна по реальным размерам.
-- **В боте теперь рисуется каждая карточка**, и это нашло восемь дефектов за
-  один заход (раздел 4). Осталась дыра ровно там же, где была: тесты
-  утверждают, что написано на карточке, а не как она выглядит в клиенте, и
-  живого Telegram по-прежнему никто не открывал с этими правками.
-  **Виджет не рисует никто.** У Glance есть `glance-appwidget-testing` той же
-  версии, что Glance в проекте (`1.3.0-alpha02`) — двенадцать ступеней
-  размерной лестницы можно отрисовать и сверить без устройства. Не сделано.
-- **Правки поверх дневника никто не делал на экране.** Покрыты тестами на обеих
-  половинах — ключ при делении на группы, пустая правка, уход дневника
-  из-под правки, решение «править / сбрасывать / ничего», и то, что правка
-  переживает выход и повторный вход. **Ни один тест не открывает окно правки.**
-  Никто не нажимал на урок, не сохранял, не сбрасывал и не видел пометку
-  «Исправлено». Числа тестов намеренно не названы: они устаревают за один
-  коммит, а `./gradlew test` и `pytest -q` печатают их сами.
-- **Настоящий dnevnik2 по-прежнему не открывали.** Правки доказаны против
-  рукописной заглушки — ровно как и вся остальная интеграция, и ровно на
-  столько, на сколько она претендует. В частности, никто не видел реального
-  дня с делением на группы, ради которого сделан отказ применять правку при
-  совпадении ключей.
-- **Два класса на одном телефоне никто не держал.** Хранение членств и
-  раскладка кэша по классам покрыты снизу; сверху `ClassRowsScreenTest` теперь
-  жмёт саму группу: галочка стоит у показываемого класса и он не кнопка, чужая
-  строка зовёт переключение с правильным id, а выходов становится два и каждый
-  называет, как далеко идёт. Последнее — то, что удаляет данные, если
-  ошибиться: с одним классом «Выйти» всегда значило «выйти из него», и день,
-  когда эта строка тихо начнёт значить «из всех», раньше поймать было нечем.
-  Не видел никто по-прежнему: переключение на глаз, перерисовку виджета после
-  него и перепланирование будильников — это выведено из кода, который
-  вызывается, а не наблюдалось.
-- **Режим приёма никто не переключал на живом классе** — но переключатель
-  теперь нажимается в тестах: подтверждение появляется только в ту сторону,
-  которая отбирает, «Отмена» не пишет ничего, а возврат кода класса пишет сразу.
-  Покрыт тестами и ниже по стеку:
-  отказ кода класса в `invite`, личный код на один телефон, гонка двух запросов
-  за один код, устаревшая кнопка, подметание, `PATCH` обоих направлений, запись
-  в журнал и то, что в колонке лежит `OPEN`, а не `open`. **Ни один тест не
-  нажимает кнопку.** Никто не видел ни «📱 Подключить телефон» в живом боте, ни
-  подтверждения в приложении, ни экрана с кодом, который перестал работать.
-- **`429` на экране кода никто не видел ни разу** — ни в новом виде, ни в
-  старом. Лимитер срабатывает после тридцати неудач за пятнадцать минут, и до
-  этого в этой среде никто не доходил.
-- **Путь обновления проверен по ключам, а не по установке.** Старая установка
-  держала свой класс в четырёх плоских ключах; тест собирает ровно такие ключи
-  и убеждается, что класс находится и флаг «введение показано» не сбрасывается.
-  Настоящую установку прошлой версии никто не обновлял. Если это сломано,
-  пользователь увидит поле кода вместо своего класса — и ничего в логах.
-- **Три бампа сборочной цепочки не смотрел никто.** AGP 9.3.1 → 9.4.0, Gradle
-  9.5.0 → 9.7.1 и compose-bom 2026.06.01 → 2026.09.00 доказаны тем, что все
-  тесты проходят и обе сборки собираются — локально и на раннере. Compose-bom —
-  это **вся отрисовка приложения**, и один его эффект уже нашёлся сам
-  (`OverlayLayerTest`, раздел 6); что он поменял там, где теста нет, не знает
-  никто. Это первый в списке повод открыть APK.
-- **Обе правки будильников непроверяемы без устройства в принципе.** Они
-  выведены из контракта платформы и из соседнего кода, который то же решение уже
-  принял (`SchoolAlerts.arm` отказывался от `setWindow` и объяснял почему).
-- **Живую DaData не спрашивали ни разу**: `DADATA_TOKEN` в среде разработки нет,
-  все тесты с обеих сторон гоняют заглушку. Владелец сообщил, что задал ключ на
-  Vercel — **это не проверено ничем.**
-- **Настоящий dnevnik2 не открывали ни разу**, ни вход, ни один из четырёх
-  экранов.
-- **Ни одна серверная правка не прогонялась против живого класса.** `claim`
-  проверен взятием дважды на одну дату, но двух тиков одновременно не запускал
-  никто; круговой прогон экспорта проверен вычислением обеих сторон, что и есть
-  всё, на что он претендует.
+**Do not file these again as bugs.** If a new session's audit names something from the list
+below again, check the code first for whether it is already closed:
 
-**Самое полезное следующее действие — поставить APK на телефон и прожить с ним
-один учебный день.** Дальше вопросы только про рантайм и вёрстку, а их не видно
-ниоткуда, кроме настоящего экрана.
+- week parity from the ISO number → now counted from the start of the school year;
+- positional UIDs in the calendar → now a row's identifier;
+- `setWindow` in the widget's alarms → now `setAndAllowWhileIdle`;
+- `SchoolAlerts.fire` with unprotected publishing → every publication in a `runCatching`;
+- `mark_sent` after the selection → now `claim`, a conditional `UPDATE`;
+- `MAX_INDEX = 20` as a day's ceiling → now a ceiling from the class's bell count;
+- the timetable export without escaping commas → quoting, plus the last field taking the
+  remainder;
+- `LARGE` hid the homework → the `LARGE_TALL` threshold lowered from 400 to 300 dp;
+- `OverlayLayerTest` "failing" on the intercepting layer → **not a defect**: the test was
+  rewritten for compose-bom 2026.09.00, which changed Compose's behaviour. It was red exactly
+  once, at the merge; see section 6.
+
+The six multi-class findings closed in `569bab8` — do not file those again either:
+
+- `onTokenRejected` called `signOut` → now `leaveActive`, and a `401` on one class drops only
+  that one;
+- the membership list was decoded as a whole → now per entry, so one broken row does not take
+  the rest with it;
+- `syncNow` with `KEEP` swallowed the sync after a switch → the switch now uses
+  `APPEND_OR_REPLACE`;
+- leaving a class that was **not** on screen cleared the timetable fingerprint → now only
+  when the active class actually changed;
+- a notification from the previous class stayed in the shade → switching removes it;
+- an in-flight sync resurrected rows of a class that had been left → `retainOnly` sweeps them
+  at the start of every sync.
+
+The findings of the last three audits are closed too, and these are the ones easiest to find
+a second time:
+
+- an enum's `server_default` written through `.value` → now `.name`; the column holds `OPEN`,
+  and three tests check it (section 6);
+- `burn` assigned an attribute → now a conditional `UPDATE`, and `/join` burns the code
+  before it issues a token;
+- the mode button was a toggle → it now carries the mode it wants;
+- joining with a personal code was not written to the log → `device.link` is now written in
+  `/join`;
+- revoking a member did not kill their unissued codes → now `drop_for`;
+- `session.refresh` after a swallowed rollback stood outside the `try` and could replace a
+  `401` with `X-Diary-Reauth` → now `_refresh_quietly`, and the same in `api/deps.py`;
+- `mint` deleted spent codes along with live ones → now live ones only;
+- `_is_iso_date` accepted `20260915` and `2026-W38-1` → now `YYYY-MM-DD` only;
+- the `429` on the code screen was drawn as "HTTP 429 Too Many Requests" → now a Russian
+  sentence with the number of minutes from `Retry-After`;
+- `join_error_generic` became unreachable and an English sentence went out in its place →
+  `JoinError.of` reads the classified refusal rather than the raw one;
+- a row with no `target` was pressable and led to a `422` → now `correctable`;
+- the correction window could stay over the sign-in form → `applyFailure` closes it together
+  with any request for a password;
+- four comments asserted things the code does not do → rewritten to the facts.
+
+And nine came not from an audit but from the bot's cards finally being **drawn in a test**.
+The first came from production: the owner pressed «🗓 Четверти» and got an error dialog.
+
+- `_terms_card` printed `term.days`, and `Term` has no such attribute: `days` belonged to
+  `TermView` — "a flattened copy of a term for a renderer with no session" — which **no code
+  path ever created**. The line was written against a type that never reaches it, and the
+  only way to find out was to press the button. `days` moved onto the model, the dead twin
+  was deleted, and the rendering is covered by tests.
+
+The other eight are from `33deca3`, and two of them took the whole screen:
+
+- **the diary escaped nothing** that the external service sent: the subject, the room, the
+  teacher, the topic, the assignment's text. Telegram refuses **the whole message** on one
+  angle bracket, so «реши § 4 при a<b» left a parent with no timetable at all;
+- **the editor did not escape a subject's name**, while the paste grammar accepts «Алгебра
+  <7>» whole — one bracket, and the editor does not draw the day it is editing;
+- a slot's card showed its own tags to a viewer: `answerCallbackQuery` has no parse mode →
+  `editor_render.as_alert`;
+- `plural` prints the number itself, and three places printed it again («перемена · 10 10
+  минут»). One of the three **had a test**, and it passed: «10 минут» is a substring of
+  «10 10 минут»;
+- the import preview put the line about the bells under its own footer, so a paste of nothing
+  but bells read as "not one day recognised" above a button that was about to replace those
+  bells;
+- the import's result counted what was parsed rather than what was written, and contradicted
+  itself on adjacent lines;
+- `render_bells` silently lost the tail of the list past `LIST_MAX`;
+- `_next_day_line` indexed an empty list;
+- three list pages out of four drew more rows than there were buttons beneath them: forty
+  subjects over thirty ✏️, twenty bell schedules over ten, twenty phones over fifteen. The
+  tail was visible, unreachable and unexplained; «Особые дни» agreed with itself by accident —
+  both sides said 20. Each page now has one number for both
+  (`manage_render.SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX`, `LIST_MAX`), and
+  `test_no_list_page_draws_a_row_the_keyboard_cannot_reach` checks it: it asks the keyboard,
+  by row id, which of the drawn rows it carries;
+- the alert from a lesson's card measured 284 characters on a doubled lesson —
+  `answerCallbackQuery` returns 400 past 200, that is, an endless spinner;
+- `diary_render.student_line` was called by nobody: a dead renderer of the same shape as the
+  one that crashed «🗓 Четверти». Deleted.
+
+**The second pass over defects** (four agents over non-overlapping areas plus a slice of my
+own; every finding has a test that fails with a real error if the fix is removed):
+
+- **two role-picking screens caught one press.** The invite-by-number handler stood on
+  `RolePick.filter()` — on *any* role press while its state was live. An admin who had
+  started "invite by number" and then pressed a role on an older «Новая роль» card created a
+  **phone invitation** and got a success message about a number rather than about a person;
+- three bare conversions from callback data in `access.py` (`int(target)`, `int(value)`,
+  `Role(role)`) — the one file of the bot the check that closed this in `manage.py` never
+  reached. A bare `int()` does not refuse a press, it **escapes the handler**:
+  `callback.answer()` is never called and the button spins until Telegram gives up;
+- `timedelta(days=…)` from callback data in three paging screens (day, week, diary) — an
+  `OverflowError` rather than a far-away day;
+- an event's kind and a lesson's number in `content.py` were stored raw and turned into an
+  `EventKind` / an `int` three questions later — exactly what the comment a line above in the
+  same file warns about;
+- the order of memberships was undefined while three places read it as meaningful, including
+  **the order of the «🔀 Сменить класс» buttons**;
+- `GET /homework?from=9999-12-31` answered 500 (the window arithmetic ran before the bounds
+  check); the same in the diary's `_range`; `PATCH /tasks` with `{"title": null}` put NULL
+  into a NOT NULL column;
+- the diary lost **a lesson's time** when the upstream answers in ISO, and **a whole child**
+  when the first `educations` entry is unreadable; a failed sign-in was reported to the phone
+  as "the session expired", so the person retyped their password endlessly;
+- «МБОУ "СОШ № 197"» was drawn as «МБОУ "Сош № 197"»; a typo in `TIMEZONE` crashed `/start`;
+  `state.clear()` wrote an empty string to the database (113 such places in the bot);
+  `describe()` leaked the tail of a password containing an `@`;
+- on the phone: the countdown — the largest digits on the home screen — was Russian under an
+  English caption, the calendar's heading read «October 2026 · 1 четверть», and a `401` in
+  the diary **crashed the app** if the write to disk failed.
+- **the lesson ceiling was counted from the number of bells rather than from their numbers.**
+  The paste grammar allows a gap, and a class with bells at 1, 2, 4 got both errors at once:
+  «4. Химия» was rejected with the words "there is no such bell" — about a bell from the same
+  paste — while the editor would have written a third lesson the class does not ring;
+- **a timetable slot could get a second row shadowing the first.** `uq_timetable_cell` does
+  not forbid "every week" and "numerator" on one lesson, both pass the parity filter, and
+  `_load` selects with no `ORDER BY` — the database decided what the phone would draw, and
+  the answer could differ between two reads;
+- **a task's reminder was claimed by an attribute rather than by the database.** The digests
+  obey the rule in the module's docstring, the tasks did not, and two overlapping ticks sent
+  «⏰ Напоминание» twice;
+- the diary's "current quarter" was read on the server's clock rather than the diary's: on
+  the evening of a quarter's first day the subjects screen arrived empty.
+
+**Not a finding but an honest caveat.** The order of memberships has no test that fails
+before the fix: the tests run on SQLite, which returns insertion order both with and without
+an `ORDER BY`. The test left there is a guard, not a reproduction.
+
+**The third pass — what the owner named, item by item** (`4f5471d`, `3a592c9`):
+
+- **the template expanded in June, July and August.** `SCHOOL_YEAR_END_MONTH` is 5 and the
+  comment beside it says the template must not repeat from June — and `_resolve_day` never
+  read that constant. A summer weekday arrived full on the phone, in the widget, in the
+  calendar feed and in the morning digest, whose **own** rule about staying silent on an
+  empty day could never fire: the day was not empty;
+- **a substitution could be written onto a number with no bell** — it went into the log and
+  into a «🔁 Замена … урок №8» notification, and was drawn by nobody. The check is now in both
+  shells and **against that day's bells** (`rung_indexes_on`), because a shortened day rings
+  shorter than an ordinary one;
+- **the bot's single-day paste went round `apply_timetable`** — the one entrance into the
+  template without all of its checking. Eight lessons into a class that rings seven gave
+  "lessons saved — 8" and a list of eight;
+- **two people saving one assignment at the same time got two.** Both shells promised "one
+  assignment per subject per day" in their own docstrings; it is now one
+  `services/homework.py`;
+- **the diary sign-in page blamed the password for any of somebody else's errors** — a person
+  retyped a correct password until they gave up;
+- `httpx` had no upper bound while depending on a deprecated capability; the turnstile read
+  an unrecognised direction as "exit"; a token made of spaces looked like an exhausted quota;
+  `current_revision` left the Postgres transaction aborted.
+
+- **two read-then-write races.** `diary_link.claim` read the ticket, checked it in Python and
+  then assigned `used_at`: two simultaneous sign-ins got two diary sessions for one account.
+  And `GET /api/v1/bundle` seeds the terms for a new class — while every phone in the class
+  polls it on one timer, so "both found the year unseeded" is the ordinary case, and on
+  Postgres the second got an `IntegrityError`, that is, **a 500 on a read**;
+- `GET /api/v1/manage/subjects` linked lessons to the dictionary and **committed only if it
+  had created something**: for a class with a full dictionary and unlinked lessons the
+  UPDATEs ran and were thrown away on every read. It was only cured by `/bundle` committing
+  unconditionally.
+
+**Where I disagreed with an agent.** It proposed handing the sign-in ticket back on an
+"incomprehensible answer" from the diary too. We cannot tell a captcha from a wrong password:
+a Yii form answers a wrong password with the same "200 with some HTML". Handing the ticket
+back on such an answer would make the link an unlimited oracle for guessing a password from
+our address — precisely what spending the ticket in advance is for. The hand-back is narrowed
+to "the diary did not answer at all"; the message stopped blaming the password in both cases,
+and that was the defect.
 
 ---
 
-## 6. Что нужно знать, чтобы не сломать
-
-Сверх того, что уже написано в `CLAUDE.md`.
-
-### CI и сборка APK
-
-`android-actions/setup-android` **закреплён на `v4.0.1`** и получает
-`packages: platform-tools` — в `ci.yml` и в `apk.yml`. Это не косметика:
-плавающий `@v4` по умолчанию просит пакет `tools`, который Google удалил, и
-`sdkmanager` теперь возвращает на нём ненулевой код. Без закрепления падает
-каждый прогон Android, до запуска Gradle. **Не снимайте пин и не убирайте
-`packages`, не проверив, что действие перестало просить `tools`.**
-
-«Run workflow» у APK по умолчанию берёт `main`, и после мерджа это наконец
-правильная ветка. Последняя лежащая в артефактах сборка —
-[run 34948610365](https://github.com/lumenpearson/lessons/actions/runs/34948610365),
-артефакт `lessons-apk`, — сделана ещё с прежней рабочей ветки, то есть **без**
-AGP 9.4.0, Gradle 9.7.1, нового compose-bom и без всего, что описано в этом
-файле. Соберите заново: на раннере эта связка отрабатывала много раз, но APK с
-ней никто в руках не держал.
-
-### Кэш разложен по классам
-
-`school_day` носит `class_id`, и **каждое чтение в `TimetableDao` требует его
-параметром** — не по умолчанию, а обязательно. Это не педантизм: на телефоне
-лежат окна двух классов рядом, обе недели выглядят как правдоподобная учебная
-неделя, и запрос, потерявший фильтр, нарисует чужое расписание, которое на
-экране неотличимо от своего. Компилятор — единственное, что здесь способно
-поймать пропущенный фильтр, поэтому параметр и сделан обязательным.
-
-Синхронизация пишет под тот класс, который **сервер** сопоставил токену
-(`timetable.schoolClass.id`), а не под тот, который телефон считает активным:
-между этими двумя ответами есть секунда на переключении, и взять локальный
-означало бы положить окно одного класса под именем другого. `replaceAll`
-переставляет `classId` со строки класса поверх записей дня по той же причине.
-
-Схема Room поднята до версии 3. Миграции нет и не нужно — кэш одноразовый
-(`fallbackToDestructiveMigration`), первая же синхронизация его наполняет.
-
-Членства лежат в `Memberships.kt` отдельно от `LessonsPreferences`: там же
-читается и **старый формат** — одна сессия в четырёх плоских ключах, — и оттуда
-же берётся признак «введение показано». Четыре ключа удаляются при первой же
-записи списка. **Не возвращайте запись в них** и не трогайте запасной путь
-чтения, не прочитав `MembershipsTest`: он про установки, которые уже стоят у
-людей на телефонах.
-
-### Правки поверх дневника
-
-Ключ правки (`target`) **строит только сервер**, клиент возвращает его дословно.
-Две реализации ключа, который обязан совпасть побайтово, согласуются ровно до
-первого урока без номера. Формат — в `services/diary_overrides.py`, и он
-семантический, не позиционный: этот проект уже отгружал позиционные ключи один
-раз (UID календаря), и удаление одного элемента переносило все последующие на
-чужой предмет.
-
-У урока ключ — день, номер **и** предмет, и обеих половин мало: номер один
-собирается при делении на группы (дневник нумерует уроки внутри дня и не
-стесняется дать двум одинаковый номер), предмет один — на сдвоенном уроке.
-Вместе тоже не гарантия: один предмет у двух групп в один час даёт один ключ на
-два урока, а различают их кабинет и учитель — то есть ровно правимые поля.
-Поэтому ключ, попавший в два урока, **не применяется ни к одному**, и клиент
-про это говорит. Не «упрощайте» до одного номера.
-
-**Оценки и турникет править нельзя, и это не недоделка.** Отметка — утверждение
-о том, что произошло; приложение, позволяющее её переписать, производит
-поддельную запись, которая выглядит официальной. Набор полей закрыт в
-`FIELDS_BY_KIND`.
-
-**В боте правки не применяются** — намеренно. Бот рисует день одним куском
-текста без кнопки на урок, так что правка там была бы неотличима от школьной и
-снять её было бы нечем, а это поверхность, которую чаще читает родитель. В
-`app/bot/handlers/diary.py` про это есть комментарий; если у бота появятся
-кнопки на урок — применяйте **и** помечайте, но не применяйте молча.
-
-Правки живут на логине аккаунта, а не на сессии дневника: сессия умирает каждые
-несколько дней, и правка, ушедшая с ней, исчезла бы сама раньше, чем кто-нибудь
-нажал бы «сбросить».
-
-`422` у дневника значит две разные вещи: у чтений — неверный диапазон дат, у
-правок — отказ. Различает их вызывающий (`DiaryFailure.of(failure, unprocessable)`),
-потому что в ответе их не различает ничто, кроме русской фразы в `detail`.
-
-**Строку без ключа нельзя делать нажимаемой.** `target` строит сервер, и строка,
-пришедшая без него (сервер старше `0009`, или урок, который сервер не смог
-заключить в ключ), не может быть сопоставлена ни с одной правкой. Нажимаемая,
-она отправляет каждое нажатие в `422`. `DiaryLesson.correctable` /
-`DiaryHomework.correctable` — это тот самый вопрос, и подсказка «нажмите на урок»
-не печатается, если на неделе нажимать нечего.
-
-### Кто пускает телефон
-
-У класса есть `join_mode`: `open` (код класса пускает всякого, кто его наберёт)
-или `invite` (код класса не пускает никого, телефон заходит по личному
-одноразовому коду из бота). Вводятся оба в одно и то же поле одного и того же
-`POST /api/v1/join` — для приложения это один экран и одна ошибка, — а не
-пересекаются они потому, что **длины разные**: код класса восемь символов,
-личный десять. `services/device_invites.CODE_LENGTH` про это и написан; если
-будете менять длину, проверьте, что она по-прежнему не равна `JOIN_CODE_LENGTH`.
-
-**Переключение ничего не отбирает.** Ни `invite`, ни возврат в `open` не трогают
-токены уже подключённых телефонов. Это обещано на трёх экранах подряд, и
-нарушить его — значит уронить расписание у всего класса разом, без единой
-строчки в логах.
-
-**Enum хранится именем, а не значением.** `SAEnum(JoinMode)` кладёт в колонку
-`OPEN`, хотя `JoinMode.OPEN.value == "open"`; API отдаёт наружу именно `value`.
-Черновик ревизии `0010` ставил `server_default="open"` — это лежало бы на каждом
-классе, и первое же ORM-чтение падало бы с `LookupError`, то есть для бота в
-middleware, то есть разом весь бот. Поймано до применения; два теста в
-`test_join_modes.py` держат обе стороны. **Тот же вопрос задавайте любому
-будущему enum с `server_default`.**
-
-**`is_public` снят.** Он был на карточке класса, печатался как «публичный /
-закрытый» — и не читался ни одним путём кода. Колонка осталась в Postgres
-(удаление колонки не аддитивно) и не отображена в модели; в `models.py` над этим
-местом стоит комментарий, который просит не вешать на неё ничего снова. Второй
-признак «кого пускают» рано или поздно разойдётся с первым.
-
-**Личный код гасится условным `UPDATE`, а не присваиванием.** «Один код — один
-телефон» — это утверждение про два запроса, а не про один: два запроса, прошедшие
-`find_live` в одно мгновение, оба писали бы `used_at` и оба получали бы токен.
-`device_invites.burn` возвращает, выиграл ли он, и `/join` гасит код **до**
-выпуска токена.
-
-**Кнопка переключения несёт режим, которого хочет, а не «другой».** Клавиатура —
-это сообщение, сообщения остаются в чате, и админ с двумя открытыми страницами
-«👥 Доступ» иначе нажал бы кнопку, всё ещё подписанную «только по приглашениям»,
-и вернул бы код класса всем, у кого он остался. Нажатие на уже действующий режим
-говорит «это уже так» и не пишет в журнал. **Не «упрощайте» обратно в toggle** —
-у снятого `is_public` была ровно эта форма, и она была безобидна только потому,
-что флаг никто не читал.
-
-**Что именно бот обещает и чего не обещает.** Роль телефона ограничена ролью
-того, кто выдал код, и проверяется на каждом запросе. Число телефонов —
-не ограничено ничем: любой участник может нажимать кнопку и пересылать коды, так
-что «по приглашению» заменяет один общий секрет на названного человека, который
-решает каждый раз, а не на меньшее число читателей. Каждый пришедший телефон
-несёт аккаунт, который его впустил, — в «📱 Устройства» и в журнале
-(`device.link`, пишется в `/join`, а не в боте: подключение происходит там).
-Сказано вслух в докстринге `phone_code`, потому что предыдущая версия этого
-докстринга утверждала обратное.
-
-**Отзыв участника убивает его невыданные коды** (`device_invites.drop_for`).
-Код проверяется только по своему хешу — `find_live` не перечитывает `BotUser`, —
-так что без этого исключённый в последние пятнадцать минут всё равно впустил бы
-телефон. Использованные строки не трогаются: они и есть запись о том, что
-телефон уже вошёл.
-
-### Всё, что пришло снаружи, экранируется перед отправкой
-
-Бот шлёт HTML, и Telegram на одной угловой скобке отказывает **всему
-сообщению**, а не портит строку. Значит неэкранированная строка даёт не кривую
-вёрстку, а **пустой экран и ни одной ошибки, которую кто-нибудь увидит**.
-
-Снаружи приходит: всё от петербургского дневника (предмет, кабинет, учитель,
-тема, домашка), всё набранное в боте и вставленное в грамматику пасты (предмет
-вполне может называться «Алгебра <7>»), и всё из справочника школ. `render.py`
-это делал всегда; `diary_render.py` и `editor_render.py` — никогда, и оба так и
-уехали.
-
-Две ловушки того же рода рядом. `plural(n, …)` **уже содержит число**, поэтому
-`f"{n} {plural(n, …)}"` печатает «10 10 минут» — так было в трёх местах, и у
-одного был тест, который проходил, потому что «10 минут» — подстрока. И у
-`answerCallbackQuery` **нет parse mode**: карточка, собранная для сообщения,
-показывает в алерте свои теги, для этого есть `editor_render.as_alert` — он же
-режет по 200 символов, потому что длиннее Telegram отвечает 400, и нажатие не
-отвечает вообще ничем.
-
-### Из callback-данных приходит что угодно, и это не «на всякий случай»
-
-Клиент волен прислать в callback-данных любую строку. Разница между `int(x)` и
-«проверить и отказать» — не в аккуратности: голый `int()` **вылетает из
-обработчика**, а значит `callback.answer()` не вызывается никогда и кнопка
-крутится, пока Telegram не сдастся. В `manage.py` и `tasks.py` для этого есть
-`_int_or_none`, в `calendar.py` и `content.py` — `_date_or_none`, теперь в
-`access.py` — `_int_or_none` и `_role_or_none`, а в `content.py` ещё
-`_kind_or_none` и `_index_or_none`. Правило одно: **проверять там, где
-значение выбирают**, а не там, где его наконец читают, — иначе оно едет через
-три вопроса и падает у человека, который уже набрал время и название.
-
-То же про арифметику: `shift_days` / `shift_weeks` в `keyboards.py` строят
-дату и дают `date` сказать, дата ли это. `timedelta(days=999999999)` — это
-`OverflowError`, а не далёкий день.
-
-### Два экрана могут ловить одно нажатие
-
-`RolePick` шлют оба потока — приглашение по номеру и смена роли участнику, — и
-различаются они только тем, что у первого `target` пустой. Пока фильтр
-приглашения был просто `RolePick.filter()`, он забирал оба, потому что стоял в
-файле выше. Если добавляете второй экран на существующий payload, **разведите
-фильтры по полю**, а не по порядку регистрации; это держит
-`test_the_two_role_pickers_never_match_the_same_press`.
-
-### Перевод стережётся во всех модулях, где есть строки
-
-`ResourceTranslationTest` читал `:app` и только его, а строки есть ещё в
-`:core:data`, `:core:designsystem` и `:widget` — включая обратный отсчёт на
-главном экране. Теперь он сам находит каждый модуль с `values/strings.xml`,
-называет модуль в каждой ошибке, и отдельный тест держит сам список, чтобы
-обход не сузился молча. Аргументы `<plurals>` считаются **по каждой форме**:
-у русского их четыре, у английского две, и по склейке они не сойдутся никогда
-(в `:app` это не проявлялось, потому что там везде `%1$d`, а не `%d`).
-
-Хардкод русского текста в Kotlin этим не ловится вовсе — слова не попадают ни
-в одну папку. Проверять так: `grep -rnP '"[^"]*[\x{0400}-\x{04FF}]'` по
-`src/main`. На сегодня остаются только `@Preview`, тексты отчётов для
-мейнтейнера и список часовых поясов, где это решение записано в самом файле.
-
-### Режим исправления знает про весь текст, и держится это двумя импортами
-
-Покрытие режима — не список обёрнутых вручную мест. В `:app` и
-`:core:designsystem` есть **один** `Text`, и он свой:
-`core/designsystem/text/Text.kt` — Material'овский плюс
-`modifier.correctable(text)`. Строки читаются через `correctedString`, а не
-через `stringResource`: это и подставляет правку, и запоминает, каким ресурсом
-нарисованы эти слова, пока они на экране. Долгое нажатие спрашивает реестр, а не
-`values/` — искать ключ по тексту нельзя, 204 строки из 991 совпадают текстом
-с другой, а ещё 100 это шаблоны с аргументами.
-
-Оба исходных импорта по-прежнему на classpath и по-прежнему компилируются,
-поэтому новый экран, написанный по привычке, был бы просто страницей, которую
-проофридер не может тронуть, и ничего бы об этом не сказало. Держит
-`CorrectionReachTest`: он читает исходники всех модулей и падает на
-`import androidx.compose.material3.Text` и на
-`import androidx.compose.ui.res.stringResource`. Исключений три (сам
-`Corrections.kt`, редактор и лист правок), каждое названо путём, и отдельный
-тест проверяет, что исключение не пережило свой файл.
-
-`CorrectableTextTest` сравнивает подпись шима с Material'овской рефлексией: не
-объявленный параметр молча перестал бы работать на всех экранах сразу, а вызов
-всё равно разрешается. Подпись растёт — `autoSize` приехал в 1.4, — так что
-проверять это глазами один раз было бессмысленно.
-
-И одна строка, без которой всё это тихо перестаёт существовать: `MainActivity`
-оборачивает приложение в `CorrectionHost`. Без него всё собирается и рисуется,
-а реализация по умолчанию не делает ничего. Это тоже в тесте.
-
-### Ограничение мигрирует не в ту сторону, что колонка
-
-Правило «миграция до мерджа» — про код, который знает колонку, а база нет. Для
-этой цепочки оно верно везде, кроме одного случая: **`UNIQUE` и `NOT NULL`
-ломают старый код, а не новый.** До того как `services/homework.py` попадёт в
-`main`, проигравшая сторона гонки делает обычный INSERT и получает
-`IntegrityError`, который никто не ловит, — то есть 500 там, где сегодня
-дубликат. Поэтому `0013` применяется **после** мерджа, и написано это в ней
-самой; `services/homework.py` специально корректен и без ограничения, чтобы
-окно между мерджем и применением вело себя как сегодня.
-
-`0012` — безопасная форма (восемь timestamp'ов, в которых уже нет NULL'ов) и
-применена как обычно, до мерджа. **Перед обеими база была прочитана**, и это
-окупилось: в отличие от `0011`, `0012` оказалась не no-op — все восемь колонок
-на проде действительно были nullable.
-
-**Состояние базы на сейчас:** голова Neon — `0013`, и она сошлась с
-`EXPECTED_REVISION`. Ревизия применена одной транзакцией через коннектор сразу
-после мерджа PR #45, штамп — последним в ней же; `homework` был пуст, поэтому
-её дедупликация не удалила ни строки, а `uq_homework_per_subject_per_day`
-теперь стоит ровно тем, что строит модель.
-
-### Идемпотентно — не то же самое, что безопасно при гонке
-
-`/api/v1/bundle` — чтение, и оно пишет: сеет четверти и словарь предметов
-новому классу. Все телефоны класса опрашивают его по одному таймеру, поэтому
-«оба нашли год незасеянным» — обычный случай, а не редкий. Оба вставляют
-индекс 1, `uq_term_slot` отказывает второму, и на Postgres `IntegrityError`
-отравляет всю транзакцию — 500 на чтении, ровно на том первом запросе, ради
-которого посев и существует.
-
-Форма, которую проект уже знает: вставка внутри `session.begin_nested()`, и
-**проигравший уступает** — откатывает свои строки и возвращает чужие
-(`terms.ensure`, `subjects._adopt`). Единственный, кому уступать нельзя, —
-явная смена схемы: молча принять четверти значит ответить «сделано» админу,
-попросившему полугодия.
-
-То же правило про билет входа: `diary_link.claim` и `device_invites.burn` —
-оба один условный `UPDATE`, потому что «одна ссылка — один вход» это
-обещание про **два** запроса, а не про один.
-
-**И отдельно: не коммитить по счётчику.** `sync_from_timetable` возвращает,
-сколько записей словаря *создано*, но заодно привязывает строки расписания.
-`GET /api/v1/manage/subjects` коммитил `if ...:` — и у класса с полным словарём
-и непривязанными уроками работа выполнялась и выбрасывалась при каждом чтении.
-
-### Учебный год кончается, и шаблон вместе с ним
-
-`SCHOOL_YEAR_END_MONTH` равен 5, и комментарий рядом объясняет, почему с июня
-шаблон повторять нельзя: «показывал бы уроки, на которые никто не пойдёт».
-Читал эту константу только `school_year_bounds`. Теперь её спрашивает и
-`_resolve_day`. День, помеченный руками, сохраняет свой вид и заметку; события
-и домашка остаются в любом случае — не в сезоне уроки, а не день.
-
-Правило — про **дату**, а не про четверти. Школа, которая действительно учит в
-июне, вносит эти дни событиями.
-
-### Потолок урока — это набор номеров, а не их количество
-
-Резолвер берёт время урока из строки звонков **с тем же номером**
-(`schedule.py`, `period = bells.get(entry.index)`). Значит вопрос «можно ли
-написать урок №4» — это «есть ли звонок №4», а не «сколько всего звонков».
-Грамматика пасты допускает пропуск (`parse_bells_block` отказывает только на
-`index < 1` и на дубликатах), так что у класса со звонками 1, 2, 4 счётчик
-ошибается в обе стороны разом. `timetable_edit.rung_indexes` отвечает на
-правильный вопрос, `can_ring` его задаёт, а `rings` остался счётчиком, потому
-что его печатают как «в расписании звонков N уроков».
-
-Все входы закрыты: замена (`api/edit.py`, `bot/handlers/content.py`) и паста
-одного дня проверяют звонок, паста дня идёт через `apply_timetable`, удаление
-урока закрывает дыру в нумерации **только** если каждый сдвигаемый урок попадёт
-на звонящий номер (иначе класс со звонками 1, 2, 4 терял четвёртый урок,
-сдвинув его на третий), а «⏱ Сокращённый день» нельзя повесить на расписание
-звонков без строк — ни из API, ни из бота: такой день не рисует ничего.
-
-**И считайте строки, а не номера.** `apply_timetable` возвращает
-`TimetableImport` с парами (день, номер): «⚠️ Не добавлены уроки № …» называет
-номер один раз — это одна вещь, которую надо починить, — а «без звонка
-пропущено N» и `rejected` в API считают выброшенные строки, потому что один
-номер под двумя днями (или под «чёт»/«нечёт» в одном дне) — это два урока.
-
-### Слот — это одна строка «каждую неделю» или две половины
-
-`uq_timetable_cell` — это `(класс, день, номер, чётность)`, и «каждую неделю»
-рядом с «числителем» ключ не нарушает. Обе строки проходят фильтр чётности на
-нечётной неделе, а `_load` выбирает шаблон **без `ORDER BY`** и оставляет
-последнюю — то есть какой предмет увидит телефон, решает база, и между двумя
-чтениями ответ может отличаться. Правило держат три места, и все три нужны:
-`timetable_io._conflicts` на пасте, хендлер редактора и — с этого коммита —
-`timetable_edit.edit_lesson`, то есть единственный вход второй оболочки.
-
-### Длина списка и длина клавиатуры — одно число, а не два
-
-`manage_render` объявляет `SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX` и
-`LIST_MAX` (особые дни), и `manage_keyboards` строит ряды **из них же**. Пока
-чисел было два, три страницы из четырёх рисовали строки, до которых нельзя было
-дотянуться, и «… и ещё N» про них молчало, потому что считало от своего числа.
-Не «приводите к одному значению ради порядка»: числа разные намеренно — ряд
-расписания звонков несёт три кнопки и двенадцать строк времён, ряд предмета по
-одной. Правило одно: сколько нарисовано, столько и нажимается, и его держит
-`test_no_list_page_draws_a_row_the_keyboard_cannot_reach`.
-
-Страницы **не листаются** — ни одна. За потолком строка остаётся только числом
-в «… и ещё N»; у класса с сорока предметами последние десять из бота
-недостижимы совсем. Поднять потолки — это стена кнопок; настоящая починка —
-пагинация, и её никто не писал.
-
-### `python -m mypy` отвечает на один вопрос, и этого хватает
-
-Не «типизируйте всё», а «тянется ли код за атрибутом, которого у типа нет».
-Именно этим упала «🗓 Четверти», и проверка воспроизводит её слово в слово, если
-убрать свойство обратно. Настроена в `pyproject.toml`, где **все остальные коды
-выключены по имени, с числом и причиной** — проверка, вывод которой нельзя
-прочитать, это проверка, которую никто не запускает.
-
-Сейчас она чистая на всех 78 модулях. Единственное, что стояло между проектом и
-чистотой, — `Result.rowcount`: `AsyncSession.execute` типизирован как
-возвращающий `Result[Any]`, у которого этого поля нет, а DML возвращает
-`CursorResult`, у которого есть. Одиннадцать мест писали `result.rowcount or 0`
-и имели в виду одно; теперь это `db.rows_affected`, и каст живёт в одном месте.
-
-**В CI её нет.** `CLAUDE.md` просит не править workflow'ы небрежно, и добавление
-job'а — решение владельца, которого никто не спрашивал. Прогоняйте руками перед
-пушем серверного кода.
-
-### Рендерер пишут против того типа, который ему дадут
-
-«🗓 Четверти» падала в продакшене на каждое нажатие, потому что карточка читала
-`term.days`, а `days` был у `TermView` — датакласса, который никто никогда не
-конструировал. Два типа на одну сущность — это способ написать рендерер против
-того из них, который до него не доедет; компилятора здесь нет, а `AttributeError`
-виден только с кнопки.
-
-Мораль не «добавьте тип-хинты», а конкретнее: **если рядом с моделью лежит её
-«плоская копия для рендерера», проверьте, что её кто-то создаёт.** И помните, где
-проходит граница тестов: `tests/test_terms.py` открывается словами «the rules,
-not the rendering», и это честное разделение ровно до того дня, когда рендеринга
-не проверяет никто. Теперь карточку четвертей рисует тест
-(`test_the_terms_card_draws`), и он утверждает числа, а не только что вызов
-вернулся: карточка с «0 дн.» неверна так же, как упавшая.
-
-### Слой-перехватчик и compose-bom
-
-`OverlayLayerTest` два релиза подряд утверждал, что слой, глотающий жесты, чтобы
-до пейджера под ним не дошло касание, тем же движением отменяет нажатия по
-собственным строкам, — и что починки нет. С **compose-bom 2026.09.00** это
-перестало быть правдой: тот же слой над теми же строками нажатия пропускает.
-Сужено до самого bom (с navigation 2.10.1 и room 2.8.5 откат одного bom
-возвращает старое). Тест переписан на новый порядок.
-
-**К слою мы при этом не возвращаемся**, и это главное, что тут нужно унести:
-порядок доставки между двумя поддеревьями нигде не обещан, он съехал под бампом
-зависимости молча, и палец по строке точно так же молча перестал бы работать
-снова — а этот баг уже уезжал в сборку дважды. Вкладки по-прежнему убираются из
-композиции, а не накрываются.
-
-### Зеркало зависимостей
-
-Корневой `requirements.txt` и `server/pyproject.toml` должны нести одни и те же
-полы. Dependabot правит **только корневой файл** — так `main` и разъехался
-(`sqlalchemy>=2.0.52` против `>=2.0.30`, `pydantic-settings>=2.15.0` против
-`>=2.4`). Теперь это держат тесты, а не внимание:
-`tests/test_requirements_mirror.py` сверяет оба направления и сами версии, а
-три пакета, которых в бандле нет намеренно (`uvicorn`, `aiosqlite`,
-`alembic`), перечислены там с причинами. Поднятый пол только в одном файле —
-это зелёный CI и функция, которая ставит старое.
-
-### Чётность недель
-
-`week_parity` считает недели **от начала учебного года**, а не по ISO-номеру.
-Первая неделя года намеренно сохраняет ту чётность, которую дало бы старое
-правило: в 2024/25, 2025/26, 2027/28 и 2031/32 оба правила совпадают день в
-день, и расходятся только внутри двух лет, где старое сбивалось. **Если будете
-трогать это место — не «упрощайте» обратно к `isocalendar().week`.**
-
-### Удаление предмета
-
-Удалить предмет, который стоит в расписании, теперь **нельзя** — API отвечает
-`409`, бот показывает, в скольких уроках он занят. Это изменение договора, а не
-баг: словарь сам себя заполняет из расписания, поэтому удалённое имя
-возвращалось следующим же чтением без цвета и учителя. Порядок: сначала убрать
-уроки из расписания, потом предмет из словаря.
-
-### Потолок уроков в дне
-
-Не `MAX_INDEX`, а число звонков класса. Урок с номером, для которого нет строки
-в расписании звонков, резолвер не может разместить и молча выбрасывал. При
-импорте потолок считается по тому, что класс будет звонить **после** импорта —
-паста со своим блоком `== Звонки ==` законно привозит девятый звонок и девятый
-урок одним сообщением.
-
-### Грамматика пасты расписания
-
-Последнее поле забирает остаток строки, поэтому учитель «Иванов И.И., к.п.н.»
-пишется без синтаксиса. Предмет или кабинет с запятой берётся в двойные кавычки,
-`""` внутри — один литерал кавычки. Кавычки ставятся только там, где нужны, так
-что любая уже написанная строка разбирается как раньше.
+## 5. What nobody has verified
+
+This is the main thing worth knowing: **all of this work is proved by tests and by nothing
+else.**
+
+- **There is still no `androidTest` in the project**, and no emulator is available here: the
+  container has no `/dev/kvm` and no virtualisation flags, so the system could only be
+  started by full software emulation, that is, not at all.
+  **But "nobody has pressed it" is already untrue for three screens.** Robolectric runs
+  Compose's test harness on the JVM (`:core:designsystem` already lived this way), and the
+  same now exists in `:app`: the class group, the join-mode switch and the refusal text on
+  the code screen are composed, pressed and checked against their strings — 21 tests. Those
+  are real presses on real strings rather than stubs: the locale is pinned to `ru-rRU`, or
+  Robolectric takes `values-en/` and the test checks the translation instead of the source.
+  What this does **not** prove: how it looks. Not the layout, not the dark theme, not the
+  animations, not dynamic colours, and not the widget — about which what is proved is exactly
+  that the size ladder is monotonic over real sizes.
+- **Every card in the bot is now drawn**, and that found eight defects in one pass
+  (section 4). The hole that is left is exactly where it was: the tests assert what is
+  written on a card rather than how it looks in a client, and nobody has opened a live
+  Telegram with these changes.
+  **Nobody draws the widget.** Glance has `glance-appwidget-testing` at the same version as
+  the Glance in this project (`1.3.0-alpha02`) — the twelve rungs of the size ladder could be
+  rendered and compared with no device. Not done.
+- **Nobody has made a correction over the diary on a screen.** They are covered by tests on
+  both halves — the key when a class is split into groups, an empty correction, the diary
+  moving out from under a correction, the "correct / reset / do nothing" decision, and that a
+  correction survives signing out and back in. **Not one test opens the correction window.**
+  Nobody has pressed a lesson, saved, reset, or seen the «Исправлено» mark. The test counts
+  are deliberately not named: they go stale in one commit, and `./gradlew test` and
+  `pytest -q` print them themselves.
+- **The real dnevnik2 has still not been opened.** The corrections are proved against a
+  hand-written stub — exactly like the rest of the integration, and exactly as far as it
+  claims. In particular, nobody has seen a real day split into groups, which is what the
+  refusal to apply a correction on a key collision was made for.
+- **Nobody has held two classes on one phone.** Storing memberships and splitting the cache
+  by class are covered from below; from above, `ClassRowsScreenTest` now presses the group
+  itself: the tick stands next to the class being shown and it is not a button, another row
+  calls the switch with the right id, and there are two ways out, each saying how far it
+  goes. The last is the one that deletes data if you get it wrong: with one class, «Выйти»
+  always meant "leave this one", and there used to be nothing to catch the day that row
+  quietly started meaning "all of them".
+  Still seen by nobody: the switch with your eyes, the widget's redraw after it, and the
+  re-planning of the alarms — those are inferred from code that is called rather than
+  observed.
+- **Nobody has switched the join mode on a live class** — but the switch is now pressed in
+  tests: the confirmation appears only in the direction that takes something away, «Отмена»
+  writes nothing, and restoring the class code writes straight away. It is covered lower down
+  the stack too: the class code's refusal in `invite`, a personal code for one phone, a race
+  between two requests for one code, a stale button, the sweeping, a `PATCH` in both
+  directions, the log line, and that the column holds `OPEN` rather than `open`. **Not one
+  test presses the button.** Nobody has seen «📱 Подключить телефон» in a live bot, nor the
+  confirmation in the app, nor a screen with a code that has stopped working.
+- **Nobody has ever seen the `429` on the code screen** — neither in its new form nor its
+  old. The limiter fires after thirty failures in fifteen minutes, and nobody in this
+  environment has got that far.
+- **The upgrade path is verified by keys rather than by an installation.** An old install
+  kept its class in four flat keys; a test builds exactly those keys and makes sure the class
+  is found and the "introduction shown" flag is not reset. Nobody has upgraded a real
+  installation of the previous version. If that is broken, the user sees the code field
+  instead of their class — and nothing in the logs.
+- **Nobody has looked at the three build-chain bumps.** AGP 9.3.1 → 9.4.0, Gradle
+  9.5.0 → 9.7.1 and compose-bom 2026.06.01 → 2026.09.00 are proved by every test passing and
+  both assembles building — locally and on the runner. The compose-bom is **the app's entire
+  rendering**, and one of its effects already surfaced by itself (`OverlayLayerTest`,
+  section 6); what it changed where there is no test, nobody knows. That is the first reason
+  on the list to open the APK.
+- **Both alarm fixes are unverifiable without a device, in principle.** They are inferred
+  from the platform's contract and from neighbouring code that had already taken the same
+  decision (`SchoolAlerts.arm` refused `setWindow` and explained why).
+- **A live DaData has never been asked**: there is no `DADATA_TOKEN` in the development
+  environment, and every test on both sides runs a stub. The owner reported setting the key
+  on Vercel — **nothing has verified that.**
+- **The real dnevnik2 has never been opened**, neither the sign-in nor any of the four
+  screens.
+- **Not one server-side fix has been run against a live class.** `claim` is verified by
+  claiming twice on one date, but nobody has run two ticks at once; the export's round trip
+  is verified by computing both sides, which is all it claims.
+
+**The most useful next action is to install the APK on a phone and live with it for one
+school day.** After that the only questions left are about runtime and layout, and those are
+invisible from anywhere except a real screen.
 
 ---
 
-## 7. Осталось у владельца
+## 6. What you need to know so as not to break things
 
-Всё это вне досягаемости агента: нужен телефон, ключ или живой сервис.
+Beyond what is already in `CLAUDE.md`.
 
-~~1. **Решить судьбу PR #43.**~~ Влит. Порядок соблюдён: `0010` (режим приёма и
-   таблица личных кодов) и `0011` (две отметки времени в `diary_overrides` до
-   `NOT NULL`) применены через коннектор Neon **до** мерджа. Ни одна ничего не
-   разрушила: `0010` добавила колонку со значением по умолчанию, сохраняющим
-   нынешнее поведение, и пустую таблицу; `0011` на этой базе не изменила ничего
-   вовсе — колонки уже были `NOT NULL`, потому что DDL для `0009` брался из
-   модели, а не из текста ревизии. Проверено после: голова `0011`, единственный
-   класс читает `OPEN`, `device_invites` совпадает с моделью колонка в колонку,
-   три индекса.
-~~1а. **Применить `0013` после мерджа PR #45.**~~ Применена: голова `0013`,
-   ограничение на месте, удалено ноль строк (в `homework` их не было).
-1б. **Открыть `/api/v1/warmup` и убедиться, что деплой доехал** —
-   `{"status":"ok","schema":"0013"}`, — а потом написать боту `/start`: первое
-   же сообщение проходит через middleware, которое читает класс, и это самая
-   быстрая проверка, что схема и код сошлись. Это единственное, что осталось от
-   пункта 1 и требует живого сервиса.
-2. **Собрать APK с `main` и поставить на телефон.** См. раздел 5 — это
-   единственный способ проверить то, что сейчас не проверено ничем, и вдвойне
-   после трёх бампов сборочной цепочки. Теперь к этому добавилось три вещи:
-   подключить телефон к двум классам и походить между ними, посмотрев на виджет
-   после переключения; если под рукой есть телефон с прошлой версией — обновить
-   его поверх и убедиться, что класс на месте, а введение заново не показывают;
-   и войти в настоящий дневник, нажать на урок, исправить кабинет и сбросить.
-   И четвёртое: перевести класс в «только по приглашениям», убедиться, что
-   подключённый телефон продолжает работать, взять личный код кнопкой
-   «📱 Подключить телефон» и подключить им второй.
-3. **Убедиться, что `DADATA_TOKEN` действительно работает** на Vercel
-   (Production и Preview; это API-ключ, а не секретный).
-4. **Открыть в приложении «Настройки → О приложении → Лицензии»** и посмотреть на
-   восьмую строку — Google Sans Flex. Она собрана и компилируется, но глазами её
-   никто не видел: интересует, как ложится восьмой оттенок через палитру из шести.
-5. **Включить «Настройки → Перевод → Режим исправления» и походить по экранам.**
-   Проверяется то, чего JVM-тест не видит: что рамка появляется вокруг подписей,
-   а не вокруг названий предметов; что долгое нажатие на строке настроек
-   открывает редактор, а не переключает саму строку (жест читается на
-   `PointerEventPass.Initial` именно ради этого); что нажатие на предложении с
-   числом — «12,4 МБ» в обновлениях — показывает в редакторе шаблон `%1$s МБ`,
-   а не сумму; и что внутри самого редактора долгое нажатие не делает ничего.
+### CI and building the APK
+
+`android-actions/setup-android` is **pinned to `v4.0.1`** and is given
+`packages: platform-tools` — in `ci.yml` and in `apk.yml`. That is not cosmetic: a floating
+`@v4` asks by default for the `tools` package, which Google removed, and `sdkmanager` now
+returns a non-zero code for it. Without the pin, every Android run fails before Gradle
+starts. **Do not remove the pin and do not drop `packages` without checking that the action
+has stopped asking for `tools`.**
+
+The APK's "Run workflow" takes `main` by default, and after the merge that is finally the
+right branch. The last build sitting in the artifacts —
+[run 34948610365](https://github.com/lumenpearson/lessons/actions/runs/34948610365), the
+`lessons-apk` artifact — was made from the former working branch, that is, **without** AGP
+9.4.0, Gradle 9.7.1, the new compose-bom and everything described in this file. Build it
+again: that combination has gone through on the runner many times, but nobody has held an
+APK with it in their hands.
+
+### The cache is split by class
+
+`school_day` carries a `class_id`, and **every read in `TimetableDao` requires it as a
+parameter** — not by default but mandatorily. That is not pedantry: two classes' windows lie
+side by side on the phone, both weeks look like a plausible school week, and a query that
+lost the filter will draw somebody else's timetable, which on screen is indistinguishable
+from your own. The compiler is the only thing here capable of catching a missing filter,
+which is why the parameter is mandatory.
+
+A sync writes under the class the **server** matched to the token
+(`timetable.schoolClass.id`) rather than the one the phone thinks is active: there is a
+second between those two answers during a switch, and taking the local one would mean filing
+one class's window under another's name. `replaceAll` moves the `classId` from the class's
+row onto the day records for the same reason.
+
+The Room schema is at version 3. There is no migration and none is needed — the cache is
+disposable (`fallbackToDestructiveMigration`) and the first sync fills it.
+
+The memberships live in `Memberships.kt`, separately from `LessonsPreferences`: that is also
+where the **old format** is read — one session in four flat keys — and where the
+"introduction shown" flag comes from. The four keys are deleted on the first write of the
+list. **Do not bring writing to them back**, and do not touch the fallback read path without
+reading `MembershipsTest`: it is about installations already sitting on people's phones.
+
+### Corrections over the diary
+
+A correction's key (`target`) is **built by the server alone**, and the client hands it back
+verbatim. Two implementations of a key that has to match byte for byte agree exactly until
+the first lesson with no number. The format is in `services/diary_overrides.py`, and it is
+semantic rather than positional: this project has already shipped positional keys once (the
+calendar's UIDs), and deleting one element moved every later one onto somebody else's
+subject.
+
+A lesson's key is the day, the number **and** the subject, and either half alone is not
+enough: the number alone collides when a class is split into groups (the diary numbers
+lessons within a day and is not shy about giving two the same number), and the subject alone
+collides on a doubled lesson. Together they are no guarantee either: one subject taught to
+two groups in the same hour gives one key for two lessons, and what tells them apart is the
+room and the teacher — that is, exactly the correctable fields. So a key that landed on two
+lessons is **applied to neither**, and the client says so. Do not "simplify" it down to one
+number.
+
+**Marks and the turnstile cannot be corrected, and that is not an unfinished feature.** A
+mark is a statement about what happened; an app that lets you rewrite one produces a forged
+record that looks official. The set of fields is closed in `FIELDS_BY_KIND`.
+
+**The bot does not apply corrections** — deliberately. The bot draws a day as one block of
+text with no button on a lesson, so a correction there would be indistinguishable from the
+school's own and there would be nothing to take it off with, and that is the surface a parent
+reads more often. There is a comment about this in `app/bot/handlers/diary.py`; if the bot
+ever gets buttons on a lesson, apply them **and** mark them, but do not apply them silently.
+
+Corrections live on the account's login rather than on the diary's session: the session dies
+every few days, and a correction that went with it would disappear by itself before anybody
+pressed "reset".
+
+The diary's `422` means two different things: on a read, a bad date range; on a correction, a
+refusal. The caller tells them apart (`DiaryFailure.of(failure, unprocessable)`), because
+nothing in the answer does except a Russian sentence in `detail`.
+
+**A row with no key must not be made pressable.** The server builds `target`, and a row that
+arrived without one (a server older than `0009`, or a lesson the server could not enclose in
+a key) cannot be matched to any correction. Pressable, it sends every press into a `422`.
+`DiaryLesson.correctable` / `DiaryHomework.correctable` are that very question, and the "press
+a lesson" hint is not printed when there is nothing on the week to press.
+
+### Who lets a phone in
+
+A class has a `join_mode`: `open` (the class code lets in anybody who types it) or `invite`
+(the class code lets nobody in, and a phone joins with a personal one-time code from the
+bot). Both are typed into the same field of the same `POST /api/v1/join` — for the app that
+is one screen and one error — and they do not collide because **the lengths differ**: a class
+code is eight characters, a personal one is ten. `services/device_invites.CODE_LENGTH` is
+written about exactly this; if you change the length, check that it is still not equal to
+`JOIN_CODE_LENGTH`.
+
+**Switching takes nothing away.** Neither `invite` nor a return to `open` touches the tokens
+of phones that are already connected. That is promised on three screens in a row, and
+breaking it means dropping the timetable for a whole class at once, with not one line in the
+logs.
+
+**An enum is stored by name, not by value.** `SAEnum(JoinMode)` puts `OPEN` in the column,
+although `JoinMode.OPEN.value == "open"`; the API hands out that `value`. A draft of revision
+`0010` set `server_default="open"` — that would have sat on every class, and the first ORM
+read would have failed with a `LookupError`, that is, for the bot in the middleware, that is,
+the whole bot at once. Caught before it was applied; two tests in `test_join_modes.py` hold
+both sides. **Ask the same question of any future enum with a `server_default`.**
+
+**`is_public` is gone.** It sat on the class card, printed as «публичный / закрытый» — and was
+read by no code path at all. The column stayed in Postgres (dropping a column is not
+additive) and is not mapped in the model; there is a comment above that spot in `models.py`
+asking that nothing be hung on it again. A second sign of "who is let in" will drift from the
+first sooner or later.
+
+**A personal code is burnt by a conditional `UPDATE` rather than by an assignment.** "One
+code, one phone" is a statement about two requests rather than one: two requests that passed
+`find_live` in the same instant would both write `used_at` and both get a token.
+`device_invites.burn` returns whether it won, and `/join` burns the code **before** it issues
+a token.
+
+**The switch button carries the mode it wants, not "the other one".** A keyboard is a
+message, messages stay in the chat, and an admin with two «👥 Доступ» pages open would
+otherwise press a button still captioned "invitation only" and give the class code back to
+everybody who still had it. Pressing the mode that is already in force says "it already is"
+and writes nothing to the log. **Do not "simplify" it back into a toggle** — the `is_public`
+that was removed had exactly that shape, and it was harmless only because nobody read the
+flag.
+
+**What the bot promises and what it does not.** A phone's role is bounded by the role of
+whoever issued the code, and is checked on every request. The number of phones is bounded by
+nothing: any member can press the button and forward codes, so "by invitation" replaces one
+shared secret with a named person who decides each time, rather than with a smaller number of
+readers. Every phone that arrives carries the account that let it in — in «📱 Устройства» and
+in the log (`device.link`, written in `/join` rather than in the bot: that is where the
+connection happens). This is said out loud in `phone_code`'s docstring, because the previous
+version of that docstring claimed the opposite.
+
+**Revoking a member kills their unissued codes** (`device_invites.drop_for`). A code is
+checked only by its hash — `find_live` does not re-read `BotUser` — so without this, somebody
+excluded in the last fifteen minutes would still let a phone in. Used rows are left alone:
+they are the record that a phone has already joined.
+
+### Everything that came from outside is escaped before it is sent
+
+The bot sends HTML, and on one angle bracket Telegram refuses **the whole message** rather
+than spoiling a line. So an unescaped string does not produce a broken layout, it produces
+**a blank screen and not one error anybody will see**.
+
+What comes from outside is: everything from the Petersburg diary (subject, room, teacher,
+topic, homework), everything typed into the bot and pasted into the paste grammar (a subject
+really can be called «Алгебра <7>»), and everything from the schools registry. `render.py`
+always did this; `diary_render.py` and `editor_render.py` never did, and both shipped that
+way.
+
+Two traps of the same kind next door. `plural(n, …)` **already contains the number**, so
+`f"{n} {plural(n, …)}"` prints «10 10 минут» — it was in three places, and one had a test
+that passed because «10 минут» is a substring. And `answerCallbackQuery` has **no parse
+mode**: a card assembled for a message shows its own tags in an alert, which is what
+`editor_render.as_alert` is for — it also cuts at 200 characters, because past that Telegram
+answers 400 and the press answers with nothing at all.
+
+### Callback data is whatever the client sent, and this is not caution for its own sake
+
+A client is free to send any string as callback data. The difference between `int(x)` and
+"check and refuse" is not tidiness: a bare `int()` **escapes the handler**, which means
+`callback.answer()` is never called and the button spins until Telegram gives up. `manage.py`
+and `tasks.py` have `_int_or_none` for this, `calendar.py` and `content.py` have
+`_date_or_none`, `access.py` now has `_int_or_none` and `_role_or_none`, and `content.py` also
+has `_kind_or_none` and `_index_or_none`. The rule is one: **check where the value is
+picked**, not where it is finally read — otherwise it travels through three questions and
+fails in front of somebody who has already typed a time and a title.
+
+The same goes for arithmetic: `shift_days` / `shift_weeks` in `keyboards.py` build the date
+and let `date` say whether it is one. `timedelta(days=999999999)` is an `OverflowError`, not
+a far-away day.
+
+### Two screens can catch one press
+
+Both flows send a `RolePick` — inviting by number and changing a member's role — and the only
+thing that tells them apart is that the first leaves `target` empty. While the invite's
+filter was simply `RolePick.filter()`, it took both, because it stood higher in the file. If
+you add a second screen on an existing payload, **separate the filters by a field** rather
+than by registration order; `test_the_two_role_pickers_never_match_the_same_press` holds
+this.
+
+### The translation is guarded in every module that ships strings
+
+`ResourceTranslationTest` used to read `:app` and nothing else, while there are strings in
+`:core:data`, `:core:designsystem` and `:widget` too — including the countdown on the home
+screen. It now finds every module with a `values/strings.xml` by itself, names the module in
+every error, and a separate test holds the list itself, so that the walk cannot narrow
+silently. A `<plurals>`' arguments are counted **per form**: Russian has four and English
+two, and over the concatenation they can never agree (it never showed in `:app`, because
+everything there is `%1$d` rather than `%d`).
+
+Russian text hard-coded into Kotlin is not caught by this at all — those words are in neither
+folder. Check it this way: `grep -rnP '"[^"]*[\x{0400}-\x{04FF}]'` over `src/main`. Today
+what is left is only `@Preview`, the maintainer-facing report bodies, and the timezone list,
+where that decision is recorded in the file itself.
+
+### The correction mode knows about all the text, and two imports hold it
+
+The mode's coverage is not a list of places wrapped by hand. `:app` and `:core:designsystem`
+have **one** `Text`, and it is their own: `core/designsystem/text/Text.kt` — Material's plus
+`modifier.correctable(text)`. Strings are read through `correctedString` rather than through
+`stringResource`: that both substitutes the correction and remembers which resource drew
+these words, for as long as they are on the screen. A long press asks the registry rather
+than `values/` — a key cannot be looked up by text, since 204 strings of 991 match another's
+text, and another 100 are patterns with arguments.
+
+Both original imports are still on the classpath and still compile, so a new screen written
+out of habit would simply be a page the proofreader cannot touch, and nothing would say so.
+`CorrectionReachTest` holds this: it reads every module's sources and fails on
+`import androidx.compose.material3.Text` and on `import androidx.compose.ui.res.stringResource`.
+There are three exceptions (`Corrections.kt` itself, the editor and the corrections sheet),
+each named by path, and a separate test checks that an exception did not outlive its file.
+
+`CorrectableTextTest` compares the shim's signature against Material's by reflection: an
+undeclared parameter would silently stop working on every screen at once, while the call
+still resolves. The signature grows — `autoSize` arrived in 1.4 — so checking it by eye once
+would have been pointless.
+
+And one line without which all of this quietly ceases to exist: `MainActivity` wraps the app
+in `CorrectionHost`. Without it everything builds and draws, and the default implementation
+does nothing. That is in a test too.
+
+### A constraint migrates in the opposite direction from a column
+
+The rule "migration before the merge" is about code that knows a column the database does
+not. For this chain it is right everywhere but one case: **a `UNIQUE` and a `NOT NULL` break
+the old code, not the new.** Before `services/homework.py` reaches `main`, the losing side of
+a race does an ordinary INSERT and gets an `IntegrityError` nobody catches — that is, a 500
+where today there is a duplicate. So `0013` is applied **after** the merge, and that is
+written in the revision itself; `services/homework.py` is deliberately correct without the
+constraint too, so that the window between the merge and the application behaves as things do
+today.
+
+`0012` is the safe shape (eight timestamps that already hold no NULLs) and was applied the
+usual way, before the merge. **The database was read before both**, and that paid off: unlike
+`0011`, `0012` turned out not to be a no-op — all eight columns in production really were
+nullable.
+
+**The database's state right now:** Neon's head is `0013`, and it agrees with
+`EXPECTED_REVISION`. The revision was applied as one transaction through the connector right
+after PR #45 was merged, with the stamp last inside it; `homework` was empty, so its
+deduplication deleted no rows, and `uq_homework_per_subject_per_day` now stands as exactly
+what the model builds.
+
+### Idempotent is not the same as safe under a race
+
+`/api/v1/bundle` is a read, and it writes: it seeds the terms and the subject dictionary for
+a new class. Every phone in the class polls it on one timer, so "both found the year
+unseeded" is the ordinary case rather than a rare one. Both insert index 1, `uq_term_slot`
+refuses the second, and on Postgres an `IntegrityError` poisons the whole transaction — a 500
+on a read, on exactly the first request the seeding exists for.
+
+The shape this project already knows: the insert inside `session.begin_nested()`, and **the
+loser yields** — rolls its rows back and returns the other's (`terms.ensure`,
+`subjects._adopt`). The only one that must not yield is an explicit change of scheme:
+quietly accepting quarters means answering "done" to an admin who asked for half-years.
+
+The same rule about the sign-in ticket: `diary_link.claim` and `device_invites.burn` are both
+one conditional `UPDATE`, because "one link, one sign-in" is a promise about **two** requests
+rather than one.
+
+**And separately: do not commit by a counter.** `sync_from_timetable` returns how many
+dictionary entries were *created*, but it also links the timetable's rows.
+`GET /api/v1/manage/subjects` committed `if ...:` — and for a class with a full dictionary and
+unlinked lessons the work was done and thrown away on every read.
+
+### The school year ends, and the template with it
+
+`SCHOOL_YEAR_END_MONTH` is 5, and the comment beside it explains why the template must not
+repeat from June: it "would show lessons nobody is going to". Only `school_year_bounds` read
+that constant. `_resolve_day` now asks it too. A day marked by hand keeps its kind and its
+note; events and homework are kept either way — it is the lessons that are out of season, not
+the day.
+
+The rule is about a **date** rather than about the quarters. A school that really does teach
+in June enters those days as events.
+
+### A lesson's ceiling is a set of numbers, not a count of them
+
+The resolver takes a lesson's time from the bell row **with the same number** (`schedule.py`,
+`period = bells.get(entry.index)`). So the question "may lesson 4 be written" is "is there a
+bell 4", not "how many bells are there in total". The paste grammar allows a gap
+(`parse_bells_block` refuses only on `index < 1` and on duplicates), so for a class with bells
+at 1, 2, 4 a count is wrong in both directions at once. `timetable_edit.rung_indexes` answers
+the right question, `can_ring` asks it, and `rings` stayed a counter because it is printed as
+"there are N lessons in the bell schedule".
+
+Every entrance is closed: a substitution (`api/edit.py`, `bot/handlers/content.py`) and the
+single-day paste check the bell, the day paste goes through `apply_timetable`, deleting a
+lesson closes the gap in the numbering **only** if every lesson it moves lands on a number
+that rings (otherwise a class with bells at 1, 2, 4 lost its fourth lesson by shifting it
+onto the third), and a «⏱ Сокращённый день» cannot be hung on a bell schedule with no rows —
+neither from the API nor from the bot: such a day draws nothing at all.
+
+**And count rows, not numbers.** `apply_timetable` returns a `TimetableImport` with (day,
+number) pairs: «⚠️ Не добавлены уроки № …» names a number once — that is one thing to fix —
+while "N skipped, no bell" and `rejected` in the API count the rows that were dropped,
+because one number under two days (or under «чёт»/«нечёт» in one day) is two lessons.
+
+### A slot is one "every week" row or two halves
+
+`uq_timetable_cell` is `(class, day, number, parity)`, and "every week" next to "numerator"
+does not violate that key. Both rows pass the parity filter on an odd week, and `_load`
+selects the template **with no `ORDER BY`** and keeps the last — so which subject the phone
+sees is decided by the database, and the answer can differ between two reads. Three places
+hold the rule, and all three are needed: `timetable_io._conflicts` on a paste, the editor's
+handler, and — as of this commit — `timetable_edit.edit_lesson`, that is, the one entrance of
+the second shell.
+
+### A list's length and its keyboard's length are one number, not two
+
+`manage_render` declares `SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX` and `LIST_MAX` (special
+days), and `manage_keyboards` builds its rows **from those same ones**. While there were two
+numbers, three pages of four drew rows nothing could reach, and «… и ещё N» said nothing about
+them, because it counted from its own number. Do not "bring them to one value for tidiness":
+the numbers differ on purpose — a bell schedule's row carries three buttons and twelve lines
+of times, a subject's one of each. The rule is one: what is drawn is what can be pressed, and
+`test_no_list_page_draws_a_row_the_keyboard_cannot_reach` holds it.
+
+The pages **do not paginate** — none of them. Past the cap a row is only a number in
+«… и ещё N»; for a class with forty subjects the last ten are unreachable from the bot
+entirely. Raising the caps is a wall of buttons; the real fix is pagination, and nobody has
+written it.
+
+### `python -m mypy` answers one question, and that is enough
+
+Not "type everything" but "does the code reach for an attribute the type does not have". That
+is exactly what crashed «🗓 Четверти», and the check reproduces it word for word if the
+property is put back. It is configured in `pyproject.toml`, where **every other code is
+switched off by name, with a count and a reason** — a check whose output cannot be read is a
+check nobody runs.
+
+It is currently clean across all 78 modules. The one thing that stood between the project and
+cleanliness was `Result.rowcount`: `AsyncSession.execute` is typed as returning a
+`Result[Any]`, which has no such field, while DML returns a `CursorResult`, which does.
+Eleven places wrote `result.rowcount or 0` and meant one thing; that is now
+`db.rows_affected`, and the cast lives in one place.
+
+**It is not in CI.** `CLAUDE.md` asks that the workflows not be edited casually, and adding a
+job is the owner's decision, which nobody asked for. Run it by hand before pushing server
+code.
+
+### A renderer is written against the type it will be handed
+
+«🗓 Четверти» crashed in production on every press, because the card read `term.days`, while
+`days` belonged to `TermView` — a dataclass nobody ever constructed. Two types for one entity
+is a way to write a renderer against the one that never reaches it; there is no compiler
+here, and an `AttributeError` is visible only from the button.
+
+The moral is not "add type hints" but something more specific: **if a model's "flattened copy
+for the renderer" sits beside it, check that somebody creates it.** And remember where the
+tests' boundary runs: `tests/test_terms.py` opens with the words "the rules, not the
+rendering", and that is an honest split right up to the day nobody checks the rendering.
+The terms card is now drawn by a test (`test_the_terms_card_draws`), and it asserts the
+numbers rather than only that the call returned: a card with «0 дн.» is as wrong as one that
+crashed.
+
+### The intercepting layer and the compose-bom
+
+For two releases `OverlayLayerTest` asserted that a layer swallowing gestures to keep a touch
+from reaching the pager beneath it cancels presses on its own rows with the same movement —
+and that there is no fix. With **compose-bom 2026.09.00** that stopped being true: the same
+layer over the same rows lets presses through. Narrowed to the bom itself (with navigation
+2.10.1 and room 2.8.5, rolling back the bom alone restores the old behaviour). The test was
+rewritten for the new order.
+
+**We are not going back to the layer, though**, and that is the main thing to take away here:
+the delivery order between two subtrees is promised nowhere, it moved under a dependency bump
+silently, and a finger on a row would just as silently stop working again — and that bug has
+already shipped twice. The tabs are still removed from the composition rather than covered.
+
+### The dependency mirror
+
+The root `requirements.txt` and `server/pyproject.toml` have to carry the same floors.
+Dependabot edits **the root file only** — which is how `main` drifted
+(`sqlalchemy>=2.0.52` against `>=2.0.30`, `pydantic-settings>=2.15.0` against `>=2.4`). Tests
+hold this now rather than attentiveness: `tests/test_requirements_mirror.py` checks both
+directions and the versions themselves, and the three packages deliberately absent from the
+bundle (`uvicorn`, `aiosqlite`, `alembic`) are listed there with their reasons. A floor
+raised in one file only is green CI and a function that installs the old one.
+
+### Week parity
+
+`week_parity` counts weeks **from the start of the school year** rather than by the ISO
+number. The first week of the year deliberately keeps the parity the old rule would have
+given it: in 2024/25, 2025/26, 2027/28 and 2031/32 both rules agree day for day, and they
+differ only inside the two years where the old one went wrong. **If you touch this place, do
+not "simplify" it back to `isocalendar().week`.**
+
+### Deleting a subject
+
+A subject that stands in the timetable can no longer **be deleted** — the API answers `409`
+and the bot shows how many lessons use it. That is a change of contract rather than a bug:
+the dictionary fills itself from the timetable, so a deleted name came back on the very next
+read with no colour and no teacher. The order is: take the lessons out of the timetable
+first, then the subject out of the dictionary.
+
+### The ceiling on lessons in a day
+
+Not `MAX_INDEX` but the class's bell count. A lesson with a number that has no row in the
+bell schedule cannot be placed by the resolver and used to be dropped silently. On import the
+ceiling is computed from what the class will ring **after** the import — a paste with its own
+`== Звонки ==` block legitimately brings a ninth bell and a ninth lesson in one message.
+
+### The timetable paste grammar
+
+The last field takes the rest of the line, so a teacher «Иванов И.И., к.п.н.» is written with
+no syntax. A subject or a room containing a comma is wrapped in double quotes, and a `""`
+inside is one literal quote. Quotes are used only where they are needed, so any line already
+written parses as it did before.
 
 ---
 
-## 8. Если начинаете новую работу
+### The agent configuration lives in `.claude/`
 
-Порядок, который окупился здесь:
+There was none at all — no settings, no agents, no skills. There is now, and it is arranged
+so as not to retell `CLAUDE.md` but to describe the shape: who owns what, which checks are
+real, and which commands are never run from a session.
 
-1. Прочитать `CLAUDE.md` целиком, затем `docs/architecture.md`.
-2. Прочитать файл перед правкой и **грепнуть всех вызывающих** перед изменением
-   функции. Аудиты в `docs/design.md` существуют потому, что вывод, сделанный по
-   местам вызова, оказался неверным.
-3. Аудиты читающими субагентами по областям работают хорошо и находят настоящее:
-   шестнадцать находок за четыре прогона, из них несколько — в коде, написанном
-   часом раньше в этой же сессии. Давайте им узкую область, правила проекта и
-   требование конкретного сценария отказа, а правки вносите сами.
-4. Не коммитить без зелёных ворот на обеих половинах.
-5. Дописывать «что не покрыто» в тело коммита и в честный статус `README.md`.
-   «Написано, не запускалось» — законный статус; утверждение, что проверено,
-   когда не проверено, — нет.
+```
+.claude/settings.json   permissions, one hook, the marketplace this project knows about
+.claude/agents/         eighteen agents by area
+.claude/skills/         nine procedures
+.claude/commands/       /where-are-we and /pre-push
+.claude/README.md       what is here and what is deliberately absent
+AGENTS.md               a pointer for agents that read something other than `CLAUDE.md`
+.github/copilot-instructions.md   a short file: it is read on every request
+```
+
+Eighteen agents rather than a hundred, because each file exists for a trap that has already
+sprung in that area, and carries the fact that would have prevented it. An agent that retells
+`CLAUDE.md` would not survive the same review that lets no comment through that retells the
+line below it, and a stub agent is worse than no agent: it answers confidently from nothing.
+The nine-way split in `skills/audit/SKILL.md` is the one that found thirty-one findings in a
+pass; the other nine are areas that have since grown traps of their own.
+
+Three things in `settings.json` worth knowing:
+
+* **`deny` compares the start of the command string.** `DATABASE_URL=… .venv/bin/alembic
+  upgrade head` walks past the `alembic upgrade *` rule. Those are guard rails, not a fence;
+  the reason not to run it by hand is in `skills/migration/SKILL.md`.
+* **There is exactly one hook**, and it only prints: on a write to any module's
+  `values/strings*.xml` it mentions the twin in `values-en/`. A committed hook runs on the
+  machine of everybody who cloned the repository — which is why there is one and why it
+  cannot fail.
+* **`extraKnownMarketplaces` registers `anthropics/skills`**, but no plugin is enabled:
+  enabling one is a decision for everybody who clones the repository, not for the session
+  that added the file.
+
+**There is deliberately no `.mcp.json`.** The Neon and Vercel connections need credentials,
+and secrets do not enter this repository. The Neon project is the one **named `lessons`**
+(the account has two), and that is all that can safely be written down.
+
+### Everything written about the project is English
+
+The product speaks Russian; everything written *about* the project is English. User-facing
+strings stay where they were — `values/` is Russian and is the source, `values-en/` is the
+translation, and the reader picks the language in the app — and every string the bot sends is
+untouched. What moved: `README.md`, all of `docs/`, this file, the community documents, the
+issue and pull request templates, and every comment and docstring under `server/` and
+`android/`.
+
+Where any of those quotes a button, a menu path or an error the reader will see, it quotes it
+in Russian, in guillemets, because that is what is on the screen. «🔔 Звонки» is a quotation,
+not prose.
+
+Two things about the edges of that rule:
+
+* **The pull requests were rewritten on GitHub**, titles, descriptions and the eight
+  Russian comments under #16, #22, #34, #35 and #47. Those are GitHub objects, not repository
+  content: nothing in git moved, and no hash changed. The bots' comments are not ours and were
+  left alone.
+* **The commit history keeps its Russian, by decision.** Of 242 commits, 41 carry Russian
+  prose outside quoted product strings — about 2,055 characters, mostly in merge-commit
+  bodies. Rewriting them means rewriting every hash from the first affected commit and force
+  pushing `main` and `dev`: every existing clone breaks, the merge references in the pull
+  requests stop resolving, and the release tags move. The owner decided not to. So a `git log`
+  older than this batch reads in two languages, and that is expected rather than missed.
+
+The rule itself is written into `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`
+and the `.claude/` agents and skills that touch strings or releases.
+
+## 7. Left to the owner
+
+All of this is beyond an agent's reach: it needs a phone, a key or a live service.
+
+~~1. **Decide the fate of PR #43.**~~ Merged. The order was kept: `0010` (the join mode and
+   the personal-codes table) and `0011` (two timestamps in `diary_overrides` brought to `NOT
+   NULL`) were applied through the Neon connector **before** the merge. Neither destroyed
+   anything: `0010` added a column with a default preserving the current behaviour, plus an
+   empty table; `0011` changed nothing at all on this database — the columns were already
+   `NOT NULL`, because the DDL for `0009` came from the model rather than from the revision's
+   text. Verified afterwards: head `0011`, the single class reads `OPEN`, `device_invites`
+   matches the model column for column, three indexes.
+~~1a. **Apply `0013` after PR #45 is merged.**~~ Applied: head `0013`, the constraint in
+   place, zero rows deleted (`homework` had none).
+1b. **Open `/api/v1/warmup` and make sure the deploy arrived** —
+   `{"status":"ok","schema":"0013"}` — and then send the bot `/start`: the very first message
+   goes through the middleware that reads a class, and that is the fastest check that the
+   schema and the code agree. That is all that is left of item 1 and it needs a live service.
+2. **Build the APK from `main` and install it on a phone.** See section 5 — it is the only
+   way to check what nothing currently checks, and doubly so after three build-chain bumps.
+   Three things have been added to this: connect the phone to two classes and walk between
+   them, looking at the widget after a switch; if a phone with the previous version is to
+   hand, upgrade it in place and make sure the class is still there and the introduction is
+   not shown again; and sign into a real diary, press a lesson, correct the room and reset
+   it. And a fourth: put a class into "invitation only", make sure a connected phone goes on
+   working, take a personal code with the «📱 Подключить телефон» button and connect a second
+   phone with it.
+3. **Make sure `DADATA_TOKEN` really works** on Vercel (Production and Preview; it is the API
+   key, not the secret one).
+4. **Open «Настройки → О приложении → Лицензии» in the app** and look at the eighth row —
+   Google Sans Flex. It is built and it compiles, but nobody has seen it with their eyes:
+   what is of interest is how an eighth shade sits in a palette of six.
+5. **Switch on «Настройки → Перевод → Режим исправления» and walk the screens.** What is
+   being checked is what a JVM test cannot see: that the outline appears around labels rather
+   than around subject names; that a long press on a settings row opens the editor rather
+   than toggling the row (the gesture is read on `PointerEventPass.Initial` precisely for
+   this); that pressing a sentence with a number in it — «12,4 МБ» under updates — shows the
+   pattern `%1$s МБ` in the editor rather than the sum; and that inside the editor itself a
+   long press does nothing.
+
+---
+
+## 8. If you are starting new work
+
+The order that paid off here:
+
+1. Read `CLAUDE.md` in full, then `docs/architecture.md`. If you are an agent, look at
+   whether `.claude/agents/` has a file for your area and `.claude/skills/` a procedure for
+   the task: those record the traps that have already sprung in that area.
+2. Read a file before editing it and **grep every caller** before changing a function. The
+   audits in `docs/design.md` exist because a conclusion drawn from call sites turned out to
+   be wrong.
+3. Audits by reading subagents, split by area, work well and find real things: sixteen
+   findings over four runs, several of them in code written an hour earlier in the same
+   session. Give them a narrow area, the project's rules and a requirement for a concrete
+   failure scenario, and make the edits yourself.
+4. Do not commit without green gates on both halves.
+5. Write "what is not covered" into the commit body and into the honest status in
+   `README.md`. "Written, never run" is a legitimate status; a claim that something was
+   verified when it was not is not.
