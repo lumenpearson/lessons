@@ -22,7 +22,6 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
@@ -78,12 +77,13 @@ fun LessonsBottomSheet(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (title != null) {
+                // The column above scrolls, so a long heading wraps to a third
+                // line rather than being cut at the second. A heading is the
+                // one thing on a sheet that has to be read in full.
                 Text(
                     text = title,
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(
                         start = ScreenPadding,
                         end = ScreenPadding,

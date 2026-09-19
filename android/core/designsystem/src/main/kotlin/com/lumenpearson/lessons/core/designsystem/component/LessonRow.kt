@@ -10,7 +10,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
@@ -97,12 +96,12 @@ fun LessonRow(
             )
             val note = lesson.note
             if (note != null) {
+                // A note is the one line of a lesson somebody typed by hand
+                // for this day in particular; the row grows to hold it.
                 Text(
                     text = note,
                     style = MaterialTheme.typography.bodySmall,
                     color = tone.content,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

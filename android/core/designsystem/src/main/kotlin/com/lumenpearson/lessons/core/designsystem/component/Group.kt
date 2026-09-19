@@ -43,7 +43,6 @@ import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -174,8 +173,6 @@ fun GroupItem(
                 text = it,
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -269,8 +266,6 @@ fun GroupSwitchItem(
                     text = it,
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
         },
@@ -408,14 +403,19 @@ fun GroupLinkItem(
     )
 }
 
-/** The two-line text block of a row, so the two lines never drift apart. */
+/**
+ * The title-and-subtitle block of a row, so the two never drift apart.
+ *
+ * The title is one scrolling line because a row's title is what it is found by;
+ * the subtitle is uncapped, and a long one makes the row taller rather than
+ * losing its end.
+ */
 @Composable
 fun RowText(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     titleColor: Color = MaterialTheme.colorScheme.onSurface,
-    subtitleMaxLines: Int = 2,
 ) {
     Column(
         modifier = modifier,
@@ -431,8 +431,6 @@ fun RowText(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = subtitleMaxLines,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }

@@ -184,6 +184,9 @@ private fun ColumnScope.AwaitingBlock(
         ),
         color = MaterialTheme.colorScheme.primary,
         textAlign = TextAlign.Center,
+        // A device code is eight characters and a dash, and `autoSize` shrinks it
+        // until even that fits. Breaking it across two lines would be worse than
+        // any of it: it is read off the screen and typed into another device.
         maxLines = 1,
         autoSize = TextAutoSize.StepBased(minFontSize = CodeMinSize, maxFontSize = CodeMaxSize),
         modifier = Modifier

@@ -69,6 +69,8 @@ fun MarqueeText(
                 measured = measurer.measure(
                     text = text,
                     style = style,
+                    // Measuring, not drawing: this is the width the string wants on
+                    // one unbroken line, which is the number the decision needs.
                     maxLines = 1,
                     softWrap = false,
                 ).size.width,
@@ -81,6 +83,8 @@ fun MarqueeText(
             color = color,
             textAlign = textAlign,
             style = style,
+            // One line by definition — this component's whole subject is the line
+            // that has to stay one line. It scrolls instead of being cut.
             maxLines = 1,
             softWrap = false,
             // Clip rather than Ellipsis while scrolling: the marquee's own
