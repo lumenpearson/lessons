@@ -559,6 +559,72 @@ async def test_subject_rename_onto_an_existing_name_is_refused(client, session, 
     assert "Алгебра" in set(names)
 
 
+async def test_subject_rename_onto_a_name_only_the_homework_uses_is_refused(
+    client, session, school_class
+):
+    """The dictionary check cannot see this one, and the database can.
+
+    A задание may be written under a name that is not a dictionary entry —
+    `subjects.spelling` never founds one — so «Матан» is invisible to
+    `subjects.clashing`, and that is exactly the configuration that reaches
+    the bulk `UPDATE`. Homework is unique per subject per day (`0013`), so
+    the statement raised `IntegrityError` out of the middle of a transaction
+    that had already moved the timetable and the замены: a 500, nothing
+    committed, and the whole rename silently lost.
+    """
+    algebra = await _subject(session, school_class, "Алгебра")
+    token = await _admin(client, session, school_class)
+    for subject in ("Алгебра", "Матан"):
+        saved = await client.put(
+            "/api/v1/homework",
+            json={"due_date": "2026-09-07", "subject": subject, "text": "п.1"},
+            headers=_auth(token),
+        )
+        assert saved.status_code == 200, saved.text
+
+    response = await client.patch(
+        f"/api/v1/manage/subjects/{algebra.id}",
+        json={"name": "Матан"},
+        headers=_auth(token),
+    )
+
+    assert response.status_code == 409, response.text
+    assert "2026-09-07" in response.text
+    await session.refresh(algebra)
+    assert algebra.name == "Алгебра"
+    # And nothing was half-moved: the замены and the timetable are untouched.
+    names = await session.scalars(
+        select(TimetableEntry.subject_name).where(TimetableEntry.class_id == school_class.id)
+    )
+    assert "Алгебра" in set(names)
+
+
+async def test_subject_rename_still_carries_homework_that_does_not_collide(
+    client, session, school_class
+):
+    """The guard must not refuse the ordinary rename it stands next to."""
+    algebra = await _subject(session, school_class, "Алгебра")
+    token = await _admin(client, session, school_class)
+    await client.put(
+        "/api/v1/homework",
+        json={"due_date": "2026-09-07", "subject": "Алгебра", "text": "п.1"},
+        headers=_auth(token),
+    )
+    await client.put(
+        "/api/v1/homework",
+        json={"due_date": "2026-09-08", "subject": "Матан", "text": "п.2"},
+        headers=_auth(token),
+    )
+
+    response = await client.patch(
+        f"/api/v1/manage/subjects/{algebra.id}",
+        json={"name": "Матан"},
+        headers=_auth(token),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["moved"] >= 1
+
+
 async def test_subject_patch_sets_and_clears_the_small_fields(client, session, school_class):
     subject = await _subject(session, school_class, "Физика", teacher="Петров", color="#111111")
     token = await _admin(client, session, school_class)
@@ -692,6 +758,11 @@ async def test_bells_rename_and_make_default(client, session, school_class):
             "/api/v1/manage/bells", json={"name": "Суббота"}, headers=_auth(token)
         )
     ).json()
+    await client.put(
+        f"/api/v1/manage/bells/{created['id']}/periods",
+        json={"periods": [{"index": 1, "starts_at": "09:00", "ends_at": "09:40"}]},
+        headers=_auth(token),
+    )
 
     response = await client.patch(
         f"/api/v1/manage/bells/{created['id']}",
@@ -705,9 +776,58 @@ async def test_bells_rename_and_make_default(client, session, school_class):
     assert school_class.bell_schedule_id == created["id"]
     assert await _actions(session, school_class) == [
         "bells.create",
+        "bells.edit",
         "bells.rename",
         "bells.default",
     ]
+
+
+async def test_a_schedule_that_rings_nothing_cannot_become_the_class_default(
+    client, session, school_class
+):
+    """This test used to assert the opposite, which is how the defect shipped.
+
+    A schedule may be created empty — that is the two-step flow, and the rows
+    are the next screen. Making an empty one the *class default* is another
+    thing entirely: every ordinary day rings it, and a day that rings nothing
+    draws nothing. `/bundle` answers zero lessons, `/now` answers «выходной»
+    on a Monday, and the phone, the widget, the calendar feed and the morning
+    digest go blank together with nothing anywhere reporting a problem.
+
+    The class's own timetable is left untouched underneath, which is what
+    makes it so hard to see: nothing was deleted, and everything is gone.
+    """
+    token = await _admin(client, session, school_class)
+    before = (
+        await client.get(
+            "/api/v1/bundle?start=2026-09-07&days=1", headers=_auth(token)
+        )
+    ).json()
+    drawn = sum(len(day["lessons"]) for day in before["days"])
+    assert drawn > 0, "the fixture class has to ring something for this to mean anything"
+
+    empty = (
+        await client.post(
+            "/api/v1/manage/bells", json={"name": "Пустое"}, headers=_auth(token)
+        )
+    ).json()
+    assert empty["periods"] == []
+
+    response = await client.patch(
+        f"/api/v1/manage/bells/{empty['id']}",
+        json={"is_default": True},
+        headers=_auth(token),
+    )
+    assert response.status_code == 422, response.text
+
+    await session.refresh(school_class)
+    assert school_class.bell_schedule_id != empty["id"]
+    after = (
+        await client.get(
+            "/api/v1/bundle?start=2026-09-07&days=1", headers=_auth(token)
+        )
+    ).json()
+    assert sum(len(day["lessons"]) for day in after["days"]) == drawn
 
 
 async def test_bells_cannot_be_un_defaulted(client, session, school_class):

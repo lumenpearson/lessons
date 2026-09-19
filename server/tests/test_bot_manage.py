@@ -1539,13 +1539,28 @@ async def test_a_day_is_not_pointed_at_a_bell_schedule_that_rings_nothing(
     )
 
     override = await session.scalar(select(DayOverride).where(DayOverride.date == day))
-    assert override.bell_schedule_id is None
+    # Left where marking the day put it — the class default — rather than
+    # pointed at a schedule that rings nothing. Never null: see below.
+    assert override.bell_schedule_id == school_class.bell_schedule_id
     assert "ещё нет ни одного урока" in (picked.answers[-1][0] or "")
 
 
-async def test_leaving_the_usual_bells_on_a_shortened_day_stores_no_schedule(
-    session, school_class
-):
+async def test_a_shortened_day_always_names_the_schedule_it_rings(session, school_class):
+    """This test used to assert the opposite, and the opposite is a state the
+    API refuses with a 422.
+
+    «⏱ Сокращённые уроки» is a claim about the times, and the times come from
+    a bell schedule. With none, `ScheduleResolver._bells_for` falls back to the
+    class default — so the day announced shortened lessons on every phone, in
+    the widget, in the calendar feed and in the morning digest, and then drew
+    the normal ones. Somebody reads that label and packs for a short day.
+
+    Two ways in, and both are closed. Marking the day now writes the class
+    default rather than null, because the row is committed *before* the picker
+    is asked and walking away used to leave it null; and «Оставить обычные» is
+    gone from the picker, so the one button that re-created the state no
+    longer exists. A card left open from before it was removed is refused.
+    """
     day = Date(2027, 3, 12)
     await holiday_kind(
         FakeCallback(message=FakeEditable()),
@@ -1555,8 +1570,14 @@ async def test_leaving_the_usual_bells_on_a_shortened_day_stores_no_schedule(
         school_class,
         Role.EDITOR,
     )
+
+    override = await session.scalar(select(DayOverride).where(DayOverride.date == day))
+    assert override.kind is DayKind.SHORTENED
+    assert override.bell_schedule_id == school_class.bell_schedule_id
+
+    stale = FakeCallback(message=FakeEditable())
     await holiday_bells(
-        FakeCallback(message=FakeEditable()),
+        stale,
         SimpleNamespace(action="bells", value=f"{day.isoformat()}:0"),
         FakeState(),
         session,
@@ -1564,8 +1585,23 @@ async def test_leaving_the_usual_bells_on_a_shortened_day_stores_no_schedule(
         Role.EDITOR,
     )
 
-    override = await session.scalar(select(DayOverride).where(DayOverride.date == day))
-    assert override.bell_schedule_id is None
+    await session.refresh(override)
+    assert override.bell_schedule_id == school_class.bell_schedule_id
+    assert "своё расписание звонков" in (stale.answers[-1][0] or "")
+
+
+def test_the_picker_for_a_shortened_day_offers_no_way_to_leave_it_unrung():
+    """The button that created the state the API refuses is not drawn."""
+    from app.bot.manage_keyboards import bells_pick_keyboard
+
+    markup = bells_pick_keyboard(
+        [SimpleNamespace(id=3, name="Сокращённое")], "2026-10-26"
+    )
+    payloads = [
+        button.callback_data for row in markup.inline_keyboard for button in row
+    ]
+    assert not any(payload.endswith(":0") for payload in payloads)
+    assert any(payload.endswith(":3") for payload in payloads)
 
 
 async def test_a_note_typed_after_the_kind_lands_on_the_day_row(session, school_class):

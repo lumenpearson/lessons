@@ -12,7 +12,8 @@ line describing it lands with it or not at all.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import date as Date
 from datetime import time as Time
 
 from sqlalchemy import delete as sa_delete
@@ -58,6 +59,16 @@ class TimetableImport:
     schedule: BellSchedule | None
     dropped: list[tuple[int, int]]
 
+    #: Lessons already in the template that the bells this import wrote no
+    #: longer ring. The other end of ``dropped``: that one is a pasted lesson
+    #: the class cannot ring, this one is a stored lesson the class has just
+    #: stopped ringing. Same invariant, opposite direction, and until now only
+    #: the first half was ever checked — so pasting a five-row Saturday block
+    #: over the default schedule quietly took lessons 6 and 7 off every
+    #: weekday, on every phone, with «уроков — 5» as the only thing anybody
+    #: was told.
+    orphaned: list[tuple[int, int]] = field(default_factory=list)
+
     @property
     def unrung(self) -> list[int]:
         """The lesson numbers to name in «нет таких номеров», each once.
@@ -66,6 +77,45 @@ class TimetableImport:
         number repeated across weekdays is one thing to fix, said once.
         """
         return sorted({index for _weekday, index in self.dropped})
+
+
+async def homework_clashing(
+    session: AsyncSession, class_id: int, old_name: str, new_name: str
+) -> list[Date]:
+    """The days on which renaming ``old_name`` to ``new_name`` would collide.
+
+    Homework is unique per (class, day, subject name) — `0013` — and a rename
+    is a bulk `UPDATE` over the text. So a class that has one задание under
+    «Алгебра» and another under «Матан» on the same Friday cannot rename the
+    first onto the second: the statement raises `IntegrityError` out of the
+    middle of a transaction that had already moved the timetable and the
+    замены, nothing is committed, and the whole rename is lost with no message
+    anybody can act on.
+
+    The dictionary check the two shells already make does not see this. A
+    задание can be written under a name that is not a dictionary entry at all
+    — `subjects.spelling` never founds one — so the colliding name is
+    invisible to `subjects.clashing`, and the only configuration that reaches
+    the `UPDATE` with a collision is exactly the one it cannot see.
+
+    Returns the days, so the answer can name them: «есть задания и там и там»
+    is not something an admin can do anything about.
+    """
+    if old_name == new_name:
+        return []
+    old_days = select(Homework.due_date).where(
+        Homework.class_id == class_id, Homework.subject_name == old_name
+    )
+    clashing = await session.scalars(
+        select(Homework.due_date)
+        .where(
+            Homework.class_id == class_id,
+            Homework.subject_name == new_name,
+            Homework.due_date.in_(old_days),
+        )
+        .order_by(Homework.due_date)
+    )
+    return list(clashing)
 
 
 async def rename_subject(
@@ -114,18 +164,51 @@ async def rename_subject(
 
 async def write_bell_periods(
     session: AsyncSession, schedule: BellSchedule, rows: list[BellRow]
-) -> None:
-    """Replace a schedule's rows wholesale.
+) -> list[tuple[int, int]]:
+    """Replace a schedule's rows wholesale; answer with what stops ringing.
 
     The delete is a bulk statement, which goes round the ORM, so the eagerly
     loaded ``periods`` collection is stale afterwards and every caller
     refreshes it before rendering the result.
+
+    The return value is the other half of «a lesson number needs a bell of its
+    own number», which until now was only ever checked when a *lesson* was
+    written. Shrinking the schedule is the same invariant broken from the
+    other end: paste a five-row Saturday over the class's default and every
+    weekday's lessons 6 and 7 are still stored, and drawn, logged and
+    announced nowhere — «✅ Звонки сохранены: 5 уроков» and not a word about
+    the fourteen lessons that just left every phone in the class.
+
+    The (weekday, index) pairs, because one number under two weekdays is two
+    lessons nobody will see — the same reason `apply_timetable` counts rows
+    and not numbers. Only the class's own default is checked: a schedule some
+    particular day points at affects that day, and the day is a different
+    question from the weekly template.
     """
+    orphaned: list[tuple[int, int]] = []
+    if schedule.class_id is not None and schedule.id is not None:
+        rung = {index for index, _, _ in rows}
+        default_of = await session.scalar(
+            select(SchoolClass.bell_schedule_id).where(SchoolClass.id == schedule.class_id)
+        )
+        if default_of == schedule.id:
+            existing = await session.execute(
+                select(TimetableEntry.weekday, TimetableEntry.index)
+                .where(TimetableEntry.class_id == schedule.class_id)
+                .order_by(TimetableEntry.weekday, TimetableEntry.index)
+            )
+            orphaned = [
+                (int(weekday), int(index))
+                for weekday, index in existing
+                if int(index) not in rung
+            ]
+
     await session.execute(sa_delete(BellPeriod).where(BellPeriod.schedule_id == schedule.id))
     for index, start, end in rows:
         session.add(
             BellPeriod(schedule_id=schedule.id, index=index, starts_at=start, ends_at=end)
         )
+    return orphaned
 
 
 async def lessons_per_weekday(
@@ -220,6 +303,7 @@ async def apply_timetable(
             total += 1
 
     schedule: BellSchedule | None = None
+    orphaned: list[tuple[int, int]] = []
     if bells:
         if school_class.bell_schedule_id:
             schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
@@ -228,6 +312,8 @@ async def apply_timetable(
             session.add(schedule)
             await session.flush()
             school_class.bell_schedule_id = schedule.id
-        await write_bell_periods(session, schedule, bells)
+        orphaned = await write_bell_periods(session, schedule, bells)
 
-    return TimetableImport(written=total, schedule=schedule, dropped=dropped)
+    return TimetableImport(
+        written=total, schedule=schedule, dropped=dropped, orphaned=orphaned
+    )

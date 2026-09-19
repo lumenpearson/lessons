@@ -33,7 +33,7 @@ from app.bot.keyboards import (
 from app.bot.keyboards import (
     OverrideAction as OverrideCB,
 )
-from app.bot.render import human_date, relative_day_name
+from app.bot.render import clamp, human_date, relative_day_name
 from app.bot.states import AddEvent, AddHomework, AddOverride
 from app.config import get_settings
 from app.models import (
@@ -67,17 +67,6 @@ def _today(school_class: SchoolClass | None = None) -> Date:
     """
     tz = school_class.tz if school_class is not None else get_settings().tz
     return datetime.now(tz).date()
-
-
-#: Homework text is free-form and can be a paragraph. A push notification
-#: that long is unreadable on a lock screen, so the announcement is cut while
-#: the stored задание keeps every word.
-NOTIFY_TEXT_MAX = 200
-
-
-def _shorten(text: str) -> str:
-    text = " ".join(text.split())
-    return text if len(text) <= NOTIFY_TEXT_MAX else text[: NOTIFY_TEXT_MAX - 1].rstrip() + "…"
 
 
 #: The answer a day picker gives to a date it cannot read.
@@ -335,8 +324,14 @@ async def homework_text(
 
     today = _today(school_class)
     await message.answer(
-        f"✅ Задание {verb}.\n\n<b>{escape(subject)}</b> "
-        f"{human_date(due, today)}\n{escape(text)}",
+        clamp(
+            [
+                f"✅ Задание {verb}.",
+                "",
+                f"<b>{escape(subject)}</b> {human_date(due, today)}",
+                escape(text),
+            ]
+        ),
         reply_markup=back_to_menu(),
     )
     await notify.notify_subscribers(
@@ -345,7 +340,7 @@ async def homework_text(
         school_class,
         f"📝 {'Обновлено' if verb == 'обновлено' else 'Новое'} задание: "
         f"<b>{escape(subject)}</b> {relative_day_name(due, today)} — "
-        f"{escape(_shorten(text))}",
+        f"{escape(notify.shorten(text))}",
         kind="homework",
         # The author already knows; they just typed it.
         exclude=message.from_user.id,

@@ -85,7 +85,7 @@ from app.bot.manage_states import (
     RequestAccess,
 )
 from app.bot.middlewares import prefs_key
-from app.bot.render import plural
+from app.bot.render import clamp, more_line, plural
 from app.bot.roles import can_grant, list_memberships
 from app.config import get_settings
 from app.db import SessionLocal
@@ -437,6 +437,18 @@ async def subject_rename(
         await message.answer(
             f"Предмет <b>{escape(name)}</b> уже есть. Придумайте другое название:"
         )
+        return
+
+    days = await structure.homework_clashing(session, school_class.id, subject.name, name)
+    if days:
+        listed = ", ".join(f"{day:%d.%m}" for day in days[:5])
+        await message.answer(
+            f"На эти дни уже есть задания и по <b>{escape(subject.name)}</b>, и по "
+            f"<b>{escape(name)}</b>: {listed}. Уберите одно из них и повторите — "
+            "иначе переименование потеряется целиком.",
+            reply_markup=back_to_menu(),
+        )
+        await state.clear()
         return
 
     old_name = subject.name
@@ -833,11 +845,11 @@ async def _override_for(
 
 
 async def _upsert_override(
-    session: AsyncSession, class_id: int, day: Date, kind: DayKind
+    session: AsyncSession, school_class: SchoolClass, day: Date, kind: DayKind
 ) -> DayOverride:
-    override = await _override_for(session, class_id, day)
+    override = await _override_for(session, school_class.id, day)
     if override is None:
-        override = DayOverride(class_id=class_id, date=day, kind=kind)
+        override = DayOverride(class_id=school_class.id, date=day, kind=kind)
         session.add(override)
     override.kind = kind
     if kind is not DayKind.SHORTENED:
@@ -845,6 +857,15 @@ async def _upsert_override(
         # stale one on a день каникул would surface in the day view as a
         # schedule nobody chose.
         override.bell_schedule_id = None
+    elif override.bell_schedule_id is None:
+        # Never null on a shortened day. The picker opens next and is where
+        # the real answer comes from, but the row is committed before it is
+        # asked — so walking away used to leave «⏱ Сокращённые уроки» over a
+        # day that names no schedule, which `api/edit.day_put` refuses with a
+        # 422 and the resolver silently draws as a normal day. The class
+        # default is the honest starting value: it is what the day would ring
+        # anyway, and now it says so on the card.
+        override.bell_schedule_id = school_class.bell_schedule_id
     return override
 
 
@@ -993,7 +1014,7 @@ async def holiday_kind(
         await callback.answer("Неизвестный тип дня", show_alert=True)
         return
 
-    await _upsert_override(session, school_class.id, day, kind)
+    await _upsert_override(session, school_class, day, kind)
     await audit.record(
         session, school_class.id, callback.from_user.id, "dayoverride.set",
         f"{day:%d.%m}: {_KIND_SUMMARY[kind]}",
@@ -1085,8 +1106,14 @@ async def holiday_bells(
         override.bell_schedule_id = schedule.id
         summary = f"{day:%d.%m}: звонки «{schedule.name}»"
     else:
-        override.bell_schedule_id = None
-        summary = f"{day:%d.%m}: обычные звонки"
+        # The keyboard no longer draws this button; a card left open from
+        # before it was removed still can.
+        await callback.answer(
+            "У сокращённого дня должно быть своё расписание звонков — "
+            "выберите его в списке.",
+            show_alert=True,
+        )
+        return
 
     await audit.record(
         session, school_class.id, callback.from_user.id, "dayoverride.bells", summary
@@ -1225,7 +1252,7 @@ async def holiday_period_apply(
 
     for offset in range(span):
         await _upsert_override(
-            session, school_class.id, first + timedelta(days=offset), DayKind.HOLIDAY
+            session, school_class, first + timedelta(days=offset), DayKind.HOLIDAY
         )
     await audit.record(
         session,
@@ -1391,24 +1418,40 @@ async def bells_rows_apply(
         )
         return
 
-    await structure.write_bell_periods(session, schedule, rows)
+    orphaned = await structure.write_bell_periods(session, schedule, rows)
+    summary = f"звонки «{schedule.name}»: {len(rows)} уроков"
+    if orphaned:
+        summary += f", перестали звонить уроков: {len(orphaned)}"
     await audit.record(
         session,
         school_class.id,
         message.from_user.id,
         "bells.edit",
-        f"звонки «{schedule.name}»: {len(rows)} уроков",
+        summary,
     )
     await session.commit()
     await session.refresh(schedule, ["periods"])
     await state.clear()
 
     lines = [f"✅ Звонки «{escape(schedule.name)}» сохранены: {len(rows)}."]
+    if orphaned:
+        # The lessons that were already there and no longer ring. They are not
+        # deleted — they are stored and drawn nowhere — so this is the only
+        # place anybody is told, and the numbers are named because that is what
+        # an admin has to go and fix.
+        numbers = ", ".join(str(index) for index in sorted({n for _day, n in orphaned}))
+        lines.append("")
+        lines.append(
+            f"⚠️ Уроки № {numbers} в расписании класса больше не звонят "
+            f"({len(orphaned)} шт.) — они останутся в базе, но их никто не увидит. "
+            "Добавьте звонки этих номеров или уберите уроки."
+        )
     if rejected:
         lines.append("")
         lines.append("⚠️ Не разобрал строки:")
         lines.extend(f"<code>{escape(line)}</code>" for line in rejected[:10])
-    await message.answer("\n".join(lines))
+        lines.extend(more_line(len(rejected), 10))
+    await message.answer(clamp(lines))
 
     text, keyboard = await _bells_view(session, school_class)
     await message.answer(text, reply_markup=keyboard)

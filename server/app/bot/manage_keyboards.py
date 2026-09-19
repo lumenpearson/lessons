@@ -379,14 +379,17 @@ def bells_pick_keyboard(schedules: list, iso_date: str) -> InlineKeyboardMarkup:
         ]
         for schedule in schedules[:BELLS_MAX]
     ]
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text="Оставить обычные",
-                callback_data=DayKindAction(action="bells", value=f"{iso_date}:0").pack(),
-            )
-        ]
-    )
+    # No «Оставить обычные» here, and that is the whole point of this keyboard.
+    # «⏱ Сокращённые уроки» is a claim about the times, and the times come from
+    # a bell schedule: without one the resolver falls back to the class default,
+    # so the day announces shortened lessons and then draws the normal ones —
+    # which is worse than not marking it at all, because somebody reads the
+    # label and packs for a short day. `api/edit.day_put` refuses that state
+    # with a 422; this keyboard used to offer it as a button.
+    #
+    # A day that really does ring the usual bells is said by picking the usual
+    # schedule off this list by name, which is the same fact written so that
+    # the card can show it and the resolver can use it.
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 

@@ -28,6 +28,8 @@ from app.bot import diary_render, render
 from app.models import DayKind, Role
 from app.providers.petersburg.models import DiaryLesson, HomeworkItem, Mark
 from app.schedule import ResolvedDay, ResolvedHomework, ResolvedLesson
+from app.services import notify
+from app.services.reminders import render_evening
 
 #: Telegram's own ceiling. Every assertion here is against this and not against
 #: the renderers' own margins, because the margins are the fix and the ceiling
@@ -205,3 +207,43 @@ def test_a_diary_week_of_a_school_that_fills_the_journal_still_sends():
         for index in range(12)
     ]
     assert len(diary_render.render_week(lessons, TODAY, TODAY)) <= TELEGRAM_LIMIT
+
+
+def test_an_evening_digest_of_two_ordinary_заданий_still_sends():
+    """The one renderer the rule had never reached, and the worst place for it:
+    `send_due` marks the digest sent *before* building it, so a refused message
+    means the evening never goes out and is never retried."""
+    day = ResolvedDay(
+        date=TODAY + dt.timedelta(days=1),
+        weekday=1,
+        kind=DayKind.NORMAL,
+        homework=[
+            ResolvedHomework(subject="Литература", text="я" * 2500),
+            ResolvedHomework(subject="История", text="я" * 1800),
+        ],
+    )
+    assert len(render_evening(day, TODAY, set())) <= TELEGRAM_LIMIT
+
+
+def test_an_evening_digest_of_a_full_timetable_still_sends():
+    day = ResolvedDay(
+        date=TODAY + dt.timedelta(days=1),
+        weekday=1,
+        kind=DayKind.NORMAL,
+        homework=[
+            ResolvedHomework(subject=f"Предмет {n}", text="я" * 4000) for n in range(30)
+        ],
+    )
+    assert len(render_evening(day, TODAY, set())) <= TELEGRAM_LIMIT
+
+
+def test_an_announcement_is_the_same_length_whichever_shell_wrote_it():
+    """Both shells announce the same задание, and the rule was in one of them.
+
+    A задание typed into the bot arrived cut to 200 characters; the same
+    задание saved from a phone arrived whole — the 4000 `HomeworkIn.text`
+    accepts, which is an unreadable lock screen below Telegram's ceiling and
+    nothing at all above it, because every recipient's send raises and both
+    callers swallow it.
+    """
+    assert len(notify.shorten("я" * 4000)) == notify.NOTIFY_TEXT_MAX

@@ -510,3 +510,61 @@ async def test_the_missing_half_of_a_split_slot_can_still_be_written(session, sc
         (1, "Обществознание", "even"),
         (1, "История", "odd"),
     ]
+
+
+# --------------------------------------------------------------------------
+# The other end of «a lesson number needs a bell of its own number»
+# --------------------------------------------------------------------------
+
+
+async def test_shrinking_the_class_bells_says_which_lessons_stop_ringing(
+    session, school_class
+):
+    """The invariant was only ever checked when a *lesson* was written.
+
+    Writing the bells is the same rule from the other side: the resolver takes
+    a lesson's times from the bell row of its own number and drops what has
+    none, so cutting the class's own schedule short leaves every lesson above
+    the new last rung stored, and drawn, logged and announced nowhere. The
+    admin was told «✅ Звонки сохранены: 5 уроков» and nothing else.
+
+    Pairs and not numbers, for the reason `TimetableImport.dropped` is: one
+    number under two weekdays is two lessons nobody will see.
+    """
+    from datetime import time
+
+    from app.models import BellSchedule
+    from app.services import structure
+
+    schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
+    await edit.add_lesson(session, school_class.id, 1, subject="Химия")
+    await edit.add_lesson(session, school_class.id, 2, subject="Биология")
+    await session.commit()
+
+    orphaned = await structure.write_bell_periods(
+        session,
+        schedule,
+        [(index, time(8 + index, 0), time(8 + index, 45)) for index in range(1, 4)],
+    )
+    await session.commit()
+
+    assert (1, 4) in orphaned
+    assert all(index > 3 for _weekday, index in orphaned)
+
+
+async def test_bells_that_still_ring_every_lesson_report_nothing(session, school_class):
+    """The warning must not fire on the edit every admin actually makes."""
+    from datetime import time
+
+    from app.models import BellSchedule
+    from app.services import structure
+
+    schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
+    orphaned = await structure.write_bell_periods(
+        session,
+        schedule,
+        [(index, time(8 + index, 0), time(8 + index, 45)) for index in range(1, 9)],
+    )
+    await session.commit()
+
+    assert orphaned == []

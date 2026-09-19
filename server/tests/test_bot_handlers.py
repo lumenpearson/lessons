@@ -331,16 +331,23 @@ def test_a_date_out_of_a_callback_payload_is_never_trusted():
 def test_a_notification_is_shortened_without_losing_the_start():
     """The digest line carries the assignment, and Telegram is not the place to
     paste four paragraphs — but the first words are what tells somebody which
-    assignment it is, so the cut is at the end and it is marked."""
-    assert content._shorten("  два   пробела\nи перевод ") == "два пробела и перевод"
+    assignment it is, so the cut is at the end and it is marked.
 
-    long = "я" * (content.NOTIFY_TEXT_MAX + 50)
-    cut = content._shorten(long)
-    assert len(cut) <= content.NOTIFY_TEXT_MAX
+    The rule lives in `services/notify` and not in this file, because the same
+    задание is announced by two shells: it was the bot's alone, so a задание
+    typed into the bot arrived cut to 200 characters and the same задание saved
+    from a phone arrived whole — up to the 4000 the API accepts, which past
+    Telegram's ceiling is not a notification at all.
+    """
+    assert notify.shorten("  два   пробела\nи перевод ") == "два пробела и перевод"
+
+    long = "я" * (notify.NOTIFY_TEXT_MAX + 50)
+    cut = notify.shorten(long)
+    assert len(cut) <= notify.NOTIFY_TEXT_MAX
     assert cut.endswith("…")
     # Short enough to pass through untouched, including the ellipsis-free edge.
-    exact = "я" * content.NOTIFY_TEXT_MAX
-    assert content._shorten(exact) == exact
+    exact = "я" * notify.NOTIFY_TEXT_MAX
+    assert notify.shorten(exact) == exact
 
 
 async def test_typing_a_subject_instead_of_picking_one_moves_the_flow_on(session):
