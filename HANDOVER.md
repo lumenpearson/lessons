@@ -4,7 +4,66 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **19 September 2026**, after PRs #47, #48, #49, #50 and #51 were merged. The
+Last updated: **19 September 2026**, with **PR #60 open as a draft on `dev`** and nine
+commits on it, ending at `13348d5`. `main` is still at `9e138fb`; nothing in this batch is
+merged. The database is at head `0013` and `EXPECTED_REVISION` did not move — **no model
+changed, so this batch needs no migration**, which is the cheapest thing in it to check and
+the most expensive to get wrong.
+
+That batch is two pieces. The first took two things from
+[GMS Flags Reborn](https://github.com/polodarb/GMS-Flags-Reborn) (Apache 2.0, © polodarb) —
+the expressive loader and the transformation between first-run steps — and then, on a second
+pass over that repository, the two practices this project was actually missing: lazy-list
+content types where a list holds mixed shapes (`DocsScreen` alone), and a Compose stability
+configuration. The stability one was measured rather than guessed: the compiler's own report
+said 36 of 94 classes in `:app` were unstable, almost always for one `LocalDate`, and
+`compose-stability.conf` takes that to 29 with every screen state that holds a date now
+stable. What is deliberately **not** promised is written at length in that file. Their module
+layout, Koin and MVI were deliberately not taken, and their Gradle configuration and CI are
+behind this project's rather than ahead — the detail is in `docs/design.md`.
+
+The second piece is **the nine-area audit protocol run a second time**, by area, each finding
+re-verified by hand before it was fixed and each closed by a test proven red without the fix:
+**23 defects**. Tests: 1391 → 1415 on the server, 605 → 666 on Android. Three of the seven
+batches reported tests that passed on the broken code when first written and rewrote them
+rather than shipping them, and **a fourth found a pre-existing test asserting a defect as
+correct behaviour** — `test_the_star_moves_when_another_schedule_is_made_the_default` built a
+bell schedule with no rows and asserted the star moved onto it. The fixture was given rows;
+the fix was not relaxed. That is the **third** time this project has found a test holding a
+defect in place.
+
+The ones that would actually have been felt, one line each:
+
+* **nobody could sign in to the diary** — `login` read the session cookie with
+  `response.cookies.get`, which raises `CookieConflict` on the two-cookie answer, and that is
+  not an `httpx.HTTPError`, so it escaped as a 500 and spent the sign-in ticket every time;
+  `_session_cookie` was written for exactly that failure and sat one line away;
+* eight bot renderers could still send a message Telegram refuses whole — «🗓 Неделя»
+  measured at 4648 characters, «👥 Доступ» at 4623, and that is the only screen a class on
+  «по приглашению» can reopen its door from;
+* two screens echoed back text the database had truncated, so the confirmation claimed a
+  subject or a title that was not saved;
+* substitutions announced to the whole class and drawn nowhere, from two independent causes —
+  a replacement with no subject over an empty number, and the summer rule reaching one screen
+  further than anybody had checked;
+* re-pointing a class at a shorter bell schedule took every later lesson off every weekday
+  with nothing anywhere naming them, and from the bot an **empty** schedule could still be
+  made the class default, which blanks the phone, the widget, the calendar feed and the
+  digest at once *and* disables `can_ring`;
+* below API 33 the app recreated itself on every cold start for anyone who had chosen a
+  language, and the recreation ate home-screen widget day-taps;
+* the alert chain cancelled itself across any break longer than the planner's eight-day
+  horizon, with only a cold start to revive it;
+* the widget's «Дальше» column listed the lesson an assembly on screen had replaced.
+
+Two decisions were deliberately **left to the owner** rather than taken, and both are in
+section 7: the widget's tick cadence, and whether the diary credential should carry a bound.
+
+Gates on the whole tree at `13348d5`: `ruff` clean, `python -m mypy` clean across all 79
+modules, `pytest -q -n auto` 1415 passed; `./gradlew test assembleDebug assembleRelease`
+successful with 666 Android tests and 0 failures.
+
+Before this batch, after PRs #47, #48, #49, #50 and #51 were merged. The
 last of them is the agent configuration in `.claude/` and the whole written layer of the
 project moved into English (see "Everything written about the project is English" in
 section 6). It landed as `85064cd`, and `main` and `dev` are level. The database is at
@@ -1163,6 +1222,42 @@ has a Cyrillic identifier: Kotlin has none at all.
 ## 7. Left to the owner
 
 All of this is beyond an agent's reach: it needs a phone, a key or a live service.
+
+**Two of them are decisions rather than actions**, both from the second audit, both
+deliberately not taken by the session that found them because they trade one real cost
+against another and the trade is the owner's to make.
+
+**A. The widget's tick cadence.** Every rung above 2×1 draws its countdown with a
+`Chronometer` that ticks in the launcher's own process and is always exact; the 2×1 alone
+draws a frozen string, so the whole refresh cadence buys freshness for that one size.
+`BeforeSchool` is entered at midnight and held until the first bell, which costs about
+**34 device-waking alarms a school night** — against zero for the symmetric `AfterSchool`,
+which is documented as costing nothing precisely because it has no countdown. Two ways out,
+and they trade against each other:
+
+  * cap the look-ahead (treat "more than an hour away" as nothing to count, wake on the
+    bell): 34 alarms → 1, and the 2×1 reads «8 ч 30 мин» all night until the bell nears,
+    which is arguably the honest answer at 3 a.m.;
+  * round the printed figure per tier («~8 ч» above the hour, so a quarter-hour of drift
+    really is inside the rounding — which the code comment already claims and the
+    `%d ч %d мин` format does not do): keeps all 34 wake-ups, costs the 2×1 its minutes.
+
+  The tier table was left untouched either way. What *was* fixed is the disagreement between
+  the colour and the figure: they rounded opposite ways, so «6 мин» was drawn in the error
+  colour under a rule documented as the last five minutes.
+
+**B. Whether the diary credential should carry a bound, and which.** A Fernet `ttl` is the
+obvious answer and is probably the wrong one: the clock would run from when the *upstream*
+last rotated its cookie, not from when the family last read their diary, because
+`services/diary` re-seals only when the token comes back different. On the calls where it
+does not rotate, a ttl would refuse a credential the upstream would still have accepted —
+and since `unseal` returns `None` for both a rotated key and an expired blob, `find_session`
+marks the row dead and sends the person back to a sign-in form needing a fresh ticket from
+the bot. That is a real, user-visible expiry bought against a narrow threat, since the blob
+is worthless to anyone holding the dump but not `DIARY_SECRET`. If a bound is wanted, the
+cheaper one that cannot misfire is an age check on `last_used_at` in `find_session`: our own
+clock over our own facts. **Today there is no bound at all except the row's own lifecycle**,
+and that is the thing to decide rather than the ttl.
 
 ~~1. **Decide the fate of PR #43.**~~ Merged. The order was kept: `0010` (the join mode and
    the personal-codes table) and `0011` (two timestamps in `diary_overrides` brought to `NOT
