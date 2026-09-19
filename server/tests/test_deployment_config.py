@@ -92,6 +92,25 @@ def test_owner_ids_that_parse_to_nobody_are_not_mistaken_for_configured(value):
     assert "OWNER_IDS" in problem
 
 
+def test_a_digit_that_is_not_a_decimal_does_not_take_the_reporter_down():
+    """`isdigit` and `int` disagree, and the gap is where this fell through.
+
+    «²» answers True to `str.isdigit` and is refused by `int`, so the filter
+    that exists to keep unparseable pieces out let it past and the conversion
+    raised — inside `owner_id_list`, which `deployment_problems` calls. The
+    mechanism whose entire purpose is to answer with a list of what is
+    misconfigured instead of throwing was itself taken down by one character of
+    misconfiguration.
+
+    `isdecimal` is the predicate that matches what `int` accepts.
+    """
+    settings = Settings(owner_ids="²")
+
+    assert settings.owner_id_list == []
+    # And the reporter still reports, which is the half that actually mattered.
+    assert any("OWNER_IDS" in problem for problem in settings.deployment_problems())
+
+
 def test_the_unreadable_owner_ids_is_described_rather_than_reproduced():
     """This message is raised before the first route is registered, so where it
     lands is the platform's build log — and `CLAUDE.md` lists `OWNER_IDS` among

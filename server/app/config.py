@@ -136,8 +136,17 @@ class Settings(BaseSettings):
 
     @property
     def owner_id_list(self) -> list[int]:
+        # `isdecimal`, not `isdigit`: they differ on exactly the characters
+        # `int()` refuses. «²» is a digit by `isdigit` and not a decimal, so the
+        # filter waved it through and `int('²')` raised — out of the property
+        # that `deployment_problems` calls, which is the mechanism whose whole
+        # job is to answer with a tidy list of what is wrong instead of
+        # throwing. `OWNER_IDS=²` therefore took down the one thing meant to
+        # explain it.
         parts = self.owner_ids.replace(";", ",").split(",")
-        return [int(part) for part in (p.strip() for p in parts) if part.lstrip("-").isdigit()]
+        return [
+            int(part) for part in (p.strip() for p in parts) if part.lstrip("-").isdecimal()
+        ]
 
     @property
     def behind_vercel(self) -> bool:
