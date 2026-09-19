@@ -4,9 +4,11 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **19 September 2026**, after PRs #47, #48, #49 and #50 were merged. `main` and
-`dev` met at `22399e9`; the database is at head `0013`; production answers
-`{"status":"ok","schema":"0013"}`. Two batches earlier: publishing the repository and
+Last updated: **19 September 2026**, after PRs #47, #48, #49 and #50 were merged and while
+**PR #51 is open** — the agent configuration in `.claude/`, and the whole written layer of
+the project moved into English (see "Everything written about the project is English" in
+section 6). `main` is at `22399e9`, `dev` is ten commits ahead of it; the database is at head
+`0013`; production answers `{"status":"ok","schema":"0013"}`. Two batches earlier: publishing the repository and
 everything that followed from it (the history reviewed for secrets, `pytest` in CI spread
 across cores, artifacts living a week), a deployment that refuses to start rather than
 quietly taking a local default, and the Google Sans Flex licence — it is OFL 1.1 rather than
@@ -1076,6 +1078,35 @@ Three things in `settings.json` worth knowing:
 **There is deliberately no `.mcp.json`.** The Neon and Vercel connections need credentials,
 and secrets do not enter this repository. The Neon project is the one **named `lessons`**
 (the account has two), and that is all that can safely be written down.
+
+### Everything written about the project is English
+
+The product speaks Russian; everything written *about* the project is English. User-facing
+strings stay where they were — `values/` is Russian and is the source, `values-en/` is the
+translation, and the reader picks the language in the app — and every string the bot sends is
+untouched. What moved: `README.md`, all of `docs/`, this file, the community documents, the
+issue and pull request templates, and every comment and docstring under `server/` and
+`android/`.
+
+Where any of those quotes a button, a menu path or an error the reader will see, it quotes it
+in Russian, in guillemets, because that is what is on the screen. «🔔 Звонки» is a quotation,
+not prose.
+
+Two things about the edges of that rule:
+
+* **The pull requests were rewritten on GitHub**, titles, descriptions and the eight
+  Russian comments under #16, #22, #34, #35 and #47. Those are GitHub objects, not repository
+  content: nothing in git moved, and no hash changed. The bots' comments are not ours and were
+  left alone.
+* **The commit history keeps its Russian, by decision.** Of 242 commits, 41 carry Russian
+  prose outside quoted product strings — about 2,055 characters, mostly in merge-commit
+  bodies. Rewriting them means rewriting every hash from the first affected commit and force
+  pushing `main` and `dev`: every existing clone breaks, the merge references in the pull
+  requests stop resolving, and the release tags move. The owner decided not to. So a `git log`
+  older than this batch reads in two languages, and that is expected rather than missed.
+
+The rule itself is written into `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`
+and the `.claude/` agents and skills that touch strings or releases.
 
 ## 7. Left to the owner
 
