@@ -13,7 +13,7 @@ Telegram ids to 64 bits. `0003` adds tasks/reminders/links. `0004` adds diary se
 `0005` adds `bell_schedules.canteen_after_index`. `0006` encrypts the diary credential —
 and **deletes every row of `diary_sessions`**, on purpose — and adds the per-member diary
 columns. `0007` adds the two class foreign keys `0006` left out. `0008` gives a class a
-number (1–11) and cuts its year into четверти or полугодия. `0009` adds the corrections a
+number (1–11) and cuts its year into quarters or half-years. `0009` adds the corrections a
 family lays over the diary. `0010` gives a class its join mode and adds the personal connect
 codes. `0011` tightens two `diary_overrides` timestamps. `0012` tightens eight more across
 seven tables — and on this database it was **not** a no-op: all eight were nullable and all

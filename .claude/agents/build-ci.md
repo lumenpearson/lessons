@@ -26,7 +26,7 @@ is kept by the external cron in `docs/deploy.md`, not by this file.
 
 ## Before you undo anything
 
-`docs/build.md`, «Минуты Actions», says what the workflows carry from the months this
+`docs/build.md`, "Actions minutes", says what the workflows carry from the months this
 repository was private. `-n auto` and a seven-day artifact retention are there because a
 full run was twenty-one billed minutes and a full artifact store reported a passing build as
 red. Read it before you tidy.

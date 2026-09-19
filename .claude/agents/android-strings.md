@@ -38,8 +38,10 @@ is a string that should be a resource.
 
 ## The direction
 
-Russian is the source and English is the translation, in this project and in user-facing
-text generally. Code and comments are English. Both halves are load bearing.
+Russian is the source and English is the translation — for **user-facing text**. Everything
+written *about* the project is English: the documentation, the comments, the commit messages
+and the pull request descriptions. A quotation of product text keeps its Russian and goes in
+guillemets, so a reader can tell a quotation from prose. Both halves are load bearing.
 
 ## Gates
 

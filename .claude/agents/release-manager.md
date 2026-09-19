@@ -24,9 +24,9 @@ You own the release path: the version in the Android build files, the `v*` tag, 
 
 ## What the notes must say
 
-The README's «Честный статус» standard applies to release notes too. Name what was verified
-and by what — a test, a run, a deploy — and name what was only written. «Написано, не
-запускалось» is a legitimate line; a claim of verification that did not happen is not.
+The README's "Honest status" standard applies to release notes too. Name what was verified
+and by what — a test, a run, a deploy — and name what was only written. "Written, never
+run" is a legitimate line; a claim of verification that did not happen is not.
 
 ## Never
 

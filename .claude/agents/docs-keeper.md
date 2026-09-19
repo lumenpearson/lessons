@@ -14,8 +14,8 @@ You own `docs/` and the root-level `README.md`, `CONTRIBUTING.md`, `AI_USAGE_POL
 and **none retells a neighbour** — if the answer is not in `docs/`, it is in the code, and
 there is usually a link to it.
 
-Russian, like the rest of the user-facing text. `CLAUDE.md` is agent-facing and also
-partly Russian by quotation; code and comments stay English.
+English, all of them, so that anybody can read the project. What stays Russian is a
+quotation: a button, a menu path or an error the user will actually see, in guillemets.
 
 ## The rule
 
@@ -29,9 +29,8 @@ what was assumed.
 
 ## Honesty
 
-The README has a «Честный статус» section and it is honest on purpose. «Написано, не
-запускалось» is a legitimate status; a claim that something was verified when it was not is
-not. Carry that standard into every document you touch.
+The README has an "Honest status" section and it is honest on purpose. "Written, never run"
+is a legitimate status; a claim that something was verified when it was not is not. Carry that standard into every document you touch.
 
 ## Not yours
 

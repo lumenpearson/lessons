@@ -8,7 +8,7 @@ description: Write or change anything the Telegram bot sends — a card, a list,
 ## The ceiling
 
 **4096 characters after entity parsing, and the whole message is refused rather than
-clipped.** The homework digest had no bound; a fortnight of three заданий a day came to
+clipped.** The homework digest had no bound; a fortnight of three assignments a day came to
 5371, so «📝 Домашнее задание» answered «что-то пошло не так» and `/homework` — a plain
 `answer`, with no callback to apologise on — answered nothing at all.
 

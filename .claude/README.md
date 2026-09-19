@@ -39,9 +39,10 @@ when its trap stops being true.
   `skills/migration/SKILL.md`.
 - **`permissions.ask`** holds `.github/workflows/**`, because the workflows work and the
   reasons they are shaped the way they are cost real money to learn (`docs/build.md`,
-  «Минуты Actions»).
+  "Actions minutes").
 - **The one hook** fires on a write to any module's `values/strings*.xml` and says that the
-  name needs its `values-en/` twin. It only prints; it blocks nothing. A hook committed here
+  name needs its `values-en/` twin. `values/` is the one place in this repository where
+  Russian is the source rather than a quotation. It only prints; it blocks nothing. A hook committed here
   runs on every teammate's machine, which is why there is exactly one and why it cannot fail.
 - **`extraKnownMarketplaces`** registers `anthropics/skills` so `/plugin` can offer it. No
   plugin is enabled by default: enabling one is a decision for everyone who clones this

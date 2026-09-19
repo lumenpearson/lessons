@@ -29,9 +29,9 @@ every caller before you change a signature.
   minutes, one phone, carries the minting account's role, re-checked per request and never
   cached). The class code is looked up first; the lengths are what keeps them apart. A
   `403` is deliberately not counted against the throttle — that caller had a real code.
-- **A lesson number needs a bell of its own number.** `edit.day_put` and the замена path
+- **A lesson number needs a bell of its own number.** `edit.day_put` and the substitution path
   must check `timetable_edit.can_ring`, and a dated write must use `rung_indexes_on`,
-  because a сокращённый день points at a shorter schedule. A row at a number the day does
+  because a shortened day points at a shorter schedule. A row at a number the day does
   not ring is stored and drawn nowhere. `day_put` also refuses a bell schedule with no rows.
 - **`/api/v1/health` opens no connection on purpose**; `/api/v1/warmup` is the one that can
   say the database is behind or ahead of the code. Do not make `health` clever.

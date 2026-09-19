@@ -18,9 +18,11 @@ endpoints share — two thin shells over one implementation.
 
 ## Language
 
-User-facing strings and most of `docs/` are **Russian**. Code, identifiers and comments are
-**English**. Every Russian Android string has an English twin in the same module's
-`values-en/`, and a test fails without it.
+The product speaks **Russian**: `values/` is the source and `values-en/` the translation,
+and a test fails on a name that has no twin. Everything written about the project — these
+documents, the code comments, the commit messages and the pull request descriptions — is
+**English**. A quotation of something the user sees keeps its Russian and goes in
+guillemets.
 
 ## The checks that are real
 

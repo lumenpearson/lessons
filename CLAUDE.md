@@ -7,8 +7,13 @@ Guidance for Claude Code when working in this repository.
 "Дневник" (`lessons`) is a school diary for Russian schools: an Android app with a
 resizable home-screen widget, a FastAPI read API, and a Telegram bot that **is** the admin
 panel. One class is edited from the bot or from a linked phone, and the same rules apply to
-both. **User-facing strings and most of `docs/` are Russian; code, identifiers and comments
-are English.**
+both. **The product speaks Russian; everything written about the project is English.**
+User-facing strings live in `values/` (Russian, the source) and `values-en/` (the
+translation), and the reader chooses the language in the app. The documentation, the code,
+the identifiers, the comments, the commit messages and the pull request descriptions are
+English, so that anybody can read them — and where any of those quotes a button, a menu path
+or an error the user will see, it quotes it in Russian, in guillemets, because that is what
+is on the screen.
 
 Three deliverables in one repository:
 
@@ -16,7 +21,7 @@ Three deliverables in one repository:
 android/     Kotlin / Compose / Glance, five Gradle modules
 server/      FastAPI + aiogram in one process, one database, Alembic migrations
 api/         thin Vercel entry point that re-exports server/app/main.py
-docs/        eight documents plus an index (docs/README.md), all current
+docs/        eight documents plus an index (docs/README.md), all current, all English
 ```
 
 There is no npm, no Node and no web frontend — with **one** deliberate exception:
@@ -64,8 +69,8 @@ CI (`.github/workflows/ci.yml`) is: ruff, pytest (`-n auto`), `./gradlew test`, 
 assembles. Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;
 `reminders.yml` is a fallback clock, not the clock (see below). The workflows work — do
 not edit them casually. The repository is public, so standard runners cost nothing; what
-the workflows still carry from the months it was private is in `docs/build.md`, «Минуты
-Actions», and it is worth reading before undoing any of it — `-n auto` and a seven-day
+the workflows still carry from the months it was private is in `docs/build.md`, "Actions
+minutes", and it is worth reading before undoing any of it — `-n auto` and a seven-day
 artifact retention are there because a full run was twenty-one billed minutes and a full
 artifact store reported a passing build as red.
 
@@ -96,7 +101,8 @@ Server modules:
 - `providers/` — the two foreign services, each behind `client.py` / `mapper.py` /
   `models.py`. `petersburg/` is the electronic diary: nothing above `models.py` knows the
   words `p_educations[]` or `X-JWT-Token`. `dadata/` is the school directory, a search over
-  ЕГРЮЛ because no downloadable register of Russian schools exists; without `DADATA_TOKEN`
+  the ЕГРЮЛ company register, because no downloadable register of Russian schools exists;
+  without `DADATA_TOKEN`
   it refuses at the door and the bot asks for the name to be typed, exactly as the diary
   refuses without `DIARY_SECRET`
 
@@ -124,8 +130,11 @@ points Hilt does not inject cleanly.
 - **Comments explain why, not what.** Read almost any file here: the comment above a
   decision says what would break without it. A comment that restates the line below it does
   not survive review.
-- **Russian in user-facing strings, English in code and comments.** Both halves are load
-  bearing. `values/` is Russian and is the source; `values-en/` is the translation.
+- **Russian in user-facing strings, English in everything written about them.** Both halves
+  are load bearing. `values/` is Russian and is the source; `values-en/` is the translation;
+  documentation, comments, commit messages and pull request descriptions are English. A
+  quotation of product text keeps its Russian and goes in guillemets — «⏱ Сокращённые
+  уроки», «Алгебра», «9А» — so a reader can tell a quotation from prose.
 - **Every Russian string has an English twin.** `app/src/test/.../ResourceTranslationTest.kt`
   reads both folders out of the source tree and fails on a name missing from `values-en/`,
   on a name only in English, on mismatched format arguments, and on an English `<plurals>`
@@ -142,8 +151,8 @@ points Hilt does not inject cleanly.
   Commits prefix (none of the 178 commits has one), and the body explains the reasoning and
   names what is left uncovered. Unlike the owner's other repositories, this history does
   carry a `Co-Authored-By: Claude …` trailer; keep doing what the history does.
-- **Say what is not covered.** The README has a "Честный статус" section and it is honest on
-  purpose. "Написано, не запускалось" is a legitimate status; a claim that something was
+- **Say what is not covered.** The README has an "Honest status" section and it is honest on
+  purpose. "Written, never run" is a legitimate status; a claim that something was
   verified when it was not is not.
 
 ## What will bite you
@@ -236,7 +245,7 @@ points Hilt does not inject cleanly.
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
   the per-member diary columns, `0007` adds the two class foreign keys `0006` left out,
-  `0008` gives a class a number (1–11) and cuts its year into четверти or полугодия,
+  `0008` gives a class a number (1–11) and cuts its year into quarters or half-years,
   `0009` adds the corrections a family lays over the diary, `0010` gives a class its join
   mode and adds the personal connect codes, and `0011` tightens two `diary_overrides`
   timestamps `0009` left nullable while the model builds them `NOT NULL` — a no-op on this
@@ -280,11 +289,11 @@ points Hilt does not inject cleanly.
   written.** The resolver takes a lesson's times from the bell row of the same
   number and drops what has none, so a row at a number the day does not ring is
   stored, logged, announced and drawn nowhere. Three ways in had to learn this
-  separately: the week import, the button editor, and — later — the замена
+  separately: the week import, the button editor, and — later — the substitution
   (`api/edit.py`, `bot/handlers/content.py`) and the bot's single-day paste,
   which used to write the template itself instead of going through
   `services/structure.apply_timetable`. Check with `timetable_edit.can_ring`,
-  and for a dated write use `rung_indexes_on`, because a сокращённый день points
+  and for a dated write use `rung_indexes_on`, because a shortened day points
   at a shorter schedule than the class's usual. Two more ways in were closed
   later: **deleting** a lesson closed the gap in the numbering whatever it
   landed on (bells at 1, 2, 4 lost the fourth lesson onto a third slot that
@@ -322,7 +331,7 @@ points Hilt does not inject cleanly.
 - **A message Telegram will not deliver is a screen that says nothing.** The
   ceiling is 4096 characters after entity parsing, and the whole message is
   refused rather than clipped: the homework digest had no bound and a fortnight
-  of three заданий a day came to 5371, so «📝 Домашнее задание» answered «что-то
+  of three assignments a day came to 5371, so «📝 Домашнее задание» answered «что-то
   пошло не так» and `/homework` — a plain `answer`, with no callback to
   apologise on — answered nothing at all. Every renderer that grows with the
   data carries a budget (`WEEK_TEXT_LIMIT`, `TASK_LINES_MAX`,

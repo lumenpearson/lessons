@@ -8,9 +8,11 @@ FastAPI read API with an aiogram bot in one process (`server/`), and a thin Verc
 point (`api/`). No npm, no web frontend. **The bot writes, the API reads**, and the rules
 they share live in `server/app/services/` so the two shells cannot disagree.
 
-**Language.** User-facing strings are Russian; code, identifiers and comments are English.
-Every Russian Android string needs its English twin in the same module's `values-en/`, or
-`ResourceTranslationTest` fails.
+**Language.** The product speaks Russian: user-facing strings live in `values/` with an
+English twin in the same module's `values-en/`, or `ResourceTranslationTest` fails.
+Everything written about the project — comments, documentation, commit messages, pull
+request descriptions — is English, and a quotation of product text keeps its Russian in
+guillemets.
 
 **Checks.** From `server/`: `ruff check app tests scripts migrations`, `python -m mypy`,
 `python -m pytest -q -n auto`. From `android/`: `./gradlew test`, `./gradlew assembleDebug`,

@@ -16,7 +16,8 @@ word from the upstream is leaking into a service or a handler, the mapper is inc
   session token is the one stored credential that cannot be a hash, because it is replayed
   upstream on every call, so it is sealed with Fernet. A silent plaintext fallback is
   invisible and deployments stay in that state for years.
-- `dadata/` is the school directory, a search over ЕГРЮЛ because no downloadable register of
+- `dadata/` is the school directory, a search over the ЕГРЮЛ company register, because no
+  downloadable register of
   Russian schools exists. Without `DADATA_TOKEN` it refuses and the bot asks for the name to
   be typed.
 

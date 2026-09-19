@@ -6,7 +6,9 @@ description: Add, rename or reword a user-facing string on the Android side with
 # Adding a string
 
 Russian is the source, English is the translation, and **every Russian string has an English
-twin**. Code and comments stay English.
+twin**. That is about the product. Everything written about the project — comments,
+documentation, commit messages — is English, and a quotation of product text keeps its
+Russian in guillemets.
 
 ## The steps
 
