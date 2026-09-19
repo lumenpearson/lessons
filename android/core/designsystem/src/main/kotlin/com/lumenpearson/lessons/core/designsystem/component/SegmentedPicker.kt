@@ -1,9 +1,7 @@
 package com.lumenpearson.lessons.core.designsystem.component
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -32,17 +30,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.modifier.LocalControlCentre
 import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
-import com.lumenpearson.lessons.core.designsystem.modifier.fadingEdges
-import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
@@ -147,15 +142,13 @@ fun <T> SegmentedPicker(
 }
 
 /**
- * One segment's text: scrolls when it does not fit, and dissolves at both edges
- * while it does.
+ * One segment's text, which is the reason [MarqueeText] exists.
  *
- * Only a label that actually overflows gets either treatment. Fading a label
- * that fits would dim its first and last letter for no reason, and a marquee
- * that has nothing to scroll is just a chance to animate at the wrong moment.
- * Whether it overflows cannot be read off the layout — `basicMarquee` hands the
- * text unbounded width, so it never reports visual overflow — so the string is
- * measured against the space the segment actually has.
+ * A label too long for its segment used to end in «…», and on a picker the
+ * whole word *is* the button — «Понедельник» cut to «Понеде…» is a control
+ * nobody can read. The scrolling-and-fading treatment was written here first
+ * and now lives in the design system, so the rest of the app gets the same one
+ * rather than a second copy of it.
  */
 @Composable
 private fun SegmentLabel(
@@ -163,42 +156,17 @@ private fun SegmentLabel(
     selected: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    // labelMedium, not labelLarge. Four segments on a 360 dp screen leave about
-    // 40 dp of text each, and at 14 sp every Russian label but "Нет" overflowed.
-    // Essentials reaches for a smaller size here for the same reason.
-    val style = MaterialTheme.typography.labelMedium
-        .emphasised(selected)
-        .copy(textAlign = TextAlign.Center)
-    val measurer = rememberTextMeasurer()
-
-    BoxWithConstraints(modifier = modifier) {
-        val available = constraints.maxWidth
-        val overflows = remember(text, style, available) {
-            available != Constraints.Infinity &&
-                measurer.measure(
-                    text = text,
-                    style = style,
-                    maxLines = 1,
-                    softWrap = false,
-                ).size.width > available
-        }
-
-        Text(
-            text = text,
-            style = style,
-            maxLines = 1,
-            softWrap = false,
-            // The fade is applied outside the marquee so it masks the window the
-            // text scrolls through, not the text scrolling through it.
-            modifier = if (overflows) {
-                Modifier
-                    .fadingEdges(SegmentFadeWidth)
-                    .basicMarquee()
-            } else {
-                Modifier
-            },
-        )
-    }
+    MarqueeText(
+        text = text,
+        // labelMedium, not labelLarge. Four segments on a 360 dp screen leave
+        // about 40 dp of text each, and at 14 sp every Russian label but «Нет»
+        // overflowed. Essentials reaches for a smaller size here for the same
+        // reason.
+        style = MaterialTheme.typography.labelMedium.emphasised(selected),
+        textAlign = TextAlign.Center,
+        fadeWidth = SegmentFadeWidth,
+        modifier = modifier,
+    )
 }
 
 /**

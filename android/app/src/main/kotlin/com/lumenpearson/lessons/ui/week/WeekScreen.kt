@@ -57,6 +57,7 @@ import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.component.SegmentedPicker
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
@@ -856,12 +857,10 @@ private fun TimelineBlock(
             overflow = TextOverflow.Ellipsis,
         )
         if (subtitle != null) {
-            Text(
+            MarqueeText(
                 text = subtitle,
                 style = MaterialTheme.typography.labelSmall,
                 color = content,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }

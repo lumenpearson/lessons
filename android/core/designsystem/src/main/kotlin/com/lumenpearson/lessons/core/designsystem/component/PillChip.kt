@@ -18,10 +18,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
@@ -95,11 +94,9 @@ fun PillChip(
                     modifier = Modifier.size(14.dp),
                 )
             }
-            Text(
+            MarqueeText(
                 text = text,
                 style = MaterialTheme.typography.labelSmall.emphasised(selected, resting = FontWeight.Medium),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }

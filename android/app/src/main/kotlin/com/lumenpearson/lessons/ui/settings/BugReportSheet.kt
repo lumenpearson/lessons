@@ -42,13 +42,13 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
@@ -210,12 +210,10 @@ private fun ColumnScope.BugReportContent(
                 Spacer(Modifier.width(ButtonDefaults.IconSpacing))
             }
         }
-        Text(
+        MarqueeText(
             text = correctedString(
                 if (isSignedIn) R.string.bug_report_send else R.string.bug_report_send_signed_out,
             ),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 
@@ -345,11 +343,7 @@ private fun OutlinedPill(
             modifier = Modifier.size(ButtonDefaults.IconSize),
         )
         Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-        Text(
-            text = label,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        MarqueeText(text = label)
     }
 }
 

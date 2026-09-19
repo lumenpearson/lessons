@@ -28,6 +28,7 @@ import com.lumenpearson.lessons.core.designsystem.state.countdown
 import com.lumenpearson.lessons.core.designsystem.state.formatCountdown
 import com.lumenpearson.lessons.core.designsystem.state.progressOrNull
 import com.lumenpearson.lessons.core.designsystem.state.visuals
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
@@ -99,12 +100,10 @@ fun StateHeroCard(
                     // When there is no detail line the label is promoted to the
                     // headline, so "Каникулы" never renders twice.
                     if (visuals.detail != null) {
-                        Text(
+                        MarqueeText(
                             text = visuals.label,
                             style = MaterialTheme.typography.labelLarge,
                             color = visuals.tone.content,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                     Text(

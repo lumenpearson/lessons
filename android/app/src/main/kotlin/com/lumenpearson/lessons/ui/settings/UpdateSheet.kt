@@ -420,6 +420,10 @@ internal fun SheetPill(
                 stepSize = SheetPillFontStep,
             ),
             maxLines = 1,
+            // Not `MarqueeText`: `autoSize` is already an answer to the same
+            // question, and a better one for a pill this small — it shrinks the
+            // words until they fit, so there is nothing left to scroll. The
+            // ellipsis is only reached below `SheetPillFontMin`.
             overflow = TextOverflow.Ellipsis,
         )
     }

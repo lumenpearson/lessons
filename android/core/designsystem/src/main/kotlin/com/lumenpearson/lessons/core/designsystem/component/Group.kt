@@ -51,6 +51,7 @@ import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.modifier.LocalControlCentre
 import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.GroupRowSpacing
@@ -179,12 +180,10 @@ fun GroupItem(
         }
     }
     val headline: @Composable () -> Unit = {
-        Text(
+        MarqueeText(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = if (enabled) scheme.onSurface else scheme.outline,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
     val colors = ListItemDefaults.colors(containerColor = scheme.rowContainer)
@@ -294,12 +293,10 @@ fun GroupSwitchItem(
             selectedContainerColor = scheme.rowSelectedContainer,
         ),
         content = {
-            Text(
+            MarqueeText(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 color = if (enabled) scheme.onSurface else scheme.outline,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
         },
     )
@@ -359,11 +356,9 @@ fun GroupActionItem(
                 )
                 Spacer(Modifier.size(10.dp))
             }
-            Text(
+            MarqueeText(
                 text = label,
                 style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -396,12 +391,10 @@ fun GroupLinkItem(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (value != null) {
-                    Text(
+                    MarqueeText(
                         text = value,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Icon(
@@ -428,12 +421,10 @@ fun RowText(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text(
+        MarqueeText(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = titleColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
         if (subtitle != null) {
             Text(
