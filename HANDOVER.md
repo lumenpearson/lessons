@@ -24,7 +24,11 @@ behind this project's rather than ahead — the detail is in `docs/design.md`.
 
 The second piece is **the nine-area audit protocol run a second time**, by area, each finding
 re-verified by hand before it was fixed and each closed by a test proven red without the fix:
-**23 defects**. Tests: 1391 → 1415 on the server, 605 → 666 on Android. Three of the seven
+**23 defects**, and then a ninth area — the integrity of the test suite itself — found eight
+places where CI was green about things it does not check, `api/index.py` among them: nothing
+in the repository read the file Vercel routes every request to, so renaming the symbol left
+both gates green and every request a 500. Tests: 1391 → 1446 on the server, 605 → 666 on
+Android. Three of the seven
 batches reported tests that passed on the broken code when first written and rewrote them
 rather than shipping them, and **a fourth found a pre-existing test asserting a defect as
 correct behaviour** — `test_the_star_moves_when_another_schedule_is_made_the_default` built a
@@ -60,7 +64,7 @@ Two decisions were deliberately **left to the owner** rather than taken, and bot
 section 7: the widget's tick cadence, and whether the diary credential should carry a bound.
 
 Gates on the whole tree at `13348d5`: `ruff` clean, `python -m mypy` clean across all 79
-modules, `pytest -q -n auto` 1415 passed; `./gradlew test assembleDebug assembleRelease`
+modules, `pytest -q -n auto` 1446 passed; `./gradlew test assembleDebug assembleRelease`
 successful with 666 Android tests and 0 failures.
 
 Before this batch, after PRs #47, #48, #49, #50 and #51 were merged. The

@@ -18,14 +18,14 @@ Setup once: `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"`
    `pyproject.toml`, with its count and its reason. **Not in CI** — the owner has not been
    asked — but run it before you push server code. It is the thing that reproduces the
    «🗓 Четверти» crash.
-3. `python -m pytest -q -n auto` — about 1390 tests. Serial takes about five minutes;
+3. `python -m pytest -q -n auto` — about 1450 tests. Serial takes about five minutes;
    `-n auto` finishes in a third of that and is what CI runs.
 
 Narrower while iterating: `python -m pytest -q tests/test_schedule.py -k parity`.
 
 ## Android, from `android/`
 
-1. `./gradlew test` — all JVM unit tests across the five modules, about 600.
+1. `./gradlew test` — all JVM unit tests across the five modules, about 670.
 2. `./gradlew assembleDebug`
 3. `./gradlew assembleRelease` — **not optional.** CI builds both on every push, because R8
    and resource shrinking are where "worked in debug" stops being true.
