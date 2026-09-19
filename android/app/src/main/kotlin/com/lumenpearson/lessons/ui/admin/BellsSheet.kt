@@ -11,8 +11,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Modifier
 import com.lumenpearson.lessons.R
@@ -321,16 +323,36 @@ private fun ScheduleNameForm(
  * lesson numbers must be unique and the only thing a school ever means by them
  * is the order, so letting a gap appear after removing a row would be offering
  * a mistake the server would then refuse.
+ *
+ * `rememberSaveable`, not `remember`: this is the most expensive form in
+ * «Управление классом» — six bells set one by one, two taps and a picker each —
+ * and a rotation, or the `recreate()` the language picker performs below API 33,
+ * used to hand it back filled with what the server holds. The screen itself has
+ * survived since [bellsModeOf]; the times in it had not.
+ *
+ * `schedule.periods` stays in the key on purpose, so a reload that really did
+ * change the bells in the bot wins over what is on screen — the same rule
+ * [bellsModeOf] follows for the schedule itself. A reload that changes nothing
+ * cannot trip it, because [BellSchedule] and [BellPeriod] are data classes and
+ * an equal-but-new list is equal.
+ *
+ * Internal rather than private so `BellRowsRotationTest` can compose it on its
+ * own: what a rotation does to it is not something the pure resolutions in
+ * `SheetModeTest` can reach.
  */
 @Composable
-private fun PeriodsForm(
+internal fun PeriodsForm(
     schedule: BellSchedule,
     busy: Boolean,
     failure: ManageFailure?,
     onCancel: () -> Unit,
     onSave: (List<BellPeriod>) -> Unit,
 ) {
-    val rows = remember(schedule.id, schedule.periods) {
+    val rows = rememberSaveable(
+        schedule.id,
+        schedule.periods,
+        saver = bellRowsSaver(schedule.id),
+    ) {
         schedule.periods.map { it.startsAt.minutes() to it.endsAt.minutes() }.toMutableStateList()
     }
     val periods = rows.mapIndexed { index, (start, end) ->
@@ -388,6 +410,57 @@ private fun PeriodsForm(
         busy = busy,
     )
 }
+
+/**
+ * The rows of [scheduleId], as they are on screen, across a configuration change.
+ *
+ * The id is saved with them and [decodeBellRows] refuses a save carrying any
+ * other one. `rememberSaveable` keys its entry by call site, and [PeriodsForm]
+ * is one call site for every schedule a class has: without the tag, times typed
+ * for one schedule would be poured into the form of another. That is not a
+ * contrived order of events — a rotation resolves to the list whenever the
+ * bells have not been reloaded yet, or when the schedule that was open has been
+ * deleted from the bot ([bellsModeOf]), and the save then sits unclaimed until
+ * the next schedule opens this same form.
+ *
+ * Text rather than a list of numbers because `listSaver` saves an empty list as
+ * `null`, and `null` restores as "nothing was saved": a reader who had removed
+ * every row would be handed the server's rows back instead of the empty
+ * schedule they meant.
+ */
+internal fun bellRowsSaver(scheduleId: Long): Saver<SnapshotStateList<Pair<Int, Int>>, String> =
+    Saver(
+        save = { rows -> encodeBellRows(scheduleId, rows) },
+        restore = { saved -> decodeBellRows(scheduleId, saved)?.toMutableStateList() },
+    )
+
+/** "2|510-555|565-610" — the schedule, then every row as start and end. */
+internal fun encodeBellRows(scheduleId: Long, rows: List<Pair<Int, Int>>): String =
+    (listOf(scheduleId.toString()) + rows.map { (start, end) -> "$start$BellRowTimes$end" })
+        .joinToString(BellRowSeparator)
+
+/**
+ * The rows in [saved], or `null` if they are not this schedule's or not rows.
+ *
+ * A saved bundle is the process's own, so a malformed one is not an attack — but
+ * it is reachable through a downgrade that wrote a different format, and the
+ * alternative to refusing it is `LocalTime.of` throwing under a reader who did
+ * nothing but turn the phone.
+ */
+internal fun decodeBellRows(scheduleId: Long, saved: String): List<Pair<Int, Int>>? {
+    val fields = saved.split(BellRowSeparator)
+    if (fields.firstOrNull()?.toLongOrNull() != scheduleId) return null
+    return fields.drop(1).map { row ->
+        val times = row.split(BellRowTimes)
+        if (times.size != 2) return null
+        val start = times[0].toIntOrNull()?.takeIf { it in 0..LastMinute } ?: return null
+        val end = times[1].toIntOrNull()?.takeIf { it in 0..LastMinute } ?: return null
+        start to end
+    }
+}
+
+private const val BellRowSeparator = "|"
+private const val BellRowTimes = "-"
 
 /** `BellPeriodsIn`'s own ceiling, mirrored so the button dims instead of failing. */
 private const val MaxPeriods = 20

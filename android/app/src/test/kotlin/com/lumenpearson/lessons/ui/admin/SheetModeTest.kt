@@ -8,6 +8,7 @@ import com.lumenpearson.lessons.core.data.repository.ManagedDevice
 import com.lumenpearson.lessons.core.data.repository.ManagedSubject
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
@@ -32,6 +33,12 @@ import org.junit.Test
  * edited from the bot, so a schedule really can be deleted, a request really can
  * be granted, while this sheet sits in the background — and the answer has to be
  * the list. A form with no row behind it is «Сохранить» over nothing.
+ *
+ * The six bell times are a case of their own and were left behind by that fix
+ * for a while: the screen came back, the times in it did not. They are saved as
+ * text tagged with the schedule they belong to, which is what the last section
+ * here is about; that they survive an actual rotation is `BellRowsRotationTest`,
+ * because nothing composed can be proved by resolving a value.
  */
 class SheetModeTest {
 
@@ -94,6 +101,73 @@ class SheetModeTest {
     fun `adding a schedule survives with no id and no list`() {
         assertEquals(BellsMode.Add, bellsModeOf(BellsScreen.ADD, null, null))
         assertEquals(BellsMode.Add, bellsModeOf(BellsScreen.ADD, null, schedules))
+    }
+
+    // -- «🔔 Звонки», the rows themselves ------------------------------------
+
+    private val rows = listOf(510 to 555, 565 to 610, 620 to 665)
+
+    @Test
+    fun `the rows on screen come back as they were left`() {
+        val saved = encodeBellRows(shortBell.id, rows)
+        assertEquals(rows, decodeBellRows(shortBell.id, saved))
+    }
+
+    /**
+     * The tag is the whole reason the schedule's id is in there. One call site
+     * serves every schedule, so an unclaimed save would otherwise be poured
+     * into the next form that opens — see `BellRowsRotationTest` for the order
+     * of events that leaves one unclaimed.
+     */
+    @Test
+    fun `a save made for another schedule is refused`() {
+        val saved = encodeBellRows(firstBell.id, rows)
+        assertNull(decodeBellRows(shortBell.id, saved))
+    }
+
+    /**
+     * A schedule emptied by hand is a real state — «Новое расписание» creates
+     * one — and `listSaver` is exactly what cannot express it: it saves an
+     * empty list as `null`, which restores as "nothing was saved" and hands the
+     * reader the server's rows back.
+     */
+    @Test
+    fun `a schedule emptied of every row comes back empty, not full`() {
+        val saved = encodeBellRows(firstBell.id, emptyList())
+        assertEquals(emptyList<Pair<Int, Int>>(), decodeBellRows(firstBell.id, saved))
+    }
+
+    @Test
+    fun `a save that is not rows is refused rather than parsed`() {
+        assertNull(decodeBellRows(firstBell.id, ""))
+        assertNull(decodeBellRows(firstBell.id, "1|"))
+        assertNull(decodeBellRows(firstBell.id, "1|утро-вечер"))
+        assertNull(decodeBellRows(firstBell.id, "1|510"))
+        assertNull(decodeBellRows(firstBell.id, "1|510-555-610"))
+        // Minutes of a day, or `LocalTime.of` throws under a reader who did
+        // nothing but turn the phone.
+        assertNull(decodeBellRows(firstBell.id, "1|510-2000"))
+        assertNull(decodeBellRows(firstBell.id, "1|510--5"))
+    }
+
+    /**
+     * What the form is keyed on, and why a reload cannot quietly reset it.
+     *
+     * The rows are remembered under `schedule.id` and `schedule.periods`, and
+     * «Звонки» reloads whenever it is opened. That is only safe while an equal
+     * reload is an equal key — which is a property of these two being data
+     * classes, in a module this one does not own.
+     */
+    @Test
+    fun `a reload that changes nothing is the same key`() {
+        val reloaded = BellSchedule(
+            id = firstBell.id,
+            name = firstBell.name,
+            isDefault = firstBell.isDefault,
+            periods = firstBell.periods.map { it.copy() },
+        )
+        assertEquals(firstBell, reloaded)
+        assertEquals(firstBell.periods, reloaded.periods)
     }
 
     // -- «📚 Предметы» -------------------------------------------------------
