@@ -235,7 +235,7 @@ CI uses.
 | --- | --- |
 | JDK | 21 |
 | Android SDK | compileSdk 37, minSdk 26 |
-| Gradle | through the wrapper, 9.5.0 |
+| Gradle | through the wrapper, 9.7.1 |
 
 The wrapper and its jar are in the repository, so `./gradlew` works on a fresh clone with
 no Gradle installed.

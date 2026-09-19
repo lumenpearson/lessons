@@ -34,9 +34,11 @@ red. Read it before you tidy.
 ## Also here
 
 `CODEOWNERS`, `dependabot.yml`, `ISSUE_TEMPLATE/`, `PULL_REQUEST_TEMPLATE.md`, `SECURITY.md`.
-A change to the PR template changes what every future PR body has to fill in.
+A change to the PR template changes what every future PR body has to fill in. What to do with
+the pull requests `dependabot.yml` opens — folded into one working PR, or merged on their
+own — is in the `github-pr` skill.
 
 ## Gates
 
 A workflow change is verified by a run, not by reading. Say plainly that it is unverified if
-it has not run — "написано, не запускалось" is a legitimate status in this project.
+it has not run — "written, never run" is a legitimate status in this project.

@@ -47,5 +47,5 @@ Nothing else.
 - **A test that passes on the broken code proves nothing.** Revert the fix, watch the new
   test go red, put the fix back.
 - **Report what happened.** If a gate failed, say so and paste the output. If a gate was
-  skipped, say it was skipped. «Написано, не запускалось» is a legitimate status in this
+  skipped, say it was skipped. "Written, never run" is a legitimate status in this
   project; a claim of verification that did not happen is not.

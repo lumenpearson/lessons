@@ -68,7 +68,7 @@ CI is exactly: ruff, pytest `-n auto`, `./gradlew test`, both assembles. `./grad
 - Commit messages are English sentences saying what the change makes the project do. No
   Conventional Commits prefix — none of this history has one.
 - Versions are copied from a project that builds, never guessed.
-- **Say what is not covered.** «Написано, не запускалось» is a legitimate status; a claim
+- **Say what is not covered.** "Written, never run" is a legitimate status; a claim
   that something was verified when it was not is not.
 - Another agent may be working in this tree — check `git status` before touching a file you
   did not open.
