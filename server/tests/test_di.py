@@ -2,11 +2,12 @@
 
 A session used to be made in three places: :func:`app.db.get_session` for an
 endpoint, ``SessionLocal()`` in the bot's middleware, and
-:func:`app.db.session_scope` for the cron tick — each with its own answer to
-whether the caller or the maker commits. These pin the one answer that
-replaced the first two, in the two places that were written against it, and
-the shape of the thing that would break if a provider were re-declared
-somewhere else.
+:func:`app.db.session_scope` for ``scripts/seed_demo`` — each with its own
+answer to whether the caller or the maker commits. These pin the one answer
+that replaced the first two, in the two places that were written against it,
+and the shape of the things that would break quietly: a provider re-declared
+somewhere else, and a container closed by one lifespan and still named by the
+application afterwards.
 """
 
 from __future__ import annotations
@@ -31,8 +32,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.routing import DishkaAnnotatedRoute
 from app.config import Settings
 from app.db import SessionLocal
-from app.di import DatabaseProvider, SettingsProvider, container, make_container
-from app.main import app
+from app.di import (
+    DatabaseProvider,
+    SettingsProvider,
+    close_container,  # noqa: F401
+    container,
+    make_container,
+)
+from app.main import app, lifespan
 from app.models import SchoolClass
 
 
@@ -196,3 +203,41 @@ async def test_a_route_that_returns_a_response_is_not_given_a_response_model():
     # And an ordinary endpoint still gets the model FastAPI would have inferred
     # — the class, not a name that happens to look like one.
     assert by_path["/something"].response_model is Settings
+
+
+async def test_a_second_lifespan_is_not_served_from_the_closed_container():
+    """Shutdown closes the container; something has to rebuild it.
+
+    `close_container` finalises every app-scope object and forgets the
+    container, which is right — but `setup_dishka` put a *reference* on
+    `app.state` at import, and that reference does not update itself. Without
+    the line in the lifespan that re-reads `container()`, a second run in one
+    process would serve every request from a container that had already shut
+    its app scope.
+
+    That is not hypothetical: `tests/test_startup.py` runs this lifespan twice.
+    It is invisible today only because nothing app-scoped here holds a
+    resource — `Settings` is a plain object and the session factory is a
+    factory — so `close()` finalises nothing and a closed container goes on
+    answering. The first app-scope object that owns a connection, a client or
+    a file would have torn it down for the rest of the process instead, with
+    nothing anywhere saying so.
+    """
+    before = app.state.dishka_container
+
+    async with lifespan(app):
+        during = app.state.dishka_container
+        # A live container, and the one the rest of the process will use.
+        assert during is container()
+        async with during() as request:
+            assert await request.get(AsyncSession) is not None
+
+    # Shutdown closed and forgot it, so the next ask builds a new one...
+    assert container() is not during
+    # ...and the next run picks that up rather than the closed one.
+    async with lifespan(app):
+        assert app.state.dishka_container is container()
+        assert app.state.dishka_container is not during
+
+    app.state.dishka_container = container()
+    assert before is not None

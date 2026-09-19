@@ -6,9 +6,11 @@ call, because two implementations of "rename a subject" disagree within a
 month. The shells had no such agreement about the things that are *built* per
 unit of work. A session came from :func:`app.db.get_session` in an endpoint,
 from ``SessionLocal()`` in the bot's middleware and from
-:func:`app.db.session_scope` in the cron tick: three answers to one question,
-and each of them decided on its own whether the session was committed for the
-caller or left to it.
+:func:`app.db.session_scope` in ``scripts/seed_demo``: three answers to one
+question, and each of them decided on its own whether the session was
+committed for the caller or left to it. ``session_scope`` is the one still
+standing, because a script is not a request and has nobody to take a scope
+from; the other two are this module now.
 
 Dishka is here for that, and for nothing more ambitious. ``Scope.APP`` holds
 what lives as long as the process — the settings and the session factory —
@@ -148,8 +150,17 @@ async def close_container() -> None:
 
     Called from the lifespan, after the bot has stopped: a handler still
     running would otherwise be holding a session out of a container that has
-    shut its scopes. Forgetting it rather than leaving it closed matters to the
-    tests, which start more than one application in one process.
+    shut its scopes.
+
+    Forgetting it, rather than leaving a closed one in place, is what makes a
+    second lifespan in the same process get a working container — and that is
+    not hypothetical: ``tests/test_startup.py`` runs the lifespan twice.
+    Whoever holds a *reference* to the old one has to ask again, which is why
+    :mod:`app.main` sets ``app.state.dishka_container`` on the way in and not
+    only at import. Today nothing APP-scoped here holds a resource, so closing
+    finalises nothing and a closed container goes on serving; the first one
+    that does would have torn itself down for the rest of the process instead,
+    with nothing saying so.
     """
     global _container
     if _container is not None:

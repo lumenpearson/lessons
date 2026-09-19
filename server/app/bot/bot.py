@@ -69,6 +69,13 @@ def build_dispatcher() -> Dispatcher:
     # and role by `ContextMiddleware` and are not going to be rewritten to ask
     # for them one at a time, so wrapping all of them at startup would buy
     # nothing. A handler that wants something else can carry `@inject` itself.
+    #
+    # It registers on *every* observer, so a message enters a scope twice —
+    # once on `update` and once on `message`. That is dishka's design and it
+    # costs one nested scope, not a second session: the inner entry is a child
+    # of the outer one, `AsyncSession` is REQUEST-scoped, and a child resolves
+    # it from the parent. One session per update, closed when the update is
+    # done, which is what `ContextMiddleware` commits.
     setup_dishka(container(), dispatcher)
     # Both message and callback flows need the session/class/role bundle.
     dispatcher.message.middleware(ContextMiddleware())

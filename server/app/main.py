@@ -42,6 +42,15 @@ def _report_bot_exit(task: asyncio.Task) -> None:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
 
+    # The container this run's requests are served from. Set here as well as
+    # at import, because the shutdown below closes it and forgets it: without
+    # this line `app.state` would still name the closed one, and a second
+    # lifespan in one process — which `tests/test_startup.py` is — would be
+    # served from a container that had finalised its app-scope objects.
+    # Nothing app-scoped holds a resource today, so that would be invisible
+    # until the first one did.
+    app.state.dishka_container = container()
+
     # Say out loud what is switched off. These are not faults — each is a
     # documented way to run without a feature — but a deployment missing one
     # rarely meant to be, and the only other evidence is a screen in the bot
