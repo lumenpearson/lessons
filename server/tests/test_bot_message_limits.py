@@ -20,12 +20,34 @@ handed the pathological input in one line.
 from __future__ import annotations
 
 import datetime as dt
+from dataclasses import dataclass, field
+from html import escape
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
+from sqlalchemy import select
 
-from app.bot import diary_render, render
-from app.models import DayKind, Role
+from app.bot import diary_render, editor_render, render
+from app.bot.handlers.access import JOIN_MODE_TEXT, access_root
+from app.bot.handlers.content import event_title, override_subject
+from app.bot.handlers.manage import bells_new_rows, cmd_export
+from app.bot.handlers.timetable import TIMETABLE_HELP, timetable_pick_day
+from app.bot.keyboards import TimetableAction
+from app.models import (
+    AccessRequest,
+    BellPeriod,
+    BellSchedule,
+    BotUser,
+    DayEvent,
+    DayKind,
+    JoinMode,
+    LessonOverride,
+    PhoneInvite,
+    Role,
+    TimetableEntry,
+    WeekParity,
+)
 from app.providers.petersburg.models import DiaryLesson, HomeworkItem, Mark
 from app.schedule import ResolvedDay, ResolvedHomework, ResolvedLesson
 from app.services import notify
@@ -247,3 +269,418 @@ def test_an_announcement_is_the_same_length_whichever_shell_wrote_it():
     callers swallow it.
     """
     assert len(notify.shorten("я" * 4000)) == notify.NOTIFY_TEXT_MAX
+
+
+# --------------------------------------------------------------------------
+# The budgets the first pass did not reach
+#
+# Six more renderers and handlers grew with data the class does not control,
+# and each was over the ceiling on input this bot already accepts. Two of them
+# had a budget that the *caller* then spent — which is the shape worth naming:
+# a renderer that clamps to 3900 is not a message that fits, it is a message
+# that fits if nothing is glued to it.
+# --------------------------------------------------------------------------
+
+
+@dataclass
+class _Reply:
+    """Enough of a Message/CallbackQuery for a handler that only answers.
+
+    The handlers below are tested rather than their renderers because in each
+    of them the budget *is* the handler: what overran was the gluing together,
+    and a renderer called on its own says nothing about that.
+    """
+
+    text: str | None = ""
+    replies: list[str] = field(default_factory=list)
+    bot: Any = None
+
+    @property
+    def from_user(self):
+        return SimpleNamespace(id=42, username="tester", full_name="Тестер")
+
+    @property
+    def message(self):
+        return self
+
+    async def answer(self, text: str | None = None, **_: Any) -> None:
+        if text is not None:
+            self.replies.append(text)
+
+    async def edit_text(self, text: str, **_: Any) -> None:
+        self.replies.append(text)
+
+    @property
+    def last(self) -> str:
+        return self.replies[-1]
+
+
+@dataclass
+class _State:
+    data: dict[str, Any] = field(default_factory=dict)
+
+    async def get_data(self) -> dict[str, Any]:
+        return dict(self.data)
+
+    async def update_data(self, **kwargs: Any) -> dict[str, Any]:
+        self.data.update(kwargs)
+        return dict(self.data)
+
+    async def set_state(self, state: Any) -> None:
+        pass
+
+    async def clear(self) -> None:
+        self.data.clear()
+
+
+#: A subject name a school really writes out, and the length is the point.
+LONG_SUBJECT = (
+    "Основы безопасности жизнедеятельности и начальной военной "
+    "подготовки (подгруппа 1)"
+)
+
+
+def test_a_week_of_subjects_written_out_in_full_still_sends():
+    """«🗓 Неделя» sheds rooms, then events, and then returned the string anyway.
+
+    Detail 0 is already only the lesson rows, so a week still too long there
+    could not be shortened by dropping anything else — and it was sent
+    regardless. Six days of eight lessons named in full came to 4648
+    characters, so the button answered «что-то пошло не так» and `/week`, a
+    plain `answer`, answered nothing at all.
+    """
+    monday = dt.date(2026, 9, 14)
+    days = [
+        ResolvedDay(
+            date=monday + dt.timedelta(days=offset),
+            weekday=offset + 1,
+            kind=DayKind.NORMAL,
+            lessons=[
+                ResolvedLesson(
+                    index=index,
+                    subject=LONG_SUBJECT,
+                    starts_at=dt.time(8, 0),
+                    ends_at=dt.time(8, 45),
+                    room="305а",
+                    teacher="Иванова Анна Петровна",
+                )
+                for index in range(1, 9)
+            ],
+        )
+        for offset in range(6)
+    ]
+    text = render.render_week(days, monday, False)
+    assert len(text) <= TELEGRAM_LIMIT
+    assert "… и ещё" in text
+
+
+def test_a_week_that_fits_is_not_cut():
+    """The last resort must be invisible on the week every class actually has."""
+    monday = dt.date(2026, 9, 14)
+    days = [
+        ResolvedDay(
+            date=monday + dt.timedelta(days=offset),
+            weekday=offset + 1,
+            kind=DayKind.NORMAL,
+            lessons=[
+                ResolvedLesson(
+                    index=index,
+                    subject="Алгебра",
+                    starts_at=dt.time(8, 0),
+                    ends_at=dt.time(8, 45),
+                    room="214",
+                    teacher="Иванова А. П.",
+                )
+                for index in range(1, 7)
+            ],
+        )
+        for offset in range(6)
+    ]
+    text = render.render_week(days, monday, False)
+    assert "… и ещё" not in text
+    assert "214" in text and "Иванова А. П." in text
+
+
+def test_a_weekday_of_lessons_that_alternate_weeks_still_draws_in_the_editor():
+    """«🧩 Расписание» grows three ways at once and had no budget at all.
+
+    The paste grammar takes a 120-character subject, a 32-character room and a
+    120-character teacher; a slot split by weeks draws two of those, and
+    «⏱ Перемены» adds two more lines per slot. Seven split slots came to 4274
+    characters — so the editor answered «что-то пошло не так», and a lesson
+    typed into it committed and then looked lost, because the redraw that
+    would have shown it was the thing that failed.
+    """
+    entries = []
+    for index in range(1, 8):
+        for parity in (WeekParity.ODD, WeekParity.EVEN):
+            entries.append(
+                TimetableEntry(
+                    class_id=1,
+                    weekday=1,
+                    index=index,
+                    subject_name="я" * 120,
+                    room="я" * 32,
+                    teacher="я" * 120,
+                    parity=parity,
+                )
+            )
+    periods = {
+        index: BellPeriod(
+            schedule_id=1, index=index, starts_at=dt.time(8, 0), ends_at=dt.time(8, 45)
+        )
+        for index in range(1, 8)
+    }
+    text = editor_render.render_day(
+        1, entries, periods, show_breaks=True, counts={1: 7}
+    )
+    assert len(text) <= TELEGRAM_LIMIT
+    assert "… и ещё" in text
+
+
+def test_a_slot_card_carries_the_same_budget():
+    """The slot card is written against the list it is handed, not against
+    today's unique key.
+
+    `(class, weekday, number, parity)` caps a slot at three rows, so this is
+    not reachable from the database this week — but `render_slot` takes a
+    `list` and `slots()` builds it by grouping, and a renderer with no budget
+    is a renderer waiting for the grouping to change. Twenty rows at the
+    grammar's maxima is 5867 characters.
+    """
+    rows = [
+        TimetableEntry(
+            class_id=1,
+            weekday=1,
+            index=3,
+            subject_name="я" * 120,
+            room="я" * 32,
+            teacher="я" * 120,
+            parity=WeekParity.ODD if number % 2 else WeekParity.EVEN,
+        )
+        for number in range(20)
+    ]
+    assert len(editor_render.render_slot(3, rows, None)) <= TELEGRAM_LIMIT
+
+
+async def test_the_paste_editor_opens_on_a_day_too_long_to_quote_whole(
+    session, school_class
+):
+    """Picking a weekday quotes it back in the format it may be pasted in.
+
+    Seven slots split by weeks, at the grammar's own maxima, made that
+    quotation 4485 characters — so the paste editor could not be opened for
+    the day, not even to fix the day that had broken it. The help text is the
+    instructions for the box this message asks to have filled in, so it is
+    reserved rather than cut.
+    """
+    for index in range(1, 8):
+        for parity in (WeekParity.ODD, WeekParity.EVEN):
+            session.add(
+                TimetableEntry(
+                    class_id=school_class.id,
+                    weekday=2,
+                    index=index,
+                    subject_name="я" * 120,
+                    room="я" * 32,
+                    teacher="я" * 120,
+                    parity=parity,
+                )
+            )
+    await session.flush()
+
+    callback = _Reply()
+    await timetable_pick_day(
+        callback,
+        TimetableAction(action="pick_day", value="2"),
+        _State(),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert len(callback.last) <= TELEGRAM_LIMIT
+    assert "… и ещё" in callback.last
+    # The question survives the cut; the quotation is what gives way.
+    assert TIMETABLE_HELP in callback.last
+
+
+async def test_a_new_bell_schedule_echoes_no_more_prose_than_it_can_send(
+    session, school_class
+):
+    """A rejected line is echoed whole, and five was a row cap, not a budget.
+
+    One 4094-character paste whose first line is a real bell row and whose
+    other five are prose produced a 4152-character reply. The schedule had been
+    created and committed by then, and this is a `Message` handler with no
+    callback to apologise on, so the admin saw neither the confirmation nor the
+    «🔔 Расписания звонков» list that follows it.
+    """
+    junk = "\n".join(["я" * 815] * 5)
+    message = _Reply(text=f"1. 08:30-09:15\n{junk}")
+    assert len(message.text) <= TELEGRAM_LIMIT
+
+    await bells_new_rows(message, _State(data={"name": "Суббота"}), session, school_class,
+                         Role.ADMIN)
+
+    assert await session.scalar(select(BellSchedule).where(BellSchedule.name == "Суббота"))
+    assert len(message.replies[0]) <= TELEGRAM_LIMIT
+    assert "… и ещё" in message.replies[0]
+
+
+#: Telegram allows a first name and a last name of 64 characters each, so a
+#: member row can carry 129 before the «@handle» and the role are added.
+LONG_MEMBER_NAME = (
+    "Александрова-Константинопольская-Преображенская "
+    "Анна-Мария Владиславовна-Мариинская"
+)
+
+
+async def _crowded_access_page(session, school_class):
+    """Thirty members, ten pending invites and five requests with their notes."""
+    for n in range(30):
+        session.add(
+            BotUser(
+                telegram_id=1000 + n,
+                class_id=school_class.id,
+                role=Role.VIEWER,
+                username="anna_aleksandrova_2011_spb_kir",
+                full_name=LONG_MEMBER_NAME,
+            )
+        )
+    for n in range(10):
+        session.add(
+            PhoneInvite(
+                class_id=school_class.id,
+                phone=f"7900123456{n}",
+                role=Role.EDITOR,
+                invited_by=42,
+                label="осенний сбор макулатуры, классный родительский комитет",
+            )
+        )
+    for n in range(5):
+        session.add(
+            AccessRequest(
+                class_id=school_class.id,
+                telegram_id=1000 + n,
+                requested_role=Role.EDITOR,
+                status="pending",
+                message="о" * 300,
+            )
+        )
+    school_class.join_mode = JoinMode.INVITE
+    await session.flush()
+
+    callback = _Reply()
+    await access_root(callback, session, school_class, Role.ADMIN)
+    return callback.last
+
+
+async def test_the_access_page_sends_with_its_heading_and_its_footing_on(
+    session, school_class
+):
+    """`render_access_list` clamps to 3900 — of a message that is not only it.
+
+    The pending requests are drawn above it and the join-mode paragraph below,
+    and both were outside its budget, so a class where both parents of fifteen
+    pupils had joined came to 4915 characters. «👥 Доступ» is the only screen
+    the join mode can be switched back from, so the class was locked out of
+    its own front door. The list is handed what is left rather than the whole
+    ceiling; clamping the composed body instead would have cut the paragraph
+    that explains the button.
+    """
+    body = await _crowded_access_page(session, school_class)
+
+    assert len(body) <= TELEGRAM_LIMIT
+    assert body.endswith(JOIN_MODE_TEXT[JoinMode.INVITE])
+
+
+async def test_a_request_note_is_cut_before_it_eats_the_member_list(
+    session, school_class
+):
+    """The note is `String(300)` and five may be on the page at once.
+
+    Once the list is given only what is left, an uncut note stops being a
+    length bug and becomes a theft: five of them take 1500 characters off the
+    member list underneath, which drew twelve names instead of eighteen — and
+    a name that is not drawn is a role no button can change.
+    """
+    body = await _crowded_access_page(session, school_class)
+
+    assert "о" * (render.ACCESS_REQUEST_NOTE_MAX + 1) not in body
+    assert body.count(escape(LONG_MEMBER_NAME)) > 12
+
+
+async def test_a_substitution_shows_back_exactly_what_it_stored(session, school_class):
+    """Stored cut to 120 characters and echoed whole — wrong twice over.
+
+    The confirmation claimed a subject the row had not kept, and at 4096
+    characters typed into «Пришлите новый предмет» it came to 4161, which
+    Telegram refuses — after the substitution had been committed, from a
+    handler with nothing to apologise on.
+    """
+    message = _Reply(text="я" * 4096)
+    await override_subject(
+        message, _State(data={"date": "2026-09-21", "index": "2"}), session,
+        school_class, Role.EDITOR,
+    )
+
+    override = await session.scalar(select(LessonOverride))
+    assert len(message.last) <= TELEGRAM_LIMIT
+    assert override.subject_name in message.last
+
+
+async def test_an_event_shows_back_exactly_what_it_stored(session, school_class):
+    """The same shape one screen over: `title[:200]` stored, `title` echoed.
+
+    4096 characters at «Как назовём событие?» made the confirmation 4164.
+    """
+    message = _Reply(text="я" * 4096)
+    await event_title(
+        message,
+        _State(data={"date": "2026-09-21", "kind": "event", "start": "09:00:00",
+                     "end": "10:00:00"}),
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+
+    event = await session.scalar(select(DayEvent))
+    assert len(message.last) <= TELEGRAM_LIMIT
+    assert event.title in message.last
+
+
+async def test_the_export_sends_every_part_it_promises(session, school_class):
+    """`CHUNK_LIMIT` counted the raw text and the message carries `escape(part)`.
+
+    Every «&» costs four more characters and every «<» or «>» three, so a
+    4000-character part of a class whose subjects are written «Алгебра <7>»
+    passed 4096 the moment it was escaped: the parts measured 4679 and the
+    export stopped dead, silently, at the one that did it — `/export` is a
+    plain `answer` with no callback to apologise on, and it doubles as the
+    class's backup. The cut is still made before escaping (a part split after
+    it can end in «&am»); only the measurement moved.
+    """
+    for weekday in range(1, 7):
+        for index in range(4, 21):
+            session.add(
+                TimetableEntry(
+                    class_id=school_class.id,
+                    weekday=weekday,
+                    index=index,
+                    subject_name="Алгебра <7>",
+                    room="214",
+                    teacher="Иванова И.И.",
+                    parity=WeekParity.ANY,
+                )
+            )
+    await session.flush()
+
+    message = _Reply()
+    await cmd_export(message, _State(), session, school_class, Role.ADMIN)
+
+    assert len(message.replies) > 1, "the export has to be long enough to split"
+    for part in message.replies:
+        assert len(part) <= TELEGRAM_LIMIT
+    # Nothing is lost on the way: the parts still reassemble into the export.
+    assert sum(part.count("Алгебра &lt;7&gt;") for part in message.replies) == 6 * 17

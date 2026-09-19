@@ -516,6 +516,15 @@ async def override_subject(
         return
 
     subject, _, room = raw.partition(",")
+    # Cut once, here, and the same value is then stored, logged, shown back and
+    # announced. It used to be cut only on the way into the database and echoed
+    # whole on the way out, which was wrong twice over: the confirmation
+    # claimed text the row had not kept, and a 4096-character paste at this
+    # prompt made the reply 4161 characters — refused by Telegram, after the
+    # substitution had already been committed, with no callback to apologise on.
+    subject = subject.strip()[:120]
+    room = room.strip()[:32] or None
+
     data = await state.get_data()
     day = Date.fromisoformat(data["date"])
     index = int(data["index"])
@@ -526,8 +535,8 @@ async def override_subject(
         day,
         index,
         OverrideAction.REPLACE,
-        subject=subject.strip()[:120],
-        room=(room.strip()[:32] or None),
+        subject=subject,
+        room=room,
     )
     if not written:
         await state.clear()
@@ -538,7 +547,7 @@ async def override_subject(
         school_class.id,
         message.from_user.id,
         "override.replace",
-        f"замена {day:%d.%m}, урок №{index}: {subject.strip()}",
+        f"замена {day:%d.%m}, урок №{index}: {subject}",
     )
     await session.commit()
     await state.clear()
@@ -546,15 +555,17 @@ async def override_subject(
     today = _today(school_class)
     await message.answer(
         f"✅ Замена сохранена: {human_date(day, today)}, урок №{index} — "
-        f"<b>{escape(subject.strip())}</b>.",
+        f"<b>{escape(subject)}</b>.",
         reply_markup=back_to_menu(),
     )
     await notify.notify_subscribers(
         session,
         getattr(message, "bot", None),
         school_class,
+        # Through ``shorten`` like the homework announcement above, so that one
+        # rule bounds what this bot pushes to a lock screen whatever wrote it.
         f"🔄 Замена {relative_day_name(day, today)}, урок №{index} — "
-        f"<b>{escape(subject.strip())}</b>.",
+        f"<b>{escape(notify.shorten(subject))}</b>.",
         kind="changes",
         exclude=message.from_user.id,
     )
@@ -765,6 +776,13 @@ async def event_title(
         await message.answer("Пришлите название события:")
         return
 
+    # Cut once, like the substitution above, and then stored, logged, shown
+    # back and announced as the same string. Echoed whole it both promised a
+    # name the row had not kept and, at 4096 characters typed here, made the
+    # confirmation 4164 — a message Telegram refuses, sent after the event was
+    # committed, from a handler with nothing to apologise on.
+    title = title[:200]
+
     data = await state.get_data()
     kind = EventKind(data["kind"])
     day = Date.fromisoformat(data["date"])
@@ -774,7 +792,7 @@ async def event_title(
             date=day,
             starts_at=time.fromisoformat(data["start"]),
             ends_at=time.fromisoformat(data["end"]),
-            title=title[:200],
+            title=title,
             kind=kind,
             # Only «мероприятие» and «экскурсия» usually replace a lesson.
             covers_lesson=kind in {EventKind.EVENT, EventKind.TRIP},
@@ -785,7 +803,7 @@ async def event_title(
         school_class.id,
         message.from_user.id,
         "event.add",
-        f"событие {day:%d.%m} {data['start'][:5]}: {title[:200]}",
+        f"событие {day:%d.%m} {data['start'][:5]}: {title}",
     )
     await session.commit()
     await state.clear()
@@ -801,7 +819,8 @@ async def event_title(
         session,
         getattr(message, "bot", None),
         school_class,
-        f"{EVENT_KIND_LABELS.get(kind, '🎉')} <b>{escape(title)}</b> "
+        # ``shorten`` for the same reason the two announcements above use it.
+        f"{EVENT_KIND_LABELS.get(kind, '🎉')} <b>{escape(notify.shorten(title))}</b> "
         f"{relative_day_name(day, today)}, {when}.",
         kind="changes",
         exclude=message.from_user.id,

@@ -22,7 +22,7 @@ from datetime import time as Time
 from html import escape, unescape
 
 from app.bot.keyboards import WEEKDAY_FULL
-from app.bot.render import WEEKDAYS_SHORT, plural
+from app.bot.render import WEEKDAYS_SHORT, clamp, plural
 from app.models import BellPeriod, TimetableEntry, WeekParity
 
 #: How the two halves of a split slot are labelled in the list.
@@ -118,7 +118,7 @@ def render_day(
     day = slots(entries)
     if not day:
         lines.append("<i>Уроков нет. «➕ Урок» — добавить первый.</i>")
-        return "\n".join(lines)
+        return clamp(lines)
 
     for position, (index, rows) in enumerate(day):
         period = periods.get(index)
@@ -155,7 +155,15 @@ def render_day(
     if show_breaks and not periods:
         lines.append("")
         lines.append("<i>Звонков ещё нет — перемены посчитать не из чего.</i>")
-    return "\n".join(lines)
+    # Budgeted like every other renderer that grows with the data, and this
+    # one grows three ways at once: the grammar takes a 120-character subject,
+    # a 32-character room and a 120-character teacher, a slot split by weeks
+    # draws two of those, and «⏱ Перемены» adds two more lines per slot. Seven
+    # split slots at those maxima came to 4274 characters, which Telegram
+    # refuses whole — so «🧩 Расписание» answered «что-то пошло не так» and a
+    # lesson typed into it committed and then appeared to vanish, because the
+    # redraw that would have shown it was the thing that failed.
+    return clamp(lines)
 
 
 def render_slot(index: int, rows: list[TimetableEntry], period: BellPeriod | None) -> str:
@@ -172,7 +180,11 @@ def render_slot(index: int, rows: list[TimetableEntry], period: BellPeriod | Non
         for row in rows:
             mark = PARITY_MARK.get(row.parity, "")
             lines.append(f"<b>{mark}</b> · {_lesson_text(row)}")
-    return "\n".join(lines)
+    # One slot is short today, but ``slots`` groups by lesson number and
+    # nothing promises a number carries only two rows for ever; the budget
+    # costs nothing and means this card cannot become the next refused
+    # message. :func:`as_alert` handles the other, much tighter ceiling.
+    return clamp(lines)
 
 
 _TAG = re.compile(r"<[^>]+>")

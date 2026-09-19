@@ -28,7 +28,13 @@ from app.bot.keyboards import (
 )
 from app.bot.manage_keyboards import RequestAction
 from app.bot.manage_render import person
-from app.bot.render import ACCESS_MEMBERS_MAX, render_access_list
+from app.bot.render import (
+    ACCESS_MEMBERS_MAX,
+    ACCESS_REQUEST_NOTE_MAX,
+    MESSAGE_LIMIT,
+    cut,
+    render_access_list,
+)
 from app.bot.roles import can_grant
 from app.bot.states import AddInvite
 from app.models import AccessRequest, BotUser, JoinMode, PhoneInvite, Role, SchoolClass
@@ -141,7 +147,14 @@ async def access_root(
                 member.username if member else None,
                 request.telegram_id,
             )
-            note = f" — {escape(request.message)}" if request.message else ""
+            # Cut before escaping, as everywhere: the column is ``String(300)``
+            # and the note reached the message whole, five at a time, above a
+            # member list that had already spent its own budget.
+            note = (
+                f" — {escape(cut(request.message, ACCESS_REQUEST_NOTE_MAX))}"
+                if request.message
+                else ""
+            )
             lines.append(f"⏳ {who} → <b>{request.requested_role.title_ru}</b>{note}")
             extra.append(
                 [
@@ -204,13 +217,19 @@ async def access_root(
         ]
     )
 
+    # The list gets what is left, not the whole budget. The heading above it
+    # and the explanation below it are fixed-size and both have to survive:
+    # clamping the composed body instead would cut ``JOIN_MODE_TEXT``, which is
+    # the paragraph explaining the one button on this page that switches the
+    # class code back on.
+    head = "\n".join(lines)
+    tail = "\n\n" + JOIN_MODE_TEXT[school_class.join_mode]
     body = (
-        "\n".join(lines)
-        + render_access_list(members, invites)
+        head
+        + render_access_list(members, invites, MESSAGE_LIMIT - len(head) - len(tail))
         # Under the list rather than above it, so it sits next to the button
         # that changes it.
-        + "\n\n"
-        + JOIN_MODE_TEXT[school_class.join_mode]
+        + tail
     )
     await callback.message.edit_text(body, reply_markup=back_to_menu(extra))
     await callback.answer()

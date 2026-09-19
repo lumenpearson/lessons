@@ -31,21 +31,27 @@ from app.bot.keyboards import (
     cancel_keyboard,
     weekday_picker,
 )
-from app.bot.render import clamp, more_line
+from app.bot.render import MESSAGE_LIMIT, clamp, more_line
 from app.bot.states import EditBells, EditTimetable
 from app.models import BellPeriod, BellSchedule, Role, SchoolClass, TimetableEntry, WeekParity
 from app.services import audit, structure, timetable_io
 
 #: Rejected lines echoed back before «… и ещё N».
 #:
-#: Every sibling caps this — `manage_render.render_import_preview` at ten,
-#: `manage.bells_rows_apply` at ten, `manage.bells_new_rows` at five — and
-#: these two did not. A timetable copied out of an HTML table arrives as four
-#: hundred one-word lines, of which one parses; the reply came to 20372
-#: characters, Telegram refused it, and because this is a `Message` and not a
-#: `CallbackQuery` there was nothing to apologise on. The weekday had already
-#: been rewritten by then, so the admin saw no confirmation and no list of
-#: what had been saved.
+#: Every sibling caps this — `manage_render.render_import_preview` at ten, and
+#: `manage.bells_rows_apply` and `manage.bells_new_rows`, which import this
+#: number rather than writing it again — and these two did not. A timetable
+#: copied out of an HTML table arrives as four hundred one-word lines, of which
+#: one parses; the reply came to 20372 characters, Telegram refused it, and
+#: because this is a `Message` and not a `CallbackQuery` there was nothing to
+#: apologise on. The weekday had already been rewritten by then, so the admin
+#: saw no confirmation and no list of what had been saved.
+#:
+#: A row cap on its own is not the budget, which is why every one of those
+#: callers also runs the result through `clamp`: `bells_new_rows` capped at
+#: five and clamped at nothing, and five rejected lines out of one 4094-
+#: character paste are 4152 characters — refused for exactly the same reason,
+#: with exactly the same silence.
 REJECTED_MAX = 10
 
 router = Router(name="timetable")
@@ -163,15 +169,28 @@ async def timetable_pick_day(
             .order_by(TimetableEntry.index, TimetableEntry.parity)
         )
     )
+    heading = f"<b>{WEEKDAY_FULL[weekday - 1]}</b>"
     if entries:
         # Rendered by the same function «Экспорт» uses, so what is shown is
         # exactly what may be pasted back — parity suffix included.
-        current = "\n".join(
-            escape(timetable_io.format_lesson_line(entry)) for entry in entries
+        #
+        # Budgeted, and the quoted day is the half that gets cut. A weekday
+        # holds one row per lesson per week-half, each carrying a subject of up
+        # to 120 characters, a room of 32 and a teacher of 120: seven slots
+        # split by weeks came to 4485 characters, which Telegram refuses
+        # whole — so the paste editor could not be opened for the day, not even
+        # to fix the day that broke it. ``TIMETABLE_HELP`` is the instructions
+        # for the box this message is asking to have filled in, so it is
+        # reserved rather than cut: a prompt that loses its question is worse
+        # than a quotation that loses its tail, which at least says «… и ещё N».
+        frame = f"{heading}\n\n<code></code>\n\n{TIMETABLE_HELP}"
+        current = clamp(
+            [escape(timetable_io.format_lesson_line(entry)) for entry in entries],
+            MESSAGE_LIMIT - len(frame),
         )
-        body = f"<b>{WEEKDAY_FULL[weekday - 1]}</b>\n\n<code>{current}</code>\n\n{TIMETABLE_HELP}"
+        body = f"{heading}\n\n<code>{current}</code>\n\n{TIMETABLE_HELP}"
     else:
-        body = f"<b>{WEEKDAY_FULL[weekday - 1]}</b> — пока пусто.\n\n{TIMETABLE_HELP}"
+        body = f"{heading} — пока пусто.\n\n{TIMETABLE_HELP}"
 
     await callback.message.edit_text(body, reply_markup=cancel_keyboard())
     await state.set_state(EditTimetable.cell)

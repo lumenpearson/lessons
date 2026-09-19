@@ -40,6 +40,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot import manage_render as mr
 from app.bot.handlers.calendar import open_month
 from app.bot.handlers.diary import PETERSBURG as DIARY_PROVIDER
+from app.bot.handlers.timetable import REJECTED_MAX
 from app.bot.keyboards import (
     WEEKDAY_FULL,
     Menu,
@@ -1449,8 +1450,8 @@ async def bells_rows_apply(
     if rejected:
         lines.append("")
         lines.append("⚠️ Не разобрал строки:")
-        lines.extend(f"<code>{escape(line)}</code>" for line in rejected[:10])
-        lines.extend(more_line(len(rejected), 10))
+        lines.extend(f"<code>{escape(line)}</code>" for line in rejected[:REJECTED_MAX])
+        lines.extend(more_line(len(rejected), REJECTED_MAX))
     await message.answer(clamp(lines))
 
     text, keyboard = await _bells_view(session, school_class)
@@ -1542,8 +1543,19 @@ async def bells_new_rows(
 
     lines = [f"✅ Расписание «{escape(name)}» создано: {len(rows)} уроков."]
     if rejected:
-        lines.append("⚠️ Не разобрал строки: " + ", ".join(escape(line) for line in rejected[:5]))
-    await message.answer("\n".join(lines))
+        # The same shape as `bells_rows_apply` above and `timetable_apply`:
+        # a row cap *and* a character budget. Five was the row cap alone, and
+        # a rejected line is echoed whole — one 4094-character paste whose
+        # first line is a real bell row and whose other five are prose came to
+        # 4152 characters, which Telegram refuses. The schedule had been
+        # created and committed by then, and this is a `Message` handler with
+        # no callback to apologise on, so the admin saw neither the
+        # confirmation nor the «🔔 Расписания звонков» list that follows it.
+        lines.append("")
+        lines.append("⚠️ Не разобрал строки:")
+        lines.extend(f"<code>{escape(line)}</code>" for line in rejected[:REJECTED_MAX])
+        lines.extend(more_line(len(rejected), REJECTED_MAX))
+    await message.answer(clamp(lines))
 
     text, keyboard = await _bells_view(session, school_class)
     await message.answer(text, reply_markup=keyboard)
@@ -2263,6 +2275,31 @@ async def calendar_rotate(
 # --------------------------------------------------------------------------
 
 
+def _export_parts(body: str) -> list[str]:
+    """``split_text``'s parts, measured the way Telegram measures them.
+
+    What is sent is ``escape(part)``, and escaping is not free: every «&» costs
+    four more characters and every «<» or «>» three. ``CHUNK_LIMIT`` counts the
+    raw text, so a 4000-character part of a class whose subjects are written
+    «Алгебра <7>» — twenty-eight brackets in one part is enough — passed 4096
+    the moment it was escaped, and the export stopped dead at that part with
+    nothing said, because this is a `Message` handler.
+
+    The cut is still made on the raw text, per the rule about «&am»: a part
+    split after escaping can end in a half-written entity, which is a message
+    Telegram refuses of its own. Only the *measurement* moves. The limit is
+    shrunk by the expansion this particular export turns out to have rather
+    than by a guess, and by at least one character each time, so the loop ends.
+    """
+    limit = mr.CHUNK_LIMIT
+    while True:
+        parts = mr.split_text(body, limit)
+        worst = max((len(escape(part)) for part in parts), default=0)
+        if worst <= mr.CHUNK_LIMIT or limit <= 1:
+            return parts
+        limit = min(limit - 1, max(1, limit * mr.CHUNK_LIMIT // worst))
+
+
 @router.message(Command("export"))
 async def cmd_export(
     message: Message,
@@ -2299,7 +2336,7 @@ async def cmd_export(
         await message.answer("Расписание пустое — экспортировать нечего.")
         return
 
-    parts = mr.split_text(body)
+    parts = _export_parts(body)
     for number, part in enumerate(parts, start=1):
         header = f"📤 Экспорт, часть {number}/{len(parts)}\n" if len(parts) > 1 else ""
         await message.answer(f"{header}<code>{escape(part)}</code>")

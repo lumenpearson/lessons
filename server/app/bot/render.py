@@ -236,8 +236,24 @@ ACCESS_INVITES_MAX = 10
 #: An invite's free-text label, which the API accepts at 120 characters.
 ACCESS_LABEL_MAX = 60
 
+#: A pending access request's note on the «👥 Доступ» heading, which
+#: ``handlers/access`` draws above this list. The column is ``String(300)`` and
+#: five of them may be on the page at once.
+ACCESS_REQUEST_NOTE_MAX = 120
 
-def render_access_list(members: list, invites: list) -> str:
+
+def render_access_list(members: list, invites: list, limit: int = MESSAGE_LIMIT) -> str:
+    """The member list, inside ``limit`` characters.
+
+    ``limit`` is a parameter because this list is never the whole message: the
+    handler draws pending requests above it and the join-mode explanation below
+    it, and while the budget here was the whole of ``MESSAGE_LIMIT`` those two
+    blocks were simply extra. Thirty members with the long names Telegram
+    allows, ten pending phone invites and three access requests with their
+    300-character notes came to 4623 characters, so «👥 Доступ» answered
+    «что-то пошло не так» — and that is the only screen the join mode can be
+    switched back from.
+    """
     lines = ["<b>👥 Доступ к классу</b>", ""]
     if members:
         for member in members[:ACCESS_MEMBERS_MAX]:
@@ -256,7 +272,7 @@ def render_access_list(members: list, invites: list) -> str:
             label = f" — {escape(cut(invite.label, ACCESS_LABEL_MAX))}" if invite.label else ""
             lines.append(f"⏳ +{invite.phone} → {invite.role.title_ru}{label}")
         lines.extend(more_line(len(pending), ACCESS_INVITES_MAX))
-    return clamp(lines)
+    return clamp(lines, limit)
 
 
 def render_role_help(role: Role) -> str:
@@ -344,7 +360,9 @@ def _week_lesson_line(lesson: ResolvedLesson, detail: int) -> str:
     return f"{head}{marks}{suffix}"
 
 
-def _render_week_at(days: list[ResolvedDay], today: Date, parity_matters: bool, detail: int) -> str:
+def _render_week_at(
+    days: list[ResolvedDay], today: Date, parity_matters: bool, detail: int
+) -> list[str]:
     lines: list[str] = []
     if days:
         first, last = days[0].date, days[-1].date
@@ -383,21 +401,35 @@ def _render_week_at(days: list[ResolvedDay], today: Date, parity_matters: bool, 
                 lines.append(f"{icon} {event.starts_at:%H:%M} {escape(event.title)}")
         if day.homework:
             lines.append(f"📝 {plural(len(day.homework), 'задание', 'задания', 'заданий')}")
-    return "\n".join(lines)
+    return lines
 
 
 def render_week(days: list[ResolvedDay], today: Date, parity_matters: bool) -> str:
     """Monday–Saturday in one message.
 
     Detail is shed in steps when the week would not fit: rooms and teachers go
-    first, then events. A lesson row is never dropped - a week view with a
-    lesson missing is worse than one with the room missing.
+    first, then events. A lesson row is never dropped *while detail is being
+    shed* - a week view with a lesson missing is worse than one with the room
+    missing.
+
+    Past that the trade reverses, and for a long time this function did not
+    notice. Detail 0 is already only the lesson rows, so a week that is still
+    too long there cannot be shortened by dropping anything else - and the
+    string was returned anyway. Telegram refuses a message over 4096 characters
+    whole, so «🗓 Неделя» answered «что-то пошло не так» and `/week`, a plain
+    `answer` with no callback to apologise on, answered nothing at all. Six
+    days of eight lessons named «Основы безопасности жизнедеятельности и
+    начальной военной подготовки (подгруппа 1)» came to 4648. A week with its
+    tail cut and «… и ещё N строк» saying so is a week; a refused message is
+    not one.
     """
+    lines: list[str] = []
     for detail in (2, 1, 0):
-        text = _render_week_at(days, today, parity_matters, detail)
+        lines = _render_week_at(days, today, parity_matters, detail)
+        text = "\n".join(lines)
         if len(text) <= WEEK_TEXT_LIMIT:
             return text
-    return text
+    return clamp(lines, WEEK_TEXT_LIMIT)
 
 
 # --------------------------------------------------------------------------
