@@ -172,6 +172,29 @@ async def test_pasting_a_weekday_replaces_it_wholesale(session, school_class):
     assert "сохранено уроков — 3" in message.last
 
 
+async def test_a_paste_of_junk_answers_with_a_message_telegram_will_send(
+    session, school_class
+):
+    """A timetable copied out of an HTML table arrives as hundreds of
+    one-word lines.
+
+    Every sibling of this echo caps it — the import preview at ten, both bell
+    editors at ten and five — and these two did not, so the reply came to
+    20372 characters. Telegram refuses the whole message, and because this is
+    a `Message` and not a `CallbackQuery` there is nothing to apologise on:
+    the weekday had already been rewritten by then, so the admin saw no
+    confirmation, no list of what was saved, and no sign the paste landed.
+    """
+    junk = "\n".join(["1", "Алгебра", "214", "2", "Физика", "305"] * 70)
+    message = FakeMessage(text="1. Алгебра, 214\n" + junk)
+    state = FakeState(data={"weekday": 2})
+
+    await timetable_apply(message, state, session, school_class, Role.ADMIN)
+
+    assert len(message.last) <= 4096
+    assert "… и ещё" in message.last
+
+
 async def test_pasting_replaces_rather_than_merges(session, school_class):
     """Monday already has three lessons from the fixture."""
     message = FakeMessage(text="1. Только один урок")
@@ -308,16 +331,23 @@ def test_a_date_out_of_a_callback_payload_is_never_trusted():
 def test_a_notification_is_shortened_without_losing_the_start():
     """The digest line carries the assignment, and Telegram is not the place to
     paste four paragraphs — but the first words are what tells somebody which
-    assignment it is, so the cut is at the end and it is marked."""
-    assert content._shorten("  два   пробела\nи перевод ") == "два пробела и перевод"
+    assignment it is, so the cut is at the end and it is marked.
 
-    long = "я" * (content.NOTIFY_TEXT_MAX + 50)
-    cut = content._shorten(long)
-    assert len(cut) <= content.NOTIFY_TEXT_MAX
+    The rule lives in `services/notify` and not in this file, because the same
+    задание is announced by two shells: it was the bot's alone, so a задание
+    typed into the bot arrived cut to 200 characters and the same задание saved
+    from a phone arrived whole — up to the 4000 the API accepts, which past
+    Telegram's ceiling is not a notification at all.
+    """
+    assert notify.shorten("  два   пробела\nи перевод ") == "два пробела и перевод"
+
+    long = "я" * (notify.NOTIFY_TEXT_MAX + 50)
+    cut = notify.shorten(long)
+    assert len(cut) <= notify.NOTIFY_TEXT_MAX
     assert cut.endswith("…")
     # Short enough to pass through untouched, including the ellipsis-free edge.
-    exact = "я" * content.NOTIFY_TEXT_MAX
-    assert content._shorten(exact) == exact
+    exact = "я" * notify.NOTIFY_TEXT_MAX
+    assert notify.shorten(exact) == exact
 
 
 async def test_typing_a_subject_instead_of_picking_one_moves_the_flow_on(session):

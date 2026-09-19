@@ -31,9 +31,22 @@ from app.bot.keyboards import (
     cancel_keyboard,
     weekday_picker,
 )
+from app.bot.render import clamp, more_line
 from app.bot.states import EditBells, EditTimetable
 from app.models import BellPeriod, BellSchedule, Role, SchoolClass, TimetableEntry, WeekParity
 from app.services import audit, structure, timetable_io
+
+#: Rejected lines echoed back before «… и ещё N».
+#:
+#: Every sibling caps this — `manage_render.render_import_preview` at ten,
+#: `manage.bells_rows_apply` at ten, `manage.bells_new_rows` at five — and
+#: these two did not. A timetable copied out of an HTML table arrives as four
+#: hundred one-word lines, of which one parses; the reply came to 20372
+#: characters, Telegram refused it, and because this is a `Message` and not a
+#: `CallbackQuery` there was nothing to apologise on. The weekday had already
+#: been rewritten by then, so the admin saw no confirmation and no list of
+#: what had been saved.
+REJECTED_MAX = 10
 
 router = Router(name="timetable")
 
@@ -284,9 +297,10 @@ async def timetable_apply(
     if rejected:
         lines.append("")
         lines.append("⚠️ Не разобрал строки:")
-        lines.extend(f"<code>{escape(line)}</code>" for line in rejected)
+        lines.extend(f"<code>{escape(line)}</code>" for line in rejected[:REJECTED_MAX])
+        lines.extend(more_line(len(rejected), REJECTED_MAX))
 
-    await message.answer("\n".join(lines), reply_markup=back_to_menu())
+    await message.answer(clamp(lines), reply_markup=back_to_menu())
 
 
 @router.callback_query(TimetableAction.filter(F.action == "bells"))
@@ -394,5 +408,6 @@ async def bells_apply(
     if rejected:
         lines.append("")
         lines.append("⚠️ Не разобрал строки:")
-        lines.extend(f"<code>{escape(line)}</code>" for line in rejected)
-    await message.answer("\n".join(lines), reply_markup=back_to_menu())
+        lines.extend(f"<code>{escape(line)}</code>" for line in rejected[:REJECTED_MAX])
+        lines.extend(more_line(len(rejected), REJECTED_MAX))
+    await message.answer(clamp(lines), reply_markup=back_to_menu())

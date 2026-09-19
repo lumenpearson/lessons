@@ -11,14 +11,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,6 +28,8 @@ import com.lumenpearson.lessons.core.designsystem.state.countdown
 import com.lumenpearson.lessons.core.designsystem.state.formatCountdown
 import com.lumenpearson.lessons.core.designsystem.state.progressOrNull
 import com.lumenpearson.lessons.core.designsystem.state.visuals
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
@@ -123,15 +123,15 @@ fun StateHeroCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = countdown.formatCountdown(LocalContext.current),
+                        text = countdown.formatCountdown(),
                         style = MaterialTheme.typography.displaySmall,
                         color = scheme.onSurface,
                         maxLines = 1,
                     )
                     Text(
                         text = when (state) {
-                            is DayState.BeforeSchool -> stringResource(R.string.ds_countdown_until_start)
-                            else -> stringResource(R.string.ds_countdown_until_end)
+                            is DayState.BeforeSchool -> correctedString(R.string.ds_countdown_until_start)
+                            else -> correctedString(R.string.ds_countdown_until_end)
                         },
                         modifier = Modifier.padding(bottom = 6.dp),
                         style = MaterialTheme.typography.bodyMedium,
@@ -173,7 +173,7 @@ private fun HeroProgress(
         animationSpec = MaterialTheme.motionScheme.slowSpatialSpec<Float>(),
         label = "heroProgress",
     )
-    val description = stringResource(R.string.ds_countdown_progress, progress.asPercent())
+    val description = correctedString(R.string.ds_countdown_progress, progress.asPercent())
 
     LinearWavyProgressIndicator(
         progress = { animated },

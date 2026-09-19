@@ -9,7 +9,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CalendarViewWeek
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.toClipEntry
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
@@ -28,6 +26,8 @@ import com.lumenpearson.lessons.core.designsystem.component.EmptyState
 import com.lumenpearson.lessons.core.designsystem.component.GroupActionItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import kotlinx.coroutines.launch
 
@@ -56,22 +56,22 @@ fun TimetableSheet(
     var copied by rememberSaveable { mutableStateOf(false) }
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
-    val clipLabel = stringResource(R.string.admin_clipboard_label)
+    val clipLabel = correctedString(R.string.admin_clipboard_label)
     val export = state.timetable.value
     val pending = state.pendingImport
     val problem = remember(paste) { if (paste.isEmpty()) null else pasteProblem(paste) }
 
     ManagementSheet(
-        title = stringResource(R.string.admin_timetable_title),
+        title = correctedString(R.string.admin_timetable_title),
         onDismiss = onDismiss,
         modifier = modifier,
     ) {
         SheetNotice(
             text = state.notice?.takeIf { it is ManagementNotice.Imported }?.asText()
-                ?: stringResource(R.string.admin_timetable_copied).takeIf { copied },
+                ?: correctedString(R.string.admin_timetable_copied).takeIf { copied },
         )
 
-        SheetSection(title = stringResource(R.string.admin_timetable_export))
+        SheetSection(title = correctedString(R.string.admin_timetable_export))
         when {
             export == null && state.timetable.loading -> SkeletonGroup(
                 modifier = Modifier.padding(horizontal = ScreenPadding),
@@ -85,17 +85,17 @@ fun TimetableSheet(
             )
 
             export.text.isBlank() -> EmptyState(
-                title = stringResource(R.string.admin_timetable_export_empty),
-                description = stringResource(R.string.admin_timetable_paste_note),
+                title = correctedString(R.string.admin_timetable_export_empty),
+                description = correctedString(R.string.admin_timetable_paste_note),
                 icon = Icons.Rounded.CalendarViewWeek,
                 modifier = Modifier.padding(horizontal = ScreenPadding),
             )
 
             else -> {
-                SheetNote(text = stringResource(R.string.admin_timetable_lessons, export.lessons))
+                SheetNote(text = correctedString(R.string.admin_timetable_lessons, export.lessons))
                 ExportBlock(text = export.text)
                 GroupActionItem(
-                    label = stringResource(R.string.admin_timetable_copy),
+                    label = correctedString(R.string.admin_timetable_copy),
                     icon = Icons.Rounded.ContentCopy,
                     onClick = {
                         scope.launch {
@@ -110,15 +110,15 @@ fun TimetableSheet(
             }
         }
 
-        SheetSection(title = stringResource(R.string.admin_timetable_import))
-        SheetNote(text = stringResource(R.string.admin_timetable_paste_note))
+        SheetSection(title = correctedString(R.string.admin_timetable_import))
+        SheetNote(text = correctedString(R.string.admin_timetable_paste_note))
         SheetField(
             value = paste,
             onValueChange = {
                 paste = it
                 copied = false
             },
-            label = stringResource(R.string.admin_timetable_paste_label),
+            label = correctedString(R.string.admin_timetable_paste_label),
             singleLine = false,
             minLines = 4,
             enabled = !state.working && pending == null,
@@ -129,13 +129,13 @@ fun TimetableSheet(
         // Shown after either outcome: the lines the parser could not read are
         // the same two typos whether or not the rest of the paste went in.
         if (state.importRejected.isNotEmpty()) {
-            SheetSection(title = stringResource(R.string.admin_timetable_rejected_title))
+            SheetSection(title = correctedString(R.string.admin_timetable_rejected_title))
             RejectedLines(state.importRejected)
         }
 
         if (pending == null) {
             SheetButtons(
-                confirmLabel = stringResource(R.string.admin_timetable_apply),
+                confirmLabel = correctedString(R.string.admin_timetable_apply),
                 onConfirm = { viewModel.importTimetable(paste) },
                 onCancel = onDismiss,
                 enabled = paste.isNotBlank() && problem == null,
@@ -171,9 +171,9 @@ private fun ImportConflicts(
 ) {
     val summary = remember(pending.conflicts) { summariseImportConflicts(pending.conflicts) }
 
-    SheetSection(title = stringResource(R.string.admin_timetable_conflicts_title))
+    SheetSection(title = correctedString(R.string.admin_timetable_conflicts_title))
     SheetNote(
-        text = stringResource(
+        text = correctedString(
             R.string.admin_timetable_conflicts_summary,
             summary.days,
             summary.existing,
@@ -188,9 +188,9 @@ private fun ImportConflicts(
     ) {
         summary.lines.forEach { line ->
             val day = line.weekday?.asWeekdayName()
-                ?: stringResource(R.string.admin_timetable_weekday_unknown, line.number)
+                ?: correctedString(R.string.admin_timetable_weekday_unknown, line.number)
             Text(
-                text = stringResource(
+                text = correctedString(
                     R.string.admin_timetable_conflict_line,
                     day,
                     line.existing,
@@ -201,10 +201,10 @@ private fun ImportConflicts(
             )
         }
     }
-    SheetNote(text = stringResource(R.string.admin_timetable_conflicts_note))
+    SheetNote(text = correctedString(R.string.admin_timetable_conflicts_note))
 
     SheetButtons(
-        confirmLabel = stringResource(R.string.admin_timetable_replace),
+        confirmLabel = correctedString(R.string.admin_timetable_replace),
         onConfirm = onReplace,
         onCancel = onCancel,
         busy = busy,

@@ -30,7 +30,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +51,7 @@ import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.modifier.LocalControlCentre
 import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
+import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.GroupRowSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens

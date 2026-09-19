@@ -17,7 +17,6 @@ import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,7 +26,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lumenpearson.lessons.R
@@ -39,6 +37,8 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupSegmentedItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupSwitchItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupTimeItem
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
@@ -85,10 +85,10 @@ internal fun LazyListScope.notificationRows(
     }
 
     item(key = "notifications-lessons") {
-        SettingsGroup(title = stringResource(R.string.settings_alerts_lessons_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_alerts_lessons_group)) {
             GroupSwitchItem(
-                title = stringResource(R.string.settings_alert_lesson),
-                subtitle = stringResource(R.string.settings_alert_lesson_description),
+                title = correctedString(R.string.settings_alert_lesson),
+                subtitle = correctedString(R.string.settings_alert_lesson_description),
                 icon = Icons.Rounded.NotificationsActive,
                 tone = accentTone(1),
                 checked = state.settings.alerts.lessonSoon,
@@ -100,24 +100,24 @@ internal fun LazyListScope.notificationRows(
                     onSelect = { minutes -> viewModel.setAlerts { it.copy(lessonLeadMinutes = minutes) } },
                 )
                 GroupSegmentedItem(
-                    title = stringResource(R.string.settings_alert_detail),
-                    subtitle = stringResource(R.string.settings_alert_detail_description),
+                    title = correctedString(R.string.settings_alert_detail),
+                    subtitle = correctedString(R.string.settings_alert_detail_description),
                     icon = Icons.AutoMirrored.Rounded.Notes,
                     tone = accentTone(1),
                     items = LessonAlertDetail.entries,
                     selectedItem = state.settings.alerts.lessonDetail,
                     onItemSelected = { detail -> viewModel.setAlerts { it.copy(lessonDetail = detail) } },
-                    labelProvider = { detail -> stringResource(detail.labelRes) },
+                    labelProvider = { detail -> correctedString(detail.labelRes) },
                 )
             }
         }
     }
 
     item(key = "notifications-daily") {
-        SettingsGroup(title = stringResource(R.string.settings_alerts_daily_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_alerts_daily_group)) {
             GroupSwitchItem(
-                title = stringResource(R.string.settings_alert_morning),
-                subtitle = stringResource(R.string.settings_alert_morning_description),
+                title = correctedString(R.string.settings_alert_morning),
+                subtitle = correctedString(R.string.settings_alert_morning_description),
                 icon = Icons.Rounded.WbSunny,
                 tone = accentTone(4),
                 checked = state.settings.alerts.morningSummary,
@@ -125,7 +125,7 @@ internal fun LazyListScope.notificationRows(
             )
             if (state.settings.alerts.morningSummary) {
                 GroupTimeItem(
-                    title = stringResource(R.string.settings_alert_morning_at),
+                    title = correctedString(R.string.settings_alert_morning_at),
                     icon = Icons.Rounded.Schedule,
                     tone = accentTone(4),
                     minutesOfDay = state.settings.alerts.morningAtMinutes,
@@ -146,8 +146,8 @@ internal fun LazyListScope.notificationRows(
                 )
             }
             GroupSwitchItem(
-                title = stringResource(R.string.settings_alert_homework),
-                subtitle = stringResource(R.string.settings_alert_homework_description),
+                title = correctedString(R.string.settings_alert_homework),
+                subtitle = correctedString(R.string.settings_alert_homework_description),
                 icon = Icons.AutoMirrored.Rounded.MenuBook,
                 tone = accentTone(3),
                 checked = state.settings.alerts.homeworkReminder,
@@ -155,7 +155,7 @@ internal fun LazyListScope.notificationRows(
             )
             if (state.settings.alerts.homeworkReminder) {
                 GroupTimeItem(
-                    title = stringResource(R.string.settings_alert_homework_at),
+                    title = correctedString(R.string.settings_alert_homework_at),
                     icon = Icons.Rounded.Schedule,
                     tone = accentTone(3),
                     minutesOfDay = state.settings.alerts.homeworkAtMinutes,
@@ -168,10 +168,10 @@ internal fun LazyListScope.notificationRows(
     }
 
     item(key = "notifications-changes") {
-        SettingsGroup(title = stringResource(R.string.settings_alerts_changes_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_alerts_changes_group)) {
             GroupSwitchItem(
-                title = stringResource(R.string.settings_alert_changes),
-                subtitle = stringResource(R.string.settings_alert_changes_description),
+                title = correctedString(R.string.settings_alert_changes),
+                subtitle = correctedString(R.string.settings_alert_changes_description),
                 icon = Icons.Rounded.EditCalendar,
                 tone = accentTone(5),
                 checked = state.settings.alerts.scheduleChanges,
@@ -185,10 +185,10 @@ internal fun LazyListScope.notificationRows(
     // inside each of them: a quiet hour is quiet for every kind of alert, and
     // four copies of it would be four ways to get it wrong.
     item(key = "notifications-quiet") {
-        SettingsGroup(title = stringResource(R.string.settings_alerts_quiet_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_alerts_quiet_group)) {
             GroupSwitchItem(
-                title = stringResource(R.string.settings_alert_quiet),
-                subtitle = stringResource(R.string.settings_alert_quiet_description),
+                title = correctedString(R.string.settings_alert_quiet),
+                subtitle = correctedString(R.string.settings_alert_quiet_description),
                 icon = Icons.Rounded.Bedtime,
                 tone = accentTone(0),
                 checked = state.settings.alerts.quietHours,
@@ -196,7 +196,7 @@ internal fun LazyListScope.notificationRows(
             )
             if (state.settings.alerts.quietHours) {
                 GroupTimeItem(
-                    title = stringResource(R.string.settings_alert_quiet_from),
+                    title = correctedString(R.string.settings_alert_quiet_from),
                     icon = Icons.Rounded.Bedtime,
                     tone = accentTone(0),
                     minutesOfDay = state.settings.alerts.quietFromMinutes,
@@ -205,7 +205,7 @@ internal fun LazyListScope.notificationRows(
                     },
                 )
                 GroupTimeItem(
-                    title = stringResource(R.string.settings_alert_quiet_to),
+                    title = correctedString(R.string.settings_alert_quiet_to),
                     icon = Icons.Rounded.Bedtime,
                     tone = accentTone(0),
                     minutesOfDay = state.settings.alerts.quietToMinutes,
@@ -215,8 +215,8 @@ internal fun LazyListScope.notificationRows(
                 )
             }
             GroupSwitchItem(
-                title = stringResource(R.string.settings_alert_holidays),
-                subtitle = stringResource(R.string.settings_alert_holidays_description),
+                title = correctedString(R.string.settings_alert_holidays),
+                subtitle = correctedString(R.string.settings_alert_holidays_description),
                 icon = Icons.Rounded.BeachAccess,
                 tone = accentTone(3),
                 checked = state.settings.alerts.skipHolidays,
@@ -249,13 +249,13 @@ private fun TestAlertGroup(alerts: AlertPreferences) {
     // "отправлено" would be lying about something that has not happened.
     var posted by remember { mutableStateOf<Boolean?>(null) }
 
-    SettingsGroup(title = stringResource(R.string.settings_alerts_test_group)) {
+    SettingsGroup(title = correctedString(R.string.settings_alerts_test_group)) {
         GroupItem(
-            title = stringResource(R.string.settings_alert_test),
+            title = correctedString(R.string.settings_alert_test),
             subtitle = when (posted) {
-                null -> stringResource(R.string.settings_alert_test_description)
-                true -> stringResource(R.string.settings_alert_test_sent)
-                false -> stringResource(R.string.settings_alert_test_blocked)
+                null -> correctedString(R.string.settings_alert_test_description)
+                true -> correctedString(R.string.settings_alert_test_sent)
+                false -> correctedString(R.string.settings_alert_test_blocked)
             },
             icon = Icons.Rounded.NotificationsActive,
             tone = if (posted == false) errorTone() else accentTone(2),
@@ -289,9 +289,9 @@ private fun WeekdayRow(
     onToggle: (Int) -> Unit,
 ) {
     ChipRow(
-        title = stringResource(R.string.settings_alert_morning_days),
+        title = correctedString(R.string.settings_alert_morning_days),
         subtitle = if (selected.isEmpty()) {
-            stringResource(R.string.settings_alert_morning_days_none)
+            correctedString(R.string.settings_alert_morning_days_none)
         } else {
             null
         },
@@ -300,7 +300,7 @@ private fun WeekdayRow(
     ) {
         AlertPreferences.Weekdays.forEach { day ->
             PillChip(
-                text = stringResource(weekdayLabelRes(day)),
+                text = correctedString(weekdayLabelRes(day)),
                 selected = day in selected,
                 onClick = { onToggle(day) },
             )
@@ -335,13 +335,13 @@ private fun LeadMinutesRow(
     onSelect: (Int) -> Unit,
 ) {
     ChipRow(
-        title = stringResource(R.string.settings_alert_lead),
+        title = correctedString(R.string.settings_alert_lead),
         icon = Icons.Rounded.Schedule,
         tone = accentTone(1),
     ) {
         AlertPreferences.LeadMinuteOptions.forEach { minutes ->
             PillChip(
-                text = stringResource(R.string.settings_alert_lead_value, minutes),
+                text = correctedString(R.string.settings_alert_lead_value, minutes),
                 selected = minutes == selected,
                 onClick = { onSelect(minutes) },
             )

@@ -16,6 +16,14 @@ from app.timezones import resolve
 LOCAL_DATABASE_URL = "sqlite+aiosqlite:///./lessons.db"
 
 
+#: Shortest ``DIARY_SECRET`` the diary will run on.
+#:
+#: `crypto` hashes the secret rather than using it raw, so any string of
+#: sufficient length works — and «sufficient» has to be stated somewhere both
+#: the cipher and the startup log can read it.
+MIN_DIARY_SECRET_LENGTH = 32
+
+
 class DeploymentNotConfigured(RuntimeError):
     """A deployed process is missing settings only a local run can do without.
 
@@ -211,6 +219,39 @@ class Settings(BaseSettings):
 
         return problems
 
+    @property
+    def diary_secret_value(self) -> str:
+        """``DIARY_SECRET`` as it will actually be used.
+
+        Trimmed, because a value pasted into a host's environment form arrives
+        with a trailing newline often enough that «set» and «usable» have to be
+        the same question.
+        """
+        return self.diary_secret.strip()
+
+    @property
+    def diary_configured(self) -> bool:
+        """Whether the diary can run — the question `crypto.cipher` asks.
+
+        It lives here, and not only in `crypto`, because `disabled_features`
+        has to ask the same one. While it asked a *different* one — plain
+        truthiness — a `DIARY_SECRET` of thirteen characters was announced as
+        configured and refused at the door: `/diary/signin` answered 503, the
+        login answered 503, and the startup log, which is the operator's only
+        diagnostic, said nothing at all about the setting that was set.
+        """
+        return len(self.diary_secret_value) >= MIN_DIARY_SECRET_LENGTH
+
+    @property
+    def dadata_token_value(self) -> str:
+        """``DADATA_TOKEN`` as it will actually be sent; see above."""
+        return self.dadata_token.strip()
+
+    @property
+    def dadata_configured(self) -> bool:
+        """Whether the school search has a key — the question `dadata` asks."""
+        return bool(self.dadata_token_value)
+
     def disabled_features(self) -> list[str]:
         """What an empty optional setting has switched off, for the startup log.
 
@@ -220,10 +261,10 @@ class Settings(BaseSettings):
         has to reach first.
         """
         off: list[str] = []
-        if not self.diary_secret:
-            off.append("DIARY_SECRET is empty: the Petersburg diary is off")
-        if not self.dadata_token:
-            off.append("DADATA_TOKEN is empty: the school search is off, entry is manual")
+        if not self.diary_configured:
+            off.append("DIARY_SECRET is unusable: the Petersburg diary is off")
+        if not self.dadata_configured:
+            off.append("DADATA_TOKEN is unusable: the school search is off, entry is manual")
         if not self.public_base_url:
             off.append(
                 "PUBLIC_BASE_URL is empty: the calendar feed and the diary sign-in page "

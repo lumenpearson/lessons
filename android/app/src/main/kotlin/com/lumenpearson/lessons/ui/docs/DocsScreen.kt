@@ -20,12 +20,10 @@ import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
@@ -34,6 +32,8 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupRow
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
 import com.lumenpearson.lessons.core.designsystem.component.ToolbarItem
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
@@ -41,7 +41,6 @@ import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
-import com.lumenpearson.lessons.ui.translate.TranslatableText
 
 /**
  * One page of the documentation.
@@ -81,8 +80,8 @@ fun DocsScreen(
     ) {
         item(key = "header") {
             ScreenHeader(
-                title = stringResource(page.titleRes),
-                subtitle = stringResource(page.summaryRes),
+                title = correctedString(page.titleRes),
+                subtitle = correctedString(page.summaryRes),
             )
         }
         // Keyed by position rather than by content: two pages may legitimately
@@ -151,8 +150,8 @@ private fun DocsRun(run: List<DocsBlock>) {
  */
 @Composable
 private fun DocsParagraph(textRes: Int) {
-    TranslatableText(
-        textRes = textRes,
+    Text(
+        text = correctedString(textRes),
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier
@@ -178,8 +177,8 @@ private fun DocsPoints(itemsRes: List<Int>) {
                     size = DotSize,
                     modifier = Modifier.padding(top = DotOffset),
                 ) {}
-                TranslatableText(
-                    textRes = textRes,
+                Text(
+                    text = correctedString(textRes),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
@@ -204,8 +203,8 @@ private fun DocsNote(textRes: Int) {
             verticalAlignment = Alignment.Top,
         ) {
             AccentIconTile(icon = Icons.Rounded.Info, tone = accentTone(5))
-            TranslatableText(
-                textRes = textRes,
+            Text(
+                text = correctedString(textRes),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
@@ -229,13 +228,13 @@ private fun StepRow(step: DocsBlock.Step, tone: Int) {
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            TranslatableText(
-                textRes = step.titleRes,
+            Text(
+                text = correctedString(step.titleRes),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            TranslatableText(
-                textRes = step.textRes,
+            Text(
+                text = correctedString(step.textRes),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -291,7 +290,7 @@ fun docsToolbarItems(onOpen: (DocsPage) -> Unit): List<ToolbarItem> =
     DocsPage.entries.map { page ->
         ToolbarItem(
             icon = page.icon,
-            label = stringResource(page.labelRes),
+            label = correctedString(page.labelRes),
             onClick = { onOpen(page) },
         )
     }

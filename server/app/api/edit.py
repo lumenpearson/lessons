@@ -180,7 +180,7 @@ async def homework_put(
         session,
         school_class,
         f"📝 Задание {verb}: <b>{escape(subject_name)}</b> {escape(when)}\n"
-        f"{escape(payload.text)}",
+        f"{escape(notify.shorten(payload.text))}",
         kind="homework",
         author=actor,
     )

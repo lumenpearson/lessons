@@ -8,12 +8,12 @@ import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material.icons.rounded.Verified
-import androidx.compose.ui.res.stringResource
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.UpdateCheck
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupLinkItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupSwitchItem
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 
@@ -39,35 +39,35 @@ internal fun LazyListScope.updateRows(
     onAskPrerelease: () -> Unit,
 ) {
     item(key = "version") {
-        SettingsGroup(title = stringResource(R.string.settings_updates_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_updates_group)) {
             val check = state.update
-            val installed = stringResource(R.string.settings_updates_installed, viewModel.installedVersion)
+            val installed = correctedString(R.string.settings_updates_installed, viewModel.installedVersion)
             // The row's title is the verdict and its subtitle the installed
             // version, so a glance at the page answers "am I current" before
             // anything is tapped. Checking and Failed are verdicts too.
             val (verdict, icon, tone) = when (check) {
                 UpdateCheck.Idle -> Triple(
-                    stringResource(R.string.settings_updates_never),
+                    correctedString(R.string.settings_updates_never),
                     Icons.Rounded.Update,
                     accentTone(0),
                 )
                 UpdateCheck.Checking -> Triple(
-                    stringResource(R.string.settings_updates_checking),
+                    correctedString(R.string.settings_updates_checking),
                     Icons.Rounded.Update,
                     accentTone(0),
                 )
                 is UpdateCheck.UpToDate -> Triple(
-                    stringResource(R.string.settings_updates_up_to_date),
+                    correctedString(R.string.settings_updates_up_to_date),
                     Icons.Rounded.Verified,
                     accentTone(3),
                 )
                 is UpdateCheck.Available -> Triple(
-                    stringResource(R.string.settings_updates_available, check.release.tag),
+                    correctedString(R.string.settings_updates_available, check.release.tag),
                     Icons.Rounded.NewReleases,
                     accentTone(1),
                 )
                 is UpdateCheck.Failed -> Triple(
-                    stringResource(R.string.settings_updates_failed),
+                    correctedString(R.string.settings_updates_failed),
                     Icons.Rounded.Update,
                     errorTone(),
                 )
@@ -80,7 +80,7 @@ internal fun LazyListScope.updateRows(
                 onClick = onShowRelease,
             )
             GroupItem(
-                title = stringResource(R.string.settings_updates_check),
+                title = correctedString(R.string.settings_updates_check),
                 icon = Icons.Rounded.SystemUpdate,
                 tone = accentTone(4),
                 enabled = check != UpdateCheck.Checking,
@@ -90,18 +90,18 @@ internal fun LazyListScope.updateRows(
     }
 
     item(key = "update_behaviour") {
-        SettingsGroup(title = stringResource(R.string.settings_updates_behaviour_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_updates_behaviour_group)) {
             GroupSwitchItem(
-                title = stringResource(R.string.settings_updates_auto),
-                subtitle = stringResource(R.string.settings_updates_auto_description),
+                title = correctedString(R.string.settings_updates_auto),
+                subtitle = correctedString(R.string.settings_updates_auto_description),
                 icon = Icons.Rounded.Update,
                 tone = accentTone(2),
                 checked = state.settings.autoCheckUpdates,
                 onCheckedChange = viewModel::setAutoCheckUpdates,
             )
             GroupSwitchItem(
-                title = stringResource(R.string.settings_updates_prerelease),
-                subtitle = stringResource(R.string.settings_updates_prerelease_description),
+                title = correctedString(R.string.settings_updates_prerelease),
+                subtitle = correctedString(R.string.settings_updates_prerelease_description),
                 icon = Icons.Rounded.Science,
                 tone = accentTone(5),
                 checked = state.settings.includePrerelease,
@@ -112,8 +112,8 @@ internal fun LazyListScope.updateRows(
                 },
             )
             GroupSwitchItem(
-                title = stringResource(R.string.settings_updates_notify),
-                subtitle = stringResource(R.string.settings_updates_notify_description),
+                title = correctedString(R.string.settings_updates_notify),
+                subtitle = correctedString(R.string.settings_updates_notify_description),
                 icon = Icons.Rounded.NotificationsActive,
                 tone = accentTone(1),
                 enabled = state.settings.autoCheckUpdates,

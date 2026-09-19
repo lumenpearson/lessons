@@ -1,9 +1,9 @@
 package com.lumenpearson.lessons.ui.common
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.SyncResult
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 
 /**
  * A sync outcome the user should see, in a form a view model is allowed to hold.
@@ -52,10 +52,10 @@ fun SyncResult.toMessageOrNull(): SyncMessage? = when (this) {
 /** Localizes a [SyncMessage] at the point where it is actually rendered. */
 @Composable
 fun SyncMessage.asText(): String = when (this) {
-    SyncMessage.Unauthorised -> stringResource(R.string.sync_error_unauthorised)
-    SyncMessage.NotConfigured -> stringResource(R.string.sync_error_not_configured)
+    SyncMessage.Unauthorised -> correctedString(R.string.sync_error_unauthorised)
+    SyncMessage.NotConfigured -> correctedString(R.string.sync_error_not_configured)
     is SyncMessage.Failed ->
-        detail?.let { stringResource(R.string.sync_error_failed, it) }
-            ?: stringResource(R.string.sync_error_generic)
-    SyncMessage.IssueFailed -> stringResource(R.string.issue_error_failed)
+        detail?.let { correctedString(R.string.sync_error_failed, it) }
+            ?: correctedString(R.string.sync_error_generic)
+    SyncMessage.IssueFailed -> correctedString(R.string.issue_error_failed)
 }

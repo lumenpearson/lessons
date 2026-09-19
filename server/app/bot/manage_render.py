@@ -18,7 +18,15 @@ from datetime import UTC, datetime, timedelta
 from datetime import date as Date
 from html import escape
 
-from app.bot.render import DAY_KIND_LABELS, MONTHS_GENITIVE, WEEKDAYS, plural
+from app.bot.render import (
+    DAY_KIND_LABELS,
+    MONTHS_GENITIVE,
+    WEEKDAYS,
+    clamp,
+    cut,
+    more_line,
+    plural,
+)
 from app.models import DayKind, DayOverride, JoinMode, Role
 
 #: Telegram refuses a message over 4096 characters. Splitting at 4000 leaves
@@ -40,12 +48,11 @@ SUBJECTS_MAX = 30
 BELLS_MAX = 10
 DEVICES_MAX = 15
 
-#: What one message may grow to. Telegram's ceiling is 4096 characters *after*
-#: entity parsing; the margin covers the tags. Every list here is already
-#: capped by row count, but a row carries free text — a note, a задание, an
-#: audit summary — and thirty long ones would overrun a limit that no row
-#: count can express.
-MESSAGE_LIMIT = 3900
+#: Every list here is already capped by row count, but a row carries free
+#: text — a note, a задание, an audit summary — and thirty long ones would
+#: overrun a limit that no row count can express. The budget itself and the
+#: three tools for it live in ``render``, because they are not this module's:
+#: see the comment there.
 
 
 def _utcnow() -> datetime:
@@ -104,37 +111,6 @@ def person(name: str | None, username: str | None, telegram_id: int | None) -> s
     if name:
         return escape(name)
     return str(telegram_id) if telegram_id is not None else "—"
-
-
-def more_line(total: int, shown: int) -> list[str]:
-    hidden = total - shown
-    return [f"… и ещё {hidden}"] if hidden > 0 else []
-
-
-def clamp(lines: list[str], limit: int = MESSAGE_LIMIT) -> str:
-    """Join lines, dropping the tail that would not fit and saying how many.
-
-    Cutting from the end rather than shortening every line: the rows are
-    ordered by what matters most (the nearest date, the newest change), so the
-    ones that survive are the ones worth reading.
-    """
-    kept: list[str] = []
-    used = 0
-    for position, line in enumerate(lines):
-        cost = len(line) + 1
-        if used + cost > limit:
-            rest = len(lines) - position
-            kept.append("… и ещё " + plural(rest, "строка", "строки", "строк"))
-            break
-        kept.append(line)
-        used += cost
-    return "\n".join(kept)
-
-
-def cut(text: str, limit: int) -> str:
-    """One long free-text value, shortened for a list where it is one row."""
-    text = " ".join(text.split())
-    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
 def split_text(text: str, limit: int = CHUNK_LIMIT) -> list[str]:

@@ -18,6 +18,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
@@ -34,6 +35,8 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
+import com.lumenpearson.lessons.core.designsystem.text.LocalCorrections
+import com.lumenpearson.lessons.core.designsystem.text.NoCorrections
 import kotlinx.coroutines.launch
 
 /**
@@ -53,11 +56,16 @@ import kotlinx.coroutines.launch
  */
 @Composable
 internal fun TranslationSessionSheet(onDismiss: () -> Unit) {
-    LessonsBottomSheet(
-        onDismissRequest = onDismiss,
-        title = stringResource(R.string.translation_session_title),
-    ) {
-        SessionContent()
+    // [NoCorrections] for the same reason the editor takes it: this sheet draws
+    // the originals and the corrections themselves, so leaving the mode live
+    // inside it would offer to correct a list of corrections.
+    CompositionLocalProvider(LocalCorrections provides NoCorrections) {
+        LessonsBottomSheet(
+            onDismissRequest = onDismiss,
+            title = stringResource(R.string.translation_session_title),
+        ) {
+            SessionContent()
+        }
     }
 }
 

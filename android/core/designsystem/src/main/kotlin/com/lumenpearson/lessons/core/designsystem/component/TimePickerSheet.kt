@@ -13,7 +13,6 @@ import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
 import androidx.compose.material3.TimePicker
@@ -31,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
@@ -41,6 +39,8 @@ import com.lumenpearson.lessons.core.designsystem.state.formatClockTime
 import com.lumenpearson.lessons.core.designsystem.state.hourOfDay
 import com.lumenpearson.lessons.core.designsystem.state.minuteOfHour
 import com.lumenpearson.lessons.core.designsystem.state.minutesOfDayOf
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
@@ -136,7 +136,7 @@ fun LessonsTimePickerSheet(
             )
             Spacer(Modifier.weight(1f))
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.ds_action_cancel))
+                Text(text = correctedString(R.string.ds_action_cancel))
             }
             Button(
                 onClick = {
@@ -144,7 +144,7 @@ fun LessonsTimePickerSheet(
                     onConfirm(minutesOfDayOf(state.hour, state.minute))
                 },
             ) {
-                Text(text = stringResource(R.string.ds_action_save))
+                Text(text = correctedString(R.string.ds_action_save))
             }
         }
     }

@@ -177,10 +177,53 @@ def test_an_optional_setting_is_announced_rather_than_fatal(setting, named):
 
 def test_a_fully_configured_deployment_announces_nothing():
     settings = deployed(
-        DIARY_SECRET="k",
+        DIARY_SECRET="k" * 32,
         DADATA_TOKEN="k",
         PUBLIC_BASE_URL="https://example.com",
         BOT_USERNAME="lessons_bot",
         CRON_SECRET="k",
     )
     assert settings.disabled_features() == []
+
+
+def test_a_setting_that_is_set_but_unusable_is_still_announced_as_off():
+    """This test used to assert the opposite, with `DIARY_SECRET="k"`.
+
+    «Set» and «usable» were two different questions: the startup log asked
+    plain truthiness, `crypto.cipher` asks for 32 characters after stripping
+    and `dadata` asks for anything after stripping. A `DIARY_SECRET` of
+    thirteen characters and a `DADATA_TOKEN` of two spaces — the exact value a
+    host's environment form produces from a fat-fingered paste — therefore
+    switched both features off at runtime while the log said nothing, and the
+    operator, whose only diagnostic is that log, went looking somewhere else.
+
+    That is the failure `crypto`'s own docstring says the refusal exists to
+    avoid: invisible, and it stays that way for years.
+    """
+    settings = deployed(DIARY_SECRET="lessons-diary", DADATA_TOKEN="  ")
+
+    # Not faults — a deployment may legitimately run without either.
+    assert settings.deployment_problems() == []
+    announced = settings.disabled_features()
+    assert any("DIARY_SECRET" in line for line in announced)
+    assert any("DADATA_TOKEN" in line for line in announced)
+    # And the announcement is the truth: both features really are off.
+    assert settings.diary_configured is False
+    assert settings.dadata_configured is False
+
+
+def test_the_shortest_usable_diary_secret_is_announced_as_on():
+    """The boundary, from both sides, because this is where the two questions
+    used to differ."""
+    from app.config import MIN_DIARY_SECRET_LENGTH
+
+    just_short = deployed(DIARY_SECRET="k" * (MIN_DIARY_SECRET_LENGTH - 1))
+    assert just_short.diary_configured is False
+
+    exact = deployed(DIARY_SECRET="k" * MIN_DIARY_SECRET_LENGTH)
+    assert exact.diary_configured is True
+    assert not any("DIARY_SECRET" in line for line in exact.disabled_features())
+
+    # Trimmed first: padding does not buy length.
+    padded = deployed(DIARY_SECRET="  " + "k" * (MIN_DIARY_SECRET_LENGTH - 1) + "  ")
+    assert padded.diary_configured is False

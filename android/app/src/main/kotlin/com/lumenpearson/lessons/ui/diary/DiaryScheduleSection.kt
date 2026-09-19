@@ -14,11 +14,9 @@ import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.DiaryLesson
@@ -31,6 +29,8 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.RowText
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.model.HomeworkItem
 import com.lumenpearson.lessons.core.model.Lesson
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
@@ -53,7 +53,7 @@ internal fun LazyListScope.diarySchedule(
 ) {
     item(key = "week-header") {
         DiaryWeekHeader(
-            label = stringResource(
+            label = correctedString(
                 R.string.week_range,
                 state.weekStart.asDayMonth(),
                 state.weekStart.plusDays(6).asDayMonth(),
@@ -74,8 +74,8 @@ internal fun LazyListScope.diarySchedule(
 
         state.days.isEmpty() -> item(key = "schedule-empty") {
             EmptyState(
-                title = stringResource(R.string.diary_schedule_empty_title),
-                description = stringResource(R.string.diary_schedule_empty_text),
+                title = correctedString(R.string.diary_schedule_empty_title),
+                description = correctedString(R.string.diary_schedule_empty_text),
             )
         }
 
@@ -100,7 +100,7 @@ internal fun LazyListScope.diarySchedule(
             // исправить» is worse than silence.
             if (state.days.any { it.correctable }) item(key = "edit-hint") {
                 Text(
-                    text = stringResource(R.string.diary_edit_hint),
+                    text = correctedString(R.string.diary_edit_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = ScreenPadding, vertical = 8.dp),
@@ -134,20 +134,20 @@ private fun DiaryWeekHeader(
             IconButton(onClick = onThisWeek) {
                 Icon(
                     imageVector = Icons.Rounded.Today,
-                    contentDescription = stringResource(R.string.week_current),
+                    contentDescription = correctedString(R.string.week_current),
                 )
             }
         }
         IconButton(onClick = onPrevious) {
             Icon(
                 imageVector = Icons.Rounded.ChevronLeft,
-                contentDescription = stringResource(R.string.week_previous),
+                contentDescription = correctedString(R.string.week_previous),
             )
         }
         IconButton(onClick = onNext) {
             Icon(
                 imageVector = Icons.Rounded.ChevronRight,
-                contentDescription = stringResource(R.string.week_next),
+                contentDescription = correctedString(R.string.week_next),
             )
         }
     }
@@ -193,7 +193,7 @@ private fun DiaryDayCard(
             if (day.homework.isNotEmpty()) {
                 GroupRow {
                     Text(
-                        text = stringResource(R.string.diary_homework_section),
+                        text = correctedString(R.string.diary_homework_section),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -206,7 +206,7 @@ private fun DiaryDayCard(
                         // colour is a hash of the subject, so a word added to
                         // it draws a corrected Алгебра in a different colour
                         // from the Алгебра beside it.
-                        badge = stringResource(R.string.diary_edited_badge)
+                        badge = correctedString(R.string.diary_edited_badge)
                             .takeIf { corrections.hasCorrections },
                         onClick = { onEdit(corrections) }.takeIf { item.correctable },
                     )
@@ -241,12 +241,12 @@ private fun DiaryLesson.asTimedLesson(): Lesson? {
         // rather than replacing a value, so that a corrected row says it has
         // been corrected without the correction pretending to be the school's.
         note = listOfNotNull(
-            topic?.let { stringResource(R.string.diary_lesson_topic, it) },
+            topic?.let { correctedString(R.string.diary_lesson_topic, it) },
             // From the corrections this build can name, which is the same set
             // the reset button acts on. Drawn from the raw edit list instead, a
             // correction on a field a newer server knows and this one does not
             // would mark the row and offer nothing to take it off with.
-            stringResource(R.string.diary_edited_badge)
+            correctedString(R.string.diary_edited_badge)
                 .takeIf { corrections().hasCorrections },
         ).joinToString(" · ").ifBlank { null },
     )
@@ -269,10 +269,10 @@ private fun UntimedLessonRow(
             title = lesson.subject,
             modifier = Modifier.weight(1f),
             subtitle = listOfNotNull(
-                stringResource(R.string.diary_lesson_no_time),
-                lesson.room?.let { stringResource(R.string.diary_lesson_room, it) },
+                correctedString(R.string.diary_lesson_no_time),
+                lesson.room?.let { correctedString(R.string.diary_lesson_room, it) },
                 lesson.teacher,
-                stringResource(R.string.diary_edited_badge)
+                correctedString(R.string.diary_edited_badge)
                     .takeIf { lesson.corrections().hasCorrections },
             ).joinToString(" · "),
         )

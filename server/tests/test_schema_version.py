@@ -233,3 +233,45 @@ def test_the_bootstrap_script_leaves_a_database_alembic_can_carry_forward(tmp_pa
         check=True,
     )
     assert f"Left alembic_version as it was: {EXPECTED_REVISION}" in again.stdout
+
+
+def test_the_whole_chain_runs_from_nothing_on_sqlite(tmp_path):
+    """Every revision, in order, against an empty file.
+
+    The test above starts from a database `create_all` already built and
+    stamped, so `alembic upgrade head` finds nothing to do and no revision
+    body ever executes. That is a real thing to check and it is not this one:
+    run the chain for real and `0013` died with «No support for ALTER of
+    constraints in SQLite dialect», leaving the file stamped at `0012` with a
+    revision the operator believed had half applied. `0011` and `0012` carry
+    the same guard; `0013` did not.
+
+    Postgres is the production path, so this does not prove the schema — the
+    revision bodies that matter are skipped here. It proves the chain can be
+    walked end to end, which is what anyone verifying it locally does, and
+    what a school running its own server on SQLite does once.
+    """
+    import os
+    import subprocess
+    import sys
+
+    database = tmp_path / "chain.db"
+    database.touch()
+    env = dict(os.environ, DATABASE_URL=f"sqlite+aiosqlite:///{database}")
+    upgrade = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        env=env,
+        capture_output=True,
+        text=True,
+        cwd=str(Path(__file__).resolve().parents[1]),
+    )
+    assert upgrade.returncode == 0, upgrade.stderr
+
+    current = subprocess.run(
+        [sys.executable, "-m", "alembic", "current"],
+        env=env,
+        capture_output=True,
+        text=True,
+        cwd=str(Path(__file__).resolve().parents[1]),
+    )
+    assert EXPECTED_REVISION in current.stdout, current.stdout

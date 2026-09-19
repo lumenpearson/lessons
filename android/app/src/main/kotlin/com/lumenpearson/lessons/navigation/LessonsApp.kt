@@ -56,7 +56,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -77,6 +76,7 @@ import com.lumenpearson.lessons.core.designsystem.modifier.LiquidRippleState
 import com.lumenpearson.lessons.core.designsystem.modifier.LocalLiquidRipple
 import com.lumenpearson.lessons.core.designsystem.modifier.liquidRipple
 import com.lumenpearson.lessons.core.designsystem.modifier.progressiveBlur
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.BottomBarGap
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
@@ -533,7 +533,7 @@ private fun HomeShell(
                             ShellPage.Tabs -> tabs.mapIndexed { index, tab ->
                                 ToolbarItem(
                                     icon = tab.icon,
-                                    label = stringResource(tab.labelRes),
+                                    label = correctedString(tab.labelRes),
                                     onClick = {
                                         scope.launch { pagerState.goToPage(motion, index) }
                                     },
@@ -552,8 +552,8 @@ private fun HomeShell(
                         scrollableItems = page is ShellPage.Docs,
                         title = when (page) {
                             ShellPage.Tabs, is ShellPage.Docs -> null
-                            ShellPage.SettingsRoot -> stringResource(R.string.settings_title)
-                            is ShellPage.Section -> stringResource(page.section.titleRes)
+                            ShellPage.SettingsRoot -> correctedString(R.string.settings_title)
+                            is ShellPage.Section -> correctedString(page.section.titleRes)
                         },
                         onBackClick = when (page) {
                             // Null keeps the bar in its tabbed mode. On the
@@ -867,19 +867,19 @@ private fun shellAction(
 ): ToolbarAction? = when (shellActionKind(destination, manager)) {
     ShellActionKind.SETTINGS -> ToolbarAction(
         icon = Icons.Rounded.Settings,
-        contentDescription = stringResource(R.string.nav_settings),
+        contentDescription = correctedString(R.string.nav_settings),
         onClick = { onOpenSettings() },
     )
 
     ShellActionKind.DEBUG -> ToolbarAction(
         icon = Icons.Rounded.BugReport,
-        contentDescription = stringResource(R.string.debug_open),
+        contentDescription = correctedString(R.string.debug_open),
         onClick = onOpenDebug,
     )
 
     ShellActionKind.BACK -> ToolbarAction(
         icon = Icons.AutoMirrored.Rounded.ArrowBack,
-        contentDescription = stringResource(R.string.docs_back),
+        contentDescription = correctedString(R.string.docs_back),
         onClick = { onBack() },
     )
 

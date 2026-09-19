@@ -27,8 +27,8 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -52,6 +51,8 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupLinkItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GoogleSansFlexRounded
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
@@ -89,6 +90,17 @@ fun JoinScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showServerSheet by rememberSaveable { mutableStateOf(false) }
+
+    // A one-shot belongs to whoever sees it first, and this screen sees it
+    // first. It does not act on it — joining writes a session and the shell
+    // navigates on the session — but leaving it set hands the next observer
+    // somebody else's join. `AddClassSheet` resolves the same view model
+    // against the Activity's store, so a class joined during onboarding was
+    // still announced when «Добавить класс» was opened an hour later, and the
+    // sheet dismissed itself before the user could type a second code.
+    LaunchedEffect(state.joinedClassId) {
+        if (state.joinedClassId != null) viewModel.consumeJoined()
+    }
 
     if (showServerSheet) {
         ServerUrlSheet(
@@ -136,7 +148,7 @@ fun JoinScreen(
 
                 Spacer(Modifier.height(18.dp))
                 Text(
-                    text = stringResource(R.string.join_title),
+                    text = correctedString(R.string.join_title),
                     // The rounded axis of the app's own face, which is what
                     // Essentials reaches for on the one screen that is mostly
                     // one sentence.
@@ -147,7 +159,7 @@ fun JoinScreen(
                     textAlign = TextAlign.Center,
                 )
                 Text(
-                    text = stringResource(R.string.join_subtitle),
+                    text = correctedString(R.string.join_subtitle),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -167,12 +179,12 @@ fun JoinScreen(
 
                 Spacer(Modifier.height(GroupSpacing))
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    SectionHeader(title = stringResource(R.string.join_server_section))
+                    SectionHeader(title = correctedString(R.string.join_server_section))
                     RoundedCardContainer {
                         GroupLinkItem(
-                            title = stringResource(R.string.settings_server_url),
+                            title = correctedString(R.string.settings_server_url),
                             subtitle = state.baseUrl.takeIf { it.isNotBlank() }
-                                ?: stringResource(R.string.join_server_unset),
+                                ?: correctedString(R.string.join_server_unset),
                             icon = Icons.Rounded.Dns,
                             tone = accentTone(0),
                             onClick = { showServerSheet = true },
@@ -186,7 +198,7 @@ fun JoinScreen(
             // the flow does not change shape under the finger that has pressed
             // its way through three identical ones.
             OnboardingActions(
-                label = stringResource(R.string.join_action),
+                label = correctedString(R.string.join_action),
                 icon = Icons.AutoMirrored.Rounded.ArrowForward,
                 onBack = onBack,
                 enabled = state.canSubmit,
@@ -207,23 +219,23 @@ fun JoinScreen(
 @Composable
 private fun WhatYouGet(modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
-        SectionHeader(title = stringResource(R.string.join_what_you_get))
+        SectionHeader(title = correctedString(R.string.join_what_you_get))
         RoundedCardContainer {
             GroupItem(
-                title = stringResource(R.string.join_feature_timetable),
-                subtitle = stringResource(R.string.join_feature_timetable_description),
+                title = correctedString(R.string.join_feature_timetable),
+                subtitle = correctedString(R.string.join_feature_timetable_description),
                 icon = Icons.Rounded.CalendarMonth,
                 tone = accentTone(1),
             )
             GroupItem(
-                title = stringResource(R.string.join_feature_homework),
-                subtitle = stringResource(R.string.join_feature_homework_description),
+                title = correctedString(R.string.join_feature_homework),
+                subtitle = correctedString(R.string.join_feature_homework_description),
                 icon = Icons.AutoMirrored.Rounded.MenuBook,
                 tone = accentTone(3),
             )
             GroupItem(
-                title = stringResource(R.string.join_feature_widget),
-                subtitle = stringResource(R.string.join_feature_widget_description),
+                title = correctedString(R.string.join_feature_widget),
+                subtitle = correctedString(R.string.join_feature_widget_description),
                 icon = Icons.Rounded.Widgets,
                 tone = accentTone(5),
             )
@@ -270,13 +282,13 @@ private fun ClassCodeField(
         ),
         label = {
             Text(
-                text = stringResource(R.string.join_code_label),
+                text = correctedString(R.string.join_code_label),
                 style = LocalTextStyle.current.emphasised(focused),
             )
         },
         supportingText = {
             Text(
-                text = errorText ?: stringResource(R.string.join_code_hint, ClassCodeLengths.first, ClassCodeLengths.last),
+                text = errorText ?: correctedString(R.string.join_code_hint, ClassCodeLengths.first, ClassCodeLengths.last),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -306,13 +318,13 @@ private fun ClassCodeField(
 @Composable
 internal fun JoinError?.asText(): String? = when (this) {
     null -> null
-    JoinError.InvalidCode -> stringResource(R.string.join_error_invalid_code, ClassCodeLengths.first, ClassCodeLengths.last)
-    JoinError.UnknownCode -> stringResource(R.string.join_error_unknown_code)
-    JoinError.InviteOnly -> stringResource(R.string.join_error_invite_only)
+    JoinError.InvalidCode -> correctedString(R.string.join_error_invalid_code, ClassCodeLengths.first, ClassCodeLengths.last)
+    JoinError.UnknownCode -> correctedString(R.string.join_error_unknown_code)
+    JoinError.InviteOnly -> correctedString(R.string.join_error_invite_only)
     is JoinError.TooManyAttempts -> minutes
         ?.let { pluralStringResource(R.plurals.join_error_too_many_wait, it, it) }
-        ?: stringResource(R.string.join_error_too_many)
+        ?: correctedString(R.string.join_error_too_many)
     is JoinError.Rejected ->
-        detail?.let { stringResource(R.string.join_error_rejected, it) }
-            ?: stringResource(R.string.join_error_generic)
+        detail?.let { correctedString(R.string.join_error_rejected, it) }
+            ?: correctedString(R.string.join_error_generic)
 }

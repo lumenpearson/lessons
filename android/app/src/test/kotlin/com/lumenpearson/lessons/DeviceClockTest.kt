@@ -131,9 +131,19 @@ class DeviceClockTest {
          * `:core:model` is left out on purpose: it is where `atSchool` and the
          * zone fallback live, which is to say it is the one module whose job is
          * to hold the exception.
+         *
+         * `:core:designsystem` was left out by accident, and it is the module
+         * where the last clock-shaped defect actually landed: it draws the
+         * hero card's countdown, `LessonGroup(now: LocalTime?)` and
+         * `state/ClockTime`. All three take «now» as a parameter today, so the
+         * tree was clean — but a default of `LocalDateTime.now()` on any of
+         * them would have compiled, passed every gate, and computed the
+         * biggest number on the home screen in the phone's zone instead of the
+         * class's. `ResourceTranslationTest` had this exact hole once, for
+         * this exact module.
          */
         val sources: List<File> by lazy {
-            listOf("app", "widget", "core/data")
+            listOf("app", "widget", "core/data", "core/designsystem")
                 .map { File(androidRoot, "$it/src/main/kotlin") }
                 .filter { it.isDirectory }
                 .flatMap { it.walkTopDown().filter { file -> file.extension == "kt" } }

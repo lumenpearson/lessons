@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
@@ -22,7 +21,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
@@ -30,6 +28,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 
@@ -227,18 +227,18 @@ internal fun PermissionCard(
     }
 
     GroupItem(
-        title = stringResource(state.permission.titleRes),
+        title = correctedString(state.permission.titleRes),
         subtitle = if (state.deniedPermanently) {
-            stringResource(R.string.permission_denied_forever)
+            correctedString(R.string.permission_denied_forever)
         } else {
-            stringResource(state.permission.descriptionRes)
+            correctedString(state.permission.descriptionRes)
         },
         icon = state.permission.icon,
         tone = if (state.isGranted) accentTone(1) else errorTone(),
         trailing = {
             val text: @Composable () -> Unit = {
                 Text(
-                    text = stringResource(label),
+                    text = correctedString(label),
                     style = MaterialTheme.typography.labelMedium,
                     textAlign = TextAlign.Center,
                 )

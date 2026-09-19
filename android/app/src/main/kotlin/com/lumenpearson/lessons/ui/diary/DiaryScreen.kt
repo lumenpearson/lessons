@@ -18,7 +18,6 @@ import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,7 +26,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -45,6 +43,8 @@ import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.component.SegmentedPicker
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
@@ -136,11 +136,11 @@ fun DiaryScreen(
         else -> DiaryPage(modifier) {
             item(key = "header") {
                 ScreenHeader(
-                    title = state.student?.fullName ?: stringResource(R.string.diary_title),
+                    title = state.student?.fullName ?: correctedString(R.string.diary_title),
                     subtitle = state.student?.let { student ->
                         listOfNotNull(student.className, student.school).joinToString(" · ")
                             .ifBlank { null }
-                    } ?: stringResource(
+                    } ?: correctedString(
                         R.string.diary_signed_in_as,
                         state.session?.login.orEmpty(),
                     ),
@@ -162,7 +162,7 @@ fun DiaryScreen(
                     items = DiaryTab.entries,
                     selectedItem = state.tab,
                     onItemSelected = viewModel::setTab,
-                    labelProvider = { tab -> stringResource(tab.labelRes()) },
+                    labelProvider = { tab -> correctedString(tab.labelRes()) },
                     containerColor = MaterialTheme.colorScheme.rowContainer,
                     contentPadding = PaddingValues(4.dp),
                     modifier = Modifier.clip(LessonsShapeTokens.Group),
@@ -178,8 +178,8 @@ fun DiaryScreen(
 
                 state.students.isEmpty() -> item(key = "students-empty") {
                     EmptyState(
-                        title = stringResource(R.string.diary_students_empty_title),
-                        description = stringResource(R.string.diary_students_empty_text),
+                        title = correctedString(R.string.diary_students_empty_title),
+                        description = correctedString(R.string.diary_students_empty_text),
                     )
                 }
 
@@ -191,7 +191,7 @@ fun DiaryScreen(
             item(key = "sign-out") {
                 RoundedCardContainer {
                     GroupItem(
-                        title = stringResource(R.string.diary_sign_out),
+                        title = correctedString(R.string.diary_sign_out),
                         tone = errorTone(),
                         icon = Icons.AutoMirrored.Rounded.Logout,
                         enabled = !state.signingOut,
@@ -251,7 +251,7 @@ private fun DiaryStudentPicker(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        SectionHeader(title = stringResource(R.string.diary_students_section))
+        SectionHeader(title = correctedString(R.string.diary_students_section))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -279,13 +279,13 @@ internal fun DiaryFailureCard(
 ) {
     if (failure == null) return
     EmptyState(
-        title = stringResource(R.string.diary_failure_title),
+        title = correctedString(R.string.diary_failure_title),
         description = failure.asText(),
         modifier = modifier,
         // Only the answers worth pressing a button about get one. A 502 means
         // the server has to be fixed and a 422 means this app asked wrongly;
         // pressing "повторить" would produce the same answer, twice.
-        actionLabel = stringResource(R.string.diary_retry).takeIf { failure.isRetryable },
+        actionLabel = correctedString(R.string.diary_retry).takeIf { failure.isRetryable },
         onActionClick = onRetry.takeIf { failure.isRetryable },
     )
 }
@@ -305,19 +305,19 @@ private val DiaryFailure.isRetryable: Boolean
  */
 @Composable
 internal fun DiaryFailure.asText(): String = when (this) {
-    DiaryFailure.SignInRequired -> stringResource(R.string.diary_error_signed_out)
+    DiaryFailure.SignInRequired -> correctedString(R.string.diary_error_signed_out)
     // Shown only if it ever leaks into a card: the state holder turns it into
     // the password prompt long before a screen could render it.
-    DiaryFailure.ReauthRequired -> stringResource(R.string.diary_reauth_title)
-    DiaryFailure.UnknownStudent -> stringResource(R.string.diary_error_student)
-    DiaryFailure.BadRange -> stringResource(R.string.diary_error_range)
-    DiaryFailure.Unreadable -> stringResource(R.string.diary_error_unreadable)
-    DiaryFailure.Unavailable -> stringResource(R.string.diary_error_unavailable)
+    DiaryFailure.ReauthRequired -> correctedString(R.string.diary_reauth_title)
+    DiaryFailure.UnknownStudent -> correctedString(R.string.diary_error_student)
+    DiaryFailure.BadRange -> correctedString(R.string.diary_error_range)
+    DiaryFailure.Unreadable -> correctedString(R.string.diary_error_unreadable)
+    DiaryFailure.Unavailable -> correctedString(R.string.diary_error_unavailable)
     // The server refusing a correction it could never apply. Its own message,
     // because "не получилось: 422" is not something to put in front of anybody.
-    DiaryFailure.Rejected -> stringResource(R.string.diary_error_rejected)
-    is DiaryFailure.Offline -> stringResource(R.string.diary_error_offline)
-    is DiaryFailure.Unexpected -> stringResource(
+    DiaryFailure.Rejected -> correctedString(R.string.diary_error_rejected)
+    is DiaryFailure.Offline -> correctedString(R.string.diary_error_offline)
+    is DiaryFailure.Unexpected -> correctedString(
         R.string.diary_error_unknown,
         reason.message?.takeIf { it.isNotBlank() } ?: message.orEmpty(),
     )
@@ -344,22 +344,22 @@ private fun DiarySignInOutcomeDialog(
         null -> Unit
 
         is DiarySignInOutcome.Succeeded -> LessonsSuccessDialog(
-            title = stringResource(R.string.diary_sign_in_ok_title),
+            title = correctedString(R.string.diary_sign_in_ok_title),
             // The login is echoed back because the commonest wrong answer to
             // «правильно ли я ввёл?» is a typo in an address that was accepted.
-            message = stringResource(R.string.diary_sign_in_ok_message, outcome.login),
-            confirmLabel = stringResource(R.string.diary_dialog_dismiss),
+            message = correctedString(R.string.diary_sign_in_ok_message, outcome.login),
+            confirmLabel = correctedString(R.string.diary_dialog_dismiss),
             onDismiss = onDismiss,
         )
 
         is DiarySignInOutcome.Failed -> LessonsDialog(
-            title = stringResource(R.string.diary_sign_in_failed_title),
+            title = correctedString(R.string.diary_sign_in_failed_title),
             // `asSignInText`, not `asText`: on this one call a 401 means "the
             // diary refused these credentials", and everywhere else it means
             // "your session is gone". Saying the second here would send
             // somebody to sign in again on the screen they are already on.
             message = outcome.failure.asSignInText(),
-            confirmLabel = stringResource(R.string.diary_dialog_dismiss),
+            confirmLabel = correctedString(R.string.diary_dialog_dismiss),
             onDismiss = onDismiss,
         )
     }
@@ -384,10 +384,10 @@ private fun DiarySignOutSheet(
 ) {
     LessonsBottomSheet(
         onDismissRequest = onDismiss,
-        title = stringResource(R.string.diary_sign_out_title),
+        title = correctedString(R.string.diary_sign_out_title),
     ) {
         Text(
-            text = stringResource(R.string.diary_sign_out_message),
+            text = correctedString(R.string.diary_sign_out_message),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = ScreenPadding),
@@ -399,7 +399,7 @@ private fun DiarySignOutSheet(
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
         ) {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.action_cancel))
+                Text(text = correctedString(R.string.action_cancel))
             }
             Button(
                 onClick = onConfirm,
@@ -408,7 +408,7 @@ private fun DiarySignOutSheet(
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 ),
             ) {
-                Text(text = stringResource(R.string.diary_sign_out))
+                Text(text = correctedString(R.string.diary_sign_out))
             }
         }
     }

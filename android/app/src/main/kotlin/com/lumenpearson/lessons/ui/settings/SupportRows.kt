@@ -7,10 +7,10 @@ import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.Login
-import androidx.compose.ui.res.stringResource
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupLinkItem
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 
@@ -31,40 +31,40 @@ internal fun LazyListScope.supportRows(
     onShowLicenses: () -> Unit,
 ) {
     item(key = "support") {
-        SettingsGroup(title = stringResource(R.string.settings_github_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_github_group)) {
             val account = state.github
             when {
                 account != null -> GroupItem(
-                    title = stringResource(R.string.settings_github_signed_in_as, account.login),
-                    subtitle = stringResource(R.string.settings_github_sign_in_description),
+                    title = correctedString(R.string.settings_github_signed_in_as, account.login),
+                    subtitle = correctedString(R.string.settings_github_sign_in_description),
                     icon = Icons.Rounded.Code,
                     tone = accentTone(3),
                 )
                 state.githubConfigured -> GroupLinkItem(
-                    title = stringResource(R.string.settings_github_sign_in),
-                    subtitle = stringResource(R.string.settings_github_sign_in_description),
+                    title = correctedString(R.string.settings_github_sign_in),
+                    subtitle = correctedString(R.string.settings_github_sign_in_description),
                     icon = Icons.Rounded.Login,
                     tone = accentTone(3),
                     onClick = onSignIn,
                 )
             }
             GroupLinkItem(
-                title = stringResource(R.string.settings_bug_report),
-                subtitle = stringResource(R.string.settings_bug_report_description),
+                title = correctedString(R.string.settings_bug_report),
+                subtitle = correctedString(R.string.settings_bug_report_description),
                 icon = Icons.Rounded.BugReport,
                 tone = accentTone(1),
                 onClick = onReportBug,
             )
             GroupLinkItem(
-                title = stringResource(R.string.settings_licenses),
-                subtitle = stringResource(R.string.settings_licenses_description),
+                title = correctedString(R.string.settings_licenses),
+                subtitle = correctedString(R.string.settings_licenses_description),
                 icon = Icons.Rounded.Gavel,
                 tone = accentTone(0),
                 onClick = onShowLicenses,
             )
             if (account != null) {
                 GroupItem(
-                    title = stringResource(R.string.settings_github_sign_out),
+                    title = correctedString(R.string.settings_github_sign_out),
                     icon = Icons.AutoMirrored.Rounded.Logout,
                     tone = errorTone(),
                     onClick = viewModel::signOutOfGithub,

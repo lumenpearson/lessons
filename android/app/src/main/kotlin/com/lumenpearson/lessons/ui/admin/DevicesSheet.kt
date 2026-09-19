@@ -11,7 +11,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.ManageFailure
 import com.lumenpearson.lessons.core.data.repository.ManagedDevice
@@ -20,6 +19,7 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupSwitchItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -52,15 +52,15 @@ fun DevicesSheet(
     val devices = state.devices.value
 
     ManagementSheet(
-        title = stringResource(R.string.admin_devices_title),
+        title = correctedString(R.string.admin_devices_title),
         onDismiss = onDismiss,
         modifier = modifier,
     ) {
         when (val current = mode) {
             is DevicesMode.Revoke -> Confirmation(
-                title = stringResource(R.string.admin_device_revoke_title),
-                message = stringResource(R.string.admin_device_revoke_message),
-                confirmLabel = stringResource(R.string.admin_device_revoke),
+                title = correctedString(R.string.admin_device_revoke_title),
+                message = correctedString(R.string.admin_device_revoke_message),
+                confirmLabel = correctedString(R.string.admin_device_revoke),
                 busy = state.working,
                 failure = state.writeFailure,
                 onConfirm = {
@@ -71,9 +71,9 @@ fun DevicesSheet(
             )
 
             is DevicesMode.Unlink -> Confirmation(
-                title = stringResource(R.string.admin_device_unlink_title),
-                message = stringResource(R.string.admin_device_unlink_message),
-                confirmLabel = stringResource(R.string.admin_device_unlink),
+                title = correctedString(R.string.admin_device_unlink_title),
+                message = correctedString(R.string.admin_device_unlink_message),
+                confirmLabel = correctedString(R.string.admin_device_unlink),
                 busy = state.working,
                 failure = state.writeFailure,
                 onConfirm = {
@@ -88,7 +88,7 @@ fun DevicesSheet(
                 SheetFailure(failure = state.writeFailure)
                 RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
                     GroupSwitchItem(
-                        title = stringResource(R.string.admin_devices_show_revoked),
+                        title = correctedString(R.string.admin_devices_show_revoked),
                         icon = Icons.Rounded.PhonelinkErase,
                         tone = accentTone(5),
                         checked = state.showRevokedDevices,
@@ -108,8 +108,8 @@ fun DevicesSheet(
                     )
 
                     devices.isEmpty() -> EmptyState(
-                        title = stringResource(R.string.admin_devices_empty_title),
-                        description = stringResource(R.string.admin_devices_empty_text),
+                        title = correctedString(R.string.admin_devices_empty_title),
+                        description = correctedString(R.string.admin_devices_empty_text),
                         icon = Icons.Rounded.PhoneAndroid,
                         modifier = Modifier.padding(horizontal = ScreenPadding),
                     )
@@ -142,7 +142,7 @@ private fun DeviceRows(
     SheetSection(title = device.displayName())
     RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
         GroupItem(
-            title = device.owner ?: stringResource(R.string.admin_device_not_linked),
+            title = device.owner ?: correctedString(R.string.admin_device_not_linked),
             subtitle = device.statusLine(),
             icon = Icons.Rounded.PhoneAndroid,
             // A switched-off phone loses its colour, because what matters about
@@ -154,7 +154,7 @@ private fun DeviceRows(
         // and a row that can only fail is a row not worth drawing.
         if (!device.revoked) {
             GroupItem(
-                title = stringResource(R.string.admin_device_revoke),
+                title = correctedString(R.string.admin_device_revoke),
                 tone = errorTone(),
                 enabled = !busy,
                 onClick = onRevoke,
@@ -162,7 +162,7 @@ private fun DeviceRows(
         }
         if (device.linked) {
             GroupItem(
-                title = stringResource(R.string.admin_device_unlink),
+                title = correctedString(R.string.admin_device_unlink),
                 icon = Icons.Rounded.LinkOff,
                 tone = accentTone(4),
                 enabled = !busy,
@@ -175,15 +175,15 @@ private fun DeviceRows(
 /** The name the phone gave, or the id it was assigned. */
 @Composable
 private fun ManagedDevice.displayName(): String =
-    deviceName ?: stringResource(R.string.admin_device_unnamed, id)
+    deviceName ?: correctedString(R.string.admin_device_unnamed, id)
 
 /** "редактор · был(а) 12.09 07:55", or whichever halves of that are known. */
 @Composable
 private fun ManagedDevice.statusLine(): String {
     val role = role?.roleName()
-    val seen = lastSeenAt?.let { stringResource(R.string.admin_device_seen, it.asClassStamp()) }
-        ?: stringResource(R.string.admin_device_never_seen)
-    val revoked = stringResource(R.string.admin_device_revoked).takeIf { this.revoked }
+    val seen = lastSeenAt?.let { correctedString(R.string.admin_device_seen, it.asClassStamp()) }
+        ?: correctedString(R.string.admin_device_never_seen)
+    val revoked = correctedString(R.string.admin_device_revoked).takeIf { this.revoked }
     return listOfNotNull(revoked, role, seen).joinToString(" · ")
 }
 

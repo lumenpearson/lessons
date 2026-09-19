@@ -72,6 +72,61 @@ DAY_KIND_LABELS = {
 }
 
 
+# --------------------------------------------------------------------------
+# Message budgets
+# --------------------------------------------------------------------------
+#
+# A message Telegram will not deliver is a screen that says nothing: the
+# ceiling is 4096 characters after entity parsing, and the whole message is
+# refused rather than clipped. Every renderer below that grows with the data
+# has to carry a budget, and these are the three tools for it.
+#
+# They used to live in ``manage_render``, which is downstream of this module,
+# so the four management pages had them and nothing else could. That is how
+# the day view, the access list, the task list and the diary's four renderers
+# each ended up without one: the fix was written twice and reached neither
+# ``render_day`` here nor anything in ``diary_render``.
+
+#: What one message may grow to. The margin under 4096 covers the tags, which
+#: Telegram counts, and a navigation hint a handler may append.
+MESSAGE_LIMIT = 3900
+
+
+def more_line(total: int, shown: int) -> list[str]:
+    hidden = total - shown
+    return [f"… и ещё {hidden}"] if hidden > 0 else []
+
+
+def clamp(lines: list[str], limit: int = MESSAGE_LIMIT) -> str:
+    """Join lines, dropping the tail that would not fit and saying how many.
+
+    Cutting from the end rather than shortening every line: the rows are
+    ordered by what matters most (the nearest date, the newest change), so the
+    ones that survive are the ones worth reading.
+    """
+    kept: list[str] = []
+    used = 0
+    for position, line in enumerate(lines):
+        cost = len(line) + 1
+        if used + cost > limit:
+            rest = len(lines) - position
+            kept.append("… и ещё " + plural(rest, "строка", "строки", "строк"))
+            break
+        kept.append(line)
+        used += cost
+    return "\n".join(kept)
+
+
+def cut(text: str, limit: int) -> str:
+    """One long free-text value, shortened for a list where it is one row.
+
+    Called on the raw value and never on the escaped one: cutting after
+    escaping can leave «&am», which is a message Telegram refuses of its own.
+    """
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
 def human_date(day: Date, today: Date | None = None) -> str:
     """"сегодня, 9 сентября (вторник)" — the form people actually read."""
     label = f"{day.day} {MONTHS_GENITIVE[day.month - 1]} ({WEEKDAYS[day.weekday()]})"
@@ -95,6 +150,18 @@ def relative_day_name(day: Date, today: Date) -> str:
     if 2 <= delta <= 7:
         return f"на {WEEKDAYS[day.weekday()]}"
     return f"на {day.day} {MONTHS_GENITIVE[day.month - 1]}"
+
+
+#: A задание in the day view, before it is shortened.
+#:
+#: Generous on purpose, and not the digest's 400: this is one day, and the
+#: point of opening it is to read the задание rather than to be told there is
+#: one. The cut exists for the other end — ``schemas`` accepts 4000 characters
+#: for a задание and the column is uncapped, so a single pasted essay used to
+#: take the whole day over Telegram's ceiling, on «сегодня», on «завтра», on
+#: the ‹ › pager, in the calendar card and in the morning digest at once, and
+#: `/today` is a plain answer with no callback to apologise on.
+DAY_HOMEWORK_TEXT_MAX = 1000
 
 
 def render_day(day: ResolvedDay, today: Date) -> str:
@@ -144,18 +211,40 @@ def render_day(day: ResolvedDay, today: Date) -> str:
         lines.append("")
         lines.append("<b>Домашнее задание</b>")
         for item in day.homework:
-            lines.append(f"📝 <b>{escape(item.subject)}</b>: {escape(item.text)}")
+            text = escape(cut(item.text, DAY_HOMEWORK_TEXT_MAX))
+            lines.append(f"📝 <b>{escape(item.subject)}</b>: {text}")
 
-    return "\n".join(lines)
+    return clamp(lines)
+
+
+#: Members listed on «👥 Доступ», and the number the role picker builds its
+#: buttons from.
+#:
+#: The same number in both places, imported by ``handlers/access`` rather than
+#: written there again: while they were twenty and «all of them», a class where
+#: both parents of thirty pupils had joined drew sixty names above twenty
+#: buttons — forty people named on screen whose role nothing could change, and
+#: no «… и ещё N» saying so, because the renderer counted from itself. It is
+#: also the only screen the join mode can be switched back from, and at sixty
+#: members the page went over Telegram's ceiling and stopped opening at all.
+ACCESS_MEMBERS_MAX = 20
+
+#: Pending phone invites listed under them. Fewer, because an invite is a row
+#: nobody re-reads: it is a thing waiting to happen or to be revoked.
+ACCESS_INVITES_MAX = 10
+
+#: An invite's free-text label, which the API accepts at 120 characters.
+ACCESS_LABEL_MAX = 60
 
 
 def render_access_list(members: list, invites: list) -> str:
     lines = ["<b>👥 Доступ к классу</b>", ""]
     if members:
-        for member in members:
+        for member in members[:ACCESS_MEMBERS_MAX]:
             name = escape(member.full_name or member.username or str(member.telegram_id))
             handle = f" (@{escape(member.username)})" if member.username else ""
             lines.append(f"• {name}{handle} — <b>{member.role.title_ru}</b>")
+        lines.extend(more_line(len(members), ACCESS_MEMBERS_MAX))
     else:
         lines.append("<i>Пока никого нет.</i>")
 
@@ -163,10 +252,11 @@ def render_access_list(members: list, invites: list) -> str:
     if pending:
         lines.append("")
         lines.append("<b>Приглашения по номеру</b>")
-        for invite in pending:
-            label = f" — {escape(invite.label)}" if invite.label else ""
+        for invite in pending[:ACCESS_INVITES_MAX]:
+            label = f" — {escape(cut(invite.label, ACCESS_LABEL_MAX))}" if invite.label else ""
             lines.append(f"⏳ +{invite.phone} → {invite.role.title_ru}{label}")
-    return "\n".join(lines)
+        lines.extend(more_line(len(pending), ACCESS_INVITES_MAX))
+    return clamp(lines)
 
 
 def render_role_help(role: Role) -> str:
@@ -544,6 +634,12 @@ def homework_digest_keys(
 #: keyboard's ceiling; the text may list more so nothing is hidden entirely.
 TASK_LINES_MAX = 40
 
+#: A task's title on its row. The column holds 200 characters, and forty rows
+#: of two hundred is twice what Telegram will send — a line budget cannot
+#: express that, which is why this one is in characters and the clamp below
+#: catches what neither number does.
+TASK_TITLE_MAX = 80
+
 TASK_GROUPS = ("Просрочено", "Сегодня", "Завтра", "Позже", "Без срока")
 
 
@@ -563,7 +659,7 @@ def task_group(task: PersonalTask, today: Date) -> str:
 def task_line(task: PersonalTask) -> str:
     """"🔴 Реферат — до 15.09 18:00 (История)"."""
     icon = PRIORITY_ICONS.get(task.priority, "🟡")
-    text = escape(task.title)
+    text = escape(cut(task.title, TASK_TITLE_MAX))
     if task.due_date is not None:
         due = f"до {task.due_date:%d.%m}"
         if task.due_time is not None:
@@ -610,7 +706,7 @@ def render_task_list(tasks: list[PersonalTask], today: Date, show_done: bool = F
     _emit("Сделано", done_tasks)
     if hidden:
         lines.append(f"… и ещё {hidden}")
-    return "\n".join(lines)
+    return clamp(lines)
 
 
 def render_task_saved(task: PersonalTask, today: Date) -> str:

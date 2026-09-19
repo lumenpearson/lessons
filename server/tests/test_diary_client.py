@@ -150,3 +150,34 @@ def test_the_two_places_httpx_is_pinned_say_the_same_thing():
     assert _httpx_specifier((here.parents[1] / "pyproject.toml").read_text()) == _httpx_specifier(
         (here.parents[2] / "requirements.txt").read_text()
     )
+
+
+async def test_two_session_cookies_in_one_answer_do_not_escape_as_a_bare_exception(
+    upstream,
+):
+    """A PHP application rotating a scoped session sets the same name twice.
+
+    `Set-Cookie: X-JWT-Token=new1; Path=/` beside
+    `Set-Cookie: X-JWT-Token=new2; Path=/api` — clear the old scope, set the
+    new one — and `httpx.Cookies.get` answers that with `CookieConflict`,
+    which is not an `httpx.HTTPError`. It therefore walked out of this package
+    as something `exceptions.py` says cannot happen: `api/diary._guard`
+    catches only `PetersburgError`, so every diary endpoint answered 500
+    rather than 401 or 502, on every call, because the cookie shape does not
+    change; and `diary_web` landed in its bare `except Exception`, said
+    «дневник ответил непонятно» and kept the ticket it had already spent.
+    """
+    cookie = provider_client.SESSION_COOKIE
+    upstream["response"] = httpx.Response(
+        200,
+        json={"data": {"list": []}},
+        headers=[
+            ("set-cookie", f"{cookie}=new1; Path=/"),
+            ("set-cookie", f"{cookie}=new2; Path=/api"),
+        ],
+    )
+
+    client = provider_client.PetersburgClient("old-token")
+    await client.children()
+
+    assert client.token in {"new1", "new2"}

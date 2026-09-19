@@ -65,14 +65,40 @@ internal object TranslationXml {
     }
 
     /**
-     * The resource folder a locale's strings live in.
+     * The full path of the file a correction belongs in — module and all.
      *
-     * Russian is the app's default locale and therefore has no qualifier; every
-     * other language is a suffixed folder. Getting this wrong would send a
-     * Russian correction to `values-ru/`, a folder this app does not have,
-     * where it would be applied by nobody and noticed by no one.
+     * Two things decide it, and both of them used to be guessed. The locale
+     * picks the qualifier: Russian is the app's default and therefore has no
+     * suffix, and a Russian correction sent to `values-ru/` would land in a
+     * folder this app does not have, be applied by nobody and noticed by no
+     * one.
+     *
+     * The **module** is the half that only started to matter when correction
+     * mode reached the design system. `Resources.getResourceName` cannot
+     * answer it: by the time an id exists, every module's resources have been
+     * merged under the app's own package, and `ds_state_break` and
+     * `settings_title` are indistinguishable. Pasted into `:app` anyway, a
+     * `ds_` correction does not fix the library string — it declares a second
+     * one that shadows it, which looks right, leaves the original wrong, and
+     * then asks `ResourceTranslationTest` for an English twin of a string that
+     * should not exist.
+     *
+     * So it goes by prefix, which is not a convention this invents: each
+     * module's strings already carry one, all 38 of the design system's, all
+     * 18 of `:core:data`'s and all 77 of the widget's, and no other module
+     * uses them. `TranslationXmlTest` reads the source tree and holds that,
+     * because a prefix rule nothing checks is a prefix rule until the next
+     * string.
      */
-    fun valuesFolder(locale: String): String =
+    fun valuesFolder(key: String, locale: String): String =
+        "android/" + moduleOf(key) + "/src/main/res/" + valuesDirectory(locale)
+
+    /** The Gradle module whose `res/` declares [key]; see [valuesFolder]. */
+    fun moduleOf(key: String): String =
+        ModulePrefixes.entries.firstOrNull { key.startsWith(it.key) }?.value ?: AppModule
+
+    /** `values`, or `values-en`; the qualifier half of [valuesFolder]. */
+    fun valuesDirectory(locale: String): String =
         if (locale.isEmpty() || locale == DefaultLocale) "values" else "values-$locale"
 
     /**
@@ -80,17 +106,19 @@ internal object TranslationXml {
      * belong in and indented as the files themselves are, so that the result is
      * pasted rather than retyped.
      *
-     * Sorted by locale and then by key: the same session must produce the same
+     * Sorted by folder and then by key: the same session must produce the same
      * text twice, or a reviewer comparing two exports reads a diff of the order
-     * the reader happened to tap things in.
+     * the reader happened to tap things in. The default folder of each module
+     * comes before its translations, because `values` is a prefix of
+     * `values-en` — which is an accident of the sort, and a good one.
      */
     fun fragment(edits: List<TranslationEdit>): String =
-        edits.groupBy { it.locale }
+        edits.groupBy { valuesFolder(it.key, it.locale) }
             .toSortedMap()
-            .map { (locale, localeEdits) ->
+            .map { (folder, folderEdits) ->
                 buildString {
-                    append(Indent).append("<!-- ").append(valuesFolder(locale)).append("/ -->\n")
-                    localeEdits.sortedBy { it.key }.forEach { edit ->
+                    append(Indent).append("<!-- ").append(folder).append("/ -->\n")
+                    folderEdits.sortedBy { it.key }.forEach { edit ->
                         append(Indent)
                             .append("<string name=\"").append(edit.key).append("\">")
                             .append(escape(edit.corrected))
@@ -105,4 +133,18 @@ internal object TranslationXml {
 
     /** The language of `values/`; see [valuesFolder]. */
     private const val DefaultLocale = "ru"
+
+    /** Where a string lives when its name starts with none of the prefixes below. */
+    private const val AppModule = "app"
+
+    /**
+     * Prefix to module, longest-lived first — order matters only if one prefix
+     * is ever made a prefix of another, which is why they are matched in the
+     * order written rather than by any rule a reader has to work out.
+     */
+    private val ModulePrefixes = linkedMapOf(
+        "ds_" to "core/designsystem",
+        "alert_" to "core/data",
+        "widget_" to "widget",
+    )
 }

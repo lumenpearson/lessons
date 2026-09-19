@@ -22,7 +22,10 @@ import androidx.compose.runtime.setValue
  */
 internal object TranslationMode {
 
-    /** Set from the settings row; read by every [TranslatableText] in the app. */
+    /**
+     * Set from the settings row; read by every piece of text in the app,
+     * through [AppCorrections.enabled] and the `Text` in the design system.
+     */
     var enabled by mutableStateOf(false)
 
     /** Everything corrected since [enabled] last became true. */

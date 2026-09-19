@@ -1,8 +1,8 @@
 package com.lumenpearson.lessons.ui.common
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -89,9 +89,9 @@ internal fun LocalDate.asFullWeekday(locale: Locale = Locale.getDefault()): Stri
  */
 @Composable
 internal fun LocalDate.asRelativeDayLabel(today: LocalDate): String = when (this) {
-    today -> stringResource(R.string.day_today)
-    today.plusDays(1) -> stringResource(R.string.day_tomorrow)
-    today.minusDays(1) -> stringResource(R.string.day_yesterday)
+    today -> correctedString(R.string.day_today)
+    today.plusDays(1) -> correctedString(R.string.day_tomorrow)
+    today.minusDays(1) -> correctedString(R.string.day_yesterday)
     else -> "${asFullWeekday()}, ${asDayMonth()}"
 }
 
@@ -105,13 +105,13 @@ internal fun LocalDate.asRelativeDayLabel(today: LocalDate): String = when (this
 // device clock: unlike every other date in the app this one is about the phone,
 // not the school — "обновлено в 14:32" means the clock the reader is holding.
 internal fun syncedAtLabel(epochMillis: Long, zone: ZoneId = ZoneId.systemDefault()): String {
-    if (epochMillis <= 0L) return stringResource(R.string.sync_never)
+    if (epochMillis <= 0L) return correctedString(R.string.sync_never)
     val moment = Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalDateTime()
     val today = LocalDate.now(zone)
     return if (moment.toLocalDate() == today) {
-        stringResource(R.string.sync_at_time, moment.toLocalTime().asClock())
+        correctedString(R.string.sync_at_time, moment.toLocalTime().asClock())
     } else {
-        stringResource(
+        correctedString(
             R.string.sync_at_date_time,
             moment.toLocalDate().asShortDate(),
             moment.toLocalTime().asClock(),
@@ -123,7 +123,7 @@ internal fun syncedAtLabel(epochMillis: Long, zone: ZoneId = ZoneId.systemDefaul
 @Composable
 internal fun syncIntervalLabel(minutes: Int): String =
     if (minutes < 60) {
-        stringResource(R.string.interval_minutes, minutes)
+        correctedString(R.string.interval_minutes, minutes)
     } else {
-        stringResource(R.string.interval_hours, minutes / 60)
+        correctedString(R.string.interval_hours, minutes / 60)
     }

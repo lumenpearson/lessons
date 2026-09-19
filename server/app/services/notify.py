@@ -19,6 +19,31 @@ from app.models import ReminderSettings, SchoolClass
 
 log = logging.getLogger(__name__)
 
+#: Free-form text in an announcement, before it is shortened.
+#:
+#: Homework text is free-form and can be a paragraph — `HomeworkIn.text`
+#: accepts 4000 characters and the column caps at nothing. A push notification
+#: that long is unreadable on a lock screen, and past Telegram's own ceiling it
+#: is not a notification at all: the whole message is refused, every recipient's
+#: send raises, both callers swallow it, and nobody is told anything while the
+#: write answers 200.
+#:
+#: It lives here rather than in either shell because both of them announce the
+#: same задание: the rule was in `bot/handlers/content` only, so a задание
+#: typed into the bot arrived cut to 200 characters and the same задание saved
+#: from a phone arrived whole.
+NOTIFY_TEXT_MAX = 200
+
+
+def shorten(text: str) -> str:
+    """``text`` as one line, no longer than [NOTIFY_TEXT_MAX].
+
+    Cut before escaping, never after: cutting after can leave «&am», which is
+    a message Telegram refuses of its own.
+    """
+    text = " ".join(text.split())
+    return text if len(text) <= NOTIFY_TEXT_MAX else text[: NOTIFY_TEXT_MAX - 1].rstrip() + "…"
+
 _FLAGS = {
     "changes": ReminderSettings.notify_changes,
     "homework": ReminderSettings.notify_homework,

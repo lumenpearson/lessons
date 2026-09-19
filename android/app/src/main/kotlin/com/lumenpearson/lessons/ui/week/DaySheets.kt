@@ -15,11 +15,9 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.StickyNote2
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
@@ -29,6 +27,8 @@ import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -68,13 +68,13 @@ fun LessonSheet(
             modifier = Modifier.padding(horizontal = ScreenPadding),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            PillChip(text = stringResource(R.string.schedule_lesson_index, lesson.index))
+            PillChip(text = correctedString(R.string.schedule_lesson_index, lesson.index))
             if (lesson.isReplaced) {
-                PillChip(text = stringResource(R.string.schedule_lesson_replaced))
+                PillChip(text = correctedString(R.string.schedule_lesson_replaced))
             }
             if (lesson.isCancelled) {
                 PillChip(
-                    text = stringResource(R.string.schedule_lesson_cancelled),
+                    text = correctedString(R.string.schedule_lesson_cancelled),
                     containerColor = MaterialTheme.colorScheme.errorContainer,
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 )
@@ -84,14 +84,14 @@ fun LessonSheet(
         RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
             GroupItem(
                 title = timeRange(lesson.startsAt, lesson.endsAt),
-                subtitle = stringResource(R.string.schedule_duration, minutes),
+                subtitle = correctedString(R.string.schedule_duration, minutes),
                 icon = Icons.Rounded.Schedule,
                 tone = subjectTone(lesson.subject, lesson.colorHex),
             )
             lesson.room?.takeIf { it.isNotBlank() }?.let { room ->
                 GroupItem(
                     title = room,
-                    subtitle = stringResource(R.string.schedule_room),
+                    subtitle = correctedString(R.string.schedule_room),
                     icon = Icons.Rounded.MeetingRoom,
                     tone = accentTone(1),
                 )
@@ -100,7 +100,7 @@ fun LessonSheet(
                 lesson.teacher?.takeIf { it.isNotBlank() }?.let { teacher ->
                     GroupItem(
                         title = teacher,
-                        subtitle = stringResource(R.string.schedule_teacher),
+                        subtitle = correctedString(R.string.schedule_teacher),
                         icon = Icons.Rounded.Person,
                         tone = accentTone(3),
                     )
@@ -109,7 +109,7 @@ fun LessonSheet(
             lesson.note?.takeIf { it.isNotBlank() }?.let { note ->
                 GroupItem(
                     title = note,
-                    subtitle = stringResource(R.string.schedule_note),
+                    subtitle = correctedString(R.string.schedule_note),
                     icon = Icons.Rounded.StickyNote2,
                     tone = if (lesson.isCancelled) errorTone() else accentTone(5),
                 )
@@ -117,14 +117,14 @@ fun LessonSheet(
         }
 
         SectionHeader(
-            title = stringResource(R.string.schedule_homework),
+            title = correctedString(R.string.schedule_homework),
             subtitle = date.asDayMonth(),
             modifier = Modifier.padding(horizontal = ScreenPadding - 16.dp),
         )
         RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
             if (homework.isEmpty()) {
                 GroupItem(
-                    title = stringResource(R.string.schedule_homework_empty),
+                    title = correctedString(R.string.schedule_homework_empty),
                     icon = Icons.AutoMirrored.Rounded.MenuBook,
                     tone = neutralTone(),
                 )
@@ -175,7 +175,7 @@ fun DaySheet(
             ) {
                 if (day?.isToday == true) {
                     PillChip(
-                        text = stringResource(R.string.day_today),
+                        text = correctedString(R.string.day_today),
                         selected = true,
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -188,7 +188,7 @@ fun DaySheet(
 
         if (schoolDay == null) {
             Text(
-                text = stringResource(R.string.week_no_data_description),
+                text = correctedString(R.string.week_no_data_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = ScreenPadding),
@@ -199,7 +199,7 @@ fun DaySheet(
 
         if (lessons.isEmpty()) {
             Text(
-                text = stringResource(R.string.week_day_off_description),
+                text = correctedString(R.string.week_day_off_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = ScreenPadding),
@@ -258,7 +258,7 @@ fun DayExtras(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         if (events.isNotEmpty()) {
-            SectionHeader(title = stringResource(R.string.schedule_events))
+            SectionHeader(title = correctedString(R.string.schedule_events))
             RoundedCardContainer {
                 events.forEach { event ->
                     GroupItem(
@@ -275,7 +275,7 @@ fun DayExtras(
         }
 
         if (homework.isNotEmpty()) {
-            SectionHeader(title = stringResource(R.string.schedule_homework))
+            SectionHeader(title = correctedString(R.string.schedule_homework))
             RoundedCardContainer {
                 homework.forEach { item -> HomeworkRow(item = item) }
             }

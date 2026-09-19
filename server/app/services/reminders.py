@@ -32,7 +32,14 @@ from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot.render import MONTHS_GENITIVE, human_date, relative_day_name, render_day
+from app.bot.render import (
+    MONTHS_GENITIVE,
+    clamp,
+    cut,
+    human_date,
+    relative_day_name,
+    render_day,
+)
 from app.db import rows_affected
 from app.models import Homework, PersonalTask, ReminderSettings, SchoolClass
 from app.schedule import ResolvedDay, ScheduleResolver
@@ -46,6 +53,15 @@ MAX_PER_TICK = 200
 
 #: Homework lines in an evening digest before «… и ещё N».
 MAX_DIGEST_LINES = 30
+
+#: A задание on its row in the evening digest.
+#:
+#: The line cap above is not a character cap, and a row carries free text the
+#: API accepts at 4000 characters: two ordinary заданий of 2500 and 1800 came
+#: to 4397, and six subjects at 700 each to 4376. Past Telegram's ceiling the
+#: whole message is refused — and `send_due` claims the digest *before*
+#: building it, so the evening never goes out and is never retried.
+DIGEST_TEXT_MAX = 300
 
 # No inhabited zone is further ahead of UTC than +14 (Kiribati; Kamchatka is
 # +12). "Now" in any class's zone is therefore at most this far past UTC now,
@@ -308,14 +324,15 @@ def render_evening(next_day: ResolvedDay | None, today: Date, done_subjects: set
     shown = next_day.homework[:MAX_DIGEST_LINES]
     for item in shown:
         mark = "✅" if item.subject in done_subjects else "📝"
-        lines.append(f"{mark} <b>{escape(item.subject)}</b>: {escape(item.text)}")
+        text = escape(cut(item.text, DIGEST_TEXT_MAX))
+        lines.append(f"{mark} <b>{escape(item.subject)}</b>: {text}")
     hidden = len(next_day.homework) - len(shown)
     if hidden > 0:
         lines.append(f"… и ещё {hidden}")
     if all(item.subject in done_subjects for item in next_day.homework):
         lines.append("")
         lines.append("Всё сделано 👍")
-    return "\n".join(lines)
+    return clamp(lines)
 
 
 def render_task_reminder(task: PersonalTask, today: Date) -> str:

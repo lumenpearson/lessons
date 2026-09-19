@@ -493,6 +493,17 @@ async def subject_update(
     if new_name is not None and new_name != subject.name:
         if await _name_taken(session, school_class.id, new_name, besides=subject.id):
             raise _conflict("a subject with that name is already in this class")
+        # The dictionary check above cannot see this one: homework may be
+        # written under a name that is not a dictionary entry, and homework is
+        # unique per subject per day. See `structure.homework_clashing`.
+        clash = await structure.homework_clashing(
+            session, school_class.id, subject.name, new_name
+        )
+        if clash:
+            days = ", ".join(day.isoformat() for day in clash)
+            raise _conflict(
+                f"homework under both names on the same day: {days}"
+            )
         old_name = subject.name
         moved = await structure.rename_subject(session, school_class.id, subject, new_name)
         await audit.record(
@@ -679,6 +690,21 @@ async def bells_update(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="make another schedule the default instead",
             )
+        # A schedule may be created empty and filled in afterwards, which is
+        # the point of the two-step flow — but the class default is what every
+        # ordinary day rings, and a default that rings nothing draws nothing:
+        # no lesson on any weekday can be placed on a timeline, so `/bundle`
+        # answers zero lessons, `/now` answers «day_off» on a Monday, and the
+        # phone, the widget, the calendar feed and the morning digest all go
+        # blank at once with nothing anywhere reporting a problem. Worse,
+        # `rung_indexes` then returns an empty set, which `can_ring` reads as
+        # «this class has not set its bells up yet» and waves every lesson
+        # number through. `edit.day_put` refuses the same thing at day level.
+        if not schedule.periods:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="в этом расписании звонков нет ни одного урока",
+            )
         if school_class.bell_schedule_id != schedule.id:
             school_class.bell_schedule_id = schedule.id
             await audit.record(
@@ -709,13 +735,19 @@ async def bells_periods(
     sending the six rows that are now true is one intention, not six.
     """
     schedule = await _schedule_or_404(session, school_class, schedule_id)
-    await structure.write_bell_periods(session, schedule, _rows_of(payload))
+    orphaned = await structure.write_bell_periods(session, schedule, _rows_of(payload))
+    summary = f"звонки «{schedule.name}»: {len(payload.periods)} уроков"
+    if orphaned:
+        # Shrinking the class's own schedule takes lessons off every weekday
+        # that carried a number past the new last rung. They are still stored
+        # and they are drawn nowhere, so the log is where an admin finds out.
+        summary += f", перестали звонить уроков: {len(orphaned)}"
     await audit.record(
         session,
         school_class.id,
         actor.telegram_id,
         "bells.edit",
-        f"звонки «{schedule.name}»: {len(payload.periods)} уроков",
+        summary,
     )
     await session.commit()
     await session.refresh(schedule, ["periods"])
@@ -854,11 +886,21 @@ async def timetable_import(
         "нет такого звонка в расписании звонков"
         for weekday, index in result.dropped
     ]
+    # The other direction, and the one nothing used to report: these lessons
+    # were already stored and the bells this import wrote no longer ring them,
+    # so they are still in the database and drawn nowhere.
+    rejected = rejected + [
+        f"{WEEKDAYS[weekday - 1]}, урок {index}: "
+        "больше не звонит — новые звонки короче"
+        for weekday, index in result.orphaned
+    ]
     summary = f"импорт расписания: дней {len(days)}, уроков {total}"
     if bells:
         summary += f", звонков {len(bells)}"
     if result.dropped:
         summary += f", без звонка пропущено {len(result.dropped)}"
+    if result.orphaned:
+        summary += f", перестали звонить {len(result.orphaned)}"
     await audit.record(
         session, school_class.id, actor.telegram_id, "timetable.import", summary
     )

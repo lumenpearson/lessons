@@ -1,7 +1,9 @@
 package com.lumenpearson.lessons.ui.translate
 
+import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -107,9 +109,85 @@ class TranslationXmlTest {
     /** Russian is the default locale, so its folder carries no qualifier. */
     @Test
     fun `the values folder follows the locale`() {
-        assertEquals("values", TranslationXml.valuesFolder("ru"))
-        assertEquals("values-en", TranslationXml.valuesFolder("en"))
-        assertEquals("values", TranslationXml.valuesFolder(""))
+        assertEquals("values", TranslationXml.valuesDirectory("ru"))
+        assertEquals("values-en", TranslationXml.valuesDirectory("en"))
+        assertEquals("values", TranslationXml.valuesDirectory(""))
+    }
+
+    /**
+     * And the module follows the key.
+     *
+     * Correction mode reaches the design system's own rows and cards, so a
+     * session can hold a `ds_` string. Sent to `:app`, it would not fix the
+     * library string — it would declare a second one that shadows it.
+     */
+    @Test
+    fun `the values folder follows the module the string lives in`() {
+        assertEquals(
+            "android/app/src/main/res/values",
+            TranslationXml.valuesFolder("settings_title", "ru"),
+        )
+        assertEquals(
+            "android/core/designsystem/src/main/res/values-en",
+            TranslationXml.valuesFolder("ds_state_break", "en"),
+        )
+        assertEquals(
+            "android/core/data/src/main/res/values",
+            TranslationXml.valuesFolder("alert_morning_title", "ru"),
+        )
+        assertEquals(
+            "android/widget/src/main/res/values",
+            TranslationXml.valuesFolder("widget_loading", "ru"),
+        )
+    }
+
+    /**
+     * The prefix rule, read off the tree rather than believed.
+     *
+     * [TranslationXml.moduleOf] routes a correction by the prefix of its key,
+     * because by the time an id exists every module's resources have been
+     * merged under one package and nothing can tell them apart any more. That
+     * works only for as long as each module really does keep to its prefix —
+     * and nothing but this said so.
+     */
+    @Test
+    fun `every module's strings carry the prefix the export routes them by`() {
+        val strays = modules.flatMap { (module, names) ->
+            names.filterNot { TranslationXml.moduleOf(it) == module }
+                .map { "$it (in $module, routed to ${TranslationXml.moduleOf(it)})" }
+        }
+        assertTrue(
+            "These strings would be exported into the wrong module's values/, where " +
+                "they would shadow the real one instead of fixing it: $strays",
+            strays.isEmpty(),
+        )
+    }
+
+    /** Module directory to the names declared in its default `values/`. */
+    private val modules: Map<String, List<String>> by lazy {
+        listOf("app", "core/designsystem", "core/data", "widget").associateWith { module ->
+            File(root, "android/$module/src/main/res/values").listFiles().orEmpty()
+                .filter { it.extension == "xml" }
+                .flatMap { file ->
+                    Regex("<(?:string|plurals) name=\"([^\"]+)\"")
+                        .findAll(file.readText())
+                        .map { it.groupValues[1] }
+                        .toList()
+                }
+        }
+    }
+
+    /**
+     * The repository root, found from wherever the runner started — the same
+     * walk `ResourceTranslationTest` makes, and for the same reason.
+     */
+    private val root: File by lazy {
+        var directory: File? = File("").absoluteFile
+        while (directory != null) {
+            if (File(directory, "android/settings.gradle.kts").isFile) return@lazy directory
+            directory = directory.parentFile
+        }
+        error("Could not find the repository root from ${File("").absolutePath}")
     }
 
     @Test
@@ -129,16 +207,20 @@ class TranslationXmlTest {
                 TranslationEdit("week_title", "ru", "Неделя", "Неделя целиком"),
                 TranslationEdit("today_title", "en", "Today", "Today's lessons"),
                 TranslationEdit("homework_title", "ru", "Домашка", "Домашнее задание"),
+                TranslationEdit("ds_state_break", "ru", "Перемена", "Отдых"),
             ),
         )
         assertEquals(
             """
-            |    <!-- values-en/ -->
-            |    <string name="today_title">Today\'s lessons</string>
-            |
-            |    <!-- values/ -->
+            |    <!-- android/app/src/main/res/values/ -->
             |    <string name="homework_title">Домашнее задание</string>
             |    <string name="week_title">Неделя целиком</string>
+            |
+            |    <!-- android/app/src/main/res/values-en/ -->
+            |    <string name="today_title">Today\'s lessons</string>
+            |
+            |    <!-- android/core/designsystem/src/main/res/values/ -->
+            |    <string name="ds_state_break">Отдых</string>
             |
             """.trimMargin(),
             fragment,

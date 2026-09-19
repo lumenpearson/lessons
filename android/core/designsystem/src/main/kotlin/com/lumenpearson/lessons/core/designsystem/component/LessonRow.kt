@@ -4,10 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -17,6 +15,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.state.formatTimeRange
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import com.lumenpearson.lessons.core.designsystem.theme.neutralTone
@@ -47,7 +47,7 @@ fun LessonRow(
 ) {
     val scheme = MaterialTheme.colorScheme
     val tone = if (lesson.isCancelled) neutralTone() else subjectTone(lesson.subject, lesson.colorHex)
-    val indexDescription = stringResource(R.string.ds_lesson_index, lesson.index)
+    val indexDescription = correctedString(R.string.ds_lesson_index, lesson.index)
 
     GroupRow(
         modifier = modifier,
@@ -102,20 +102,20 @@ fun LessonRow(
 
         when {
             lesson.isCancelled -> PillChip(
-                text = stringResource(R.string.ds_lesson_cancelled),
+                text = correctedString(R.string.ds_lesson_cancelled),
                 containerColor = scheme.errorContainer,
                 contentColor = scheme.onErrorContainer,
             )
 
             isCurrent -> PillChip(
-                text = stringResource(R.string.ds_lesson_now),
+                text = correctedString(R.string.ds_lesson_now),
                 selected = true,
                 containerColor = tone.content,
                 contentColor = tone.container,
             )
 
             lesson.isReplaced -> PillChip(
-                text = stringResource(R.string.ds_lesson_replaced),
+                text = correctedString(R.string.ds_lesson_replaced),
                 containerColor = scheme.tertiaryContainer,
                 contentColor = scheme.onTertiaryContainer,
             )
@@ -134,7 +134,7 @@ fun LessonRow(
 private fun Lesson.metaLine(showTeacher: Boolean): String {
     val parts = buildList {
         add(formatTimeRange(startsAt, endsAt))
-        room?.takeIf { it.isNotBlank() }?.let { add(stringResource(R.string.ds_lesson_room, it)) }
+        room?.takeIf { it.isNotBlank() }?.let { add(correctedString(R.string.ds_lesson_room, it)) }
         if (showTeacher) teacher?.takeIf { it.isNotBlank() }?.let { add(it) }
     }
     return parts.joinToString(separator = " · ")

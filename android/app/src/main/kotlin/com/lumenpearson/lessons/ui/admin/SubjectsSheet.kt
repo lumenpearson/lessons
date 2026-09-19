@@ -11,7 +11,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.ManageFailure
 import com.lumenpearson.lessons.core.data.repository.ManagedSubject
@@ -21,6 +20,7 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupActionItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
@@ -51,7 +51,7 @@ fun SubjectsSheet(
     val subjects = state.subjects.value
 
     ManagementSheet(
-        title = stringResource(R.string.admin_subjects_title),
+        title = correctedString(R.string.admin_subjects_title),
         onDismiss = onDismiss,
         modifier = modifier,
     ) {
@@ -81,15 +81,15 @@ fun SubjectsSheet(
 
             is SubjectsMode.Delete -> {
                 SheetSection(
-                    title = stringResource(
+                    title = correctedString(
                         R.string.admin_subject_delete_title,
                         current.subject.name,
                     ),
                 )
-                SheetNote(text = stringResource(R.string.admin_subject_delete_message))
+                SheetNote(text = correctedString(R.string.admin_subject_delete_message))
                 SheetFailure(failure = state.writeFailure)
                 SheetButtons(
-                    confirmLabel = stringResource(R.string.admin_subject_delete),
+                    confirmLabel = correctedString(R.string.admin_subject_delete),
                     onConfirm = {
                         viewModel.deleteSubject(current.subject)
                         mode = SubjectsMode.List
@@ -118,8 +118,8 @@ fun SubjectsSheet(
                     )
 
                     subjects.isEmpty() -> EmptyState(
-                        title = stringResource(R.string.admin_subjects_empty_title),
-                        description = stringResource(R.string.admin_subjects_empty_text),
+                        title = correctedString(R.string.admin_subjects_empty_title),
+                        description = correctedString(R.string.admin_subjects_empty_text),
                         icon = Icons.AutoMirrored.Rounded.MenuBook,
                         modifier = Modifier.padding(horizontal = ScreenPadding),
                     )
@@ -142,7 +142,7 @@ fun SubjectsSheet(
                     }
                 }
                 GroupActionItem(
-                    label = stringResource(R.string.admin_subject_add),
+                    label = correctedString(R.string.admin_subject_add),
                     icon = Icons.Rounded.Add,
                     onClick = { mode = SubjectsMode.Add },
                     busy = state.working,
@@ -190,42 +190,42 @@ private fun SubjectEditor(
     }
 
     SheetSection(
-        title = stringResource(
+        title = correctedString(
             if (subject == null) R.string.admin_subject_add_title else R.string.admin_subject_edit_title,
         ),
     )
     SheetField(
         value = name,
         onValueChange = { name = it },
-        label = stringResource(R.string.admin_subject_name_label),
+        label = correctedString(R.string.admin_subject_name_label),
         enabled = !busy,
     )
     SheetField(
         value = short,
         onValueChange = { short = it },
-        label = stringResource(R.string.admin_subject_short_label),
+        label = correctedString(R.string.admin_subject_short_label),
         enabled = !busy,
     )
     SheetField(
         value = teacher,
         onValueChange = { teacher = it },
-        label = stringResource(R.string.admin_subject_teacher_label),
+        label = correctedString(R.string.admin_subject_teacher_label),
         enabled = !busy,
     )
     SheetField(
         value = colour,
         onValueChange = { colour = it },
-        label = stringResource(R.string.admin_subject_colour_label),
-        placeholder = stringResource(R.string.admin_subject_colour_hint),
+        label = correctedString(R.string.admin_subject_colour_label),
+        placeholder = correctedString(R.string.admin_subject_colour_hint),
         enabled = !busy,
     )
     if (subject != null) {
-        SheetNote(text = stringResource(R.string.admin_subject_rename_note))
+        SheetNote(text = correctedString(R.string.admin_subject_rename_note))
     }
     SheetProblem(problem = problem)
     SheetFailure(failure = failure)
     SheetButtons(
-        confirmLabel = stringResource(R.string.action_save),
+        confirmLabel = correctedString(R.string.action_save),
         onConfirm = {
             onSave(
                 SubjectForm(
@@ -245,8 +245,8 @@ private fun SubjectEditor(
     if (onDelete != null) {
         RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
             GroupItem(
-                title = stringResource(R.string.admin_subject_delete),
-                subtitle = stringResource(R.string.admin_subject_delete_message),
+                title = correctedString(R.string.admin_subject_delete),
+                subtitle = correctedString(R.string.admin_subject_delete_message),
                 tone = errorTone(),
                 onClick = onDelete,
                 enabled = !busy,

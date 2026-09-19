@@ -7,16 +7,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 
@@ -60,7 +60,7 @@ private fun PrereleaseContent(
         verticalArrangement = Arrangement.spacedBy(SheetBlockGap),
     ) {
         Text(
-            text = stringResource(R.string.prerelease_sheet_title),
+            text = correctedString(R.string.prerelease_sheet_title),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
@@ -69,12 +69,12 @@ private fun PrereleaseContent(
                 .padding(top = TitleTop, bottom = TitleGap),
         )
         Text(
-            text = stringResource(R.string.prerelease_sheet_body_risk),
+            text = correctedString(R.string.prerelease_sheet_body_risk),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = stringResource(R.string.prerelease_sheet_body_revert),
+            text = correctedString(R.string.prerelease_sheet_body_revert),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -82,7 +82,7 @@ private fun PrereleaseContent(
         // that describes something the app will do rather than something the
         // user should know.
         Text(
-            text = stringResource(R.string.prerelease_sheet_note),
+            text = correctedString(R.string.prerelease_sheet_note),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -94,13 +94,13 @@ private fun PrereleaseContent(
         ) {
             // Neither button has a wave to fire, so the origin is ignored.
             SheetPill(
-                label = stringResource(R.string.prerelease_sheet_cancel),
+                label = correctedString(R.string.prerelease_sheet_cancel),
                 filled = false,
                 onClick = { onDismiss() },
                 modifier = Modifier.weight(1f),
             )
             SheetPill(
-                label = stringResource(R.string.prerelease_sheet_confirm),
+                label = correctedString(R.string.prerelease_sheet_confirm),
                 filled = true,
                 onClick = { onConfirm() },
                 modifier = Modifier.weight(1f),

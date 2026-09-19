@@ -11,7 +11,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,12 +20,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 
@@ -64,10 +64,10 @@ fun ServerUrlSheet(
     LessonsBottomSheet(
         onDismissRequest = onDismiss,
         modifier = modifier,
-        title = stringResource(R.string.server_dialog_title),
+        title = correctedString(R.string.server_dialog_title),
     ) {
         Text(
-            text = stringResource(R.string.server_dialog_description),
+            text = correctedString(R.string.server_dialog_description),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = ScreenPadding),
@@ -82,11 +82,11 @@ fun ServerUrlSheet(
             interactionSource = interactionSource,
             label = {
                 Text(
-                    text = stringResource(R.string.server_dialog_label),
+                    text = correctedString(R.string.server_dialog_label),
                     style = LocalTextStyle.current.emphasised(focused),
                 )
             },
-            placeholder = { Text(text = stringResource(R.string.server_dialog_placeholder)) },
+            placeholder = { Text(text = correctedString(R.string.server_dialog_placeholder)) },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Uri,
                 imeAction = ImeAction.Done,
@@ -99,13 +99,13 @@ fun ServerUrlSheet(
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
         ) {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.action_cancel))
+                Text(text = correctedString(R.string.action_cancel))
             }
             // Enabled on an empty field too: the callers treat "" as "use the
             // default", and with the button disabled there was no way to undo a
             // mistyped address short of reinstalling.
             Button(onClick = { onConfirm(trimmed) }) {
-                Text(text = stringResource(R.string.action_save))
+                Text(text = correctedString(R.string.action_save))
             }
         }
     }

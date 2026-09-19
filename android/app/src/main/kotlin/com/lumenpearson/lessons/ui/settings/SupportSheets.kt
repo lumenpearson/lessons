@@ -11,10 +11,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.res.stringResource
 import com.lumenpearson.lessons.BuildConfig
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.github.BugReportComposer
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import java.net.URLEncoder
 
 /**
@@ -96,7 +96,7 @@ internal fun SupportSheets(
 
     if (sheets.bugReport) {
         val version = viewModel.installedVersion
-        val subject = stringResource(R.string.bug_report_email_subject, version)
+        val subject = correctedString(R.string.bug_report_email_subject, version)
         BugReportSheet(
             deviceInfo = BugReportComposer.deviceInfoLines(version),
             isSignedIn = state.github != null,

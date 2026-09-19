@@ -90,12 +90,12 @@ def _token() -> str:
     that never had a key was told «Лимит запросов исчерпан» and its owner went
     to look at their DaData billing.
     """
-    return get_settings().dadata_token.strip()
+    return get_settings().dadata_token_value
 
 
 def configured() -> bool:
     """Whether this deployment has a key. Cheap enough to ask on every screen."""
-    return bool(_token())
+    return get_settings().dadata_configured
 
 
 async def shared_client() -> httpx.AsyncClient:

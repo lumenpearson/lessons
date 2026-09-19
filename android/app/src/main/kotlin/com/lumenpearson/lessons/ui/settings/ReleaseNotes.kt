@@ -8,12 +8,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -26,6 +24,8 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 
 /**
  * A GitHub release body, rendered.
@@ -66,7 +66,7 @@ fun ReleaseNotes(markdown: String, modifier: Modifier = Modifier) {
             ),
         )
     }
-    val changelogLabel = stringResource(R.string.update_notes_full_changelog)
+    val changelogLabel = correctedString(R.string.update_notes_full_changelog)
 
     Column(modifier = modifier.fillMaxWidth()) {
         blocks.forEach { block ->

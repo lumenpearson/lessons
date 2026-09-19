@@ -23,7 +23,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +31,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.ClassEdit
@@ -45,6 +43,8 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupActionItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -81,7 +81,7 @@ fun ClassCardSheet(
     val card = state.classCard.value
 
     ManagementSheet(
-        title = stringResource(R.string.admin_class_title),
+        title = correctedString(R.string.admin_class_title),
         onDismiss = onDismiss,
         modifier = modifier,
     ) {
@@ -97,13 +97,13 @@ fun ClassCardSheet(
                     viewModel.leaveDeletedClass()
                     onDismiss()
                 }
-                SheetSection(title = stringResource(R.string.admin_class_deleted_title))
-                SheetNote(text = stringResource(R.string.admin_class_deleted_message))
+                SheetSection(title = correctedString(R.string.admin_class_deleted_title))
+                SheetNote(text = correctedString(R.string.admin_class_deleted_message))
                 SheetButtons(
-                    confirmLabel = stringResource(R.string.action_back),
+                    confirmLabel = correctedString(R.string.action_back),
                     onConfirm = leave,
                     onCancel = leave,
-                    cancelLabel = stringResource(R.string.action_cancel),
+                    cancelLabel = correctedString(R.string.action_cancel),
                 )
             }
 
@@ -183,7 +183,7 @@ fun ClassCardSheet(
                     },
                 )
                 GroupActionItem(
-                    label = stringResource(R.string.admin_class_edit),
+                    label = correctedString(R.string.admin_class_edit),
                     icon = Icons.Rounded.Edit,
                     onClick = { mode = ClassSheetMode.EDIT },
                     modifier = Modifier.padding(horizontal = ScreenPadding),
@@ -191,15 +191,15 @@ fun ClassCardSheet(
                 if (canDelete) {
                     RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
                         GroupItem(
-                            title = stringResource(R.string.admin_class_delete),
-                            subtitle = stringResource(R.string.admin_class_delete_message),
+                            title = correctedString(R.string.admin_class_delete),
+                            subtitle = correctedString(R.string.admin_class_delete_message),
                             icon = Icons.Rounded.DeleteForever,
                             tone = errorTone(),
                             onClick = { mode = ClassSheetMode.DELETE },
                         )
                     }
                 } else {
-                    SheetNote(text = stringResource(R.string.admin_class_owner_only))
+                    SheetNote(text = correctedString(R.string.admin_class_owner_only))
                 }
             }
         }
@@ -224,12 +224,12 @@ private fun ClassFacts(
     RoundedCardContainer(modifier = modifier.padding(horizontal = ScreenPadding)) {
         GroupItem(
             title = card.name,
-            subtitle = card.school ?: stringResource(R.string.admin_class_school_empty),
+            subtitle = card.school ?: correctedString(R.string.admin_class_school_empty),
             icon = Icons.Rounded.School,
             tone = accentTone(1),
         )
         GroupItem(
-            title = card.city ?: stringResource(R.string.admin_class_city_empty),
+            title = card.city ?: correctedString(R.string.admin_class_city_empty),
             icon = Icons.Rounded.LocationCity,
             tone = accentTone(2),
         )
@@ -243,7 +243,7 @@ private fun ClassFacts(
         // screen for exactly that reason, and it is drawn at full weight
         // because reading it off a subtitle is how it gets mistyped.
         GroupItem(
-            title = stringResource(R.string.admin_class_join_code),
+            title = correctedString(R.string.admin_class_join_code),
             icon = Icons.Rounded.Badge,
             tone = accentTone(4),
             trailing = {
@@ -261,14 +261,14 @@ private fun ClassFacts(
         // подключает» means exactly one thing.
         val inviteOnly = card.joinMode == ClassJoinMode.INVITE
         GroupItem(
-            title = stringResource(
+            title = correctedString(
                 if (inviteOnly) {
                     R.string.admin_class_join_mode_invite
                 } else {
                     R.string.admin_class_join_mode_open
                 },
             ),
-            subtitle = stringResource(
+            subtitle = correctedString(
                 if (inviteOnly) {
                     R.string.admin_class_join_mode_invite_note
                 } else {
@@ -283,26 +283,26 @@ private fun ClassFacts(
             },
         )
         CountRow(
-            title = stringResource(R.string.admin_class_members),
+            title = correctedString(R.string.admin_class_members),
             count = card.members,
             icon = Icons.Rounded.Groups,
             tone = 0,
         )
         CountRow(
-            title = stringResource(R.string.admin_class_devices),
+            title = correctedString(R.string.admin_class_devices),
             count = card.devices,
             icon = Icons.Rounded.PhoneAndroid,
             tone = 5,
         )
         CountRow(
-            title = stringResource(R.string.admin_class_requests),
+            title = correctedString(R.string.admin_class_requests),
             count = card.pendingRequests,
             icon = Icons.Rounded.Groups,
             tone = 2,
         )
         GroupItem(
-            title = stringResource(R.string.admin_class_calendar),
-            subtitle = stringResource(
+            title = correctedString(R.string.admin_class_calendar),
+            subtitle = correctedString(
                 if (card.calendarReady) {
                     R.string.admin_class_calendar_ready
                 } else {
@@ -356,17 +356,17 @@ private fun ClassEditForm(
     var zone by rememberSaveable(card.id) { mutableStateOf(card.timezone) }
     val problem = remember(name, school, city) { classFormProblem(name, school, city) }
 
-    SheetSection(title = stringResource(R.string.admin_class_edit_title))
+    SheetSection(title = correctedString(R.string.admin_class_edit_title))
     SheetField(
         value = name,
         onValueChange = { name = it },
-        label = stringResource(R.string.admin_class_name_label),
+        label = correctedString(R.string.admin_class_name_label),
         enabled = !busy,
     )
     SheetField(
         value = school,
         onValueChange = { school = it },
-        label = stringResource(R.string.admin_class_school_label),
+        label = correctedString(R.string.admin_class_school_label),
         enabled = !busy,
     )
     // The directory fills the box above; it never writes the class on its own.
@@ -387,11 +387,11 @@ private fun ClassEditForm(
     SheetField(
         value = city,
         onValueChange = { city = it },
-        label = stringResource(R.string.admin_class_city_label),
+        label = correctedString(R.string.admin_class_city_label),
         enabled = !busy,
     )
-    SheetSection(title = stringResource(R.string.admin_class_timezone_label))
-    SheetNote(text = stringResource(R.string.admin_class_timezone_note))
+    SheetSection(title = correctedString(R.string.admin_class_timezone_label))
+    SheetNote(text = correctedString(R.string.admin_class_timezone_note))
     RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
         zoneOptions(card.timezone).forEach { option ->
             GroupItem(
@@ -414,7 +414,7 @@ private fun ClassEditForm(
     SheetProblem(problem = problem)
     SheetFailure(failure = failure)
     SheetButtons(
-        confirmLabel = stringResource(R.string.action_save),
+        confirmLabel = correctedString(R.string.action_save),
         onConfirm = {
             onSave(
                 ClassEdit(
@@ -455,17 +455,17 @@ private fun SchoolSearchPanel(
 ) {
     var query by rememberSaveable { mutableStateOf("") }
 
-    SheetNote(text = stringResource(R.string.admin_class_school_search_note))
+    SheetNote(text = correctedString(R.string.admin_class_school_search_note))
     SheetField(
         value = query,
         onValueChange = { query = it },
-        label = stringResource(R.string.admin_class_school_search_label),
-        placeholder = stringResource(R.string.admin_class_school_search_hint),
+        label = correctedString(R.string.admin_class_school_search_label),
+        placeholder = correctedString(R.string.admin_class_school_search_hint),
         enabled = enabled && !search.searching,
     )
     RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
         GroupItem(
-            title = stringResource(
+            title = correctedString(
                 if (search.searching) {
                     R.string.admin_class_school_searching
                 } else {
@@ -483,7 +483,7 @@ private fun SchoolSearchPanel(
     SheetFailure(failure = search.failure)
 
     if (search.searched && search.results.isEmpty() && search.unavailable == null) {
-        SheetNote(text = stringResource(R.string.admin_class_school_search_empty))
+        SheetNote(text = correctedString(R.string.admin_class_school_search_empty))
     }
 
     if (search.results.isNotEmpty()) {
@@ -492,9 +492,9 @@ private fun SchoolSearchPanel(
                 // Twenty is the directory's ceiling, not the number of matches.
                 // Saying «найдено 20» would hide the other two hundred and
                 // eighty and give no reason to type more.
-                stringResource(R.string.admin_class_school_search_truncated)
+                correctedString(R.string.admin_class_school_search_truncated)
             } else {
-                stringResource(R.string.admin_class_school_search_found, search.total)
+                correctedString(R.string.admin_class_school_search_found, search.total)
             },
         )
         RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
@@ -503,7 +503,7 @@ private fun SchoolSearchPanel(
                     title = found.name,
                     subtitle = listOfNotNull(
                         found.city,
-                        stringResource(R.string.admin_class_school_closed).takeIf { !found.active },
+                        correctedString(R.string.admin_class_school_closed).takeIf { !found.active },
                     ).joinToString(" · ").ifBlank { null },
                     icon = Icons.Rounded.School,
                     tone = accentTone(1),
@@ -515,7 +515,7 @@ private fun SchoolSearchPanel(
         if (search.pages > 1) {
             RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
                 GroupItem(
-                    title = stringResource(
+                    title = correctedString(
                         R.string.admin_class_school_page,
                         search.page,
                         search.pages,
@@ -529,7 +529,7 @@ private fun SchoolSearchPanel(
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.ChevronLeft,
-                                    contentDescription = stringResource(R.string.action_back),
+                                    contentDescription = correctedString(R.string.action_back),
                                 )
                             }
                             IconButton(
@@ -538,7 +538,7 @@ private fun SchoolSearchPanel(
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.ChevronRight,
-                                    contentDescription = stringResource(
+                                    contentDescription = correctedString(
                                         R.string.admin_class_school_next,
                                     ),
                                 )
@@ -573,20 +573,20 @@ private fun ClassDeleteForm(
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        SheetSection(title = stringResource(R.string.admin_class_delete_title))
-        SheetNote(text = stringResource(R.string.admin_class_delete_message))
+        SheetSection(title = correctedString(R.string.admin_class_delete_title))
+        SheetNote(text = correctedString(R.string.admin_class_delete_message))
     }
     SheetField(
         value = typed,
         onValueChange = { typed = it },
-        label = stringResource(R.string.admin_class_delete_confirm, card.name),
+        label = correctedString(R.string.admin_class_delete_confirm, card.name),
         enabled = !busy,
         modifier = Modifier.padding(top = 8.dp),
     )
     SheetProblem(problem = problem)
     SheetFailure(failure = failure)
     SheetButtons(
-        confirmLabel = stringResource(R.string.admin_class_delete),
+        confirmLabel = correctedString(R.string.admin_class_delete),
         onConfirm = { onDelete(typed) },
         onCancel = onCancel,
         enabled = confirmsClassName(typed, card.name),
@@ -612,14 +612,14 @@ private fun ClassInviteOnlyForm(
     onConfirm: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        SheetSection(title = stringResource(R.string.admin_class_join_mode_confirm_title))
-        SheetNote(text = stringResource(R.string.admin_class_join_mode_confirm_message))
+        SheetSection(title = correctedString(R.string.admin_class_join_mode_confirm_title))
+        SheetNote(text = correctedString(R.string.admin_class_join_mode_confirm_message))
     }
     // No `SheetFailure` here, unlike the delete face: confirming returns to the
     // card before the write answers, so a refusal is drawn there. One that
     // could never render would be a promise this face does not keep.
     SheetButtons(
-        confirmLabel = stringResource(R.string.admin_class_join_mode_confirm_action),
+        confirmLabel = correctedString(R.string.admin_class_join_mode_confirm_action),
         onConfirm = onConfirm,
         onCancel = onCancel,
         busy = busy,

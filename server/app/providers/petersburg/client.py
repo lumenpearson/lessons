@@ -146,6 +146,40 @@ def serialise_datetime_range(value: Date) -> str:
     return f"{serialise_date(value)}+00:00:00"
 
 
+def _session_cookie(response: httpx.Response) -> str | None:
+    """The session this answer carries, or ``None`` when it carries none.
+
+    ``httpx.Cookies.get`` raises ``CookieConflict`` when one response sets the
+    same name twice under different paths or domains — the ordinary shape of a
+    PHP application rotating a scoped session, `Set-Cookie: …; Path=/` beside
+    `Set-Cookie: …; Path=/api`. ``CookieConflict`` is **not** an
+    ``httpx.HTTPError``, so it walked straight out of this package as an
+    exception `exceptions.py` promises cannot happen: `api/diary._guard`
+    catches only `PetersburgError`, so every diary endpoint answered 500
+    instead of 401 or 502 — on every call, because the cookie shape does not
+    change — and `diary_web` landed in its bare `except Exception`, said «что-то
+    пошло не так» and kept the spent ticket.
+
+    The last one wins, which is what a browser sending the next request to the
+    same path would use. Guessing is acceptable here and refusing is not: the
+    alternative to a guess is a session that never refreshes and dies.
+    """
+    try:
+        return response.cookies.get(SESSION_COOKIE)
+    except httpx.CookieConflict:
+        values = [
+            cookie.value
+            for cookie in response.cookies.jar
+            if cookie.name == SESSION_COOKIE and cookie.value
+        ]
+        log.warning(
+            "petersburg answered with %d %s cookies; taking the last",
+            len(values),
+            SESSION_COOKIE,
+        )
+        return values[-1] if values else None
+
+
 class PetersburgClient:
     """Calls the upstream on behalf of one session.
 
@@ -311,7 +345,7 @@ class PetersburgClient:
 
         # Their session is refreshed on the way past, so a long-lived session
         # stays alive as long as it is used. The caller persists what it finds.
-        refreshed = response.cookies.get(SESSION_COOKIE)
+        refreshed = _session_cookie(response)
         if refreshed:
             self.token = refreshed
         if response.status_code >= 500:

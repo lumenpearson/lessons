@@ -20,6 +20,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +36,8 @@ import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.text.LocalCorrections
+import com.lumenpearson.lessons.core.designsystem.text.NoCorrections
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
@@ -50,48 +53,56 @@ import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
  * because a correction submitted with "the text on the second settings page"
  * for an address costs somebody an afternoon.
  *
- * None of the sheet's own copy is wrapped in [TranslatableText]: the editor has
- * to stay the one place in the app where a long press does nothing, or fixing a
- * label would mean opening an editor from inside an editor.
+ * Usually one string; sometimes several, when the words the reader pressed are
+ * written more than once in `values/` — see [AppCorrections.edit]. They share
+ * one original and get one correction, and the card names every key.
+ *
+ * The sheet gives itself [NoCorrections], which is the editor's own rule
+ * enforced rather than remembered: the value being corrected is also on the
+ * screen underneath, so without this the card showing it would become a
+ * correction target of its own and a long press inside the editor would open
+ * another editor. Nothing under this sheet is correctable, including the
+ * sheet's own copy.
  */
 @Composable
 internal fun TranslationEditorSheet(
-    stringKey: String,
+    targets: List<CorrectionTarget>,
     locale: String,
-    original: String,
     onDismiss: () -> Unit,
 ) {
-    LessonsBottomSheet(
-        onDismissRequest = onDismiss,
-        title = stringResource(R.string.translation_editor_title),
-    ) {
-        EditorContent(
-            stringKey = stringKey,
-            locale = locale,
-            original = original,
-            onDismiss = onDismiss,
-        )
+    CompositionLocalProvider(LocalCorrections provides NoCorrections) {
+        LessonsBottomSheet(
+            onDismissRequest = onDismiss,
+            title = stringResource(R.string.translation_editor_title),
+        ) {
+            EditorContent(targets = targets, locale = locale, onDismiss = onDismiss)
+        }
     }
 }
 
 @Composable
 private fun ColumnScope.EditorContent(
-    stringKey: String,
+    targets: List<CorrectionTarget>,
     locale: String,
-    original: String,
     onDismiss: () -> Unit,
 ) {
-    val existing = TranslationMode.session.correctionOf(stringKey, locale)
+    val keys = targets.map { it.key }
+    val original = targets.first().original
+    val existing = TranslationMode.session.correctionOf(keys.first(), locale)
     // Saveable: the field survives the rotation that a long keyboard session on
     // a short screen invites, and there is nowhere else for the words to live.
-    var draft by rememberSaveable(stringKey, locale) { mutableStateOf(existing ?: original) }
+    var draft by rememberSaveable(keys.first(), locale) { mutableStateOf(existing ?: original) }
     val view = rememberHapticView()
     val interactionSource = remember { MutableInteractionSource() }
     val focused by interactionSource.collectIsFocusedAsState()
 
     IdentityCard(
-        stringKey = stringKey,
-        folder = TranslationXml.valuesFolder(locale),
+        // One line per key, each with its own file: two keys can carry the
+        // same words from two different modules — `ds_action_back` and
+        // `action_back` are both «Назад» — and naming one folder for both
+        // sent the reader to paste an `:app` string into the design system,
+        // which is the shadowing this routing exists to prevent.
+        places = keys.map { key -> key to TranslationXml.valuesFolder(key, locale) },
         original = original,
     )
 
@@ -119,12 +130,14 @@ private fun ColumnScope.EditorContent(
     Button(
         onClick = {
             LessonsHaptics.press(view)
-            TranslationMode.record(
-                key = stringKey,
-                locale = locale,
-                original = original,
-                corrected = draft,
-            )
+            targets.forEach { target ->
+                TranslationMode.record(
+                    key = target.key,
+                    locale = locale,
+                    original = target.original,
+                    corrected = draft,
+                )
+            }
             onDismiss()
         },
         shape = CircleShape,
@@ -143,7 +156,7 @@ private fun ColumnScope.EditorContent(
         OutlinedButton(
             onClick = {
                 LessonsHaptics.press(view)
-                TranslationMode.drop(stringKey, locale)
+                keys.forEach { TranslationMode.drop(it, locale) }
                 onDismiss()
             },
             shape = CircleShape,
@@ -166,7 +179,7 @@ private fun ColumnScope.EditorContent(
  * where `l` and `1` stop being different characters.
  */
 @Composable
-private fun IdentityCard(stringKey: String, folder: String, original: String) {
+private fun IdentityCard(places: List<Pair<String, String>>, original: String) {
     Surface(
         shape = RoundedCornerShape(CardCorner),
         color = MaterialTheme.colorScheme.rowContainer,
@@ -180,12 +193,15 @@ private fun IdentityCard(stringKey: String, folder: String, original: String) {
         ) {
             Labelled(
                 label = stringResource(R.string.translation_editor_key),
-                value = stringKey,
+                // One per line when the words belong to several strings at
+                // once. All of them are about to get the same correction, so
+                // all of them have to be readable before it is written.
+                value = places.joinToString("\n") { (key, _) -> key },
                 monospace = true,
             )
             Labelled(
                 label = stringResource(R.string.translation_editor_file),
-                value = "$folder/",
+                value = places.joinToString("\n") { (_, folder) -> "$folder/" },
                 monospace = true,
             )
             Labelled(

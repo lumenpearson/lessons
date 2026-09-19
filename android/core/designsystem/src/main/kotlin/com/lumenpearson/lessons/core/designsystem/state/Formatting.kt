@@ -1,7 +1,8 @@
 package com.lumenpearson.lessons.core.designsystem.state
 
-import android.content.Context
+import androidx.compose.runtime.Composable
 import com.lumenpearson.lessons.core.designsystem.R
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import java.time.Duration
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -39,20 +40,28 @@ fun formatTimeRange(start: LocalTime, end: LocalTime): String =
  * through resources (`WidgetStrings.duration`); this is the same rule applied
  * to the card the app draws above it.
  *
+ * Read through [correctedString] and not through `Context.getString`, which
+ * is what it used to do: the words never learned their resource id, so the
+ * largest number on the home screen was the one thing on that card correction
+ * mode could not touch — no outline, and a long press that did nothing, right
+ * beside a caption that had both. `CorrectionReachTest` could not see it,
+ * because it looks for two imports and this file used neither.
+ *
  * Rounds *up* rather than truncating, because this always labels time that is
  * still remaining: a truncating "0 мин" that sits there for a full minute is the
  * single most confusing thing a countdown can do. Negative durations — a clock
  * that drifted past the boundary before the next tick — clamp to zero instead of
  * printing a minus sign.
  */
-fun Duration.formatCountdown(context: Context): String {
-    if (isNegative || isZero) return context.getString(R.string.ds_countdown_under_minute)
+@Composable
+fun Duration.formatCountdown(): String {
+    if (isNegative || isZero) return correctedString(R.string.ds_countdown_under_minute)
     val totalMinutes = ceil(seconds / 60.0).toLong()
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
     return when {
-        hours > 0L -> context.getString(R.string.ds_countdown_hours_minutes, hours, minutes)
-        else -> context.getString(R.string.ds_countdown_minutes, totalMinutes)
+        hours > 0L -> correctedString(R.string.ds_countdown_hours_minutes, hours, minutes)
+        else -> correctedString(R.string.ds_countdown_minutes, totalMinutes)
     }
 }
 

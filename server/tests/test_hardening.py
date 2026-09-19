@@ -18,7 +18,7 @@ from starlette.datastructures import Headers
 from app.api.public import (
     MAX_BUNDLE_START,
     MIN_BUNDLE_START,
-    _client_bucket,
+    caller_bucket,
     join_limiter,
 )
 from app.config import get_settings
@@ -222,7 +222,7 @@ async def test_a_client_cannot_pick_its_own_bucket_with_a_header(client, school_
 
 
 def _request(headers: dict[str, str], host: str = "127.0.0.1"):
-    """Enough of a Request for _client_bucket, which only reads these two."""
+    """Enough of a Request for caller_bucket, which only reads these two."""
     return SimpleNamespace(headers=Headers(headers), client=SimpleNamespace(host=host))
 
 
@@ -233,7 +233,7 @@ def test_one_declared_proxy_means_the_rightmost_entry(monkeypatch):
     # The caller prepended their own entry; the proxy appended the real one.
     spoofed = _request({"X-Forwarded-For": "10.0.0.1, 198.51.100.7"})
     honest = _request({"X-Forwarded-For": "198.51.100.7"})
-    assert _client_bucket(spoofed) == _client_bucket(honest) == client_bucket("198.51.100.7")
+    assert caller_bucket(spoofed) == caller_bucket(honest) == client_bucket("198.51.100.7")
 
 
 def test_a_short_forwarded_header_falls_back_to_the_socket(monkeypatch):
@@ -241,7 +241,7 @@ def test_a_short_forwarded_header_falls_back_to_the_socket(monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "trusted_proxy_hops", 2)
 
-    assert _client_bucket(_request({"X-Forwarded-For": "10.0.0.1"})) == client_bucket("127.0.0.1")
+    assert caller_bucket(_request({"X-Forwarded-For": "10.0.0.1"})) == client_bucket("127.0.0.1")
 
 
 def _repeated_request(lines: list[bytes], name: bytes = b"x-forwarded-for"):
@@ -265,7 +265,7 @@ def test_a_repeated_forwarded_header_is_the_one_list_it_means(monkeypatch):
     monkeypatch.setattr(settings, "trusted_proxy_hops", 1)
 
     spoofed = _repeated_request([b"10.0.0.1", b"198.51.100.7"])
-    assert _client_bucket(spoofed) == client_bucket("198.51.100.7")
+    assert caller_bucket(spoofed) == client_bucket("198.51.100.7")
 
 
 def test_a_repeated_header_still_has_to_be_long_enough_for_the_proxies(monkeypatch):
@@ -275,14 +275,14 @@ def test_a_repeated_header_still_has_to_be_long_enough_for_the_proxies(monkeypat
     monkeypatch.setattr(settings, "trusted_proxy_hops", 3)
 
     short = _repeated_request([b"10.0.0.1", b"198.51.100.7"])
-    assert _client_bucket(short) == client_bucket("127.0.0.1")
+    assert caller_bucket(short) == client_bucket("127.0.0.1")
 
 
 def test_on_vercel_the_platform_header_wins_over_the_client_one(monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "vercel", "1")
 
-    bucket = _client_bucket(
+    bucket = caller_bucket(
         _request({"X-Forwarded-For": "10.0.0.1", "X-Vercel-Forwarded-For": "198.51.100.7"})
     )
     assert bucket == client_bucket("198.51.100.7")

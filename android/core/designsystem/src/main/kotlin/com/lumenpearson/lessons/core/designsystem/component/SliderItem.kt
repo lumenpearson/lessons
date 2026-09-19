@@ -18,12 +18,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
@@ -107,7 +107,7 @@ fun GroupSliderItem(
             IconButton(onClick = { step(-1) }, enabled = enabled) {
                 Icon(
                     imageVector = Icons.Rounded.Remove,
-                    contentDescription = stringResource(R.string.ds_slider_decrease),
+                    contentDescription = correctedString(R.string.ds_slider_decrease),
                     tint = scheme.primary,
                 )
             }
@@ -126,7 +126,7 @@ fun GroupSliderItem(
             IconButton(onClick = { step(1) }, enabled = enabled) {
                 Icon(
                     imageVector = Icons.Rounded.Add,
-                    contentDescription = stringResource(R.string.ds_slider_increase),
+                    contentDescription = correctedString(R.string.ds_slider_increase),
                     tint = scheme.primary,
                 )
             }

@@ -7,17 +7,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.DiaryField
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.ui.admin.ManagementSheet
 import com.lumenpearson.lessons.ui.admin.SheetField
@@ -60,25 +60,25 @@ internal fun DiaryEditSheet(
         // below, where there is room for the lesson number too. Two halves of a
         // double lesson are the same subject, so a sheet titled with it alone
         // cannot say which one is being corrected.
-        title = stringResource(R.string.diary_edit_title),
+        title = correctedString(R.string.diary_edit_title),
         onDismiss = onDismiss,
         modifier = modifier,
     ) {
         SheetSection(
             title = corrections.subtitle
-                ?.let { stringResource(R.string.diary_edit_which, corrections.title, it) }
+                ?.let { correctedString(R.string.diary_edit_which, corrections.title, it) }
                 ?: corrections.title,
         )
-        SheetNote(text = stringResource(R.string.diary_edit_message))
+        SheetNote(text = correctedString(R.string.diary_edit_message))
 
         if (corrections.ambiguous) {
-            SheetNote(text = stringResource(R.string.diary_edit_ambiguous))
+            SheetNote(text = correctedString(R.string.diary_edit_ambiguous))
         } else {
             corrections.fields.forEach { field ->
                 SheetField(
                     value = typed[field].orEmpty(),
                     onValueChange = { typed[field] = it },
-                    label = stringResource(field.labelRes),
+                    label = correctedString(field.labelRes),
                     singleLine = field != DiaryField.HOMEWORK && field != DiaryField.TEXT,
                     minLines = if (field == DiaryField.HOMEWORK || field == DiaryField.TEXT) 2 else 1,
                     enabled = !saving,
@@ -86,11 +86,11 @@ internal fun DiaryEditSheet(
                 SheetNote(
                     text = corrections.upstreamOf(field)
                         ?.takeIf { it.isNotBlank() }
-                        ?.let { stringResource(R.string.diary_edit_upstream, it) }
-                        ?: stringResource(R.string.diary_edit_upstream_empty),
+                        ?.let { correctedString(R.string.diary_edit_upstream, it) }
+                        ?: correctedString(R.string.diary_edit_upstream_empty),
                 )
                 if (field in corrections.changedUpstream) {
-                    SheetNote(text = stringResource(R.string.diary_edit_changed))
+                    SheetNote(text = correctedString(R.string.diary_edit_changed))
                 }
             }
         }
@@ -118,7 +118,7 @@ internal fun DiaryEditSheet(
             if (corrections.hasCorrections) {
                 TextButton(onClick = onReset, enabled = !saving) {
                     Text(
-                        text = stringResource(R.string.diary_edit_reset),
+                        text = correctedString(R.string.diary_edit_reset),
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -129,14 +129,14 @@ internal fun DiaryEditSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onDismiss, enabled = !saving) {
-                    Text(text = stringResource(R.string.action_cancel))
+                    Text(text = correctedString(R.string.action_cancel))
                 }
                 if (!corrections.ambiguous) {
                     Button(onClick = { onSave(typed.toMap()) }, enabled = !saving) {
                         if (saving) {
                             LoadingIndicator()
                         } else {
-                            Text(text = stringResource(R.string.diary_edit_save))
+                            Text(text = correctedString(R.string.diary_edit_save))
                         }
                     }
                 }

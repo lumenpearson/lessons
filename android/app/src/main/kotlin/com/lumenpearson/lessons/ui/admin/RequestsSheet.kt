@@ -10,7 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.AccessRequest
 import com.lumenpearson.lessons.core.data.repository.ClassRole
@@ -18,6 +17,7 @@ import com.lumenpearson.lessons.core.designsystem.component.EmptyState
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -55,22 +55,22 @@ fun RequestsSheet(
     val grantable = remember(role) { grantableRoles(role) }
 
     ManagementSheet(
-        title = stringResource(R.string.admin_requests_title),
+        title = correctedString(R.string.admin_requests_title),
         onDismiss = onDismiss,
         modifier = modifier,
     ) {
         when (val current = mode) {
             is RequestsMode.Approve -> {
                 SheetSection(title = current.request.who)
-                SheetNote(text = stringResource(R.string.admin_request_role_title))
+                SheetNote(text = correctedString(R.string.admin_request_role_title))
                 if (grantable.isEmpty()) {
-                    SheetNote(text = stringResource(R.string.admin_request_none_grantable))
+                    SheetNote(text = correctedString(R.string.admin_request_none_grantable))
                 }
                 RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
                     // "As asked" first, because it is what pressing «Выдать» in
                     // the bot does and what an admin skimming expects to press.
                     GroupItem(
-                        title = stringResource(
+                        title = correctedString(
                             R.string.admin_request_role_asked,
                             current.request.requestedRole.roleName(),
                         ),
@@ -96,7 +96,7 @@ fun RequestsSheet(
                 }
                 SheetFailure(failure = state.writeFailure)
                 SheetButtons(
-                    confirmLabel = stringResource(R.string.action_back),
+                    confirmLabel = correctedString(R.string.action_back),
                     onConfirm = { mode = RequestsMode.List },
                     onCancel = { mode = RequestsMode.List },
                     busy = state.working,
@@ -105,10 +105,10 @@ fun RequestsSheet(
 
             is RequestsMode.Decline -> {
                 SheetSection(title = current.request.who)
-                SheetNote(text = stringResource(R.string.admin_request_decline_message))
+                SheetNote(text = correctedString(R.string.admin_request_decline_message))
                 SheetFailure(failure = state.writeFailure)
                 SheetButtons(
-                    confirmLabel = stringResource(R.string.admin_request_decline),
+                    confirmLabel = correctedString(R.string.admin_request_decline),
                     onConfirm = {
                         viewModel.declineRequest(current.request)
                         mode = RequestsMode.List
@@ -135,8 +135,8 @@ fun RequestsSheet(
                     )
 
                     requests.isEmpty() -> EmptyState(
-                        title = stringResource(R.string.admin_requests_empty_title),
-                        description = stringResource(R.string.admin_requests_empty_text),
+                        title = correctedString(R.string.admin_requests_empty_title),
+                        description = correctedString(R.string.admin_requests_empty_text),
                         icon = Icons.Rounded.PersonAdd,
                         modifier = Modifier.padding(horizontal = ScreenPadding),
                     )
@@ -147,7 +147,7 @@ fun RequestsSheet(
                             modifier = Modifier.padding(horizontal = ScreenPadding),
                         ) {
                             GroupItem(
-                                title = stringResource(
+                                title = correctedString(
                                     R.string.admin_request_asked,
                                     request.requestedRole.roleName(),
                                 ),
@@ -162,14 +162,14 @@ fun RequestsSheet(
                                 tone = accentTone(2),
                             )
                             GroupItem(
-                                title = stringResource(R.string.admin_request_approve),
+                                title = correctedString(R.string.admin_request_approve),
                                 icon = Icons.Rounded.Check,
                                 tone = accentTone(0),
                                 enabled = !state.working,
                                 onClick = { mode = RequestsMode.Approve(request) },
                             )
                             GroupItem(
-                                title = stringResource(R.string.admin_request_decline),
+                                title = correctedString(R.string.admin_request_decline),
                                 tone = errorTone(),
                                 enabled = !state.working,
                                 onClick = { mode = RequestsMode.Decline(request) },

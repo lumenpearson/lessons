@@ -23,6 +23,7 @@ import com.lumenpearson.lessons.core.model.DeepLink
 import com.lumenpearson.lessons.navigation.LessonsApp
 import com.lumenpearson.lessons.ui.AppShellViewModel
 import com.lumenpearson.lessons.ui.common.AppLocales
+import com.lumenpearson.lessons.ui.translate.CorrectionHost
 import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -77,7 +78,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        pendingDate.value = intent.requestedDate()
+        pendingDate.value = intent.consumeRequestedDate()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,7 +94,7 @@ class MainActivity : ComponentActivity() {
         // call is repeated from the composition below, once the stored theme is
         // known — see the effect there.
         enableEdgeToEdge()
-        pendingDate.value = intent?.requestedDate()
+        pendingDate.value = intent?.consumeRequestedDate()
         setContent {
             val shellViewModel: AppShellViewModel = viewModel(factory = AppShellViewModel.Factory)
             val shell by shellViewModel.uiState.collectAsStateWithLifecycle()
@@ -169,12 +170,19 @@ class MainActivity : ComponentActivity() {
                 // has to cross the whole window, and the still it wipes away is
                 // a photograph of the whole window.
                 ThemeRevealHost(state = themeReveal) {
-                    LessonsApp(
-                        signedIn = shell.signedIn,
-                        settings = shell.settings,
-                        openDate = openDate,
-                        onDateOpened = { pendingDate.value = null },
-                    )
+                    // Inside the theme, because the editor it hosts is a
+                    // themed sheet; around everything else, because correction
+                    // mode is meant to reach every screen and every sheet the
+                    // app can put up, and a text block outside this is a text
+                    // block a proofreader cannot fix.
+                    CorrectionHost {
+                        LessonsApp(
+                            signedIn = shell.signedIn,
+                            settings = shell.settings,
+                            openDate = openDate,
+                            onDateOpened = { pendingDate.value = null },
+                        )
+                    }
                 }
             }
         }
@@ -188,6 +196,23 @@ class MainActivity : ComponentActivity() {
  * intent that may have been created by an older build, and a malformed date
  * must open the app, not crash it.
  */
+private fun Intent.consumeRequestedDate(): LocalDate? {
+    val date = requestedDate() ?: return null
+    // Read once, and then taken out of the Intent itself.
+    //
+    // `onDateOpened` only clears the local flow; `getIntent()` goes on
+    // returning the widget's intent for as long as the task lives. So every
+    // recreation replayed the deep link — and below API 33 changing the
+    // language *is* a recreation (`AppLocales.applyTo` calls `recreate()`),
+    // so switching to English threw the user out of «Оформление» and onto a
+    // date they had asked about minutes earlier. The same replay happens on
+    // every version when the process is killed in the background and the task
+    // is resumed from Recents.
+    action = null
+    removeExtra(DeepLink.EXTRA_DATE)
+    return date
+}
+
 private fun Intent.requestedDate(): LocalDate? {
     if (action != DeepLink.ACTION_OPEN_DAY) return null
     val raw = getStringExtra(DeepLink.EXTRA_DATE) ?: return null

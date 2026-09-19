@@ -26,9 +26,7 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,7 +37,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionOnScreen
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,6 +50,8 @@ import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
@@ -165,8 +164,8 @@ private fun AvailableContent(
     SheetHeader(
         icon = Icons.Rounded.SystemUpdate,
         tone = accentTone(0),
-        title = stringResource(R.string.update_sheet_available_title),
-        subtitle = stringResource(
+        title = correctedString(R.string.update_sheet_available_title),
+        subtitle = correctedString(
             R.string.update_sheet_version_change,
             versionLabel(installedVersion),
             versionLabel(release.tag),
@@ -174,7 +173,7 @@ private fun AvailableContent(
     )
 
     NotesSection(
-        label = stringResource(R.string.update_sheet_whats_new, versionLabel(release.tag)),
+        label = correctedString(R.string.update_sheet_whats_new, versionLabel(release.tag)),
         notes = release.notes,
     )
 
@@ -183,7 +182,7 @@ private fun AvailableContent(
     // second button above it doing the same thing would be noise.
     if (apkUrl != null) {
         SheetPill(
-            label = stringResource(R.string.update_sheet_view_on_github),
+            label = correctedString(R.string.update_sheet_view_on_github),
             filled = false,
             onClick = { onOpenRelease(release.htmlUrl) },
             modifier = Modifier.fillMaxWidth(),
@@ -195,7 +194,7 @@ private fun AvailableContent(
         horizontalArrangement = Arrangement.spacedBy(SheetPillGap),
     ) {
         SheetPill(
-            label = stringResource(R.string.update_sheet_later),
+            label = correctedString(R.string.update_sheet_later),
             filled = false,
             onClick = { origin -> onLater(release, origin) },
             modifier = Modifier.weight(1f),
@@ -204,9 +203,9 @@ private fun AvailableContent(
             val bytes = release.apkBytes
             SheetPill(
                 label = if (bytes != null) {
-                    stringResource(R.string.update_sheet_update_with_size, formatBytes(bytes))
+                    correctedString(R.string.update_sheet_update_with_size, formatBytes(bytes))
                 } else {
-                    stringResource(R.string.update_sheet_update)
+                    correctedString(R.string.update_sheet_update)
                 },
                 filled = true,
                 icon = Icons.Rounded.Download,
@@ -215,7 +214,7 @@ private fun AvailableContent(
             )
         } else {
             SheetPill(
-                label = stringResource(R.string.update_sheet_open_release),
+                label = correctedString(R.string.update_sheet_open_release),
                 filled = true,
                 onClick = { onOpenRelease(release.htmlUrl) },
                 modifier = Modifier.weight(1f),
@@ -233,17 +232,17 @@ private fun UpToDateContent(
     SheetHeader(
         icon = Icons.Rounded.TaskAlt,
         tone = accentTone(0),
-        title = stringResource(R.string.update_sheet_up_to_date_title),
-        subtitle = stringResource(R.string.update_sheet_installed, versionLabel(installedVersion)),
+        title = correctedString(R.string.update_sheet_up_to_date_title),
+        subtitle = correctedString(R.string.update_sheet_installed, versionLabel(installedVersion)),
     )
 
     if (current != null) {
         NotesSection(
-            label = stringResource(R.string.update_sheet_release_notes, versionLabel(current.tag)),
+            label = correctedString(R.string.update_sheet_release_notes, versionLabel(current.tag)),
             notes = current.notes,
         )
         SheetPill(
-            label = stringResource(R.string.update_sheet_view_on_github),
+            label = correctedString(R.string.update_sheet_view_on_github),
             filled = false,
             onClick = { onOpenRelease(current.htmlUrl) },
             modifier = Modifier.fillMaxWidth(),
@@ -252,7 +251,7 @@ private fun UpToDateContent(
         // A build ahead of every published release — a local one, or a tag the
         // workflow has not finished. Said quietly: nothing here is wrong.
         Text(
-            text = stringResource(R.string.update_sheet_unknown_version, versionLabel(installedVersion)),
+            text = correctedString(R.string.update_sheet_unknown_version, versionLabel(installedVersion)),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -270,7 +269,7 @@ private fun CheckingContent() {
     ) {
         LoadingIndicator()
         Text(
-            text = stringResource(R.string.update_sheet_checking),
+            text = correctedString(R.string.update_sheet_checking),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -282,11 +281,11 @@ private fun FailedContent(onRetry: () -> Unit) {
     SheetHeader(
         icon = Icons.Rounded.CloudOff,
         tone = errorTone(),
-        title = stringResource(R.string.update_sheet_failed_title),
-        subtitle = stringResource(R.string.update_sheet_failed_body),
+        title = correctedString(R.string.update_sheet_failed_title),
+        subtitle = correctedString(R.string.update_sheet_failed_body),
     )
     SheetPill(
-        label = stringResource(R.string.update_sheet_retry),
+        label = correctedString(R.string.update_sheet_retry),
         filled = true,
         onClick = { onRetry() },
         modifier = Modifier.fillMaxWidth(),
@@ -351,7 +350,7 @@ private fun NotesSection(label: String, notes: String) {
             Box(modifier = Modifier.padding(NotesPadding)) {
                 if (notes.isBlank()) {
                     Text(
-                        text = stringResource(R.string.update_sheet_no_notes),
+                        text = correctedString(R.string.update_sheet_no_notes),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -450,14 +449,17 @@ internal fun SheetPill(
  * The tag carries its own "v"; the installed `versionName` does not, and the
  * about card already prints it as "v0.1.0". A subtitle reading "0.1.0 → v0.2.0"
  * would look like two different kinds of number.
+ *
+ * Not `@ReadOnlyComposable`, although it reads nothing but a resource:
+ * [correctedString] registers the words it hands back for as long as they are
+ * on screen, which is an effect, and that is what makes them correctable.
  */
 @Composable
-@ReadOnlyComposable
 private fun versionLabel(version: String): String =
     if (version.startsWith(VersionPrefix, ignoreCase = true)) {
         version
     } else {
-        stringResource(R.string.update_version_label, version)
+        correctedString(R.string.update_version_label, version)
     }
 
 /**
@@ -468,20 +470,31 @@ private fun versionLabel(version: String): String =
  * looks like a different file. The decimal comma comes from the locale rather
  * than from the string: a Russian sentence with "12.4" in it is a typo.
  *
- * Composable because the unit is a resource, like every other word on screen.
+ * Composable because the unit is a resource, like every other word on screen —
+ * and not `@ReadOnlyComposable`, for the reason given on [versionLabel].
  */
 @Composable
-@ReadOnlyComposable
 internal fun formatBytes(bytes: Long): String {
     val kilobytes = bytes / BytesPerKilobyte
     return if (kilobytes < KilobytesPerMegabyte) {
-        stringResource(R.string.update_size_kb, "%.0f".format(SizeLocale, kilobytes))
+        correctedString(R.string.update_size_kb, "%.0f".format(SizeLocale, kilobytes))
     } else {
-        stringResource(R.string.update_size_mb, "%.1f".format(SizeLocale, kilobytes / KilobytesPerMegabyte))
+        correctedString(R.string.update_size_mb, "%.1f".format(SizeLocale, kilobytes / KilobytesPerMegabyte))
     }
 }
 
-private val SizeLocale: Locale = Locale.forLanguageTag("ru")
+/**
+ * The locale the size's decimal separator comes from.
+ *
+ * `Locale.getDefault()` and not a pinned «ru»: the unit beside the number is a
+ * resource and *is* translated, so a pinned comma printed "12,4 MB" in an
+ * otherwise English sentence. The default really is the app's language on both
+ * paths — `AppLocale.localized` sets it below API 33 and the platform sets it
+ * above — which is the same thing `DiaryGradesSection.formatAverage` relies on
+ * for the same kind of number.
+ */
+private val SizeLocale: Locale
+    get() = Locale.getDefault()
 
 private const val BytesPerKilobyte = 1024.0
 
