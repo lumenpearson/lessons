@@ -1149,3 +1149,52 @@ the top of the page, so the strip carries the inset and it is the strip that pas
 clock. The inset sits *inside* the strip's animated height rather than around it, because the
 strip collapses to nothing on the join step — held outside, it would survive the collapse and
 leave the join screen pushed down by a header that is no longer there.
+
+### What else the comparison found, on both sides
+
+The second pass over that repository was not about a screen but about how it is built: what it
+does that this project does not, and what this project should keep on doing instead. Three
+findings, all measured rather than read off.
+
+**The lazy lists name their shapes, and ours did not.** Every `LazyColumn` there passes
+`contentType` alongside `key`; ours passed none. The reason it matters is not the one usually
+given. A lazy list reuses the subcomposition a scrolled-off item leaves behind, and it picks
+the slot by content type — which defaults to `null` for everything, so every item counts as the
+same shape as every other. A list of identical rows is therefore already optimal and gains
+nothing from the annotation; what gains is a list of *different* shapes, where a one-line
+paragraph is otherwise handed the slot a card of eight rows has just vacated and the whole
+subtree is discarded and rebuilt. Of this app's lazy lists exactly one is that shape —
+`DocsScreen`, whose longest page is forty-seven blocks in four kinds — and that is the one that
+now names them. The rest were left alone on purpose: `contentType` on a list of one-off items
+is a line of code that buys nothing, and `WeekScreen`'s strip of day tiles is homogeneous, which
+is the case the default already handles.
+
+**`java.time` made most of this app's state unstable, and nothing had noticed.** Turning on the
+Compose compiler's own report showed 36 of 94 classes in `:app` unstable — and the cause was
+almost always a single field. `TodayUiState` has fourteen stable fields and one `LocalDateTime`;
+`DiaryRange` is two `LocalDate`s and nothing else. The compiler infers stability from a class's
+fields and has no information about a type compiled elsewhere, so it assumes the worst, and one
+such field condemns everything holding it. With strong skipping on, this costs no recomposition
+— all 172 restartable composables were skippable before and after — but it does decide *how* a
+parameter is compared: an unstable one by identity, a stable one by `equals`. A state object
+rebuilt with identical contents is a different object, so the identity check fails and the
+subtree is drawn again for a value that did not change. `compose-stability.conf` now promises
+`java.time.*` and `com.lumenpearson.lessons.core.model.*`, and the count went 36 → 29, with
+every screen state that holds a date — today, the week, the homework, the diary's day and
+range — moving to stable. The file says at length what is deliberately *not* promised and why;
+the short version is that `kotlin.collections.List` and `:core:data`'s value types would each
+make the promise somewhere false. `StabilityPromiseTest` reads `:core:model`'s own source and
+fails on the first `var`, because a stability promise is the kind of lie nothing else would
+catch: no build breaks, nothing throws, a value simply changes and the screen keeps the old one.
+
+**The rest of their structure is theirs, not ours.** They are eleven Gradle modules to our five,
+with Koin for injection and an MVI layer per feature. None of it is copied. `Graph` is a
+hand-written container precisely because the Glance widget and the WorkManager worker both need
+repositories from entry points a DI framework does not reach cleanly, and that reasoning has not
+changed; the module split here follows what must not depend on what (`:core:data` must not see
+`:widget`), not a count. Their build is behind this one rather than ahead: their
+`gradle.properties` has the configuration cache on but parallel execution commented out, and
+they have no CI at all — `.github/` holds screenshots. On the Compose hygiene that can be
+counted the two are level (`@Immutable` 8 to 9, `@Stable` 7 to 5, `rememberSaveable` 19 to 9,
+`collectAsStateWithLifecycle` 11 to 19). The one thing they genuinely had and this project did
+not was the pair above.

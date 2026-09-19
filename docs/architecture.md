@@ -254,9 +254,9 @@ alternative is every family's password in the database.
 
 ## Testing
 
-1391 tests on the server across 38 files, 605 on Android across 73 classes; `pytest -q` and
-`./gradlew test`, both offline, both in CI. On Android that is `:core:model` 89,
-`:core:data` 186, `:core:designsystem` 45, `:widget` 45, `:app` 240.
+1391 tests on the server across 38 files, 613 on Android across 76 classes; `pytest -q` and
+`./gradlew test`, both offline, both in CI. On Android that is `:core:model` 91,
+`:core:data` 186, `:core:designsystem` 45, `:widget` 45, `:app` 246.
 
 The table below is the load-bearing part of that rather than the whole of it:
 
@@ -277,6 +277,7 @@ The table below is the load-bearing part of that rather than the whole of it:
 | `android/core/model/.../ScheduleEngineTest.kt` | every `DayState`, boundary conditions, event precedence, next-transition scheduling | JVM JUnit |
 | `android/widget/.../WidgetSizeClassTest.kt` | the launcher's nearest-breakpoint rule over real sizes, and that the ladder is monotonic | JVM JUnit |
 | `android/app/.../ResourceTranslationTest.kt` | every Russian string has an English twin, in every module that ships strings | JVM JUnit |
+| `android/core/model/.../StabilityPromiseTest.kt` | that nothing in the domain module is a `var`, which is what `compose-stability.conf` promises the Compose compiler | JVM JUnit |
 
 What nothing covers is a device: there is no `androidTest` directory, so not one test has
 run on hardware or an emulator. Three screens — the class list, the join mode and the

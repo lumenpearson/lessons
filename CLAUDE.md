@@ -319,6 +319,20 @@ points Hilt does not inject cleanly.
   `Timetable.nowAtSchool()`. `LocalDateTime.now()` and `ZoneId.systemDefault()` on the
   Android side are almost always a bug — that pair was two of the fourteen defects the audit
   confirmed.
+- **`compose-stability.conf` is a promise, and a `var` in `:core:model` breaks it.** The file
+  tells the Compose compiler that `java.time.*` and the whole domain package are stable,
+  because neither is compiled by the Compose plugin and one unknown field makes every class
+  holding it unstable — that one field was `LocalDate`, and it condemned `TodayUiState`,
+  `WeekDayUi`, `HomeworkUiState` and the diary's day and range along with it. What a false
+  promise costs is invisible: nothing fails to build and nothing throws, Compose simply stops
+  comparing the value and the screen keeps the old one. `StabilityPromiseTest` reads
+  `:core:model`'s own source and fails on the first `var`; if a type there has to become
+  mutable, move it out of the module and take the package off that file rather than leaving
+  both standing. The file itself says at length what is deliberately *not* promised —
+  `kotlin.collections.List` and `:core:data`'s value types — and why each would be a lie.
+  Re-measure with `reportsDestination` in a module's `composeCompiler` block and a
+  `--rerun-tasks` compile; it is left out of the build on purpose, because it writes reports
+  on every build and the question is asked rarely.
 - **AGP 9 compiles Kotlin itself.** Applying `org.jetbrains.kotlin.android` in an Android
   module is a hard build failure, not a warning. Pure-JVM modules still use `kotlin.jvm`.
 - **The bot runs two ways from one dispatcher.** Long polling inside the API process

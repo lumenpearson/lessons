@@ -131,6 +131,55 @@ class DocsContentTest {
         assertEquals(-1, docsToolbarSelection(null))
     }
 
+    /**
+     * A shape is reused only by its own shape.
+     *
+     * The type exists to stop a paragraph being handed the slot a card of
+     * points left behind. Two kinds sharing a string would do exactly that
+     * while looking like an optimisation, and nothing on the screen would say
+     * so — the list would simply throw the subtree away on every reuse, which
+     * is the state this was meant to leave.
+     */
+    @Test
+    fun `each kind of block draws under a content type of its own`() {
+        val types = listOf(
+            DocsBlock.Paragraph(1),
+            DocsBlock.Points(listOf(2)),
+            DocsBlock.Note(3),
+        ).map { docsContentType(listOf(it)) }
+
+        assertEquals("Kinds sharing a content type: $types", types.size, types.toSet().size)
+    }
+
+    /**
+     * A lone step and a stack of them are one shape, because they are one card.
+     *
+     * [docsRuns] gathers consecutive steps, so a page can hand the list either;
+     * `DocsRun` draws both as the container, and a type that told them apart
+     * would refuse a reuse that is actually correct.
+     */
+    @Test
+    fun `a step is the same shape whether it stands alone or in a run`() {
+        val alone = docsContentType(listOf(DocsBlock.Step(1, 2, 3)))
+        val stacked = docsContentType(
+            listOf(DocsBlock.Step(1, 2, 3), DocsBlock.Step(2, 4, 5)),
+        )
+
+        assertEquals(alone, stacked)
+    }
+
+    /** Nothing a real page can produce falls through without a shape. */
+    @Test
+    fun `every run of every page names a shape`() {
+        val known = setOf("steps", "paragraph", "points", "note")
+        for (page in DocsPage.entries) {
+            for (run in docsRuns(page.blocks)) {
+                val type = docsContentType(run)
+                assertTrue("$page: unknown content type $type", type in known)
+            }
+        }
+    }
+
     /** Every string a block names, whatever kind of block it is. */
     private fun idsOf(block: DocsBlock): List<Int> = when (block) {
         is DocsBlock.Paragraph -> listOf(block.textRes)
