@@ -4,7 +4,7 @@ name: Reminders
 # requests - so something outside it has to call the tick that sends the
 # morning and evening digests. This workflow is the *fallback* clock; the one
 # that keeps time is an external cron service, configured by hand against the
-# same URL (docs/deploy.md, "Часы"). Either only calls the endpoint; deciding
+# same URL (docs/deploy.md, "The clock"). Either only calls the endpoint; deciding
 # what is due, and sending each digest exactly once, is the server's job
 # (app/services/reminders.py).
 #

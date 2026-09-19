@@ -1,291 +1,300 @@
-# Как этим пользоваться
+# How to use this
 
-Документ для того, кто приложением пользуется, а не собирает его. Про сборку —
-[build.md](build.md), про хостинг — [deploy.md](deploy.md).
+A document for whoever uses the app rather than builds it. Building is in
+[build.md](build.md), hosting in [deploy.md](deploy.md).
 
-Коротко устройство такое: расписание класса ведёт кто-то один в Telegram-боте, а
-приложение на телефоне его читает и показывает — на экране, в виджете и в уведомлениях.
-Ничего вводить самому не нужно, кроме кода класса при первом запуске.
+The short version: one person keeps the class's timetable in a Telegram bot, and the app
+on the phone reads it and shows it — on the screen, in the widget and in the
+notifications. Nothing has to be typed in except the class code on first run.
 
-## Первый запуск
+> The app speaks Russian (with an English translation, chosen in the app), so the buttons
+> and menu paths quoted below are quoted as they appear on the screen.
 
-Установленное приложение открывается не полем для кода, а пятью шагами:
+## First run
 
-1. **Приветствие** — знак приложения, тема и язык. Знак крутится пальцем; тема и язык
-   меняются здесь же и потом всегда доступны в настройках.
-2. **Что это такое** — четыре абзаца о том, что приложение показывает и чего оно не
-   делает. Их стоит прочитать: это самое короткое описание проекта, которое есть.
-   Здесь же выбирается, сохранять ли отчёты о сбоях (по умолчанию — нет).
-3. **Свойства** — отклик, цвета из обоев, чёрный фон, размытие, учитель в строке урока,
-   прогресс в виджете. Только то, о чём можно судить, ещё не увидев ни одного урока.
-4. **Разрешения** — уведомления, точные будильники и работа в фоне, каждое отдельной
-   кнопкой и с объяснением, зачем оно. Отказ ничего не ломает: без уведомлений просто
-   не будет напоминаний.
-5. **Код класса** — то самое поле.
+An installed app opens not with a field for a code but with five steps:
 
-Язык стоит на первом шаге намеренно: тот, кто не читает по-русски, должен переключить
-его **до** третьего экрана, а не после. Ниже Android 13 смена языка пересоздаёт экран —
-это нормально, шаг не теряется.
+1. **Welcome** — the app's mark, the theme and the language. The mark spins under a
+   finger; the theme and the language are changed here and are always available in the
+   settings afterwards.
+2. **What this is** — four paragraphs about what the app shows and what it does not do.
+   They are worth reading: it is the shortest description of the project there is. Whether
+   to keep crash reports is chosen here too (off by default).
+3. **Properties** — haptics, colours from the wallpaper, a black background, blur, the
+   teacher on a lesson's line, the progress bar in the widget. Only the things that can be
+   judged before a single lesson has been seen.
+4. **Permissions** — notifications, exact alarms and background work, each with its own
+   button and an explanation of what it is for. Refusing breaks nothing: with no
+   notifications there simply are no reminders.
+5. **The class code** — that field.
 
-## Код класса
+The language sits on the first step deliberately: somebody who does not read Russian has
+to be able to switch it **before** the third screen, not after. Below Android 13 changing
+the language recreates the screen — that is normal, and the step is not lost.
 
-Код выдаёт бот командой `/code` тому, у кого в классе есть права администратора. Он из
-восьми символов, без похожих друг на друга `O`, `0`, `I` и `1`; старые шестизначные коды
-продолжают работать.
+## The class code
 
-Иногда вместо кода класса дают **личный код** — десять символов, на один телефон и на
-пятнадцать минут. Вводится он в то же поле: приложение разберётся само. Такой код берут
-в боте кнопкой **«📱 Подключить телефон»**, и он есть у каждого, кто в классе, а не
-только у администратора.
+The bot hands the code out with `/code` to whoever has administrator rights in the class.
+It is eight characters, with none of the lookalike `O`, `0`, `I` and `1`; older six-digit
+codes still work.
 
-Если приложение отвечает, что класс подключает телефоны только по личному приглашению,
-код класса верный — просто этот класс им больше не пускает. Возьмите личный код в боте;
-идти обратно к тому, кто дал код класса, не нужно.
+Sometimes what you are given instead is a **personal code** — ten characters, for one
+phone and for fifteen minutes. It goes into the same field: the app works out which is
+which. Such a code is taken from the bot with the **«📱 Подключить телефон»** button, and
+everybody in the class has it, not only the administrator.
 
-Если сервер школы свой, а не тот, что прошит в сборке, нажмите **«Сервер»** внизу экрана
-подключения и введите адрес целиком — `http://192.168.1.50:8000/` или
-`https://lessons.example.com/`. Адрес нужен тот, по которому сервер видит **телефон**:
-`localhost` для телефона означает его самого. Подробности и проверка из браузера — в
-[build.md](build.md#подключить-приложение-к-серверу).
+If the app answers that the class connects phones only by personal invitation, the class
+code is correct — that class simply does not let anybody in with it any more. Take a
+personal code from the bot; there is no need to go back to whoever gave you the class
+code.
 
-### Несколько классов на одном телефоне
+If the school's server is its own rather than the one built into the app, press
+**«Сервер»** at the bottom of the connection screen and enter the whole address —
+`http://192.168.1.50:8000/` or `https://lessons.example.com/`. The address has to be the
+one the **phone** can see the server at: to a phone, `localhost` means itself. The details,
+and how to check from a browser, are in [build.md](build.md#pointing-the-app-at-a-server).
 
-Классов может быть больше одного. «Настройки → Класс» перечисляет все, к которым
-подключён этот телефон; галочка стоит у того, который показывается сейчас, нажатие
-на любой другой переключает на него, а **«Добавить класс»** спрашивает код ещё
-одного — уже подключённые при этом остаются на месте.
+### Several classes on one phone
 
-Переключение мгновенное и работает без сети: расписание каждого класса лежит на
-телефоне отдельно, так что показывается то, что было загружено в последний раз, а
-свежее подтягивается следом. Виджет и уведомления идут за выбранным классом.
+There can be more than one class. «Настройки → Класс» lists every class this phone is
+connected to; a tick stands next to the one being shown, pressing any other switches to
+it, and **«Добавить класс»** asks for one more code — the ones already connected stay
+where they are.
 
-Выходов теперь два, и они разные. **«Выйти из класса «7А»»** убирает один класс и
-его расписание, остальные не трогает; **«Выйти из всех классов»** убирает все — после
-этого приложение снова покажет поле кода, а не четыре экрана заново. Пока класс
-ровно один, строка одна и означает то же, что раньше.
+Switching is instant and works with no network: each class's timetable sits on the phone
+separately, so what is shown is whatever was loaded last, and anything fresher follows.
+The widget and the notifications follow the selected class.
 
-Права на редактирование — свои в каждом классе: телефон привязывается к Telegram
-по классу, а не целиком, так что в одном классе можно быть редактором, а в другом
-только читателем.
+There are two ways out now, and they are different. **«Выйти из класса «7А»»** removes one
+class and its timetable and leaves the others alone; **«Выйти из всех классов»** removes
+them all — after which the app shows the code field again rather than the four screens.
+While there is exactly one class there is one line, and it means what it always did.
 
-## Что на экране
+Editing rights are per class: a phone is linked to Telegram per class rather than as a
+whole, so you can be an editor in one class and only a reader in another.
 
-Три вкладки и шестерёнка сбоку.
+## What is on the screen
 
-| Вкладка | Что показывает |
+Three tabs and a gear at the side.
+
+| Tab | What it shows |
 | --- | --- |
-| **Сегодня** | что идёт сейчас и сколько осталось, дальше — остаток дня и задания |
-| **Календарь** | три масштаба: день, неделя и месяц, с кабинетами, заменами и отменами |
-| **Задания** | домашние задания, сгруппированные по дню, **к которому** они заданы |
+| **Сегодня** | what is running now and how long is left, then the rest of the day and the assignments |
+| **Календарь** | three scales — day, week and month — with rooms, substitutions and cancellations |
+| **Задания** | homework grouped by the day it is **set for** |
 
-Во вкладке «Задания» по умолчанию показаны только будущие — кнопка «Все» открывает и
-прошлые.
+The «Задания» tab shows only future assignments by default — the «Все» button opens the
+past ones too.
 
-Настройки — не четвёртая вкладка, а отдельная кнопка: в них заходят, меняют одно и
-возвращаются. Внутри девять разделов, в каждый проваливаются отдельно: оформление,
-взаимодействие, содержимое, уведомления, синхронизация, класс, дневник, обновления и
-«о приложении».
+The settings are not a fourth tab but a separate button: you go in, change one thing and
+come back. Inside are nine sections, each opened on its own: appearance, interaction,
+content, notifications, sync, class, diary, updates and "about".
 
-## Виджет
+## The widget
 
-Главное, ради чего всё это. Виджет отвечает на один вопрос — «что сейчас?» — и когда
-уроки заканчиваются, сам переключается на «что задано».
+The point of the whole thing. The widget answers one question — "what now?" — and when the
+lessons end it switches by itself to "what is set".
 
-Добавляется как любой другой: долгое нажатие на свободное место домашнего экрана →
-«Виджеты» → «Lessons — расписание». Растягивается в обе стороны без ограничения сверху, и содержимое
-меняется вместе с размером — от одной строки с отсчётом на 2×1 до расписания вместе с
-домашним заданием на 5×5 и больше. Полная таблица размеров — в [widget.md](widget.md).
+It is added like any other: a long press on an empty spot of the home screen → «Виджеты» →
+«Lessons — расписание». It stretches both ways with no upper bound, and what it draws
+changes with its size — from one line with a countdown at 2×1 to the timetable together
+with the homework at 5×5 and larger. The full table of sizes is in [widget.md](widget.md).
 
-Что стоит знать:
+Worth knowing:
 
-- **Он работает без интернета.** Всё, что виджет рисует, лежит на телефоне; сеть нужна
-  только чтобы это обновить. Отсчёт до звонка продолжает идти в подвале и в метро.
-- **Он не будит телефон каждую минуту.** Виджет ставит один будильник ровно на тот
-  момент, когда текст на нём изменится, и учащает обновления только в последние десять
-  минут урока.
-- **Он считает по времени школы, а не телефона.** Родитель в Москве видит звонки
-  новосибирской школы так, как они звонят там.
-- **После уроков он показывает домашнее задание** — на завтра, в пятницу на понедельник,
-  а через каникулы на первый учебный день после них.
+- **It works with no internet.** Everything the widget draws is already on the phone; the
+  network is only needed to refresh it. The countdown to the bell keeps running in a
+  basement and on the metro.
+- **It does not wake the phone every minute.** The widget sets one alarm for exactly the
+  moment its text will change, and only quickens in the last ten minutes of a lesson.
+- **It counts by the school's time, not the phone's.** A parent in Moscow sees a
+  Novosibirsk school's bells as they ring there.
+- **After lessons it shows the homework** — for tomorrow, on Friday for Monday, and across
+  the holidays for the first school day after them.
 
-Если виджет говорит «нет данных» — откройте приложение: значит, на эту дату в кэше
-ничего нет и синхронизация ещё не проходила.
+If the widget says «нет данных», open the app: there is nothing in the cache for that date
+and no sync has happened yet.
 
-## Уведомления
+## Notifications
 
-Четыре повода, у каждого свой переключатель, и **при установке выключены все**.
-Приложение, которое начинает жужжать сразу, — это приложение, которому выключают
-уведомления целиком.
+Four occasions, each with its own switch, and **all of them are off on install**. An app
+that starts buzzing straight away is an app whose notifications get turned off wholesale.
 
-| Повод | Когда приходит |
+| Occasion | When it arrives |
 | --- | --- |
-| Скоро урок | за 5, 10, 15 или 30 минут до звонка; коротко или с кабинетом и учителем |
-| Утренняя сводка | в выбранный час, в выбранные дни, если сегодня есть уроки |
-| Напоминание о домашке | вечером, если на следующий учебный день что-то задано |
-| Замены и отмены | сразу после синхронизации, которая нашла изменение |
+| A lesson is coming | 5, 10, 15 or 30 minutes before the bell; briefly, or with the room and the teacher |
+| The morning digest | at the chosen hour, on the chosen days, if there are lessons today |
+| A homework reminder | in the evening, if anything is set for the next school day |
+| Substitutions and cancellations | right after the sync that found the change |
 
-Ещё две настройки рядом: **тихие часы** (в этот промежуток не приходит ничего, и
-пропущенное не досылается) и **не напоминать в каникулы**.
+Two more settings next to them: **quiet hours** (nothing arrives inside that window, and
+what was missed is not sent afterwards) and **no reminders during the holidays**.
 
-Первая строка раздела — доступ. Пока уведомления запрещены системно, переключатели ниже
-ничего не сделают, и страница говорит об этом прямо. Там же есть «Показать пример» —
-пришлёт напоминание об уроке прямо сейчас, с текущими настройками, чтобы не ждать
-звонка ради проверки.
+The first line of the section is access. While notifications are forbidden at the system
+level the switches below do nothing, and the page says so plainly. There is a «Показать
+пример» there too — it sends a lesson reminder right now, with the current settings, so
+you do not have to wait for a bell to check.
 
-## Язык и оформление
+## Language and appearance
 
-Язык — русский или английский, либо «как в телефоне». Переключается в «Оформление»,
-применяется ко всему: экранам, уведомлениям и виджету. Ниже Android 13 остаётся на языке
-телефона только то, что рисует не приложение: подпись виджета в списке лаунчера и его
-превью.
+The language is Russian or English, or "as on the phone". It is switched under
+«Оформление» and applies to everything: the screens, the notifications and the widget.
+Below Android 13, the only things left in the phone's language are the ones the app does
+not draw: the widget's caption in the launcher's list, and its preview.
 
-Там же — тема (светлая, тёмная, как в системе, плюс «чёрный фон» для OLED), цвета из
-обоев, шрифт и его размер. Тема меняется кругом из-под пальца; если от этого укачивает,
-круг и волну можно выключить по отдельности в «Эффектах».
+The same place holds the theme (light, dark, as in the system, plus a "black background"
+for OLED), colours from the wallpaper, the typeface and its size. The theme changes as a
+circle spreading from under your finger; if that makes you queasy, the circle and the wave
+can be switched off separately under «Эффекты».
 
-### Если в тексте приложения ошибка
+### If there is a mistake in the app's text
 
-**«Настройки → Перевод → Режим исправления»** включает правку прямо на экранах. Весь
-текст, который написан в самом приложении, обводится тонкой рамкой; долгое нажатие на
-любую надпись — заголовок, строку настройки, подпись кнопки, пустой экран — открывает
-редактор с ключом строки, тем, что там написано сейчас, и полем «как должно быть».
-Названия предметов, учителя и домашние задания рамки не получают: это не текст
-приложения, а данные класса, и правятся они в боте.
+**«Настройки → Перевод → Режим исправления»** turns on correcting right there on the
+screens. All the text written inside the app itself gets a thin outline; a long press on
+any of it — a heading, a settings line, a button's caption, an empty screen — opens an
+editor with the string's key, what it says now, and a field for what it should say.
+Subject names, teachers and homework get no outline: those are the class's data rather
+than the app's text, and they are edited in the bot.
 
-Выключение режима убирает рамки, но **оставляет правки на экране**: так и задумано —
-это единственный способ увидеть, что исправленный заголовок теперь не влезает в строку.
+Turning the mode off removes the outlines but **leaves the corrections on the screen**:
+that is intended — it is the only way to see that a corrected heading no longer fits on
+its line.
 
-Накопленное лежит в «Настройки → Перевод → Исправления» и выдаётся готовым куском XML —
-его можно скопировать или отправить: вставлять никуда не нужно, достаточно прислать.
-Над каждой группой строк написан файл, в который они идут, включая модуль: часть текста
-приложения живёт в дизайн-системе, и правка оттуда в другой папке ничего не починит.
-Правки живут до закрытия приложения и нарочно нигде не сохраняются, поэтому отправляйте
-их, пока приложение открыто.
+What accumulates sits under «Настройки → Перевод → Исправления» and comes out as a ready
+piece of XML — it can be copied or sent: it does not have to be pasted anywhere, only sent
+in. Above each group of strings is the file they belong to, including the module: some of
+the app's text lives in the design system, and a correction from there fixes nothing in
+another folder. Corrections live until the app is closed and are deliberately not saved
+anywhere, so send them while the app is still open.
 
-## Привязать телефон к Telegram
+## Linking the phone to Telegram
 
-Домашние задания, замены и события заводятся в боте. Телефон привязывают к аккаунту в
-Telegram — **«Настройки → Класс → Telegram»** — чтобы сервер знал, кто вы: администратору
-и владельцу это открывает в приложении раздел «Управление», где класс настраивается так
-же, как из бота.
+Homework, substitutions and events are created in the bot. The phone is linked to a
+Telegram account — **«Настройки → Класс → Telegram»** — so that the server knows who you
+are: for an administrator and an owner this opens the «Управление» section in the app,
+where the class is configured exactly as it is from the bot.
 
-Там появляется шестисимвольный код и кнопка «Открыть бота». Отправьте боту `/link <код>`
-— и с этого момента приложение может ровно то же, что вы можете в боте. Права проверяются
-на сервере в момент нажатия, поэтому отдельных прав на телефоне нет: если в боте вас
-перевели в наблюдатели, приложение станет только читающим в ту же секунду.
+A six-character code appears there, with an «Открыть бота» button. Send the bot
+`/link <code>` and from that moment the app can do exactly what you can do in the bot. The
+rights are checked on the server at the moment of the press, so there are no separate
+rights on the phone: if the bot moves you down to observer, the app becomes read-only in
+the same second.
 
-«Отвязать» возвращает приложение в режим чтения; расписание оно продолжает показывать,
-как показывало до привязки.
+«Отвязать» returns the app to reading; it goes on showing the timetable exactly as it did
+before it was linked.
 
-Телефон, подключённый по личному коду из бота, привязан сразу: код нельзя было получить,
-не будучи узнанным. Второй раз ничего отправлять не нужно.
+A phone connected with a personal code from the bot is linked straight away: the code
+could not have been obtained without being recognised. Nothing has to be sent a second
+time.
 
-Роли: **наблюдатель** читает, **редактор** добавляет домашку, замены и события,
-**администратор** правит расписание, звонки, предметы и выдаёт роли, **владелец** может
-всё, включая удаление класса. Попросить роль повыше — команда `/request` в боте.
+The roles: an **observer** reads, an **editor** adds homework, substitutions and events,
+an **administrator** edits the timetable, the bells, the subjects and grants roles, and an
+**owner** can do everything, including deleting the class. To ask for a higher role, use
+`/request` in the bot.
 
-### Если вы администратор: кто может подключить телефон
+### If you are an administrator: who may connect a phone
 
-«Управление → Класс» показывает, чем сейчас подключаются телефоны, и там же это
-меняется. Вариантов два: **по коду класса** (как было всегда) и **только по личным
-приглашениям** — код класса перестаёт пускать кого бы то ни было, а каждый участник
-берёт себе одноразовый код в боте кнопкой «📱 Подключить телефон».
+«Управление → Класс» shows how phones connect at the moment, and that is where it is
+changed. There are two options: **by the class code** (as it always was) and **by personal
+invitation only** — the class code stops letting anybody in, and every member takes a
+one-time code for themselves in the bot with the «📱 Подключить телефон» button.
 
-Второй режим стоит включать, когда код класса разошёлся дальше, чем хотелось. Он
-**ничего не отключает**: телефоны, которые уже подключены, продолжают работать, ровно
-как при смене кода, — и обратное переключение возвращает коду класса силу. Приложение
-переспросит перед тем, как выключить код класса, и не переспросит, когда вы его
-возвращаете: назад отдаётся только доступ.
+The second mode is worth turning on when the class code has spread further than you wanted.
+It **switches nothing off**: phones that are already connected go on working, exactly as
+they do when the code is changed — and switching back gives the class code its force again.
+The app asks again before turning the class code off, and does not ask when you turn it
+back on: only access is being given back.
 
-## Бот
+## The bot
 
-Бот — главный способ управлять классом, и единственный для редактора: страница
-«Управление» в приложении открывается только администратору и владельцу. Полное описание
-— [bot.md](bot.md), здесь то, что нужно обычному участнику класса.
+The bot is the main way to run a class, and the only one for an editor: the «Управление»
+page in the app opens for an administrator and an owner only. The full description is in
+[bot.md](bot.md); what an ordinary member of a class needs is here.
 
-| Команда | Что делает |
+| Command | What it does |
 | --- | --- |
-| `/today`, `/tomorrow`, `/week`, `/next` | расписание: на сегодня, на завтра, на неделю, «что дальше» |
-| `/homework` | задания списком, с отметками «сделал» |
-| `/find <текст>` | поиск по заданиям |
-| `/tasks`, `/task <текст>` | личные дела, которые видите только вы |
-| `/remind` | сводки и уведомления в самом Telegram |
-| `/calendar` | ссылка на подписку: расписание в календаре телефона |
-| `/link <код>` | привязать телефон |
-| `/request` | попросить роль редактора |
-| `/help` | список команд, сгруппированный по тому, что вам доступно |
+| `/today`, `/tomorrow`, `/week`, `/next` | the timetable: today, tomorrow, the week, "what next" |
+| `/homework` | the assignments as a list, with "done" marks |
+| `/find <text>` | search the assignments |
+| `/tasks`, `/task <text>` | personal to-dos that only you see |
+| `/remind` | digests and notifications inside Telegram itself |
+| `/calendar` | a subscription link: the timetable in the phone's calendar |
+| `/link <code>` | link a phone |
+| `/request` | ask for the editor role |
+| `/help` | the list of commands, grouped by what is available to you |
 
-Команда, которой вам нельзя, ответит отказом, а не промолчит.
+A command you are not allowed answers with a refusal rather than staying silent.
 
-Редакторам и администраторам дополнительно доступны `/subjects`, `/holidays`, `/bells`,
-`/devices`, `/log`, `/class`, `/export`, `/import`, `/stats` и `/code` — все они описаны
-в [bot.md](bot.md).
+Editors and administrators additionally have `/subjects`, `/holidays`, `/bells`,
+`/devices`, `/log`, `/class`, `/export`, `/import`, `/stats` and `/code` — all described in
+[bot.md](bot.md).
 
-## Электронный дневник Петербурга
+## The Petersburg electronic diary
 
-Отдельная вещь и отдельный аккаунт: расписание класса ведёт бот, а дневник —
-государственный сервис Санкт-Петербурга, где лежат оценки, пропуски и задания, которые
-ставит школа. В приложении это раздел **«Настройки → Дневник»**.
+A separate thing and a separate account: the class's timetable is kept by the bot, while
+the diary is St Petersburg's state service, holding the marks, the absences and the
+assignments the school sets. In the app it is the **«Настройки → Дневник»** section.
 
-Вход — те же логин и пароль, что на сайте дневника. **Пароль нигде не сохраняется**: он
-нужен ровно на один запрос, после чего его забывают и телефон, и сервер. Хранится только
-сессия самого дневника, и она живёт, пока сервис её продлевает. Когда она заканчивается,
-приложение говорит «Сессия дневника закончилась» и просит пароль заново — логин при этом
-остаётся на месте.
+You sign in with the same login and password as on the diary's website. **The password is
+not saved anywhere**: it is needed for exactly one request, after which both the phone and
+the server forget it. Only the diary's own session is stored, and it lives as long as the
+service keeps extending it. When it ends, the app says «Сессия дневника закончилась» and
+asks for the password again — the login stays where it was.
 
-Внутри две вкладки — «Расписание» и «Оценки», — и выбор ребёнка, если аккаунт видит
-нескольких. Задания дневника показываются под уроками того дня, к которому заданы.
-Пропуск, опоздание и замечание сервис кладёт в один список с оценками, но приложение их
-различает и показывает по-разному.
+Inside are two tabs — «Расписание» and «Оценки» — and a choice of child, if the account
+sees several. The diary's assignments are shown under the lessons of the day they are set
+for. An absence, a late arrival and a remark are all put into one list with the marks by
+the service, but the app tells them apart and shows them differently.
 
-Сервис чужой и недокументированный. Если он ответит непонятно, приложение так и скажет:
-«сервис изменился, и это чинится на сервере, а не в приложении».
+The service is somebody else's and undocumented. If it answers incomprehensibly, the app
+says exactly that: the service has changed, and that is fixed on the server rather than in
+the app.
 
-### Исправить то, что пришло из дневника
+### Correcting what came from the diary
 
-Дневник часто приходит с пустой домашкой или не тем кабинетом. Нажмите на урок
-или на задание — откроется окно, где каждое поле можно переписать. Под каждым
-полем написано, **что в дневнике на самом деле**: правка накрывает школьный
-ответ, а не стирает его.
+The diary often arrives with empty homework or the wrong room. Press a lesson or an
+assignment and a window opens where every field can be rewritten. Under each field it says
+**what the diary actually holds**: a correction lies over the school's answer rather than
+erasing it.
 
-Исправленные строки помечены словом «Исправлено». «Сбросить правки» возвращает
-всё как в дневнике.
+Corrected rows are marked with the word «Исправлено». «Сбросить правки» puts everything
+back the way the diary has it.
 
-Три вещи, которые стоит знать:
+Three things worth knowing:
 
-* **В самом дневнике ничего не меняется.** Наверх не уходит ничего, учитель
-  правку не видит, и на оценку она не влияет. Это только то, что видите вы.
-* **Оценки и турникет править нельзя.** Отметка — это утверждение о том, что
-  произошло; приложение, позволяющее переписать её, делает поддельную запись,
-  которая выглядит настоящей.
-* **Если учитель потом заполнит поле сам**, приложение скажет, что в дневнике
-  теперь другое, и покажет новое значение рядом — но вашу правку не сбросит
-  само.
+* **Nothing changes in the diary itself.** Nothing goes upstream, the teacher does not see
+  the correction, and it does not affect a mark. It is only what you see.
+* **Marks and the turnstile cannot be corrected.** A mark is a statement about what
+  happened; an app that lets you rewrite one makes a forged record that looks genuine.
+* **If the teacher later fills the field in**, the app says the diary now holds something
+  else and shows the new value beside yours — but it does not drop your correction by
+  itself.
 
-В боте правки не показываются: там дневник виден таким, какой он есть.
+The bot does not show corrections: there the diary is seen as it is.
 
-## Обновления
+## Updates
 
-Приложения нет в магазине, поэтому новая версия появляется на GitHub, а приложение
-проверяет релизы само — не чаще раза в сутки. Когда версия найдена, поднимается шторка с
-заметками к выпуску; «Обновить» открывает APK в браузере, дальше работает системный
-установщик. «Позже» запоминает выпуск, и сама шторка о нём больше не поднимется — ручная
-проверка в разделе «Обновления» поднимет.
+The app is not in a store, so a new version appears on GitHub and the app checks the
+releases itself — no more than once a day. When a version is found, a sheet rises with the
+release notes; «Обновить» opens the APK in a browser and the system installer takes over
+from there. «Позже» remembers that release, and the sheet will not rise for it again — a
+manual check in the «Обновления» section will.
 
-Ручная проверка там же показывает заметки и к уже установленной версии: «что у меня
-стоит» — тоже ответ.
+A manual check in the same place also shows the notes for the version already installed:
+"what have I got" is an answer too.
 
-## Если что-то не так
+## If something is wrong
 
-| Что видно | Что это значит |
+| What you see | What it means |
 | --- | --- |
-| Виджет пишет «нет данных» | на эту дату нет кэша — откройте приложение и дайте ему синхронизироваться |
-| Время в приложении не то | «сейчас» считается в часовом поясе класса; его меняет администратор в боте, «⚙️ Класс → 🕒 Часовой пояс» |
-| Уведомления не приходят | первая строка раздела «Уведомления» скажет, запрещены ли они системно; проверьте тихие часы и «не напоминать в каникулы» |
-| Не подключается по коду | проверьте адрес сервера в «Синхронизации» и откройте `<адрес>/api/v1/health` в браузере телефона |
-| Расписание не меняется после правки в боте | приложение синхронизируется по расписанию; потяните экран вниз |
-| «Только чтение» после привязки | роль этого аккаунта в классе — наблюдатель; `/request` в боте |
+| The widget says «нет данных» | there is no cache for that date — open the app and let it sync |
+| The time in the app is wrong | "now" is computed in the class's time zone; an administrator changes it in the bot, «⚙️ Класс → 🕒 Часовой пояс» |
+| Notifications do not arrive | the first line of the «Уведомления» section says whether they are forbidden at the system level; check the quiet hours and "no reminders during the holidays" |
+| The code does not connect | check the server address under «Синхронизация» and open `<address>/api/v1/health` in the phone's browser |
+| The timetable does not change after an edit in the bot | the app syncs on a schedule; pull the screen down |
+| "Read only" after linking | this account's role in the class is observer; `/request` in the bot |
 
-Если ничего из этого не подошло — **«Настройки → О приложении → Сообщить об ошибке»**.
-Отчёт уходит issue на GitHub и уже содержит таблицу об устройстве и версии. Код класса и
-фамилии в него добавлять не нужно: issue публичный.
+If none of that fits — **«Настройки → О приложении → Сообщить об ошибке»**. The report
+goes out as an issue on GitHub and already contains the table about the device and the
+version. There is no need to add the class code or anybody's surname to it: the issue is
+public.
