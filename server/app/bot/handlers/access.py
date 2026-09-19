@@ -32,6 +32,7 @@ from app.bot.render import (
     ACCESS_MEMBERS_MAX,
     ACCESS_REQUEST_NOTE_MAX,
     MESSAGE_LIMIT,
+    clamp,
     cut,
     render_access_list,
 )
@@ -46,6 +47,14 @@ router = Router(name="access")
 #: Pending requests shown before the member list. More than this and the
 #: keyboard stops fitting on a phone; the rest appear as they are answered.
 PENDING_MAX = 5
+
+#: What is kept for the member list however loud the requests above it are.
+#:
+#: Enough for «👥 Доступ к классу», a blank line and a handful of rows. The
+#: requests are the newer thing and the more urgent, so they are drawn first
+#: and cut last — but a page that answered «кто в классе» with nothing at all
+#: would have lost the question it is named for.
+ACCESS_LIST_FLOOR = 800
 
 #: Each join mode said as what a phone can do, not as the name of the setting.
 #: The admin reading this page is choosing who may connect one, and «открытый»
@@ -217,13 +226,23 @@ async def access_root(
         ]
     )
 
-    # The list gets what is left, not the whole budget. The heading above it
-    # and the explanation below it are fixed-size and both have to survive:
-    # clamping the composed body instead would cut ``JOIN_MODE_TEXT``, which is
-    # the paragraph explaining the one button on this page that switches the
-    # class code back on.
-    head = "\n".join(lines)
+    # Three blocks, one ceiling, and only one of the three is a fixed size.
+    #
+    # ``JOIN_MODE_TEXT`` is the tail and must survive whatever happens above
+    # it: it is the paragraph explaining the one button on this page that
+    # switches the class code back on, so clamping the composed body — which
+    # cuts from the end — is the one arrangement that cannot be used here.
+    #
+    # The heading rows are not fixed and were not bounded. Cutting a request's
+    # note at ``ACCESS_REQUEST_NOTE_MAX`` bounds the *raw* value, and the
+    # message carries the escaped one: 120 characters of «"» are 720 after
+    # escaping, and five of those spend the whole budget before the member
+    # list is even asked for. The budget then went negative, `clamp` answered
+    # «… и ещё N» for the whole list, and the page was still 4225 characters
+    # and still refused. So the head is clamped too, against everything except
+    # the tail and a floor left for the list.
     tail = "\n\n" + JOIN_MODE_TEXT[school_class.join_mode]
+    head = clamp(lines, MESSAGE_LIMIT - len(tail) - ACCESS_LIST_FLOOR)
     body = (
         head
         + render_access_list(members, invites, MESSAGE_LIMIT - len(head) - len(tail))

@@ -537,8 +537,13 @@ LONG_MEMBER_NAME = (
 )
 
 
-async def _crowded_access_page(session, school_class):
-    """Thirty members, ten pending invites and five requests with their notes."""
+async def _crowded_access_page(session, school_class, note: str = "о" * 300):
+    """Thirty members, ten pending invites and five requests with their notes.
+
+    ``note`` is a parameter because what matters about it is not its length.
+    «о» is one character before escaping and one after; a quotation mark is one
+    before and six after, and the budget is spent in the second currency.
+    """
     for n in range(30):
         session.add(
             BotUser(
@@ -566,7 +571,7 @@ async def _crowded_access_page(session, school_class):
                 telegram_id=1000 + n,
                 requested_role=Role.EDITOR,
                 status="pending",
-                message="о" * 300,
+                message=note,
             )
         )
     school_class.join_mode = JoinMode.INVITE
@@ -610,6 +615,34 @@ async def test_a_request_note_is_cut_before_it_eats_the_member_list(
 
     assert "о" * (render.ACCESS_REQUEST_NOTE_MAX + 1) not in body
     assert body.count(escape(LONG_MEMBER_NAME)) > 12
+
+
+async def test_the_requests_above_the_list_cannot_spend_the_whole_page(
+    session, school_class
+):
+    """Cutting the note bounds the raw value; the message carries the escaped one.
+
+    `cut` stops a note at `ACCESS_REQUEST_NOTE_MAX` characters — and `escape`
+    then turns each «"» into six. Five notes of quotation marks are 3600
+    characters where five notes of «о» are 600, so the heading rows alone
+    spent the budget, the subtraction handed the member list a *negative*
+    limit, `clamp` answered «… и ещё N строк» for the whole of it, and the
+    page was still 4225 characters and still refused. Nothing above the list
+    was bounded; the cut only made each single row look reasonable.
+
+    The head is clamped too now, against everything except the tail and
+    `ACCESS_LIST_FLOOR` — so the requests are cut before the class's own
+    membership disappears, and «👥 Доступ» answers the question it is named
+    for even on the worst page it can be handed.
+    """
+    body = await _crowded_access_page(session, school_class, note='"' * 300)
+
+    assert len(body) <= TELEGRAM_LIMIT
+    # The paragraph under the button that switches the class code back on.
+    assert body.endswith(JOIN_MODE_TEXT[JoinMode.INVITE])
+    # And the list itself is still there, not clamped away to its «… и ещё».
+    assert "<b>👥 Доступ к классу</b>" in body
+    assert escape(LONG_MEMBER_NAME) in body
 
 
 async def test_a_substitution_shows_back_exactly_what_it_stored(session, school_class):
