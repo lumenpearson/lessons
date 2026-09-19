@@ -1578,15 +1578,54 @@ async def bells_make_default(
         await callback.answer("Расписание не найдено", show_alert=True)
         return
 
+    # A schedule may be created empty — that is the two-step flow, and the rows
+    # are the next screen. Making an empty one the *class default* is another
+    # thing: every ordinary day rings it, and a day that rings nothing draws
+    # nothing. `/bundle` answers zero lessons, `/now` answers «выходной» on a
+    # Monday, and the phone, the widget, the calendar feed and the morning
+    # digest go blank together with nothing anywhere reporting a problem —
+    # while the class's own timetable sits untouched underneath, which is what
+    # makes it so hard to see. Worse, `rung_indexes` then returns an empty set,
+    # which `can_ring` reads as «this class has not set its bells up yet» and
+    # waves every lesson number through. `api/manage.bells_update` has refused
+    # this since it was written and the «⭐» beside it did not; one rule, two
+    # shells, is the whole reason `services/` exists.
+    if not schedule.periods:
+        await callback.answer(
+            "В этом расписании звонков нет ни одного урока — сделать его "
+            "основным нельзя. Сначала добавьте времена.",
+            show_alert=True,
+        )
+        return
+
+    # Moving the default to a *shorter* schedule takes lessons off every
+    # weekday exactly as shrinking the current one does, and nothing rewrites a
+    # row, so `write_bell_periods` never runs and never counts them. Asked here
+    # through the same function the API asks, so the two answer alike.
+    orphaned = await structure.orphaned_lessons(
+        session, school_class.id, {period.index for period in schedule.periods}
+    )
     school_class.bell_schedule_id = schedule.id
+    summary = f"основное расписание звонков: «{schedule.name}»"
+    if orphaned:
+        summary += f", перестали звонить уроков: {len(orphaned)}"
     await audit.record(
-        session, school_class.id, callback.from_user.id, "bells.default",
-        f"основное расписание звонков: «{schedule.name}»",
+        session, school_class.id, callback.from_user.id, "bells.default", summary,
     )
     await session.commit()
 
     text, keyboard = await _bells_view(session, school_class)
     await callback.message.edit_text(text, reply_markup=keyboard)
+    if orphaned:
+        # An alert rather than the log alone: the admin pressed a star and four
+        # lessons left every phone in the class, and the audit page is not
+        # where anybody looks next.
+        await callback.answer(
+            f"Основное расписание обновлено. Перестали звонить уроков: "
+            f"{len(orphaned)} — они остались в базе, но их никто не увидит.",
+            show_alert=True,
+        )
+        return
     await callback.answer("Основное расписание обновлено")
 
 

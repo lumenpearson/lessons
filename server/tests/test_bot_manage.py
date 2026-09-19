@@ -1778,8 +1778,26 @@ async def test_the_bells_editor_offers_the_rows_in_the_format_it_accepts_back(
 
 
 async def test_the_star_moves_when_another_schedule_is_made_the_default(session, school_class):
+    """The schedule is given rows, and that is the fix rather than the fixture.
+
+    This test used to build a `BellSchedule` with no periods at all and assert
+    the star moved onto it — i.e. it asserted the defect as correct behaviour,
+    and would have gone red on the fix. Monday has three lessons, so three rows
+    keep the star moving and lose nothing; the refusal and the loss have tests
+    of their own below.
+    """
     other = BellSchedule(class_id=school_class.id, name="Сокращённое")
     session.add(other)
+    await session.flush()
+    for index in (1, 2, 3):
+        session.add(
+            BellPeriod(
+                schedule_id=other.id,
+                index=index,
+                starts_at=Time(8 + index, 0),
+                ends_at=Time(8 + index, 30),
+            )
+        )
     await session.commit()
 
     callback = FakeCallback(message=FakeEditable())
@@ -1795,6 +1813,90 @@ async def test_the_star_moves_when_another_schedule_is_made_the_default(session,
     card = callback.message.last
     assert "⭐ <b>Сокращённое</b>" in card
     assert "⭐ <b>Обычное</b>" not in card
+    # Every number Monday uses still rings, so nothing is said about a loss.
+    assert "перестали звонить" not in (callback.answers[-1][0] or "")
+
+
+async def test_a_schedule_that_rings_nothing_cannot_become_the_default_from_the_bot(
+    session, school_class
+):
+    """The «⭐» beside a schedule the API has always refused to accept.
+
+    A schedule may be created empty — that is the two-step flow. Making an
+    empty one the class default is another thing: every ordinary day rings it,
+    so `/bundle` answers zero lessons, `/now` answers «выходной» on a Monday,
+    and the phone, the widget, the calendar feed and the morning digest go
+    blank at once with the class's own timetable untouched underneath. Worse,
+    `rung_indexes` then returns an empty set, which `can_ring` reads as «bells
+    not set up yet» and waves every lesson number through.
+
+    `api/manage.bells_update` has refused it since it was written. The bot did
+    the assignment with no check at all, which is the shape `services/` exists
+    to prevent: one rule, two shells.
+    """
+    empty = BellSchedule(class_id=school_class.id, name="Пустое")
+    session.add(empty)
+    await session.commit()
+    was = school_class.bell_schedule_id
+
+    callback = FakeCallback(message=FakeEditable())
+    await bells_make_default(
+        callback,
+        SimpleNamespace(action="default", value=str(empty.id)),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert school_class.bell_schedule_id == was
+    said, as_alert = callback.answers[-1]
+    assert "нет ни одного урока" in (said or "") and as_alert
+    # Refused before anything was written, so the card was never redrawn.
+    assert callback.message.replies == []
+
+
+async def test_moving_the_default_to_a_shorter_schedule_says_what_stopped_ringing(
+    session, school_class
+):
+    """Four lessons leave every phone in the class and «⭐» said «обновлено».
+
+    `write_bell_periods` has worked this out since shrinking a schedule was
+    closed, but it only runs when a schedule's *rows* are rewritten, and
+    re-pointing the class rewrites none. The bot now asks
+    `structure.orphaned_lessons` — the same function the API asks — and says
+    the count in an alert as well as the log, because the admin pressed a star
+    and the audit page is not where anybody looks next.
+    """
+    short = BellSchedule(class_id=school_class.id, name="Короткое")
+    session.add(short)
+    await session.flush()
+    session.add(
+        BellPeriod(schedule_id=short.id, index=1, starts_at=Time(9, 0), ends_at=Time(9, 40))
+    )
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await bells_make_default(
+        callback,
+        SimpleNamespace(action="default", value=str(short.id)),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    # Monday carried lessons 1, 2 and 3; the new default rings only the first.
+    assert school_class.bell_schedule_id == short.id
+    said, as_alert = callback.answers[-1]
+    assert "Перестали звонить уроков: 2" in (said or "") and as_alert
+    entries = await audit.recent(session, school_class.id, limit=1)
+    assert "перестали звонить уроков: 2" in entries[0].summary
+
+    # Nothing was deleted — the two lessons are still there, and still drawn
+    # nowhere, which is the whole reason the sentence has to be said.
+    still = await session.scalars(
+        select(TimetableEntry).where(TimetableEntry.class_id == school_class.id)
+    )
+    assert len(list(still)) == 3
 
 
 async def test_a_spare_bell_schedule_is_deleted_and_leaves_the_card(session, school_class):
