@@ -11,7 +11,6 @@ it.
 from __future__ import annotations
 
 import asyncio
-import os
 from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import select
@@ -40,6 +39,7 @@ from app.models import (
     WeekParity,
 )
 from app.security import hash_token, new_token
+from scripts import target
 
 DEMO_CODE = "DEMO24"
 
@@ -79,7 +79,7 @@ COLORS = {
 }
 
 
-#: What this script refuses to write to without being told twice.
+#: Why this one refuses rather than merely announcing.
 #:
 #: It runs `create_all` and then puts a class with the world-known join code
 #: `DEMO24` into it, in `JoinMode.OPEN` — a read-token factory whose curl is
@@ -88,35 +88,21 @@ COLORS = {
 #: deliberately stopped running `create_all` on. And it is two lines apart in
 #: `CLAUDE.md` from `DATABASE_URL='postgresql+asyncpg://…' alembic upgrade
 #: head`, so the shell that ran the first is the shell that runs this one.
-#:
-#: Its sibling `scripts/init_db` already prints where it is about to write;
-#: this printed «Demo class ready. Join code: DEMO24» and nothing else.
-LOCAL_SCHEMES = ("sqlite",)
+WHAT_THIS_WOULD_DO = (
+    "The demo class carries the published join code DEMO24 in open mode, so "
+    "seeding a real deployment hands out read tokens for a real class."
+)
 
-
-def _target(database_url: str) -> str:
-    """Where this is about to write, with any password left out."""
-    return database_url.split("@")[-1] if "@" in database_url else database_url
-
-
-def _refuse_unless_confirmed(database_url: str) -> None:
-    if database_url.split(":", 1)[0].split("+", 1)[0] in LOCAL_SCHEMES:
-        return
-    if os.environ.get("SEED_DEMO_I_MEAN_IT") == "yes":
-        print(f"Seeding a NON-LOCAL database on request: {_target(database_url)}")
-        return
-    raise SystemExit(
-        f"Refusing to seed {_target(database_url)}: this is not a local database.\n"
-        "The demo class carries the published join code DEMO24 in open mode, so "
-        "seeding a real deployment hands out read tokens for a real class.\n"
-        "If that is genuinely what you want: SEED_DEMO_I_MEAN_IT=yes"
-    )
+#: Kept as it was, because it is what anybody who has done this once will type.
+OVERRIDE = "SEED_DEMO_I_MEAN_IT"
 
 
 async def seed() -> None:
     settings = get_settings()
-    _refuse_unless_confirmed(settings.database_url)
-    print(f"Seeding {_target(settings.database_url)} ...")
+    target.refuse_unless_local(
+        settings.database_url, variable=OVERRIDE, because=WHAT_THIS_WOULD_DO
+    )
+    print(f"Seeding {target.where(settings.database_url)} ...")
     await init_db()
 
     async with session_scope() as session:

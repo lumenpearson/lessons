@@ -20,6 +20,23 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.db import EXPECTED_REVISION, engine, init_db
+from scripts import target
+
+#: Why this refuses a database it cannot reach with a filename.
+#:
+#: ``create_all`` is DDL, and this is the one path in the project that runs it
+#: outside a local SQLite file — the deploy path deliberately stopped, and
+#: ``CLAUDE.md`` says nothing after ``0001`` may use it. It also stamps
+#: ``alembic_version``, which on a database that has no row yet is a claim
+#: about a history it did not witness. Its sibling ``seed_demo`` refused this
+#: and it did not, which was the wrong way round: that one only adds rows.
+WHAT_THIS_WOULD_DO = (
+    "create_all runs DDL, and this stamps alembic_version at the revision the "
+    "models happen to describe. On a real deployment the schema is alembic's, "
+    "and `alembic upgrade head` is the only thing that may change it."
+)
+
+OVERRIDE = "INIT_DB_I_MEAN_IT"
 
 
 async def stamp() -> str | None:
@@ -56,9 +73,15 @@ async def stamp() -> str | None:
 
 async def main() -> None:
     settings = get_settings()
-    # Never print the password: a connection string usually carries one.
-    target = settings.database_url.split("@")[-1] if "@" in settings.database_url else "local"
-    print(f"Creating schema on {target} ...")
+    target.refuse_unless_local(
+        settings.database_url, variable=OVERRIDE, because=WHAT_THIS_WOULD_DO
+    )
+    # Through `target.where`, which drops the password by splitting at the last
+    # «@». This used to do it here, by hand, and print the word «local» for any
+    # URL that carried no password at all — so a Neon DSN authenticating some
+    # other way was announced as the developer's own laptop, by the one line
+    # whose whole job is to say where the DDL is about to land.
+    print(f"Creating schema on {target.where(settings.database_url)} ...")
     await init_db()
     found = await stamp()
     if found is None:

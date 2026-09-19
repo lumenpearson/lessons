@@ -259,14 +259,15 @@ def test_an_evening_digest_of_a_full_timetable_still_sends():
     assert len(render_evening(day, TODAY, set())) <= TELEGRAM_LIMIT
 
 
-def test_an_announcement_is_the_same_length_whichever_shell_wrote_it():
-    """Both shells announce the same assignment, and the rule was in one of them.
+def test_shorten_cuts_to_the_cap_it_declares():
+    """The helper, and only the helper.
 
-    An assignment typed into the bot arrived cut to 200 characters; the same one
-    saved from a phone arrived whole — the 4000 `HomeworkIn.text`
-    accepts, which is an unreadable lock screen below Telegram's ceiling and
-    nothing at all above it, because every recipient's send raises and both
-    callers swallow it.
+    This used to be called «…the same length whichever shell wrote it» and was
+    the whole guard on that claim — which it could not be: removing
+    `notify.shorten` from both call sites at once left the entire suite green,
+    because nothing pressed either of them. The claim is now held where it can
+    be, in `tests/test_announcements.py`, which reads what the *subscriber* was
+    sent. What is left here is the unit under it.
     """
     assert len(notify.shorten("я" * 4000)) == notify.NOTIFY_TEXT_MAX
 

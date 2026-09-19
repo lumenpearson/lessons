@@ -9,17 +9,25 @@ the transactions - not Telegram's transport.
 
 from __future__ import annotations
 
+import ast
+import inspect
 import re
+import textwrap
 from dataclasses import dataclass, field
 from datetime import date as Date
 from datetime import datetime, timedelta
 from datetime import time as Time
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 from sqlalchemy import select
 
 from app.bot.handlers.manage import (
+    NEED_ADMIN,
+    NEED_EDITOR,
+    NEED_OWNER,
+    NO_ACCESS,
     audit_page,
     bells_create,
     bells_delete,
@@ -87,6 +95,9 @@ from app.bot.handlers.manage import (
     term_edit_prompt,
     terms_list,
     terms_scheme,
+)
+from app.bot.handlers.manage import (
+    router as manage_router,
 )
 from app.bot.handlers.timetable import timetable_apply
 from app.bot.manage_keyboards import (
@@ -215,6 +226,19 @@ class FakeCallback:
 class FakeEditable(FakeMessage):
     async def edit_text(self, text: str, **_: Any) -> None:
         self.replies.append(text)
+
+
+
+def a_day_ahead(school_class, days: int = 30) -> Date:
+    """A date «🏖 Особые дни» will still be showing by the time it is drawn.
+
+    The card is `DayOverride.date >= today` in the class's own zone and has no
+    upper bound, so anything ahead is listed and anything behind is not. Seven
+    tests below wrote 12 March 2027 out instead, and three of them asserted on
+    the card: they were green until that morning and would then have gone red
+    in CI with a diff naming no change at all, on a Friday, for nobody.
+    """
+    return datetime.now(school_class.tz).date() + timedelta(days=days)
 
 
 def _command(args: str | None):
@@ -1473,7 +1497,7 @@ async def test_a_shortened_day_asks_which_bells_and_then_carries_their_name(
         )
     await session.commit()
 
-    day = Date(2027, 3, 12)
+    day = a_day_ahead(school_class)
     callback = FakeCallback(message=FakeEditable())
     await holiday_kind(
         callback,
@@ -1500,7 +1524,7 @@ async def test_a_shortened_day_asks_which_bells_and_then_carries_their_name(
 
     card = FakeMessage()
     await cmd_holidays(card, FakeState(), session, school_class, Role.EDITOR)
-    assert "12.03" in card.last
+    assert f"{day:%d.%m}" in card.last
     assert "⏱ Сокращённые уроки" in card.last
     assert "🔔 Сокращённое" in card.last
 
@@ -1518,7 +1542,7 @@ async def test_a_day_is_not_pointed_at_a_bell_schedule_that_rings_nothing(
     session.add(empty)
     await session.commit()
 
-    day = Date(2027, 3, 12)
+    day = a_day_ahead(school_class)
     await holiday_kind(
         FakeCallback(message=FakeEditable()),
         SimpleNamespace(action="kind", value=f"{day.isoformat()}:shortened"),
@@ -1561,7 +1585,7 @@ async def test_a_shortened_day_always_names_the_schedule_it_rings(session, schoo
     gone from the picker, so the one button that re-created the state no
     longer exists. A card left open from before it was removed is refused.
     """
-    day = Date(2027, 3, 12)
+    day = a_day_ahead(school_class)
     await holiday_kind(
         FakeCallback(message=FakeEditable()),
         SimpleNamespace(action="kind", value=f"{day.isoformat()}:shortened"),
@@ -1605,7 +1629,7 @@ def test_the_picker_for_a_shortened_day_offers_no_way_to_leave_it_unrung():
 
 
 async def test_a_note_typed_after_the_kind_lands_on_the_day_row(session, school_class):
-    day = Date(2027, 3, 12)
+    day = a_day_ahead(school_class)
     callback = FakeCallback(message=FakeEditable())
     state = FakeState()
     await holiday_kind(
@@ -1627,7 +1651,7 @@ async def test_a_note_typed_after_the_kind_lands_on_the_day_row(session, school_
 
 
 async def test_a_dash_for_a_note_leaves_the_day_marked_and_unannotated(session, school_class):
-    day = Date(2027, 3, 12)
+    day = a_day_ahead(school_class)
     state = FakeState()
     await holiday_kind(
         FakeCallback(message=FakeEditable()),
@@ -1649,7 +1673,7 @@ async def test_a_dash_for_a_note_leaves_the_day_marked_and_unannotated(session, 
 async def test_обычный_день_removes_the_row_rather_than_storing_a_kind(session, school_class):
     """«Обычный день» is the absence of an override, not a kind of one — two
     spellings of the same thing would give the resolver a choice to get wrong."""
-    day = Date(2027, 3, 12)
+    day = a_day_ahead(school_class)
     session.add(DayOverride(class_id=school_class.id, date=day, kind=DayKind.HOLIDAY))
     await session.commit()
 
@@ -1664,11 +1688,11 @@ async def test_обычный_день_removes_the_row_rather_than_storing_a_kin
     )
 
     assert await session.scalar(select(DayOverride).where(DayOverride.date == day)) is None
-    assert "12.03" not in callback.message.last
+    assert f"{day:%d.%m}" not in callback.message.last
 
 
 async def test_deleting_a_day_takes_it_off_the_card(session, school_class):
-    day = Date(2027, 3, 12)
+    day = a_day_ahead(school_class)
     session.add(
         DayOverride(class_id=school_class.id, date=day, kind=DayKind.HOLIDAY, note="актировка")
     )
@@ -3377,9 +3401,148 @@ async def test_every_management_step_checks_the_role_for_itself(session, school_
         {"term_index": 1},
     )
 
+    # The card behind «✏️», which nothing pressed until the derived list below
+    # was written: it shows the teacher, the colour and the short name, and its
+    # own guard is the only thing between those and a payload anybody can
+    # craft.
+    await press(
+        "subject_open",
+        lambda cb: subject_open(
+            cb,
+            SimpleNamespace(action="open", value=str(subject.id)),
+            FakeState(),
+            session,
+            school_class,
+            viewer,
+        ),
+    )
+
+    # The commands. They are a different refusal from the two above — a person
+    # who types «/bells» is owed a sentence saying why not, where an FSM step
+    # they never opened is owed silence — so they are asserted as one, against
+    # the module's own refusal strings rather than against a copy of them.
+    refusals = {NO_ACCESS, NEED_EDITOR, NEED_ADMIN, NEED_OWNER}
+
+    async def command(name, call):
+        message = FakeMessage(text="/что-угодно")
+        state = FakeState()
+        await call(message, state)
+        assert message.replies, f"{name} said nothing at all to a наблюдатель"
+        assert message.last in refusals, f"{name} drew a page for a наблюдатель"
+        assert not state.cleared, f"{name} touched the state of a caller it refused"
+
+    await command("cmd_subjects", lambda m, st: cmd_subjects(m, st, session, school_class, viewer))
+    await command("cmd_holidays", lambda m, st: cmd_holidays(m, st, session, school_class, viewer))
+    await command("cmd_bells", lambda m, st: cmd_bells(m, st, session, school_class, viewer))
+    await command("cmd_devices", lambda m, st: cmd_devices(m, st, session, school_class, viewer))
+    await command("cmd_class", lambda m, st: cmd_class(m, st, session, school_class, viewer))
+    await command("cmd_log", lambda m, st: cmd_log(m, st, session, school_class, viewer))
+    await command("cmd_stats", lambda m, st: cmd_stats(m, st, session, school_class, viewer))
+    await command("cmd_export", lambda m, st: cmd_export(m, st, session, school_class, viewer))
+    await command("cmd_import", lambda m, st: cmd_import(m, st, school_class, viewer))
+
     assert await _row_counts(session) == before
     assert school_class.name == "9А"
     assert school_class.diary_provider is None
+
+
+#: Handlers on the management router that the test above does not press,
+#: each with the reason it is not a step a наблюдатель must be refused at.
+#:
+#: Everything else is exempted by rule rather than by name: a handler whose
+#: own guard asks for `Role.VIEWER` admits an observer on purpose, and
+#: pressing it to demand a refusal would assert the opposite of the product.
+#: These two ask for neither.
+NOT_A_ROLE_GATE = {
+    "class_switch_to": "switching between your own classes; the guard is «are you in it»",
+}
+
+
+def _minimum_role_of(source: str) -> dict[str, Role | None]:
+    """What each function in ``handlers/manage`` demands, read off its own body.
+
+    Two spellings, because the module uses two. ``_allowed(school_class, role,
+    Role.X)`` is the shared check — its own docstring says it exists so that no
+    handler invents a version of its own — and ``role.at_least(Role.X)`` is the
+    one place that checks inline. Reading them beats keeping a second copy of
+    the table in this file, which is the mistake that made the list above
+    fifty-seven names long and nine names short.
+
+    The *weakest* role mentioned wins, not the first one found: a guard reading
+    ``not _allowed(…, VIEWER) or role.at_least(EDITOR)`` admits наблюдатели and
+    refuses everybody else, so its minimum is наблюдатель. ``None`` means
+    neither spelling appears, which is either a handler that needs no role or
+    one that forgot; the test below refuses to guess which.
+    """
+    found: dict[str, Role | None] = {}
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        named: list[Role] = []
+        for call in ast.walk(node):
+            if not isinstance(call, ast.Call):
+                continue
+            argument: ast.expr | None = None
+            if getattr(call.func, "id", "") == "_allowed" and len(call.args) == 3:
+                argument = call.args[2]
+            elif getattr(call.func, "attr", "") == "at_least" and len(call.args) == 1:
+                argument = call.args[0]
+            if isinstance(argument, ast.Attribute) and argument.attr in Role.__members__:
+                named.append(Role[argument.attr])
+        found[node.name] = min(named, key=lambda role: role.rank) if named else None
+    return found
+
+
+def test_the_role_check_above_reaches_every_handler_that_has_one():
+    """The list of steps pressed above, derived instead of remembered.
+
+    It used to be fifty-seven handlers written out by hand, of the sixty-six
+    registered — and the nine it missed included «✏️ Предмет», whose admin
+    guard could be deleted with the whole suite staying green. Both halves are
+    read from the source here: which handlers the router carries, and what each
+    one demands. A handler registered tomorrow is covered the day it is
+    registered, and one that quietly stops demanding a role is named rather
+    than dropped.
+    """
+    from app.bot.handlers import manage as manage_module
+
+    source = Path(manage_module.__file__).read_text(encoding="utf-8")
+    minimums = _minimum_role_of(source)
+
+    registered = {
+        handler.callback.__name__
+        for observer in (manage_router.callback_query, manage_router.message)
+        for handler in observer.handlers
+    }
+    assert len(registered) > 50, "the router looks empty; this test would prove nothing"
+
+    pressed = {
+        node.id
+        for node in ast.walk(
+            ast.parse(textwrap.dedent(inspect.getsource(test_every_management_step_checks_the_role_for_itself)))
+        )
+        if isinstance(node, ast.Name)
+    }
+
+    ungated = sorted(
+        name
+        for name in registered
+        if minimums.get(name) is None and name not in NOT_A_ROLE_GATE
+    )
+    assert not ungated, (
+        "these are registered on the management router and never call `_allowed`; "
+        f"decide what they demand before exempting them: {ungated}"
+    )
+
+    unpressed = sorted(
+        name
+        for name in registered
+        if minimums.get(name) not in (None, Role.VIEWER) and name not in pressed
+    )
+    assert not unpressed, (
+        "these demand a role above наблюдатель and the test above never presses them, "
+        f"so deleting the guard would change nothing here: {unpressed}"
+    )
 
 
 async def test_a_crafted_id_finds_nothing_rather_than_somebody_elses_row(

@@ -611,27 +611,69 @@ async def test_a_class_name_containing_markup_is_escaped(session):
     assert "<i>Школа</i>" not in rendered
 
 
-def test_telegram_id_columns_are_wide_enough_for_real_ids():
-    """Telegram ids exceed 2^31, and Integer maps to int4 on Postgres.
+def _ids_minted_elsewhere() -> list:
+    """Every column in the schema holding an id this database did not issue.
 
-    SQLite has no integer width, so nothing at runtime in this suite can catch a
-    column that is too narrow — the failure only appears in production, as an
-    asyncpg NumericValueOutOfRange the webhook swallows. Assert the declared
-    type instead.
+    The rule is structural, not a list of names: **an ``…_id`` or ``…_by``
+    column with no foreign key on it**. Every id this project issues is the
+    autoincrementing primary key of a table it owns, and every column that
+    points at one carries a ``ForeignKey`` — ``class_id``, ``subject_id``,
+    ``homework_id``, ``schedule_id``, ``bell_schedule_id``. What is left over
+    is, without exception, somebody else's number: a Telegram account
+    (``telegram_id``, and the ``granted_by`` / ``created_by`` / ``invited_by``
+    / ``used_by`` / ``decided_by`` that each record which account did a thing)
+    or the Petersburg diary's own handle for a child (``student_id``).
+
+    Deriving it is the point. The list used to be five columns written out by
+    hand, of the seventeen that match; narrowing any of the other twelve left
+    the whole suite green. A column added tomorrow is covered the day it is
+    declared, and a name is never the thing that has to be remembered.
+    """
+    from app.models import Base
+
+    return [
+        column
+        for table in Base.metadata.sorted_tables
+        for column in table.c
+        if column.name.endswith(("_id", "_by")) and not column.foreign_keys
+    ]
+
+
+def test_ids_minted_by_somebody_else_are_wide_enough_for_the_real_ones():
+    """Telegram ids exceed 2^31, and ``Integer`` maps to int4 on Postgres.
+
+    SQLite has no integer width, so nothing at runtime in this suite can catch
+    a column that is too narrow — the failure only appears in production, as an
+    asyncpg ``NumericValueOutOfRange`` the webhook swallows, on the first
+    account whose id happens to be large. Assert the declared type instead.
+
+    ``BigInteger`` subclasses ``Integer``, so the test has to be this way round;
+    ``isinstance(column.type, Integer)`` would be true of both and prove
+    nothing. Revision ``0002`` carries the same warning about the same trap.
     """
     from sqlalchemy import BigInteger
 
-    from app.models import BotUser, Homework, PhoneInvite
+    columns = _ids_minted_elsewhere()
 
-    columns = [
-        BotUser.__table__.c.telegram_id,
-        BotUser.__table__.c.granted_by,
-        Homework.__table__.c.created_by,
-        PhoneInvite.__table__.c.invited_by,
-        PhoneInvite.__table__.c.used_by,
+    # The five the hand-written version named, so that a rule matching nothing
+    # — or matching everything except the ones that started this — cannot pass
+    # quietly. They are anchors, not the coverage.
+    anchors = {
+        "bot_users.telegram_id",
+        "bot_users.granted_by",
+        "homework.created_by",
+        "phone_invites.invited_by",
+        "phone_invites.used_by",
+    }
+    found = {f"{column.table.name}.{column.name}" for column in columns}
+    assert anchors <= found, f"the rule stopped matching {sorted(anchors - found)}"
+
+    narrow = [
+        f"{column.table.name}.{column.name}"
+        for column in columns
+        if not isinstance(column.type, BigInteger)
     ]
-    for column in columns:
-        assert isinstance(column.type, BigInteger), column
+    assert not narrow, f"int4 on Postgres, and these hold somebody else's id: {narrow}"
 
 
 # --------------------------------------------------------------------------
