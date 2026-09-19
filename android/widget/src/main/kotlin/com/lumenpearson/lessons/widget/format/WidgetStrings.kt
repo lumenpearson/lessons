@@ -67,11 +67,13 @@ internal object WidgetStrings {
         is DayState.NoData -> context.getString(R.string.widget_state_no_data)
     }
 
-    /** Same as [stateLabel] but clipped for the 2x1 size, where width is the whole problem. */
-    fun stateLabelShort(context: Context, state: DayState): String = when (state) {
-        is DayState.AfterSchool -> context.getString(R.string.widget_state_after_school_short)
-        else -> stateLabel(context, state)
-    }
+    // There is deliberately no `stateLabelShort` here any more, and no
+    // `widget_state_after_school_short` behind it. It clipped «Уроки
+    // закончились» to «Уроков нет» for the 2x1 size, and it specialised
+    // exactly one state — `AfterSchool` — which satisfies
+    // `isHomeworkPrimary`, so the two narrow layouts it was written for take
+    // the homework branch and draw «ДЗ на завтра» instead. No size and no
+    // state could reach it, in either language, for as long as it existed.
 
     /**
      * "пн" for the week strip.
@@ -133,7 +135,7 @@ internal object WidgetStrings {
      * zero.
      */
     fun duration(context: Context, value: Duration, short: Boolean = false): String {
-        val minutesLeft = kotlin.math.ceil(value.toMillis() / 60_000.0).toLong()
+        val minutesLeft = minutesShown(value)
         return when {
             minutesLeft <= 0L -> context.getString(
                 if (short) R.string.widget_countdown_now_short else R.string.widget_countdown_now,
@@ -152,6 +154,21 @@ internal object WidgetStrings {
             }
         }
     }
+
+    /**
+     * The number of minutes [duration] will actually print for [value].
+     *
+     * Rounded **up**, because that is how a person reads a clock: at 11:59:30
+     * there is a minute of the lesson left, not none. Exposed rather than left
+     * inside [duration] because anything that reasons about "how long is left"
+     * has to reason about the figure on the screen and not about the duration
+     * behind it — the colour did not, and `Duration.toMinutes()` truncates
+     * where this rounds up, so at five minutes and forty seconds the widget
+     * drew «6 мин» in the error colour under a rule documented as "the last
+     * five minutes".
+     */
+    fun minutesShown(value: Duration): Long =
+        kotlin.math.ceil(value.toMillis() / 60_000.0).toLong()
 
     /** "осталось 12 мин" — used while something is running. */
     fun durationLeft(context: Context, value: Duration): String =
