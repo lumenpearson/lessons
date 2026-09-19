@@ -4,29 +4,33 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **20 September 2026**. **PR #60 is merged** — thirty-five commits, `main` at
-`104ed38`, `dev` fast-forwarded onto it and carrying nothing of its own. The database is at
-head `0013` and `EXPECTED_REVISION` did not move — **no model changed, so this batch needed
-no migration**, which is the cheapest thing in it to check and the most expensive to get
-wrong.
+Last updated: **20 September 2026**. **PRs #60 and #61 are both merged**; `main` is at
+`0143af4` and `dev` is level with it, carrying nothing of its own. **There is no open pull
+request and no branch with unmerged work on it** — the next batch starts from a clean `dev`.
+The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model changed, so
+this batch needed no migration**, which is the cheapest thing in it to check and the most
+expensive to get wrong.
 
-The deployment the merge triggered is `READY` on `104ed38`, and production was read after it
-rather than assumed: `/api/v1/health` answers `{"status":"ok","api_version":1}` and
-`/api/v1/warmup` — which opens a real connection, so it answers for the database too —
-answers `{"status":"ok","api_version":1,"schema":"0013"}`. That is the dishka container
-serving a real request on a real cold start, which is the one thing about it this branch
-could not check before the merge.
+Production was read after the merge rather than assumed, and again after #61:
+`/api/v1/health` answers `{"status":"ok","api_version":1}` and `/api/v1/warmup` — which
+opens a real connection, so it answers for the database as well as the code — answers
+`{"status":"ok","api_version":1,"schema":"0013"}`. That is the dishka container serving a
+real request on a real cold start, which is the one thing about it the branch could not
+check before it merged, and the schema at the head this batch expected.
 
 ## What the last session added on top of the audit
 
-Six commits after `13348d5`, in three pieces.
+Twenty-five commits after `13348d5`, in five pieces. The first two finished the audit batch;
+the last three are things that batch left behind, and one of them was found by re-reading
+the session's own work rather than the project's.
 
 **A re-check of the whole batch, and then the remainder of it.** The server half: both bells
 writes now answer the caller with `silenced_lessons`, because shrinking a schedule leaves
 every lesson past its new last rung stored and drawn nowhere and only the bot was saying so;
 a substitution on «1 сентября» is no longer refused as a summer date (`school_year_bounds`
-files both June and the first days of a September that opens on a Saturday before
-`year_start`, and one sentence covered both); `render_import_preview` stopped writing its cap
+files both June and the first days of a September whose 1st falls at a weekend before
+`year_start` — the next four are 2029, 2030, 2035 and 2040 — and one sentence covered both);
+`render_import_preview` stopped writing its cap
 twice; and `MESSAGE_LIMIT`'s comment now names the one direction in which a raw character
 count reads *lower* than Telegram's, which is emoji outside the BMP. The Android half reads
 that new field and says «2 урока перестали звонить» under «Сохранено». `docs/bot.md` gained
@@ -49,7 +53,9 @@ longer one regex for `var`.
 
 **Dependency injection with dishka** (`server/app/di.py`). A session was made in three
 places — a FastAPI dependency, `SessionLocal()` in the bot's middleware, and `session_scope`
-for the cron tick — each with its own view of whether the caller or the maker commits. It is
+in `scripts/seed_demo` — each with its own view of whether the caller or the maker commits.
+`session_scope` is the one still standing, because a script is not a request and has no scope
+to take a session from. It is
 now one container: `Settings` and the session factory at app scope, one `AsyncSession` per
 HTTP request or Telegram update. All sixty-four endpoints ask with
 `session: FromDishka[AsyncSession]` and `db.get_session` is gone; the bot's
@@ -63,16 +69,39 @@ shadowing, and `app/api/routing.py` exists because dishka's compiled wrapper car
 globals, so under postponed annotations FastAPI took an endpoint's `-> Response` for a
 response model.
 
-**An adversarial re-pass over the container work itself**, which found four
-things and one of them was behaviour: `write_bell_periods` answered
-«перестали звонить уроков: N» with a *state* — which rows these bells do not
-cover — while the field it fills is documented as an *event*. Nothing deletes
-an orphaned row, so the same write repeated said it again. The other three were
-comments asserting mechanisms that are not true, including one of mine that
-claimed dishka nests the scopes it opens per observer when it makes siblings of
-them; `ContextMiddleware` opens the one scope itself now, from the live
-container, which also stops a cached webhook dispatcher serving from a closed
-one.
+**An adversarial re-pass over the container work itself**, which found seven things — most
+of them latent, one of them behaviour, and several of them defects in what the session had
+just written rather than in the project.
+
+* `write_bell_periods` answered «перестали звонить уроков: N» with a *state* — which rows
+  these bells do not cover — while the field it fills is documented as an *event*. Nothing
+  deletes an orphaned row, so the same write repeated said it again, and so did nudging one
+  bell by five minutes. It asks `lessons_silenced_by` now, which is what the other way of
+  losing lessons already asked.
+* `close_container()` forgets the container, but `setup_dishka` had put a *reference* on
+  `app.state` at import and a reference does not update itself — so a second lifespan in one
+  process, which `tests/test_startup.py` is, served every request from a container that had
+  shut its app scope. The lifespan re-reads `container()` on the way in now.
+* A closed dishka container goes on answering, and asking it for an app-scoped object
+  **builds a new one** in a scope whose exit stack has already run — so nothing will ever
+  close it. With an app-scoped HTTP client that is a leaked socket per ask. Invisible today
+  because nothing app-scoped here owns a resource, which is exactly why it is pinned now.
+* `setup_dishka` registers one middleware on every observer, each opening a scope on the
+  *root* container — so a message got two **sibling** scopes, not nested ones, and anything
+  resolving a session at update level would have had its own that nothing commits. A comment
+  claimed the opposite and claimed it had been verified; the verification had tested
+  something else. `ContextMiddleware` opens the one scope itself now, from `container()` read
+  per update — which also stops the dispatcher `api/telegram.py` caches for the life of the
+  process serving webhooks from a container closed at shutdown.
+* Three documentation defects: `session_scope` named as the cron tick's, the September
+  comment missing 2030, and three documents still describing the `setup_dishka` arrangement
+  after it had been replaced.
+
+The pass also confirmed four things that would otherwise have stayed assumptions: one session
+per request across every `@inject`ed dependency including the sync `_service`; the
+`MissingGreenlet` branch in `_touch_last_seen` still answering 200 after a failed commit; all
+68 routes carrying real response models with `app.openapi()` generating clean; and
+`/api/v1/health` still opening zero connections under the new ASGI middleware.
 
 **One defect found by the clock.** «📒 Неделя» in the diary took its Monday from
 `today - today.weekday()`, so on a Sunday it showed the six days that had just ended. It
@@ -129,21 +158,41 @@ The ones that would actually have been felt, one line each:
   horizon, with only a cold start to revive it;
 * the widget's «Дальше» column listed the lesson an assembly on screen had replaced.
 
-Two decisions were deliberately **left to the owner** rather than taken, and both are in
-section 7: the widget's tick cadence, and whether the diary credential should carry a bound.
+**What only the owner can do.** Three decisions were deliberately left rather than taken, two
+of them in section 7 — the widget's tick cadence, and whether the diary credential should
+carry a bound — and the third named in the merged pull request: whether the four API
+announcements that interpolate a person's text should carry `shorten`, which is a decision
+about what a notification ought to say rather than a defect. Beyond those, an APK on a real
+phone is the only thing that can settle the list below, and only the owner has one.
 
 Gates on the whole tree at `d330d68`, the last commit before the merge: `ruff` clean,
 `python -m mypy` clean across all 81 modules, `pytest -q -n auto` 1465 passed;
 `./gradlew test assembleDebug assembleRelease` successful with 709 Android tests across 90
 classes and 0 failures. CI was green on that head and on the four before it.
 
-**What nothing has verified.** None of the Android work has run on a real phone: the `304`
-path is a claim about battery that only a device can confirm, `BellRowsRotationTest` uses
-`StateRestorationTester`, which re-composes rather than killing the process, and «2 урока
-перестали звонить» has never been on a screen. The dishka wiring **has** now run on Vercel —
-see the warmup read above — but the 26 ms it adds to a cold start is still measured on a
-development machine rather than there, and that the webhook path
-still defers aiogram is read off the imports rather than timed there.
+**What nothing has verified**, and it is now on `main` rather than proposed:
+
+* **None of the Android work has run on a real phone.** The `304` path and the widget's
+  bounded read are claims about battery that only a device can confirm; what the first gives
+  up is written where the decision is — it trusts a `PendingIntent`'s existence as proof an
+  alarm stands, so a vendor battery manager that drops one and keeps the other is not healed
+  there. `BellRowsRotationTest` uses `StateRestorationTester`, which re-composes rather than
+  killing the process, so it proves the saver round-trips and not that the bundle survives a
+  real low-memory kill. «2 урока перестали звонить» has never been drawn.
+* **`BoundedSnapshotParityTest` reproduces the bound rather than driving the real
+  repository.** `CachedWindow` and the in-memory DAO are `internal` to `:core:data` and
+  Kotlin `internal` does not cross a Gradle module, so driving them from `:widget` would mean
+  adding `testFixtures` to another module's surface for one test. It is reproduced locally
+  the way `WidgetSizeClassTest` reproduces the launcher's rule; `CachedWindowTest` owns the
+  other half — that the repository implements that bound against the real DAO.
+* **The dishka wiring has now run on Vercel** — see the warmup read above, which is one
+  request and not a measurement. The 26 ms it adds to a cold start is still measured on a
+  development machine rather than there, and that the webhook path still defers aiogram is
+  read off the imports rather than timed there.
+* **The bot has not been driven end to end since the container moved under it.** Every
+  handler is covered by tests that call it directly with a session; nothing in the suite
+  feeds a real update through `build_dispatcher()`, so `ContextMiddleware` opening its own
+  scope is proven by unit tests and by reading, not by an update arriving from Telegram.
 
 Before this batch, after PRs #47, #48, #49, #50 and #51 were merged. The
 last of them is the agent configuration in `.claude/` and the whole written layer of the
