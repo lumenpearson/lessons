@@ -1632,8 +1632,17 @@ async def test_cron_tick_sweeps_the_phones_that_stopped_asking(
 
 
 def test_current_device_is_what_the_class_dependency_builds_on():
-    """One token lookup per request, however many dependencies ask."""
+    """One token lookup per request, however many dependencies ask.
+
+    Read through ``__dishka_orig_func__`` rather than off the name: both
+    dependencies take their session from the container now, which means both
+    are wrapped, and the wrapper's first local is ``args``. The question this
+    asks is about the function that was written, so it asks the function that
+    was written — the alternative is a test that passes because it stopped
+    looking at anything.
+    """
     from app.api import deps
 
+    written = deps.current_class.__dishka_orig_func__
     assert hash_token("x") != hash_token("y")
-    assert deps.current_class.__code__.co_varnames[:1] == ("device",)
+    assert written.__code__.co_varnames[:1] == ("device",)

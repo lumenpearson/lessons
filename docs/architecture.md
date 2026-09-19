@@ -29,10 +29,41 @@ app/
 ├── schedule.py    template + overrides -> concrete days   (no FastAPI, no aiogram)
 ├── schemas.py     the wire contract
 ├── security.py    tokens, join codes, phone normalisation
+├── di.py          the container both shells take a session from
 ├── api/           read-only client endpoints
 ├── bot/           aiogram routers, roles, keyboards, renderers
 └── main.py        FastAPI app; its lifespan owns the bot's polling task
 ```
+
+### One container, two shells
+
+A session used to be made in three places: a FastAPI dependency for an
+endpoint, `SessionLocal()` inside the bot's middleware, and `session_scope()`
+for the cron tick — three answers to one question, each with its own view of
+whether the caller or the maker commits. `app/di.py` is a
+[dishka](https://github.com/reagento/dishka) container holding what has a
+lifetime: the settings and the session factory for as long as the process runs,
+and one `AsyncSession` for as long as one HTTP request or one Telegram update.
+
+Dishka rather than FastAPI's own `Depends` for one reason: `Depends` cannot
+serve a bot handler, and this project is deliberately two thin shells over one
+implementation. An endpoint writes `session: FromDishka[AsyncSession]`; the
+bot's `ContextMiddleware` takes the session out of the scope
+`setup_dishka` opened on the dispatcher. Same provider, one definition.
+
+What it deliberately does *not* hold is written out at the top of the module:
+the engine, which is built at import so that an unusable `DATABASE_URL` fails
+at the door rather than on the first query, and the two providers' HTTP
+clients, which are already process-wide singletons closed in the lifespan.
+
+Two things to know before adding to it. The container is built with
+`STRICT_VALIDATION`, so declaring a second provider for a type that already has
+one is an error rather than a silent shadowing — a test that rigs a session
+writes `override=True` and says why. And `app/api/routing.py` exists because
+every module here uses postponed annotations: dishka's wrapper is compiled and
+carries its own globals, so FastAPI could not resolve an endpoint's `->
+Response` and took the name for a response model. The route class resolves the
+annotation before the wrapping.
 
 `schedule.py` is deliberately free of framework imports. It takes ORM rows and
 returns plain dataclasses, which is why its twenty-two tests run in two seconds

@@ -20,15 +20,16 @@ from datetime import date as Date
 from html import escape
 from typing import Any
 
+from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class, current_device
 from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START, _homework_out, _today
+from app.api.routing import DishkaAnnotatedRoute
 from app.bot.render import human_date
 from app.config import get_settings
-from app.db import get_session
 from app.models import (
     BellPeriod,
     BellSchedule,
@@ -61,7 +62,7 @@ from app.services import tasks as task_service
 
 log = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1", tags=["edit"])
+router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/api/v1", tags=["edit"])
 
 
 # --------------------------------------------------------------------------
@@ -69,9 +70,11 @@ router = APIRouter(prefix="/api/v1", tags=["edit"])
 # --------------------------------------------------------------------------
 
 
+@inject
 async def editor_device(
     device: DeviceToken = Depends(current_device),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DeviceToken:
     """The device, provided it is linked to an account that may edit.
 
@@ -151,7 +154,8 @@ async def homework_put(
     payload: HomeworkIn,
     device: DeviceToken = Depends(editor_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> HomeworkItemOut:
     """Upsert by (date, subject), exactly as the bot does: one assignment per
     subject per day, and sending it again replaces the text."""
@@ -193,7 +197,8 @@ async def homework_delete(
     homework_id: int,
     device: DeviceToken = Depends(editor_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DeletedOut:
     item = await session.scalar(
         select(Homework).where(Homework.id == homework_id, Homework.class_id == school_class.id)
@@ -300,7 +305,8 @@ async def override_put(
     payload: OverrideIn,
     device: DeviceToken = Depends(editor_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> OverrideOut:
     """One row per (date, lesson number). ``clear`` removes it, which is how
     a lesson goes back to the timetable."""
@@ -444,7 +450,8 @@ async def event_put(
     payload: EventIn,
     device: DeviceToken = Depends(editor_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> EventCreatedOut:
     """Events have no natural key - two «Обед» rows on one day are two breaks
     - so this always creates; ``DELETE`` is how one goes away."""
@@ -492,7 +499,8 @@ async def event_delete(
     event_id: int,
     device: DeviceToken = Depends(editor_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DeletedOut:
     event = await session.scalar(
         select(DayEvent).where(DayEvent.id == event_id, DayEvent.class_id == school_class.id)
@@ -538,7 +546,8 @@ async def day_put(
     payload: DayIn,
     device: DeviceToken = Depends(editor_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DayOverrideOut:
     """Mark a date as a holiday / shortened / remote day. ``normal`` deletes
     the mark, so a day never carries a row that says nothing."""

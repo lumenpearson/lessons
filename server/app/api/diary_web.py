@@ -38,14 +38,15 @@ from html import escape
 from typing import NamedTuple
 from urllib.parse import parse_qs
 
-from fastapi import APIRouter, Depends, Request
+from dishka.integrations.fastapi import FromDishka
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.routing import DishkaAnnotatedRoute
 from app.crypto import diary_enabled
-from app.db import get_session
 from app.models import DiaryLinkCode
 from app.providers.petersburg import BadCredentials, PetersburgError, UpstreamUnavailable
 from app.security import hash_token
@@ -54,7 +55,7 @@ from app.services import diary_link
 
 log = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/diary", tags=["diary-web"])
+router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/diary", tags=["diary-web"])
 
 _HEADERS = {
     "Referrer-Policy": "no-referrer",
@@ -157,7 +158,7 @@ def _form(code: str, error: str | None = None) -> HTMLResponse:
 
 @router.get("/signin/{code}", response_class=HTMLResponse)
 async def sign_in_form(
-    code: str, session: AsyncSession = Depends(get_session)
+    code: str, *, session: FromDishka[AsyncSession]
 ) -> HTMLResponse:
     """The form. The ticket is *checked* here but not spent — spending it on a
     GET would mean a link preview or a prefetch burned it before anybody typed
@@ -229,7 +230,8 @@ async def _fields(request: Request) -> tuple[str, str] | None:
 async def sign_in_submit(
     code: str,
     request: Request,
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> HTMLResponse:
     if not diary_enabled():
         return _closed("Дневник на этом сервере выключен.", status=503)

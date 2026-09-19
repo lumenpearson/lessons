@@ -12,6 +12,7 @@ import contextlib
 import logging
 from collections.abc import AsyncIterator
 
+from dishka.integrations.fastapi import setup_dishka
 from fastapi import FastAPI
 
 from app.api.cron import router as cron_router
@@ -22,6 +23,7 @@ from app.api.manage import router as manage_router
 from app.api.public import router as public_router
 from app.config import get_settings
 from app.db import engine, init_db
+from app.di import close_container, container
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -88,6 +90,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         await close_client()
         await close_directory()
+        # Last, and after the bot has stopped: a handler still running would
+        # otherwise be holding a session out of a container that has shut its
+        # own scopes.
+        await close_container()
 
 
 app = FastAPI(
@@ -96,6 +102,14 @@ app = FastAPI(
     description="School diary API and Telegram admin bot",
     lifespan=lifespan,
 )
+
+# At module scope rather than in the lifespan, because `setup_dishka` installs
+# an ASGI middleware and Starlette builds that stack once, on the first
+# request: a middleware added from inside the lifespan is added to a list
+# nothing reads again. The container itself builds nothing here — every
+# provider is lazy, and `Settings` is `get_settings()`, which has already been
+# called by `app.db` at import.
+setup_dishka(container(), app)
 app.include_router(public_router)
 # The electronic diary of Saint Petersburg, behind its own bearer and its own
 # prefix. Mounted unconditionally: it needs no configuration of ours, only a

@@ -17,6 +17,8 @@ from typing import Any
 from aiogram import BaseMiddleware
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.types import TelegramObject, User
+from dishka.integrations.aiogram import CONTAINER_NAME
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.roles import default_class_for, get_role, list_memberships
 from app.db import SessionLocal
@@ -82,21 +84,33 @@ class ContextMiddleware(BaseMiddleware):
     ) -> Any:
         user: User | None = data.get("event_from_user")
 
-        async with SessionLocal() as session:
-            data["session"] = session
-            data["school_class"] = None
-            data["role"] = None
+        # The session for this update comes from the container, whose REQUEST
+        # scope `setup_dishka` opened one step above this middleware — the same
+        # provider an endpoint gets one from, so «a session for one unit of
+        # work» has one definition instead of one per shell. It is closed when
+        # that scope exits, which is after the handler returns, so there is no
+        # `async with` here any more and must not be: closing it twice would
+        # close it once too early.
+        #
+        # The commit stays, because that half is *not* shared. An endpoint
+        # commits where it decides it is finished; for a handler this
+        # middleware is the finish line, and it has been since before there was
+        # a container.
+        session: AsyncSession = await data[CONTAINER_NAME].get(AsyncSession)
+        data["session"] = session
+        data["school_class"] = None
+        data["role"] = None
 
-            if user is not None:
-                school_class = await active_class(session, user.id)
-                data["school_class"] = school_class
-                if school_class is not None:
-                    data["role"] = await get_role(session, user.id, school_class.id)
+        if user is not None:
+            school_class = await active_class(session, user.id)
+            data["school_class"] = school_class
+            if school_class is not None:
+                data["role"] = await get_role(session, user.id, school_class.id)
 
-            try:
-                result = await handler(event, data)
-                await session.commit()
-                return result
-            except Exception:
-                await session.rollback()
-                raise
+        try:
+            result = await handler(event, data)
+            await session.commit()
+            return result
+        except Exception:
+            await session.rollback()
+            raise

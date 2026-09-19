@@ -6,13 +6,16 @@ a failing test, which means without these the next refactor silently undoes it.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 
 import httpx
 import pytest
+from dishka import Provider, Scope, make_async_container, provide
 from httpx import ASGITransport
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import Headers
 
 from app.api.public import (
@@ -22,6 +25,8 @@ from app.api.public import (
     join_limiter,
 )
 from app.config import get_settings
+from app.db import SessionLocal
+from app.di import DatabaseProvider, SettingsProvider, container
 from app.main import app
 from app.models import (
     BellPeriod,
@@ -30,11 +35,48 @@ from app.models import (
     DeviceToken,
     Role,
     SchoolClass,
+    Term,
     TimetableEntry,
 )
 from app.schemas import _clean_optional_text
 from app.security import JoinThrottle, client_bucket
 from app.services import device_invites
+from app.services import terms as terms_service
+
+
+class LosesTheSeedingRace(Provider):
+    """The container's own session provider, replaced for one request.
+
+    ``override=True`` is how dishka is told the collision is deliberate:
+    without it a second provider of the same type is a configuration error,
+    which is the behaviour worth having everywhere but here.
+
+    At module scope and not inside the test, because dishka reads a provider's
+    type hints with ``get_type_hints``, which cannot see a class declared in a
+    function body — the error it raises says so, and says to move it out.
+    """
+
+    def __init__(self, class_id: int, year: int) -> None:
+        super().__init__()
+        self._class_id = class_id
+        self._year = year
+
+    @provide(scope=Scope.REQUEST, override=True)
+    async def session(self) -> AsyncIterator[AsyncSession]:
+        async with SessionLocal() as db:
+            real_flush = db.flush
+
+            async def flush_once_a_rival_has_seeded(*args, **kwargs):
+                if any(isinstance(obj, Term) for obj in db.new):
+                    db.flush = real_flush
+                    async with SessionLocal() as rival:
+                        klass = await rival.get(SchoolClass, self._class_id)
+                        await terms_service.ensure(rival, klass, self._year)
+                        await rival.commit()
+                return await real_flush(*args, **kwargs)
+
+            db.flush = flush_once_a_rival_has_seeded
+            yield db
 
 
 @pytest.fixture
@@ -736,8 +778,6 @@ async def test_the_bundle_that_loses_the_seeding_race_still_answers_the_phone(
     `last_seen_at` is already written and committed by then, so the only
     statement in the window is the one the race is about.
     """
-    from app.db import SessionLocal, get_session
-    from app.models import Term
     from app.services import terms as terms_service
 
     token = await _token(client)
@@ -745,23 +785,10 @@ async def test_the_bundle_that_loses_the_seeding_race_still_answers_the_phone(
     year = terms_service.opening_year_of(start)
     class_id = school_class.id
 
-    async def a_session_that_loses_the_race():
-        async with SessionLocal() as db:
-            real_flush = db.flush
-
-            async def flush_once_a_rival_has_seeded(*args, **kwargs):
-                if any(isinstance(obj, Term) for obj in db.new):
-                    db.flush = real_flush
-                    async with SessionLocal() as rival:
-                        klass = await rival.get(SchoolClass, class_id)
-                        await terms_service.ensure(rival, klass, year)
-                        await rival.commit()
-                return await real_flush(*args, **kwargs)
-
-            db.flush = flush_once_a_rival_has_seeded
-            yield db
-
-    app.dependency_overrides[get_session] = a_session_that_loses_the_race
+    rigged = make_async_container(
+        SettingsProvider(), DatabaseProvider(), LosesTheSeedingRace(class_id, year)
+    )
+    app.state.dishka_container = rigged
     try:
         response = await client.get(
             "/api/v1/bundle",
@@ -769,7 +796,8 @@ async def test_the_bundle_that_loses_the_seeding_race_still_answers_the_phone(
             headers={"Authorization": f"Bearer {token}"},
         )
     finally:
-        app.dependency_overrides.pop(get_session)
+        app.state.dishka_container = container()
+        await rigged.close()
 
     assert response.status_code == 200, response.text
     served = response.json()["school_class"]["terms"]

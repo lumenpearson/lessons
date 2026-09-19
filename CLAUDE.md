@@ -90,8 +90,22 @@ Server modules:
 - `models.py` — the whole SQLAlchemy 2.0 domain in one file
 - `schedule.py` — template + overrides → concrete days. No FastAPI, no aiogram imports, and
   it must stay that way: that is why its tests run in seconds
+- `di.py` — the dishka container both shells draw from: `Settings` and the session
+  factory at app scope, one `AsyncSession` per HTTP request or Telegram update. An
+  endpoint asks with `session: FromDishka[AsyncSession]`; the bot's `ContextMiddleware`
+  takes it out of the scope `setup_dishka` opened on the dispatcher, and still commits
+  there, because for a handler that is the finish line. It is built with
+  `STRICT_VALIDATION`, so a second provider for a type is an error rather than a silent
+  shadowing. Do **not** import `dishka.integrations.aiogram` from it — that pulls aiogram
+  onto the cold-start path of every request, which is the thing `main.py` and
+  `api/telegram.py` already go out of their way to defer
 - `api/` — `public.py` (read), `edit.py` and `manage.py` (write), `diary.py`, `cron.py`,
-  `telegram.py` (webhook), `deps.py` (device-token auth)
+  `telegram.py` (webhook), `deps.py` (device-token auth), `routing.py` (the route class
+  every router here is built with: dishka's wrapper carries its own globals, so under
+  `from __future__ import annotations` FastAPI could not resolve an endpoint's
+  `-> Response` and took the name for a response model — a 204 route made that an
+  `AssertionError` at import, and every route without an explicit `response_model=` would
+  have had a schema built from a string)
 - `bot/` — aiogram routers, roles, keyboards, renderers. The weekly template has **two**
   editors and both are wanted: `handlers/timetable.py` pastes a whole weekday (fastest way
   to enter a term), `handlers/editor.py` changes one lesson with buttons. They share one

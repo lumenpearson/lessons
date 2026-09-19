@@ -16,17 +16,19 @@ from datetime import UTC, datetime, timedelta
 from hmac import compare_digest
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from dishka.integrations.fastapi import FromDishka
+from fastapi import APIRouter, Header, HTTPException, status
 from sqlalchemy import delete, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.routing import DishkaAnnotatedRoute
 from app.config import get_settings
-from app.db import SessionLocal, get_session, rows_affected
+from app.db import SessionLocal, rows_affected
 from app.models import DeviceToken, DiarySession, JoinAttempt
 from app.schemas import TickOut
 from app.services import device_invites, diary_link, reminders
 
-router = APIRouter(prefix="/api/v1", tags=["cron"])
+router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/api/v1", tags=["cron"])
 
 # Failed join attempts older than the throttle's window count for nothing.
 # The limiter prunes them itself on every failure it records; this sweep is
@@ -132,7 +134,8 @@ async def _purge_device_tokens(session: AsyncSession) -> int:
 
 async def tick(
     x_cron_secret: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> TickOut:
     """Verify the caller, then run one tick.
 
