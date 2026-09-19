@@ -19,15 +19,12 @@ import com.lumenpearson.lessons.core.data.locale.AppLocale
 import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.DeepLink
-import com.lumenpearson.lessons.core.model.ScheduleEngine
 import com.lumenpearson.lessons.core.model.SchoolDay
 import com.lumenpearson.lessons.core.model.Timetable
 import com.lumenpearson.lessons.widget.ui.DayLoad
 import com.lumenpearson.lessons.widget.ui.LessonsWidgetBody
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.temporal.TemporalAdjusters
 import kotlinx.coroutines.flow.first
 
 /**
@@ -148,9 +145,6 @@ class LessonsWidget : GlanceAppWidget() {
 
     private companion object {
 
-        /** Monday through Sunday; the week strip has no other shape. */
-        const val DAYS_IN_WEEK = 7
-
         /**
          * The activity a tap opens, addressed by name.
          *
@@ -192,7 +186,13 @@ class LessonsWidget : GlanceAppWidget() {
      */
     private suspend fun loadSnapshot(context: Context): Snapshot {
         val container = Graph.container
-        val timetable: Timetable? = container.timetableRepository.snapshot()
+        // The fortnight around today, not the school year. Every date this
+        // render asks about is inside that bound — `snapshotOf` lists them —
+        // and the one that is not, «what is the next school day», is carried
+        // across it as the timetable's `nextSchoolDay`. The difference is some
+        // two hundred days of lessons, events and homework read off Room on
+        // every redraw, and a redraw happens on every tick of a countdown.
+        val timetable: Timetable? = container.timetableRepository.snapshotAroundToday()
         val settings = container.settingsRepository.settings.first()
         val signedIn = container.sessionRepository.current() != null
 
@@ -202,19 +202,10 @@ class LessonsWidget : GlanceAppWidget() {
         // device clock: only when there is no timetable at all.
         val now = timetable?.nowAtSchool() ?: LocalDateTime.now()
 
-        val state = timetable?.let { ScheduleEngine.stateAt(it, now) }
-        val monday = now.toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        return Snapshot(
+        return snapshotOf(
+            timetable = timetable,
             now = now,
-            state = state,
             signedIn = signedIn,
-            week = (0 until DAYS_IN_WEEK).map { offset ->
-                val date = monday.plusDays(offset.toLong())
-                DayLoad(date = date, lessons = timetable?.day(date)?.activeLessons?.size ?: 0)
-            },
-            today = timetable?.day(now.toLocalDate()),
-            homeworkDay = homeworkDayFor(state, timetable, now.toLocalDate()),
-            language = settings.language,
             options = WidgetOptions(
                 showProgress = settings.widgetShowProgress,
                 showTeacher = settings.showTeacher,
@@ -224,6 +215,7 @@ class LessonsWidget : GlanceAppWidget() {
                 // same choice, so they are wired as one.
                 showRoom = !settings.showTeacher,
             ),
+            language = settings.language,
         )
     }
 }
