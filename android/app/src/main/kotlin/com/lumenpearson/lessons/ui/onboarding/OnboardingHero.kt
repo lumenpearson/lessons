@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -38,9 +39,7 @@ import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -52,11 +51,16 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
+import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
+import kotlin.math.floor
 import kotlinx.coroutines.delay
 
 /** How tall the strip is on the steps that show it. */
@@ -168,25 +172,26 @@ internal fun OnboardingHero(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun StepBadge(step: OnboardingStep) {
-    // Two pieces of state rather than one: the shape being left and the shape
-    // being arrived at. Holding only the target would restart the morph from
-    // the *new* shape on a recomposition, which looks like a stutter.
-    var from by remember { mutableStateOf(badgeShape(step)) }
-    var to by remember { mutableStateOf(badgeShape(step)) }
-    var rendered by remember { mutableStateOf(step) }
-    val progress = remember { Animatable(1f) }
+    // One continuous position along the steps rather than a morph restarted at
+    // each change, and that is a fix rather than a preference. Restarting means
+    // snapping the outline to the step just left and animating on from there,
+    // so a second press inside the 420 ms — which on a first-run flow is an
+    // ordinary thing to do — makes the shape jump backwards before it moves
+    // forwards. The reference has exactly that; `animateFloatAsState` retargets
+    // from wherever the value currently is, so an interrupted morph carries on
+    // from the outline actually on screen, and going back a step is the same
+    // movement in reverse for free.
+    val position by animateFloatAsState(
+        targetValue = step.ordinal.toFloat(),
+        animationSpec = tween(MorphMillis),
+        label = "onboarding_badge_position",
+    )
+    val steps = OnboardingStep.entries
+    val lower = floor(position).toInt().coerceIn(0, steps.lastIndex)
+    val upper = (lower + 1).coerceAtMost(steps.lastIndex)
 
-    LaunchedEffect(step) {
-        if (step != rendered) {
-            from = badgeShape(rendered)
-            to = badgeShape(step)
-            rendered = step
-            progress.snapTo(0f)
-            progress.animateTo(targetValue = 1f, animationSpec = tween(MorphMillis))
-        }
-    }
-
-    val morph = remember(from, to) { Morph(from, to) }
+    val morph = remember(lower, upper) { Morph(badgeShape(steps[lower]), badgeShape(steps[upper])) }
+    val progress = (position - lower).coerceIn(0f, 1f)
     val path = remember { Path() }
     val container = MaterialTheme.colorScheme.primaryContainer
 
@@ -201,11 +206,11 @@ private fun StepBadge(step: OnboardingStep) {
     ) {
         Canvas(Modifier.size(BadgeSize)) {
             drawBadge(
-                path = morph.toPath(progress.value, path),
+                path = morph.toPath(progress, path),
                 diameter = size.minDimension,
                 // A few degrees of turn while it morphs, so the change reads as
                 // one movement rather than as an outline being redrawn.
-                rotation = -6f + 8f * progress.value,
+                rotation = -6f + 8f * progress,
                 color = container,
             )
         }
@@ -240,22 +245,39 @@ private fun StepBadge(step: OnboardingStep) {
  */
 @Composable
 private fun StepDots(step: OnboardingStep) {
+    val counted = OnboardingStep.entries.filter { it != OnboardingStep.JOIN }
+    // On the join step the strip is collapsing, and `step` is no longer one of
+    // the dots: without this the stretched bar would shrink back to a dot on
+    // the way out, which reads as the flow having gone backwards at the very
+    // moment it finished. It stays on the last step it belonged to.
+    val marked = if (step == OnboardingStep.JOIN) counted.last() else step
+    val label = correctedString(
+        R.string.onboarding_step_of,
+        marked.ordinal + 1,
+        counted.size,
+    )
+
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.clearAndSetSemantics {},
+        // One description for the row, not one per dot. Hiding it outright —
+        // which is what this did first, and what the reference does — leaves a
+        // screen reader with no way to know how far along the flow is: the
+        // title says what the step is about, never which of how many it is.
+        modifier = Modifier.semantics(mergeDescendants = true) {
+            contentDescription = label
+        },
     ) {
-        OnboardingStep.entries
-            .filter { it != OnboardingStep.JOIN }
+        counted
             .forEach { entry ->
-                val current = entry == step
+                val current = entry == marked
                 val width by animateDpAsState(
                     targetValue = if (current) CurrentDotWidth else DotSize,
                     animationSpec = tween(MorphMillis),
                     label = "onboarding_dot_width",
                 )
                 val colour by animateColorAsState(
-                    targetValue = if (entry.ordinal <= step.ordinal) {
+                    targetValue = if (entry.ordinal <= marked.ordinal) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.surfaceContainerHighest

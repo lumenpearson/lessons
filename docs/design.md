@@ -1114,6 +1114,35 @@ What was left behind is the rest of that screen: the orbiting accent shapes, the
 depth maths. They belong to an app whose first run is four screens of its own artwork; this one
 is a school timetable, and one shape is the whole decoration it wants.
 
+### What the borrowed code got wrong, and was not copied
+
+Reading it closely turned up three things worth not repeating.
+
+**A morph restarted at each step jumps when it is interrupted.** The reference keeps the two
+shapes in state, snaps the progress to zero on every change and animates on from there — so a
+second press inside the animation's 420 ms rebuilds the morph from the step just *left*, and
+the outline visibly jumps backwards before it moves forwards. On a first-run flow, pressing
+"next" twice quickly is an ordinary thing to do. Here the morph is driven by one continuous
+position along the steps instead (`animateFloatAsState` towards `step.ordinal`, with the pair
+of shapes picked by its floor and the fraction by its remainder): retargeting carries on from
+the value on screen rather than restarting, so an interrupted change keeps the outline it
+already had, and going back a step is the same movement in reverse without a second code path.
+
+**Nothing announced the step.** The reference's progress row has no content description and
+neither did the first version of ours, on the reasoning that the title under it says what the
+step is. It does not: it says what the step is *about*, never which of how many it is. The row
+now carries one merged description — «Шаг 2 из 4» — rather than being hidden, and the dots stay
+decorative inside it.
+
+**`OnboardingReveal`'s `Modifier.layout` does nothing.** It measures the child and places it at
+(0, 0), which is what the `Box` around it already does. It is not ported. The
+`graphicsLayer` beside it is the part that does the work.
+
+One more was ours alone: on the join step the strip is collapsing and the current step is no
+longer one of the dots, so the stretched bar shrank back to a dot on the way out — the flow
+appearing to go backwards at the moment it finished. The last introduction step stays marked
+while the strip leaves.
+
 **One rule was given up for it.** `StepScaffold` used to carry the status-bar inset itself, so
 that a long step scrolled up under the clock rather than stopping short of it. The strip is now
 the top of the page, so the strip carries the inset and it is the strip that passes under the

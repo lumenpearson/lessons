@@ -103,6 +103,16 @@ enum class OnboardingStep {
 private const val StepTransitionMillis = 400
 
 /**
+ * How far behind its title a step's first block arrives.
+ *
+ * Short on purpose. The point is that the eye is given the heading before
+ * the controls under it, not that the page is assembled in front of the
+ * user: anything long enough to notice as a sequence reads as the screen
+ * being slow.
+ */
+private const val RevealStagger = 90
+
+/**
  * The first-run flow.
  *
  * There is no navigation graph behind it and no view model of its own: the step
@@ -291,34 +301,36 @@ private fun WelcomeStep(
 
         Spacer(Modifier.height(40.dp))
 
-        RoundedCardContainer {
-            ThemeRevealAnchor { reveal ->
+        OnboardingReveal(delayMillis = RevealStagger) {
+            RoundedCardContainer {
+                ThemeRevealAnchor { reveal ->
+                    GroupSegmentedItem(
+                        title = correctedString(R.string.settings_theme_mode),
+                        icon = Icons.Rounded.Contrast,
+                        tone = accentTone(4),
+                        items = ThemeMode.entries,
+                        selectedItem = state.settings.themeMode,
+                        onItemSelected = { mode -> reveal { viewModel.setThemeMode(mode) } },
+                        labelProvider = { mode -> correctedString(mode.labelRes) },
+                    )
+                }
+                // In the same card as the theme rather than a card of its own: the
+                // two are one question — "how should this look and read to me" —
+                // asked before anything else, and a second card would give a screen
+                // whose whole job is a mark and a greeting two separate blocks to
+                // read. No subtitle either, unlike the settings page: «Системный» is
+                // one of the three labels right beside it, so the sentence that
+                // explains it there would only be repeating a word that is visible.
                 GroupSegmentedItem(
-                    title = correctedString(R.string.settings_theme_mode),
-                    icon = Icons.Rounded.Contrast,
-                    tone = accentTone(4),
-                    items = ThemeMode.entries,
-                    selectedItem = state.settings.themeMode,
-                    onItemSelected = { mode -> reveal { viewModel.setThemeMode(mode) } },
-                    labelProvider = { mode -> correctedString(mode.labelRes) },
+                    title = correctedString(R.string.settings_language),
+                    icon = Icons.Rounded.Language,
+                    tone = accentTone(1),
+                    items = AppLanguage.entries,
+                    selectedItem = state.settings.language,
+                    onItemSelected = viewModel::setLanguage,
+                    labelProvider = { language -> correctedString(language.labelRes) },
                 )
             }
-            // In the same card as the theme rather than a card of its own: the
-            // two are one question — "how should this look and read to me" —
-            // asked before anything else, and a second card would give a screen
-            // whose whole job is a mark and a greeting two separate blocks to
-            // read. No subtitle either, unlike the settings page: «Системный» is
-            // one of the three labels right beside it, so the sentence that
-            // explains it there would only be repeating a word that is visible.
-            GroupSegmentedItem(
-                title = correctedString(R.string.settings_language),
-                icon = Icons.Rounded.Language,
-                tone = accentTone(1),
-                items = AppLanguage.entries,
-                selectedItem = state.settings.language,
-                onItemSelected = viewModel::setLanguage,
-                labelProvider = { language -> correctedString(language.labelRes) },
-            )
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -454,49 +466,51 @@ private fun PreferencesStep(
         }
         Spacer(Modifier.height(24.dp))
 
-        AccentSection(title = correctedString(R.string.onboarding_group_app)) {
-            GroupSwitchItem(
-                title = correctedString(R.string.settings_haptics),
-                subtitle = correctedString(R.string.settings_haptics_description),
-                icon = Icons.Rounded.Vibration,
-                tone = accentTone(2),
-                checked = state.settings.hapticsEnabled,
-                onCheckedChange = viewModel::setHapticsEnabled,
-            )
-            GroupSwitchItem(
-                title = correctedString(R.string.settings_dynamic_color),
-                subtitle = if (SupportsDynamicColor) {
-                    correctedString(R.string.settings_dynamic_color_description)
-                } else {
-                    correctedString(R.string.settings_dynamic_color_unavailable)
-                },
-                icon = Icons.Rounded.Palette,
-                tone = accentTone(0),
-                checked = state.settings.dynamicColor && SupportsDynamicColor,
-                enabled = SupportsDynamicColor,
-                onCheckedChange = viewModel::setDynamicColor,
-            )
-            GroupSwitchItem(
-                title = correctedString(R.string.settings_pitch_black),
-                subtitle = correctedString(R.string.settings_pitch_black_description),
-                icon = Icons.Rounded.DarkMode,
-                tone = accentTone(5),
-                checked = state.settings.pitchBlack,
-                onCheckedChange = viewModel::setPitchBlack,
-            )
-            GroupSwitchItem(
-                title = correctedString(R.string.settings_edge_blur),
-                subtitle = if (SupportsShaders) {
-                    correctedString(R.string.settings_edge_blur_description)
-                } else {
-                    correctedString(R.string.settings_blur_unavailable)
-                },
-                icon = Icons.Rounded.BlurLinear,
-                tone = accentTone(1),
-                checked = state.settings.edgeBlur && SupportsShaders,
-                enabled = SupportsShaders,
-                onCheckedChange = viewModel::setEdgeBlur,
-            )
+        OnboardingReveal(delayMillis = RevealStagger) {
+            AccentSection(title = correctedString(R.string.onboarding_group_app)) {
+                GroupSwitchItem(
+                    title = correctedString(R.string.settings_haptics),
+                    subtitle = correctedString(R.string.settings_haptics_description),
+                    icon = Icons.Rounded.Vibration,
+                    tone = accentTone(2),
+                    checked = state.settings.hapticsEnabled,
+                    onCheckedChange = viewModel::setHapticsEnabled,
+                )
+                GroupSwitchItem(
+                    title = correctedString(R.string.settings_dynamic_color),
+                    subtitle = if (SupportsDynamicColor) {
+                        correctedString(R.string.settings_dynamic_color_description)
+                    } else {
+                        correctedString(R.string.settings_dynamic_color_unavailable)
+                    },
+                    icon = Icons.Rounded.Palette,
+                    tone = accentTone(0),
+                    checked = state.settings.dynamicColor && SupportsDynamicColor,
+                    enabled = SupportsDynamicColor,
+                    onCheckedChange = viewModel::setDynamicColor,
+                )
+                GroupSwitchItem(
+                    title = correctedString(R.string.settings_pitch_black),
+                    subtitle = correctedString(R.string.settings_pitch_black_description),
+                    icon = Icons.Rounded.DarkMode,
+                    tone = accentTone(5),
+                    checked = state.settings.pitchBlack,
+                    onCheckedChange = viewModel::setPitchBlack,
+                )
+                GroupSwitchItem(
+                    title = correctedString(R.string.settings_edge_blur),
+                    subtitle = if (SupportsShaders) {
+                        correctedString(R.string.settings_edge_blur_description)
+                    } else {
+                        correctedString(R.string.settings_blur_unavailable)
+                    },
+                    icon = Icons.Rounded.BlurLinear,
+                    tone = accentTone(1),
+                    checked = state.settings.edgeBlur && SupportsShaders,
+                    enabled = SupportsShaders,
+                    onCheckedChange = viewModel::setEdgeBlur,
+                )
+            }
         }
 
         Spacer(Modifier.height(GroupSpacing))
@@ -578,13 +592,15 @@ private fun PermissionsStep(
         }
         Spacer(Modifier.height(24.dp))
 
-        prompts.states.forEachIndexed { index, state ->
-            if (index > 0) Spacer(Modifier.height(GroupSpacing))
-            RoundedCardContainer {
-                PermissionCard(state = state, onAct = { prompts.act(state) })
+        OnboardingReveal(delayMillis = RevealStagger) {
+            prompts.states.forEachIndexed { index, state ->
+                if (index > 0) Spacer(Modifier.height(GroupSpacing))
+                RoundedCardContainer {
+                    PermissionCard(state = state, onAct = { prompts.act(state) })
+                }
             }
-        }
 
+        }
         Spacer(Modifier.height(24.dp))
     }
 }

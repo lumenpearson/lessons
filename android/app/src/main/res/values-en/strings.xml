@@ -23,6 +23,7 @@
     <string name="action_back">Back</string>
 
     <!-- First run -->
+    <string name="onboarding_step_of">Step %1$d of %2$d</string>
     <string name="onboarding_welcome_title">Welcome to %1$s</string>
     <string name="onboarding_welcome_subtitle">Your class timetable, its substitutions and its homework — in the app and on the home screen.</string>
     <string name="onboarding_action_begin">Let\'s begin</string>
