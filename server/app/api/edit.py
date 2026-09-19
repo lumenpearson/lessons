@@ -259,8 +259,10 @@ async def _refuse_if_no_lesson_can_be_drawn(
         # year that is *about to open*, so June, July and August come back
         # already before ``year_start`` — and so do the first days of
         # September in a year where the 1st is a Saturday, because
-        # ``school_year_start`` moves the first teaching day off a weekend.
-        # 2029 and 2035 are the next two. The month is what tells them apart.
+        # ``school_year_start`` moves the first teaching day off a weekend —
+        # a Saturday 1st pushes to the 3rd, a Sunday 1st to the 2nd, and both
+        # land here. The next four are 2029, 2030, 2035 and 2040. The month is
+        # what tells them apart from the summer.
         #
         # It mattered because the one sentence they shared said «эта дата вне
         # учебного года … для летних дел есть события» — which on «1 сентября»

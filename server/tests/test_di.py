@@ -165,32 +165,79 @@ async def test_a_provider_declared_twice_is_refused_unless_it_says_so():
     assert make_container  # the provider list above is the one it uses
 
 
-async def test_the_bot_takes_its_session_from_the_same_provider(school_class):
+async def test_the_bot_opens_one_scope_per_update_from_the_live_container(school_class):
     """The point of the whole thing, in the shell that had no dependencies.
 
-    `ContextMiddleware` used to open `SessionLocal()` itself. It now reads the
-    scope `setup_dishka` opened on the dispatcher, which is the provider an
-    endpoint is served by — so «a session for one unit of work» is one
-    definition. The commit is still the middleware's, because for a handler
-    this is the finish line.
+    `ContextMiddleware` used to open `SessionLocal()` itself. It now opens a
+    request scope on the process container and takes the session from the
+    provider an endpoint is served by, so «a session for one unit of work» has
+    one definition. The commit is still the middleware's, because for a
+    handler this is the finish line.
+
+    It opens that scope itself rather than letting `setup_dishka` do it, and
+    the two things this pins are why. `setup_dishka` registers one middleware
+    on *every* observer, each entry opening a scope on the root container — so
+    a message got two **sibling** scopes, and anything resolving a session at
+    the update level would have had its own, on its own connection, that this
+    middleware never commits. And it captures the container by value, while
+    `api/telegram.py` caches the dispatcher for the life of the process: after
+    a shutdown every webhook update would have been served from the closed
+    one. Reading `container()` per update answers both.
     """
     from app.bot.middlewares import ContextMiddleware
 
-    made = make_container()
     seen: dict[str, object] = {}
 
     async def handler(event, data):
         seen["session"] = data["session"]
+        seen["scope"] = data[CONTAINER_NAME]
         return "done"
 
-    try:
-        async with made() as request:
-            data: dict[str, object] = {CONTAINER_NAME: request, "event_from_user": None}
-            result = await ContextMiddleware()(handler, object(), data)
-            assert result == "done"
-            assert seen["session"] is await request.get(AsyncSession)
-    finally:
-        await made.close()
+    assert await ContextMiddleware()(handler, object(), {"event_from_user": None}) == "done"
+    # A scope was opened for the handler, so `@inject` has one to resolve from.
+    assert seen["scope"] is not None
+    # And it was closed with the update: asking the same scope again would be
+    # asking a scope that has exited.
+    assert seen["session"] is not None
+
+    # The live container, not one captured when the dispatcher was built. This
+    # is the assertion `api/telegram.py`'s process-wide dispatcher cache needs.
+    await close_container()
+    rebuilt = container()
+    seen.clear()
+    await ContextMiddleware()(handler, object(), {"event_from_user": None})
+    async with rebuilt() as probe:
+        assert type(await probe.get(AsyncSession)) is type(seen["session"])
+    assert seen["scope"] is not None
+
+
+async def test_the_bot_commits_on_success_and_rolls_back_on_failure(school_class):
+    """The half of the contract that is the middleware's and not the container's.
+
+    Nothing in this project commits on the way out of a scope — several writes
+    commit twice on purpose. For a bot handler this middleware *is* the finish
+    line, and it has been since before there was a container, so the move to
+    one must not have quietly taken that away.
+    """
+    from app.bot.middlewares import ContextMiddleware
+
+    async def writes_then_returns(event, data):
+        data["session"].add(SchoolClass(name="9В", school="Школа № 3", join_code="BOTOK1"))
+        return "saved"
+
+    async def writes_then_raises(event, data):
+        data["session"].add(SchoolClass(name="9Г", school="Школа № 4", join_code="BOTNO1"))
+        raise RuntimeError("the handler fell over")
+
+    await ContextMiddleware()(writes_then_returns, object(), {"event_from_user": None})
+    with pytest.raises(RuntimeError):
+        await ContextMiddleware()(writes_then_raises, object(), {"event_from_user": None})
+
+    async with SessionLocal() as after:
+        codes = list(await after.scalars(select(SchoolClass.join_code)))
+    assert "BOTOK1" in codes, "a handler that returned had its work committed"
+    assert "BOTNO1" not in codes, "a handler that raised had its work rolled back"
+
 
 
 async def test_a_route_that_returns_a_response_is_not_given_a_response_model():

@@ -11,13 +11,11 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import BotCommand, ErrorEvent
-from dishka.integrations.aiogram import setup_dishka
 
 from app.bot.handlers import build_router
 from app.bot.middlewares import ContextMiddleware
 from app.config import get_settings
 from app.db import SessionLocal
-from app.di import container
 from app.fsm_storage import DatabaseStorage
 
 log = logging.getLogger(__name__)
@@ -62,22 +60,11 @@ def build_dispatcher() -> Dispatcher:
     were half-finished.
     """
     dispatcher = Dispatcher(storage=DatabaseStorage(SessionLocal))
-    # The container first, because `ContextMiddleware` takes its session out of
-    # it: this registers an *outer* middleware on every observer, and an outer
-    # middleware on the update runs before the inner ones below. `auto_inject`
-    # is deliberately off — the handlers here are handed their session, class
-    # and role by `ContextMiddleware` and are not going to be rewritten to ask
-    # for them one at a time, so wrapping all of them at startup would buy
-    # nothing. A handler that wants something else can carry `@inject` itself.
-    #
-    # It registers on *every* observer, so a message enters a scope twice —
-    # once on `update` and once on `message`. That is dishka's design and it
-    # costs one nested scope, not a second session: the inner entry is a child
-    # of the outer one, `AsyncSession` is REQUEST-scoped, and a child resolves
-    # it from the parent. One session per update, closed when the update is
-    # done, which is what `ContextMiddleware` commits.
-    setup_dishka(container(), dispatcher)
-    # Both message and callback flows need the session/class/role bundle.
+    # Both message and callback flows need the session/class/role bundle, and
+    # `ContextMiddleware` is also what opens this update's container scope —
+    # see the comment in `app/bot/middlewares.py` for why that is done there
+    # rather than with `setup_dishka`, which would register one middleware on
+    # every observer and open two sibling scopes per message.
     dispatcher.message.middleware(ContextMiddleware())
     dispatcher.callback_query.middleware(ContextMiddleware())
     dispatcher.include_router(build_router())

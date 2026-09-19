@@ -196,17 +196,22 @@ async def lessons_silenced_by(
     """The template rows that stop ringing *because of this change*.
 
     [orphaned_lessons] answers «which rows does this set of bells not cover»,
-    which is the right question when a schedule's own rows are rewritten: what
-    it did not cover a moment ago it was covering, because it is the same
-    schedule. It is the wrong question when the class is pointed at a
-    *different* schedule, and the difference is not academic — a class whose
-    default was shrunk at some point has rows that were already silent, and
-    counting those again said «перестали звонить уроков: 1» when the admin
-    moved to a schedule ringing exactly the same numbers, and said it again
-    when they moved to one ringing strictly more.
+    which is a *state*. Every caller of either function is writing a sentence
+    about an *event* — «перестали звонить уроков: N», and `silenced_lessons`
+    in the API's reply — and the two come apart wherever a row can be silent
+    already.
+
+    This docstring used to say the two agreed when a schedule's own rows were
+    rewritten, «because it is the same schedule», and that was wrong: nothing
+    deletes an orphaned row. It is reported and left exactly where it is, so
+    the next write over that schedule finds it again. Saving the same rows
+    twice claimed the same lessons had stopped ringing twice, and so did
+    moving one bell by five minutes.
 
     So the rows counted here are the ones the new bells miss *and* the old
-    bells rang. A row nobody was going to hear either way is not news.
+    bells rang. A row nobody was going to hear either way is not news, whether
+    the bells moved because a schedule was rewritten or because the class was
+    pointed at another one.
     """
     lost = was_rung - now_rung
     if not lost:
@@ -237,14 +242,32 @@ async def write_bell_periods(
     particular day points at affects that day, and the day is a different
     question from the weekly template.
     """
-    orphaned: list[tuple[int, int]] = []
+    silenced: list[tuple[int, int]] = []
     if schedule.class_id is not None and schedule.id is not None:
         default_of = await session.scalar(
             select(SchoolClass.bell_schedule_id).where(SchoolClass.id == schedule.class_id)
         )
         if default_of == schedule.id:
-            orphaned = await orphaned_lessons(
-                session, schedule.class_id, {index for index, _, _ in rows}
+            # What this schedule rings now, read before the rows are replaced,
+            # against what it is about to ring. [lessons_silenced_by] and not
+            # [orphaned_lessons]: the second answers «which rows do these bells
+            # miss», which is a state, and this function's answer goes into a
+            # sentence about an event — «перестали звонить уроков: N» in the
+            # log, and `silenced_lessons` in the API's reply.
+            #
+            # The two come apart because nothing here *deletes* an orphaned
+            # row. It is reported and left where it is, so the next write over
+            # the same schedule finds it again and says the same sentence about
+            # a write that took nothing away. Saving the same six rows twice
+            # claimed two lessons had stopped ringing, twice; so did nudging
+            # one bell by five minutes.
+            was_rung = set(
+                await session.scalars(
+                    select(BellPeriod.index).where(BellPeriod.schedule_id == schedule.id)
+                )
+            )
+            silenced = await lessons_silenced_by(
+                session, schedule.class_id, was_rung, {index for index, _, _ in rows}
             )
 
     await session.execute(sa_delete(BellPeriod).where(BellPeriod.schedule_id == schedule.id))
@@ -252,7 +275,7 @@ async def write_bell_periods(
         session.add(
             BellPeriod(schedule_id=schedule.id, index=index, starts_at=start, ends_at=end)
         )
-    return orphaned
+    return silenced
 
 
 async def lessons_per_weekday(

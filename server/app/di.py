@@ -37,6 +37,14 @@ nothing about when it is opened or closed. The engine itself stays in
 makes a missing or unusable ``DATABASE_URL`` fail at import rather than on the
 first query, and :mod:`app.config` refuses at that same door. A container built
 later cannot move that check earlier.
+
+And :class:`app.fsm_storage.DatabaseStorage` opens sessions of its own, from
+``SessionLocal``, inside request paths — every bot update and the cron tick's
+``_purge_fsm``. It is the one thing a grep for a second answer finds, so it is
+named here rather than left to be discovered: it takes a *factory* by design,
+because a conversation's state has to be durable independently of whatever
+transaction the handler is in the middle of, and it is the only thing in this
+project whose session is deliberately not the unit of work's.
 """
 
 from __future__ import annotations

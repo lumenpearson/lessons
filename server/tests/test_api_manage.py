@@ -1031,6 +1031,68 @@ async def test_the_caller_is_told_what_its_own_write_stopped_ringing(
     assert renamed.json()["silenced_lessons"] == 0
 
 
+async def test_a_write_that_took_nothing_away_does_not_say_it_did(
+    client, session, school_class
+):
+    """«Перестали звонить уроков: N» is a sentence about this write.
+
+    `write_bell_periods` asked `orphaned_lessons` — «which rows do these bells
+    not cover» — which is a *state*, and then put the answer into a sentence
+    about an *event*, in the audit log and in `silenced_lessons`. The two come
+    apart because nothing deletes an orphaned row: it is reported and left
+    where it is, so the next write over the same schedule finds it again.
+
+    Saving the same rows twice therefore claimed the same lessons had stopped
+    ringing twice, and so did nudging one bell by five minutes — while the
+    *other* way of losing lessons, moving the class to a different schedule,
+    had already been taught to answer about the change rather than the state.
+    One feature, two answers.
+    """
+    token = await _admin(client, session, school_class)
+    default_id = (await client.get("/api/v1/manage/bells", headers=_auth(token))).json()[0]["id"]
+
+    # The fixture's Monday carries lessons 1, 2 and 3. Ring only the first two.
+    rows = [
+        {"index": 1, "starts_at": "08:30", "ends_at": "09:10"},
+        {"index": 2, "starts_at": "09:20", "ends_at": "10:00"},
+    ]
+
+    async def write(periods):
+        answer = await client.put(
+            f"/api/v1/manage/bells/{default_id}/periods",
+            json={"periods": periods},
+            headers=_auth(token),
+        )
+        assert answer.status_code == 200, answer.text
+        return answer.json()["silenced_lessons"]
+
+    # The lesson at 3 really does stop ringing here, and is really still stored.
+    assert await write(rows) == 1
+    # And it stops ringing exactly once. These two take nothing away.
+    assert await write(rows) == 0, "the same rows again silenced nothing"
+    nudged = [{"index": 1, "starts_at": "08:35", "ends_at": "09:15"}, rows[1]]
+    assert await write(nudged) == 0, "moving a bell by five minutes silenced nothing"
+
+    # The log says it once, for the write that did it.
+    lines = [row for row in await _audit(session, school_class) if row.action == "bells.edit"]
+    assert len(lines) == 3
+    assert sum("перестали звонить" in row.summary for row in lines) == 1
+
+    # Nothing was deleted — the lesson is still there, still silent, which is
+    # the whole reason the state and the event differ.
+    still_stored = await session.scalars(
+        select(TimetableEntry.index).where(
+            TimetableEntry.class_id == school_class.id, TimetableEntry.weekday == 1
+        )
+    )
+    assert sorted(still_stored) == [1, 2, 3]
+
+    # Ringing it again and then taking it away again says so again: this is a
+    # count of what each write did, not a latch.
+    assert await write(rows + [{"index": 3, "starts_at": "10:10", "ends_at": "10:50"}]) == 0
+    assert await write(rows) == 1
+
+
 async def test_a_schedule_that_rings_nothing_cannot_become_the_class_default(
     client, session, school_class
 ):
