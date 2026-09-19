@@ -13,12 +13,12 @@ Setup once: `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"`
 
 1. `ruff check app tests scripts migrations` — exactly what CI lints. `ruff check .` from
    `server/` covers the same tree.
-2. `python -m mypy` — one question of all 79 modules, in seconds: does anything reach for an
+2. `python -m mypy` — one question of all 81 modules, in seconds: does anything reach for an
    attribute its type does not have? Every other error code is switched off by name in
    `pyproject.toml`, with its count and its reason. **Not in CI** — the owner has not been
    asked — but run it before you push server code. It is the thing that reproduces the
    «🗓 Четверти» crash.
-3. `python -m pytest -q -n auto` — about 1450 tests. Serial takes about five minutes;
+3. `python -m pytest -q -n auto` — about 1461 tests. Serial takes about five minutes;
    `-n auto` finishes in a third of that and is what CI runs.
 
 Narrower while iterating: `python -m pytest -q tests/test_schedule.py -k parity`.

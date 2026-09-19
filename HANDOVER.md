@@ -4,11 +4,59 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **19 September 2026**, with **PR #60 open as a draft on `dev`** and nine
-commits on it, ending at `13348d5`. `main` is still at `9e138fb`; nothing in this batch is
-merged. The database is at head `0013` and `EXPECTED_REVISION` did not move — **no model
-changed, so this batch needs no migration**, which is the cheapest thing in it to check and
-the most expensive to get wrong.
+Last updated: **20 September 2026**, with **PR #60 open on `dev`** and twenty-eight commits
+on it. `main` is still at `9e138fb`; nothing in this batch is merged. The database is at head
+`0013` and `EXPECTED_REVISION` did not move — **no model changed, so this batch needs no
+migration**, which is the cheapest thing in it to check and the most expensive to get wrong.
+
+## What the last session added on top of the audit
+
+Six commits after `13348d5`, in three pieces.
+
+**A re-check of the whole batch, and then the remainder of it.** The server half: both bells
+writes now answer the caller with `silenced_lessons`, because shrinking a schedule leaves
+every lesson past its new last rung stored and drawn nowhere and only the bot was saying so;
+a substitution on «1 сентября» is no longer refused as a summer date (`school_year_bounds`
+files both June and the first days of a September that opens on a Saturday before
+`year_start`, and one sentence covered both); `render_import_preview` stopped writing its cap
+twice; and `MESSAGE_LIMIT`'s comment now names the one direction in which a raw character
+count reads *lower* than Telegram's, which is emoji outside the BMP. The Android half reads
+that new field and says «2 урока перестали звонить» under «Сохранено». `docs/bot.md` gained
+the budget rules, which were true in six renderers and written down nowhere, and `docs/api.md`
+documents the field.
+
+**Three Android gaps closed.** A phone that signed out and rejoined in the same process got
+one refresh and then nothing until the next cold start — `schedulePeriodic`'s only caller
+watches the interval, and a re-join moves no interval, so the re-arm moved into
+`SessionEffects`. The `304` path stopped re-reading the whole cached year to re-derive an
+alarm it almost always finds already armed, and asks `FLAG_NO_CREATE` instead; what that
+gives up is written where the decision is. And the alarm chain and the change fingerprint now
+read a fortnight rather than a year, through `snapshotAroundToday` — the bounded read that
+`docs/` said could not be written, because `schoolDayAfter` has to reach September from July;
+it is resolved in SQL beyond the bound and handed over as `nextSchoolDay`. Separately,
+`PeriodsForm` keeps its six bell times through a rotation, and `StabilityPromiseTest` is no
+longer one regex for `var`.
+
+**Dependency injection with dishka** (`server/app/di.py`). A session was made in three
+places — a FastAPI dependency, `SessionLocal()` in the bot's middleware, and `session_scope`
+for the cron tick — each with its own view of whether the caller or the maker commits. It is
+now one container: `Settings` and the session factory at app scope, one `AsyncSession` per
+HTTP request or Telegram update. All sixty-four endpoints ask with
+`session: FromDishka[AsyncSession]` and `db.get_session` is gone; the bot's
+`ContextMiddleware` takes the same provider's session out of the scope `setup_dishka` opens
+on the dispatcher, and still commits there. Dishka rather than FastAPI's `Depends`, which is
+already a DI system, for one reason: `Depends` cannot serve an aiogram handler. Three things
+worth knowing before adding to it are written in the module: it must not import
+`dishka.integrations.aiogram` (that puts aiogram on every cold-start path), the container is
+built with `STRICT_VALIDATION` so a duplicate provider is an error rather than silent
+shadowing, and `app/api/routing.py` exists because dishka's compiled wrapper carries its own
+globals, so under postponed annotations FastAPI took an endpoint's `-> Response` for a
+response model.
+
+**One defect found by the clock.** «📒 Неделя» in the diary took its Monday from
+`today - today.weekday()`, so on a Sunday it showed the six days that had just ended. It
+surfaced as a test that had been wrong since it was written and went red for the first time
+after midnight Moscow time on a Sunday.
 
 That batch is two pieces. The first took two things from
 [GMS Flags Reborn](https://github.com/polodarb/GMS-Flags-Reborn) (Apache 2.0, © polodarb) —
@@ -63,9 +111,16 @@ The ones that would actually have been felt, one line each:
 Two decisions were deliberately **left to the owner** rather than taken, and both are in
 section 7: the widget's tick cadence, and whether the diary credential should carry a bound.
 
-Gates on the whole tree at `13348d5`: `ruff` clean, `python -m mypy` clean across all 79
-modules, `pytest -q -n auto` 1450 passed; `./gradlew test assembleDebug assembleRelease`
-successful with 666 Android tests and 0 failures.
+Gates on the whole tree at `5f28072`: `ruff` clean, `python -m mypy` clean across all 81
+modules, `pytest -q -n auto` 1461 passed; `./gradlew test assembleDebug assembleRelease`
+successful with 701 Android tests across 88 classes and 0 failures.
+
+**What nothing has verified.** None of the Android work has run on a real phone: the `304`
+path is a claim about battery that only a device can confirm, `BellRowsRotationTest` uses
+`StateRestorationTester`, which re-composes rather than killing the process, and «2 урока
+перестали звонить» has never been on a screen. The dishka wiring has not run on Vercel — the
+26 ms it adds to a cold start is measured on a development machine, and that the webhook path
+still defers aiogram is read off the imports rather than timed there.
 
 Before this batch, after PRs #47, #48, #49, #50 and #51 were merged. The
 last of them is the agent configuration in `.claude/` and the whole written layer of the
@@ -281,9 +336,9 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && python -m pytest -q -n auto                # 1391 tests, ~1.5 min
-cd server  && python -m mypy                             # clean, 79 modules
-cd android && ./gradlew test                             # 605 tests
+cd server  && python -m pytest -q -n auto                # 1461 tests, ~1.5 min
+cd server  && python -m mypy                             # clean, 81 modules
+cd android && ./gradlew test                             # 701 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 

@@ -57,7 +57,7 @@ step. What stayed in CI for good:
 
 - **`pytest -n auto`.** The suite spread across the runner's cores: 289 s → 101 s on four
   cores locally, 12:18 → 3:23 on the runner, the same 1340 green — 1340 was the count when
-  this was measured; it is 1450 today. That is safe by
+  this was measured; it is 1461 today. That is safe by
   construction rather than by luck: `tests/conftest.py` takes the SQLite path from an
   `mkdtemp` computed at import time, and every xdist worker is a separate process with its
   own import, so they never share a database. It started as a saving and stayed for the

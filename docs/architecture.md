@@ -285,9 +285,9 @@ alternative is every family's password in the database.
 
 ## Testing
 
-1450 tests on the server across 40 files, 668 on Android across 85 classes; `pytest -q` and
-`./gradlew test`, both offline, both in CI. On Android that is `:core:model` 91,
-`:core:data` 208, `:core:designsystem` 45, `:widget` 60, `:app` 264.
+1461 tests on the server across 41 files, 701 on Android across 88 classes; `pytest -q` and
+`./gradlew test`, both offline, both in CI. On Android that is `:core:model` 94,
+`:core:data` 227, `:core:designsystem` 45, `:widget` 60, `:app` 275.
 
 The table below is the load-bearing part of that rather than the whole of it:
 
