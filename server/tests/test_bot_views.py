@@ -14,6 +14,8 @@ import pytest
 from sqlalchemy import select
 from test_bot_handlers import FakeCallback, FakeEditable, FakeMessage, FakeState
 
+from app.bot.handlers import start as start_handlers
+from app.bot.handlers import week as week_handlers
 from app.bot.handlers.manage import cmd_link
 from app.bot.handlers.reminders import (
     cmd_remind,
@@ -48,6 +50,7 @@ from app.bot.handlers.week import cmd_next, cmd_week, distinct_from, menu_next, 
 from app.bot.keyboards import main_menu, task_list_keyboard
 from app.bot.render import (
     INVISIBLE,
+    MESSAGE_LIMIT,
     WEEK_TEXT_LIMIT,
     duration,
     plural,
@@ -82,6 +85,32 @@ from app.services import reminders
 
 # 2026-09-07 is a Monday in ISO week 37 - an odd week, «числитель».
 MONDAY = date(2026, 9, 7)
+
+#: 22:30 UTC on a Sunday, which is 01:30 on Monday 7 September in Moscow.
+#:
+#: Two things at once, and both are the point. It is inside a school year, so
+#: the weekly template still repeats — `schedule.py` stops repeating it after
+#: May, and the two tests that read the real clock therefore asserted a full
+#: day of lessons that the product deliberately does not draw in June, July or
+#: August. And the server's own date is *not* the class's: `date.today()` here
+#: is Sunday the 6th, so a handler that asked the server rather than
+#: `school_class.tz` lands on a weekend and draws nothing.
+PINNED_UTC = datetime(2026, 9, 6, 22, 30, tzinfo=UTC)
+
+
+class PinnedClock(datetime):
+    """``datetime`` with only ``now()`` fixed.
+
+    A subclass rather than a stub, so every other name the handler reaches for
+    through this module — ``combine``, ``fromisoformat`` — still works, and the
+    conversion into the class's zone is still the real one. Patching the
+    ``_today`` helper outright would pin the answer *past* the thing under
+    test.
+    """
+
+    @classmethod
+    def now(cls, tz=None):  # type: ignore[override]
+        return PINNED_UTC.astimezone(tz) if tz is not None else PINNED_UTC.replace(tzinfo=None)
 
 
 def lesson(index: int, subject: str, start: str, end: str, **extra) -> ResolvedLesson:
@@ -325,7 +354,16 @@ def test_refresh_never_produces_an_identical_message():
 # --------------------------------------------------------------------------
 
 
-async def test_week_command_renders_the_fixture_monday(session, school_class):
+async def test_week_command_renders_the_fixture_monday(session, school_class, monkeypatch):
+    """Pinned inside the school year, because the template stops at the end of it.
+
+    This read the real clock and asserted the fixture's Monday was drawn, which
+    is true for nine months of the year and false for the other three:
+    `_resolve_day` asks `school_year_bounds` and draws no lessons at all in
+    June, July or August. The assertion is right and the date was not.
+    """
+    monkeypatch.setattr(week_handlers, "datetime", PinnedClock)
+
     message = FakeMessage(text="/week")
     await cmd_week(message, session, school_class, Role.VIEWER)
     assert "Алгебра · 214" in message.last
@@ -1223,7 +1261,7 @@ async def _access_view(session, school_class):
             select(PhoneInvite).where(PhoneInvite.class_id == school_class.id)
         )
     )
-    return render_access_list(members, invites)
+    return render_access_list(members, invites, MESSAGE_LIMIT)
 
 
 async def test_an_access_list_with_nobody_in_it_says_nobody_rather_than_nothing(
@@ -1403,10 +1441,25 @@ async def test_today_draws_the_class_day_with_the_day_pager_under_it(
     assert "Алгебра" in message.last or "Уроков нет." in message.last
 
 
-async def test_today_lists_the_template_of_whatever_weekday_today_is(session, school_class):
+async def test_today_lists_the_template_of_whatever_weekday_today_is(
+    session, school_class, monkeypatch
+):
     """The fixture's three lessons, moved onto today in the class's own zone —
-    which is the zone «сегодня» is decided in, not the server's."""
-    today = datetime.now(school_class.tz).date()
+    which is the zone «сегодня» is decided in, not the server's.
+
+    Pinned, for two reasons that used to make this green only some of the time.
+    The template stops repeating after May, so from June to August the card
+    correctly says «Уроков нет.» and every assertion below failed. And the
+    instant is one where the server's date and the class's differ by a day —
+    22:30 UTC on Sunday is 01:30 on Monday in Moscow — so the zone this claims
+    to be about is now the difference between a full day and an empty one,
+    rather than something that happened to agree.
+    """
+    monkeypatch.setattr(start_handlers, "datetime", PinnedClock)
+
+    today = PinnedClock.now(school_class.tz).date()
+    assert today != PinnedClock.now().date(), "the pinned instant no longer straddles midnight"
+
     entries = await session.scalars(
         select(TimetableEntry).where(TimetableEntry.class_id == school_class.id)
     )

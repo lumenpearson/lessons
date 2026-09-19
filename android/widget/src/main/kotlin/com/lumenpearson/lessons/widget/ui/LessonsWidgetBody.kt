@@ -701,8 +701,15 @@ private fun RestDayBody(
  * remaining time is drawn by a `Chronometer` counting down in the launcher's own
  * process, second by second, costing nothing.
  *
- * Falls back to the frozen string when the state has no end — after school there
- * is nothing to count to, and a chronometer counting to nothing shows zero.
+ * The frozen string below is a guard, not a path anybody takes. `ScheduleEngine`
+ * fills `validUntil` on all four states that carry a countdown, so
+ * [Headline.endsAt] is null exactly where [Headline.countdown] is, and the
+ * branch cannot fire as the widget stands. It is kept because `validUntil` is
+ * nullable on every `DayState` and only that one producer makes the invariant
+ * true: a state that counted something with no end would otherwise draw
+ * *nothing* where the number goes, silently. An earlier version of this comment
+ * claimed the branch was what after-school renders take. It is not — after
+ * school there is no countdown at all, and both strings are null together.
  */
 @Composable
 private fun Countdown(
@@ -778,18 +785,7 @@ private fun HomeworkBlock(
     }
 }
 
-/**
- * The lessons to list under "Дальше": everything still to come, minus the one
- * currently running (which is already the headline).
- */
-private fun upcomingLessons(
-    state: DayState,
-    today: SchoolDay?,
-    now: LocalDateTime,
-    limit: Int,
-): List<Lesson> {
-    val current = (state as? DayState.InLesson)?.current
-    return remainingLessonsOf(today, now)
-        .filter { it != current }
-        .take(limit)
-}
+// `upcomingLessons` lives in WidgetPresentation.kt with the rest of the pure
+// selectors: it is the half of the "Дальше" column that can be wrong, and a
+// private function in a file full of composables is a function no test can
+// reach. It was wrong for exactly as long as it was unreachable.

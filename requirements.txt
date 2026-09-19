@@ -10,6 +10,10 @@ sqlalchemy[asyncio]>=2.0.54
 asyncpg>=0.31.0
 pydantic>=2.13.5
 pydantic-settings>=2.15.0
+# The DI container in server/app/di.py. Pure Python, and 26 ms on top of
+# fastapi and sqlalchemy on a cold start — measured, because this bundle pays
+# for every import on every one of them.
+dishka>=1.10.1
 # Level with server/pyproject.toml, ceiling included: every diary call passes
 # per-request cookies, which httpx 0.28 warns it is removing, and a release
 # that removed them would send every diary call without a session rather than

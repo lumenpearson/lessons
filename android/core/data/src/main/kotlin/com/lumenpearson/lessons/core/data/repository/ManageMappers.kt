@@ -100,6 +100,13 @@ internal fun BellScheduleDto.toDomain(): BellSchedule = BellSchedule(
     periods = periods.mapNotNull { it.toDomain() }.sortedBy { it.index },
 )
 
+internal fun BellScheduleDto.toWritten(): BellsWritten = BellsWritten(
+    schedule = toDomain(),
+    // Negative is not a number the server can mean, and a client that showed
+    // «-1 урок перестал звонить» would be reporting a fault as a school fact.
+    silencedLessons = silencedLessons.coerceAtLeast(0),
+)
+
 internal fun TimetableExportDto.toDomain(): TimetableExport = TimetableExport(
     // Not trimmed: the export is a paste format and its leading blank lines are
     // part of what makes it round-trip.

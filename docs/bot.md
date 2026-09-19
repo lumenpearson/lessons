@@ -591,6 +591,44 @@ A command you may not use answers with a refusal rather than silence: Telegram
 shows one command list per bot, and a button that does nothing teaches people to
 distrust the whole thing.
 
+## What a card may say
+
+Every screen in this document is one Telegram message, and Telegram refuses a
+message it will not deliver rather than clipping it — so a card that grows with
+the class's data has to decide, before it is sent, what it is not going to show.
+The rules are the same everywhere and they are worth knowing before adding a
+renderer.
+
+* **The ceiling is 4096 characters after entity parsing.** That is the Bot API's
+  own wording for `sendMessage`'s `text`: `<b>` costs nothing and `&amp;` counts
+  as the one «&» it becomes. What is refused is the whole message, so the symptom
+  is never a broken line — it is a blank screen and, where the press had no
+  callback to apologise on, no answer at all. The homework digest had no bound
+  and a fortnight of three assignments a day came to 5371 characters: «📝
+  Домашнее задание» said «что-то пошло не так» and `/homework` said nothing.
+* **Renderers budget in raw characters against `MESSAGE_LIMIT = 3900`.** The
+  count includes the tags Telegram does not count, which makes it conservative
+  rather than exact, and the margin also covers what nothing here measures:
+  Telegram counts UTF-16 code units, so every emoji outside the BMP — «📝»,
+  «📥», «🗓» — is two where Python sees one. A number in `render.py` is a budget,
+  never a measurement, and it is not to be tidied up towards 4096.
+* **What is cut is announced.** `clamp`, `more_line` and the per-page caps live
+  in `app/bot/render.py`; every list that stops early says «… и ещё N». The caps
+  differ per page on purpose — a bell schedule's row carries three buttons and
+  twelve lines of times, a subject's one of each — and each one is read by both
+  the renderer and `manage_keyboards`, because a row that is drawn and cannot be
+  pressed is worse than a row that is not drawn. Nothing paginates: past the cap
+  a row is only a number.
+* **Cut before escaping, never after.** Cutting an escaped string can leave
+  «&am», which is a refused message of its own.
+* **Everything from outside is escaped.** Anything the Petersburg diary sends,
+  anything typed into the bot or pasted into the timetable grammar (a subject
+  really can be «Алгебра <7>»), and anything out of the schools registry.
+* **An alert is not a card.** `answerCallbackQuery` takes no parse mode, so a
+  card built for a message shows its own tags in the popup, and Telegram answers
+  400 past 200 characters — which means the press answers nothing at all.
+  `editor_render.as_alert` does both halves.
+
 ## Operational notes
 
 The bot runs either as a long-poll task inside the API process

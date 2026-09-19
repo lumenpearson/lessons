@@ -136,17 +136,17 @@ internal class ManageRepositoryImpl(
         api.updateBellSchedule(id, BellSchedulePatchDto(name = name.trim())).toDomain()
     }
 
-    override suspend fun makeBellScheduleDefault(id: Long): Result<BellSchedule> = call {
+    override suspend fun makeBellScheduleDefault(id: Long): Result<BellsWritten> = call {
         // `true` only, ever: the server answers `false` with a 422, and this
         // interface has no method that would want to send it.
-        api.updateBellSchedule(id, BellSchedulePatchDto(isDefault = true)).toDomain()
+        api.updateBellSchedule(id, BellSchedulePatchDto(isDefault = true)).toWritten()
     }
 
     override suspend fun writeBellPeriods(
         id: Long,
         periods: List<BellPeriod>,
-    ): Result<BellSchedule> = call {
-        api.writeBellPeriods(id, BellPeriodsDto(periods = periods.map { it.toDto() })).toDomain()
+    ): Result<BellsWritten> = call {
+        api.writeBellPeriods(id, BellPeriodsDto(periods = periods.map { it.toDto() })).toWritten()
     }
 
     override suspend fun deleteBellSchedule(id: Long): Result<Unit> =

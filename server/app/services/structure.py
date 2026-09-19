@@ -162,6 +162,63 @@ async def rename_subject(
     return moved
 
 
+async def orphaned_lessons(
+    session: AsyncSession, class_id: int, rung: set[int]
+) -> list[tuple[int, int]]:
+    """The weekly template's rows that a set of rung numbers does not cover.
+
+    (weekday, index) pairs, because one number under two weekdays is two
+    lessons nobody will see — the same reason `apply_timetable` counts rows
+    and not numbers.
+
+    It is a function of its own rather than a few lines inside
+    [write_bell_periods] because a class loses lessons two ways and only one
+    of them rewrites any rows. Shrinking the class's own schedule is the
+    obvious way. Pointing the class at a *different*, shorter schedule is the
+    other, and it is the same loss exactly — every weekday's lessons past the
+    new last rung stop being drawn, logged or announced anywhere — while no
+    row changes and nothing was computed to notice. Both callers now ask this
+    one question, so the two answers cannot drift.
+    """
+    existing = await session.execute(
+        select(TimetableEntry.weekday, TimetableEntry.index)
+        .where(TimetableEntry.class_id == class_id)
+        .order_by(TimetableEntry.weekday, TimetableEntry.index)
+    )
+    return [
+        (int(weekday), int(index)) for weekday, index in existing if int(index) not in rung
+    ]
+
+
+async def lessons_silenced_by(
+    session: AsyncSession, class_id: int, was_rung: set[int], now_rung: set[int]
+) -> list[tuple[int, int]]:
+    """The template rows that stop ringing *because of this change*.
+
+    [orphaned_lessons] answers «which rows does this set of bells not cover»,
+    which is a *state*. Every caller of either function is writing a sentence
+    about an *event* — «перестали звонить уроков: N», and `silenced_lessons`
+    in the API's reply — and the two come apart wherever a row can be silent
+    already.
+
+    This docstring used to say the two agreed when a schedule's own rows were
+    rewritten, «because it is the same schedule», and that was wrong: nothing
+    deletes an orphaned row. It is reported and left exactly where it is, so
+    the next write over that schedule finds it again. Saving the same rows
+    twice claimed the same lessons had stopped ringing twice, and so did
+    moving one bell by five minutes.
+
+    So the rows counted here are the ones the new bells miss *and* the old
+    bells rang. A row nobody was going to hear either way is not news, whether
+    the bells moved because a schedule was rewritten or because the class was
+    pointed at another one.
+    """
+    lost = was_rung - now_rung
+    if not lost:
+        return []
+    return [pair for pair in await orphaned_lessons(session, class_id, now_rung) if pair[1] in lost]
+
+
 async def write_bell_periods(
     session: AsyncSession, schedule: BellSchedule, rows: list[BellRow]
 ) -> list[tuple[int, int]]:
@@ -185,30 +242,40 @@ async def write_bell_periods(
     particular day points at affects that day, and the day is a different
     question from the weekly template.
     """
-    orphaned: list[tuple[int, int]] = []
+    silenced: list[tuple[int, int]] = []
     if schedule.class_id is not None and schedule.id is not None:
-        rung = {index for index, _, _ in rows}
         default_of = await session.scalar(
             select(SchoolClass.bell_schedule_id).where(SchoolClass.id == schedule.class_id)
         )
         if default_of == schedule.id:
-            existing = await session.execute(
-                select(TimetableEntry.weekday, TimetableEntry.index)
-                .where(TimetableEntry.class_id == schedule.class_id)
-                .order_by(TimetableEntry.weekday, TimetableEntry.index)
+            # What this schedule rings now, read before the rows are replaced,
+            # against what it is about to ring. [lessons_silenced_by] and not
+            # [orphaned_lessons]: the second answers «which rows do these bells
+            # miss», which is a state, and this function's answer goes into a
+            # sentence about an event — «перестали звонить уроков: N» in the
+            # log, and `silenced_lessons` in the API's reply.
+            #
+            # The two come apart because nothing here *deletes* an orphaned
+            # row. It is reported and left where it is, so the next write over
+            # the same schedule finds it again and says the same sentence about
+            # a write that took nothing away. Saving the same six rows twice
+            # claimed two lessons had stopped ringing, twice; so did nudging
+            # one bell by five minutes.
+            was_rung = set(
+                await session.scalars(
+                    select(BellPeriod.index).where(BellPeriod.schedule_id == schedule.id)
+                )
             )
-            orphaned = [
-                (int(weekday), int(index))
-                for weekday, index in existing
-                if int(index) not in rung
-            ]
+            silenced = await lessons_silenced_by(
+                session, schedule.class_id, was_rung, {index for index, _, _ in rows}
+            )
 
     await session.execute(sa_delete(BellPeriod).where(BellPeriod.schedule_id == schedule.id))
     for index, start, end in rows:
         session.add(
             BellPeriod(schedule_id=schedule.id, index=index, starts_at=start, ends_at=end)
         )
-    return orphaned
+    return silenced
 
 
 async def lessons_per_weekday(

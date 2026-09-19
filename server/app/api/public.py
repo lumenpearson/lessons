@@ -13,13 +13,15 @@ from datetime import date as Date
 from datetime import datetime, timedelta
 from datetime import time as Time
 
+from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class, current_device
+from app.api.routing import DishkaAnnotatedRoute
 from app.config import get_settings
-from app.db import EXPECTED_REVISION, current_revision, get_session
+from app.db import EXPECTED_REVISION, current_revision
 from app.models import (
     DeviceInvite,
     DeviceToken,
@@ -63,7 +65,7 @@ from app.services import subjects as subjects_service
 from app.services import tasks as task_service
 from app.services import terms as terms_service
 
-router = APIRouter(prefix="/api/v1", tags=["client"])
+router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/api/v1", tags=["client"])
 
 # A whole school year, because that is the horizon the calendar draws. It used
 # to be 31, and 31 days is what the client cached: every date past the window
@@ -217,7 +219,7 @@ async def health() -> dict[str, object]:
 
 
 @router.get("/warmup")
-async def warmup(session: AsyncSession = Depends(get_session)) -> dict[str, object]:
+async def warmup(session: FromDishka[AsyncSession]) -> dict[str, object]:
     """Same as `/health`, plus one round trip to the database.
 
     `/health` deliberately never opens a connection, so pinging it keeps the
@@ -286,7 +288,8 @@ def _drift_detail(revision: str | None) -> str:
 async def join(
     request: Request,
     payload: JoinRequest,
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> JoinResponse:
     """Exchange a code for a long-lived device token.
 
@@ -393,7 +396,8 @@ async def bundle(
     if_none_match: str | None = Header(default=None),
     device: DeviceToken = Depends(current_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> BundleOut | Response:
     """Everything the client caches in one round trip.
 
@@ -579,7 +583,8 @@ def _now(school_class: SchoolClass) -> datetime:
 async def me(
     device: DeviceToken = Depends(current_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> MeOut:
     """Who this device is, and the code to type into the bot if it is nobody yet.
 
@@ -609,7 +614,8 @@ async def me(
 async def unlink(
     device: DeviceToken = Depends(current_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> UnlinkOut:
     """Back to read-only. Idempotent: unlinking an unlinked device is fine."""
     if device.is_linked:
@@ -640,7 +646,8 @@ async def homework_list(
     to: Date | None = Query(default=None),
     device: DeviceToken = Depends(current_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> list[HomeworkItemOut]:
     """Homework due in a window, each row with this person's own tick."""
     start = from_ or _today(school_class)
@@ -688,7 +695,8 @@ async def homework_done(
     payload: DoneIn,
     device: DeviceToken = Depends(current_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DoneOut:
     """Set (not toggle) this person's tick: the app sends the state it shows,
     so a retried request lands on the same answer."""
@@ -708,7 +716,8 @@ async def homework_done(
 @router.get("/subjects", response_model=list[SubjectOut])
 async def subjects(
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> list[SubjectOut]:
     rows = await session.scalars(
         select(Subject).where(Subject.class_id == school_class.id).order_by(Subject.name)
@@ -773,7 +782,8 @@ def _now_state(
 @router.get("/now", response_model=NowOut)
 async def now(
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> NowOut:
     at = _now(school_class)
     today = at.date()
@@ -862,7 +872,8 @@ async def tasks_list(
     include_done: bool = Query(default=False),
     device: DeviceToken = Depends(current_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> list[TaskOut]:
     telegram_id = _linked_id(device)
     rows = await task_service.list_tasks(
@@ -876,7 +887,8 @@ async def tasks_create(
     payload: TaskIn,
     device: DeviceToken = Depends(current_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> TaskOut:
     telegram_id = _linked_id(device)
     await _check_homework_id(session, payload.homework_id, school_class)
@@ -902,7 +914,8 @@ async def tasks_update(
     payload: TaskPatch,
     device: DeviceToken = Depends(current_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> TaskOut:
     telegram_id = _linked_id(device)
     task = await _own_task(session, task_id, school_class, telegram_id)
@@ -928,7 +941,8 @@ async def tasks_delete(
     task_id: int,
     device: DeviceToken = Depends(current_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> Response:
     telegram_id = _linked_id(device)
     task = await _own_task(session, task_id, school_class, telegram_id)
@@ -942,7 +956,8 @@ async def tasks_done(
     payload: DoneIn,
     device: DeviceToken = Depends(current_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> TaskOut:
     telegram_id = _linked_id(device)
     task = await _own_task(session, task_id, school_class, telegram_id)
@@ -963,7 +978,8 @@ async def tasks_done(
 async def calendar_url(
     request: Request,
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> CalendarOut:
     """The subscription URL for this class, minting the feed secret on first ask."""
     token = await calendar_service.ensure_calendar_token(session, school_class)
@@ -974,7 +990,8 @@ async def calendar_url(
 @router.get("/calendar/{calendar_token}.ics")
 async def calendar_feed(
     calendar_token: str,
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> Response:
     """The class as iCalendar. No bearer: calendar apps cannot send one.
 

@@ -11,6 +11,7 @@ Nothing here reaches the network: the shared client is replaced by one over an
 
 from __future__ import annotations
 
+import logging
 import pathlib
 
 import httpx
@@ -181,3 +182,105 @@ async def test_two_session_cookies_in_one_answer_do_not_escape_as_a_bare_excepti
     await client.children()
 
     assert client.token in {"new1", "new2"}
+
+
+async def test_two_session_cookies_on_the_login_do_not_escape_as_a_bare_exception(
+    upstream,
+):
+    """The same answer as the test above, on the one call made without a session.
+
+    `_session_cookie` was written for a PHP application rotating a scoped
+    session — `Set-Cookie: X-JWT-Token=new1; Path=/` beside `…=new2; Path=/api`
+    — and `_raw` has read the cookie through it ever since. `login` went on
+    reading the jar directly, one line further down, and `httpx.Cookies.get`
+    raises `CookieConflict` on that answer: not an `httpx.HTTPError`, so not a
+    `PetersburgError`, so straight past `api/diary._guard` as a 500 and into
+    `diary_web`'s bare `except Exception`, which says «что-то пошло не так» and
+    keeps the ticket it has already spent. On the sign-in, where there is no
+    way back but the bot, and on every retry after it, because the cookie shape
+    does not change.
+    """
+    cookie = provider_client.SESSION_COOKIE
+    upstream["response"] = httpx.Response(
+        200,
+        json={"data": {"token": "body-token"}},
+        headers=[
+            ("set-cookie", f"{cookie}=new1; Path=/"),
+            ("set-cookie", f"{cookie}=new2; Path=/api"),
+        ],
+    )
+
+    token = await provider_client.PetersburgClient().login("parent@example.com", "hunter2")
+
+    # One of the two this answer carried, and not the body's fallback: the
+    # cookie is the one later calls are actually accepted with.
+    assert token in {"new1", "new2"}
+
+
+async def test_a_login_hands_back_the_session_this_answer_issued_not_the_one_held(
+    upstream,
+):
+    """Why the cookie is read off the response rather than off ``self.token``.
+
+    `_raw` refreshes `self.token` from every answer it sees, so by the time
+    `login` reads it the two agree — whenever the answer carried a cookie at
+    all. When it does not, `self.token` is still whatever the instance was
+    constructed with, and a login returning *that* would hand back a session
+    the upstream never issued on this call and would never reach the body
+    token, which is the documented fallback.
+    """
+    upstream["response"] = httpx.Response(200, json={"data": {"token": "body-token"}})
+
+    client = provider_client.PetersburgClient("a-session-from-before")
+
+    assert await client.login("parent@example.com", "hunter2") == "body-token"
+
+
+async def test_an_answer_whose_rows_are_not_objects_says_so_instead_of_reading_empty(
+    upstream, caplog
+):
+    """The silence that looks exactly like a quiet week.
+
+    `mapper.note_if_nothing_read` is this project's guard against a batch that
+    read as nothing — but it can only count what it is handed, and `_items`
+    filtered the non-objects out first, so a whole answer of bare handles
+    arrived there as an empty list and took its «no items, nothing to say»
+    exit. What the family saw was an empty diary on the phone and an empty
+    «Дневник» in the bot; what the log said was nothing at all, which is also
+    what a week with no marks in it says.
+    """
+    upstream["response"] = httpx.Response(200, json={"data": {"items": [101, 102, 103]}})
+
+    with caplog.at_level(logging.WARNING, logger="app.providers.petersburg.client"):
+        items = await provider_client.PetersburgClient("a-session").children()
+
+    # Still dropped, still no exception: a row this cannot read is a row with
+    # nothing to draw, and that tolerance is the point of the whole provider.
+    assert items == []
+    (spoken,) = [record.getMessage() for record in caplog.records]
+    assert "all 3 row(s)" in spoken
+    # And enough to say what the shape moved *to*, which is what the next name
+    # in a tuple in the mapper has to be written against.
+    assert "int" in spoken
+
+
+async def test_one_row_of_the_wrong_shape_among_several_is_not_shouted_about(
+    upstream, caplog
+):
+    """The other half of the same rule, so that closing the silence did not
+    turn every odd entry into a warning nobody reads.
+
+    A partial drop is the documented, wanted tolerance — one bad row is worth
+    less than an error page — so it is noted, not warned about, and the rows
+    that were readable still come back.
+    """
+    upstream["response"] = httpx.Response(
+        200, json={"data": {"items": [{"id": 1}, 102, {"id": 3}]}}
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.providers.petersburg.client"):
+        items = await provider_client.PetersburgClient("a-session").children()
+
+    assert items == [{"id": 1}, {"id": 3}]
+    assert caplog.records == []
+

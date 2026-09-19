@@ -12,6 +12,7 @@ import pytest
 
 from app import main
 from app.config import Settings
+from app.di import container
 
 
 class _Dialect:
@@ -36,6 +37,15 @@ async def _run_lifespan(monkeypatch, dialect_name: str) -> bool:
 
     async with main.lifespan(main.app):
         pass
+
+    # Shutdown closed the container and forgot it, and `app.state` names what
+    # it was given rather than asking again — so without this every test after
+    # this one in the same worker would be served from a container that has
+    # shut its app scope. Nothing app-scoped holds a resource today, so a
+    # closed one goes on answering and the damage would be invisible; the first
+    # app-scope object that owns a connection or a client would take the rest
+    # of the suite with it. Asking `container()` builds a fresh one.
+    main.app.state.dishka_container = container()
     return called
 
 

@@ -82,8 +82,16 @@ sealed interface ManagementNotice {
      * the class went.
      */
     data class JoinModeChanged(val mode: ClassJoinMode) : ManagementNotice
-    data class BellsSaved(val name: String) : ManagementNotice
-    data class BellsDefault(val name: String) : ManagementNotice
+    /**
+     * @property silenced lessons this write stopped ringing, and almost always
+     *   zero. It is the one thing about a bells write that a reader cannot see
+     *   on the screen they are looking at: the rows are still in the database,
+     *   the schedule saved cleanly, and the lessons past its last rung are now
+     *   drawn nowhere at all. The bot says it in an alert, and until this
+     *   carried the number the phone said «Сохранено» and nothing else.
+     */
+    data class BellsSaved(val name: String, val silenced: Int = 0) : ManagementNotice
+    data class BellsDefault(val name: String, val silenced: Int = 0) : ManagementNotice
     data class BellsDeleted(val name: String) : ManagementNotice
     data class Imported(val days: Int, val lessons: Int, val bells: Int) : ManagementNotice
     data object DeviceRevoked : ManagementNotice
@@ -471,8 +479,15 @@ class ManagementViewModel(
 
     fun makeBellScheduleDefault(id: Long) = write {
         val result = repository.makeBellScheduleDefault(id)
-        result.onSuccess { schedule ->
-            state.update { it.copy(notice = ManagementNotice.BellsDefault(schedule.name)) }
+        result.onSuccess { written ->
+            state.update {
+                it.copy(
+                    notice = ManagementNotice.BellsDefault(
+                        written.schedule.name,
+                        written.silencedLessons,
+                    ),
+                )
+            }
             loadBells()
         }
         result
@@ -480,8 +495,15 @@ class ManagementViewModel(
 
     fun saveBellPeriods(id: Long, periods: List<BellPeriod>) = write {
         val result = repository.writeBellPeriods(id, periods)
-        result.onSuccess { schedule ->
-            state.update { it.copy(notice = ManagementNotice.BellsSaved(schedule.name)) }
+        result.onSuccess { written ->
+            state.update {
+                it.copy(
+                    notice = ManagementNotice.BellsSaved(
+                        written.schedule.name,
+                        written.silencedLessons,
+                    ),
+                )
+            }
             loadBells()
         }
         result

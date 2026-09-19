@@ -184,6 +184,26 @@ data class BellSchedule(
     val periods: List<BellPeriod>,
 )
 
+/**
+ * A bells write, and what it took away.
+ *
+ * Beside [BellSchedule] rather than inside it, because a count of lessons this
+ * *request* silenced is not a property of the schedule: it is zero on every
+ * read of the same row, and a model carrying a field only one of its producers
+ * ever fills is how a renderer ends up written against a shape nothing builds.
+ *
+ * @property silencedLessons lessons that stopped ringing, counted in rows. One
+ *   lesson number under two weekdays is two lessons nobody will see, not one.
+ *   Nothing is deleted on the server — the rows are simply past the schedule's
+ *   last rung now, and drawn on no phone, in no widget, in no calendar feed and
+ *   in no digest. The bot says this out loud in an alert; it is why the phone
+ *   is told at all.
+ */
+data class BellsWritten(
+    val schedule: BellSchedule,
+    val silencedLessons: Int,
+)
+
 /** The weekly template as text, in the format import reads back. */
 data class TimetableExport(
     val text: String,
@@ -424,8 +444,19 @@ sealed class ManageFailure(message: String, cause: Throwable? = null) :
                 401 -> SignedOut
                 403 -> when {
                     said.equals(DETAIL_NOT_LINKED, ignoreCase = true) -> NotLinked
+                    // `dropLast`, not `removeSuffix`: the guard above matched
+                    // ignoring case and `removeSuffix` does not, so the two
+                    // disagreed on anything but the server's current lowercase
+                    // spelling — and the role then came back as the whole
+                    // sentence, so the screen said «нет роли admin ROLE
+                    // REQUIRED». Dead today, and the live risk is precisely
+                    // that the two spellings are written in two places: the
+                    // day `manage.py` capitalises that message, the guard
+                    // still fires and the extraction silently stops working.
+                    // The length is the same whatever the case, so taking it
+                    // off by length cannot drift from the test above it.
                     said.endsWith(DETAIL_ROLE_SUFFIX, ignoreCase = true) ->
-                        RoleLost(said.removeSuffix(DETAIL_ROLE_SUFFIX).trim().ifBlank { null })
+                        RoleLost(said.dropLast(DETAIL_ROLE_SUFFIX.length).trim().ifBlank { null })
 
                     else -> NotAllowed(said.ifBlank { null })
                 }

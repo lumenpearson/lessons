@@ -782,6 +782,317 @@ async def test_bells_rename_and_make_default(client, session, school_class):
     ]
 
 
+async def test_moving_the_default_to_a_shorter_schedule_says_what_stopped_ringing(
+    client, session, school_class
+):
+    """A class loses lessons two ways, and only one of them rewrites a row.
+
+    `write_bell_periods` has answered this question since shrinking the
+    class's own schedule was closed: the weekday rows past the new last rung
+    are still stored and are drawn, logged and announced nowhere, so the audit
+    line is where an admin finds out. But it is only reached when a schedule's
+    *rows* are rewritten, and re-pointing the class at a different, shorter
+    schedule rewrites none — so the identical loss was never computed and
+    «основное расписание звонков: «Суббота»» was the only trace of four
+    lessons leaving every phone in the class.
+
+    Both callers now ask `structure.orphaned_lessons`, so the two cannot
+    answer differently. The rows themselves are deliberately left alone —
+    nothing is deleted, exactly as when the schedule is shrunk — and it is the
+    reporting that was missing.
+    """
+    token = await _admin(client, session, school_class)
+    short = (
+        await client.post(
+            "/api/v1/manage/bells", json={"name": "Суббота"}, headers=_auth(token)
+        )
+    ).json()
+    await client.put(
+        f"/api/v1/manage/bells/{short['id']}/periods",
+        json={"periods": [{"index": 1, "starts_at": "09:00", "ends_at": "09:40"}]},
+        headers=_auth(token),
+    )
+
+    made_default = await client.patch(
+        f"/api/v1/manage/bells/{short['id']}",
+        json={"is_default": True},
+        headers=_auth(token),
+    )
+    assert made_default.status_code == 200, made_default.text
+
+    # Monday carried lessons 1, 2 and 3; the new default rings only the first.
+    summary = [row for row in await _audit(session, school_class) if row.action == "bells.default"]
+    assert len(summary) == 1
+    assert "перестали звонить уроков: 2" in summary[0].summary
+
+    # Nothing was deleted — the two lessons are still there, and still drawn
+    # nowhere, which is the whole reason the line has to be written.
+    still_stored = await session.scalars(
+        select(TimetableEntry).where(TimetableEntry.class_id == school_class.id)
+    )
+    assert len(list(still_stored)) == 3
+
+
+async def test_the_bells_default_counts_only_what_this_change_silenced(
+    client, session, school_class
+):
+    """«Перестали звонить уроков: N» was a claim about the wrong set.
+
+    It asked only «which rows does the incoming schedule not cover», which is
+    the right question when a schedule's own rows are rewritten — what it does
+    not cover now, it was covering a moment ago, because it is the same
+    schedule. Pointed at a *different* schedule it counts rows that were
+    already silent, so a class whose default had been shrunk at some point was
+    told lessons had stopped ringing when it moved to a schedule ringing
+    exactly the same numbers, and told it again when it moved to one ringing
+    strictly more.
+
+    The admin reads that sentence in the audit log, and from the bot in an
+    alert that says «они остались в базе, но их никто не увидит». Saying it
+    about nothing teaches them to stop reading it.
+    """
+    token = await _admin(client, session, school_class)
+
+    # Shrink the class's own default so that lesson 3 is already silent. This
+    # is the precondition, and it reports the loss correctly.
+    default_id = school_class.bell_schedule_id
+    shrunk = await client.put(
+        f"/api/v1/manage/bells/{default_id}/periods",
+        json={
+            "periods": [
+                {"index": 1, "starts_at": "08:30", "ends_at": "09:10"},
+                {"index": 2, "starts_at": "09:20", "ends_at": "10:00"},
+            ]
+        },
+        headers=_auth(token),
+    )
+    assert shrunk.status_code == 200, shrunk.text
+
+    # Now move to a schedule ringing exactly the same numbers. Nothing changes
+    # for any lesson, so nothing should be claimed.
+    same = (
+        await client.post(
+            "/api/v1/manage/bells", json={"name": "Такое же"}, headers=_auth(token)
+        )
+    ).json()
+    await client.put(
+        f"/api/v1/manage/bells/{same['id']}/periods",
+        json={
+            "periods": [
+                {"index": 1, "starts_at": "09:00", "ends_at": "09:40"},
+                {"index": 2, "starts_at": "09:50", "ends_at": "10:30"},
+            ]
+        },
+        headers=_auth(token),
+    )
+    moved = await client.patch(
+        f"/api/v1/manage/bells/{same['id']}", json={"is_default": True}, headers=_auth(token)
+    )
+    assert moved.status_code == 200, moved.text
+
+    line = [row for row in await _audit(session, school_class) if row.action == "bells.default"]
+    assert len(line) == 1
+    assert "перестали звонить" not in line[0].summary
+
+    # And a schedule ringing strictly more says nothing either.
+    longer = (
+        await client.post(
+            "/api/v1/manage/bells", json={"name": "Длиннее"}, headers=_auth(token)
+        )
+    ).json()
+    await client.put(
+        f"/api/v1/manage/bells/{longer['id']}/periods",
+        json={
+            "periods": [
+                {"index": 1, "starts_at": "09:00", "ends_at": "09:40"},
+                {"index": 2, "starts_at": "09:50", "ends_at": "10:30"},
+                {"index": 4, "starts_at": "11:00", "ends_at": "11:40"},
+            ]
+        },
+        headers=_auth(token),
+    )
+    grew = await client.patch(
+        f"/api/v1/manage/bells/{longer['id']}", json={"is_default": True}, headers=_auth(token)
+    )
+    assert grew.status_code == 200, grew.text
+
+    lines = [row for row in await _audit(session, school_class) if row.action == "bells.default"]
+    assert len(lines) == 2
+    assert all("перестали звонить" not in row.summary for row in lines)
+
+
+async def test_moving_the_default_to_a_schedule_that_rings_everything_says_nothing_extra(
+    client, session, school_class
+):
+    """The other half: no loss, no sentence about a loss.
+
+    A line that appears on every change says nothing on the one that matters,
+    so the count has to be absent when the new schedule covers every number
+    the weekdays already use.
+    """
+    token = await _admin(client, session, school_class)
+    wide = (
+        await client.post(
+            "/api/v1/manage/bells", json={"name": "Длинное"}, headers=_auth(token)
+        )
+    ).json()
+    await client.put(
+        f"/api/v1/manage/bells/{wide['id']}/periods",
+        json={
+            "periods": [
+                {"index": 1, "starts_at": "09:00", "ends_at": "09:40"},
+                {"index": 2, "starts_at": "09:50", "ends_at": "10:30"},
+                {"index": 3, "starts_at": "10:40", "ends_at": "11:20"},
+            ]
+        },
+        headers=_auth(token),
+    )
+
+    made_default = await client.patch(
+        f"/api/v1/manage/bells/{wide['id']}", json={"is_default": True}, headers=_auth(token)
+    )
+    assert made_default.status_code == 200, made_default.text
+
+    summary = [row for row in await _audit(session, school_class) if row.action == "bells.default"]
+    assert len(summary) == 1
+    assert "перестали звонить" not in summary[0].summary
+
+
+async def test_the_caller_is_told_what_its_own_write_stopped_ringing(
+    client, session, school_class
+):
+    """The audit log is not an answer to the request that wrote the line.
+
+    Both ways of losing lessons were computed and both were written down — and
+    the caller got back a schedule that looked entirely fine. The bot survives
+    that because it is the thing writing the log and puts the same count in an
+    alert; the phone is a real client of these two endpoints and had no way to
+    know. An admin shrinking «Основное» from five rows to two on the phone was
+    told «Сохранено», and the lessons at 3, 4 and 5 left every screen in the
+    class in silence.
+
+    Counted in rows, like everywhere else: one number under two weekdays is
+    two lessons nobody will see, not one.
+    """
+    token = await _admin(client, session, school_class)
+
+    # Shrinking the class's own schedule — the rows are rewritten.
+    default_id = (await client.get("/api/v1/manage/bells", headers=_auth(token))).json()[0]["id"]
+    shrunk = await client.put(
+        f"/api/v1/manage/bells/{default_id}/periods",
+        json={"periods": [{"index": 1, "starts_at": "08:30", "ends_at": "09:10"}]},
+        headers=_auth(token),
+    )
+    assert shrunk.status_code == 200, shrunk.text
+    assert shrunk.json()["silenced_lessons"] == 2
+
+    # Re-pointing the class at a different schedule — no row is rewritten, and
+    # exactly the same lessons stop ringing. The two must answer alike.
+    longer = (
+        await client.post(
+            "/api/v1/manage/bells", json={"name": "Длиннее"}, headers=_auth(token)
+        )
+    ).json()
+    assert longer["silenced_lessons"] == 0
+    await client.put(
+        f"/api/v1/manage/bells/{longer['id']}/periods",
+        json={
+            "periods": [
+                {"index": 1, "starts_at": "09:00", "ends_at": "09:40"},
+                {"index": 2, "starts_at": "09:50", "ends_at": "10:30"},
+                {"index": 3, "starts_at": "10:40", "ends_at": "11:20"},
+            ]
+        },
+        headers=_auth(token),
+    )
+    grew = await client.patch(
+        f"/api/v1/manage/bells/{longer['id']}", json={"is_default": True}, headers=_auth(token)
+    )
+    assert grew.status_code == 200, grew.text
+    # Moving to a *longer* schedule silences nothing, and must not say it did.
+    assert grew.json()["silenced_lessons"] == 0
+
+    back = await client.patch(
+        f"/api/v1/manage/bells/{default_id}", json={"is_default": True}, headers=_auth(token)
+    )
+    assert back.status_code == 200, back.text
+    assert back.json()["silenced_lessons"] == 2
+
+    # A plain read says nothing about a loss, because a read causes none.
+    listed = (await client.get("/api/v1/manage/bells", headers=_auth(token))).json()
+    assert all(row["silenced_lessons"] == 0 for row in listed)
+
+    # And a rename, which rewrites no row and moves no default.
+    renamed = await client.patch(
+        f"/api/v1/manage/bells/{longer['id']}", json={"name": "Длиннее, но иначе"},
+        headers=_auth(token),
+    )
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.json()["silenced_lessons"] == 0
+
+
+async def test_a_write_that_took_nothing_away_does_not_say_it_did(
+    client, session, school_class
+):
+    """«Перестали звонить уроков: N» is a sentence about this write.
+
+    `write_bell_periods` asked `orphaned_lessons` — «which rows do these bells
+    not cover» — which is a *state*, and then put the answer into a sentence
+    about an *event*, in the audit log and in `silenced_lessons`. The two come
+    apart because nothing deletes an orphaned row: it is reported and left
+    where it is, so the next write over the same schedule finds it again.
+
+    Saving the same rows twice therefore claimed the same lessons had stopped
+    ringing twice, and so did nudging one bell by five minutes — while the
+    *other* way of losing lessons, moving the class to a different schedule,
+    had already been taught to answer about the change rather than the state.
+    One feature, two answers.
+    """
+    token = await _admin(client, session, school_class)
+    default_id = (await client.get("/api/v1/manage/bells", headers=_auth(token))).json()[0]["id"]
+
+    # The fixture's Monday carries lessons 1, 2 and 3. Ring only the first two.
+    rows = [
+        {"index": 1, "starts_at": "08:30", "ends_at": "09:10"},
+        {"index": 2, "starts_at": "09:20", "ends_at": "10:00"},
+    ]
+
+    async def write(periods):
+        answer = await client.put(
+            f"/api/v1/manage/bells/{default_id}/periods",
+            json={"periods": periods},
+            headers=_auth(token),
+        )
+        assert answer.status_code == 200, answer.text
+        return answer.json()["silenced_lessons"]
+
+    # The lesson at 3 really does stop ringing here, and is really still stored.
+    assert await write(rows) == 1
+    # And it stops ringing exactly once. These two take nothing away.
+    assert await write(rows) == 0, "the same rows again silenced nothing"
+    nudged = [{"index": 1, "starts_at": "08:35", "ends_at": "09:15"}, rows[1]]
+    assert await write(nudged) == 0, "moving a bell by five minutes silenced nothing"
+
+    # The log says it once, for the write that did it.
+    lines = [row for row in await _audit(session, school_class) if row.action == "bells.edit"]
+    assert len(lines) == 3
+    assert sum("перестали звонить" in row.summary for row in lines) == 1
+
+    # Nothing was deleted — the lesson is still there, still silent, which is
+    # the whole reason the state and the event differ.
+    still_stored = await session.scalars(
+        select(TimetableEntry.index).where(
+            TimetableEntry.class_id == school_class.id, TimetableEntry.weekday == 1
+        )
+    )
+    assert sorted(still_stored) == [1, 2, 3]
+
+    # Ringing it again and then taking it away again says so again: this is a
+    # count of what each write did, not a latch.
+    assert await write(rows + [{"index": 3, "starts_at": "10:10", "ends_at": "10:50"}]) == 0
+    assert await write(rows) == 1
+
+
 async def test_a_schedule_that_rings_nothing_cannot_become_the_class_default(
     client, session, school_class
 ):

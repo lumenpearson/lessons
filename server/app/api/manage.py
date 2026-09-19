@@ -32,15 +32,16 @@ from datetime import UTC, datetime
 from html import escape
 from typing import Any
 
+from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class, current_device
+from app.api.routing import DishkaAnnotatedRoute
 from app.bot.render import WEEKDAYS
 from app.bot.roles import can_grant
 from app.config import get_settings
-from app.db import get_session
 from app.models import (
     AccessRequest,
     AuditEntry,
@@ -98,7 +99,7 @@ from app.timezones import is_supported, label_for
 
 log = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/manage", tags=["manage"])
+router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/api/v1/manage", tags=["manage"])
 
 #: Audit lines per page, matching «📜 Журнал» in the bot.
 AUDIT_PAGE = 30
@@ -130,9 +131,11 @@ def _role_at_least(minimum: Role) -> Callable[..., Awaitable[Actor]]:
     each and an admin-only page has to say «admin», not «editor».
     """
 
+    @inject
     async def dependency(
         device: DeviceToken = Depends(current_device),
-        session: AsyncSession = Depends(get_session),
+        *,
+        session: FromDishka[AsyncSession],
     ) -> Actor:
         if device.telegram_id is None:
             raise HTTPException(
@@ -274,7 +277,8 @@ async def _class_out(session: AsyncSession, school_class: SchoolClass) -> Manage
 async def class_card(
     _: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> ManagedClassOut:
     """What «⚙️ Класс» shows, as data."""
     return await _class_out(session, school_class)
@@ -285,7 +289,8 @@ async def class_update(
     payload: ClassPatch,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> ManagedClassOut:
     """Rename the class, re-home it, move its time zone, or change who may join.
 
@@ -347,7 +352,8 @@ async def class_delete(
     payload: ClassDeleteIn,
     actor: Actor = Depends(owner_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DeletedOut:
     """Delete the class and everything hanging off it. Owner only.
 
@@ -411,7 +417,8 @@ async def _name_taken(
 async def subjects_list(
     _: Actor = Depends(editor_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> list[ManagedSubjectOut]:
     """The dictionary with ids, for a screen that edits it. An editor may
     read it - it is the same list ``GET /api/v1/subjects`` gives any device.
@@ -441,7 +448,8 @@ async def subject_create(
     payload: SubjectIn,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> SubjectSavedOut:
     """Add a subject. The name is unique within the class - that uniqueness is
     the whole point of the dictionary, so a duplicate is a 409, not a silent
@@ -475,7 +483,8 @@ async def subject_update(
     payload: SubjectPatch,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> SubjectSavedOut:
     """Rename a subject, or set its short name, teacher or colour.
 
@@ -542,7 +551,8 @@ async def subject_delete(
     subject_id: int,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DeletedOut:
     """Deleting a subject the timetable still uses is refused.
 
@@ -581,11 +591,14 @@ async def subject_delete(
 # --------------------------------------------------------------------------
 
 
-def _schedule_out(schedule: BellSchedule, school_class: SchoolClass) -> BellScheduleOut:
+def _schedule_out(
+    schedule: BellSchedule, school_class: SchoolClass, silenced: int = 0
+) -> BellScheduleOut:
     return BellScheduleOut(
         id=schedule.id,
         name=schedule.name,
         is_default=schedule.id == school_class.bell_schedule_id,
+        silenced_lessons=silenced,
         periods=[
             BellPeriodOut(index=row.index, starts_at=row.starts_at, ends_at=row.ends_at)
             for row in sorted(schedule.periods, key=lambda row: row.index)
@@ -615,7 +628,8 @@ def _rows_of(payload: Any) -> list[tuple[int, Any, Any]]:
 async def bells_list(
     _: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> list[BellScheduleOut]:
     """Every schedule the class keeps - «Обычное», «Сокращённое», «Суббота» -
     with the class default marked."""
@@ -632,7 +646,8 @@ async def bells_create(
     payload: BellScheduleIn,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> BellScheduleOut:
     """A new named schedule, with its rows if they came with it.
 
@@ -657,13 +672,30 @@ async def bells_create(
     return _schedule_out(schedule, school_class)
 
 
+async def _rung_by_default(
+    session: AsyncSession, school_class: SchoolClass
+) -> set[int]:
+    """The lesson numbers the class rings today, before anything is changed.
+
+    An empty set when the class has no default at all, which is the honest
+    reading: nothing was ringing, so nothing can stop.
+    """
+    if school_class.bell_schedule_id is None:
+        return set()
+    current = await session.scalar(
+        select(BellSchedule).where(BellSchedule.id == school_class.bell_schedule_id)
+    )
+    return {period.index for period in current.periods} if current is not None else set()
+
+
 @router.patch("/bells/{schedule_id}", response_model=BellScheduleOut)
 async def bells_update(
     schedule_id: int,
     payload: BellSchedulePatch,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> BellScheduleOut:
     """Rename a schedule, or make it the one the class runs on by default.
 
@@ -672,6 +704,7 @@ async def bells_update(
     another one the default.
     """
     schedule = await _schedule_or_404(session, school_class, schedule_id)
+    silenced: list[tuple[int, int]] = []
 
     if payload.name is not None and payload.name != schedule.name:
         old_name = schedule.name
@@ -706,18 +739,41 @@ async def bells_update(
                 detail="в этом расписании звонков нет ни одного урока",
             )
         if school_class.bell_schedule_id != schedule.id:
+            # Moving the default to a *shorter* schedule takes lessons off
+            # every weekday exactly as shrinking the current one does — the
+            # rows past its last rung stay in the database and are drawn,
+            # logged and announced nowhere. `write_bell_periods` has answered
+            # this question since the other way in was closed, but it is only
+            # reached when a schedule's rows are rewritten, and re-pointing
+            # the class rewrites none. Asked here with the incoming
+            # schedule's numbers, through the same function, so the two
+            # cannot answer differently.
+            # What the class rang a moment ago, against what it will ring
+            # now. Asking only the incoming schedule counts rows that were
+            # already silent, which said «перестали звонить уроков: N» on a
+            # move to a schedule ringing exactly the same numbers.
+            was = await _rung_by_default(session, school_class)
+            silenced = await structure.lessons_silenced_by(
+                session,
+                school_class.id,
+                was,
+                {period.index for period in schedule.periods},
+            )
             school_class.bell_schedule_id = schedule.id
+            summary = f"основное расписание звонков: «{schedule.name}»"
+            if silenced:
+                summary += f", перестали звонить уроков: {len(silenced)}"
             await audit.record(
                 session,
                 school_class.id,
                 actor.telegram_id,
                 "bells.default",
-                f"основное расписание звонков: «{schedule.name}»",
+                summary,
             )
 
     await session.commit()
     await session.refresh(schedule, ["periods"])
-    return _schedule_out(schedule, school_class)
+    return _schedule_out(schedule, school_class, len(silenced))
 
 
 @router.put("/bells/{schedule_id}/periods", response_model=BellScheduleOut)
@@ -726,7 +782,8 @@ async def bells_periods(
     payload: BellPeriodsIn,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> BellScheduleOut:
     """Replace a schedule's rows wholesale.
 
@@ -751,7 +808,7 @@ async def bells_periods(
     )
     await session.commit()
     await session.refresh(schedule, ["periods"])
-    return _schedule_out(schedule, school_class)
+    return _schedule_out(schedule, school_class, len(orphaned))
 
 
 @router.delete("/bells/{schedule_id}", response_model=DeletedOut)
@@ -759,7 +816,8 @@ async def bells_delete(
     schedule_id: int,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DeletedOut:
     """Refused for the class default and for anything a day still points at.
 
@@ -803,7 +861,8 @@ async def bells_delete(
 async def timetable_export(
     _: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> TimetableExportOut:
     """The weekly template as the text «📤 Экспорт» sends.
 
@@ -834,7 +893,8 @@ async def timetable_import(
     payload: TimetableImportIn,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> TimetableImportOut:
     """Parse a paste and replace exactly the weekdays it names.
 
@@ -960,7 +1020,8 @@ async def devices_list(
     include_revoked: bool = Query(default=False),
     _: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> list[ManagedDeviceOut]:
     """The phones on the class's list, oldest first.
 
@@ -990,7 +1051,8 @@ async def device_revoke(
     device_id: int,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> ManagedDeviceOut:
     """Switch a phone off. Revoked, not deleted: the row is what a token is
     checked against, and keeping it is what makes the refusal instant and
@@ -1025,7 +1087,8 @@ async def device_unlink(
     device_id: int,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> ManagedDeviceOut:
     """Back to read-only, without taking the phone off the class.
 
@@ -1064,7 +1127,8 @@ async def audit_log(
     offset: int = Query(default=0, ge=0),
     _: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> AuditPageOut:
     """Who changed what, newest first.
 
@@ -1103,7 +1167,8 @@ async def audit_log(
 async def stats(
     _: Actor = Depends(editor_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> StatsOut:
     """The numbers «📊 Статистика» shows, without the sentence around them.
 
@@ -1155,7 +1220,8 @@ async def _request_or_404(
 async def requests_list(
     _: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> list[AccessRequestOut]:
     """Everybody waiting for a role, oldest first."""
     rows = list(
@@ -1184,7 +1250,8 @@ async def request_approve(
     payload: RequestDecisionIn | None = None,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> RequestDecisionOut:
     """Grant the role, through the same rules as «👥 Доступ» in the bot.
 
@@ -1255,7 +1322,8 @@ async def request_decline(
     request_id: int,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> RequestDecisionOut:
     """Say no. The person keeps whatever role they already had, and is told -
     silence would leave them asking again."""
@@ -1316,7 +1384,8 @@ def _term_year(school_class: SchoolClass) -> int:
 async def terms_list(
     _: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> TermsOut:
     """This class's terms, seeding the conventional set if it has none."""
     year = _term_year(school_class)
@@ -1330,7 +1399,8 @@ async def terms_set_scheme(
     payload: TermSchemeIn,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> TermsOut:
     """Switch between quarters and half-years, reseeding the year.
 
@@ -1358,7 +1428,8 @@ async def terms_set_bounds(
     payload: TermBoundsIn,
     actor: Actor = Depends(admin_actor),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> TermsOut:
     """Move one term's edges.
 

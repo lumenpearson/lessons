@@ -463,21 +463,73 @@ async def test_the_day_view_asks_for_the_day_the_arrow_points_at(
 async def test_the_week_view_asks_monday_to_saturday_of_that_week(
     session, school_class, upstream
 ):
+    """Six days, and the lesson goes on the Monday the card actually opens on.
+
+    Not «today»: on a Sunday there is no today in this card at all, because the
+    week it draws is Monday to Saturday and Sunday is in neither the week that
+    ended nor the one that starts tomorrow. Dating the lesson from the range
+    the handler asked for is what keeps this a test about the range rather than
+    a test that fails one day in seven — which it did, quietly, until a run
+    happened to land on a Sunday evening in the class's timezone.
+    """
     await _ready(session, school_class)
-    upstream.lessons_answer = [
-        DiaryLesson(date=today_of(school_class), number=1, subject="Алгебра"),
-    ]
+    callback = FakeCallback(user_id=MINE)
+
+    # What the handler asks for, before there is anything to answer with.
+    await handlers.diary_view(
+        callback, handlers.DiaryAction(view="week", offset=0), session, school_class
+    )
+    _, _, start, end = upstream.asked[-1]
+    assert start.weekday() == 0 and (end - start).days == 5
+
+    upstream.lessons_answer = [DiaryLesson(date=start, number=1, subject="Алгебра")]
+    await handlers.diary_view(
+        callback, handlers.DiaryAction(view="week", offset=0), session, school_class
+    )
+
+    assert "📒 <b>Неделя с " in callback.message.last
+    # Five of the six days came back empty and each of them says so.
+    assert callback.message.last.count("<i>нет</i>") == 5
+
+
+async def test_on_a_sunday_the_week_is_the_one_that_starts_tomorrow(
+    session, school_class, upstream, monkeypatch
+):
+    """The week that ended yesterday is not the week anybody is asking about.
+
+    The card draws Monday to Saturday, because that is the Russian school
+    week, and `today - today.weekday()` on a Sunday lands on the Monday six
+    days *back*. So «Неделя» spent every Sunday showing six days nobody can do
+    anything about any more, and the way to the week somebody was actually
+    asking about was to notice the › button. It is one day in seven and it is
+    the evening a parent is most likely to look.
+
+    The week that ended is still one ‹ away, exactly as it is on a Saturday.
+    """
+    await _ready(session, school_class)
+    sunday = date(2026, 9, 20)
+    assert sunday.weekday() == 6
+
+    class FrozenSunday(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 9, 20, 19, 0, tzinfo=tz)
+
+    monkeypatch.setattr(handlers, "datetime", FrozenSunday)
     callback = FakeCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback, handlers.DiaryAction(view="week", offset=0), session, school_class
     )
-
     _, _, start, end = upstream.asked[-1]
-    assert start.weekday() == 0 and (end - start).days == 5
-    assert "📒 <b>Неделя с " in callback.message.last
-    # Five of the six days came back empty and each of them says so.
-    assert callback.message.last.count("<i>нет</i>") == 5
+    assert start == sunday + timedelta(days=1), "the Monday after, not the one before"
+    assert end == start + timedelta(days=5)
+
+    await handlers.diary_view(
+        callback, handlers.DiaryAction(view="week", offset=-1), session, school_class
+    )
+    _, _, before, _ = upstream.asked[-1]
+    assert before == start - timedelta(days=7), "‹ still reaches the week that ended"
 
 
 async def test_the_homework_view_looks_a_fortnight_ahead(session, school_class, upstream):

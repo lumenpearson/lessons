@@ -60,7 +60,11 @@ def build_dispatcher() -> Dispatcher:
     were half-finished.
     """
     dispatcher = Dispatcher(storage=DatabaseStorage(SessionLocal))
-    # Both message and callback flows need the session/class/role bundle.
+    # Both message and callback flows need the session/class/role bundle, and
+    # `ContextMiddleware` is also what opens this update's container scope —
+    # see the comment in `app/bot/middlewares.py` for why that is done there
+    # rather than with `setup_dishka`, which would register one middleware on
+    # every observer and open two sibling scopes per message.
     dispatcher.message.middleware(ContextMiddleware())
     dispatcher.callback_query.middleware(ContextMiddleware())
     dispatcher.include_router(build_router())

@@ -40,6 +40,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot import manage_render as mr
 from app.bot.handlers.calendar import open_month
 from app.bot.handlers.diary import PETERSBURG as DIARY_PROVIDER
+from app.bot.handlers.timetable import REJECTED_MAX
 from app.bot.keyboards import (
     WEEKDAY_FULL,
     Menu,
@@ -1308,6 +1309,16 @@ async def _schedules_of(session: AsyncSession, class_id: int) -> list[BellSchedu
     )
 
 
+async def _rung_by_default(session: AsyncSession, school_class: SchoolClass) -> set[int]:
+    """The lesson numbers the class rings today. Empty when it has no default."""
+    if school_class.bell_schedule_id is None:
+        return set()
+    current = await session.scalar(
+        select(BellSchedule).where(BellSchedule.id == school_class.bell_schedule_id)
+    )
+    return {period.index for period in current.periods} if current is not None else set()
+
+
 async def _schedule_by_id(
     session: AsyncSession, school_class: SchoolClass, raw: str
 ) -> BellSchedule | None:
@@ -1449,8 +1460,8 @@ async def bells_rows_apply(
     if rejected:
         lines.append("")
         lines.append("⚠️ Не разобрал строки:")
-        lines.extend(f"<code>{escape(line)}</code>" for line in rejected[:10])
-        lines.extend(more_line(len(rejected), 10))
+        lines.extend(f"<code>{escape(line)}</code>" for line in rejected[:REJECTED_MAX])
+        lines.extend(more_line(len(rejected), REJECTED_MAX))
     await message.answer(clamp(lines))
 
     text, keyboard = await _bells_view(session, school_class)
@@ -1542,8 +1553,19 @@ async def bells_new_rows(
 
     lines = [f"✅ Расписание «{escape(name)}» создано: {len(rows)} уроков."]
     if rejected:
-        lines.append("⚠️ Не разобрал строки: " + ", ".join(escape(line) for line in rejected[:5]))
-    await message.answer("\n".join(lines))
+        # The same shape as `bells_rows_apply` above and `timetable_apply`:
+        # a row cap *and* a character budget. Five was the row cap alone, and
+        # a rejected line is echoed whole — one 4094-character paste whose
+        # first line is a real bell row and whose other five are prose came to
+        # 4152 characters, which Telegram refuses. The schedule had been
+        # created and committed by then, and this is a `Message` handler with
+        # no callback to apologise on, so the admin saw neither the
+        # confirmation nor the «🔔 Расписания звонков» list that follows it.
+        lines.append("")
+        lines.append("⚠️ Не разобрал строки:")
+        lines.extend(f"<code>{escape(line)}</code>" for line in rejected[:REJECTED_MAX])
+        lines.extend(more_line(len(rejected), REJECTED_MAX))
+    await message.answer(clamp(lines))
 
     text, keyboard = await _bells_view(session, school_class)
     await message.answer(text, reply_markup=keyboard)
@@ -1566,15 +1588,55 @@ async def bells_make_default(
         await callback.answer("Расписание не найдено", show_alert=True)
         return
 
+    # A schedule may be created empty — that is the two-step flow, and the rows
+    # are the next screen. Making an empty one the *class default* is another
+    # thing: every ordinary day rings it, and a day that rings nothing draws
+    # nothing. `/bundle` answers zero lessons, `/now` answers «выходной» on a
+    # Monday, and the phone, the widget, the calendar feed and the morning
+    # digest go blank together with nothing anywhere reporting a problem —
+    # while the class's own timetable sits untouched underneath, which is what
+    # makes it so hard to see. Worse, `rung_indexes` then returns an empty set,
+    # which `can_ring` reads as «this class has not set its bells up yet» and
+    # waves every lesson number through. `api/manage.bells_update` has refused
+    # this since it was written and the «⭐» beside it did not; one rule, two
+    # shells, is the whole reason `services/` exists.
+    if not schedule.periods:
+        await callback.answer(
+            "В этом расписании звонков нет ни одного урока — сделать его "
+            "основным нельзя. Сначала добавьте времена.",
+            show_alert=True,
+        )
+        return
+
+    # Moving the default to a *shorter* schedule takes lessons off every
+    # weekday exactly as shrinking the current one does, and nothing rewrites a
+    # row, so `write_bell_periods` never runs and never counts them. Asked here
+    # through the same function the API asks, so the two answer alike.
+    was = await _rung_by_default(session, school_class)
+    orphaned = await structure.lessons_silenced_by(
+        session, school_class.id, was, {period.index for period in schedule.periods}
+    )
     school_class.bell_schedule_id = schedule.id
+    summary = f"основное расписание звонков: «{schedule.name}»"
+    if orphaned:
+        summary += f", перестали звонить уроков: {len(orphaned)}"
     await audit.record(
-        session, school_class.id, callback.from_user.id, "bells.default",
-        f"основное расписание звонков: «{schedule.name}»",
+        session, school_class.id, callback.from_user.id, "bells.default", summary,
     )
     await session.commit()
 
     text, keyboard = await _bells_view(session, school_class)
     await callback.message.edit_text(text, reply_markup=keyboard)
+    if orphaned:
+        # An alert rather than the log alone: the admin pressed a star and four
+        # lessons left every phone in the class, and the audit page is not
+        # where anybody looks next.
+        await callback.answer(
+            f"Основное расписание обновлено. Перестали звонить уроков: "
+            f"{len(orphaned)} — они остались в базе, но их никто не увидит.",
+            show_alert=True,
+        )
+        return
     await callback.answer("Основное расписание обновлено")
 
 
@@ -2261,6 +2323,26 @@ async def calendar_rotate(
 # --------------------------------------------------------------------------
 # 📤 Export and 📥 import of the timetable
 # --------------------------------------------------------------------------
+
+
+# There is deliberately no `_export_parts` here any more.
+#
+# It re-split the export on the *escaped* length, on the reasoning that «every
+# «&» costs four more characters and every «<» or «>» three». That reasoning is
+# wrong, and the Bot API says so in one line: `sendMessage`'s `text` is
+# «1-4096 characters **after entities parsing**». Telegram counts what it
+# parses — `<code>` costs nothing and `&amp;` counts as the one «&» it becomes
+# — so an export could not overflow by being escaped, and the thing this
+# defended against could not happen.
+#
+# What it did instead was real. Shrinking the limit by the expansion factor
+# turned 200 lines of apostrophes from 6 messages into 34, and 34 consecutive
+# `answer` calls into one chat is the per-chat flood limit: `TelegramRetryAfter`
+# raised out of a `Message` handler, which has no callback to apologise on, so
+# the export stopped partway with nothing said — the exact failure it was
+# written to remove, moved to a different trigger.
+#
+# `split_text` at `CHUNK_LIMIT` is what the export uses, as it did before.
 
 
 @router.message(Command("export"))

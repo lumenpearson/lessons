@@ -59,6 +59,9 @@ PETERSBURG = "petersburg"
 #: How many days of homework a «Задания» screen asks for.
 HOMEWORK_DAYS = 14
 
+#: ``date.weekday()`` for Sunday, which is the day the school week is not on.
+SUNDAY = 6
+
 
 async def _session_for(
     session: AsyncSession, telegram_id: int, class_id: int
@@ -347,7 +350,17 @@ async def _body(
         return render_day(await service.schedule(student, day, day), day, today)
 
     if view == "week":
-        anchor = shift_weeks(today, offset)
+        # A Sunday belongs to the week that is about to start, not the one that
+        # ended the day before. The card draws Monday to Saturday, because that
+        # is the Russian school week — so on a Sunday «Неделя» was six days of
+        # a week nobody can do anything about any more, and the way to the week
+        # somebody was actually asking about was to press ›. One day in seven,
+        # and the one evening a parent is most likely to look.
+        #
+        # `offset` still counts from wherever this lands, so the week that just
+        # ended is ‹ away, exactly as it is on a Saturday.
+        base = today + timedelta(days=1) if today.weekday() == SUNDAY else today
+        anchor = shift_weeks(base, offset)
         if anchor is None:
             return "Такой недели нет."
         start = anchor - timedelta(days=anchor.weekday())

@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.lumenpearson.lessons.R
@@ -26,10 +27,38 @@ import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 import com.lumenpearson.lessons.core.designsystem.theme.neutralTone
 
 /** What the devices sheet is doing: the list, or one confirmation. */
-private sealed interface DevicesMode {
+internal sealed interface DevicesMode {
     data object List : DevicesMode
     data class Revoke(val device: ManagedDevice) : DevicesMode
     data class Unlink(val device: ManagedDevice) : DevicesMode
+}
+
+/**
+ * Which of the sheet's screens is up — the half of [DevicesMode] that can be
+ * saved; [bellsModeOf] says why the other half is resolved rather than saved.
+ */
+internal enum class DevicesScreen { LIST, REVOKE, UNLINK }
+
+/**
+ * The mode [screen] and [id] stand for, against the devices actually on hand.
+ *
+ * A screen that needs a device and has none falls back to the list. The list
+ * here is a filtered one — «Показывать отключённые» decides what is in it — so
+ * "no longer there" covers a phone that was revoked from the bot and has now
+ * dropped out of the filter, as well as one the list has yet to load. Both want
+ * the list rather than a confirmation whose «Отключить» acts on nothing.
+ */
+internal fun devicesModeOf(
+    screen: DevicesScreen,
+    id: Long?,
+    devices: List<ManagedDevice>?,
+): DevicesMode {
+    val device = devices?.firstOrNull { it.id == id } ?: return DevicesMode.List
+    return when (screen) {
+        DevicesScreen.REVOKE -> DevicesMode.Revoke(device)
+        DevicesScreen.UNLINK -> DevicesMode.Unlink(device)
+        DevicesScreen.LIST -> DevicesMode.List
+    }
 }
 
 /**
@@ -48,8 +77,19 @@ fun DevicesSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var mode by remember { mutableStateOf<DevicesMode>(DevicesMode.List) }
+    // The screen and the id, not the mode: a rotation — and, below API 33, the
+    // `recreate()` the language picker three pages away performs — rebuilds this
+    // composable from nothing, and a `remember` here dropped the confirmation
+    // the reader was reading. See [devicesModeOf].
+    var screen by rememberSaveable { mutableStateOf(DevicesScreen.LIST) }
+    var openId by rememberSaveable { mutableStateOf<Long?>(null) }
     val devices = state.devices.value
+    val mode = remember(screen, openId, devices) { devicesModeOf(screen, openId, devices) }
+
+    fun show(next: DevicesScreen, device: ManagedDevice? = null) {
+        screen = next
+        openId = device?.id
+    }
 
     ManagementSheet(
         title = correctedString(R.string.admin_devices_title),
@@ -65,9 +105,9 @@ fun DevicesSheet(
                 failure = state.writeFailure,
                 onConfirm = {
                     viewModel.revokeDevice(current.device)
-                    mode = DevicesMode.List
+                    show(DevicesScreen.LIST)
                 },
-                onCancel = { mode = DevicesMode.List },
+                onCancel = { show(DevicesScreen.LIST) },
             )
 
             is DevicesMode.Unlink -> Confirmation(
@@ -78,9 +118,9 @@ fun DevicesSheet(
                 failure = state.writeFailure,
                 onConfirm = {
                     viewModel.unlinkDevice(current.device)
-                    mode = DevicesMode.List
+                    show(DevicesScreen.LIST)
                 },
-                onCancel = { mode = DevicesMode.List },
+                onCancel = { show(DevicesScreen.LIST) },
             )
 
             DevicesMode.List -> {
@@ -118,8 +158,8 @@ fun DevicesSheet(
                         DeviceRows(
                             device = device,
                             busy = state.working,
-                            onRevoke = { mode = DevicesMode.Revoke(device) },
-                            onUnlink = { mode = DevicesMode.Unlink(device) },
+                            onRevoke = { show(DevicesScreen.REVOKE, device) },
+                            onUnlink = { show(DevicesScreen.UNLINK, device) },
                         )
                     }
                 }

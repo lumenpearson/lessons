@@ -17,9 +17,12 @@ from typing import Any
 from aiogram import BaseMiddleware
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.types import TelegramObject, User
+from dishka.integrations.aiogram import CONTAINER_NAME
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.roles import default_class_for, get_role, list_memberships
 from app.db import SessionLocal
+from app.di import container
 from app.fsm_storage import PREFS_DESTINY, DatabaseStorage
 from app.models import SchoolClass
 
@@ -82,7 +85,38 @@ class ContextMiddleware(BaseMiddleware):
     ) -> Any:
         user: User | None = data.get("event_from_user")
 
-        async with SessionLocal() as session:
+        # One request scope per update, opened here rather than by
+        # `setup_dishka`. That helper registers a single middleware, holding
+        # the container it was handed, on *every* observer — so a message
+        # entered a scope twice, and the two were **siblings** on the root
+        # container rather than parent and child. Nothing resolved a session at
+        # the update level, so today that cost a scope and not a second
+        # session; the first outer middleware or injected error handler that
+        # asked for one would have got its own, on its own connection, that
+        # this middleware never commits. That is precisely the second answer to
+        # «where does a session come from» this container exists to remove.
+        #
+        # It also reads `container()` at call time. `setup_dishka` captures the
+        # container by value, and `app/api/telegram.py` caches the dispatcher
+        # for the life of the process — so after a shutdown closed the
+        # container, every webhook update would have gone on being served from
+        # the closed one, silently, exactly as it would have on the API side
+        # before the lifespan learned to re-read it.
+        #
+        # The scope is put in `data` under dishka's own key, so a handler that
+        # wants `@inject` and `FromDishka` has one. What is given up by not
+        # calling `setup_dishka`: the other twenty-six observers, `errors`
+        # among them, have no container. Nothing there injects, and an error
+        # handler that needed a session would want this middleware's, not one
+        # of its own.
+        async with container()() as scope:
+            data[CONTAINER_NAME] = scope
+            # The same provider an endpoint is served by, so «a session for one
+            # unit of work» has one definition instead of one per shell. The
+            # commit below stays here, because that half is *not* shared: an
+            # endpoint commits where it decides it is finished, and for a
+            # handler this middleware is the finish line.
+            session: AsyncSession = await scope.get(AsyncSession)
             data["session"] = session
             data["school_class"] = None
             data["role"] = None

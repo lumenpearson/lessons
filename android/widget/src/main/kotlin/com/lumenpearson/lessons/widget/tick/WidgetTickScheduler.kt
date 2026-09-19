@@ -63,9 +63,15 @@ object WidgetTickScheduler {
 
         // A blocking read is acceptable here: this runs on a broadcast worker
         // thread inside goAsync, and it is one indexed Room query.
+        //
+        // Bounded, because [plan] asks about exactly two dates — today, and the
+        // next day with lessons — and the second of those comes across the
+        // bound as `nextSchoolDay`. This runs on every tick of the chain it is
+        // itself arming, so it was reading a school year to decide whether the
+        // next wake-up is in one minute or in fifteen.
         val timetable = runCatching {
             kotlinx.coroutines.runBlocking {
-                Graph.container.timetableRepository.snapshot()
+                Graph.container.timetableRepository.snapshotAroundToday()
             }
         }.getOrNull()
 
@@ -84,6 +90,15 @@ object WidgetTickScheduler {
 
     /**
      * The pure half: which moment to wake at, and what instant that moment is.
+     *
+     * It asks the timetable two things and no more: `day(today)`, through
+     * [ScheduleEngine.stateAt] and [ScheduleEngine.nextTransition], and
+     * `schoolDayAfter(today)` for the homework a finished day points at. Both
+     * are answerable from a bounded reading — the first because today is in
+     * every bound, the second because it is carried over as `nextSchoolDay` —
+     * which is why [reschedule] above reads a fortnight instead of a year.
+     * `BoundedSnapshotParityTest` walks a school year past both readings of
+     * this function and fails if one of them ever answers differently.
      *
      * Both halves have to agree about the zone. The widget renders from
      * [Timetable.nowAtSchool] — the schedule is stored as the school's wall

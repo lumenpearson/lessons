@@ -116,6 +116,7 @@ class ConditionalSyncTest {
         dao: InMemoryTimetableDao,
         onData: () -> Unit,
         onRejected: () -> Unit = {},
+        onUnchanged: () -> Unit = {},
     ) =
         TimetableRepositoryImpl(
             dao = dao,
@@ -124,6 +125,7 @@ class ConditionalSyncTest {
             clock = clock,
             ioDispatcher = UnconfinedTestDispatcher(),
             onDataChanged = onData,
+            onNothingChanged = onUnchanged,
             onTokenRejected = onRejected,
             bundleTags = tags,
         )
@@ -162,6 +164,64 @@ class ConditionalSyncTest {
         // The widget is not poked: nothing it draws has changed, and a redraw
         // per poll is the cost this request exists to avoid.
         assertEquals("only the first sync had anything to announce", 1, redraws)
+    }
+
+    /**
+     * The other half of «and no widget redraw»: the alarm chain still has to
+     * hear about it.
+     *
+     * The chain is one alarm long and re-arms itself only when an alarm fires,
+     * so a gap wider than the planner's horizon — a fortnight of holidays —
+     * ends it with nothing standing behind it. On a phone whose window has not
+     * changed, every sync is this branch: it was the only thing left that
+     * could notice, and it was the one path that deliberately said nothing.
+     *
+     * The two announcements are separate because they answer different
+     * questions. The widget draws the data, and the data has not moved; the
+     * chain is about time passing, and time passes on a `304` exactly as fast.
+     */
+    @Test
+    fun `a 304 re-arms the alarm chain even though it redraws nothing`() = runTest {
+        val api = FakeApi(etag = "\"abc\"")
+        val tags = Store()
+        val dao = InMemoryTimetableDao()
+        var redraws = 0
+        var replans = 0
+
+        repository(api, tags, dao, onData = { redraws += 1 }, onUnchanged = { replans += 1 })
+            .refresh(days = 31)
+        assertEquals("the first sync has data, so it announces data", 1, redraws)
+        assertEquals(0, replans)
+
+        api.answerNotModified = true
+        val result = repository(api, tags, dao, onData = { redraws += 1 }, onUnchanged = { replans += 1 })
+            .refresh(days = 31)
+
+        assertEquals(SyncResult.Success, result)
+        assertEquals("nothing it draws has changed", 1, redraws)
+        assertEquals("but the chain is not allowed to go quiet", 1, replans)
+    }
+
+    /**
+     * And a sync that *did* bring data does not announce it twice: the widget
+     * path already re-plans the alarms on its way past, so calling both would
+     * read the whole cached year a second time for nothing.
+     */
+    @Test
+    fun `a sync with new data announces the data and not the other thing`() = runTest {
+        var redraws = 0
+        var replans = 0
+
+        repository(
+            FakeApi(etag = "\"abc\""),
+            Store(),
+            InMemoryTimetableDao(),
+            onData = { redraws += 1 },
+            onUnchanged = { replans += 1 },
+        ).refresh(days = 31)
+
+        assertEquals(1, redraws)
+        assertEquals(0, replans)
     }
 
     @Test

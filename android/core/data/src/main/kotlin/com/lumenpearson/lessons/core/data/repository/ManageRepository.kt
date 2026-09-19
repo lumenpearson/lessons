@@ -109,14 +109,24 @@ interface ManageRepository {
      * There is no way to say the opposite: a class with no default has no times
      * for an ordinary day, so the way to stop using one is to make another one
      * the default.
+     *
+     * Answers with [BellsWritten] rather than the schedule alone: moving the
+     * default to a shorter schedule takes lessons off every weekday that
+     * carried a number past its last rung, and rewrites not one row while
+     * doing it.
      */
-    suspend fun makeBellScheduleDefault(id: Long): Result<BellSchedule>
+    suspend fun makeBellScheduleDefault(id: Long): Result<BellsWritten>
 
     /**
      * Replaces a schedule's rows wholesale, because that is what editing bells
      * is: move one lesson and every lesson after it shifts.
+     *
+     * Shrinking one silences the lessons past its new last rung, so this
+     * answers with [BellsWritten] too — the count is the only way the reader
+     * learns of it, and on this side of the app there is no audit log to go
+     * and read.
      */
-    suspend fun writeBellPeriods(id: Long, periods: List<BellPeriod>): Result<BellSchedule>
+    suspend fun writeBellPeriods(id: Long, periods: List<BellPeriod>): Result<BellsWritten>
 
     /**
      * Removes a schedule nothing uses. The class default, and any schedule a

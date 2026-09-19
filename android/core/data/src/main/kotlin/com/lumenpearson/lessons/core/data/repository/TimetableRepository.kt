@@ -30,6 +30,33 @@ interface TimetableRepository {
     suspend fun snapshot(): Timetable?
 
     /**
+     * [snapshot], but only the days anything but the calendar ever asks about:
+     * from the Monday of the current week (or yesterday, whichever is further
+     * back) to eight days ahead, as the school reckons the date.
+     *
+     * A second method rather than a parameter on [snapshot], because the two
+     * do not answer the same question and a caller has to choose on purpose.
+     * What comes back **is** a [Timetable], and its `days` do not span the
+     * year: `ScheduleEngine` and `AlertPlanner` read a date that is not in
+     * them as «no data», which inside the bound is the truth and outside it is
+     * a lie — a July reading would report the whole of September empty. So
+     * this is for a reader whose every question is about the next few days,
+     * and the type cannot enforce that.
+     *
+     * It is a `Timetable` all the same rather than some bounded twin of one,
+     * because the alternative is a second set of rendering and planning code
+     * written against the twin, and two of those disagree within a month. The
+     * one thing the bound would otherwise break is `schoolDayAfter`, which has
+     * to reach the first of September from July and the Monday back from the
+     * middle of the winter holidays: the answer is carried as `nextSchoolDay`,
+     * resolved from the cache beyond the bound, so it keeps answering exactly
+     * what the whole year answers for every date inside it.
+     *
+     * Same contract as [snapshot] otherwise — `null` until the first sync.
+     */
+    suspend fun snapshotAroundToday(): Timetable?
+
+    /**
      * Fetches [days] days from the Monday of the current week and replaces the
      * cache with them.
      *

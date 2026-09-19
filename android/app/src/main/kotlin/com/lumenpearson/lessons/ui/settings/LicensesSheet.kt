@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.EmojiSymbols
@@ -325,9 +326,10 @@ private val Credits = listOf(
         tone = 5,
         note = R.string.credit_jetpack_storage_note,
     ),
-    // Eight rows over six hues, so two of them wrap. Both land as far as the
-    // list allows from the row they come to share a hue with: slot 6 meets
-    // Essentials at the top, slot 7 meets Compose one below it.
+    // Nine rows over six hues, so three of them wrap. Each lands as far as the
+    // list allows from the row it comes to share a hue with: slot 6 meets
+    // Essentials at the top, slot 7 meets Compose one below it, slot 8 meets
+    // Glance.
     Credit(
         name = R.string.credit_material_symbols,
         licence = R.string.licence_apache,
@@ -351,6 +353,19 @@ private val Credits = listOf(
         icon = Icons.Rounded.TextFields,
         tone = 7,
         note = R.string.credit_google_sans_note,
+    ),
+    // The second app this one borrowed from, and the only other one. Its
+    // licence travels in the APK for the same reason the font's does: what was
+    // taken is source rather than a dependency, and Apache 2.0 asks whoever
+    // passes the work on to pass the licence with it — see
+    // app/src/main/assets/notices/.
+    Credit(
+        name = R.string.credit_gms_flags,
+        licence = R.string.licence_apache,
+        url = "https://github.com/polodarb/GMS-Flags-Reborn",
+        icon = Icons.Rounded.Animation,
+        tone = 8,
+        note = R.string.credit_gms_flags_note,
     ),
 )
 

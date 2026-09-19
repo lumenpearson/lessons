@@ -26,11 +26,42 @@ import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
 
 /** What the subjects sheet is doing: the list, or one row's form. */
-private sealed interface SubjectsMode {
+internal sealed interface SubjectsMode {
     data object List : SubjectsMode
     data object Add : SubjectsMode
     data class Edit(val subject: ManagedSubject) : SubjectsMode
     data class Delete(val subject: ManagedSubject) : SubjectsMode
+}
+
+/**
+ * Which of the sheet's screens is up — the half of [SubjectsMode] that can be
+ * saved; [bellsModeOf] says why the other half is resolved rather than saved.
+ */
+internal enum class SubjectsScreen { LIST, ADD, EDIT, DELETE }
+
+/**
+ * The mode [screen] and [id] stand for, against the subjects actually on hand.
+ *
+ * A screen that needs a subject and has none falls back to the list: either the
+ * list has not arrived yet, or the subject was deleted from the bot while this
+ * sheet was in the background. The editor is the reason this matters more here
+ * than anywhere else — it draws four boxes filled in from the subject, and with
+ * nothing behind them «Сохранить» would offer to rename something that is no
+ * longer there.
+ */
+internal fun subjectsModeOf(
+    screen: SubjectsScreen,
+    id: Long?,
+    subjects: List<ManagedSubject>?,
+): SubjectsMode {
+    // Adding needs no subject, so it must not be refused for want of one.
+    if (screen == SubjectsScreen.ADD) return SubjectsMode.Add
+    val subject = subjects?.firstOrNull { it.id == id } ?: return SubjectsMode.List
+    return when (screen) {
+        SubjectsScreen.EDIT -> SubjectsMode.Edit(subject)
+        SubjectsScreen.DELETE -> SubjectsMode.Delete(subject)
+        SubjectsScreen.LIST, SubjectsScreen.ADD -> SubjectsMode.List
+    }
 }
 
 /**
@@ -47,8 +78,20 @@ fun SubjectsSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var mode by remember { mutableStateOf<SubjectsMode>(SubjectsMode.List) }
+    // The screen and the id, not the mode: a rotation — and, below API 33, the
+    // `recreate()` the language picker three pages away performs — rebuilds this
+    // composable from nothing, and a `remember` here threw away four boxes the
+    // reader had just filled in, `rememberSaveable` in the editor and all. See
+    // [subjectsModeOf].
+    var screen by rememberSaveable { mutableStateOf(SubjectsScreen.LIST) }
+    var openId by rememberSaveable { mutableStateOf<Long?>(null) }
     val subjects = state.subjects.value
+    val mode = remember(screen, openId, subjects) { subjectsModeOf(screen, openId, subjects) }
+
+    fun show(next: SubjectsScreen, subject: ManagedSubject? = null) {
+        screen = next
+        openId = subject?.id
+    }
 
     ManagementSheet(
         title = correctedString(R.string.admin_subjects_title),
@@ -60,10 +103,10 @@ fun SubjectsSheet(
                 subject = null,
                 busy = state.working,
                 failure = state.writeFailure,
-                onCancel = { mode = SubjectsMode.List },
+                onCancel = { show(SubjectsScreen.LIST) },
                 onSave = { form ->
                     viewModel.addSubject(form)
-                    mode = SubjectsMode.List
+                    show(SubjectsScreen.LIST)
                 },
             )
 
@@ -71,12 +114,12 @@ fun SubjectsSheet(
                 subject = current.subject,
                 busy = state.working,
                 failure = state.writeFailure,
-                onCancel = { mode = SubjectsMode.List },
+                onCancel = { show(SubjectsScreen.LIST) },
                 onSave = { form ->
                     viewModel.saveSubject(current.subject, form)
-                    mode = SubjectsMode.List
+                    show(SubjectsScreen.LIST)
                 },
-                onDelete = { mode = SubjectsMode.Delete(current.subject) },
+                onDelete = { show(SubjectsScreen.DELETE, current.subject) },
             )
 
             is SubjectsMode.Delete -> {
@@ -92,9 +135,9 @@ fun SubjectsSheet(
                     confirmLabel = correctedString(R.string.admin_subject_delete),
                     onConfirm = {
                         viewModel.deleteSubject(current.subject)
-                        mode = SubjectsMode.List
+                        show(SubjectsScreen.LIST)
                     },
-                    onCancel = { mode = SubjectsMode.List },
+                    onCancel = { show(SubjectsScreen.LIST) },
                     busy = state.working,
                     destructive = true,
                 )
@@ -136,7 +179,7 @@ fun SubjectsSheet(
                                 // function the timetable draws it with, so the
                                 // dictionary and the lessons agree on screen.
                                 tone = subjectTone(subject.name, subject.color),
-                                onClick = { mode = SubjectsMode.Edit(subject) },
+                                onClick = { show(SubjectsScreen.EDIT, subject) },
                             )
                         }
                     }
@@ -144,7 +187,7 @@ fun SubjectsSheet(
                 GroupActionItem(
                     label = correctedString(R.string.admin_subject_add),
                     icon = Icons.Rounded.Add,
-                    onClick = { mode = SubjectsMode.Add },
+                    onClick = { show(SubjectsScreen.ADD) },
                     busy = state.working,
                     modifier = Modifier.padding(horizontal = ScreenPadding),
                 )

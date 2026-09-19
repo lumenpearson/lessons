@@ -19,6 +19,7 @@
     <string name="action_back">Назад</string>
 
     <!-- First run -->
+    <string name="onboarding_step_of">Шаг %1$d из %2$d</string>
     <string name="onboarding_welcome_title">Добро пожаловать в «%1$s»</string>
     <string name="onboarding_welcome_subtitle">Расписание, замены и домашние задания вашего класса — в приложении и на главном экране.</string>
     <string name="onboarding_action_begin">Давайте начнём</string>

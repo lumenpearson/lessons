@@ -76,6 +76,13 @@ internal object AppLocales {
      * `ViewModelStore` exactly as a configuration change does. That is what lets
      * the first-run flow offer this setting at all — see `OnboardingScreen`.
      *
+     * @param language the language that is **stored**, and never a default
+     *   standing in for one that has not been read yet. The pre-33 branch
+     *   decides by comparing it against [attached], which is always real, so a
+     *   placeholder on this side is not a no-op — it is a language change that
+     *   nobody asked for, answered by throwing the activity away. `MainActivity`
+     *   takes this from `AppShellUiState.languageToApply`, which is `null` until
+     *   there is an answer, for exactly that reason.
      * @param attached what [wrap] was given when this activity was attached.
      *   Only the pre-33 branch needs it: it is the difference between "the
      *   preference changed" and "the preference is what this activity is

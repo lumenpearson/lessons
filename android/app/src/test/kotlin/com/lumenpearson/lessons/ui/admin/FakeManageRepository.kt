@@ -4,6 +4,7 @@ import com.lumenpearson.lessons.core.data.repository.AccessRequest
 import com.lumenpearson.lessons.core.data.repository.AuditPage
 import com.lumenpearson.lessons.core.data.repository.BellPeriod
 import com.lumenpearson.lessons.core.data.repository.BellSchedule
+import com.lumenpearson.lessons.core.data.repository.BellsWritten
 import com.lumenpearson.lessons.core.data.repository.ClassEdit
 import com.lumenpearson.lessons.core.data.repository.ClassJoinMode
 import com.lumenpearson.lessons.core.data.repository.ClassRole
@@ -108,12 +109,12 @@ internal class FakeManageRepository : ManageRepository {
 
     override suspend fun renameBellSchedule(id: Long, name: String): Result<BellSchedule> = park()
 
-    override suspend fun makeBellScheduleDefault(id: Long): Result<BellSchedule> = park()
+    override suspend fun makeBellScheduleDefault(id: Long): Result<BellsWritten> = park()
 
     override suspend fun writeBellPeriods(
         id: Long,
         periods: List<BellPeriod>,
-    ): Result<BellSchedule> = park()
+    ): Result<BellsWritten> = park()
 
     override suspend fun deleteBellSchedule(id: Long): Result<Unit> = park()
 

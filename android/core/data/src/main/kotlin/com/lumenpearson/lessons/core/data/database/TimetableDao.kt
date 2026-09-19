@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -84,6 +85,80 @@ internal abstract class TimetableDao {
             schoolClass = schoolClass,
             days = days(classId),
             nextSchoolDay = nextSchoolDay(classId),
+        )
+    }
+
+    /**
+     * The days inside a date range, for a reader that needs a fortnight rather
+     * than a year. Inclusive at both ends; the `class_id, date` index makes it
+     * a range scan over epoch days.
+     */
+    @Transaction
+    @Query(
+        "SELECT * FROM school_day WHERE class_id = :classId AND is_next_school_day = 0 " +
+            "AND date BETWEEN :from AND :to ORDER BY date ASC",
+    )
+    abstract suspend fun daysBetween(
+        classId: Long,
+        from: LocalDate,
+        to: LocalDate,
+    ): List<SchoolDayWithDetails>
+
+    /**
+     * The first cached day after [after] that actually teaches something.
+     *
+     * This is the SQL half of `Timetable.schoolDayAfter`, and the two have to
+     * keep agreeing: a bounded read hands its answer over as the timetable's
+     * `nextSchoolDay`, which is where that function looks when its own `days`
+     * run out. So the `EXISTS` clause spells out what `SchoolDay.hasLessons`
+     * means — at least one lesson that is **not** cancelled — because a day
+     * whose whole timetable was struck out is not a school day to point at,
+     * and asking «are there rows» instead would point at it.
+     *
+     * It is what makes a bounded read able to answer about the far side of a
+     * gap: the first of September seen from July, or the Monday back seen from
+     * the middle of the winter holidays. Without it a reader that asked for a
+     * fortnight would report «no school day ahead» on the two occasions in the
+     * year anybody wants that answer.
+     */
+    @Transaction
+    @Query(
+        "SELECT * FROM school_day WHERE class_id = :classId AND is_next_school_day = 0 " +
+            "AND date > :after AND EXISTS (" +
+            "SELECT 1 FROM lesson WHERE lesson.day_id = school_day.id AND lesson.is_cancelled = 0" +
+            ") ORDER BY date ASC LIMIT 1",
+    )
+    abstract suspend fun firstTeachingDayAfter(
+        classId: Long,
+        after: LocalDate,
+    ): SchoolDayWithDetails?
+
+    /**
+     * [snapshot], bounded to a date range.
+     *
+     * One transaction for the same reason [snapshot] is one: `replaceAll` swaps
+     * the class row and the days together, and three statements either side of
+     * that swap return a new week under an old «обновлено в …».
+     *
+     * The lookahead is resolved twice over, and the order is the point. The
+     * first day with lessons after [to] is looked for in the cache first, so a
+     * reader bounded to a fortnight still knows what the year holds a week
+     * after it; the stored lookahead row is the fallback, for the end of the
+     * cached window, where by construction there is nothing after it to find.
+     * That keeps `schoolDayAfter` answering the same thing it answers from the
+     * whole year, for every date inside the bound.
+     */
+    @Transaction
+    open suspend fun snapshotBetween(
+        classId: Long,
+        from: LocalDate,
+        to: LocalDate,
+    ): TimetableSnapshot? {
+        val schoolClass = schoolClass(classId) ?: return null
+        return TimetableSnapshot(
+            schoolClass = schoolClass,
+            days = daysBetween(classId, from, to),
+            nextSchoolDay = firstTeachingDayAfter(classId, to) ?: nextSchoolDay(classId),
         )
     }
 

@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.ClassJoinMode
@@ -340,8 +341,11 @@ fun ManagementNotice.asText(): String = when (this) {
             R.string.admin_class_join_mode_set_open
         },
     )
-    is ManagementNotice.BellsSaved -> correctedString(R.string.admin_bells_saved, name)
-    is ManagementNotice.BellsDefault -> correctedString(R.string.admin_bells_default_set, name)
+    is ManagementNotice.BellsSaved ->
+        correctedString(R.string.admin_bells_saved, name).andSilenced(silenced)
+
+    is ManagementNotice.BellsDefault ->
+        correctedString(R.string.admin_bells_default_set, name).andSilenced(silenced)
     is ManagementNotice.BellsDeleted -> correctedString(R.string.admin_bells_deleted, name)
     is ManagementNotice.Imported ->
         correctedString(R.string.admin_timetable_imported, days, lessons, bells)
@@ -355,6 +359,24 @@ fun ManagementNotice.asText(): String = when (this) {
     }
 
     is ManagementNotice.RequestDeclined -> correctedString(R.string.admin_request_declined, who)
+}
+
+/**
+ * The saved notice, plus what the save stopped ringing — when anything was.
+ *
+ * Two resources joined here rather than one sentence per case, because the
+ * count is the rare half: it is zero on every ordinary save, and four Russian
+ * plural forms of «звонки сохранены, и N уроков перестали звонить» would be
+ * four translations of a sentence almost nobody sees. `pluralStringResource`
+ * and not `correctedString`, because the correction mode reads strings and the
+ * plurals in this app are already outside it — `WeekScreen` and the permission
+ * rows are the same.
+ */
+@Composable
+private fun String.andSilenced(silenced: Int): String = if (silenced <= 0) {
+    this
+} else {
+    this + ". " + pluralStringResource(R.plurals.admin_bells_silenced, silenced, silenced)
 }
 
 /** A role, as the bot names it. */

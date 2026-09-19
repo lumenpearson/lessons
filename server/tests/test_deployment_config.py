@@ -92,6 +92,46 @@ def test_owner_ids_that_parse_to_nobody_are_not_mistaken_for_configured(value):
     assert "OWNER_IDS" in problem
 
 
+def test_a_digit_that_is_not_a_decimal_does_not_take_the_reporter_down():
+    """`isdigit` and `int` disagree, and the gap is where this fell through.
+
+    «²» answers True to `str.isdigit` and is refused by `int`, so the filter
+    that exists to keep unparseable pieces out let it past and the conversion
+    raised — inside `owner_id_list`, which `deployment_problems` calls. The
+    mechanism whose entire purpose is to answer with a list of what is
+    misconfigured instead of throwing was itself taken down by one character of
+    misconfiguration.
+
+    `isdecimal` is the predicate that matches what `int` accepts.
+    """
+    settings = Settings(owner_ids="²")
+
+    assert settings.owner_id_list == []
+    # And the reporter still reports, which is the half that actually mattered.
+    assert any("OWNER_IDS" in problem for problem in settings.deployment_problems())
+
+
+def test_the_unreadable_owner_ids_is_described_rather_than_reproduced():
+    """This message is raised before the first route is registered, so where it
+    lands is the platform's build log — and `CLAUDE.md` lists `OWNER_IDS` among
+    the values that never belong in one. It used to be quoted into the message
+    verbatim.
+
+    Redacting it must not cost the diagnosis, which is the reason the value was
+    there in the first place: a newline is what is wrong nearly every time, and
+    saying *that* is more use than printing the string it is hiding in.
+    """
+    value = "111111111\n222222222"
+    (problem,) = deployed(OWNER_IDS=value).deployment_problems()
+
+    assert "OWNER_IDS" in problem
+    assert "<redacted>" in problem
+    for id_ in ("111111111", "222222222"):
+        assert id_ not in problem
+    # Still enough to fix it without a second deploy.
+    assert "line break" in problem
+
+
 def test_an_empty_owner_ids_is_left_alone():
     """Empty is a choice: after the first owner, roles live in the database."""
     assert deployed(OWNER_IDS="").deployment_problems() == []

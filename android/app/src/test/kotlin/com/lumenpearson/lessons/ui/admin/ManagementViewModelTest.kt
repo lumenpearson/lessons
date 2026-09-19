@@ -1,5 +1,7 @@
 package com.lumenpearson.lessons.ui.admin
 
+import com.lumenpearson.lessons.core.data.repository.BellSchedule
+import com.lumenpearson.lessons.core.data.repository.BellsWritten
 import com.lumenpearson.lessons.core.data.repository.ClassJoinMode
 import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.ImportConflict
@@ -343,6 +345,52 @@ class ManagementViewModelTest {
         assertNull(model.uiState.value.classCard.value)
     }
 
+    // -- «🔔 Звонки» --------------------------------------------------------
+
+    /**
+     * The one thing about a bells write that the screen it happened on cannot
+     * show.
+     *
+     * Shrinking a schedule leaves every lesson at a number past its new last
+     * rung stored on the server and drawn on no phone, in no widget, in no
+     * calendar feed and in no digest. Nothing is deleted and everything is
+     * gone. The bot says so in an alert because it is the thing writing the
+     * audit line; this half of the app cannot read that log, so until the
+     * server answered with the count the phone said «Звонки сохранены» over
+     * six lessons that had just left the class.
+     */
+    @Test
+    fun `a save that shortened the bells says how many lessons went quiet`() {
+        val model = model()
+        model.saveBellPeriods(3L, emptyList())
+        repository.answer(0, Result.success(BellsWritten(SHORT_BELLS, silencedLessons = 2)))
+
+        assertEquals(ManagementNotice.BellsSaved("Обычное", 2), model.uiState.value.notice)
+    }
+
+    /** The common save silenced nothing, and must not imply that it did. */
+    @Test
+    fun `an ordinary save says nothing about lessons going quiet`() {
+        val model = model()
+        model.saveBellPeriods(3L, emptyList())
+        repository.answer(0, Result.success(BellsWritten(SHORT_BELLS, silencedLessons = 0)))
+
+        assertEquals(ManagementNotice.BellsSaved("Обычное", 0), model.uiState.value.notice)
+    }
+
+    /**
+     * Re-pointing the class rewrites no row and silences exactly the same
+     * lessons, so the other notice has to carry the number too.
+     */
+    @Test
+    fun `moving the default to a shorter schedule says it as well`() {
+        val model = model()
+        model.makeBellScheduleDefault(3L)
+        repository.answer(0, Result.success(BellsWritten(SHORT_BELLS, silencedLessons = 4)))
+
+        assertEquals(ManagementNotice.BellsDefault("Обычное", 4), model.uiState.value.notice)
+    }
+
     // -- the join mode ------------------------------------------------------
 
     @Test
@@ -420,6 +468,14 @@ class ManagementViewModelTest {
         /** The same class, after the server has accepted the switch. */
         val INVITE_ONLY_CARD = FakeSessionRepository.CLASS_CARD.copy(
             joinMode = ClassJoinMode.INVITE,
+        )
+
+        /** Whatever is left after a write; the rows are not what is asserted. */
+        val SHORT_BELLS = BellSchedule(
+            id = 3L,
+            name = "Обычное",
+            isDefault = true,
+            periods = emptyList(),
         )
     }
 }

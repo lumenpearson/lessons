@@ -28,7 +28,14 @@ from app.bot.keyboards import (
 )
 from app.bot.manage_keyboards import RequestAction
 from app.bot.manage_render import person
-from app.bot.render import ACCESS_MEMBERS_MAX, render_access_list
+from app.bot.render import (
+    ACCESS_MEMBERS_MAX,
+    ACCESS_REQUEST_NOTE_MAX,
+    MESSAGE_LIMIT,
+    clamp,
+    cut,
+    render_access_list,
+)
 from app.bot.roles import can_grant
 from app.bot.states import AddInvite
 from app.models import AccessRequest, BotUser, JoinMode, PhoneInvite, Role, SchoolClass
@@ -40,6 +47,14 @@ router = Router(name="access")
 #: Pending requests shown before the member list. More than this and the
 #: keyboard stops fitting on a phone; the rest appear as they are answered.
 PENDING_MAX = 5
+
+#: What is kept for the member list however loud the requests above it are.
+#:
+#: Enough for «👥 Доступ к классу», a blank line and a handful of rows. The
+#: requests are the newer thing and the more urgent, so they are drawn first
+#: and cut last — but a page that answered «кто в классе» with nothing at all
+#: would have lost the question it is named for.
+ACCESS_LIST_FLOOR = 800
 
 #: Each join mode said as what a phone can do, not as the name of the setting.
 #: The admin reading this page is choosing who may connect one, and «открытый»
@@ -141,7 +156,14 @@ async def access_root(
                 member.username if member else None,
                 request.telegram_id,
             )
-            note = f" — {escape(request.message)}" if request.message else ""
+            # Cut before escaping, as everywhere: the column is ``String(300)``
+            # and the note reached the message whole, five at a time, above a
+            # member list that had already spent its own budget.
+            note = (
+                f" — {escape(cut(request.message, ACCESS_REQUEST_NOTE_MAX))}"
+                if request.message
+                else ""
+            )
             lines.append(f"⏳ {who} → <b>{request.requested_role.title_ru}</b>{note}")
             extra.append(
                 [
@@ -161,7 +183,6 @@ async def access_root(
                     ),
                 ]
             )
-        lines.append("")
 
     extra.append(
         [
@@ -204,13 +225,39 @@ async def access_root(
         ]
     )
 
+    # Three blocks, one ceiling, and only one of the three is a fixed size.
+    #
+    # ``JOIN_MODE_TEXT`` is the tail and must survive whatever happens above
+    # it: it is the paragraph explaining the one button on this page that
+    # switches the class code back on, so clamping the composed body — which
+    # cuts from the end — is the one arrangement that cannot be used here.
+    #
+    # The heading rows are not fixed and were not bounded. Cutting a request's
+    # note at ``ACCESS_REQUEST_NOTE_MAX`` bounds the *raw* value, and the
+    # message carries the escaped one: 120 characters of «"» are 720 after
+    # escaping, and five of those spend the whole budget before the member
+    # list is even asked for. The budget then went negative, `clamp` answered
+    # «… и ещё N» for the whole list, and the page was still 4225 characters
+    # and still refused. So the head is clamped too, against everything except
+    # the tail and a floor left for the list.
+    tail = "\n\n" + JOIN_MODE_TEXT[school_class.join_mode]
+    head = clamp(lines, MESSAGE_LIMIT - len(tail) - ACCESS_LIST_FLOOR)
+    # The blank line between the requests and the list used to be an empty
+    # string on the end of ``lines``, which worked until the head could be
+    # clamped: `clamp` stops before it and appends «… и ещё N строк» instead,
+    # so the separator went with the rows it dropped and the list's own heading
+    # was glued onto the end of that sentence — «… и ещё 2 строки👥 Доступ к
+    # классу». Joined here instead, where it cannot be cut off.
+    seam = "\n" if head else ""
     body = (
-        "\n".join(lines)
-        + render_access_list(members, invites)
+        head
+        + seam
+        + render_access_list(
+            members, invites, MESSAGE_LIMIT - len(head) - len(seam) - len(tail)
+        )
         # Under the list rather than above it, so it sits next to the button
         # that changes it.
-        + "\n\n"
-        + JOIN_MODE_TEXT[school_class.join_mode]
+        + tail
     )
     await callback.message.edit_text(body, reply_markup=back_to_menu(extra))
     await callback.answer()

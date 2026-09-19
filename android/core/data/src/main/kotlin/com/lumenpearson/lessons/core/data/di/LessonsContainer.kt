@@ -88,6 +88,30 @@ class DefaultLessonsContainer(
 
     private val preferences: LessonsPreferences by lazy { LessonsPreferences(appContext) }
 
+    /**
+     * What a join, a switch and a sign-out have to announce; see
+     * [SessionEffects], which is where the decisions are and where they are
+     * tested. This is only the wiring of each name to the thing that does it.
+     *
+     * Not `lazy` like everything below it, and for the same reason everything
+     * below it is: six lambdas that capture a context are less work than the
+     * delegate that would defer them, and none of them runs until something
+     * calls it.
+     */
+    private val sessionEffects = SessionEffects(
+        redrawWidget = { DataSyncBroadcast.send(appContext) },
+        clearAlerts = { SchoolAlerts.clear(appContext) },
+        replanAlerts = { SchoolAlerts.onDataChanged(appContext) },
+        stopBackgroundSync = { SyncScheduler.cancelPeriodic(appContext) },
+        // The stored interval, not a constant: the settings screen owns that
+        // number, and re-arming at the default would quietly undo a user who
+        // had asked for a different one the last time the app was open.
+        startBackgroundSync = {
+            SyncScheduler.schedulePeriodic(appContext, preferences.syncIntervalMinutesBlocking())
+        },
+        syncNow = { SyncScheduler.syncNow(appContext, wantsDifferentData = true) },
+    )
+
     private val database: LessonsDatabase by lazy { LessonsDatabase.build(appContext) }
 
     /**
@@ -125,6 +149,16 @@ class DefaultLessonsContainer(
                 DataSyncBroadcast.send(appContext)
                 SchoolAlerts.onDataChanged(appContext)
             },
+            // A `304` changes nothing the widget draws, so it is not told; the
+            // alarm chain is asked whether it is still standing, because what
+            // ends a chain is time passing rather than the data moving. Not
+            // `onDataChanged`: there is no new schedule to compare against a
+            // fingerprint, and running that comparison against an unchanged
+            // cache would be asking a question whose answer is known. And not
+            // `reschedule` either — that re-reads the whole cached year to
+            // re-derive an alarm it almost always finds already armed; see
+            // [SchoolAlerts.ensureArmed] for what the cheap answer gives up.
+            onNothingChanged = { SchoolAlerts.ensureArmed(appContext) },
             // Resolved when it fires, not here: `sessionRepository` is a lazy
             // in this same container and asking for it now would build it on
             // the cold-start path of a class this device may not even be in.
@@ -159,41 +193,24 @@ class DefaultLessonsContainer(
             preferences = preferences,
             api = api,
             dao = database.timetableDao(),
-            // The broadcast as well as the alarms, because the widget redraws
-            // on exactly two things: this broadcast, and its own armed tick.
-            // Leaving a class at four on a Friday puts the state at
-            // `AfterSchool`, whose tick is midnight — so without this the home
-            // screen went on showing the lessons of a class the phone had been
-            // thrown out of for the next eight hours, and after a 401 nobody
-            // had even pressed anything.
-            onSignedOut = {
-                DataSyncBroadcast.send(appContext)
-                SchoolAlerts.clear(appContext)
-            },
-            // Switching classes is not signing out, so nothing is cancelled:
-            // the widget is told to redraw, the alarm chain is re-planned from
-            // the class now on screen, and a sync is asked for because the
-            // window being switched to is as old as the last time it was
-            // looked at. The cached one is drawn in the meantime, which is what
-            // keeps the switch instant and usable with no network.
-            onActiveClassChanged = {
-                DataSyncBroadcast.send(appContext)
-                // Cleared before re-planning, not instead of it. An alert
-                // already on the shade names no class — «первый в 08:30» is all
-                // it says — so after a switch it is an unattributed statement
-                // about a class the phone is no longer showing, and tapping it
-                // opens the app on the other one.
-                SchoolAlerts.clear(appContext)
-                SchoolAlerts.onDataChanged(appContext)
-                SyncScheduler.syncNow(appContext, wantsDifferentData = true)
-            },
+            // Both answers live in [SessionEffects], which is where the
+            // reasoning for each of them is written down and where the
+            // difference between them is held by a test. The widget redraws on
+            // exactly two things — this broadcast and its own armed tick — so
+            // leaving a class at four on a Friday, whose next tick is midnight,
+            // depends entirely on being told.
+            onSignedOut = sessionEffects::onSignedOut,
+            onActiveClassChanged = sessionEffects::onActiveClassChanged,
         )
     }
 
     override val settingsRepository: SettingsRepository by lazy {
         SettingsRepositoryImpl(
             preferences = preferences,
-            onAlertsChanged = { SchoolAlerts.reschedule(appContext) },
+            // `onAlertsChanged` and not `reschedule`: a preference change is
+            // the one moment that also has to answer for what is already on
+            // the shade, and it is the only caller that may — see the KDoc.
+            onAlertsChanged = { SchoolAlerts.onAlertsChanged(appContext) },
         )
     }
 

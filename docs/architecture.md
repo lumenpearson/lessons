@@ -29,10 +29,50 @@ app/
 ├── schedule.py    template + overrides -> concrete days   (no FastAPI, no aiogram)
 ├── schemas.py     the wire contract
 ├── security.py    tokens, join codes, phone normalisation
+├── di.py          the container both shells take a session from
 ├── api/           read-only client endpoints
 ├── bot/           aiogram routers, roles, keyboards, renderers
 └── main.py        FastAPI app; its lifespan owns the bot's polling task
 ```
+
+### One container, two shells
+
+A session used to be made in three places: a FastAPI dependency for an
+endpoint, `SessionLocal()` inside the bot's middleware, and `session_scope()`
+for the cron tick — three answers to one question, each with its own view of
+whether the caller or the maker commits. `app/di.py` is a
+[dishka](https://github.com/reagento/dishka) container holding what has a
+lifetime: the settings and the session factory for as long as the process runs,
+and one `AsyncSession` for as long as one HTTP request or one Telegram update.
+
+Dishka rather than FastAPI's own `Depends` for one reason: `Depends` cannot
+serve a bot handler, and this project is deliberately two thin shells over one
+implementation. An endpoint writes `session: FromDishka[AsyncSession]`; the
+bot's `ContextMiddleware` opens the update's scope and takes the session from
+the same provider. Same provider, one definition.
+
+It opens that scope itself rather than calling `setup_dishka`, and the reason
+is written where the decision is: that helper registers a single middleware on
+*every* observer, so a message opened two scopes that were siblings on the root
+container rather than parent and child — one session per update only while
+nothing asked at update level. It also reads the process container per update
+instead of capturing one, because `api/telegram.py` caches the dispatcher for
+the life of the process and a container closed at shutdown would otherwise go
+on serving every webhook.
+
+What it deliberately does *not* hold is written out at the top of the module:
+the engine, which is built at import so that an unusable `DATABASE_URL` fails
+at the door rather than on the first query, and the two providers' HTTP
+clients, which are already process-wide singletons closed in the lifespan.
+
+Two things to know before adding to it. The container is built with
+`STRICT_VALIDATION`, so declaring a second provider for a type that already has
+one is an error rather than a silent shadowing — a test that rigs a session
+writes `override=True` and says why. And `app/api/routing.py` exists because
+every module here uses postponed annotations: dishka's wrapper is compiled and
+carries its own globals, so FastAPI could not resolve an endpoint's `->
+Response` and took the name for a response model. The route class resolves the
+annotation before the wrapping.
 
 `schedule.py` is deliberately free of framework imports. It takes ORM rows and
 returns plain dataclasses, which is why its twenty-two tests run in two seconds
@@ -254,9 +294,9 @@ alternative is every family's password in the database.
 
 ## Testing
 
-1391 tests on the server across 38 files, 605 on Android across 73 classes; `pytest -q` and
-`./gradlew test`, both offline, both in CI. On Android that is `:core:model` 89,
-`:core:data` 186, `:core:designsystem` 45, `:widget` 45, `:app` 240.
+1465 tests on the server across 42 files, 709 on Android across 90 classes; `pytest -q` and
+`./gradlew test`, both offline, both in CI. On Android that is `:core:model` 94,
+`:core:data` 227, `:core:designsystem` 45, `:widget` 68, `:app` 275.
 
 The table below is the load-bearing part of that rather than the whole of it:
 
@@ -277,6 +317,10 @@ The table below is the load-bearing part of that rather than the whole of it:
 | `android/core/model/.../ScheduleEngineTest.kt` | every `DayState`, boundary conditions, event precedence, next-transition scheduling | JVM JUnit |
 | `android/widget/.../WidgetSizeClassTest.kt` | the launcher's nearest-breakpoint rule over real sizes, and that the ladder is monotonic | JVM JUnit |
 | `android/app/.../ResourceTranslationTest.kt` | every Russian string has an English twin, in every module that ships strings | JVM JUnit |
+| `server/tests/test_vercel_entry.py` | that `api/index.py` re-exports the very app the server runs, and can find it from where Vercel starts it | pytest + a subprocess |
+| `server/tests/test_scripts.py` | that both one-shot scripts refuse a database that is not a local file, and say truthfully where they are about to write | pytest |
+| `server/tests/test_announcements.py` | that every place pushing to the class is bounded, measured at the call site rather than on the helper | pytest |
+| `android/core/model/.../StabilityPromiseTest.kt` | that nothing in the domain module is a `var`, which is what `compose-stability.conf` promises the Compose compiler | JVM JUnit |
 
 What nothing covers is a device: there is no `androidTest` directory, so not one test has
 run on hardware or an emulator. Three screens — the class list, the join mode and the

@@ -120,10 +120,32 @@ class MainActivity : ComponentActivity() {
             // the language of a screen that is already drawn; on 33 and up the
             // system does the restarting itself. Either way the user gets the
             // new language without leaving the settings page.
-            LaunchedEffect(shell.settings.language) {
+            //
+            // `languageToApply`, not `shell.settings.language`: until the
+            // settings flow has answered, that field is the placeholder the
+            // state is constructed with — AppLanguage.SYSTEM — while
+            // `attachedLanguage` already holds the real stored value, read
+            // synchronously in attachBaseContext. Comparing the two made every
+            // launch by somebody who had chosen a language look like a language
+            // change, and below API 33 `applyTo` answers one with `recreate()`.
+            //
+            // That is not a wasted frame, which is why this reads a flag rather
+            // than trusting the ordering. The recreation re-enters onCreate with
+            // an Intent `consumeRequestedDate` has already emptied, and with a
+            // fresh `pendingDate`: a tap on a day in the home-screen widget is
+            // taken out of the Intent and then thrown away with the activity
+            // that was holding it, so the app opens on the default tab and the
+            // date is gone. The shell never gets a chance to act on it, because
+            // while this effect runs the splash is still up.
+            //
+            // The key is the answer itself, so the effect runs again — once —
+            // when the placeholder is replaced by what is stored.
+            val language = shell.languageToApply
+            LaunchedEffect(language) {
+                if (language == null) return@LaunchedEffect
                 AppLocales.applyTo(
                     activity = this@MainActivity,
-                    language = shell.settings.language,
+                    language = language,
                     attached = attachedLanguage,
                 )
             }

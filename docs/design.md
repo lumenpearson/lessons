@@ -1063,3 +1063,138 @@ string.
 
 And a correction lives exactly as long as the process: that is a deliberate decision, and
 `TranslationMode` explains it on the spot.
+
+## A second app was borrowed from, for two things
+
+Everything above comes from Essentials. Two things do not:
+[GMS Flags Reborn](https://github.com/polodarb/GMS-Flags-Reborn) (Apache 2.0, © polodarb)
+is where the shape-changing loader and the transformation between first-run steps come from.
+It is named on the «Лицензии» sheet beside Essentials, and unlike every other Apache 2.0 row
+there its licence text also rides inside the APK, under `assets/notices/` — the other rows
+are dependencies, this one is source that was adapted, and section 4(a) asks whoever passes
+the work on to pass the licence with it. `CodeNoticeTest` holds the file in place the way
+`FontLicenceTest` holds the font's.
+
+### The loader
+
+`LessonsLoadingIndicator` is Material 3 Expressive's `LoadingIndicator`: a shape that becomes
+another shape rather than an arc that sweeps. There was nothing to port — in that project it
+is the same androidx component, and what was taken is the decision to make it the default
+everywhere a wait is shown. The reason is that an arc reads as one unchanging object, so two
+seconds and ten seconds look identical from the first frame, while a shape that has visibly
+become a different shape says time has passed.
+
+**It did not replace the skeletons, and was not meant to.** The two answer different
+questions. `SkeletonGroup` says what is about to appear and keeps the page from changing shape
+when it does, so it stays wherever the layout is already known — every list in the admin
+sheets, the diary's sections, the homework screen. The loader says only that something is
+happening, which is all that can honestly be said where the shape of the answer is not known
+yet: the session being restored before the first screen is chosen, and a sheet that has not
+read its first response. Pull-to-refresh moved to it as well, through
+`LessonsPullToRefreshBox`, so the one gesture that shows a wait on top of content shows the
+same wait as everywhere else.
+
+### The transformation between steps
+
+The first-run flow had a horizontal slide and nothing else: five screens, each arriving whole.
+What GMS Flags Reborn does instead is keep one shape *above* the transition and let it become
+the next step's shape while the body underneath is exchanged. That is the whole mechanism, and
+the position is the mechanism: `AnimatedContent` builds a fresh composable per step, so a badge
+drawn inside a step can only ever fade in as a new object — held above the swap, it has a
+previous shape to morph from.
+
+So `OnboardingHero` sits above the existing slide and carries two things: a `Morph` between two
+`MaterialShapes` polygons with the step's glyph held in the middle, and a row of dots where the
+current one is stretched into a bar. The glyph is exchanged rather than morphed: a glyph is a
+picture of a thing, and half of one picture blended into half of another is not a picture of
+anything. `OnboardingReveal` is the third piece — a fade-and-rise that replays on every step
+swap, so a step's title arrives a beat before the rest of it.
+
+What was left behind is the rest of that screen: the orbiting accent shapes, the parallax, the
+depth maths. They belong to an app whose first run is four screens of its own artwork; this one
+is a school timetable, and one shape is the whole decoration it wants.
+
+### What the borrowed code got wrong, and was not copied
+
+Reading it closely turned up three things worth not repeating.
+
+**A morph restarted at each step jumps when it is interrupted.** The reference keeps the two
+shapes in state, snaps the progress to zero on every change and animates on from there — so a
+second press inside the animation's 420 ms rebuilds the morph from the step just *left*, and
+the outline visibly jumps backwards before it moves forwards. On a first-run flow, pressing
+"next" twice quickly is an ordinary thing to do. Here the morph is driven by one continuous
+position along the steps instead (`animateFloatAsState` towards `step.ordinal`, with the pair
+of shapes picked by its floor and the fraction by its remainder): retargeting carries on from
+the value on screen rather than restarting, so an interrupted change keeps the outline it
+already had, and going back a step is the same movement in reverse without a second code path.
+
+**Nothing announced the step.** The reference's progress row has no content description and
+neither did the first version of ours, on the reasoning that the title under it says what the
+step is. It does not: it says what the step is *about*, never which of how many it is. The row
+now carries one merged description — «Шаг 2 из 4» — rather than being hidden, and the dots stay
+decorative inside it.
+
+**`OnboardingReveal`'s `Modifier.layout` does nothing.** It measures the child and places it at
+(0, 0), which is what the `Box` around it already does. It is not ported. The
+`graphicsLayer` beside it is the part that does the work.
+
+One more was ours alone: on the join step the strip is collapsing and the current step is no
+longer one of the dots, so the stretched bar shrank back to a dot on the way out — the flow
+appearing to go backwards at the moment it finished. The last introduction step stays marked
+while the strip leaves.
+
+**One rule was given up for it.** `StepScaffold` used to carry the status-bar inset itself, so
+that a long step scrolled up under the clock rather than stopping short of it. The strip is now
+the top of the page, so the strip carries the inset and it is the strip that passes under the
+clock. The inset sits *inside* the strip's animated height rather than around it, because the
+strip collapses to nothing on the join step — held outside, it would survive the collapse and
+leave the join screen pushed down by a header that is no longer there.
+
+### What else the comparison found, on both sides
+
+The second pass over that repository was not about a screen but about how it is built: what it
+does that this project does not, and what this project should keep on doing instead. Three
+findings, all measured rather than read off.
+
+**The lazy lists name their shapes, and ours did not.** Every `LazyColumn` there passes
+`contentType` alongside `key`; ours passed none. The reason it matters is not the one usually
+given. A lazy list reuses the subcomposition a scrolled-off item leaves behind, and it picks
+the slot by content type — which defaults to `null` for everything, so every item counts as the
+same shape as every other. A list of identical rows is therefore already optimal and gains
+nothing from the annotation; what gains is a list of *different* shapes, where a one-line
+paragraph is otherwise handed the slot a card of eight rows has just vacated and the whole
+subtree is discarded and rebuilt. Of this app's lazy lists exactly one is that shape —
+`DocsScreen`, whose longest page is forty-seven blocks in four kinds — and that is the one that
+now names them. The rest were left alone on purpose: `contentType` on a list of one-off items
+is a line of code that buys nothing, and `WeekScreen`'s strip of day tiles is homogeneous, which
+is the case the default already handles.
+
+**`java.time` made most of this app's state unstable, and nothing had noticed.** Turning on the
+Compose compiler's own report showed 36 of 94 classes in `:app` unstable — and the cause was
+almost always a single field. `TodayUiState` has fourteen stable fields and one `LocalDateTime`;
+`DiaryRange` is two `LocalDate`s and nothing else. The compiler infers stability from a class's
+fields and has no information about a type compiled elsewhere, so it assumes the worst, and one
+such field condemns everything holding it. With strong skipping on, this costs no recomposition
+— all 172 restartable composables were skippable before and after — but it does decide *how* a
+parameter is compared: an unstable one by identity, a stable one by `equals`. A state object
+rebuilt with identical contents is a different object, so the identity check fails and the
+subtree is drawn again for a value that did not change. `compose-stability.conf` now promises
+`java.time.*` and `com.lumenpearson.lessons.core.model.*`, and the count went 36 → 29, with
+every screen state that holds a date — today, the week, the homework, the diary's day and
+range — moving to stable. The file says at length what is deliberately *not* promised and why;
+the short version is that `kotlin.collections.List` and `:core:data`'s value types would each
+make the promise somewhere false. `StabilityPromiseTest` reads `:core:model`'s own source and
+fails on the first `var`, because a stability promise is the kind of lie nothing else would
+catch: no build breaks, nothing throws, a value simply changes and the screen keeps the old one.
+
+**The rest of their structure is theirs, not ours.** They are eleven Gradle modules to our five,
+with Koin for injection and an MVI layer per feature. None of it is copied. `Graph` is a
+hand-written container precisely because the Glance widget and the WorkManager worker both need
+repositories from entry points a DI framework does not reach cleanly, and that reasoning has not
+changed; the module split here follows what must not depend on what (`:core:data` must not see
+`:widget`), not a count. Their build is behind this one rather than ahead: their
+`gradle.properties` has the configuration cache on but parallel execution commented out, and
+they have no CI at all — `.github/` holds screenshots. On the Compose hygiene that can be
+counted the two are level (`@Immutable` 8 to 9, `@Stable` 7 to 5, `rememberSaveable` 19 to 9,
+`collectAsStateWithLifecycle` 11 to 19). The one thing they genuinely had and this project did
+not was the pair above.

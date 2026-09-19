@@ -48,6 +48,14 @@ SUBJECTS_MAX = 30
 BELLS_MAX = 10
 DEVICES_MAX = 15
 
+#: Unparsed lines echoed back under «⚠️ Не разобрал строки». The same rule as
+#: the pages above — what is drawn is what «… и ещё N» counts from — but here
+#: the number was written twice into the body of ``render_import_preview``,
+#: which is the arrangement that let the four pages disagree with their own
+#: keyboards. Ten, because a rejected line is shown to be corrected and a
+#: paste that got more than ten wrong is a paste to rewrite, not to fix.
+REJECTED_MAX = 10
+
 #: Every list here is already capped by row count, but a row carries free
 #: text — a note, an assignment, an audit summary — and thirty long ones would
 #: overrun a limit that no row count can express. The budget itself and the
@@ -423,9 +431,9 @@ def render_import_preview(days: dict[int, list], rejected: list[str], bells: int
     if rejected:
         lines.append("")
         lines.append("⚠️ Не разобрал строки:")
-        for line in rejected[:10]:
+        for line in rejected[:REJECTED_MAX]:
             lines.append(f"<code>{escape(line)}</code>")
-        lines.extend(more_line(len(rejected), 10))
+        lines.extend(more_line(len(rejected), REJECTED_MAX))
     if days or bells:
         lines.append("")
         if days:

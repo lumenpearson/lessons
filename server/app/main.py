@@ -12,6 +12,7 @@ import contextlib
 import logging
 from collections.abc import AsyncIterator
 
+from dishka.integrations.fastapi import setup_dishka
 from fastapi import FastAPI
 
 from app.api.cron import router as cron_router
@@ -22,6 +23,7 @@ from app.api.manage import router as manage_router
 from app.api.public import router as public_router
 from app.config import get_settings
 from app.db import engine, init_db
+from app.di import close_container, container
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -39,6 +41,15 @@ def _report_bot_exit(task: asyncio.Task) -> None:
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
+
+    # The container this run's requests are served from. Set here as well as
+    # at import, because the shutdown below closes it and forgets it: without
+    # this line `app.state` would still name the closed one, and a second
+    # lifespan in one process — which `tests/test_startup.py` is — would be
+    # served from a container that had finalised its app-scope objects.
+    # Nothing app-scoped holds a resource today, so that would be invisible
+    # until the first one did.
+    app.state.dishka_container = container()
 
     # Say out loud what is switched off. These are not faults — each is a
     # documented way to run without a feature — but a deployment missing one
@@ -88,6 +99,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         await close_client()
         await close_directory()
+        # Last, and after the bot has stopped: a handler still running would
+        # otherwise be holding a session out of a container that has shut its
+        # own scopes.
+        await close_container()
 
 
 app = FastAPI(
@@ -96,6 +111,14 @@ app = FastAPI(
     description="School diary API and Telegram admin bot",
     lifespan=lifespan,
 )
+
+# At module scope rather than in the lifespan, because `setup_dishka` installs
+# an ASGI middleware and Starlette builds that stack once, on the first
+# request: a middleware added from inside the lifespan is added to a list
+# nothing reads again. The container itself builds nothing here — every
+# provider is lazy, and `Settings` is `get_settings()`, which has already been
+# called by `app.db` at import.
+setup_dishka(container(), app)
 app.include_router(public_router)
 # The electronic diary of Saint Petersburg, behind its own bearer and its own
 # prefix. Mounted unconditionally: it needs no configuration of ours, only a

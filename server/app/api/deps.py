@@ -5,12 +5,12 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime, timedelta
 
+from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import get_session
 from app.models import DeviceToken, SchoolClass
 from app.security import hash_token
 
@@ -62,9 +62,11 @@ async def _touch_last_seen(session: AsyncSession, device: DeviceToken) -> None:
             log.warning("could not refresh device %s after a rollback", device.id, exc_info=True)
 
 
+@inject
 async def current_device(
     authorization: str = Header(default=""),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DeviceToken:
     """The device behind the bearer token, or 401.
 
@@ -97,9 +99,11 @@ async def current_device(
     return device
 
 
+@inject
 async def current_class(
     device: DeviceToken = Depends(current_device),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> SchoolClass:
     await _touch_last_seen(session, device)
     # After the write, not before: a rollback inside it expires everything the

@@ -28,6 +28,7 @@ from app.models import (
     BellSchedule,
     BotUser,
     DayEvent,
+    DayKind,
     DayOverride,
     DeviceToken,
     DiarySession,
@@ -1094,6 +1095,224 @@ async def test_cancelling_a_lesson_the_day_does_not_have_is_refused(
     assert added.status_code == 200, added.text
 
 
+async def test_a_substitution_with_no_subject_at_an_empty_number_is_refused(
+    client, session, school_class, recording_bot
+):
+    """«🔁 Замена … — кабинет/учитель» about a lesson that is not there.
+
+    `OverrideIn` accepts a replacement carrying only a room or only a teacher,
+    which is right when there is a template lesson underneath to inherit the
+    subject from. With nothing underneath, `subject_name` lands NULL, and the
+    resolver drops the row — `subject = override.subject_name or (existing.subject
+    if existing else None)` is None and the loop moves on. The row was stored,
+    written to the log, and announced to every subscriber as a change to a
+    lesson no phone, no widget and no calendar feed will ever show.
+
+    The bot cannot reach it: it builds its picker from the day's own lessons and
+    always asks for a typed subject. This is the API-only half of the invariant
+    the cancellation above already holds.
+    """
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    day = (MONDAY + timedelta(days=7)).isoformat()
+
+    refused = await client.put(
+        "/api/v1/overrides",
+        json={"date": day, "index": 7, "action": "replace", "teacher": "Иванов И.И."},
+        headers=_auth(token),
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert "нечего заменять" in refused.json()["detail"]
+    assert await session.scalar(select(LessonOverride)) is None
+    assert recording_bot.sent == []
+
+    # The same payload over a lesson the day does have is still a room change,
+    # which is the case the schema was widened for in the first place.
+    over_a_real_lesson = await client.put(
+        "/api/v1/overrides",
+        json={"date": day, "index": 1, "action": "replace", "teacher": "Иванов И.И."},
+        headers=_auth(token),
+    )
+    assert over_a_real_lesson.status_code == 200, over_a_real_lesson.text
+
+
+async def test_a_substitution_outside_the_school_year_is_refused(
+    client, session, school_class, recording_bot
+):
+    """A lesson in June is announced to the class and drawn nowhere.
+
+    `_resolve_day` asks `school_year_bounds` and returns before it reads the
+    overrides at all, so the summer rule that stops the template repeating
+    stops a substitution too — silently, after the write, the audit line and
+    everybody's «🔁 Замена 4 июня». `_check_date`'s own bounds run to 2100 and
+    cannot see this, and they must not learn to: homework and events out of
+    season are deliberately kept, and only the lessons are not.
+
+    The endpoint asks the resolver's own `school_year_bounds` rather than
+    re-reading the rule, so the two cannot drift apart.
+    """
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    summer = date(MONDAY.year + 1, 6, 4)
+    assert summer.month == 6
+
+    refused = await client.put(
+        "/api/v1/overrides",
+        json={
+            "date": summer.isoformat(),
+            "index": 1,
+            "action": "replace",
+            "subject": "Консультация",
+        },
+        headers=_auth(token),
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert "вне учебного года" in refused.json()["detail"]
+    assert await session.scalar(select(LessonOverride)) is None
+    assert recording_bot.sent == []
+
+
+async def test_the_first_of_september_is_not_refused_as_a_summer_date(
+    client, session, school_class, recording_bot
+):
+    """One refusal covered two dates that have nothing in common.
+
+    `school_year_start` moves the first teaching day off a weekend, so in a
+    year where the 1st of September is a Saturday — 2029, and then 2035 — the
+    1st and the 2nd fall before `year_start` and land in the same branch as
+    the 4th of June. Somebody standing on «1 сентября» was told their date was
+    outside the school year and that «для летних дел есть события», which
+    answers a question about a day three months earlier and reads as a bug in
+    the date picker rather than as the horizon it is.
+
+    Still refused — the resolver draws no lessons there either, and a
+    substitution nobody will see is exactly what this check exists to stop.
+    What changes is that the sentence says which day the year starts on, so
+    the next press can be the right one.
+    """
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    opening = date(2029, 9, 1)
+    assert opening.weekday() == 5, "this test is about the 1st landing on a Saturday"
+
+    refused = await client.put(
+        "/api/v1/overrides",
+        json={
+            "date": opening.isoformat(),
+            "index": 1,
+            "action": "replace",
+            "subject": "Линейка",
+        },
+        headers=_auth(token),
+    )
+
+    assert refused.status_code == 422, refused.text
+    detail = refused.json()["detail"]
+    assert "летних" not in detail, detail
+    assert "вне учебного года" not in detail, detail
+    # The Monday the year actually opens on, so the answer names a day.
+    assert "3.09" in detail, detail
+    assert await session.scalar(select(LessonOverride)) is None
+    assert recording_bot.sent == []
+
+    # June is untouched by the split and still reads as the summer.
+    summer = await client.put(
+        "/api/v1/overrides",
+        json={"date": "2029-06-04", "index": 1, "action": "replace", "subject": "Консультация"},
+        headers=_auth(token),
+    )
+    assert summer.status_code == 422, summer.text
+    assert "для летних дел есть события" in summer.json()["detail"]
+
+
+async def test_a_substitution_on_a_hand_marked_holiday_is_refused(
+    client, session, school_class, recording_bot
+):
+    """The third date shape, and the one a class actually creates.
+
+    `_resolve_day` has two early returns above the override loop, not one:
+    out of season, and `kind is DayKind.HOLIDAY`. The first was closed and the
+    second was not, and the guard that would have caught it was written — it
+    was simply gated behind «and no subject», so a replacement *carrying* a
+    subject walked straight past. «Каникулы» marked by hand is a thing every
+    class does, where a June substitution is a thing almost nobody does.
+
+    Stored, audited, and «🔁 Замена 14 сентября — Консультация» to every
+    subscriber; the bundle for that day answers no lessons. The bot cannot
+    reach it — it builds its picker from the day's own lessons and says «В этот
+    день уроков нет — заменять нечего».
+    """
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    day = MONDAY + timedelta(days=7)
+    session.add(
+        DayOverride(
+            class_id=school_class.id, date=day, kind=DayKind.HOLIDAY, note="Каникулы"
+        )
+    )
+    await session.commit()
+
+    refused = await client.put(
+        "/api/v1/overrides",
+        json={
+            "date": day.isoformat(),
+            "index": 1,
+            "action": "replace",
+            "subject": "Консультация",
+        },
+        headers=_auth(token),
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert "выходной" in refused.json()["detail"]
+    assert await session.scalar(select(LessonOverride)) is None
+    assert recording_bot.sent == []
+
+
+async def test_an_existing_substitution_out_of_season_cannot_be_re_announced(
+    client, session, school_class, recording_bot
+):
+    """Refusing on create only leaves every row written before the fix live.
+
+    The bell check above is create-only for a stated reason — an existing row
+    at a number that does not ring must stay editable, which is how a class
+    gets out of one. The season and holiday checks are not that shape: a row
+    already sitting on a summer date is exactly the one whose update would
+    announce «🔁 Замена» about a lesson nobody can see, and every such row
+    written before this endpoint learned to refuse is one of those.
+
+    Clearing it still works, which is the way out that matters.
+    """
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    summer = date(MONDAY.year + 1, 6, 7)
+    session.add(
+        LessonOverride(
+            class_id=school_class.id,
+            date=summer,
+            index=1,
+            action=OverrideAction.REPLACE,
+            subject_name="Старое",
+        )
+    )
+    await session.commit()
+
+    refused = await client.put(
+        "/api/v1/overrides",
+        json={"date": summer.isoformat(), "index": 1, "action": "replace", "subject": "Новое"},
+        headers=_auth(token),
+    )
+    assert refused.status_code == 422, refused.text
+    assert "вне учебного года" in refused.json()["detail"]
+    assert recording_bot.sent == []
+
+    # The row is still there and is still removable — that is the way out.
+    cleared = await client.put(
+        "/api/v1/overrides",
+        json={"date": summer.isoformat(), "index": 1, "action": "clear"},
+        headers=_auth(token),
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert await session.scalar(select(LessonOverride)) is None
+
+
 async def test_days_set_and_clear(client, session, school_class, recording_bot):
     await _subscriber(session, school_class, 7001, notify_changes=True)
     token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
@@ -1413,8 +1632,17 @@ async def test_cron_tick_sweeps_the_phones_that_stopped_asking(
 
 
 def test_current_device_is_what_the_class_dependency_builds_on():
-    """One token lookup per request, however many dependencies ask."""
+    """One token lookup per request, however many dependencies ask.
+
+    Read through ``__dishka_orig_func__`` rather than off the name: both
+    dependencies take their session from the container now, which means both
+    are wrapped, and the wrapper's first local is ``args``. The question this
+    asks is about the function that was written, so it asks the function that
+    was written — the alternative is a test that passes because it stopped
+    looking at anything.
+    """
     from app.api import deps
 
+    written = deps.current_class.__dishka_orig_func__
     assert hash_token("x") != hash_token("y")
-    assert deps.current_class.__code__.co_varnames[:1] == ("device",)
+    assert written.__code__.co_varnames[:1] == ("device",)

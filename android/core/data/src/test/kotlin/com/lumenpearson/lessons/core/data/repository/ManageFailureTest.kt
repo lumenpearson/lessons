@@ -47,6 +47,23 @@ class ManageFailureTest {
     }
 
     /**
+     * The guard matches ignoring case, so the extraction has to as well.
+     *
+     * It did not: `endsWith(ignoreCase = true)` recognised the sentence and
+     * `removeSuffix` — which is case-sensitive — then took nothing off it, so
+     * the role came back as the whole sentence and the screen named it as the
+     * missing role. The server writes this message in lowercase today, which
+     * is the only reason nobody has seen it; the two spellings live in two
+     * repositories and one of them is a Russian-facing message somebody will
+     * reword.
+     */
+    @Test
+    fun `the role is named whatever case the server wrote the sentence in`() {
+        assertEquals(ManageFailure.RoleLost("admin"), ManageFailure.ofStatus(403, "admin ROLE REQUIRED"))
+        assertEquals(ManageFailure.RoleLost("Owner"), ManageFailure.ofStatus(403, "Owner Role Required"))
+    }
+
+    /**
      * The grant guards. Both are answers about one button, and neither is a
      * reason to take the page away from an administrator who still has it.
      */

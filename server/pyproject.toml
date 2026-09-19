@@ -16,6 +16,15 @@ dependencies = [
     "asyncpg>=0.31.0",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
+    # The container both shells draw a session from (app/di.py). Wanted for
+    # aiogram as much as for FastAPI: `Depends` cannot serve a bot handler, and
+    # this project is two shells over one implementation, so «a session for one
+    # unit of work» had three definitions and now has one.
+    #
+    # No ceiling, unlike httpx: nothing here depends on behaviour its authors
+    # have announced they are removing. The floor is where `STRICT_VALIDATION`
+    # and the aiogram integration both exist.
+    "dishka>=1.10.1",
     # The Petersburg diary provider talks to an upstream over HTTP. It was
     # already here as a test dependency (httpx drives the ASGI client); this
     # promotes it, because now a request path uses it.

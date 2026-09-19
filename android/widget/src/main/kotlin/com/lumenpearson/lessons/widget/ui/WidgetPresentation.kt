@@ -10,6 +10,7 @@ import com.lumenpearson.lessons.core.model.SchoolEvent
 import com.lumenpearson.lessons.widget.R
 import com.lumenpearson.lessons.widget.format.HomeworkDayLabel
 import com.lumenpearson.lessons.widget.format.WidgetStrings
+import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -34,11 +35,18 @@ import java.time.LocalDateTime
  *   own reads as a time of day rather than as five minutes and change.
  * @property progress 0..1 through the current lesson/break/event, or null when
  *   nothing is running.
- * @property accentIsUrgent true in the last five minutes, which is when a
- *   student actually looks at the widget.
+ * @property accentIsUrgent true while the printed figure reads five minutes or
+ *   fewer, which is when a student actually looks at the widget. Tied to the
+ *   figure and not to the duration on purpose; see [isUrgent].
  * @property endsAt when the running lesson, break or event is over, in the
- *   school's wall time. It is what the live countdown counts to, and it is null
- *   exactly when [countdown] is: after school there is nothing to count.
+ *   school's wall time. It is what the live countdown counts to. Every state
+ *   that sets [countdown] also sets this, because `ScheduleEngine` fills
+ *   `validUntil` for all four of them — so the frozen fallback in `Countdown`
+ *   cannot fire today. It is kept rather than deleted because `validUntil` is
+ *   declared nullable on every `DayState`, so nothing but that one producer
+ *   stops a future state from counting something with no end, and drawing
+ *   nothing where a number belongs is a worse answer than drawing the frozen
+ *   string.
  * @property nextAt when the thing after this one starts, for the "Дальше" line.
  * @property nextSubject what that thing is. Null during a break, where the
  *   subject *is* what comes next and repeating it would be noise.
@@ -57,8 +65,20 @@ internal data class Headline(
     val nextSubject: String? = null,
 )
 
-/** Minutes below which a countdown is drawn in the accent colour. */
+/** Minutes at or below which a countdown is drawn in the accent colour. */
 private const val URGENT_MINUTES = 5L
+
+/**
+ * Whether [remaining] is close enough to colour the countdown.
+ *
+ * Judged on the figure the widget is about to print, not on the duration behind
+ * it. The two round opposite ways — [WidgetStrings.minutesShown] rounds up
+ * because that is how a clock is read, `Duration.toMinutes()` truncates — so
+ * asking the duration meant that from 5:01 to 5:59 the widget drew «6 мин» in
+ * the error colour, one minute outside the five this is documented as.
+ */
+internal fun isUrgent(remaining: Duration): Boolean =
+    WidgetStrings.minutesShown(remaining) <= URGENT_MINUTES
 
 /**
  * Words a [DayState] for the "what is happening now" half of the widget.
@@ -74,7 +94,7 @@ internal fun headlineOf(context: Context, state: DayState): Headline = when (sta
         countdown = WidgetStrings.durationIn(context, state.startsIn),
         bareCountdown = WidgetStrings.duration(context, state.startsIn, short = true),
         progress = null,
-        accentIsUrgent = state.startsIn.toMinutes() <= URGENT_MINUTES,
+        accentIsUrgent = isUrgent(state.startsIn),
         endsAt = state.validUntil,
         detail = lessonDetail(context, state.next),
         countdownWord = WidgetStrings.untilStart(context),
@@ -86,7 +106,7 @@ internal fun headlineOf(context: Context, state: DayState): Headline = when (sta
         countdown = WidgetStrings.durationLeft(context, state.endsIn),
         bareCountdown = WidgetStrings.duration(context, state.endsIn, short = true),
         progress = state.progress,
-        accentIsUrgent = state.endsIn.toMinutes() <= URGENT_MINUTES,
+        accentIsUrgent = isUrgent(state.endsIn),
         endsAt = state.validUntil,
         detail = lessonDetail(context, state.current),
         countdownWord = WidgetStrings.untilBell(context),
@@ -102,7 +122,7 @@ internal fun headlineOf(context: Context, state: DayState): Headline = when (sta
         countdown = WidgetStrings.durationLeft(context, state.endsIn),
         bareCountdown = WidgetStrings.duration(context, state.endsIn, short = true),
         progress = state.progress,
-        accentIsUrgent = state.endsIn.toMinutes() <= URGENT_MINUTES,
+        accentIsUrgent = isUrgent(state.endsIn),
         endsAt = state.validUntil,
         // How long the break *is*, not how much of it is left: the figure beside
         // it already says what is left, and twenty minutes and five minutes are
@@ -123,7 +143,7 @@ internal fun headlineOf(context: Context, state: DayState): Headline = when (sta
         countdown = WidgetStrings.durationLeft(context, state.endsIn),
         bareCountdown = WidgetStrings.duration(context, state.endsIn, short = true),
         progress = state.progress,
-        accentIsUrgent = state.endsIn.toMinutes() <= URGENT_MINUTES,
+        accentIsUrgent = isUrgent(state.endsIn),
         endsAt = state.validUntil,
         detail = WidgetStrings.meta(
             context,
@@ -160,7 +180,7 @@ private fun lessonDetail(context: Context, lesson: Lesson): String? = WidgetStri
 
 /** Whole minutes between two wall-clock times on the same day. */
 private fun minutesBetween(from: java.time.LocalTime, to: java.time.LocalTime): Int =
-    java.time.Duration.between(from, to).toMinutes().toInt().coerceAtLeast(0)
+    Duration.between(from, to).toMinutes().toInt().coerceAtLeast(0)
 
 /**
  * A one-line plan for a school day: how many lessons and when the first is.
@@ -274,6 +294,56 @@ internal fun subjectsIn(homework: List<HomeworkItem>): Int = homework
  */
 internal fun remainingLessonsOf(today: SchoolDay?, now: LocalDateTime): List<Lesson> =
     today?.let { ScheduleEngine.remainingLessons(it, now.toLocalTime()) }.orEmpty()
+
+/**
+ * The lesson the widget should call «Дальше», according to the state itself.
+ *
+ * Every state that has an answer already carries one, because [ScheduleEngine]
+ * worked it out against the whole day when it built the state — so asking the
+ * state is the only way the «Дальше» column and the headline above it can agree.
+ * Deriving it again from the remaining lessons is what they used to do, and it
+ * disagreed: filtering out "the lesson currently running" only recognises a
+ * running lesson under [DayState.InLesson], so during an assembly that replaces
+ * the third lesson the third lesson was still listed — at a time already past.
+ *
+ *  * [DayState.BeforeSchool] — the first lesson of the day.
+ *  * [DayState.InLesson] — the lesson after this one, or null in the last.
+ *  * [DayState.OnBreak] — the lesson the break leads to.
+ *  * [DayState.DuringEvent] — the first lesson starting at or after the event
+ *    ends, which is null when the event closes the day and is never the lesson
+ *    the event replaced.
+ *  * [DayState.AfterSchool], [DayState.DayOff], [DayState.NoData] — null. There
+ *    is no next lesson today, and these three do not reach a layout that asks.
+ */
+internal fun nextLessonOf(state: DayState): Lesson? = when (state) {
+    is DayState.BeforeSchool -> state.next
+    is DayState.InLesson -> state.next
+    is DayState.OnBreak -> state.next
+    is DayState.DuringEvent -> state.next
+    is DayState.AfterSchool -> null
+    is DayState.DayOff -> null
+    is DayState.NoData -> null
+}
+
+/**
+ * The lessons to list under «Дальше»: [nextLessonOf] and everything behind it.
+ *
+ * Anchored on the state's own answer rather than filtered by identity. Anything
+ * starting before that lesson is either finished, running, or replaced by the
+ * event on the screen above — and none of the three belongs under a heading
+ * that says "next".
+ */
+internal fun upcomingLessons(
+    state: DayState,
+    today: SchoolDay?,
+    now: LocalDateTime,
+    limit: Int,
+): List<Lesson> {
+    val next = nextLessonOf(state) ?: return emptyList()
+    return remainingLessonsOf(today, now)
+        .filter { it.startsAt >= next.startsAt }
+        .take(limit)
+}
 
 /**
  * The events still to come today.

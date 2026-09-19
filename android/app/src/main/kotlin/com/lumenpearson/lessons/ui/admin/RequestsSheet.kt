@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.lumenpearson.lessons.R
@@ -23,10 +24,37 @@ import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 
 /** What the requests sheet is doing: the list, or one decision. */
-private sealed interface RequestsMode {
+internal sealed interface RequestsMode {
     data object List : RequestsMode
     data class Approve(val request: AccessRequest) : RequestsMode
     data class Decline(val request: AccessRequest) : RequestsMode
+}
+
+/**
+ * Which of the sheet's screens is up — the half of [RequestsMode] that can be
+ * saved; [bellsModeOf] says why the other half is resolved rather than saved.
+ */
+internal enum class RequestsScreen { LIST, APPROVE, DECLINE }
+
+/**
+ * The mode [screen] and [id] stand for, against the requests actually on hand.
+ *
+ * A screen that needs a request and has none falls back to the list, and this is
+ * the sheet where that happens for real rather than as a precaution: a request
+ * is answered in the bot as readily as here, and an approval card for one that
+ * has already been granted offers a row of roles that can only come back `404`.
+ */
+internal fun requestsModeOf(
+    screen: RequestsScreen,
+    id: Long?,
+    requests: List<AccessRequest>?,
+): RequestsMode {
+    val request = requests?.firstOrNull { it.id == id } ?: return RequestsMode.List
+    return when (screen) {
+        RequestsScreen.APPROVE -> RequestsMode.Approve(request)
+        RequestsScreen.DECLINE -> RequestsMode.Decline(request)
+        RequestsScreen.LIST -> RequestsMode.List
+    }
 }
 
 /**
@@ -50,9 +78,20 @@ fun RequestsSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var mode by remember { mutableStateOf<RequestsMode>(RequestsMode.List) }
+    // The screen and the id, not the mode: a rotation — and, below API 33, the
+    // `recreate()` the language picker three pages away performs — rebuilds this
+    // composable from nothing, and a `remember` here put the reader back on the
+    // list halfway through deciding. See [requestsModeOf].
+    var screen by rememberSaveable { mutableStateOf(RequestsScreen.LIST) }
+    var openId by rememberSaveable { mutableStateOf<Long?>(null) }
     val requests = state.requests.value
+    val mode = remember(screen, openId, requests) { requestsModeOf(screen, openId, requests) }
     val grantable = remember(role) { grantableRoles(role) }
+
+    fun show(next: RequestsScreen, request: AccessRequest? = null) {
+        screen = next
+        openId = request?.id
+    }
 
     ManagementSheet(
         title = correctedString(R.string.admin_requests_title),
@@ -79,7 +118,7 @@ fun RequestsSheet(
                         enabled = !state.working,
                         onClick = {
                             viewModel.approveRequest(current.request, null)
-                            mode = RequestsMode.List
+                            show(RequestsScreen.LIST)
                         },
                     )
                     grantable.forEach { option ->
@@ -89,7 +128,7 @@ fun RequestsSheet(
                             enabled = !state.working,
                             onClick = {
                                 viewModel.approveRequest(current.request, option)
-                                mode = RequestsMode.List
+                                show(RequestsScreen.LIST)
                             },
                         )
                     }
@@ -97,8 +136,8 @@ fun RequestsSheet(
                 SheetFailure(failure = state.writeFailure)
                 SheetButtons(
                     confirmLabel = correctedString(R.string.action_back),
-                    onConfirm = { mode = RequestsMode.List },
-                    onCancel = { mode = RequestsMode.List },
+                    onConfirm = { show(RequestsScreen.LIST) },
+                    onCancel = { show(RequestsScreen.LIST) },
                     busy = state.working,
                 )
             }
@@ -111,9 +150,9 @@ fun RequestsSheet(
                     confirmLabel = correctedString(R.string.admin_request_decline),
                     onConfirm = {
                         viewModel.declineRequest(current.request)
-                        mode = RequestsMode.List
+                        show(RequestsScreen.LIST)
                     },
-                    onCancel = { mode = RequestsMode.List },
+                    onCancel = { show(RequestsScreen.LIST) },
                     busy = state.working,
                     destructive = true,
                 )
@@ -166,13 +205,13 @@ fun RequestsSheet(
                                 icon = Icons.Rounded.Check,
                                 tone = accentTone(0),
                                 enabled = !state.working,
-                                onClick = { mode = RequestsMode.Approve(request) },
+                                onClick = { show(RequestsScreen.APPROVE, request) },
                             )
                             GroupItem(
                                 title = correctedString(R.string.admin_request_decline),
                                 tone = errorTone(),
                                 enabled = !state.working,
-                                onClick = { mode = RequestsMode.Decline(request) },
+                                onClick = { show(RequestsScreen.DECLINE, request) },
                             )
                         }
                     }

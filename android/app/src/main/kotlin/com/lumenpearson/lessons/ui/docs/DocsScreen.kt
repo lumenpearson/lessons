@@ -87,7 +87,11 @@ fun DocsScreen(
         // Keyed by position rather than by content: two pages may legitimately
         // quote the same string, and a key that repeated inside one list is a
         // crash rather than a cosmetic problem.
-        itemsIndexed(docsRuns(page.blocks), key = { index, _ -> index }) { _, run ->
+        itemsIndexed(
+            items = docsRuns(page.blocks),
+            key = { index, _ -> index },
+            contentType = { _, run -> docsContentType(run) },
+        ) { _, run ->
             DocsRun(run)
         }
     }
@@ -115,6 +119,34 @@ internal fun docsRuns(blocks: List<DocsBlock>): List<List<DocsBlock>> {
         }
     }
     return runs
+}
+
+/**
+ * Which of [DocsRun]'s four shapes a run will be drawn as.
+ *
+ * A lazy list reuses the slot a scrolled-off item left behind, and it picks the
+ * slot by content type. Every item here is a different type by default —
+ * `null` — so a paragraph, which is one `Text`, is offered the slot a card of
+ * eight point rows has just vacated, and the whole subtree is thrown away and
+ * built again. Naming the shape is what lets a paragraph land in a paragraph's
+ * slot; the longest page is forty-seven blocks, which is enough scrolling for
+ * it to be worth saying.
+ *
+ * It is a function rather than a `when` inlined at the call site because the
+ * branches have to agree with [DocsRun]'s, and two `when`s over the same sealed
+ * interface drift: a type that claims a shape the drawing does not use is worse
+ * than no type at all, since the slot then arrives holding the wrong subtree.
+ * `DocsContentTest` holds them level.
+ */
+internal fun docsContentType(run: List<DocsBlock>): String {
+    if (run.size > 1 || run.first() is DocsBlock.Step) return "steps"
+    return when (run.first()) {
+        is DocsBlock.Paragraph -> "paragraph"
+        is DocsBlock.Points -> "points"
+        is DocsBlock.Note -> "note"
+        // Unreachable: a lone step took the branch above, exactly as in DocsRun.
+        is DocsBlock.Step -> "steps"
+    }
 }
 
 /** One run: either a stack of steps in one container, or a single block. */

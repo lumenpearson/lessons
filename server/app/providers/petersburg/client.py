@@ -163,6 +163,13 @@ def _session_cookie(response: httpx.Response) -> str | None:
     The last one wins, which is what a browser sending the next request to the
     same path would use. Guessing is acceptable here and refusing is not: the
     alternative to a guess is a session that never refreshes and dies.
+
+    **This is the only way to read that cookie.** A bare
+    ``response.cookies.get(SESSION_COOKIE)`` anywhere in this package is the
+    bug above, reintroduced: it raises on the two-cookie answer, and it raises
+    past `exceptions.py`. `login` read the jar directly for a while and was
+    the one call that still fell over - on the sign-in, where the ticket is
+    already spent and there is no way back but the bot.
     """
     try:
         return response.cookies.get(SESSION_COOKIE)
@@ -230,7 +237,20 @@ class PetersburgClient:
         # The token arrives twice - in the body and as a cookie - and the two
         # have been seen to differ, with the cookie being the one later calls
         # accept. Prefer it; fall back to the body rather than failing.
-        token = response.cookies.get(SESSION_COOKIE) or _string(data, "token")
+        #
+        # Through `_session_cookie`, like every other read of it: the bare
+        # `response.cookies.get` this line used to be raises `CookieConflict`
+        # on an answer that sets the session twice under two paths, and that
+        # is not a `PetersburgError`, so it left `/api/v1/diary/login` a 500
+        # and the sign-in page a «что-то пошло не так» with the ticket spent.
+        #
+        # Read off this response rather than off `self.token`, which `_raw`
+        # has by now already refreshed: the two agree whenever this answer
+        # carried a cookie, and where they differ `self.token` is whatever the
+        # instance was constructed with - so a login on a client that already
+        # held a session would hand back the *old* token and never consult the
+        # body. What this line means is «the session this answer issued».
+        token = _session_cookie(response) or _string(data, "token")
         if not token:
             raise UnexpectedResponse("Дневник не выдал сессию")
         return token
@@ -388,13 +408,56 @@ def _items(data: dict[str, Any]) -> list[dict[str, Any]]:
     An empty list is the honest reading of "this pupil has no marks this week",
     and the upstream expresses that by omitting the key as often as by sending
     an empty array.
+
+    A row that is not an object is dropped rather than raising - every reader
+    above this one asks for a field by name, and an ``int`` has none - but it
+    is **counted** on the way past. `mapper.note_if_nothing_read` is this
+    project's guard against a batch that read as nothing, and it can only
+    count what it is handed: filtering here first meant an answer of bare
+    handles instead of objects arrived there as an empty list, took its «no
+    items, nothing to say» exit, and came out looking exactly like a quiet
+    week - an empty diary on the phone, an empty «Дневник» in the bot, and not
+    one line anywhere saying the shape had moved.
     """
     items = data.get("items")
     if items is None:
         return []
     if not isinstance(items, list):
         raise UnexpectedResponse()
-    return [item for item in items if isinstance(item, dict)]
+    rows = [item for item in items if isinstance(item, dict)]
+    if len(rows) != len(items):
+        _note_rows_that_were_not_objects(items, rows)
+    return rows
+
+
+def _note_rows_that_were_not_objects(items: list[Any], rows: list[dict[str, Any]]) -> None:
+    """Say what was dropped for not being an object, and what it was instead.
+
+    Loud when nothing survived, because that is not a bad row - it is a shape
+    this code no longer recognises, and it is the case `note_if_nothing_read`
+    can never reach, since by then the list is empty. Quiet when something did
+    survive: one odd entry among twenty is the tolerance this whole provider is
+    built on, and a warning on every page would teach everybody to skip the
+    log. The type names go in because they are what says what the shape moved
+    to - `str` reads as ids where objects used to be, `list` as a nesting.
+    """
+    kinds = ", ".join(
+        sorted({type(item).__name__ for item in items if not isinstance(item, dict)})
+    )
+    if rows:
+        log.info(
+            "petersburg: dropped %d of %d row(s) that were not objects (%s)",
+            len(items) - len(rows),
+            len(items),
+            kinds,
+        )
+        return
+    log.warning(
+        "petersburg: all %d row(s) in this answer were %s rather than objects; "
+        "the upstream's shape has moved and nothing above this can see it",
+        len(items),
+        kinds,
+    )
 
 
 def _string(source: dict[str, Any], key: str) -> str | None:

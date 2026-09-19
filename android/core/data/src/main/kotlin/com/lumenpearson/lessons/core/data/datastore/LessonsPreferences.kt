@@ -294,6 +294,20 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
     fun baseUrlBlocking(): String = runBlocking { currentSettings().baseUrl }
 
     /**
+     * How often the background refresh should run, for the one caller that
+     * arms it outside the settings screen.
+     *
+     * `SessionEffects.onActiveClassChanged` re-installs the periodic worker
+     * after a sign-out cancelled it, and it is handed a plain `() -> Unit` —
+     * the table of what happens on a session change holds no coroutines, so
+     * the interval is read the way the interceptors read a token. It runs on
+     * the session repository's IO dispatcher, never on the main thread.
+     *
+     * @see tokenBlocking
+     */
+    fun syncIntervalMinutesBlocking(): Int = runBlocking { currentSettings().syncIntervalMinutes }
+
+    /**
      * The stored language, read the only way the caller can read it.
      *
      * `Activity.attachBaseContext` is where a per-app locale has to be applied

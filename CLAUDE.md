@@ -44,9 +44,9 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 1391 tests, about five minutes; `-n auto` puts them on
+- **`python -m pytest -q`** — 1465 tests, about five minutes; `-n auto` puts them on
   every core and finishes in a third of that, which is what CI runs
-- **`python -m mypy`** — one question, of all 79 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 81 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. Not in CI — the
   owner has not been asked — but run it before you push server code
@@ -90,8 +90,26 @@ Server modules:
 - `models.py` — the whole SQLAlchemy 2.0 domain in one file
 - `schedule.py` — template + overrides → concrete days. No FastAPI, no aiogram imports, and
   it must stay that way: that is why its tests run in seconds
+- `di.py` — the dishka container both shells draw from: `Settings` and the session
+  factory at app scope, one `AsyncSession` per HTTP request or Telegram update. An
+  endpoint asks with `session: FromDishka[AsyncSession]`; the bot's `ContextMiddleware`
+  opens the update's scope itself — **not** `setup_dishka`, which registers one middleware
+  on every observer and so opened two *sibling* scopes per message, either of which could
+  hand out a second session nothing commits — and it reads `container()` per update rather
+  than capturing one, because `api/telegram.py` caches the dispatcher for the life of the
+  process. It still commits there, because for a handler that is the finish line. It is
+  built with
+  `STRICT_VALIDATION`, so a second provider for a type is an error rather than a silent
+  shadowing. Do **not** import `dishka.integrations.aiogram` from it — that pulls aiogram
+  onto the cold-start path of every request, which is the thing `main.py` and
+  `api/telegram.py` already go out of their way to defer
 - `api/` — `public.py` (read), `edit.py` and `manage.py` (write), `diary.py`, `cron.py`,
-  `telegram.py` (webhook), `deps.py` (device-token auth)
+  `telegram.py` (webhook), `deps.py` (device-token auth), `routing.py` (the route class
+  every router here is built with: dishka's wrapper carries its own globals, so under
+  `from __future__ import annotations` FastAPI could not resolve an endpoint's
+  `-> Response` and took the name for a response model — a 204 route made that an
+  `AssertionError` at import, and every route without an explicit `response_model=` would
+  have had a schema built from a string)
 - `bot/` — aiogram routers, roles, keyboards, renderers. The weekly template has **two**
   editors and both are wanted: `handlers/timetable.py` pastes a whole weekday (fastest way
   to enter a term), `handlers/editor.py` changes one lesson with buttons. They share one
@@ -148,7 +166,7 @@ points Hilt does not inject cleanly.
   this project failed on four invented versions that exist in no repository.
 - **Commit messages are English sentences that say what the change makes the project do** —
   "Let the class be run from the phone, by the same rules as from the bot". No Conventional
-  Commits prefix (none of the 258 commits has one), and the body explains the reasoning and
+  Commits prefix (none of the 288 commits has one), and the body explains the reasoning and
   names what is left uncovered. Unlike the owner's other repositories, this history does
   carry a `Co-Authored-By: Claude …` trailer; keep doing what the history does.
 - **Say what is not covered.** The README has an "Honest status" section and it is honest on
@@ -319,6 +337,20 @@ points Hilt does not inject cleanly.
   `Timetable.nowAtSchool()`. `LocalDateTime.now()` and `ZoneId.systemDefault()` on the
   Android side are almost always a bug — that pair was two of the fourteen defects the audit
   confirmed.
+- **`compose-stability.conf` is a promise, and a `var` in `:core:model` breaks it.** The file
+  tells the Compose compiler that `java.time.*` and the whole domain package are stable,
+  because neither is compiled by the Compose plugin and one unknown field makes every class
+  holding it unstable — that one field was `LocalDate`, and it condemned `TodayUiState`,
+  `WeekDayUi`, `HomeworkUiState` and the diary's day and range along with it. What a false
+  promise costs is invisible: nothing fails to build and nothing throws, Compose simply stops
+  comparing the value and the screen keeps the old one. `StabilityPromiseTest` reads
+  `:core:model`'s own source and fails on the first `var`; if a type there has to become
+  mutable, move it out of the module and take the package off that file rather than leaving
+  both standing. The file itself says at length what is deliberately *not* promised —
+  `kotlin.collections.List` and `:core:data`'s value types — and why each would be a lie.
+  Re-measure with `reportsDestination` in a module's `composeCompiler` block and a
+  `--rerun-tasks` compile; it is left out of the build on purpose, because it writes reports
+  on every build and the question is asked rarely.
 - **AGP 9 compiles Kotlin itself.** Applying `org.jetbrains.kotlin.android` in an Android
   module is a hard build failure, not a warning. Pure-JVM modules still use `kotlin.jvm`.
 - **The bot runs two ways from one dispatcher.** Long polling inside the API process

@@ -11,8 +11,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Modifier
 import com.lumenpearson.lessons.R
@@ -33,12 +35,53 @@ import java.time.LocalTime
 import java.util.Locale
 
 /** What the bells sheet is doing. */
-private sealed interface BellsMode {
+internal sealed interface BellsMode {
     data object List : BellsMode
     data object Add : BellsMode
     data class Rename(val schedule: BellSchedule) : BellsMode
     data class Periods(val schedule: BellSchedule) : BellsMode
     data class Delete(val schedule: BellSchedule) : BellsMode
+}
+
+/**
+ * Which of the sheet's screens is up — the half of [BellsMode] that can be saved.
+ *
+ * [BellsMode] carries a [BellSchedule], which is not `Parcelable` and should not
+ * become one for the sake of a rotation. So what survives is this and the
+ * schedule's id, and [bellsModeOf] puts the two back together.
+ */
+internal enum class BellsScreen { LIST, ADD, RENAME, PERIODS, DELETE }
+
+/**
+ * The mode [screen] and [id] stand for, against the schedules actually on hand.
+ *
+ * Resolved rather than restored, and the difference is what makes saving an id
+ * enough: the sheet reloads on every open, so the rest of a [BellSchedule] has
+ * to come from the list anyway, and a schedule that was renamed in the bot in
+ * the meantime is then drawn as it is now rather than as it was before the
+ * rotation.
+ *
+ * A screen that needs a schedule and has none falls back to the list. That is
+ * two cases at once and both want the same answer: the list has not arrived yet
+ * — where the list screen draws its own skeleton, and this resolves again when
+ * it does — and the schedule is gone, deleted from the bot while this sheet sat
+ * in the background. A rename form over a schedule that no longer exists is a
+ * «Сохранить» that can only fail, under a name nobody can correct.
+ */
+internal fun bellsModeOf(
+    screen: BellsScreen,
+    id: Long?,
+    schedules: List<BellSchedule>?,
+): BellsMode {
+    // Adding needs no schedule, so it must not be refused for want of one.
+    if (screen == BellsScreen.ADD) return BellsMode.Add
+    val schedule = schedules?.firstOrNull { it.id == id } ?: return BellsMode.List
+    return when (screen) {
+        BellsScreen.RENAME -> BellsMode.Rename(schedule)
+        BellsScreen.PERIODS -> BellsMode.Periods(schedule)
+        BellsScreen.DELETE -> BellsMode.Delete(schedule)
+        BellsScreen.LIST, BellsScreen.ADD -> BellsMode.List
+    }
 }
 
 /**
@@ -55,8 +98,19 @@ fun BellsSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var mode by remember { mutableStateOf<BellsMode>(BellsMode.List) }
+    // The screen and the id, not the mode: a rotation — and, below API 33, the
+    // `recreate()` the language picker three pages away performs — rebuilds this
+    // composable from nothing, and a `remember` here put the reader back on the
+    // list with whatever they had typed or set gone. See [bellsModeOf].
+    var screen by rememberSaveable { mutableStateOf(BellsScreen.LIST) }
+    var openId by rememberSaveable { mutableStateOf<Long?>(null) }
     val schedules = state.bells.value
+    val mode = remember(screen, openId, schedules) { bellsModeOf(screen, openId, schedules) }
+
+    fun show(next: BellsScreen, schedule: BellSchedule? = null) {
+        screen = next
+        openId = schedule?.id
+    }
 
     ManagementSheet(
         title = correctedString(R.string.admin_bells_title),
@@ -69,13 +123,13 @@ fun BellsSheet(
                 initial = "",
                 busy = state.working,
                 failure = state.writeFailure,
-                onCancel = { mode = BellsMode.List },
+                onCancel = { show(BellsScreen.LIST) },
                 onSave = { name ->
                     // Created empty: the rows are the next screen, and a
                     // schedule with no times is still a schedule a day can be
                     // pointed at once it has them.
                     viewModel.addBellSchedule(name, emptyList())
-                    mode = BellsMode.List
+                    show(BellsScreen.LIST)
                 },
             )
 
@@ -84,10 +138,10 @@ fun BellsSheet(
                 initial = current.schedule.name,
                 busy = state.working,
                 failure = state.writeFailure,
-                onCancel = { mode = BellsMode.List },
+                onCancel = { show(BellsScreen.LIST) },
                 onSave = { name ->
                     viewModel.renameBellSchedule(current.schedule.id, name)
-                    mode = BellsMode.List
+                    show(BellsScreen.LIST)
                 },
             )
 
@@ -95,10 +149,10 @@ fun BellsSheet(
                 schedule = current.schedule,
                 busy = state.working,
                 failure = state.writeFailure,
-                onCancel = { mode = BellsMode.List },
+                onCancel = { show(BellsScreen.LIST) },
                 onSave = { periods ->
                     viewModel.saveBellPeriods(current.schedule.id, periods)
-                    mode = BellsMode.List
+                    show(BellsScreen.LIST)
                 },
             )
 
@@ -112,9 +166,9 @@ fun BellsSheet(
                     confirmLabel = correctedString(R.string.admin_bells_delete),
                     onConfirm = {
                         viewModel.deleteBellSchedule(current.schedule)
-                        mode = BellsMode.List
+                        show(BellsScreen.LIST)
                     },
-                    onCancel = { mode = BellsMode.List },
+                    onCancel = { show(BellsScreen.LIST) },
                     busy = state.working,
                     destructive = true,
                 )
@@ -146,17 +200,17 @@ fun BellsSheet(
                         ScheduleRows(
                             schedule = schedule,
                             busy = state.working,
-                            onRename = { mode = BellsMode.Rename(schedule) },
-                            onPeriods = { mode = BellsMode.Periods(schedule) },
+                            onRename = { show(BellsScreen.RENAME, schedule) },
+                            onPeriods = { show(BellsScreen.PERIODS, schedule) },
                             onMakeDefault = { viewModel.makeBellScheduleDefault(schedule.id) },
-                            onDelete = { mode = BellsMode.Delete(schedule) },
+                            onDelete = { show(BellsScreen.DELETE, schedule) },
                         )
                     }
                 }
                 GroupActionItem(
                     label = correctedString(R.string.admin_bells_add),
                     icon = Icons.Rounded.Add,
-                    onClick = { mode = BellsMode.Add },
+                    onClick = { show(BellsScreen.ADD) },
                     busy = state.working,
                     modifier = Modifier.padding(horizontal = ScreenPadding),
                 )
@@ -269,16 +323,36 @@ private fun ScheduleNameForm(
  * lesson numbers must be unique and the only thing a school ever means by them
  * is the order, so letting a gap appear after removing a row would be offering
  * a mistake the server would then refuse.
+ *
+ * `rememberSaveable`, not `remember`: this is the most expensive form in
+ * «Управление классом» — six bells set one by one, two taps and a picker each —
+ * and a rotation, or the `recreate()` the language picker performs below API 33,
+ * used to hand it back filled with what the server holds. The screen itself has
+ * survived since [bellsModeOf]; the times in it had not.
+ *
+ * `schedule.periods` stays in the key on purpose, so a reload that really did
+ * change the bells in the bot wins over what is on screen — the same rule
+ * [bellsModeOf] follows for the schedule itself. A reload that changes nothing
+ * cannot trip it, because [BellSchedule] and [BellPeriod] are data classes and
+ * an equal-but-new list is equal.
+ *
+ * Internal rather than private so `BellRowsRotationTest` can compose it on its
+ * own: what a rotation does to it is not something the pure resolutions in
+ * `SheetModeTest` can reach.
  */
 @Composable
-private fun PeriodsForm(
+internal fun PeriodsForm(
     schedule: BellSchedule,
     busy: Boolean,
     failure: ManageFailure?,
     onCancel: () -> Unit,
     onSave: (List<BellPeriod>) -> Unit,
 ) {
-    val rows = remember(schedule.id, schedule.periods) {
+    val rows = rememberSaveable(
+        schedule.id,
+        schedule.periods,
+        saver = bellRowsSaver(schedule.id),
+    ) {
         schedule.periods.map { it.startsAt.minutes() to it.endsAt.minutes() }.toMutableStateList()
     }
     val periods = rows.mapIndexed { index, (start, end) ->
@@ -336,6 +410,57 @@ private fun PeriodsForm(
         busy = busy,
     )
 }
+
+/**
+ * The rows of [scheduleId], as they are on screen, across a configuration change.
+ *
+ * The id is saved with them and [decodeBellRows] refuses a save carrying any
+ * other one. `rememberSaveable` keys its entry by call site, and [PeriodsForm]
+ * is one call site for every schedule a class has: without the tag, times typed
+ * for one schedule would be poured into the form of another. That is not a
+ * contrived order of events — a rotation resolves to the list whenever the
+ * bells have not been reloaded yet, or when the schedule that was open has been
+ * deleted from the bot ([bellsModeOf]), and the save then sits unclaimed until
+ * the next schedule opens this same form.
+ *
+ * Text rather than a list of numbers because `listSaver` saves an empty list as
+ * `null`, and `null` restores as "nothing was saved": a reader who had removed
+ * every row would be handed the server's rows back instead of the empty
+ * schedule they meant.
+ */
+internal fun bellRowsSaver(scheduleId: Long): Saver<SnapshotStateList<Pair<Int, Int>>, String> =
+    Saver(
+        save = { rows -> encodeBellRows(scheduleId, rows) },
+        restore = { saved -> decodeBellRows(scheduleId, saved)?.toMutableStateList() },
+    )
+
+/** "2|510-555|565-610" — the schedule, then every row as start and end. */
+internal fun encodeBellRows(scheduleId: Long, rows: List<Pair<Int, Int>>): String =
+    (listOf(scheduleId.toString()) + rows.map { (start, end) -> "$start$BellRowTimes$end" })
+        .joinToString(BellRowSeparator)
+
+/**
+ * The rows in [saved], or `null` if they are not this schedule's or not rows.
+ *
+ * A saved bundle is the process's own, so a malformed one is not an attack — but
+ * it is reachable through a downgrade that wrote a different format, and the
+ * alternative to refusing it is `LocalTime.of` throwing under a reader who did
+ * nothing but turn the phone.
+ */
+internal fun decodeBellRows(scheduleId: Long, saved: String): List<Pair<Int, Int>>? {
+    val fields = saved.split(BellRowSeparator)
+    if (fields.firstOrNull()?.toLongOrNull() != scheduleId) return null
+    return fields.drop(1).map { row ->
+        val times = row.split(BellRowTimes)
+        if (times.size != 2) return null
+        val start = times[0].toIntOrNull()?.takeIf { it in 0..LastMinute } ?: return null
+        val end = times[1].toIntOrNull()?.takeIf { it in 0..LastMinute } ?: return null
+        start to end
+    }
+}
+
+private const val BellRowSeparator = "|"
+private const val BellRowTimes = "-"
 
 /** `BellPeriodsIn`'s own ceiling, mirrored so the button dims instead of failing. */
 private const val MaxPeriods = 20

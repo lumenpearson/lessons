@@ -20,15 +20,16 @@ from datetime import date as Date
 from html import escape
 from typing import Any
 
+from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class, current_device
 from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START, _homework_out, _today
+from app.api.routing import DishkaAnnotatedRoute
 from app.bot.render import human_date
 from app.config import get_settings
-from app.db import get_session
 from app.models import (
     BellPeriod,
     BellSchedule,
@@ -43,7 +44,7 @@ from app.models import (
     Role,
     SchoolClass,
 )
-from app.schedule import ScheduleResolver
+from app.schedule import SCHOOL_YEAR_START_MONTH, ScheduleResolver, school_year_bounds
 from app.schemas import (
     DayIn,
     DayOverrideOut,
@@ -61,7 +62,7 @@ from app.services import tasks as task_service
 
 log = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1", tags=["edit"])
+router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/api/v1", tags=["edit"])
 
 
 # --------------------------------------------------------------------------
@@ -69,9 +70,11 @@ router = APIRouter(prefix="/api/v1", tags=["edit"])
 # --------------------------------------------------------------------------
 
 
+@inject
 async def editor_device(
     device: DeviceToken = Depends(current_device),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DeviceToken:
     """The device, provided it is linked to an account that may edit.
 
@@ -151,7 +154,8 @@ async def homework_put(
     payload: HomeworkIn,
     device: DeviceToken = Depends(editor_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> HomeworkItemOut:
     """Upsert by (date, subject), exactly as the bot does: one assignment per
     subject per day, and sending it again replaces the text."""
@@ -193,7 +197,8 @@ async def homework_delete(
     homework_id: int,
     device: DeviceToken = Depends(editor_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DeletedOut:
     item = await session.scalar(
         select(Homework).where(Homework.id == homework_id, Homework.class_id == school_class.id)
@@ -228,12 +233,82 @@ async def homework_delete(
 # --------------------------------------------------------------------------
 
 
+async def _refuse_if_no_lesson_can_be_drawn(
+    session: AsyncSession, school_class: SchoolClass, day: Date
+) -> None:
+    """Refuse a substitution on a day the resolver draws no lessons on at all.
+
+    `_resolve_day` has two early returns above the override loop, and a
+    substitution written for a day that takes either of them is stored, written
+    to the audit log and announced to every subscriber — and drawn on no phone,
+    in no widget, in no calendar feed. The two are out of season, and a day
+    somebody marked «выходной» by hand.
+
+    Both are asked here rather than re-read, so this endpoint and the resolver
+    cannot answer differently. Note what is *not* asked: whether the day has a
+    lesson at this number. It need not — a substitution at an empty number is
+    how a lesson is added to a day, and the bell check above is what keeps that
+    honest. The question is only whether this day draws lessons at all.
+    """
+    year_start, year_end = school_year_bounds(day)
+    if not year_start <= day <= year_end:
+        # Two different dates land here and they are not the same refusal.
+        #
+        # Note which comparison they fail: ``day > year_end`` is unreachable.
+        # ``school_year_bounds`` files a date past the end of May under the
+        # year that is *about to open*, so June, July and August come back
+        # already before ``year_start`` — and so do the first days of
+        # September in a year where the 1st is a Saturday, because
+        # ``school_year_start`` moves the first teaching day off a weekend —
+        # a Saturday 1st pushes to the 3rd, a Sunday 1st to the 2nd, and both
+        # land here. The next four are 2029, 2030, 2035 and 2040. The month is
+        # what tells them apart from the summer.
+        #
+        # It mattered because the one sentence they shared said «эта дата вне
+        # учебного года … для летних дел есть события» — which on «1 сентября»
+        # answers a question about a day three months earlier and reads as a
+        # broken date picker rather than as the horizon it is. Whether those
+        # two days should draw a six-day class's Saturday lessons at all is a
+        # question about ``school_year_start``, and it is not answered here.
+        if day.month >= SCHOOL_YEAR_START_MONTH:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "учебный год начинается "
+                    f"{year_start.day}.{year_start.month:02d} — "
+                    "до него уроков ещё нет; поставьте событие"
+                ),
+            )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "эта дата вне учебного года — замену ставить не на что; "
+                "для летних дел есть события"
+            ),
+        )
+
+    marked = await session.scalar(
+        select(DayOverride).where(
+            DayOverride.class_id == school_class.id, DayOverride.date == day
+        )
+    )
+    if marked is not None and marked.kind is DayKind.HOLIDAY:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "этот день отмечен как выходной — уроков на нём нет; "
+                "снимите отметку или поставьте событие"
+            ),
+        )
+
+
 @router.put("/overrides", response_model=OverrideOut)
 async def override_put(
     payload: OverrideIn,
     device: DeviceToken = Depends(editor_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> OverrideOut:
     """One row per (date, lesson number). ``clear`` removes it, which is how
     a lesson goes back to the timetable."""
@@ -268,6 +343,15 @@ async def override_put(
             )
         return OverrideOut(date=payload.date, index=payload.index, action="clear")
 
+    # Asked before the create/update split, and deliberately not inside it.
+    # The bell check below is create-only on purpose — an existing row at a bad
+    # number must stay editable, which is how a class gets out of one — but
+    # these two are not that shape: a row already sitting on a summer date or a
+    # hand-marked holiday is exactly the one whose re-announcement would say
+    # «🔁 Замена» about a lesson nobody will ever see, and every row written
+    # before this endpoint learned to refuse is such a row.
+    await _refuse_if_no_lesson_can_be_drawn(session, school_class, payload.date)
+
     if existing is None:
         # A substitution at a number the day has no bell for is stored, written to
         # the log, announced to everybody with «🔁 Замена … урок №8» — and
@@ -282,19 +366,28 @@ async def override_put(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"нет звонка для урока №{payload.index} в этот день",
             )
-        if payload.action == "cancel":
-            # Cancelling needs something to cancel. A substitution at an empty number
-            # is a legitimate edit — it is how a lesson is *added* to a day —
-            # but «🚫 Урок №7 отменён» about a number nobody was going to be at
-            # goes into the log and into everybody's chat, and the resolver
-            # drops the row on the way out because it only cancels a lesson the
-            # day actually has. The bot cannot reach this: it draws its «🚫»
-            # under a lesson that exists.
+        # Cancelling needs something to cancel, and so does a replacement that
+        # names no subject. A substitution at an empty number is a legitimate
+        # edit — it is how a lesson is *added* to a day — but only when it
+        # brings a subject of its own: the resolver inherits the subject from
+        # the template row under the override, and with no row and no subject
+        # it has nothing to draw and drops it on the way out. Either way the
+        # write would be stored, logged, and announced to everybody with
+        # «🚫 Урок №7 отменён» or «🔁 Замена … кабинет/учитель» about a lesson
+        # nobody can see. The bot reaches neither: it draws its «🚫» under a
+        # lesson that exists and always asks for a typed subject. This is the
+        # API-only half of an invariant the timetable already holds.
+        if payload.action == "cancel" or not payload.subject:
             day = (await ScheduleResolver(session, school_class).resolve_range(payload.date, 1))[0]
             if payload.index not in {lesson.index for lesson in day.lessons}:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"в этот день нет урока №{payload.index}, отменять нечего",
+                    detail=(
+                        f"в этот день нет урока №{payload.index}, отменять нечего"
+                        if payload.action == "cancel"
+                        else f"в этот день нет урока №{payload.index}: "
+                        "замене без предмета нечего заменять"
+                    ),
                 )
         existing = LessonOverride(
             class_id=school_class.id,
@@ -359,7 +452,8 @@ async def event_put(
     payload: EventIn,
     device: DeviceToken = Depends(editor_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> EventCreatedOut:
     """Events have no natural key - two «Обед» rows on one day are two breaks
     - so this always creates; ``DELETE`` is how one goes away."""
@@ -407,7 +501,8 @@ async def event_delete(
     event_id: int,
     device: DeviceToken = Depends(editor_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DeletedOut:
     event = await session.scalar(
         select(DayEvent).where(DayEvent.id == event_id, DayEvent.class_id == school_class.id)
@@ -453,7 +548,8 @@ async def day_put(
     payload: DayIn,
     device: DeviceToken = Depends(editor_device),
     school_class: SchoolClass = Depends(current_class),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DayOverrideOut:
     """Mark a date as a holiday / shortened / remote day. ``normal`` deletes
     the mark, so a day never carries a row that says nothing."""

@@ -174,6 +174,15 @@
     <string name="admin_bells_saved">Звонки «%1$s» сохранены</string>
     <string name="admin_bells_default_set">Основные звонки: «%1$s»</string>
     <string name="admin_bells_deleted">Расписание «%1$s» удалено</string>
+    <!-- Appended to the two notices above when a write shortened what the
+         class rings. The lessons are not deleted: they are simply past the
+         last rung now, and drawn nowhere at all. -->
+    <plurals name="admin_bells_silenced">
+        <item quantity="one">%1$d урок перестал звонить</item>
+        <item quantity="few">%1$d урока перестали звонить</item>
+        <item quantity="many">%1$d уроков перестали звонить</item>
+        <item quantity="other">%1$d урока перестали звонить</item>
+    </plurals>
 
     <!-- The timetable: export and import -->
     <string name="admin_timetable_export">Экспорт</string>

@@ -9,6 +9,7 @@ import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
+import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.ui.common.DefaultAppSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,11 +25,38 @@ import kotlinx.coroutines.launch
  * @property signedIn `null` while the session is still being read from disk,
  *   which is the signal to show the splash instead of guessing a start
  *   destination and then yanking the user somewhere else a frame later.
+ * @property settingsLoaded whether [settings] is what is stored or the
+ *   placeholder this state is constructed with. False for exactly one value —
+ *   the `initialValue` below — because the combine that builds every other one
+ *   cannot run until the settings flow has emitted. Most of the app may read
+ *   the placeholder happily: a frame of the default theme before the stored one
+ *   arrives is a frame, and the next one corrects it. It is here for the reader
+ *   that cannot be corrected afterwards; see [languageToApply].
  */
 data class AppShellUiState(
     val settings: AppSettings = DefaultAppSettings,
     val signedIn: Boolean? = null,
-)
+    val settingsLoaded: Boolean = false,
+) {
+
+    /**
+     * The language to put the running activity in, or `null` for "do not act".
+     *
+     * A separate question from [AppSettings.language], and the difference is the
+     * whole point. [DefaultAppSettings] says [AppLanguage.SYSTEM] — not because
+     * anybody chose it, but because that is what a `data class` default is — so
+     * on the first frame the placeholder is indistinguishable from a reader who
+     * has genuinely asked for the phone's language. `MainActivity` compares that
+     * value against the one it really was attached in, and below API 33 answers
+     * a difference with `recreate()`: every launch by somebody who had chosen
+     * «Русский» or «English» looked like a language change and threw the
+     * activity away.
+     *
+     * Stated here, beside the placeholder, rather than as a condition in the
+     * effect that consumes it, so that it can be asked on the JVM.
+     */
+    val languageToApply: AppLanguage? get() = settings.language.takeIf { settingsLoaded }
+}
 
 /**
  * Owns the state that outlives any single screen: theme preferences and whether
@@ -51,7 +79,12 @@ class AppShellViewModel(
 
     val uiState: StateFlow<AppShellUiState> =
         combine(settingsRepository.settings, signedIn) { settings, session ->
-            AppShellUiState(settings = settings, signedIn = session)
+            // `settingsLoaded = true` unconditionally, and that is sound rather
+            // than optimistic: combine emits nothing until every source has, so
+            // reaching this line is itself the proof that the settings flow has
+            // answered. The one state that never comes through here is the
+            // initialValue below.
+            AppShellUiState(settings = settings, signedIn = session, settingsLoaded = true)
         }.stateIn(
             scope = viewModelScope,
             // Eagerly: the theme must be ready before the first frame, and this

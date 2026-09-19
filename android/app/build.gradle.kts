@@ -11,6 +11,16 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+composeCompiler {
+    // Why this file exists, and what is deliberately left out of it, is written
+    // at the top of `compose-stability.conf`. Named in every Compose module
+    // rather than from the root build: cross-configuring subprojects is what
+    // this build has always avoided.
+    stabilityConfigurationFiles.add(
+        rootProject.layout.projectDirectory.file("compose-stability.conf"),
+    )
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_21)

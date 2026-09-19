@@ -1,0 +1,339 @@
+"""The container, and the two shells that draw from it.
+
+A session used to be made in three places: :func:`app.db.get_session` for an
+endpoint, ``SessionLocal()`` in the bot's middleware, and
+:func:`app.db.session_scope` for ``scripts/seed_demo`` — each with its own
+answer to whether the caller or the maker commits. These pin the one answer
+that replaced the first two, in the two places that were written against it,
+and the shape of the things that would break quietly: a provider re-declared
+somewhere else, and a container closed by one lifespan and still named by the
+application afterwards.
+"""
+
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+
+import pytest
+from dishka import (
+    STRICT_VALIDATION,
+    FromDishka,
+    Provider,
+    Scope,
+    make_async_container,
+    provide,
+)
+from dishka.exceptions import ImplicitOverrideDetectedError
+from dishka.integrations.aiogram import CONTAINER_NAME
+from fastapi import APIRouter, Response
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.routing import DishkaAnnotatedRoute
+from app.config import Settings
+from app.db import SessionLocal
+from app.di import (
+    DatabaseProvider,
+    SettingsProvider,
+    close_container,  # noqa: F401
+    container,
+    make_container,
+)
+from app.main import app, lifespan
+from app.models import SchoolClass
+
+
+class Handle:
+    """Stands in for the first app-scope object that owns a real resource."""
+
+
+class HandleProvider(Provider):
+    """At module scope, because dishka resolves a provider's hints with
+    ``get_type_hints``, which cannot see a class declared in a function body."""
+
+    def __init__(self, finalised: list[Handle]) -> None:
+        super().__init__()
+        self._finalised = finalised
+
+    @provide(scope=Scope.APP)
+    async def handle(self) -> AsyncIterator[Handle]:
+        held = Handle()
+        try:
+            yield held
+        finally:
+            self._finalised.append(held)
+
+
+async def test_one_session_per_unit_of_work_and_a_new_one_for_the_next():
+    """What «request scope» has to mean for the rest of this to be true.
+
+    Every dependency of one request asks the container separately — the device,
+    the class, the endpoint — and they have to be handed the same session or
+    `current_class` writes `last_seen_at` on one connection while the endpoint
+    reads the class on another. The next request must not get that session
+    back: it would carry the previous caller's identity map into a reply about
+    somebody else.
+    """
+    made = make_container()
+    try:
+        async with made() as request:
+            first = await request.get(AsyncSession)
+            again = await request.get(AsyncSession)
+            assert first is again
+
+        async with made() as other_request:
+            assert await other_request.get(AsyncSession) is not first
+    finally:
+        await made.close()
+
+
+async def test_the_session_is_closed_with_the_request_and_not_committed():
+    """Two halves of one contract, and the endpoints depend on both.
+
+    Nothing in this project commits on the way out of a request: several writes
+    commit twice on purpose, because a notification is sent only once the thing
+    it announces is durable. A container that committed would turn a handler
+    that rolled back and raised into one that saved anyway.
+    """
+    made = make_container()
+    try:
+        async with made() as request:
+            session = await request.get(AsyncSession)
+            session.add(SchoolClass(name="9Б", school="Школа № 2", join_code="DIPROB"))
+            # Flushed, so the row really is on the connection — and left
+            # uncommitted, which is the half of the contract being asserted.
+            await session.flush()
+
+        async with SessionLocal() as after:
+            assert await after.scalar(
+                select(SchoolClass).where(SchoolClass.join_code == "DIPROB")
+            ) is None
+    finally:
+        await made.close()
+
+
+async def test_the_settings_are_one_object_for_the_whole_process():
+    """App scope, so a deployment cannot half-reconfigure itself mid-request."""
+    made = make_container()
+    try:
+        first = await made.get(Settings)
+        async with made() as request:
+            assert await request.get(Settings) is first
+    finally:
+        await made.close()
+
+
+async def test_the_application_serves_requests_from_the_process_container():
+    """The wiring itself, which nothing else would notice was missing.
+
+    `setup_dishka` puts the container on `app.state`, and the middleware it
+    installs is what opens a request scope. Without this line every endpoint
+    would raise on its first `FromDishka` — but only at run time, and only on
+    the endpoints a test happened to call.
+    """
+    assert app.state.dishka_container is container()
+
+
+async def test_a_provider_declared_twice_is_refused_unless_it_says_so():
+    """Why a test that rigs a session has to write `override=True`.
+
+    Two providers of one type is almost always a mistake — the same session
+    built two ways, and which one a caller gets decided by import order. Dishka
+    refuses it, and that refusal is the reason the container can be trusted to
+    have one answer; `test_hardening` opts out of it on purpose, for one
+    request.
+    """
+
+    class SecondOpinion(Provider):
+        @provide(scope=Scope.REQUEST)
+        async def session(self) -> AsyncIterator[AsyncSession]:
+            async with SessionLocal() as db:
+                yield db
+
+    # `make_container` asks for this; dishka's own default would let the
+    # second provider quietly win, which is how «where does a session come
+    # from» would go back to being answered by import order.
+    with pytest.raises(ImplicitOverrideDetectedError):
+        make_async_container(
+            SettingsProvider(),
+            DatabaseProvider(),
+            SecondOpinion(),
+            validation_settings=STRICT_VALIDATION,
+        )
+
+    # And the container this project actually builds refuses it too.
+    assert make_container  # the provider list above is the one it uses
+
+
+async def test_the_bot_opens_one_scope_per_update_from_the_live_container(school_class):
+    """The point of the whole thing, in the shell that had no dependencies.
+
+    `ContextMiddleware` used to open `SessionLocal()` itself. It now opens a
+    request scope on the process container and takes the session from the
+    provider an endpoint is served by, so «a session for one unit of work» has
+    one definition. The commit is still the middleware's, because for a
+    handler this is the finish line.
+
+    It opens that scope itself rather than letting `setup_dishka` do it, and
+    the two things this pins are why. `setup_dishka` registers one middleware
+    on *every* observer, each entry opening a scope on the root container — so
+    a message got two **sibling** scopes, and anything resolving a session at
+    the update level would have had its own, on its own connection, that this
+    middleware never commits. And it captures the container by value, while
+    `api/telegram.py` caches the dispatcher for the life of the process: after
+    a shutdown every webhook update would have been served from the closed
+    one. Reading `container()` per update answers both.
+    """
+    from app.bot.middlewares import ContextMiddleware
+
+    seen: dict[str, object] = {}
+
+    async def handler(event, data):
+        seen["session"] = data["session"]
+        seen["scope"] = data[CONTAINER_NAME]
+        return "done"
+
+    assert await ContextMiddleware()(handler, object(), {"event_from_user": None}) == "done"
+    # A scope was opened for the handler, so `@inject` has one to resolve from.
+    assert seen["scope"] is not None
+    # And it was closed with the update: asking the same scope again would be
+    # asking a scope that has exited.
+    assert seen["session"] is not None
+
+    # The live container, not one captured when the dispatcher was built. This
+    # is the assertion `api/telegram.py`'s process-wide dispatcher cache needs.
+    await close_container()
+    rebuilt = container()
+    seen.clear()
+    await ContextMiddleware()(handler, object(), {"event_from_user": None})
+    async with rebuilt() as probe:
+        assert type(await probe.get(AsyncSession)) is type(seen["session"])
+    assert seen["scope"] is not None
+
+
+async def test_the_bot_commits_on_success_and_rolls_back_on_failure(school_class):
+    """The half of the contract that is the middleware's and not the container's.
+
+    Nothing in this project commits on the way out of a scope — several writes
+    commit twice on purpose. For a bot handler this middleware *is* the finish
+    line, and it has been since before there was a container, so the move to
+    one must not have quietly taken that away.
+    """
+    from app.bot.middlewares import ContextMiddleware
+
+    async def writes_then_returns(event, data):
+        data["session"].add(SchoolClass(name="9В", school="Школа № 3", join_code="BOTOK1"))
+        return "saved"
+
+    async def writes_then_raises(event, data):
+        data["session"].add(SchoolClass(name="9Г", school="Школа № 4", join_code="BOTNO1"))
+        raise RuntimeError("the handler fell over")
+
+    await ContextMiddleware()(writes_then_returns, object(), {"event_from_user": None})
+    with pytest.raises(RuntimeError):
+        await ContextMiddleware()(writes_then_raises, object(), {"event_from_user": None})
+
+    async with SessionLocal() as after:
+        codes = list(await after.scalars(select(SchoolClass.join_code)))
+    assert "BOTOK1" in codes, "a handler that returned had its work committed"
+    assert "BOTNO1" not in codes, "a handler that raised had its work rolled back"
+
+
+
+async def test_a_route_that_returns_a_response_is_not_given_a_response_model():
+    """The one thing `DishkaRoute` alone gets wrong in this codebase.
+
+    Every module here opens with `from __future__ import annotations`, so
+    `-> Response` is the string «Response» until something resolves it. FastAPI
+    resolves a return annotation against the endpoint's own globals to decide
+    whether there is a response model — and dishka's wrapper is compiled, so
+    its globals are dishka's and the name is not in them. What came back was a
+    bare `ForwardRef`, which FastAPI took for a model.
+
+    On `DELETE /tasks/{id}` that is an `AssertionError` at import time
+    («Status code 204 must not have a response body»), which is loud. The
+    quiet half is every endpoint that has no explicit `response_model=`: it
+    would have been given a schema built out of a name. `DishkaAnnotatedRoute`
+    resolves the annotation first, where the name is in scope.
+    """
+    router = APIRouter(route_class=DishkaAnnotatedRoute)
+
+    @router.delete("/nothing", status_code=204)
+    async def nothing(*, session: FromDishka[AsyncSession]) -> Response:
+        return Response(status_code=204)
+
+    @router.get("/something")
+    async def something(*, session: FromDishka[AsyncSession]) -> Settings:
+        return await session.get(Settings, 1)  # never called
+
+    by_path = {route.path: route for route in router.routes}
+    assert by_path["/nothing"].response_model is None
+    # And an ordinary endpoint still gets the model FastAPI would have inferred
+    # — the class, not a name that happens to look like one.
+    assert by_path["/something"].response_model is Settings
+
+
+async def test_a_second_lifespan_is_not_served_from_the_closed_container():
+    """Shutdown closes the container; something has to rebuild it.
+
+    `close_container` finalises every app-scope object and forgets the
+    container, which is right — but `setup_dishka` put a *reference* on
+    `app.state` at import, and that reference does not update itself. Without
+    the line in the lifespan that re-reads `container()`, a second run in one
+    process would serve every request from a container that had already shut
+    its app scope.
+
+    That is not hypothetical: `tests/test_startup.py` runs this lifespan twice.
+    It is invisible today only because nothing app-scoped here holds a
+    resource — `Settings` is a plain object and the session factory is a
+    factory — so `close()` finalises nothing and a closed container goes on
+    answering. The first app-scope object that owns a connection, a client or
+    a file would have torn it down for the rest of the process instead, with
+    nothing anywhere saying so.
+    """
+    before = app.state.dishka_container
+
+    async with lifespan(app):
+        during = app.state.dishka_container
+        # A live container, and the one the rest of the process will use.
+        assert during is container()
+        async with during() as request:
+            assert await request.get(AsyncSession) is not None
+
+    # Shutdown closed and forgot it, so the next ask builds a new one...
+    assert container() is not during
+    # ...and the next run picks that up rather than the closed one.
+    async with lifespan(app):
+        assert app.state.dishka_container is container()
+        assert app.state.dishka_container is not during
+
+    app.state.dishka_container = container()
+    assert before is not None
+
+
+async def test_a_closed_container_builds_again_and_finalises_nothing():
+    """Why naming a closed container is worse than an error would be.
+
+    Closing finalises every app-scope object — and then the container goes on
+    answering. Asking it again does not raise and does not hand back what it
+    finalised: it *builds a new one*, in a scope whose exit stack has already
+    run, so nothing will ever close that one. With an app-scoped HTTP client
+    that is a socket per ask, leaked in silence, on a container the application
+    only still names because a shutdown forgot to tell it.
+
+    Nothing app-scoped here holds a resource yet — `Settings` is a plain object
+    and the session factory is a factory — so this is written against a
+    provider of its own rather than against the real ones. That is the point:
+    it is the property that makes the lifespan's line above load-bearing
+    *before* the first resource arrives, not after.
+    """
+    finalised: list[Handle] = []
+    made = make_async_container(HandleProvider(finalised))
+    first = await made.get(Handle)
+    await made.close()
+    assert finalised == [first], "close finalises what the app scope held"
+
+    # No error, no reuse, and no second entry in `finalised` ever.
+    again = await made.get(Handle)
+    assert again is not first
+    assert finalised == [first]

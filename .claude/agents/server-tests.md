@@ -4,7 +4,7 @@ description: Integrity of the server test suite itself. Use to check that a test
 tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 
-You own `server/tests/`. Roughly 1390 tests; `python -m pytest -q -n auto` finishes in
+You own `server/tests/`. Roughly 1460 tests; `python -m pytest -q -n auto` finishes in
 about a third of the five minutes a serial run takes, and `-n auto` is what CI runs.
 
 ## What you are actually checking

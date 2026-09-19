@@ -6,13 +6,16 @@ a failing test, which means without these the next refactor silently undoes it.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 
 import httpx
 import pytest
+from dishka import Provider, Scope, make_async_container, provide
 from httpx import ASGITransport
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import Headers
 
 from app.api.public import (
@@ -22,6 +25,8 @@ from app.api.public import (
     join_limiter,
 )
 from app.config import get_settings
+from app.db import SessionLocal
+from app.di import DatabaseProvider, SettingsProvider, container
 from app.main import app
 from app.models import (
     BellPeriod,
@@ -30,11 +35,48 @@ from app.models import (
     DeviceToken,
     Role,
     SchoolClass,
+    Term,
     TimetableEntry,
 )
 from app.schemas import _clean_optional_text
 from app.security import JoinThrottle, client_bucket
 from app.services import device_invites
+from app.services import terms as terms_service
+
+
+class LosesTheSeedingRace(Provider):
+    """The container's own session provider, replaced for one request.
+
+    ``override=True`` is how dishka is told the collision is deliberate:
+    without it a second provider of the same type is a configuration error,
+    which is the behaviour worth having everywhere but here.
+
+    At module scope and not inside the test, because dishka reads a provider's
+    type hints with ``get_type_hints``, which cannot see a class declared in a
+    function body — the error it raises says so, and says to move it out.
+    """
+
+    def __init__(self, class_id: int, year: int) -> None:
+        super().__init__()
+        self._class_id = class_id
+        self._year = year
+
+    @provide(scope=Scope.REQUEST, override=True)
+    async def session(self) -> AsyncIterator[AsyncSession]:
+        async with SessionLocal() as db:
+            real_flush = db.flush
+
+            async def flush_once_a_rival_has_seeded(*args, **kwargs):
+                if any(isinstance(obj, Term) for obj in db.new):
+                    db.flush = real_flush
+                    async with SessionLocal() as rival:
+                        klass = await rival.get(SchoolClass, self._class_id)
+                        await terms_service.ensure(rival, klass, self._year)
+                        await rival.commit()
+                return await real_flush(*args, **kwargs)
+
+            db.flush = flush_once_a_rival_has_seeded
+            yield db
 
 
 @pytest.fixture
@@ -611,27 +653,69 @@ async def test_a_class_name_containing_markup_is_escaped(session):
     assert "<i>Школа</i>" not in rendered
 
 
-def test_telegram_id_columns_are_wide_enough_for_real_ids():
-    """Telegram ids exceed 2^31, and Integer maps to int4 on Postgres.
+def _ids_minted_elsewhere() -> list:
+    """Every column in the schema holding an id this database did not issue.
 
-    SQLite has no integer width, so nothing at runtime in this suite can catch a
-    column that is too narrow — the failure only appears in production, as an
-    asyncpg NumericValueOutOfRange the webhook swallows. Assert the declared
-    type instead.
+    The rule is structural, not a list of names: **an ``…_id`` or ``…_by``
+    column with no foreign key on it**. Every id this project issues is the
+    autoincrementing primary key of a table it owns, and every column that
+    points at one carries a ``ForeignKey`` — ``class_id``, ``subject_id``,
+    ``homework_id``, ``schedule_id``, ``bell_schedule_id``. What is left over
+    is, without exception, somebody else's number: a Telegram account
+    (``telegram_id``, and the ``granted_by`` / ``created_by`` / ``invited_by``
+    / ``used_by`` / ``decided_by`` that each record which account did a thing)
+    or the Petersburg diary's own handle for a child (``student_id``).
+
+    Deriving it is the point. The list used to be five columns written out by
+    hand, of the seventeen that match; narrowing any of the other twelve left
+    the whole suite green. A column added tomorrow is covered the day it is
+    declared, and a name is never the thing that has to be remembered.
+    """
+    from app.models import Base
+
+    return [
+        column
+        for table in Base.metadata.sorted_tables
+        for column in table.c
+        if column.name.endswith(("_id", "_by")) and not column.foreign_keys
+    ]
+
+
+def test_ids_minted_by_somebody_else_are_wide_enough_for_the_real_ones():
+    """Telegram ids exceed 2^31, and ``Integer`` maps to int4 on Postgres.
+
+    SQLite has no integer width, so nothing at runtime in this suite can catch
+    a column that is too narrow — the failure only appears in production, as an
+    asyncpg ``NumericValueOutOfRange`` the webhook swallows, on the first
+    account whose id happens to be large. Assert the declared type instead.
+
+    ``BigInteger`` subclasses ``Integer``, so the test has to be this way round;
+    ``isinstance(column.type, Integer)`` would be true of both and prove
+    nothing. Revision ``0002`` carries the same warning about the same trap.
     """
     from sqlalchemy import BigInteger
 
-    from app.models import BotUser, Homework, PhoneInvite
+    columns = _ids_minted_elsewhere()
 
-    columns = [
-        BotUser.__table__.c.telegram_id,
-        BotUser.__table__.c.granted_by,
-        Homework.__table__.c.created_by,
-        PhoneInvite.__table__.c.invited_by,
-        PhoneInvite.__table__.c.used_by,
+    # The five the hand-written version named, so that a rule matching nothing
+    # — or matching everything except the ones that started this — cannot pass
+    # quietly. They are anchors, not the coverage.
+    anchors = {
+        "bot_users.telegram_id",
+        "bot_users.granted_by",
+        "homework.created_by",
+        "phone_invites.invited_by",
+        "phone_invites.used_by",
+    }
+    found = {f"{column.table.name}.{column.name}" for column in columns}
+    assert anchors <= found, f"the rule stopped matching {sorted(anchors - found)}"
+
+    narrow = [
+        f"{column.table.name}.{column.name}"
+        for column in columns
+        if not isinstance(column.type, BigInteger)
     ]
-    for column in columns:
-        assert isinstance(column.type, BigInteger), column
+    assert not narrow, f"int4 on Postgres, and these hold somebody else's id: {narrow}"
 
 
 # --------------------------------------------------------------------------
@@ -694,8 +778,6 @@ async def test_the_bundle_that_loses_the_seeding_race_still_answers_the_phone(
     `last_seen_at` is already written and committed by then, so the only
     statement in the window is the one the race is about.
     """
-    from app.db import SessionLocal, get_session
-    from app.models import Term
     from app.services import terms as terms_service
 
     token = await _token(client)
@@ -703,23 +785,10 @@ async def test_the_bundle_that_loses_the_seeding_race_still_answers_the_phone(
     year = terms_service.opening_year_of(start)
     class_id = school_class.id
 
-    async def a_session_that_loses_the_race():
-        async with SessionLocal() as db:
-            real_flush = db.flush
-
-            async def flush_once_a_rival_has_seeded(*args, **kwargs):
-                if any(isinstance(obj, Term) for obj in db.new):
-                    db.flush = real_flush
-                    async with SessionLocal() as rival:
-                        klass = await rival.get(SchoolClass, class_id)
-                        await terms_service.ensure(rival, klass, year)
-                        await rival.commit()
-                return await real_flush(*args, **kwargs)
-
-            db.flush = flush_once_a_rival_has_seeded
-            yield db
-
-    app.dependency_overrides[get_session] = a_session_that_loses_the_race
+    rigged = make_async_container(
+        SettingsProvider(), DatabaseProvider(), LosesTheSeedingRace(class_id, year)
+    )
+    app.state.dishka_container = rigged
     try:
         response = await client.get(
             "/api/v1/bundle",
@@ -727,7 +796,8 @@ async def test_the_bundle_that_loses_the_seeding_race_still_answers_the_phone(
             headers={"Authorization": f"Bearer {token}"},
         )
     finally:
-        app.dependency_overrides.pop(get_session)
+        app.state.dishka_container = container()
+        await rigged.close()
 
     assert response.status_code == 200, response.text
     served = response.json()["school_class"]["terms"]

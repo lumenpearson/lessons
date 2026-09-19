@@ -105,12 +105,6 @@ async def session_scope() -> AsyncIterator[AsyncSession]:
             raise
 
 
-async def get_session() -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency."""
-    async with SessionLocal() as session:
-        yield session
-
-
 def rows_affected(result: Any) -> int:
     """How many rows a DELETE or an UPDATE actually touched.
 

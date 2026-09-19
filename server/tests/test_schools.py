@@ -8,6 +8,8 @@ that decide what somebody sees.
 
 from __future__ import annotations
 
+import logging
+
 import httpx
 import pytest
 
@@ -274,3 +276,73 @@ async def test_a_key_of_whitespace_is_not_reported_as_a_spent_quota(monkeypatch)
 def test_a_real_key_is_still_a_real_key(monkeypatch):
     monkeypatch.setattr(get_settings(), "dadata_token", "<redacted>")
     assert dadata_client.configured() is True
+
+
+# ---- a register row that is not a row at all --------------------------------
+
+
+def _answering(monkeypatch, *bodies: object) -> list[httpx.Request]:
+    """Installs a transport that answers each call with the next body.
+
+    Returns the list the requests land in, because how *many* went out is half
+    of what the tests below are about: an empty first answer is what makes
+    `suggest_schools` ask a second time without the ОКВЭД filter.
+    """
+    monkeypatch.setattr(get_settings(), "dadata_token", "<redacted>")
+    sent: list[httpx.Request] = []
+    answers = list(bodies)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        body = answers[min(len(sent) - 1, len(answers) - 1)]
+        return httpx.Response(200, json=body)
+
+    client = httpx.AsyncClient(
+        base_url=dadata_client.BASE_URL, transport=httpx.MockTransport(handler)
+    )
+
+    async def shared():
+        return client
+
+    monkeypatch.setattr(dadata_client, "shared_client", shared)
+    return sent
+
+
+async def test_an_answer_whose_suggestions_are_not_objects_says_so(monkeypatch, caplog):
+    """«Ничего не найдено» is also what a school that is not in the register
+    looks like, and nothing said which of the two this was.
+
+    The mapper logs the suggestion it could not read, but it never sees the one
+    that was not an object at all — the client had already taken it out. So a
+    reshaped answer reached the bot as an empty picker, the person was asked to
+    type the name by hand, and the only evidence was a screen somebody had to
+    reach first.
+    """
+    sent = _answering(monkeypatch, {"suggestions": ["1027800000001", "1027800000002"]})
+
+    with caplog.at_level(logging.WARNING, logger="app.providers.dadata.client"):
+        found = await dadata_client.suggest_schools("гимназия 3")
+
+    assert found == []
+    spoken = [record.getMessage() for record in caplog.records]
+    assert any("all 2 suggestion(s)" in line and "str" in line for line in spoken)
+    # And the second ask is still made, exactly as before: an empty first
+    # answer is what it has always keyed on, and a log line must not move it.
+    assert len(sent) == 2
+
+
+async def test_one_suggestion_of_the_wrong_shape_does_not_shout_or_lose_the_others(
+    monkeypatch, caplog
+):
+    """The tolerance stays: one unreadable row out of twenty is not an error
+    screen, and it is not a warning either."""
+    sent = _answering(monkeypatch, {"suggestions": [suggestion(), "1027800000002"]})
+
+    with caplog.at_level(logging.WARNING, logger="app.providers.dadata.client"):
+        found = await dadata_client.suggest_schools("гимназия 3")
+
+    assert [item["data"]["ogrn"] for item in found] == ["1027800000001"]
+    assert caplog.records == []
+    # One request, because the first answer was not empty.
+    assert len(sent) == 1
+

@@ -17,11 +17,12 @@ from __future__ import annotations
 from datetime import date as Date
 from datetime import timedelta
 
+from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START, caller_bucket
-from app.db import get_session
+from app.api.routing import DishkaAnnotatedRoute
 from app.models import DiarySession
 from app.providers.petersburg import (
     BadCredentials,
@@ -52,7 +53,7 @@ from app.security import JoinThrottle
 from app.services import diary as service
 from app.services import diary_overrides as overrides
 
-router = APIRouter(prefix="/api/v1/diary", tags=["diary"])
+router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/api/v1/diary", tags=["diary"])
 
 #: How wide a window one request may ask for. The upstream is asked for the
 #: same span, and a year of lessons in one call is how an undocumented API
@@ -95,9 +96,11 @@ def _range(date_from: Date | None, date_to: Date | None) -> tuple[Date, Date]:
     return start, end
 
 
+@inject
 async def current_diary(
     authorization: str = Header(default=""),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DiarySession:
     """The signed-in diary session, or 401.
 
@@ -123,9 +126,11 @@ async def current_diary(
     return row
 
 
+@inject
 def _service(
     row: DiarySession = Depends(current_diary),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> service.DiaryService:
     return service.DiaryService(session, row)
 
@@ -194,7 +199,8 @@ diary_login_limiter = JoinThrottle(limit=10, window=900.0)
 async def login(
     request: Request,
     payload: DiaryLoginIn,
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DiaryLoginOut:
     """Signs in to the diary and opens a session of ours.
 
@@ -238,7 +244,8 @@ async def login(
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     row: DiarySession = Depends(current_diary),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> None:
     await service.sign_out(session, row)
 
@@ -275,7 +282,8 @@ async def schedule(
     date_to: Date | None = Query(default=None, alias="to"),
     svc: service.DiaryService = Depends(_service),
     row: DiarySession = Depends(current_diary),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> list[DiaryLessonOut]:
     student = await _student(svc, student_id)
     start, end = _range(date_from, date_to)
@@ -294,7 +302,8 @@ async def homework(
     date_to: Date | None = Query(default=None, alias="to"),
     svc: service.DiaryService = Depends(_service),
     row: DiarySession = Depends(current_diary),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> list[DiaryHomeworkOut]:
     """Homework as its own resource.
 
@@ -399,7 +408,8 @@ async def list_overrides(
     student_id: int,
     svc: service.DiaryService = Depends(_service),
     row: DiarySession = Depends(current_diary),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> list[DiaryOverrideOut]:
     """Every correction this account has made for this child."""
     await _student(svc, student_id)
@@ -413,7 +423,8 @@ async def put_override(
     payload: DiaryOverrideIn,
     svc: service.DiaryService = Depends(_service),
     row: DiarySession = Depends(current_diary),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> DiaryOverrideOut:
     """Writes or replaces one correction.
 
@@ -466,7 +477,8 @@ async def reset_override(
     payload: DiaryResetIn,
     svc: service.DiaryService = Depends(_service),
     row: DiarySession = Depends(current_diary),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> None:
     """Resets one field back to what the diary says.
 
@@ -492,7 +504,8 @@ async def reset_all_overrides(
     student_id: int,
     svc: service.DiaryService = Depends(_service),
     row: DiarySession = Depends(current_diary),
-    session: AsyncSession = Depends(get_session),
+    *,
+    session: FromDishka[AsyncSession],
 ) -> None:
     """Resets every correction for this child. The diary answers for itself again."""
     await _student(svc, student_id)
