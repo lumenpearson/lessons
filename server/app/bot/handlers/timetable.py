@@ -82,8 +82,8 @@ def _parse_time(raw: str) -> time:
 def _conflicts(rows: list, candidate) -> bool:
     """Whether ``candidate`` collides with a line already accepted.
 
-    A slot holds either one lesson for every week, or one числитель and one
-    знаменатель. Anything else is a repeat: (day, number, parity) is a unique
+    A slot holds either one lesson for every week, or one numerator and one
+    denominator. Anything else is a repeat: (day, number, parity) is a unique
     key, so the second one would abort the whole save — after the weekday had
     already been deleted on its way through.
     """

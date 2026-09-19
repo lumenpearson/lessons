@@ -41,7 +41,7 @@ sealed interface DayState {
         override val validUntil: LocalDateTime?,
     ) : DayState
 
-    /** Something non-lesson is happening: столовая, линейка, экскурсия. */
+    /** Something non-lesson is happening: lunch, an assembly, an excursion. */
     data class DuringEvent(
         val event: SchoolEvent,
         val next: Lesson?,

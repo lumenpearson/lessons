@@ -23,7 +23,7 @@
     <string name="admin_debug">Отладка</string>
     <string name="admin_debug_description">Отчёты о сбоях, журнал и подробные сообщения об ошибках</string>
 
-    <!-- Строки управления классом -->
+    <!-- Class management strings -->
     <string name="admin_manage_group">Класс</string>
 
     <string name="admin_class_title">Карточка класса</string>
@@ -43,7 +43,7 @@
     <string name="admin_requests_title">Запросы доступа</string>
     <string name="admin_requests_description">Кто ждёт роль</string>
 
-    <!-- Права изменились под ногами -->
+    <!-- The rights changed underfoot -->
     <string name="admin_gone_title">Страница больше не ваша</string>
     <string name="admin_gone_signed_out">Сервер больше не принимает токен этого устройства. Откройте «Класс» в настройках и войдите заново.</string>
     <string name="admin_gone_not_linked">Это устройство не привязано к Telegram, поэтому роли у него нет. Привязать можно на странице «Класс».</string>
@@ -51,7 +51,7 @@
     <string name="admin_gone_role_unknown">Ваш аккаунт больше не имеет нужной роли в этом классе. Похоже, её изменили в боте.</string>
     <string name="admin_gone_recheck">Проверить снова</string>
 
-    <!-- Отказы -->
+    <!-- Refusals -->
     <string name="admin_error_title">Не получилось</string>
     <string name="admin_error_signed_out">Сервер больше не принимает токен этого устройства.</string>
     <string name="admin_error_not_linked">Это устройство не привязано к Telegram.</string>
@@ -66,7 +66,7 @@
     <string name="admin_error_detail">Сервер: %1$s</string>
     <string name="admin_retry">Повторить</string>
 
-    <!-- Что не так с формой -->
+    <!-- What is wrong with the form -->
     <string name="admin_form_name_blank">Название не может быть пустым</string>
     <string name="admin_form_name_long">Название слишком длинное</string>
     <string name="admin_form_short_name_long">Сокращение слишком длинное</string>
@@ -83,7 +83,7 @@
     <string name="admin_form_paste_long">Текст слишком длинный</string>
     <string name="admin_form_name_mismatch">Название не совпадает</string>
 
-    <!-- Карточка класса -->
+    <!-- The class card -->
     <string name="admin_class_join_code">Код класса</string>
     <string name="admin_class_join_mode_open">Вход по коду класса</string>
     <string name="admin_class_join_mode_open_note">Код класса подключает любой телефон, на котором его наберут. Нажмите, чтобы перейти на личные приглашения.</string>
@@ -129,7 +129,7 @@
     <string name="admin_class_deleted_title">Класс удалён</string>
     <string name="admin_class_deleted_message">Этого класса больше нет, и токен этого устройства вместе с ним. Закройте настройки — приложение попросит войти заново.</string>
 
-    <!-- Предметы -->
+    <!-- Subjects -->
     <string name="admin_subjects_empty_title">Предметов ещё нет</string>
     <string name="admin_subjects_empty_text">Справочник держит «Алгебру», «алгебру» и «Алг.» одним предметом — в расписании, в домашних заданиях и в цветах приложения.</string>
     <string name="admin_subject_add">Добавить предмет</string>
@@ -149,7 +149,7 @@
     <string name="admin_subject_renamed">«%1$s»: обновлено строк — %2$d</string>
     <string name="admin_subject_deleted">Предмет «%1$s» удалён</string>
 
-    <!-- Звонки -->
+    <!-- Bells -->
     <string name="admin_bells_empty_title">Расписаний звонков нет</string>
     <string name="admin_bells_empty_text">Класс держит несколько — «Обычное», «Сокращённое», «Суббота», — и одно из них основное.</string>
     <string name="admin_bells_add">Новое расписание</string>
@@ -175,7 +175,7 @@
     <string name="admin_bells_default_set">Основные звонки: «%1$s»</string>
     <string name="admin_bells_deleted">Расписание «%1$s» удалено</string>
 
-    <!-- Расписание: экспорт и импорт -->
+    <!-- The timetable: export and import -->
     <string name="admin_timetable_export">Экспорт</string>
     <string name="admin_timetable_export_empty">Расписание пустое — переносить нечего.</string>
     <string name="admin_timetable_lessons">Уроков: %1$d</string>
@@ -194,7 +194,7 @@
     <string name="admin_timetable_imported">Импортировано: дней %1$d, уроков %2$d, звонков %3$d</string>
     <string name="admin_timetable_weekday_unknown">День %1$d</string>
 
-    <!-- Устройства -->
+    <!-- Devices -->
     <string name="admin_devices_empty_title">Устройств нет</string>
     <string name="admin_devices_empty_text">Сюда попадает каждый телефон, вошедший в класс по коду.</string>
     <string name="admin_devices_show_revoked">Показывать отключённые</string>
@@ -212,7 +212,7 @@
     <string name="admin_device_revoked_notice">Устройство отключено</string>
     <string name="admin_device_unlinked_notice">Устройство отвязано — снова только чтение</string>
 
-    <!-- Журнал -->
+    <!-- The log -->
     <string name="admin_log_empty_title">В журнале пусто</string>
     <string name="admin_log_empty_text">Сюда попадает каждое изменение — и из бота, и из приложения.</string>
     <string name="admin_log_system">система</string>
@@ -221,7 +221,7 @@
     <string name="admin_log_older">Старее</string>
     <string name="admin_log_meta">%1$s · %2$s</string>
 
-    <!-- Статистика -->
+    <!-- Statistics -->
     <string name="admin_stats_empty_title">Считать пока нечего</string>
     <string name="admin_stats_empty_text">Числа появятся, как только в классе будет расписание.</string>
     <string name="admin_stats_today">Сегодня %1$s</string>
@@ -236,7 +236,7 @@
     <string name="admin_stats_hours_section">Часов в неделю</string>
     <string name="admin_stats_hours">%1$s ч</string>
 
-    <!-- Запросы доступа -->
+    <!-- Access requests -->
     <string name="admin_requests_empty_title">Никто не ждёт</string>
     <string name="admin_requests_empty_text">Запрос приходит, когда кто-то просит роль командой /request в боте.</string>
     <string name="admin_request_asked">просит роль «%1$s»</string>
@@ -249,7 +249,7 @@
     <string name="admin_request_approved_plain">%1$s: доступ выдан</string>
     <string name="admin_request_declined">%1$s: отказано</string>
 
-    <!-- Роли, как их называет бот -->
+    <!-- The roles, as the bot names them -->
     <string name="admin_role_name_viewer">читатель</string>
     <string name="admin_role_name_editor">редактор</string>
     <string name="admin_role_name_admin">администратор</string>

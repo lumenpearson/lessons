@@ -50,7 +50,7 @@ class TimelineRowDetailTest {
      * The defect this exists for. With the teacher chosen the room is switched
      * off, so a lesson the timetable carries a room for and no teacher — which
      * is most of them, because a teacher is optional in the paste grammar and in
-     * a замена — lost the room and put nothing in its place: the widest column
+     * a substitution — lost the room and put nothing in its place: the widest column
      * of the row went blank while the cache held the answer.
      */
     @Test

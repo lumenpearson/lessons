@@ -4,7 +4,7 @@
 that the cursor in the payload survives every hop, that a viewer can read the
 template without being handed buttons that would refuse them, and that the two
 things the old paste editor could not do at all (reorder a lesson, see how long
-a перемена is) reach the database and come back onto the screen.
+a break is) reach the database and come back onto the screen.
 """
 
 from __future__ import annotations
@@ -66,8 +66,8 @@ async def test_the_day_lists_its_lessons_and_names_the_week_beside_it(session, s
 
     assert "Понедельник" in callback.message.last
     assert "Алгебра" in callback.message.last
-    # The week strip: the whole point of it is answering «а во вторник
-    # сколько?» without stepping onto Вторник.
+    # The week strip: the whole point of it is answering "and how many on
+    # Tuesday?" without stepping onto «Вторник».
     assert "Пн 3" in callback.message.last
     assert [label for label in labels(callback.message.keyboard) if label.startswith("2.")] == [
         "2. Физика"
@@ -77,8 +77,8 @@ async def test_the_day_lists_its_lessons_and_names_the_week_beside_it(session, s
 async def test_the_arrows_step_a_day_and_carry_the_view_with_them(session, school_class):
     """The breaks switch is part of the cursor, not of the day.
 
-    Turn it on, page to Вторник, and it is still on — otherwise checking three
-    days' перемены means three presses of the same switch.
+    Turn it on, page to «Вторник», and it is still on — otherwise checking the
+    breaks on three days means three presses of the same switch.
     """
     callback = await open_day(session, school_class, day=1, flags=BREAKS)
 
@@ -93,7 +93,7 @@ async def test_the_week_wraps_at_saturday_rather_than_dead_ending(session, schoo
     saturday = await open_day(session, school_class, day=6)
     pager = [cursor for cursor in cursors(saturday.message.keyboard) if cursor.action == "day"]
 
-    assert pager[2].day == 1  # › from Суббота is Понедельник, not Воскресенье
+    assert pager[2].day == 1  # › from «Суббота» wraps to «Понедельник», not «Воскресенье»
 
 
 async def test_the_breaks_switch_shows_the_gap_and_only_when_it_is_on(session, school_class):
@@ -198,7 +198,7 @@ async def test_deleting_closes_the_gap_on_screen_too(session, school_class):
 
 
 async def test_an_editor_may_not_reorder_the_template(session, school_class):
-    """Замены are an editor's business; the weekly template is an admin's."""
+    """Substitutions are an editor's business; the weekly template is an admin's."""
     callback = FakeCallback()
     await editor.editor_move(
         callback,
@@ -213,7 +213,7 @@ async def test_an_editor_may_not_reorder_the_template(session, school_class):
 
 
 async def test_a_typed_lesson_lands_on_the_day_it_was_asked_from(session, school_class):
-    """The cursor rides in the FSM data, so the answer comes back to Среда
+    """The cursor rides in the FSM data, so the answer comes back to «Среда»
     rather than to whatever day the editor happens to open on."""
     state = FakeState()
     ask = FakeCallback()
@@ -271,7 +271,7 @@ async def test_a_parity_suffix_typed_by_hand_does_not_become_the_subject_name(
 
 
 # --------------------------------------------------------------------------
-# Столовая
+# The canteen
 # --------------------------------------------------------------------------
 
 
@@ -413,7 +413,7 @@ def test_a_split_slot_is_one_number_with_both_weeks_under_it():
 
 
 def test_the_breaks_switch_with_no_bells_behind_it_says_why_it_shows_nothing():
-    """The switch is available to a viewer, and a class whose звонки have not
+    """The switch is available to a viewer, and a class whose bells have not
     been pasted yet would otherwise turn it on and see no difference at all."""
     text = editor_render.render_day(1, [entry(1, "Алгебра")], {}, show_breaks=True)
 
@@ -583,7 +583,7 @@ async def test_the_editor_opens_on_monday_and_refuses_a_stranger(session, school
 
 
 async def test_splitting_a_slot_copies_it_into_both_weeks(session, school_class):
-    """An empty знаменатель would be a hole the day view draws every second
+    """An empty denominator half would be a hole the day view draws every second
     week; a copy is also what the next edit almost always starts from."""
     callback = FakeCallback()
     await editor.editor_parity(
@@ -626,7 +626,7 @@ async def test_merging_keeps_the_week_the_button_named(session, school_class):
     callback = FakeCallback()
     await editor.editor_parity(
         callback,
-        EditorAction(action="merge", day=1, index=2, arg=1),  # keep знаменатель
+        EditorAction(action="merge", day=1, index=2, arg=1),  # keep the denominator half
         session,
         school_class,
         Role.ADMIN,
@@ -831,7 +831,7 @@ async def test_editing_a_split_slot_changes_only_the_week_the_button_carried(
     )
 
     state = FakeState()
-    state.data.update(day=1, index=2, flags=0, parity=1, mode="edit")  # знаменатель
+    state.data.update(day=1, index=2, flags=0, parity=1, mode="edit")  # the denominator half
     message = FakeEditable()
     message.text = "Химия, 402"
     message.from_user = type("U", (), {"id": 42})()
@@ -863,7 +863,7 @@ async def test_a_viewer_who_somehow_reaches_the_prompt_is_dropped_out_of_it(
 
 
 # --------------------------------------------------------------------------
-# Столовая, as its own screen
+# The canteen, as its own screen
 # --------------------------------------------------------------------------
 
 
@@ -988,7 +988,7 @@ async def test_a_class_pointed_at_a_bell_schedule_that_is_gone_still_draws(
 
 
 async def test_the_canteen_is_refused_while_there_is_only_one_bell(session, school_class):
-    """Столовая stands on a перемена, and one bell has no перемена after it."""
+    """Lunch stands on a break, and one bell has no break after it."""
     lonely = BellSchedule(
         class_id=school_class.id,
         name="Один звонок",

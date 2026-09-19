@@ -8,7 +8,7 @@
 -->
 <resources>
 
-    <!-- Каналы -->
+    <!-- Channels -->
     <string name="alert_channel_lessons">Уроки</string>
     <string name="alert_channel_lessons_description">Напоминание за несколько минут до начала урока.</string>
     <string name="alert_channel_daily">Расписание на день</string>
@@ -16,7 +16,7 @@
     <string name="alert_channel_changes">Изменения</string>
     <string name="alert_channel_changes_description">Замены и отмены, которые пришли с сервера школы.</string>
 
-    <!-- Скоро урок -->
+    <!-- A lesson is coming -->
     <plurals name="alert_lesson_title">
         <item quantity="one">Через %1$d минуту</item>
         <item quantity="few">Через %1$d минуты</item>
@@ -27,12 +27,12 @@
     <string name="alert_lesson_teacher">%1$s, %2$s</string>
     <string name="alert_lesson_replaced">%1$s (замена)</string>
 
-    <!-- Пробное уведомление: как выглядит напоминание с текущими настройками -->
+    <!-- The sample notification: what a reminder looks like with the current settings -->
     <string name="alert_sample_subject">Алгебра</string>
     <string name="alert_sample_room">214</string>
     <string name="alert_sample_teacher">Иванова М. П.</string>
 
-    <!-- Утренняя сводка -->
+    <!-- The morning digest -->
     <plurals name="alert_morning_title">
         <item quantity="one">Сегодня %1$d урок</item>
         <item quantity="few">Сегодня %1$d урока</item>
@@ -41,7 +41,7 @@
     </plurals>
     <string name="alert_morning_body">Первый — %1$s в %2$s. Последний заканчивается в %3$s.</string>
 
-    <!-- Домашнее задание -->
+    <!-- Homework -->
     <plurals name="alert_homework_title">
         <item quantity="one">На завтра задано по %1$d предмету</item>
         <item quantity="few">На завтра задано по %1$d предметам</item>
@@ -49,7 +49,7 @@
         <item quantity="other">На завтра задано по %1$d предметам</item>
     </plurals>
 
-    <!-- Изменения в расписании -->
+    <!-- Changes to the timetable -->
     <string name="alert_changes_title">Расписание изменилось</string>
     <string name="alert_changes_body">Ближайшие дни обновились: проверьте замены и отмены.</string>
 

@@ -173,17 +173,17 @@ async def spelling(session: AsyncSession, class_id: int, name: str) -> str:
     """The class's own spelling of ``name``, or ``name`` if it has none.
 
     :func:`canonical` for the things that carry a subject's *name* without
-    belonging to the weekly template — домашнее задание and a замена. They have
+    belonging to the weekly template — homework and a substitution. They have
     no ``subject_id`` to link, so agreeing on the spelling is the whole of what
     can be agreed, and it is enough for the three things that were wrong:
 
     * homework upserts on ``(date, subject_name)``, so «алгебра» typed on a
-      phone founded a second задание beside the «Алгебра» already there, and
+      phone founded a second assignment beside the «Алгебра» already there, and
       both went out in the evening digest;
     * :func:`app.services.structure.rename_subject` moves homework by exact old
       name, so the stray spelling survived a rename and then named a subject
       the class no longer had;
-    * ``app/schedule.py`` looks a замена's colour up by exact name, so one
+    * ``app/schedule.py`` looks a substitution's colour up by exact name, so one
       typed in the wrong case drew grey among coloured lessons.
 
     Unlike :func:`canonical` this never founds a dictionary entry. Homework is

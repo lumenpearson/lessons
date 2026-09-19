@@ -3,7 +3,7 @@
 The template could already be rewritten — a whole weekday at a time, by pasting
 a message (``timetable_io.parse_timetable_block``). That is still the fastest
 way to enter a term's schedule from a photo of the board, and it is not going
-anywhere. It is a poor way to make one change: to move физика from third to
+anywhere. It is a poor way to make one change: to move a lesson from third to
 second you retype the day, and a typo in the line you were not touching is a
 lesson you have now silently lost.
 
@@ -11,7 +11,7 @@ So this is the other half — the edits a button can make, one lesson at a time,
 with the rest of the day untouched by construction.
 
 **The index is a slot, and a slot holds every parity at once.** Moving lesson 3
-moves числитель and знаменатель together. Any other rule and one week's third
+moves the numerator and the denominator week together. Any other rule and one week's third
 lesson becomes the other week's second, which is not a reordering of anything
 a person asked for — and the bells, which are keyed on the index alone, would
 then be right for one week and wrong for the other.
@@ -95,16 +95,16 @@ async def rung_indexes(session: AsyncSession, class_id: int) -> set[int]:
 async def rung_indexes_on(session: AsyncSession, class_id: int, day: Date) -> set[int]:
     """The lesson numbers this class rings **on one date**.
 
-    Not the same question as :func:`rung_indexes`: a день marked «сокращённый»
+    Not the same question as :func:`rung_indexes`: a day marked «сокращённый»
     points at its own bell schedule, and that schedule is usually the short one
-    — four rows where the ordinary day has seven. A замена written for such a
+    — four rows where the ordinary day has seven. A substitution written for such a
     date against the class's default bells would pass a check and still be
     drawn nowhere, which is the whole failure this is here to prevent.
     A day that names no schedule of its own takes the class default, and so
     does one whose schedule holds no rows — deliberately, and **not** the same
     answer ``ScheduleResolver._bells_for`` gives. Its map is built from the
     class's schedules, so an empty one is in it as an empty dict and such a day
-    draws nothing at all. Answering «nothing» here would not refuse the замена:
+    draws nothing at all. Answering "nothing" here would not refuse the substitution:
     :func:`can_ring` reads an empty set as «this class has not set its bells up
     yet» and waves every number through, so the day that draws nothing would
     accept *more* than the ordinary one. Both surfaces that point a day at a
@@ -319,12 +319,12 @@ async def edit_lesson(
     """Rewrite one cell in place, or create it if that parity has no row yet.
 
     The create half is what fills in a half-written slot: a paste may bring
-    «3. История [чис]» with no знаменатель under it, and writing the other half
-    is one edit rather than a retyped day.
+    «3. История [чис]» with no denominator half under it, and writing the other
+    half is one edit rather than a retyped day.
 
-    **A slot is one «каждую неделю» row, or one числитель and one знаменатель.**
+    **A slot is one «каждую неделю» row, or one numerator and one denominator.**
     ``uq_timetable_cell`` does not hold that rule — the parities differ, so the
-    key is satisfied — and nothing else did either: creating a числитель beside
+    key is satisfied — and nothing else did either: creating a numerator beside
     an existing «каждую неделю» row left two rows that both pass the resolver's
     parity filter on an odd week, and :class:`app.schedule.ScheduleResolver`
     keeps the last one it sees out of a query with no ``ORDER BY``. Which of the
@@ -384,9 +384,9 @@ async def edit_lesson(
 async def split_parity(
     session: AsyncSession, class_id: int, weekday: int, index: int
 ) -> bool:
-    """Turn a «каждую неделю» slot into a числитель/знаменатель pair.
+    """Turn a «каждую неделю» slot into a numerator/denominator pair.
 
-    The знаменатель starts as a copy, because the alternative — an empty half —
+    The denominator starts as a copy, because the alternative — an empty half —
     is a slot the day view has to render as a hole on every second week, and
     the commonest edit after splitting is changing one of the two anyway.
     """
@@ -409,7 +409,7 @@ async def split_parity(
             class_id=class_id,
             weekday=weekday,
             index=index,
-            # A copy, link included: the знаменатель is the same subject until
+            # A copy, link included: the denominator is the same subject until
             # somebody changes it, and a half that lost its colour on the way
             # would look like two different lessons on alternate weeks.
             subject_id=original.subject_id,

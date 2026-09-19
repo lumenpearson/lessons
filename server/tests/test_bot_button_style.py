@@ -28,9 +28,9 @@ def buttons(keyboard):
 
 
 def test_the_escape_from_a_delete_confirmation_is_the_one_cancel_that_is_not_red():
-    """The exception «отмена красная» has, and the reason for it.
+    """The exception "cancel is red" has, and the reason for it.
 
-    Красная means «this takes something away». In a confirmation both buttons
+    Red means "this takes something away". In a confirmation both buttons
     qualify under a careless reading — one deletes, one abandons — so painting
     both leaves the pair distinguished by its labels alone, on the one screen
     where a misread costs the most.
@@ -105,7 +105,7 @@ def test_a_toggle_is_painted_by_what_pressing_it_does_not_by_the_state_it_shows(
     It carries both halves in its label, so the state cannot be the thing the
     colour reports — green on a button reading «выключить» would be an
     invitation to press it. What is left is the effect: red while the press
-    takes напоминания away, plain while it gives them back.
+    takes the reminders away, plain while it gives them back.
     """
     on = SimpleNamespace(
         morning_at=None, evening_at=None, notify_changes=True, notify_homework=False

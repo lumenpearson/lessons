@@ -1,4 +1,4 @@
-"""One задание per subject per day, under a race.
+"""One assignment per subject per day, under a race.
 
 Both shells promised this in their own docstrings and neither could keep it:
 `homework` had an index on `(class_id, due_date)` and no unique constraint, and
@@ -39,9 +39,9 @@ async def test_saving_the_same_subject_twice_replaces_rather_than_duplicates(
 
 
 async def test_the_spelling_the_class_uses_is_what_decides_sameness(session, school_class):
-    """`app/schedule.py` matches a задание to its lesson by exact name, so a
-    typed «алгебра» has to become the «Алгебра» the class already uses —
-    otherwise it founds a second задание beside the first, which is the same
+    """`app/schedule.py` matches an assignment to its lesson by exact name, so
+    a typed «алгебра» has to become the «Алгебра» the class already uses —
+    otherwise it founds a second assignment beside the first, which is the same
     duplicate by another route.
 
     The dictionary is what holds the spelling, so the test seeds it: a class
@@ -73,11 +73,11 @@ async def test_a_stale_read_becomes_the_update_it_meant_to_be(
     way to interleave that through `upsert`'s own surface on SQLite — its read
     happens inside it, and by the time the second call runs the row is
     committed and simply found. So the stale read is staged directly: `_find`
-    is made to answer «nothing here» once, exactly as it truthfully did a
+    is made to answer "nothing here" once, exactly as it truthfully did a
     moment earlier, while the row is already in the table.
 
     Without the unique constraint the insert then succeeds and the class has
-    two заданий for one subject on one day, which is the defect. With it, the
+    two assignments for one subject on one day, which is the defect. With it, the
     loser recovers into the update it meant to be.
     """
     await homework_service.upsert(session, school_class.id, FRIDAY, "Алгебра", "первый", actor=1)

@@ -82,16 +82,16 @@ class WeekParity(enum.StrEnum):
 
 
 class OverrideAction(enum.StrEnum):
-    REPLACE = "replace"  # замена: другой предмет/кабинет на этом уроке
-    CANCEL = "cancel"  # урок отменён
-    ADD = "add"  # дополнительный урок, которого нет в шаблоне
+    REPLACE = "replace"  # a substitution: another subject or room in this lesson
+    CANCEL = "cancel"  # the lesson is cancelled
+    ADD = "add"  # an extra lesson that is not in the template
 
 
 class DayKind(enum.StrEnum):
     NORMAL = "normal"
-    HOLIDAY = "holiday"  # каникулы / выходной
-    SHORTENED = "shortened"  # сокращённые уроки (другое расписание звонков)
-    REMOTE = "remote"  # дистанционное обучение
+    HOLIDAY = "holiday"  # a holiday or a day off
+    SHORTENED = "shortened"  # shortened lessons (another bell schedule)
+    REMOTE = "remote"  # remote teaching
 
 
 class JoinMode(enum.StrEnum):
@@ -122,12 +122,12 @@ class TermKind(enum.StrEnum):
     Younger classes are taught in four quarters; 10 and 11 are usually taught
     in two semesters, because that is how the leaving exams are organised. The
     scheme follows the grade by default and is editable, since a school is free
-    to do neither — and plenty do тримест­ры, which is why this is stored per
+    to do neither — and plenty teach in trimesters, which is why this is stored per
     class rather than derived on every read.
     """
 
-    QUARTER = "quarter"  # четверть
-    SEMESTER = "semester"  # полугодие
+    QUARTER = "quarter"  # a quarter of the year
+    SEMESTER = "semester"  # a half of the year
 
 
 class EventKind(enum.StrEnum):
@@ -139,25 +139,26 @@ class EventKind(enum.StrEnum):
 
 
 class SchoolClass(Base):
-    """A single class-group ("9А"), the unit everything else hangs off."""
+    """A single class-group («9А»), the unit everything else hangs off."""
 
     __tablename__ = "classes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    # The display name ("9А"). Still the one field every screen renders, and
+    # The display name («9А»). Still the one field every screen renders, and
     # still free-form for a class that calls itself something else — but it is
     # now composed from grade + letter when those are known, rather than typed.
     name: Mapped[str] = mapped_column(String(64), nullable=False)
     # Which year of school this is, 1 to 11. Typed as a number rather than read
     # out of the name because the rest of the app has to reason about it: the
-    # term scheme follows it, and "9А" is not something to parse — a class may
-    # be "9 инж", "11 ФМ" or "5-й Б", and a regular expression over that is a
+    # term scheme follows it, and «9А» is not something to parse — a class may
+    # be «9 инж», «11 ФМ» or «5-й Б» — a class letter is whatever the school
+    # writes — and a regular expression over that is a
     # guess that fails silently on the one class that is written differently.
     #
     # Nullable: every class that existed before this column has a name and no
     # number, and inventing one from the name is exactly the guess above.
     grade: Mapped[int | None] = mapped_column(Integer)
-    # "А", "Б", … or whatever distinguishes two classes of the same year.
+    # «А», «Б», … or whatever distinguishes two classes of the same year.
     letter: Mapped[str | None] = mapped_column(String(8))
     school: Mapped[str | None] = mapped_column(String(200))
     city: Mapped[str | None] = mapped_column(String(120))
@@ -197,7 +198,7 @@ class SchoolClass(Base):
     # the column should not have to change when there are two.
     #
     # Binding a class does not give the class anything: the timetable, the
-    # homework and the замены stay the class's own. What it does is offer every
+    # homework and the substitutions stay the class's own. What it does is offer every
     # *member* a way to sign in to their own account and read their own diary
     # in the same chat — which is why nothing here holds a credential.
     diary_provider: Mapped[str | None] = mapped_column(String(32))
@@ -248,7 +249,7 @@ class SchoolClass(Base):
 
 
 class BellSchedule(Base):
-    """A named set of period start/end times ("Обычное", "Сокращённое")."""
+    """A named set of period start/end times («Обычное», «Сокращённое»)."""
 
     __tablename__ = "bell_schedules"
 
@@ -257,7 +258,7 @@ class BellSchedule(Base):
         ForeignKey("classes.id", ondelete="CASCADE"), index=True, nullable=False
     )
     name: Mapped[str] = mapped_column(String(64), nullable=False)
-    #: Which break the столовая falls on: lunch is after lesson N. Kept on the
+    #: Which break the canteen falls on: lunch is after lesson N. Kept on the
     #: schedule rather than as a weekly event because that is what it actually
     #: is — the same break every day this schedule is in force, moving with the
     #: bells when a shortened day moves them. A recurring DayEvent would have
@@ -350,11 +351,11 @@ class DayOverride(Base):
 
 
 class Term(Base):
-    """One четверть or полугодие, as this class actually runs it.
+    """One quarter or half-year, as this class actually runs it.
 
     Stored rather than computed because the dates are a school's own decision:
-    the конец четверти moves for каникулы, for a quarantine, for a region that
-    starts its spring break a week early. `app/services/terms.py` seeds a set
+    the end of a quarter moves for the holidays, for a quarantine, for a region
+    that starts its spring break a week early. `app/services/terms.py` seeds a set
     of conventional ones when a class is created, and every one of them is
     meant to be edited afterwards — which is the whole reason they are rows.
 
@@ -395,7 +396,7 @@ class Term(Base):
 
 
 class LessonOverride(Base):
-    """Замена: a per-date change to a single lesson slot."""
+    """A substitution: a per-date change to a single lesson slot."""
 
     __tablename__ = "lesson_overrides"
     __table_args__ = (
@@ -422,7 +423,7 @@ class Homework(Base):
     """Homework due on ``due_date``."""
 
     __tablename__ = "homework"
-    # One задание per subject per day, which both shells already promised and
+    # One assignment per subject per day, which both shells already promised and
     # neither could keep: they read then wrote, so two people saving «Алгебра»
     # for Friday at the same moment made two rows, the evening digest listed
     # the subject twice, and ticking one off left the other unticked.
@@ -459,7 +460,7 @@ class Homework(Base):
 
 
 class DayEvent(Base):
-    """Anything on the timeline that is not a lesson: столовая, линейка, экскурсия."""
+    """Anything on the timeline that is not a lesson: the canteen, an assembly, an excursion."""
 
     __tablename__ = "day_events"
     __table_args__ = (Index("ix_event_lookup", "class_id", "date"),)
@@ -501,7 +502,7 @@ class BotUser(Base):
 
 class PhoneInvite(Base):
     """Pre-authorised phone number: the role is applied when that person shares
-    their contact with the bot. This is the "добавить по номеру" flow."""
+    their contact with the bot. This is the «добавить по номеру» flow."""
 
     __tablename__ = "phone_invites"
     __table_args__ = (UniqueConstraint("class_id", "phone", name="uq_phone_invite"),)
@@ -641,7 +642,7 @@ class HomeworkDone(Base):
     """«Сделал»: one person's tick on one homework row.
 
     Kept apart from ``Homework`` because the homework is the class's and the
-    tick is the pupil's; thirty pupils marking the same задание must not write
+    tick is the pupil's; thirty pupils marking the same assignment must not write
     to the same row.
     """
 
@@ -673,11 +674,11 @@ class ReminderSettings(Base):
         ForeignKey("classes.id", ondelete="CASCADE"), index=True, nullable=False
     )
     telegram_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
-    # Today's lessons, замены and events, sent in the morning.
+    # Today's lessons, substitutions and events, sent in the morning.
     morning_at: Mapped[Time | None] = mapped_column(SATime)
     # Homework due on the next school day, sent the evening before.
     evening_at: Mapped[Time | None] = mapped_column(SATime)
-    # Immediate messages when an editor adds a замена / event for the next days.
+    # Immediate messages when an editor adds a substitution or an event for the next days.
     notify_changes: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # Immediate messages when homework is added or changed.
     notify_homework: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

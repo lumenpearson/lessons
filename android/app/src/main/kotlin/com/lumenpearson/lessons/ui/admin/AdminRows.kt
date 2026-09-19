@@ -117,7 +117,7 @@ private fun AdminRoleCard(role: ClassRole?) {
 private enum class ManagementScreen { CLASS, SUBJECTS, BELLS, TIMETABLE, DEVICES, LOG, STATS, REQUESTS }
 
 /**
- * The whole of «управление классом», as one row per bot command.
+ * The whole of class management, as one row per bot command.
  *
  * One view model for all eight, hoisted here, because they share the answer to
  * the only question that can make every one of them fail at once: whether the

@@ -1304,7 +1304,7 @@ async def test_a_calendar_uid_survives_its_neighbour_being_deleted(session, scho
     """UIDs used to be the item's position within its day, which is not an
     identity.
 
-    Delete the first of three заданий and the other two slid up into its UID
+    Delete the first of three assignments and the other two slid up into its UID
     and the second's. A subscriber's client reads a UID as "which to-do is
     this", so two of them silently changed into different subjects — ticked-off
     ones included — and a third disappeared. Nothing in the feed said anything
@@ -1418,14 +1418,14 @@ class _FakeDiaryClient:
 async def test_the_current_period_is_read_off_the_diary_clock_not_the_server(
     session, school_class, monkeypatch
 ):
-    """Which четверть is «текущая» decides what `GET /diary/.../subjects`
+    """Which term is «текущая» decides what `GET /diary/.../subjects`
     answers when no period is named, and it answers with an **empty list** when
     none of them is current.
 
     Vercel runs in UTC and the diary is one city's, three hours ahead. Asked
     with the server's own clock, a pupil opening «Дневник» after nine in the
-    evening on the first day of a quarter was still in yesterday - which is
-    каникулы, between two periods - and got no subjects at all. The provider
+    evening on the first day of a quarter was still in yesterday - which is a
+    holiday, between two periods - and got no subjects at all. The provider
     exports ``today()`` for exactly this; every other "today" in this project
     comes from the class's zone for the same reason.
     """

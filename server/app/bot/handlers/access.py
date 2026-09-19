@@ -575,7 +575,7 @@ async def revoke(
     )
     # Their subscriptions go the same way, and for the same reason: nothing on
     # the sending side re-reads the membership, so a settings row left behind
-    # keeps the digests and every замена arriving in the chat of somebody who
+    # keeps the digests and every substitution arriving in the chat of somebody who
     # is no longer in the class.
     await reminders.drop_for(session, telegram_id=member.telegram_id, class_id=school_class.id)
     await session.delete(member)

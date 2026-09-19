@@ -1,6 +1,6 @@
 """The personal diary, inside the class chat.
 
-The class's own data — timetable, homework, замены — belongs to the class and
+The class's own data — timetable, homework, substitutions — belongs to the class and
 everybody in it sees the same thing. The diary is the opposite and the code has
 to keep it that way: it is one family's record of one child, and the only
 person who ever sees it here is the one who signed in. An admin binding the

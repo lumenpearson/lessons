@@ -1,7 +1,7 @@
 """What the bot may message this person about, and when.
 
 The settings row is per person per class and is created on first visit with
-the defaults from the model (no digests, замены on, homework off) - nobody
+the defaults from the model (no digests, substitutions on, homework off) - nobody
 receives a message they did not switch on. Times are class wall time, like
 every other clock in the schema; the reminder tick compares them against
 the class's zone, never the server's.

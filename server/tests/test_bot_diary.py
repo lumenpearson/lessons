@@ -125,7 +125,7 @@ async def test_a_bound_class_with_no_session_offers_the_door_not_an_error(
 
 async def test_a_viewer_gets_the_diary_like_everybody_else(session, school_class):
     """No role in the class grants any of it: the button opens *your* diary,
-    and a наблюдатель has as much right to their own child's marks as an owner
+    and an observer has as much right to their own child's marks as an owner
     has to theirs."""
     await _bind(session, school_class)
     callback = FakeCallback(user_id=MINE)
@@ -197,7 +197,7 @@ async def test_signing_out_leaves_no_session_behind_to_walk_back_in_on(
 ):
     """Nothing expires a previous sign-in, so two are ordinary rather than rare.
 
-    `api/diary_web` opens a row per успешный вход and never touches the ones
+    `api/diary_web` opens a row per successful sign-in and never touches the ones
     already there, and the bot happily hands out a second ticket — so somebody
     who signed in again from an older «🔐 Войти» card holds two live sessions.
     `_session_for` answers with the newest, and dropping only that one left

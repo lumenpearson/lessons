@@ -4,7 +4,7 @@ The paste editor in ``timetable.py`` is still the way a term's schedule gets
 entered, and this does not replace it. It replaces the *other* thing that
 editor was being used for: changing one lesson. Doing that by paste means
 retyping the day, and a typo in a line you were not touching is a lesson
-silently lost — while getting to the next day meant leaving, picking Вторник,
+silently lost — while getting to the next day meant leaving, picking «Вторник»,
 and reading it back from the start.
 
 So: one message, edited in place. The cursor — which day, which lesson,
@@ -75,7 +75,7 @@ async def _bells(
     """The class's default schedule and its rows by lesson number.
 
     A class with no default schedule is normal — a fresh class has none until
-    someone pastes звонки — so this answers with an empty map rather than
+    someone pastes a bell schedule — so this answers with an empty map rather than
     refusing, and the views drop their times and their breaks.
     """
     if not school_class.bell_schedule_id:

@@ -76,8 +76,8 @@ async def _on_error(event: ErrorEvent) -> bool:
     therefore left a button with a loading spinner on it until Telegram timed
     out:
 
-    * Pressing a button that re-renders the same view — "Сегодня" from the day
-      view, "‹ Меню" from the menu — makes Telegram answer *message is not
+    * Pressing a button that re-renders the same view — «Сегодня» from the day
+      view, «‹ Меню» from the menu — makes Telegram answer *message is not
       modified*, which is a 400. The exception escaped before ``answer()``.
     * Any handler raising at all, including the ``data["…"]`` reads in the FSM
       flows that assume a step the user may not have been through.

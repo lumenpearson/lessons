@@ -2,9 +2,9 @@
 
 The card is the half that makes the grid worth having. Picking a date used to
 be a step inside one flow; here it is a place — what that day already is, and
-everything that may be назначено on it, for whoever is looking. Each of those
+everything that may be assigned to it, for whoever is looking. Each of those
 buttons carries the date into the flow's own handler, so nothing about
-homework, замены, события or особые дни is implemented twice.
+homework, substitutions, events or special days is implemented twice.
 """
 
 from __future__ import annotations

@@ -323,7 +323,7 @@ async def create_class_school_search(message: Message, state: FSMContext) -> Non
 def _search_caption(page: dadata.SchoolPage) -> str:
     head = f"Нашлось: <b>{page.total}</b>. Выберите свою школу:"
     if page.truncated:
-        # Twenty is their ceiling, not the number of matches. Saying "первые
+        # Twenty is their ceiling, not the number of matches. Saying «первые
         # 20" is the only thing that tells somebody their school may be in the
         # part that never arrived, and that a longer query is the way to it.
         head = (
@@ -454,7 +454,7 @@ async def create_class_timezone(
         )
 
     school_class.bell_schedule_id = bells.id
-    # Seeded here rather than lazily on first read so the class has четверти
+    # Seeded here rather than lazily on first read so the class has terms
     # from the moment it exists — the scheme follows the grade that was just
     # picked, and every date is editable afterwards.
     await terms_service.ensure(
@@ -627,8 +627,8 @@ async def phone_code(
 
     No role check beyond membership, and the bound is on what the phone may
     **do**, not on how many phones there are: it acts with whatever role this
-    account holds at the moment of each request, so a наблюдатель minting one
-    gets a наблюдатель's phone, and a demotion follows it the same second.
+    account holds at the moment of each request, so an observer minting one
+    gets an observer's phone, and a demotion follows it the same second.
 
     What it is *not* bounded by is forwarding. Anybody in the class can press
     this repeatedly and pass the codes on, so in «по приглашению» the class is

@@ -1,4 +1,4 @@
-"""One задание per subject per day, said by the database.
+"""One assignment per subject per day, said by the database.
 
 Revision ID: 0013
 Revises: 0012
@@ -11,7 +11,7 @@ then wrote, so two people saving «Алгебра» for Friday at the same momen
 two rows. Nothing complains: the evening digest lists the subject twice, and
 whichever row a phone ticks off leaves the other one unticked.
 
-**THIS REVISION DELETES ROWS.** Where a class already has more than one задание
+**THIS REVISION DELETES ROWS.** Where a class already has more than one assignment
 for the same `(class_id, due_date, subject_name)`, it keeps the one with the
 highest `id` — the most recently written, which is the one the two shells' own
 «sending it again replaces the text» rule means — and deletes the rest. On a

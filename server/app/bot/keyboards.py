@@ -181,7 +181,7 @@ def main_menu(role: Role, diary_provider: str | None = None) -> InlineKeyboardMa
     )
     # Offered to every role, because it is not the class's data and no role in
     # the class grants any of it: the button opens *your* diary or offers you
-    # the door to it, and a наблюдатель has exactly as much right to their own
+    # the door to it, and an observer has exactly as much right to their own
     # child's marks as the owner has.
     if diary_provider:
         rows.append(
@@ -657,7 +657,7 @@ def reminder_keyboard(settings) -> InlineKeyboardMarkup:
     def _toggle(label: str, flag: str, on: bool) -> list[InlineKeyboardButton]:
         # Painted by what pressing it does, not by the state it reports: these
         # two carry both halves in one label, so «Замены: выключить» is red
-        # because pressing it switches замены off, and the same button reading
+        # because pressing it switches the substitutions off, and the same button reading
         # «включить» is plain because pressing it takes nothing away.
         return [
             InlineKeyboardButton(

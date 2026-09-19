@@ -54,7 +54,7 @@ data class AlertPreferences(
      * Whether a date the school has marked as holidays is left alone.
      *
      * On by default, and it is not the no-op it looks like: a school that puts
-     * каникулы on the calendar rarely deletes the lesson rows underneath, so
+     * marking a week as holidays on the calendar rarely deletes the lesson rows underneath, so
      * without this a week of holidays rings the morning bell every day from a
      * timetable nobody is following.
      */

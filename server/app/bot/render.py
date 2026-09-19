@@ -128,7 +128,7 @@ def cut(text: str, limit: int) -> str:
 
 
 def human_date(day: Date, today: Date | None = None) -> str:
-    """"сегодня, 9 сентября (вторник)" — the form people actually read."""
+    """«сегодня, 9 сентября (вторник)» — the form people actually read."""
     label = f"{day.day} {MONTHS_GENITIVE[day.month - 1]} ({WEEKDAYS[day.weekday()]})"
     if today is None:
         return label
@@ -143,7 +143,7 @@ def human_date(day: Date, today: Date | None = None) -> str:
 
 
 def relative_day_name(day: Date, today: Date) -> str:
-    """"на завтра" / "на понедельник" / "на 15 сентября"."""
+    """«на завтра» / «на понедельник» / «на 15 сентября»."""
     delta = (day - today).days
     if delta == 1:
         return "на завтра"
@@ -152,12 +152,12 @@ def relative_day_name(day: Date, today: Date) -> str:
     return f"на {day.day} {MONTHS_GENITIVE[day.month - 1]}"
 
 
-#: A задание in the day view, before it is shortened.
+#: An assignment in the day view, before it is shortened.
 #:
 #: Generous on purpose, and not the digest's 400: this is one day, and the
-#: point of opening it is to read the задание rather than to be told there is
+#: point of opening it is to read the assignment rather than to be told there is
 #: one. The cut exists for the other end — ``schemas`` accepts 4000 characters
-#: for a задание and the column is uncapped, so a single pasted essay used to
+#: for an assignment and the column is uncapped, so a single pasted essay used to
 #: take the whole day over Telegram's ceiling, on «сегодня», on «завтра», on
 #: the ‹ › pager, in the calendar card and in the morning digest at once, and
 #: `/today` is a plain answer with no callback to apologise on.
@@ -291,7 +291,7 @@ INVISIBLE = "⁣"
 
 
 def plural(count: int, one: str, few: str, many: str) -> str:
-    """"1 урок", "2 урока", "5 уроков" — Russian has three forms, not two."""
+    """«1 урок», «2 урока», «5 уроков» — Russian has three plural forms, not two."""
     tail = count % 100
     if 11 <= tail <= 19:
         form = many
@@ -302,7 +302,7 @@ def plural(count: int, one: str, few: str, many: str) -> str:
 
 
 def duration(minutes: int) -> str:
-    """"1 ч 12 мин", "45 мин", "2 ч" — whole minutes, never seconds."""
+    """«1 ч 12 мин», «45 мин», «2 ч» — whole minutes, never seconds."""
     hours, rest = divmod(max(minutes, 0), 60)
     parts = []
     if hours:
@@ -315,8 +315,8 @@ def duration(minutes: int) -> str:
 def _minutes_until(now: datetime, at: Time) -> int:
     """Whole minutes from ``now`` to ``at`` on the same day, rounded up.
 
-    Rounded up rather than down: "осталось 0 мин" while the bell has not yet
-    rung reads as a bug, "1 мин" reads as a countdown.
+    Rounded up rather than down: «осталось 0 мин» while the bell has not yet
+    rung reads as a bug, «1 мин» reads as a countdown.
     """
     target = datetime.combine(now.date(), at, tzinfo=now.tzinfo)
     seconds = (target - now).total_seconds()
@@ -519,7 +519,7 @@ def render_next(day: ResolvedDay, next_day: ResolvedDay | None, now: datetime) -
 # --------------------------------------------------------------------------
 
 
-#: Задания one digest draws before «… и ещё N».
+#: Assignments one digest draws before «… и ещё N».
 #:
 #: The number the keyboard under it can offer, and the keyboard is built from
 #: the very rows this file decided on — ``handlers/tasks`` reads
@@ -528,14 +528,14 @@ def render_next(day: ResolvedDay, next_day: ResolvedDay | None, now: datetime) -
 #: make, with nothing on the screen saying so.
 HOMEWORK_ITEMS_MAX = 12
 
-#: How much of one задание a row shows. ``handlers/content`` already cuts a
-#: задание to 200 characters for the «новое задание» notification; a digest row
+#: How much of one assignment a row shows. ``handlers/content`` already cuts an
+#: assignment to 200 characters for the «новое задание» notification; a digest row
 #: is read rather than glanced at, so it gets more — but not the four thousand
 #: characters the API accepts, because twelve of those are not a message.
 HOMEWORK_TEXT_MAX = 400
 
 #: What the whole digest may grow to. Telegram's ceiling is 4096 characters
-#: *after* entity parsing, and a fortnight of three заданий a day passed it at
+#: *after* entity parsing, and a fortnight of three assignments a day passed it at
 #: 5371: ``edit_text`` then answers 400, so «📝 Домашнее задание» said «что-то
 #: пошло не так» and ``/homework`` — a plain ``answer`` with no callback to
 #: apologise on — said nothing at all. The margin covers the tags.
@@ -547,10 +547,10 @@ def _homework_digest(
     today: Date,
     done: set[tuple[Date, str]] | frozenset[tuple[Date, str]],
 ) -> tuple[list[str], list[tuple[Date, str]], int]:
-    """The digest's lines, the задания they name, and how many did not fit.
+    """The digest's lines, the assignments they name, and how many did not fit.
 
     One place decides, because the message and the keyboard under it have to
-    agree on which задания are on the screen: the keyboard is built from the
+    agree on which assignments are on the screen: the keyboard is built from the
     keys and the message from the lines, so a row can neither appear without a
     button nor a button without a row.
     """
@@ -583,7 +583,7 @@ def _homework_digest(
                 else ["", f"<b>{escape(human_date(day.date, today)).capitalize()}</b>"]
             )
             cost = sum(len(line) + 1 for line in heading) + len(row) + 1
-            # ``keys and`` so the first задание is always drawn: a digest whose
+            # ``keys and`` so the first assignment is always drawn: a digest whose
             # whole answer is «… и ещё 1» says less than the overrun did.
             if keys and used + cost > HOMEWORK_DIGEST_LIMIT:
                 return lines, keys, total - len(keys)
@@ -620,7 +620,7 @@ def homework_digest_keys(
     today: Date,
     done: set[tuple[Date, str]] | frozenset[tuple[Date, str]] = frozenset(),
 ) -> list[tuple[Date, str]]:
-    """The (due date, subject) of every задание :func:`render_homework_digest`
+    """The (due date, subject) of every assignment :func:`render_homework_digest`
     draws, in the order it draws them — which is the order the tick buttons go
     in, and the whole of what they may cover."""
     return _homework_digest(days, today, done)[1]
@@ -657,7 +657,7 @@ def task_group(task: PersonalTask, today: Date) -> str:
 
 
 def task_line(task: PersonalTask) -> str:
-    """"🔴 Реферат — до 15.09 18:00 (История)"."""
+    """«🔴 Реферат — до 15.09 18:00 (История)»."""
     icon = PRIORITY_ICONS.get(task.priority, "🟡")
     text = escape(cut(task.title, TASK_TITLE_MAX))
     if task.due_date is not None:

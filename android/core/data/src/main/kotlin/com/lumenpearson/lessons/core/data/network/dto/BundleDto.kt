@@ -32,16 +32,16 @@ internal data class SchoolClassDto(
     @SerialName("school") val school: String? = null,
     @SerialName("timezone") val timezone: String = "",
     // A free-form wire string for the same reason `DayDto.kind` is one: a
-    // server that learns тримест­ры must not break a client that has not.
+    // server that learns trimesters must not break a client that has not.
     @SerialName("term_kind") val termKind: String? = null,
     @SerialName("terms") val terms: List<TermDto> = emptyList(),
 )
 
 /**
- * Mirrors `TermOut`: one четверть or полугодие as the class actually runs it.
+ * Mirrors `TermOut`: one quarter or half-year as the class actually runs it.
  *
  * Carried rather than recomputed on the phone: the dates are the school's own
- * and they move — каникулы shift, a region starts its spring break early — so
+ * and they move — the holidays shift, a region starts its spring break early — so
  * a formula here would be a second answer to a question the server already
  * answers from rows an admin edited.
  */

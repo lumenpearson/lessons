@@ -3,7 +3,7 @@
 A message Telegram will not deliver is a screen that says nothing: the ceiling
 is 4096 characters after entity parsing, and the whole message is refused
 rather than clipped. The homework digest learned this after a fortnight of
-three заданий a day came to 5371 characters and «📝 Домашнее задание» answered
+three assignments a day came to 5371 characters and «📝 Домашнее задание» answered
 «что-то пошло не так» — while `/homework`, a plain `answer` with no callback to
 apologise on, answered nothing at all.
 
@@ -238,10 +238,10 @@ def test_an_evening_digest_of_a_full_timetable_still_sends():
 
 
 def test_an_announcement_is_the_same_length_whichever_shell_wrote_it():
-    """Both shells announce the same задание, and the rule was in one of them.
+    """Both shells announce the same assignment, and the rule was in one of them.
 
-    A задание typed into the bot arrived cut to 200 characters; the same
-    задание saved from a phone arrived whole — the 4000 `HomeworkIn.text`
+    An assignment typed into the bot arrived cut to 200 characters; the same one
+    saved from a phone arrived whole — the 4000 `HomeworkIn.text`
     accepts, which is an unreadable lock screen below Telegram's ceiling and
     nothing at all above it, because every recipient's send raises and both
     callers swallow it.

@@ -5,7 +5,7 @@ conversation in process memory. That is correct for a long-running process and
 completely wrong for a serverless deployment, where each Telegram update may hit
 a fresh instance. With memory storage on Vercel, a user picking a date for
 homework would have the bot forget the date before they typed the text, and
-every multi-step flow in the bot - homework, invites, замены, events, timetable
+every multi-step flow in the bot - homework, invites, substitutions, events, timetable
 editing - would break in a way that looks random.
 
 Keeping the state next to the data it edits also means a redeploy does not drop

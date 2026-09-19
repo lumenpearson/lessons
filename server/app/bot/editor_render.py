@@ -1,12 +1,12 @@
 """The editor's own view of a weekday: lessons, and optionally the gaps.
 
 Separate from ``render.py`` because it renders a different thing. That file
-renders a *resolved* day — what will actually happen on 15 September, замены
-and каникулы applied. This renders the **template**, which has no date, and
+renders a *resolved* day — what will actually happen on 15 September, with the
+substitutions and the holidays applied. This renders the **template**, which has no date, and
 whose whole point is the two parity variants a resolved day has already
 collapsed into one.
 
-The breaks are the reason the view has a switch. A перемена is not stored
+The breaks are the reason the view has a switch. A break is not stored
 anywhere: it is the gap between bell N's end and bell N+1's start, so it can
 only ever be derived, and deriving it doubles the line count of a day that
 most of the time you are reading to check which subject is third. So it is off

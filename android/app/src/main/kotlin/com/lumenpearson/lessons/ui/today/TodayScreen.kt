@@ -203,7 +203,7 @@ private fun LazyListScope.lessonsSection(state: TodayUiState) {
     }
 }
 
-/** Линейка, столовая, экскурсия — today's non-lesson entries, in time order. */
+/** An assembly, lunch, an excursion — today's non-lesson entries, in time order. */
 private fun LazyListScope.eventsSection(state: TodayUiState) {
     if (!state.showEvents || state.events.isEmpty()) return
 

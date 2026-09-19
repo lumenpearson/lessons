@@ -47,7 +47,7 @@ import kotlinx.coroutines.launch
  * account, and the code that ties it while it is not.
  *
  * The app has no login of its own, and this is deliberately not one either.
- * The bot already knows who is a редактор and who is not; what the phone
+ * The bot already knows who is an editor and who is not; what the phone
  * needs is to be recognised as *somebody's*, and a six-character code typed
  * into a chat the user is already in is the shortest path to that. Once
  * linked, every write the app makes is judged by the server against that

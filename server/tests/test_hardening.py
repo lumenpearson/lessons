@@ -567,7 +567,7 @@ async def test_a_forged_grade_is_refused_rather_than_stored(session):
 
 
 async def test_creating_a_class_seeds_its_terms(session):
-    """A class has четверти from the moment it exists; the alternative is an
+    """A class has terms from the moment it exists; the alternative is an
     empty screen for the first person who opens the calendar."""
     from app.bot.handlers.start import create_class_timezone
     from app.models import Term, TermKind

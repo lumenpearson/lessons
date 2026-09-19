@@ -86,13 +86,13 @@ data class ScheduleUiState(
     /**
      * The terms of the class's own year, as the school runs them.
      *
-     * Carried rather than derived: the dates move — каникулы shift, a region
+     * Carried rather than derived: the dates move — the holidays shift, a region
      * starts its spring break early — so the server keeps rows an admin edits
      * and the app reads them. Empty for a class whose server predates them.
      */
     val terms: List<Term> = emptyList(),
 ) {
-    /** The term the selected day falls in, or `null` during каникулы. */
+    /** The term the selected day falls in, or `null` during the holidays. */
     val selectedTerm: Term? get() = terms.firstOrNull { selected in it }
 
     /** The day the detail panel and the hour ruler render. */

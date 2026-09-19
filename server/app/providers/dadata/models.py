@@ -22,8 +22,9 @@ class School(BaseModel):
     #: What goes on the screen: «МБОУ "Гимназия № 3"» where the register has a
     #: short form, the full name otherwise.
     name: str
-    #: ОГРН — thirteen digits, assigned once and never reused, which is why it
-    #: is this project's handle on a school rather than the ИНН (reissued after
+    #: The OGRN registration number — thirteen digits, assigned once and never
+    #: reused, which is why it is this project's handle on a school rather than
+    #: the INN (reissued after
     #: a reorganisation) or the name (changes).
     ogrn: str | None = None
     inn: str | None = None

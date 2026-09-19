@@ -638,7 +638,7 @@ TELEGRAM_TEXT_LIMIT = 4096
 
 
 def a_fortnight_of_homework() -> list[ResolvedDay]:
-    """Three заданий a day for the fortnight the digest asks the resolver for.
+    """Three assignments a day for the fortnight the digest asks the resolver for.
 
     Nothing exotic: «Домашнее задание» looks fourteen days ahead, and three
     subjects setting something each day is an ordinary week in a ninth year.
@@ -680,8 +680,8 @@ async def test_sharing_a_contact_draws_the_menu_of_the_role_you_actually_have(
 
     `claim_phone_invites` keeps the higher role — that much was already true —
     but the reply and the keyboard were built from the invite, so an admin
-    sharing their number was told they were a наблюдатель and handed a
-    наблюдатель's menu, with «🧩 Расписание», «👥 Доступ» and «⚙️ Класс» gone.
+    sharing their number was told they were an observer and handed an
+    observer's menu, with «🧩 Расписание», «👥 Доступ» and «⚙️ Класс» gone.
     """
     session.add(BotUser(telegram_id=555, class_id=school_class.id, role=Role.ADMIN))
     session.add(PhoneInvite(class_id=school_class.id, phone="79001234567", role=Role.VIEWER))
@@ -712,7 +712,7 @@ def test_the_homework_digest_stays_inside_the_message_telegram_will_send():
 def test_every_homework_row_drawn_has_a_button_under_it():
     """The rule this project already holds for the management pages.
 
-    The digest drew every задание of the fortnight and the keyboard offered
+    The digest drew every assignment of the fortnight and the keyboard offered
     twelve buttons, so the rest were visible, untickable and unmentioned.
     """
     days = a_fortnight_of_homework()

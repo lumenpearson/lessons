@@ -8,14 +8,14 @@ Two additions that go together.
 
 ``classes.grade`` and ``classes.letter`` make "which year of school is this" a
 number instead of something to read out of the name. The rest of the app has to
-reason about it — the term scheme follows the grade — and "9А" is not a thing to
+reason about it — the term scheme follows the grade — and «9А» is not a thing to
 parse: a class may be «9 инж», «11 ФМ» or «5-й Б», and a regular expression over
 that is a guess that fails silently on the one class written differently. Both
 are nullable, because every class that already exists has a name and no number,
 and filling one in from the name would be exactly that guess.
 
-``terms`` holds четверти and полугодия as rows rather than as a formula. The
-dates are a school's own decision and they move — каникулы shift, a region
+``terms`` holds quarters and half-years as rows rather than as a formula. The
+dates are a school's own decision and they move — the holidays shift, a region
 starts its spring break early, a quarantine eats a week — so a class is seeded
 with the conventional set and edits it. ``classes.term_kind`` is null until
 somebody chooses, so "nobody decided, so quarters" stays distinguishable from

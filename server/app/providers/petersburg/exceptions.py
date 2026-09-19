@@ -32,7 +32,7 @@ class SessionExpired(PetersburgError):
 
     Distinct from :class:`BadCredentials` because the answer is different: the
     person has not changed their password, they have simply been away long
-    enough. The client turns this into "войдите снова", not "вы ошиблись".
+    enough. The client turns this into «войдите снова», not «вы ошиблись».
     """
 
     message = "Сессия дневника истекла — войдите заново"

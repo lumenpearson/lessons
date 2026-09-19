@@ -88,11 +88,11 @@ def school_year_days(on: Date) -> int:
 
 
 # Where a grade stops being taught in quarters and starts being taught in
-# halves. 10 and 11 are the exam years and are organised around полугодия.
+# halves. 10 and 11 are the exam years and are organised around half-years.
 FIRST_SEMESTER_GRADE = 10
 
 # The conventional ends of the terms, as (month, day). They are what a class is
-# seeded with and not what it is stuck with: каникулы move, a region shifts its
+# seeded with and not what it is stuck with: the holidays move, a region shifts its
 # spring break, a quarantine eats a week. Every one of these becomes a row the
 # admin can edit — see `app/services/terms.py`.
 #
@@ -173,7 +173,7 @@ class ResolvedHomework:
     #:
     #: Carried for the calendar feed, whose UIDs used to be the item's position
     #: in its day. A position is not an identity: delete the first of three
-    #: заданий and the other two slide up into its UID and the third's, so every
+    #: assignments and the other two slide up into its UID and the third's, so every
     #: subscriber's calendar quietly rewrites two to-dos into different subjects
     #: and deletes a third — including ones they had already ticked off.
     id: int | None = None
@@ -195,19 +195,19 @@ class ResolvedDay:
 
 
 def week_parity(day: Date) -> WeekParity:
-    """«Числитель/знаменатель», counted from the start of the school year.
+    """Week parity — «числитель» or «знаменатель» — counted from the start of the school year.
 
     Not the ISO week number, which is what this used to be and which does not
     alternate: an ISO year with 53 weeks puts week 53 and week 1 next to each
     other, both odd. **2026 is such a year** — Monday 28 December 2026 is week
-    53 and Monday 4 January 2027 is week 1, so the old rule drew числитель
-    twice running and every знаменатель lesson of the rest of that year landed
+    53 and Monday 4 January 2027 is week 1, so the old rule drew the numerator
+    twice running and every denominator lesson of the rest of that year landed
     one week out. In the bundle, the widget, the digests and the calendar feed
     alike, with nothing logged. 2032 is the next one; 2020 was the last.
 
     Counting weeks since the year opened cannot drift, because the count is
     what alternates. The opening week keeps whatever parity the ISO rule gave
-    it, so switching to this did not swap числитель and знаменатель under any
+    it, so switching to this did not swap the numerator and the denominator under any
     class that already had a timetable: across 2024/25, 2025/26, 2027/28 and
     2031/32 the two rules agree on every single day, and they part company only
     inside the two years the old one got wrong, from January onwards.
@@ -381,8 +381,8 @@ class ScheduleResolver:
         # exactly the gap between two years.
         #
         # A day somebody marked by hand keeps the kind and the note they gave
-        # it; an unmarked one reads as каникулы, which is what it is. Events
-        # and homework are kept either way — an экскурсия in June is a real
+        # it; an unmarked one reads as the holidays, which is what it is. Events
+        # and homework are kept either way — an excursion in June is a real
         # thing, and it is the lessons that are out of season, not the day.
         year_start, year_end = school_year_bounds(day)
         if not year_start <= day <= year_end:
@@ -413,10 +413,10 @@ class ScheduleResolver:
                 ends_at=period.ends_at,
                 room=entry.room,
                 # The cell's own teacher wins — it is the specific answer, and
-                # the one a класс with two teachers for one subject relies on.
+                # the one a class with two teachers for one subject relies on.
                 # The dictionary is the fallback, which is what makes filling
                 # «📚 Предметы» in show up on every lesson rather than only on
-                # замены, where it already did.
+                # substitutions, where it already did.
                 teacher=entry.teacher or self._subject_teachers.get(entry.subject_name),
                 color=self._subject_colors.get(entry.subject_name),
             )
@@ -440,7 +440,7 @@ class ScheduleResolver:
             # still the same subject - a room change, a different teacher for
             # the same lesson. Once the subject itself is replaced the template
             # row describes a lesson that is not happening, and carrying its
-            # teacher over pinned the физик's name on the история that took
+            # teacher over pinned the physicist's name on the history lesson that took
             # the slot. The subject dictionary knows who teaches the new one.
             same_subject = existing is not None and existing.subject == subject
             inherited_room = existing.room if same_subject else None

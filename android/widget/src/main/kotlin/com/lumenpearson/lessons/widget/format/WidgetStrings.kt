@@ -110,8 +110,8 @@ internal object WidgetStrings {
     )
 
     /**
-     * A day off is not always a weekend: [DayKind.HOLIDAY] during каникулы and
-     * [DayKind.REMOTE] both reach the widget as `DayOff`, and calling каникулы
+     * A day off is not always a weekend: [DayKind.HOLIDAY] during the holidays
+     * and [DayKind.REMOTE] both reach the widget as `DayOff`, and calling a holiday
      * "выходной" is the kind of small lie that makes an app feel careless.
      */
     fun dayOffLabel(context: Context, kind: DayKind): String = context.getString(

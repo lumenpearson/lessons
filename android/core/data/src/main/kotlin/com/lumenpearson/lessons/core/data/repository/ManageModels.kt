@@ -160,7 +160,7 @@ data class SubjectForm(
  * A saved subject, and how many rows a rename carried with it.
  *
  * [moved] is zero for every edit that is not a rename. It matters because the
- * timetable, the homework and the замены store a subject as *text*, so a rename
+ * timetable, the homework and the substitutions store a subject as *text*, so a rename
  * is a cascade the admin cannot see the effect of anywhere else.
  */
 data class SubjectSaved(

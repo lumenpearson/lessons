@@ -109,7 +109,7 @@ def test_february_of_a_leap_year_keeps_its_twenty_ninth():
     days = [day for week in weeks for day in week if day]
 
     assert days == list(range(1, 30))
-    assert weeks[0][:1] == [None] and weeks[0][1] == 1  # 1 февраля 2028 — вторник
+    assert weeks[0][:1] == [None] and weeks[0][1] == 1  # 1 February 2028 is a Tuesday
 
 
 def test_the_grid_names_the_month_labels_the_weekdays_and_marks_today():

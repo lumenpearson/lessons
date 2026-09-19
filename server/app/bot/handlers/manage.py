@@ -1,4 +1,4 @@
-"""Управление классом: предметы, особые дни, звонки, устройства, журнал, импорт.
+"""Running the class: subjects, special days, bells, devices, the log, import.
 
 This is the structural half of the bot - everything that shapes what the
 day-to-day flows in ``content.py`` and ``timetable.py`` are allowed to say.
@@ -122,7 +122,7 @@ NEED_EDITOR = "Нужна роль редактора"
 NEED_OWNER = "Только для владельца класса"
 
 #: Days a «📆 Период» may cover in one go. A school year is longer than this,
-#: but a period typed by hand is каникулы, and a typo in the year would
+#: but a period typed by hand is a holiday, and a typo in the year would
 #: otherwise write thousands of rows before anybody noticed.
 PERIOD_MAX_DAYS = 120
 
@@ -241,7 +241,7 @@ async def _member_names(session: AsyncSession, class_id: int) -> dict[int, str]:
 
 
 # --------------------------------------------------------------------------
-# 📚 Предметы
+# 📚 Subjects
 # --------------------------------------------------------------------------
 #
 # The subject dictionary is what keeps «Алгебра», «алгебра» and «Алг.» from
@@ -260,9 +260,9 @@ async def _subjects_of(session: AsyncSession, class_id: int) -> list[Subject]:
 
 async def _subject_view(session: AsyncSession, school_class: SchoolClass, role: Role):
     # «📚 Предметы» adopts the timetable's names on the way in, so the list
-    # cannot be empty while the class has a full расписание. «Собрать из
-    # расписания» stays: it is now the button for «я только что вставил день и
-    # хочу увидеть предметы, не выходя отсюда», and it is still free to press.
+    # cannot be empty while the class has a full timetable. «Собрать из
+    # расписания» stays: it is now the button for "I have just pasted a day and
+    # want to see its subjects without leaving", and it is still free to press.
     await subjects_service.sync_from_timetable(session, school_class.id)
     subjects = await _subjects_of(session, school_class.id)
     return mr.render_subjects(subjects), subject_list_keyboard(
@@ -697,13 +697,13 @@ async def subject_delete(
     """Deleting a subject the timetable still uses is refused.
 
     It used to be allowed, and it left the lessons alone: the template stores
-    the name as well as the link, so the class kept its расписание and lost
+    the name as well as the link, so the class kept its timetable and lost
     only the colour and the teacher. That stopped being true when the
     dictionary started keeping itself — the name is still in the template, so
     the next read adopts it back, stripped of its colour and its teacher, and
     the admin is left believing they deleted something.
 
-    The order is now stated instead: out of the расписание first, out of the
+    The order is now stated instead: out of the timetable first, out of the
     dictionary second. A subject nothing teaches still goes in one tap.
     """
     if not _allowed(school_class, role, Role.ADMIN):
@@ -752,7 +752,7 @@ async def subjects_collect(
     """Create a Subject row for every name the timetable already uses.
 
     An editor may run this: it invents nothing, it only writes down the names
-    that are already in the class's расписание.
+    that are already in the class's timetable.
     """
     if not _allowed(school_class, role, Role.EDITOR):
         await callback.answer(_refusal(role, Role.EDITOR), show_alert=True)
@@ -789,7 +789,7 @@ async def subjects_collect(
 
 
 # --------------------------------------------------------------------------
-# 🏖 Особые дни
+# 🏖 Special days
 # --------------------------------------------------------------------------
 #
 # A DayOverride is how the class says "this date is not a normal school day".
@@ -854,7 +854,7 @@ async def _upsert_override(
     override.kind = kind
     if kind is not DayKind.SHORTENED:
         # A bell schedule only means anything on a shortened day; leaving a
-        # stale one on a день каникул would surface in the day view as a
+        # stale one on a holiday would surface in the day view as a
         # schedule nobody chose.
         override.bell_schedule_id = None
     elif override.bell_schedule_id is None:
@@ -1202,7 +1202,7 @@ async def holiday_period_start(
     school_class: SchoolClass | None,
     role: Role | None,
 ) -> None:
-    """A whole период of каникулы is admin-only: it rewrites weeks of the
+    """A whole range of holiday days is admin-only: it rewrites weeks of the
     class's calendar from one message."""
     if not _allowed(school_class, role, Role.ADMIN):
         await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
@@ -1270,7 +1270,7 @@ async def holiday_period_apply(
 
 
 # --------------------------------------------------------------------------
-# 🔔 Звонки
+# 🔔 Bells
 # --------------------------------------------------------------------------
 #
 # A class may keep several bell schedules — «Обычное», «Сокращённое», «Суббота»
@@ -1636,7 +1636,7 @@ async def bells_delete(
 
 
 # --------------------------------------------------------------------------
-# 📱 Устройства
+# 📱 Devices
 # --------------------------------------------------------------------------
 #
 # A device token is read-only until its owner links it to a Telegram account;
@@ -1773,7 +1773,7 @@ async def device_unlink(
 
 
 # --------------------------------------------------------------------------
-# 📜 Журнал
+# 📜 The log
 # --------------------------------------------------------------------------
 
 
@@ -1829,7 +1829,7 @@ async def audit_page(
 
 
 # --------------------------------------------------------------------------
-# ⚙️ Класс
+# ⚙️ The class
 # --------------------------------------------------------------------------
 
 
@@ -1989,7 +1989,7 @@ async def class_field_apply(
 
 
 # --------------------------------------------------------------------------
-# 🔀 Смена класса
+# 🔀 Switching class
 # --------------------------------------------------------------------------
 
 
@@ -2068,7 +2068,7 @@ async def class_switch_to(
 
 
 # --------------------------------------------------------------------------
-# 🗑 Удаление класса
+# 🗑 Deleting a class
 # --------------------------------------------------------------------------
 
 
@@ -2131,7 +2131,7 @@ async def class_delete_apply(
 
 
 # --------------------------------------------------------------------------
-# 📅 Календарь
+# 📅 Calendar
 # --------------------------------------------------------------------------
 
 
@@ -2259,7 +2259,7 @@ async def calendar_rotate(
 
 
 # --------------------------------------------------------------------------
-# 📤 Экспорт и 📥 импорт расписания
+# 📤 Export and 📥 import of the timetable
 # --------------------------------------------------------------------------
 
 
@@ -2454,7 +2454,7 @@ async def import_apply(
 
 
 # --------------------------------------------------------------------------
-# 📊 Статистика и 🔎 поиск
+# 📊 Statistics and 🔎 search
 # --------------------------------------------------------------------------
 
 
@@ -2524,7 +2524,7 @@ async def cmd_find(
 
 
 # --------------------------------------------------------------------------
-# 📱 /link и 🙋 /request
+# 📱 /link and 🙋 /request
 # --------------------------------------------------------------------------
 
 
@@ -2860,9 +2860,9 @@ async def request_decline(
 
 
 # --------------------------------------------------------------------------
-# 🗓 Четверти и полугодия
+# 🗓 Quarters and half-years
 #
-# The dates are a school's own: каникулы move, a region shifts its spring
+# The dates are a school's own: the holidays move, a region shifts its spring
 # break, a quarantine eats a week. So this is an editor rather than a display,
 # and the rules it edits against live in ``app/services/terms.py`` — the same
 # ones `/api/v1/manage` uses, because two implementations of "does this term

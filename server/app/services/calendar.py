@@ -128,7 +128,7 @@ def _uid_part(row_id: int | None, date_key: str, position: int) -> str:
 
     The row id when there is one, because a UID is an identity and has to
     survive its neighbours. It used to be the item's position within its day,
-    which is not one: delete the first of three заданий and the remaining two
+    which is not one: delete the first of three assignments and the remaining two
     slide up into its UID and the second's. Every subscriber's client then sees
     two to-dos change into different subjects — ticked-off ones included — and
     a third disappear, with nothing to say it happened.
@@ -162,7 +162,7 @@ def render_ics(
 
     UIDs are derived from what they describe (class, date, slot), so a
     subscription that fetches the feed again sees the same lesson as the same
-    entry - an updated замена replaces it rather than appearing twice.
+    entry - an updated substitution replaces it rather than appearing twice.
     """
     zone = school_class.timezone_name
     stamp = _utc_stamp(generated_at)

@@ -96,10 +96,11 @@ class Settings(BaseSettings):
     #     python -c "import secrets; print(secrets.token_urlsafe(48))"
     diary_secret: str = ""
 
-    # Key for the school directory (DaData), which searches ЕГРЮЛ — the only
+    # Key for the school directory (DaData), which searches the ЕГРЮЛ company
+    # register — the only
     # register that actually has every Russian school in it, because every
     # school is a legal entity. There is no official nationwide directory to
-    # ship with the project: Рособрнадзор's open-data endpoints answer 404.
+    # ship with the project: the education watchdog's open-data endpoints answer 404.
     #
     # Empty disables the search and leaves manual entry, which is the same
     # refusal-at-the-door as ``diary_secret``: a bundled snapshot would answer

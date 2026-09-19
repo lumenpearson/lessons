@@ -13,7 +13,7 @@ import androidx.compose.ui.graphics.Color
  * first time somebody tweaks a single role.
  *
  * primary   — deep indigo: the "notebook ink" colour, carries lessons.
- * secondary — cool teal: everything restful or non-academic (столовая, перемены
+ * secondary — cool teal: everything restful or non-academic (lunch, breaks
  *             before the day starts).
  * tertiary  — warm amber: the pause / celebration accent, warm against indigo.
  */

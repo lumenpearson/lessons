@@ -206,7 +206,7 @@ async def test_manage_refuses_a_viewer(
     [(method, url, body) for method, url, body, minimum in ENDPOINTS if minimum == "admin"],
 )
 async def test_admin_endpoints_refuse_an_editor(client, session, school_class, method, url, body):
-    """An editor writes homework and замены; the structure of the class is not
+    """An editor writes homework and substitutions; the structure of the class is not
     theirs to change. Exactly the line the bot draws."""
     token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
     response = await client.request(method, url, json=body, headers=_auth(token))
@@ -525,7 +525,7 @@ async def test_subject_rename_carries_the_timetable_homework_and_overrides(
         headers=_auth(token),
     )
     assert response.status_code == 200, response.text
-    # One timetable row from the fixture's Monday, one homework, one замена.
+    # One timetable row from the fixture's Monday, one homework, one substitution.
     assert response.json()["moved"] == 3
     assert response.json()["subject"]["name"] == "Алгебра и начала анализа"
 
@@ -564,12 +564,12 @@ async def test_subject_rename_onto_a_name_only_the_homework_uses_is_refused(
 ):
     """The dictionary check cannot see this one, and the database can.
 
-    A задание may be written under a name that is not a dictionary entry —
+    An assignment may be written under a name that is not a dictionary entry —
     `subjects.spelling` never founds one — so «Матан» is invisible to
     `subjects.clashing`, and that is exactly the configuration that reaches
     the bulk `UPDATE`. Homework is unique per subject per day (`0013`), so
     the statement raised `IntegrityError` out of the middle of a transaction
-    that had already moved the timetable and the замены: a 500, nothing
+    that had already moved the timetable and the substitutions: a 500, nothing
     committed, and the whole rename silently lost.
     """
     algebra = await _subject(session, school_class, "Алгебра")
@@ -592,7 +592,7 @@ async def test_subject_rename_onto_a_name_only_the_homework_uses_is_refused(
     assert "2026-09-07" in response.text
     await session.refresh(algebra)
     assert algebra.name == "Алгебра"
-    # And nothing was half-moved: the замены and the timetable are untouched.
+    # And nothing was half-moved: the substitutions and the timetable are untouched.
     names = await session.scalars(
         select(TimetableEntry.subject_name).where(TimetableEntry.class_id == school_class.id)
     )
@@ -1549,7 +1549,7 @@ async def test_a_decision_survives_a_deployment_with_no_bot(client, session, sch
 
 
 # --------------------------------------------------------------------------
-# Четверти и полугодия
+# Quarters and half-years
 # --------------------------------------------------------------------------
 
 

@@ -35,7 +35,7 @@ def _clean_optional_text(value: str | None) -> str | None:
     name it is typed - and a name is compared as text in three places that
     cannot see each other: the uniqueness check that makes the subject
     dictionary a dictionary, the rename that carries the timetable, the
-    homework and the замены along by name, and the widget's own matching. A
+    homework and the substitutions along by name, and the widget's own matching. A
     class where «Алгебра и начала» was added from the phone and «Алгебра  и
     начала» from the bot has two subjects that look like one, and a rename of
     either moves none of the other's lessons.
@@ -141,7 +141,7 @@ class DayOut(BaseModel):
 
 
 class TermOut(BaseModel):
-    """One четверть or полугодие, as the class actually runs it."""
+    """One quarter or half-year, as the class actually runs it."""
 
     index: int
     kind: Literal["quarter", "semester"]
@@ -872,7 +872,7 @@ class ManagedClassOut(BaseModel):
     school: str | None = None
     city: str | None = None
     timezone: str
-    # "МСК+2 (UTC+5) · Екатеринбург" - the same label the bot prints, so the
+    # «МСК+2 (UTC+5) · Екатеринбург» - the same label the bot prints, so the
     # app does not have to carry the table of Russian zones twice.
     timezone_label: str
     join_code: str
@@ -886,7 +886,7 @@ class ManagedClassOut(BaseModel):
 
 
 class TermSchemeIn(BaseModel):
-    """Switch the class between четверти and полугодия."""
+    """Switch the class between quarters and half-years."""
 
     kind: Literal["quarter", "semester"]
 
@@ -911,7 +911,8 @@ class SchoolOut(BaseModel):
 
     name: str
     full_name: str
-    #: ОГРН — thirteen digits, assigned once and never reused. Returned so a
+    #: The OGRN, a Russian company registration number — thirteen digits,
+    #: assigned once and never reused. Returned so a
     #: client can tell two «Гимназия № 3» apart without parsing the address.
     ogrn: str | None = None
     inn: str | None = None
@@ -1040,7 +1041,7 @@ class SubjectPatch(BaseModel):
 
 
 class SubjectSavedOut(BaseModel):
-    """``moved`` is how many timetable, homework and замена rows a rename
+    """``moved`` is how many timetable, homework and substitution rows a rename
     carried with it - zero for every other kind of edit, and the number an
     admin needs to believe the rename actually happened."""
 

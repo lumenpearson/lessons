@@ -11,22 +11,22 @@ glance and bought nothing.
 Three of the four are used, and each answers one question about the button:
 
 ``DANGER``
-    It takes something away, or throws away what you were doing — удалить,
-    отменить, отклонить, убрать доступ, выключить. Not on the way *out* of a
+    It takes something away, or throws away what you were doing — delete,
+    cancel, reject, revoke access, switch off. Not on the way *out* of a
     destructive confirmation: when «Да, удалить» is red, painting the escape
     beside it red too leaves the pair with nothing to tell them apart, and the
     escape is the safe half.
 
 ``SUCCESS``
-    It commits, or it is where you already are — одобрить, применить,
-    добавить, and the day that is today. That second half is the part worth
+    It commits, or it is where you already are — approve, apply, add, and the
+    day that is today. That second half is the part worth
     having: a keyboard has no other way to show state, and until now today was
     ``«13»``, guillemets around a number, which reads as a quotation rather
     than as now.
 
 ``PRIMARY``
-    A span of time, or the way between spans — the arrows, недели, периоды,
-    the weekday picker, «Ещё ›».
+    A span of time, or the way between spans — the arrows, weeks, periods, the
+    weekday picker, «Ещё ›».
 
 Everything else stays unpainted, deliberately. Colour only separates while
 most of the keyboard is plain; paint half the buttons and the three meanings

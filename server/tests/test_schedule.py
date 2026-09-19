@@ -236,7 +236,7 @@ async def test_resolve_range_returns_exactly_the_requested_days(session, school_
 
 
 async def test_a_replacement_subject_does_not_inherit_the_old_teacher(session, school_class):
-    """Monday lesson 2 is Физика. Replacing it with История must not pin the
+    """Monday lesson 2 is «Физика». Replacing it with «История» must not pin the
     physics teacher on the history lesson; the subject dictionary knows who
     teaches history, and when it does not, nobody is better than the wrong one."""
     from sqlalchemy import select
@@ -322,7 +322,7 @@ def test_parity_alternates_across_every_week_of_a_53_week_iso_year():
 
     An ISO year with 53 weeks puts week 53 and week 1 side by side, both odd.
     2026 is such a year — Monday 2026-12-28 is week 53 and Monday 2027-01-04 is
-    week 1 — so числитель was drawn twice running and every знаменатель lesson
+    week 1 — so the numerator was drawn twice running and every denominator lesson
     of the rest of that year came out one week off, everywhere at once and with
     nothing logged.
     """
@@ -351,8 +351,8 @@ def test_parity_belongs_to_the_week_and_not_to_the_day():
 
 
 def test_the_new_parity_rule_did_not_swap_any_year_that_was_already_right():
-    """Switching the basis must not have turned every class's числитель into
-    знаменатель. It does not: the opening week keeps the parity the ISO rule
+    """Switching the basis must not have turned every class's numerator into a
+    denominator. It does not: the opening week keeps the parity the ISO rule
     gave it, so the two rules agree on every day of every year the old one got
     right, and part company only inside the two it did not."""
     for opening in (2024, 2025, 2027, 2031):
@@ -365,7 +365,7 @@ def test_the_new_parity_rule_did_not_swap_any_year_that_was_already_right():
 
 
 # --------------------------------------------------------------------------
-# Лето
+# Summer
 # --------------------------------------------------------------------------
 
 
@@ -373,7 +373,8 @@ async def test_the_weekly_template_stops_at_the_end_of_the_school_year(session, 
     """`SCHOOL_YEAR_END_MONTH` is 5 and the comment above it says June onwards
     must not keep repeating the template, «because it would show lessons that
     nobody is going to». Nothing enforced it: the constant was read only by
-    `school_year_bounds`. So a Monday in July drew Алгебра, Физика, История on
+    `school_year_bounds`. So a Monday in July drew «Алгебра», «Физика» and
+    «История» on
     the phone, in the widget and in the calendar feed."""
     resolver = ScheduleResolver(session, school_class)
 
@@ -393,7 +394,7 @@ async def test_the_weekly_template_stops_at_the_end_of_the_school_year(session, 
 
 
 async def test_a_summer_day_keeps_what_was_put_on_it_by_hand(session, school_class):
-    """It is the lessons that are out of season, not the day: an экскурсия in
+    """It is the lessons that are out of season, not the day: an excursion in
     June is a real thing, and so is homework set for it."""
     from app.models import DayEvent, EventKind, Homework
 

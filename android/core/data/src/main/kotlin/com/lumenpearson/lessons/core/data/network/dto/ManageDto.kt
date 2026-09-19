@@ -101,7 +101,7 @@ internal data class SubjectPatchDto(
 /**
  * Mirrors `SubjectSavedOut`.
  *
- * [moved] is the point of a rename: the timetable, the homework and the замены
+ * [moved] is the point of a rename: the timetable, the homework and the substitutions
  * store a subject as text, so all three move with it, and this is how many rows
  * did.
  */

@@ -1,5 +1,5 @@
-"""The management layer: предметы, особые дни, устройства, запросы доступа,
-импорт и смена класса.
+"""The management layer: subjects, special days, devices, access requests,
+import and switching class.
 
 Same approach as ``test_bot_handlers.py``: the handlers are called directly
 with lightweight stubs. aiogram does not enforce its types at call time, and
@@ -280,7 +280,7 @@ def test_management_callbacks_do_not_collide_with_the_everyday_ones():
 
 
 # --------------------------------------------------------------------------
-# Расписание: чётность недели
+# The timetable: week parity
 # --------------------------------------------------------------------------
 
 
@@ -352,7 +352,7 @@ async def test_a_repeated_lesson_number_is_rejected_not_saved(session, school_cl
 
 
 # --------------------------------------------------------------------------
-# Предметы
+# Subjects
 # --------------------------------------------------------------------------
 
 
@@ -431,7 +431,7 @@ async def test_a_subject_id_from_another_class_is_not_found(session, school_clas
 
 
 # --------------------------------------------------------------------------
-# Особые дни
+# Special days
 # --------------------------------------------------------------------------
 
 
@@ -463,7 +463,7 @@ async def test_an_editor_cannot_mark_a_whole_period(session, school_class):
 
 
 # --------------------------------------------------------------------------
-# Устройства
+# Devices
 # --------------------------------------------------------------------------
 
 
@@ -511,7 +511,7 @@ async def test_a_device_of_another_class_cannot_be_revoked(session, school_class
 
 
 # --------------------------------------------------------------------------
-# Запросы доступа
+# Access requests
 # --------------------------------------------------------------------------
 
 
@@ -624,7 +624,7 @@ async def test_a_viewer_cannot_approve_a_request(session, school_class):
 
 
 # --------------------------------------------------------------------------
-# Поиск
+# Search
 # --------------------------------------------------------------------------
 
 
@@ -684,7 +684,7 @@ async def test_find_ignores_case_and_looks_only_at_the_last_month(session, schoo
 
 
 # --------------------------------------------------------------------------
-# Импорт
+# Import
 # --------------------------------------------------------------------------
 
 
@@ -748,7 +748,7 @@ async def test_an_editor_cannot_import(session, school_class):
 
 
 # --------------------------------------------------------------------------
-# Удаление класса
+# Deleting a class
 # --------------------------------------------------------------------------
 
 
@@ -782,7 +782,7 @@ async def test_an_admin_cannot_delete_the_class(session, school_class):
 
 
 # --------------------------------------------------------------------------
-# Смена класса
+# Switching class
 # --------------------------------------------------------------------------
 
 
@@ -828,7 +828,7 @@ async def test_without_a_preference_the_first_membership_wins(session, school_cl
 
 
 # --------------------------------------------------------------------------
-# Уведомления администраторам
+# Notifying the administrators
 # --------------------------------------------------------------------------
 
 
@@ -878,7 +878,7 @@ async def test_a_decision_is_told_to_the_requester(session, school_class):
 
 
 # --------------------------------------------------------------------------
-# Смена класса из бота
+# Switching class from the bot
 # --------------------------------------------------------------------------
 
 
@@ -919,7 +919,7 @@ async def test_switching_to_a_class_you_are_not_in_is_refused(session, school_cl
 
 
 # --------------------------------------------------------------------------
-# Звонки
+# Bells
 # --------------------------------------------------------------------------
 
 
@@ -966,7 +966,7 @@ async def test_the_class_default_schedule_cannot_be_deleted(session, school_clas
 
 
 # --------------------------------------------------------------------------
-# Отображение
+# Rendering
 # --------------------------------------------------------------------------
 
 
@@ -1157,7 +1157,7 @@ async def test_search_folds_case_for_cyrillic_too(session, school_class):
 
 
 # --------------------------------------------------------------------------
-# Карточка предмета
+# A subject card
 # --------------------------------------------------------------------------
 
 
@@ -1448,7 +1448,7 @@ async def test_collecting_from_the_timetable_writes_down_the_names_it_finds(
 
 
 # --------------------------------------------------------------------------
-# Особые дни: весь путь от кнопки до карточки
+# Special days: the whole path from the button to the card
 # --------------------------------------------------------------------------
 
 
@@ -1712,7 +1712,7 @@ async def test_a_date_that_is_not_a_date_asks_again(session, school_class):
 
 
 # --------------------------------------------------------------------------
-# Звонки
+# Bells
 # --------------------------------------------------------------------------
 
 
@@ -1867,7 +1867,7 @@ async def test_the_bells_card_says_how_many_schedules_it_did_not_draw(session, s
 
 
 # --------------------------------------------------------------------------
-# Устройства
+# Devices
 # --------------------------------------------------------------------------
 
 
@@ -1968,7 +1968,7 @@ async def test_link_without_a_code_explains_where_to_find_one(session, school_cl
 
 
 # --------------------------------------------------------------------------
-# Журнал: страницы
+# The log: paging
 # --------------------------------------------------------------------------
 
 
@@ -2020,7 +2020,7 @@ async def test_a_negative_page_is_page_one_and_does_not_claim_otherwise(session,
 
 
 # --------------------------------------------------------------------------
-# Карточка класса: поля, дневник, календарь
+# The class card: fields, diary, calendar
 # --------------------------------------------------------------------------
 
 
@@ -2162,7 +2162,7 @@ async def test_the_calendar_link_is_issued_once_and_the_rotation_says_so(
 
 
 # --------------------------------------------------------------------------
-# Статистика
+# Statistics
 # --------------------------------------------------------------------------
 
 
@@ -2235,7 +2235,7 @@ async def test_the_stats_card_of_a_class_with_no_timetable_says_so(session):
 
 
 # --------------------------------------------------------------------------
-# Импорт
+# Import
 # --------------------------------------------------------------------------
 
 
@@ -2328,7 +2328,7 @@ async def test_a_paste_of_bells_alone_is_not_reported_as_nothing_recognised(
     """«== Звонки ==» with no weekday under it is a legitimate paste — it is
     what /export gives a class whose timetable is empty. The preview called it
     «Ни одного дня не распознано» over an «✅ Применить» button that was about
-    to rewrite the class's звонки, and said nothing about doing so."""
+    to rewrite the class's bells, and said nothing about doing so."""
     message = FakeMessage(text="== Звонки ==\n1. 08:00-08:45\n2. 09:00-09:45")
     state = FakeState()
     await import_preview(message, state, school_class, Role.ADMIN)
@@ -2360,7 +2360,7 @@ async def test_the_bells_line_of_a_preview_counts_in_russian(session, school_cla
 
 
 # --------------------------------------------------------------------------
-# Запросы доступа: отказ и комментарий
+# Access requests: refusal and comment
 # --------------------------------------------------------------------------
 
 
@@ -2451,7 +2451,7 @@ async def test_a_dash_sends_the_request_without_a_comment(session, school_class)
 
 
 # --------------------------------------------------------------------------
-# Четверти и полугодия
+# Quarters and half-years
 # --------------------------------------------------------------------------
 
 
@@ -2561,7 +2561,7 @@ async def test_a_span_that_is_not_two_dates_asks_again(session, school_class):
 
 
 # --------------------------------------------------------------------------
-# Кнопки как вход в те же страницы
+# Buttons as an entrance to the same pages
 # --------------------------------------------------------------------------
 
 
@@ -2606,7 +2606,7 @@ async def test_the_calendar_button_draws_what_the_command_draws(session, school_
 
 
 # --------------------------------------------------------------------------
-# Звонки: сохранение строк
+# Bells: saving the rows
 # --------------------------------------------------------------------------
 
 
@@ -2699,7 +2699,7 @@ async def test_a_new_schedule_is_not_created_from_prose(session, school_class):
 
 
 # --------------------------------------------------------------------------
-# Особые дни: экраны, с которых всё начинается
+# Special days: the screens it all starts from
 # --------------------------------------------------------------------------
 
 
@@ -2770,7 +2770,7 @@ async def test_an_editor_is_not_offered_the_period_screen(session, school_class)
 
 
 # --------------------------------------------------------------------------
-# Импорт: отмена
+# Import: cancelling
 # --------------------------------------------------------------------------
 
 
@@ -2802,7 +2802,7 @@ async def test_applying_an_import_whose_paste_is_gone_starts_again(session, scho
 
 
 # --------------------------------------------------------------------------
-# Запрос доступа: экран вместо аргумента
+# An access request: a screen instead of an argument
 # --------------------------------------------------------------------------
 
 
@@ -2878,7 +2878,7 @@ async def test_approving_a_request_from_somebody_not_in_the_class_adds_them(
 
 
 # --------------------------------------------------------------------------
-# Четверти: экран, с которого их правят
+# Quarters: the screen they are edited from
 # --------------------------------------------------------------------------
 
 
@@ -2904,7 +2904,7 @@ async def test_a_term_number_that_is_not_a_number_is_refused(session, school_cla
 
 
 # --------------------------------------------------------------------------
-# Проверка прав на каждом шаге
+# A permission check at every step
 # --------------------------------------------------------------------------
 
 
@@ -2949,7 +2949,7 @@ async def test_every_management_step_checks_the_role_for_itself(session, school_
     A client can put itself into ``EditSubject.name`` and send a message, so a
     step that trusted the step before it would be a rename with no permission
     check at all. The same goes for a callback: the payload is whatever the
-    client sent. This presses every management step as a наблюдатель and
+    client sent. This presses every management step as an observer and
     expects each one to refuse on its own — and the database to be untouched
     afterwards, which is the part a refusal that merely stopped drawing would
     not give.
@@ -3449,7 +3449,7 @@ async def test_a_crafted_id_finds_nothing_rather_than_somebody_elses_row(
 
 
 # --------------------------------------------------------------------------
-# Мелочи, у которых есть своя ветка
+# Small things that have a branch of their own
 # --------------------------------------------------------------------------
 
 
@@ -3553,7 +3553,7 @@ async def test_a_period_that_is_not_two_dates_marks_nothing(session, school_clas
 
 
 # --------------------------------------------------------------------------
-# Пустые и почти пустые страницы
+# Empty and nearly empty pages
 # --------------------------------------------------------------------------
 
 
@@ -3747,7 +3747,7 @@ def test_splitting_nothing_gives_one_empty_message():
 
 
 # --------------------------------------------------------------------------
-# Каждая нарисованная строка достижима
+# Every drawn row is reachable
 # --------------------------------------------------------------------------
 
 
@@ -3769,7 +3769,7 @@ def _reachable(markup, values: list[str]) -> int:
 
 def test_no_list_page_draws_a_row_the_keyboard_cannot_reach():
     """Three of these four pages used to draw more rows than they offered
-    buttons for — forty предметов above thirty ✏️, twenty расписаний above
+    buttons for — forty subjects above thirty ✏️, twenty schedules above
     ten — so the tail sat on the screen with no way to open it and nothing
     saying it was out of reach. «… и ещё N» is now the only way a row goes
     missing, and it counts from the same number the keyboard builds from."""

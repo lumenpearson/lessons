@@ -233,7 +233,7 @@ internal enum class RowDetail { REPLACED, ROOM, TEACHER, NONE }
  * phone-width row, so `LessonsWidget` turns «Показывать учителя» on and the room
  * off together. The fallback is the part that had to be written down: a
  * timetable carrying a room and no teacher is the ordinary case (the teacher is
- * optional in the paste grammar and in a замена), and with the teacher chosen
+ * optional in the paste grammar and in a substitution), and with the teacher chosen
  * the row dropped the room for a name that was not there — an empty slot beside
  * a cache that held the answer.
  */

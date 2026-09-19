@@ -55,7 +55,8 @@ DIARY_EXPIRED_TTL = timedelta(days=1)
 # deliberately a tombstone rather than a delete, and a lost phone is revoked by
 # hand, not swept.
 #
-# Half a year, because the quiet stretch this must not cut through is каникулы:
+# Half a year, because the quiet stretch this must not cut through is the
+    # summer holidays:
 # a pupil who does not open the app between the end of May and September is
 # silent for about a hundred days, and being signed out in September - by a
 # rule they cannot see, needing a code an admin has to hand out again - is a
