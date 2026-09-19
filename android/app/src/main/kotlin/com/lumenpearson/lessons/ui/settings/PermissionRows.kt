@@ -12,18 +12,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupRow
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 
@@ -56,7 +56,7 @@ fun MissingPermissionsRow(
 
     RoundedCardContainer(modifier = modifier) {
         GroupItem(
-            title = stringResource(R.string.permissions_title),
+            title = correctedString(R.string.permissions_title),
             subtitle = pluralStringResource(R.plurals.permissions_missing, missing, missing),
             icon = Icons.Rounded.Shield,
             tone = errorTone(),
@@ -114,11 +114,11 @@ private fun MissingBanner(missing: Int, onRefresh: () -> Unit) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.permissions_banner_title),
+                    text = correctedString(R.string.permissions_banner_title),
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = stringResource(R.string.permissions_banner_description),
+                    text = correctedString(R.string.permissions_banner_description),
                     style = MaterialTheme.typography.bodyMedium,
                     color = scheme.onErrorContainer.copy(alpha = SupportingAlpha),
                 )
@@ -129,7 +129,7 @@ private fun MissingBanner(missing: Int, onRefresh: () -> Unit) {
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Refresh,
-                    contentDescription = stringResource(R.string.permissions_refresh),
+                    contentDescription = correctedString(R.string.permissions_refresh),
                     modifier = Modifier.size(RefreshIcon),
                 )
             }

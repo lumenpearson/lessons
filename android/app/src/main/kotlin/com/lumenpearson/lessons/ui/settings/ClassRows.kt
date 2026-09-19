@@ -19,7 +19,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,7 +26,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -38,6 +36,8 @@ import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.Session
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
@@ -70,7 +70,7 @@ internal fun LazyListScope.classRows(
     val classes = state.sessions
     val activeId = state.session?.classId
     SettingsGroup(
-        title = stringResource(
+        title = correctedString(
             if (classes.size > 1) R.string.settings_classes_group else R.string.settings_class_group,
         ),
     ) {
@@ -79,8 +79,8 @@ internal fun LazyListScope.classRows(
             // and the shell noticing; the page is still composed while that
             // happens, and an empty group reads as a broken screen.
             GroupItem(
-                title = stringResource(R.string.settings_class_unknown),
-                subtitle = stringResource(R.string.settings_class_no_school),
+                title = correctedString(R.string.settings_class_unknown),
+                subtitle = correctedString(R.string.settings_class_no_school),
                 icon = Icons.Rounded.School,
                 tone = accentTone(1),
             )
@@ -89,7 +89,7 @@ internal fun LazyListScope.classRows(
             val active = session.classId == activeId
             GroupItem(
                 title = session.className,
-                subtitle = session.school ?: stringResource(R.string.settings_class_no_school),
+                subtitle = session.school ?: correctedString(R.string.settings_class_no_school),
                 icon = Icons.Rounded.School,
                 tone = accentTone(index + 1),
                 // The row that is already showing is not a button. Leaving it
@@ -100,7 +100,7 @@ internal fun LazyListScope.classRows(
                     {
                         Icon(
                             imageVector = Icons.Rounded.Check,
-                            contentDescription = stringResource(R.string.settings_class_active),
+                            contentDescription = correctedString(R.string.settings_class_active),
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
@@ -110,21 +110,21 @@ internal fun LazyListScope.classRows(
             )
         }
         GroupItem(
-            title = stringResource(R.string.settings_class_add),
+            title = correctedString(R.string.settings_class_add),
             icon = Icons.Rounded.Add,
             tone = accentTone(0),
             onClick = onAddClass,
         )
         if (classes.size > 1 && state.session != null) {
             GroupItem(
-                title = stringResource(R.string.settings_class_leave, state.session.className),
+                title = correctedString(R.string.settings_class_leave, state.session.className),
                 icon = Icons.AutoMirrored.Rounded.Logout,
                 tone = errorTone(),
                 onClick = { onLeaveClass(state.session) },
             )
         }
         GroupItem(
-            title = stringResource(
+            title = correctedString(
                 if (classes.size > 1) R.string.settings_sign_out_all else R.string.settings_sign_out,
             ),
             icon = Icons.AutoMirrored.Rounded.Logout,
@@ -186,10 +186,10 @@ internal fun AddClassSheet(
     LessonsBottomSheet(
         onDismissRequest = close,
         modifier = modifier,
-        title = stringResource(R.string.settings_class_add),
+        title = correctedString(R.string.settings_class_add),
     ) {
         Text(
-            text = stringResource(R.string.settings_class_add_message),
+            text = correctedString(R.string.settings_class_add_message),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = ScreenPadding),
@@ -205,13 +205,13 @@ internal fun AddClassSheet(
             interactionSource = interactionSource,
             label = {
                 Text(
-                    text = stringResource(R.string.join_code_label),
+                    text = correctedString(R.string.join_code_label),
                     style = LocalTextStyle.current.emphasised(focused),
                 )
             },
             supportingText = {
                 Text(
-                    text = errorText ?: stringResource(
+                    text = errorText ?: correctedString(
                         R.string.join_code_hint,
                         ClassCodeLengths.first,
                         ClassCodeLengths.last,
@@ -234,10 +234,10 @@ internal fun AddClassSheet(
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
         ) {
             TextButton(onClick = close) {
-                Text(text = stringResource(R.string.action_cancel))
+                Text(text = correctedString(R.string.action_cancel))
             }
             Button(onClick = viewModel::submit, enabled = join.canSubmit) {
-                Text(text = stringResource(R.string.join_action))
+                Text(text = correctedString(R.string.join_action))
             }
         }
     }
@@ -254,10 +254,10 @@ internal fun LeaveClassSheet(
     LessonsBottomSheet(
         onDismissRequest = onDismiss,
         modifier = modifier,
-        title = stringResource(R.string.settings_class_leave_title),
+        title = correctedString(R.string.settings_class_leave_title),
     ) {
         Text(
-            text = stringResource(R.string.settings_class_leave_message, className),
+            text = correctedString(R.string.settings_class_leave_message, className),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = ScreenPadding),
@@ -269,7 +269,7 @@ internal fun LeaveClassSheet(
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
         ) {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.action_cancel))
+                Text(text = correctedString(R.string.action_cancel))
             }
             Button(
                 onClick = onConfirm,
@@ -281,7 +281,7 @@ internal fun LeaveClassSheet(
                 // Not `settings_sign_out`: this sheet drops one class and the
                 // others stay, and in English that string reads "Sign out"
                 // under a title that says "Leave this class?".
-                Text(text = stringResource(R.string.settings_class_leave_action))
+                Text(text = correctedString(R.string.settings_class_leave_action))
             }
         }
     }

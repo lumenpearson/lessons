@@ -22,7 +22,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
@@ -33,6 +32,7 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupLinkItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.ui.debug.DebugSheet
 
@@ -90,7 +90,7 @@ fun LazyListScope.adminRows(
 
     item(key = "admin-tools") {
         Column(modifier = Modifier.fillMaxWidth()) {
-            SectionHeader(title = stringResource(R.string.admin_tools_group))
+            SectionHeader(title = correctedString(R.string.admin_tools_group))
             RoundedCardContainer {
                 DebugRow(enabled = debugEnabled, onEnabledChange = onDebugEnabledChange)
             }
@@ -103,10 +103,10 @@ fun LazyListScope.adminRows(
 private fun AdminRoleCard(role: ClassRole?) {
     RoundedCardContainer {
         GroupItem(
-            title = stringResource(
+            title = correctedString(
                 if (role == ClassRole.OWNER) R.string.admin_role_owner else R.string.admin_role_admin,
             ),
-            subtitle = stringResource(R.string.admin_role_description),
+            subtitle = correctedString(R.string.admin_role_description),
             icon = Icons.Rounded.AdminPanelSettings,
             tone = accentTone(1),
         )
@@ -153,12 +153,12 @@ private fun ManagementRows(role: ClassRole?) {
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        SectionHeader(title = stringResource(R.string.admin_manage_group))
+        SectionHeader(title = correctedString(R.string.admin_manage_group))
         RoundedCardContainer {
             ManagementScreen.entries.forEach { screen ->
                 GroupLinkItem(
-                    title = stringResource(screen.titleRes),
-                    subtitle = stringResource(screen.subtitleRes),
+                    title = correctedString(screen.titleRes),
+                    subtitle = correctedString(screen.subtitleRes),
                     icon = screen.icon,
                     tone = accentTone(screen.ordinal),
                     onClick = { open = screen },
@@ -260,20 +260,20 @@ private fun ManagementGone(
     onRecheck: () -> Unit,
 ) {
     val description = when (failure) {
-        ManageFailure.SignedOut -> stringResource(R.string.admin_gone_signed_out)
-        ManageFailure.NotLinked -> stringResource(R.string.admin_gone_not_linked)
+        ManageFailure.SignedOut -> correctedString(R.string.admin_gone_signed_out)
+        ManageFailure.NotLinked -> correctedString(R.string.admin_gone_not_linked)
         is ManageFailure.RoleLost -> failure.required
-            ?.let { stringResource(R.string.admin_gone_role, it) }
-            ?: stringResource(R.string.admin_gone_role_unknown)
+            ?.let { correctedString(R.string.admin_gone_role, it) }
+            ?: correctedString(R.string.admin_gone_role_unknown)
 
-        else -> stringResource(R.string.admin_gone_role_unknown)
+        else -> correctedString(R.string.admin_gone_role_unknown)
     }
 
     EmptyState(
-        title = stringResource(R.string.admin_gone_title),
+        title = correctedString(R.string.admin_gone_title),
         description = description,
         icon = Icons.Rounded.AdminPanelSettings,
-        actionLabel = stringResource(R.string.admin_gone_recheck).takeUnless { busy },
+        actionLabel = correctedString(R.string.admin_gone_recheck).takeUnless { busy },
         onActionClick = onRecheck.takeUnless { busy },
     )
 }
@@ -331,8 +331,8 @@ private fun DebugRow(enabled: Boolean, onEnabledChange: (Boolean) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
 
     GroupItem(
-        title = stringResource(R.string.admin_debug),
-        subtitle = stringResource(R.string.admin_debug_description),
+        title = correctedString(R.string.admin_debug),
+        subtitle = correctedString(R.string.admin_debug_description),
         icon = Icons.Rounded.BugReport,
         tone = accentTone(5),
         onClick = { open = true },

@@ -22,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,7 +30,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
@@ -46,6 +44,8 @@ import com.lumenpearson.lessons.BuildConfig
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 
 /**
  * The card at the very bottom of the about page: what this is, and who it is by.
@@ -77,13 +77,13 @@ fun AboutCard(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(horizontal = CardPadding, vertical = CardPaddingTall),
         ) {
             Text(
-                text = stringResource(R.string.about_name_and_version, BuildConfig.VERSION_NAME),
+                text = correctedString(R.string.about_name_and_version, BuildConfig.VERSION_NAME),
                 style = MaterialTheme.typography.headlineMedium,
                 textAlign = TextAlign.Center,
             )
 
             Text(
-                text = stringResource(R.string.about_description),
+                text = correctedString(R.string.about_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -92,7 +92,7 @@ fun AboutCard(modifier: Modifier = Modifier) {
             AppMark()
 
             Text(
-                text = stringResource(R.string.about_developer_line),
+                text = correctedString(R.string.about_developer_line),
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
             )
@@ -102,7 +102,7 @@ fun AboutCard(modifier: Modifier = Modifier) {
             DesignCredit()
 
             Text(
-                text = stringResource(R.string.about_closing_line),
+                text = correctedString(R.string.about_closing_line),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -140,9 +140,9 @@ private fun AppMark() {
 /** Where this came from, with the source repository as a link in the sentence. */
 @Composable
 private fun DesignCredit() {
-    val label = stringResource(R.string.about_design_credit_link)
+    val label = correctedString(R.string.about_design_credit_link)
     val credit = buildAnnotatedString {
-        append(stringResource(R.string.about_design_credit_before))
+        append(correctedString(R.string.about_design_credit_before))
         withLink(
             LinkAnnotation.Url(
                 url = EssentialsUrl,
@@ -157,7 +157,7 @@ private fun DesignCredit() {
         ) {
             append(label)
         }
-        append(stringResource(R.string.about_design_credit_after))
+        append(correctedString(R.string.about_design_credit_after))
     }
 
     // No onClick and no Intent: LinkAnnotation.Url is opened by the platform's
@@ -246,7 +246,7 @@ private fun LinkPill(link: AboutLink, modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.width(PillIconGap))
         Text(
-            text = stringResource(link.label),
+            text = correctedString(link.label),
             style = MaterialTheme.typography.labelLarge,
         )
     }

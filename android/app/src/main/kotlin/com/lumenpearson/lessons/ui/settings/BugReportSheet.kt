@@ -28,7 +28,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,7 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -51,6 +49,8 @@ import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
@@ -139,7 +139,7 @@ private fun ColumnScope.BugReportContent(
     val canSend = trimmed.isNotEmpty() && isSignedIn && !isSending
 
     Text(
-        text = stringResource(R.string.bug_report_title),
+        text = correctedString(R.string.bug_report_title),
         style = MaterialTheme.typography.headlineMedium,
         textAlign = TextAlign.Center,
         modifier = Modifier
@@ -152,7 +152,7 @@ private fun ColumnScope.BugReportContent(
     ReportField(
         value = description,
         onValueChange = { description = it },
-        label = stringResource(R.string.bug_report_description_label),
+        label = correctedString(R.string.bug_report_description_label),
         minLines = DescriptionMinLines,
         shape = RoundedCornerShape(FieldCorner),
         keyboardOptions = KeyboardOptions(
@@ -163,7 +163,7 @@ private fun ColumnScope.BugReportContent(
     ReportField(
         value = email,
         onValueChange = { email = it },
-        label = stringResource(R.string.bug_report_email_label),
+        label = correctedString(R.string.bug_report_email_label),
         singleLine = true,
         // A one-line field is a pill, like the buttons under it; only the
         // tall field needs corners it can afford.
@@ -211,7 +211,7 @@ private fun ColumnScope.BugReportContent(
             }
         }
         Text(
-            text = stringResource(
+            text = correctedString(
                 if (isSignedIn) R.string.bug_report_send else R.string.bug_report_send_signed_out,
             ),
             maxLines = 1,
@@ -220,7 +220,7 @@ private fun ColumnScope.BugReportContent(
     }
 
     Text(
-        text = stringResource(R.string.bug_report_or),
+        text = correctedString(R.string.bug_report_or),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
@@ -228,13 +228,13 @@ private fun ColumnScope.BugReportContent(
     )
 
     OutlinedPill(
-        label = stringResource(R.string.bug_report_open_issue),
+        label = correctedString(R.string.bug_report_open_issue),
         icon = Icons.Rounded.BugReport,
         onClick = { onOpenIssuePage(trimmed) },
     )
     if (canEmail) {
         OutlinedPill(
-            label = stringResource(R.string.bug_report_email),
+            label = correctedString(R.string.bug_report_email),
             icon = Icons.Rounded.Email,
             onClick = { onEmail(trimmed, deviceBlock) },
         )
@@ -263,7 +263,7 @@ private fun DeviceCard(deviceInfo: List<Pair<String, String>>) {
             verticalArrangement = Arrangement.spacedBy(DeviceLineGap),
         ) {
             Text(
-                text = stringResource(R.string.bug_report_device),
+                text = correctedString(R.string.bug_report_device),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(bottom = DeviceLineGap),

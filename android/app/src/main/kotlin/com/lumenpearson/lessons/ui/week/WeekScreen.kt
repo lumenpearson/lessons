@@ -33,7 +33,6 @@ import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,7 +44,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -59,6 +57,8 @@ import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.component.SegmentedPicker
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
@@ -162,7 +162,7 @@ fun WeekScreen(
             items = ScheduleView.entries,
             selectedItem = state.view,
             onItemSelected = viewModel::setView,
-            labelProvider = { view -> stringResource(view.labelRes) },
+            labelProvider = { view -> correctedString(view.labelRes) },
             containerColor = MaterialTheme.colorScheme.rowContainer,
             contentPadding = PaddingValues(4.dp),
             modifier = Modifier
@@ -251,7 +251,7 @@ private val ScheduleView.labelRes: Int
  */
 @Composable
 private fun ScheduleUiState.periodLabel(): String = when (view) {
-    ScheduleView.WEEK -> stringResource(
+    ScheduleView.WEEK -> correctedString(
         R.string.week_range,
         (days.firstOrNull()?.date ?: periodStart).asDayMonth(),
         (days.lastOrNull()?.date ?: periodEnd).asDayMonth(),
@@ -286,8 +286,8 @@ private fun ScheduleUiState.termLabel(): String? = selectedTerm?.label()
  */
 @Composable
 internal fun Term.label(): String = when (kind) {
-    TermKind.QUARTER -> stringResource(R.string.term_quarter, index)
-    TermKind.SEMESTER -> stringResource(R.string.term_semester, index)
+    TermKind.QUARTER -> correctedString(R.string.term_quarter, index)
+    TermKind.SEMESTER -> correctedString(R.string.term_semester, index)
 }
 
 /**
@@ -315,7 +315,7 @@ private fun ScheduleHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ScreenHeader(
-            title = stringResource(R.string.week_title),
+            title = correctedString(R.string.week_title),
             // «Октябрь 2026 · 1 четверть». One line rather than two: the term
             // qualifies the period rather than standing beside it, and a second
             // line pushes the grid down on every phone for a word.
@@ -328,20 +328,20 @@ private fun ScheduleHeader(
             IconButton(onClick = onToday) {
                 Icon(
                     imageVector = Icons.Rounded.Today,
-                    contentDescription = stringResource(R.string.week_current),
+                    contentDescription = correctedString(R.string.week_current),
                 )
             }
         }
         IconButton(onClick = onPrevious) {
             Icon(
                 imageVector = Icons.Rounded.ChevronLeft,
-                contentDescription = stringResource(R.string.week_previous),
+                contentDescription = correctedString(R.string.week_previous),
             )
         }
         IconButton(onClick = onNext) {
             Icon(
                 imageVector = Icons.Rounded.ChevronRight,
-                contentDescription = stringResource(R.string.week_next),
+                contentDescription = correctedString(R.string.week_next),
             )
         }
     }
@@ -606,7 +606,7 @@ private fun DayPanel(
                     it.activeLessons.size,
                 )
             },
-            actionLabel = schoolDay?.let { stringResource(R.string.schedule_day_details) },
+            actionLabel = schoolDay?.let { correctedString(R.string.schedule_day_details) },
             onActionClick = schoolDay?.let { { onOpenDay() } },
         )
 
@@ -614,13 +614,13 @@ private fun DayPanel(
 
         when {
             schoolDay == null -> EmptyState(
-                title = stringResource(R.string.week_no_data_title),
-                description = stringResource(R.string.week_no_data_description),
+                title = correctedString(R.string.week_no_data_title),
+                description = correctedString(R.string.week_no_data_description),
             )
 
             lessons.isEmpty() -> EmptyState(
-                title = stringResource(R.string.week_day_off_title),
-                description = stringResource(R.string.week_day_off_description),
+                title = correctedString(R.string.week_day_off_title),
+                description = correctedString(R.string.week_day_off_description),
             )
 
             else -> LessonGroup(
@@ -654,7 +654,7 @@ private fun DayChips(
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (isToday) {
             PillChip(
-                text = stringResource(R.string.day_today),
+                text = correctedString(R.string.day_today),
                 selected = true,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -667,7 +667,7 @@ private fun DayChips(
 
 /** Localized name of a non-normal day kind. */
 @Composable
-internal fun DayKind.asLabel(): String = stringResource(
+internal fun DayKind.asLabel(): String = correctedString(
     when (this) {
         DayKind.NORMAL -> R.string.day_kind_normal
         DayKind.HOLIDAY -> R.string.day_kind_holiday
@@ -710,15 +710,15 @@ private fun HourTimeline(
 
         if (schoolDay == null) {
             EmptyState(
-                title = stringResource(R.string.week_no_data_title),
-                description = stringResource(R.string.week_no_data_description),
+                title = correctedString(R.string.week_no_data_title),
+                description = correctedString(R.string.week_no_data_description),
             )
             return@Column
         }
         if (lessons.isEmpty() && events.isEmpty()) {
             EmptyState(
-                title = stringResource(R.string.week_day_off_title),
-                description = stringResource(R.string.week_day_off_description),
+                title = correctedString(R.string.week_day_off_title),
+                description = correctedString(R.string.week_day_off_description),
             )
             return@Column
         }
@@ -755,7 +755,7 @@ private fun HourTimeline(
                     TimelineBlock(
                         title = lesson.subject,
                         subtitle = lesson.room?.let {
-                            stringResource(R.string.schedule_room_short, it)
+                            correctedString(R.string.schedule_room_short, it)
                         },
                         startMinutes = lesson.startsAt.minutesOfDay() - originMinutes,
                         endMinutes = lesson.endsAt.minutesOfDay() - originMinutes,

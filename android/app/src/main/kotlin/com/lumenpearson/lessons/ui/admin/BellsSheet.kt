@@ -15,7 +15,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.BellPeriod
 import com.lumenpearson.lessons.core.data.repository.BellSchedule
@@ -26,6 +25,7 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupTimeItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -59,13 +59,13 @@ fun BellsSheet(
     val schedules = state.bells.value
 
     ManagementSheet(
-        title = stringResource(R.string.admin_bells_title),
+        title = correctedString(R.string.admin_bells_title),
         onDismiss = onDismiss,
         modifier = modifier,
     ) {
         when (val current = mode) {
             BellsMode.Add -> ScheduleNameForm(
-                title = stringResource(R.string.admin_bells_add_title),
+                title = correctedString(R.string.admin_bells_add_title),
                 initial = "",
                 busy = state.working,
                 failure = state.writeFailure,
@@ -80,7 +80,7 @@ fun BellsSheet(
             )
 
             is BellsMode.Rename -> ScheduleNameForm(
-                title = stringResource(R.string.admin_bells_rename_title),
+                title = correctedString(R.string.admin_bells_rename_title),
                 initial = current.schedule.name,
                 busy = state.working,
                 failure = state.writeFailure,
@@ -104,12 +104,12 @@ fun BellsSheet(
 
             is BellsMode.Delete -> {
                 SheetSection(
-                    title = stringResource(R.string.admin_bells_delete_title, current.schedule.name),
+                    title = correctedString(R.string.admin_bells_delete_title, current.schedule.name),
                 )
-                SheetNote(text = stringResource(R.string.admin_bells_delete_message))
+                SheetNote(text = correctedString(R.string.admin_bells_delete_message))
                 SheetFailure(failure = state.writeFailure)
                 SheetButtons(
-                    confirmLabel = stringResource(R.string.admin_bells_delete),
+                    confirmLabel = correctedString(R.string.admin_bells_delete),
                     onConfirm = {
                         viewModel.deleteBellSchedule(current.schedule)
                         mode = BellsMode.List
@@ -136,8 +136,8 @@ fun BellsSheet(
                     )
 
                     schedules.isEmpty() -> EmptyState(
-                        title = stringResource(R.string.admin_bells_empty_title),
-                        description = stringResource(R.string.admin_bells_empty_text),
+                        title = correctedString(R.string.admin_bells_empty_title),
+                        description = correctedString(R.string.admin_bells_empty_text),
                         icon = Icons.Rounded.NotificationsActive,
                         modifier = Modifier.padding(horizontal = ScreenPadding),
                     )
@@ -154,7 +154,7 @@ fun BellsSheet(
                     }
                 }
                 GroupActionItem(
-                    label = stringResource(R.string.admin_bells_add),
+                    label = correctedString(R.string.admin_bells_add),
                     icon = Icons.Rounded.Add,
                     onClick = { mode = BellsMode.Add },
                     busy = state.working,
@@ -182,14 +182,14 @@ private fun ScheduleRows(
 ) {
     SheetSection(
         title = if (schedule.isDefault) {
-            "${schedule.name} · ${stringResource(R.string.admin_bells_default)}"
+            "${schedule.name} · ${correctedString(R.string.admin_bells_default)}"
         } else {
             schedule.name
         },
     )
     RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
         GroupItem(
-            title = stringResource(R.string.admin_bells_periods),
+            title = correctedString(R.string.admin_bells_periods),
             subtitle = periodsSubtitle(schedule),
             icon = Icons.Rounded.Schedule,
             tone = accentTone(0),
@@ -197,7 +197,7 @@ private fun ScheduleRows(
             onClick = onPeriods,
         )
         GroupItem(
-            title = stringResource(R.string.admin_bells_rename),
+            title = correctedString(R.string.admin_bells_rename),
             icon = Icons.Rounded.NotificationsActive,
             tone = accentTone(2),
             enabled = !busy,
@@ -207,14 +207,14 @@ private fun ScheduleRows(
         // it is simply absent from the schedule that already is one.
         if (!schedule.isDefault) {
             GroupItem(
-                title = stringResource(R.string.admin_bells_make_default),
+                title = correctedString(R.string.admin_bells_make_default),
                 icon = Icons.Rounded.Star,
                 tone = accentTone(4),
                 enabled = !busy,
                 onClick = onMakeDefault,
             )
             GroupItem(
-                title = stringResource(R.string.admin_bells_delete),
+                title = correctedString(R.string.admin_bells_delete),
                 tone = errorTone(),
                 enabled = !busy,
                 onClick = onDelete,
@@ -226,7 +226,7 @@ private fun ScheduleRows(
 /** "уроков: 6 · 8:30 – 14:00", or just the count for a schedule with no rows. */
 @Composable
 private fun periodsSubtitle(schedule: BellSchedule): String {
-    val count = stringResource(R.string.admin_bells_lessons, schedule.periods.size)
+    val count = correctedString(R.string.admin_bells_lessons, schedule.periods.size)
     val first = schedule.periods.firstOrNull() ?: return count
     val last = schedule.periods.last()
     return "$count · ${first.startsAt.asBellClock()} – ${last.endsAt.asBellClock()}"
@@ -248,13 +248,13 @@ private fun ScheduleNameForm(
     SheetField(
         value = name,
         onValueChange = { name = it },
-        label = stringResource(R.string.admin_bells_name_label),
+        label = correctedString(R.string.admin_bells_name_label),
         enabled = !busy,
     )
     SheetProblem(problem = problem)
     SheetFailure(failure = failure)
     SheetButtons(
-        confirmLabel = stringResource(R.string.action_save),
+        confirmLabel = correctedString(R.string.action_save),
         onConfirm = { onSave(name.trim()) },
         onCancel = onCancel,
         enabled = problem == null,
@@ -286,21 +286,21 @@ private fun PeriodsForm(
     }
     val problem = bellPeriodsProblem(periods)
 
-    SheetSection(title = stringResource(R.string.admin_bells_periods_title, schedule.name))
-    SheetNote(text = stringResource(R.string.admin_bells_periods_note))
+    SheetSection(title = correctedString(R.string.admin_bells_periods_title, schedule.name))
+    SheetNote(text = correctedString(R.string.admin_bells_periods_note))
     RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
         rows.forEachIndexed { index, (start, end) ->
             GroupTimeItem(
-                title = stringResource(R.string.admin_bells_period, index + 1),
-                subtitle = stringResource(R.string.admin_bells_period_start),
+                title = correctedString(R.string.admin_bells_period, index + 1),
+                subtitle = correctedString(R.string.admin_bells_period_start),
                 tone = accentTone(index),
                 minutesOfDay = start,
                 onMinutesOfDayChange = { rows[index] = it to end },
                 enabled = !busy,
             )
             GroupTimeItem(
-                title = stringResource(R.string.admin_bells_period, index + 1),
-                subtitle = stringResource(R.string.admin_bells_period_end),
+                title = correctedString(R.string.admin_bells_period, index + 1),
+                subtitle = correctedString(R.string.admin_bells_period_end),
                 tone = accentTone(index),
                 minutesOfDay = end,
                 onMinutesOfDayChange = { rows[index] = start to it },
@@ -310,7 +310,7 @@ private fun PeriodsForm(
     }
     RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
         GroupItem(
-            title = stringResource(R.string.admin_bells_add_period),
+            title = correctedString(R.string.admin_bells_add_period),
             icon = Icons.Rounded.Add,
             tone = accentTone(1),
             enabled = !busy && rows.size < MaxPeriods,
@@ -320,7 +320,7 @@ private fun PeriodsForm(
             onClick = { rows.add(nextRowAfter(rows.lastOrNull())) },
         )
         GroupItem(
-            title = stringResource(R.string.admin_bells_remove_period),
+            title = correctedString(R.string.admin_bells_remove_period),
             tone = errorTone(),
             enabled = !busy && rows.isNotEmpty(),
             onClick = { rows.removeAt(rows.lastIndex) },
@@ -329,7 +329,7 @@ private fun PeriodsForm(
     SheetProblem(problem = problem)
     SheetFailure(failure = failure)
     SheetButtons(
-        confirmLabel = stringResource(R.string.action_save),
+        confirmLabel = correctedString(R.string.action_save),
         onConfirm = { onSave(periods) },
         onCancel = onCancel,
         enabled = problem == null,

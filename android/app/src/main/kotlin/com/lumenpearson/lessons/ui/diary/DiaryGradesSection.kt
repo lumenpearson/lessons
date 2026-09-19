@@ -15,7 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.DiaryMark
@@ -28,6 +27,7 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.RowText
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
 import com.lumenpearson.lessons.ui.common.asDayMonth
@@ -52,7 +52,7 @@ internal fun LazyListScope.diaryGrades(
     if (range != null) {
         item(key = "grades-range") {
             SectionHeader(
-                title = stringResource(
+                title = correctedString(
                     R.string.diary_grades_range,
                     range.from.asDayMonth(),
                     range.to.asDayMonth(),
@@ -70,8 +70,8 @@ internal fun LazyListScope.diaryGrades(
 
         state.subjects.isEmpty() -> item(key = "grades-empty") {
             EmptyState(
-                title = stringResource(R.string.diary_grades_empty_title),
-                description = stringResource(R.string.diary_grades_empty_text),
+                title = correctedString(R.string.diary_grades_empty_title),
+                description = correctedString(R.string.diary_grades_empty_text),
             )
         }
 
@@ -103,8 +103,8 @@ private fun DiarySubjectCard(
             )
             PillChip(
                 text = subject.average
-                    ?.let { stringResource(R.string.diary_average, it.formatAverage()) }
-                    ?: stringResource(R.string.diary_no_average),
+                    ?.let { correctedString(R.string.diary_average, it.formatAverage()) }
+                    ?: correctedString(R.string.diary_no_average),
             )
         }
 
@@ -145,7 +145,7 @@ private fun DiaryNoteRow(
         )
         Column(modifier = Modifier.weight(1f)) {
             RowText(
-                title = stringResource(mark.kind.labelRes()),
+                title = correctedString(mark.kind.labelRes()),
                 subtitle = listOfNotNull(
                     mark.date?.asDayMonth(),
                     mark.reason,

@@ -16,7 +16,6 @@ import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,7 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -37,6 +35,8 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -70,10 +70,10 @@ fun DebugSheet(
 
     LessonsBottomSheet(
         onDismissRequest = onDismiss,
-        title = stringResource(R.string.debug_title),
+        title = correctedString(R.string.debug_title),
     ) {
         Text(
-            text = stringResource(
+            text = correctedString(
                 if (enabled) R.string.debug_on_description else R.string.debug_off_description,
             ),
             style = MaterialTheme.typography.bodyMedium,
@@ -83,7 +83,7 @@ fun DebugSheet(
 
         RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
             GroupItem(
-                title = stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
+                title = correctedString(R.string.about_version, BuildConfig.VERSION_NAME),
                 subtitle = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} " +
                     "· Android ${android.os.Build.VERSION.RELEASE}",
                 icon = Icons.Rounded.BugReport,
@@ -92,9 +92,9 @@ fun DebugSheet(
         }
 
         SectionHeader(
-            title = stringResource(R.string.debug_reports),
+            title = correctedString(R.string.debug_reports),
             subtitle = if (reports.isEmpty()) {
-                stringResource(R.string.debug_reports_empty)
+                correctedString(R.string.debug_reports_empty)
             } else {
                 null
             },
@@ -106,14 +106,14 @@ fun DebugSheet(
                 reports.forEach { file ->
                     GroupItem(
                         title = stamp.format(Date(file.lastModified())),
-                        subtitle = stringResource(R.string.debug_report_size, file.length() / 1024),
+                        subtitle = correctedString(R.string.debug_report_size, file.length() / 1024),
                         icon = Icons.Rounded.BugReport,
                         tone = errorTone(),
                         onClick = { opened = if (opened == file) null else file },
                         trailing = {
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 TextButton(onClick = { share(context, file) }) {
-                                    Text(text = stringResource(R.string.debug_share))
+                                    Text(text = correctedString(R.string.debug_share))
                                 }
                             }
                         },
@@ -153,7 +153,7 @@ fun DebugSheet(
                 modifier = Modifier.weight(1f),
             ) {
                 Text(
-                    text = stringResource(
+                    text = correctedString(
                         if (enabled) R.string.debug_turn_off else R.string.debug_turn_on,
                     ),
                 )
@@ -170,7 +170,7 @@ fun DebugSheet(
                         contentColor = MaterialTheme.colorScheme.onErrorContainer,
                     ),
                 ) {
-                    Text(text = stringResource(R.string.debug_clear))
+                    Text(text = correctedString(R.string.debug_clear))
                 }
             }
         }

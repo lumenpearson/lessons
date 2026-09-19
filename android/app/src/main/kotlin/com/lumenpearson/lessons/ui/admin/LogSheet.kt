@@ -7,11 +7,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ListAlt
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.AuditEntry
@@ -19,6 +17,8 @@ import com.lumenpearson.lessons.core.designsystem.component.EmptyState
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 
@@ -41,7 +41,7 @@ fun LogSheet(
     val page = state.log.value
 
     ManagementSheet(
-        title = stringResource(R.string.admin_log_title),
+        title = correctedString(R.string.admin_log_title),
         onDismiss = onDismiss,
         modifier = modifier,
     ) {
@@ -58,15 +58,15 @@ fun LogSheet(
             )
 
             page.entries.isEmpty() -> EmptyState(
-                title = stringResource(R.string.admin_log_empty_title),
-                description = stringResource(R.string.admin_log_empty_text),
+                title = correctedString(R.string.admin_log_empty_title),
+                description = correctedString(R.string.admin_log_empty_text),
                 icon = Icons.AutoMirrored.Rounded.ListAlt,
                 modifier = Modifier.padding(horizontal = ScreenPadding),
             )
 
             else -> {
                 SheetNote(
-                    text = stringResource(
+                    text = correctedString(
                         R.string.admin_log_page,
                         page.offset + 1,
                         page.offset + page.entries.size,
@@ -95,13 +95,13 @@ fun LogSheet(
                         onClick = viewModel::showPreviousLogPage,
                         enabled = page.offset > 0 && !state.log.loading,
                     ) {
-                        Text(text = stringResource(R.string.admin_log_newer))
+                        Text(text = correctedString(R.string.admin_log_newer))
                     }
                     TextButton(
                         onClick = viewModel::showNextLogPage,
                         enabled = page.hasMore && !state.log.loading,
                     ) {
-                        Text(text = stringResource(R.string.admin_log_older))
+                        Text(text = correctedString(R.string.admin_log_older))
                     }
                 }
                 // A failed page turn leaves the page that is up and says so;
@@ -115,7 +115,7 @@ fun LogSheet(
 /** "@anna · 12.09 14:05", and «система» for a line nobody signed. */
 @Composable
 private fun AuditEntry.meta(): String {
-    val who = who ?: stringResource(R.string.admin_log_system)
+    val who = who ?: correctedString(R.string.admin_log_system)
     val at = at?.asClassStamp() ?: action
-    return stringResource(R.string.admin_log_meta, who, at)
+    return correctedString(R.string.admin_log_meta, who, at)
 }

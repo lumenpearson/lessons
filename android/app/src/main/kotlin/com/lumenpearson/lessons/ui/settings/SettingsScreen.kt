@@ -60,7 +60,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,7 +71,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -93,6 +91,8 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.modifier.LiquidRippleAnchor
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
@@ -287,23 +287,23 @@ fun SettingsRootScreen(
         item(key = "class-card") {
             ClassHeroCard(
                 className = state.session?.className
-                    ?: stringResource(R.string.settings_class_unknown),
+                    ?: correctedString(R.string.settings_class_unknown),
                 school = state.session?.school
-                    ?: stringResource(R.string.settings_class_no_school),
+                    ?: correctedString(R.string.settings_class_no_school),
             )
         }
 
         item(key = "sections") {
             Column(modifier = Modifier.fillMaxWidth()) {
-                SectionHeader(title = stringResource(R.string.settings_sections))
+                SectionHeader(title = correctedString(R.string.settings_sections))
                 RoundedCardContainer {
                     val sections = SettingsSection.entries.filter {
                         it.listedOnRoot || (it == SettingsSection.ADMIN && manager)
                     }
                     sections.forEach { section ->
                         GroupLinkItem(
-                            title = stringResource(section.titleRes),
-                            subtitle = stringResource(section.subtitleRes),
+                            title = correctedString(section.titleRes),
+                            subtitle = correctedString(section.subtitleRes),
                             icon = section.icon,
                             tone = accentTone(section.tone),
                             onClick = { onOpenSection(section) },
@@ -427,8 +427,8 @@ fun SettingsSectionScreen(
     ) {
         item(key = "header") {
             ScreenHeader(
-                title = stringResource(section.titleRes),
-                subtitle = stringResource(section.subtitleRes),
+                title = correctedString(section.titleRes),
+                subtitle = correctedString(section.subtitleRes),
             )
         }
 
@@ -593,25 +593,25 @@ private fun LazyListScope.appearanceRows(
         // Every row in this group repaints the whole app, so every row opens the
         // circle from itself. The anchor is what makes the wavefront look like it
         // came out from under the finger rather than from the middle of nowhere.
-        SettingsGroup(title = stringResource(R.string.settings_theme)) {
+        SettingsGroup(title = correctedString(R.string.settings_theme)) {
             ThemeRevealAnchor { reveal ->
                 GroupSegmentedItem(
-                    title = stringResource(R.string.settings_theme_mode),
+                    title = correctedString(R.string.settings_theme_mode),
                     icon = Icons.Rounded.Contrast,
                     tone = accentTone(4),
                     items = ThemeMode.entries,
                     selectedItem = state.settings.themeMode,
                     onItemSelected = { mode -> reveal { viewModel.setThemeMode(mode) } },
-                    labelProvider = { mode -> stringResource(mode.labelRes) },
+                    labelProvider = { mode -> correctedString(mode.labelRes) },
                 )
             }
             ThemeRevealAnchor { reveal ->
                 GroupSwitchItem(
-                    title = stringResource(R.string.settings_dynamic_color),
+                    title = correctedString(R.string.settings_dynamic_color),
                     subtitle = if (SupportsDynamicColor) {
-                        stringResource(R.string.settings_dynamic_color_description)
+                        correctedString(R.string.settings_dynamic_color_description)
                     } else {
-                        stringResource(R.string.settings_dynamic_color_unavailable)
+                        correctedString(R.string.settings_dynamic_color_unavailable)
                     },
                     icon = Icons.Rounded.Palette,
                     tone = accentTone(0),
@@ -622,8 +622,8 @@ private fun LazyListScope.appearanceRows(
             }
             ThemeRevealAnchor { reveal ->
                 GroupSwitchItem(
-                    title = stringResource(R.string.settings_pitch_black),
-                    subtitle = stringResource(R.string.settings_pitch_black_description),
+                    title = correctedString(R.string.settings_pitch_black),
+                    subtitle = correctedString(R.string.settings_pitch_black_description),
                     icon = Icons.Rounded.DarkMode,
                     tone = accentTone(5),
                     checked = state.settings.pitchBlack,
@@ -634,24 +634,24 @@ private fun LazyListScope.appearanceRows(
     }
 
     item(key = "typography") {
-        SettingsGroup(title = stringResource(R.string.settings_type_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_type_group)) {
             GroupSegmentedItem(
-                title = stringResource(R.string.settings_font),
-                subtitle = stringResource(R.string.settings_font_description),
+                title = correctedString(R.string.settings_font),
+                subtitle = correctedString(R.string.settings_font_description),
                 icon = Icons.Rounded.TextFields,
                 tone = accentTone(2),
                 items = AppFont.entries,
                 selectedItem = state.settings.appFont,
                 onItemSelected = viewModel::setAppFont,
-                labelProvider = { font -> stringResource(font.labelRes) },
+                labelProvider = { font -> correctedString(font.labelRes) },
             )
             // Four named steps rather than a slider: a size is something a
             // person has to be able to put back, and "около одной целой семи"
             // is not a place anybody can return to. The labels say what each
             // step is for; the numbers behind them are in AppSettings.
             GroupSegmentedItem(
-                title = stringResource(R.string.settings_text_size),
-                subtitle = stringResource(R.string.settings_text_size_description),
+                title = correctedString(R.string.settings_text_size),
+                subtitle = correctedString(R.string.settings_text_size_description),
                 icon = Icons.Rounded.FormatSize,
                 tone = accentTone(4),
                 items = AppSettings.TEXT_SCALE_OPTIONS,
@@ -661,7 +661,7 @@ private fun LazyListScope.appearanceRows(
                 // nearest step instead of leaving every segment unselected.
                 selectedItem = nearestTextScale(state.settings.textScale),
                 onItemSelected = viewModel::setTextScale,
-                labelProvider = { scale -> stringResource(textScaleLabelRes(scale)) },
+                labelProvider = { scale -> correctedString(textScaleLabelRes(scale)) },
             )
         }
     }
@@ -671,16 +671,16 @@ private fun LazyListScope.appearanceRows(
     // like the font it takes effect the moment it is tapped — below Android 13
     // by recreating the activity, above it by the system restarting it for us.
     item(key = "language") {
-        SettingsGroup(title = stringResource(R.string.settings_language_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_language_group)) {
             GroupSegmentedItem(
-                title = stringResource(R.string.settings_language),
-                subtitle = stringResource(R.string.settings_language_description),
+                title = correctedString(R.string.settings_language),
+                subtitle = correctedString(R.string.settings_language_description),
                 icon = Icons.Rounded.Language,
                 tone = accentTone(1),
                 items = AppLanguage.entries,
                 selectedItem = state.settings.language,
                 onItemSelected = viewModel::setLanguage,
-                labelProvider = { language -> stringResource(language.labelRes) },
+                labelProvider = { language -> correctedString(language.labelRes) },
             )
         }
     }
@@ -725,10 +725,10 @@ private fun LazyListScope.feelRows(
     viewModel: SettingsViewModel,
 ) {
     item(key = "haptics") {
-        SettingsGroup(title = stringResource(R.string.settings_haptics_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_haptics_group)) {
             GroupSwitchItem(
-                title = stringResource(R.string.settings_haptics),
-                subtitle = stringResource(R.string.settings_haptics_description),
+                title = correctedString(R.string.settings_haptics),
+                subtitle = correctedString(R.string.settings_haptics_description),
                 icon = Icons.Rounded.Vibration,
                 tone = accentTone(2),
                 checked = state.settings.hapticsEnabled,
@@ -736,31 +736,31 @@ private fun LazyListScope.feelRows(
             )
             if (state.settings.hapticsEnabled) {
                 GroupSegmentedItem(
-                    title = stringResource(R.string.settings_haptic_strength),
+                    title = correctedString(R.string.settings_haptic_strength),
                     icon = Icons.Rounded.Vibration,
                     tone = accentTone(3),
                     items = HapticStrength.entries,
                     selectedItem = state.settings.hapticStrength,
                     onItemSelected = viewModel::setHapticStrength,
-                    labelProvider = { strength -> stringResource(strength.labelRes) },
+                    labelProvider = { strength -> correctedString(strength.labelRes) },
                 )
             }
         }
     }
 
     item(key = "navigation") {
-        SettingsGroup(title = stringResource(R.string.settings_navigation_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_navigation_group)) {
             GroupSwitchItem(
-                title = stringResource(R.string.settings_swipe_tabs),
-                subtitle = stringResource(R.string.settings_swipe_tabs_description),
+                title = correctedString(R.string.settings_swipe_tabs),
+                subtitle = correctedString(R.string.settings_swipe_tabs_description),
                 icon = Icons.Rounded.Swipe,
                 tone = accentTone(1),
                 checked = state.settings.swipeTabs,
                 onCheckedChange = viewModel::setSwipeTabs,
             )
             GroupSegmentedItem(
-                title = stringResource(R.string.settings_default_tab),
-                subtitle = stringResource(R.string.settings_default_tab_description),
+                title = correctedString(R.string.settings_default_tab),
+                subtitle = correctedString(R.string.settings_default_tab_description),
                 icon = Icons.Rounded.Widgets,
                 tone = accentTone(4),
                 items = HomeTab.entries,
@@ -770,16 +770,16 @@ private fun LazyListScope.feelRows(
                 // about 60 dp of label once an 18 dp glyph and its spacer are
                 // taken out, and the glyphs would only repeat the toolbar this
                 // row is about.
-                labelProvider = { tab -> stringResource(tab.labelRes) },
+                labelProvider = { tab -> correctedString(tab.labelRes) },
             )
         }
     }
 
     item(key = "motion") {
-        SettingsGroup(title = stringResource(R.string.settings_motion_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_motion_group)) {
             GroupSwitchItem(
-                title = stringResource(R.string.settings_animations),
-                subtitle = stringResource(R.string.settings_animations_description),
+                title = correctedString(R.string.settings_animations),
+                subtitle = correctedString(R.string.settings_animations_description),
                 icon = Icons.Rounded.Animation,
                 tone = accentTone(5),
                 checked = state.settings.animations,
@@ -790,8 +790,8 @@ private fun LazyListScope.feelRows(
             // question with no answer.
             if (state.settings.animations) {
                 GroupSliderItem(
-                    title = stringResource(R.string.settings_motion_speed),
-                    subtitle = stringResource(R.string.settings_motion_speed_description),
+                    title = correctedString(R.string.settings_motion_speed),
+                    subtitle = correctedString(R.string.settings_motion_speed_description),
                     icon = Icons.Rounded.Speed,
                     tone = accentTone(1),
                     value = state.settings.motionSpeed,
@@ -805,10 +805,10 @@ private fun LazyListScope.feelRows(
     }
 
     item(key = "effects") {
-        SettingsGroup(title = stringResource(R.string.settings_effects_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_effects_group)) {
             GroupSwitchItem(
-                title = stringResource(R.string.settings_edge_blur),
-                subtitle = stringResource(R.string.settings_edge_blur_description),
+                title = correctedString(R.string.settings_edge_blur),
+                subtitle = correctedString(R.string.settings_edge_blur_description),
                 icon = Icons.Rounded.BlurLinear,
                 tone = accentTone(0),
                 enabled = SupportsShaders,
@@ -816,11 +816,11 @@ private fun LazyListScope.feelRows(
                 onCheckedChange = viewModel::setEdgeBlur,
             )
             GroupSwitchItem(
-                title = stringResource(R.string.settings_motion_blur),
+                title = correctedString(R.string.settings_motion_blur),
                 subtitle = if (SupportsShaders) {
-                    stringResource(R.string.settings_motion_blur_description)
+                    correctedString(R.string.settings_motion_blur_description)
                 } else {
-                    stringResource(R.string.settings_blur_unavailable)
+                    correctedString(R.string.settings_blur_unavailable)
                 },
                 icon = Icons.Rounded.BlurOn,
                 tone = accentTone(5),
@@ -830,7 +830,7 @@ private fun LazyListScope.feelRows(
             )
             if (state.settings.motionBlur && SupportsShaders) {
                 GroupSliderItem(
-                    title = stringResource(R.string.settings_motion_blur_amount),
+                    title = correctedString(R.string.settings_motion_blur_amount),
                     icon = Icons.Rounded.MotionPhotosOn,
                     tone = accentTone(3),
                     value = state.settings.motionBlurScale,
@@ -852,11 +852,11 @@ private fun LazyListScope.feelRows(
             // acknowledging its own removal would be a lie about the setting.
             LiquidRippleAnchor { fire ->
                 GroupSwitchItem(
-                    title = stringResource(R.string.settings_ripple),
+                    title = correctedString(R.string.settings_ripple),
                     subtitle = if (SupportsShaders) {
-                        stringResource(R.string.settings_ripple_description)
+                        correctedString(R.string.settings_ripple_description)
                     } else {
-                        stringResource(R.string.settings_blur_unavailable)
+                        correctedString(R.string.settings_blur_unavailable)
                     },
                     icon = Icons.Rounded.Waves,
                     tone = accentTone(2),
@@ -869,8 +869,8 @@ private fun LazyListScope.feelRows(
                 )
             }
             GroupSwitchItem(
-                title = stringResource(R.string.settings_theme_reveal),
-                subtitle = stringResource(R.string.settings_theme_reveal_description),
+                title = correctedString(R.string.settings_theme_reveal),
+                subtitle = correctedString(R.string.settings_theme_reveal_description),
                 icon = Icons.Rounded.Contrast,
                 tone = accentTone(4),
                 checked = state.settings.themeReveal,
@@ -893,18 +893,18 @@ private fun LazyListScope.contentRows(
     viewModel: SettingsViewModel,
 ) {
     item(key = "content") {
-        SettingsGroup(title = stringResource(R.string.settings_content_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_content_group)) {
             GroupSwitchItem(
-                title = stringResource(R.string.settings_show_teacher),
-                subtitle = stringResource(R.string.settings_show_teacher_description),
+                title = correctedString(R.string.settings_show_teacher),
+                subtitle = correctedString(R.string.settings_show_teacher_description),
                 icon = Icons.Rounded.Person,
                 tone = accentTone(3),
                 checked = state.settings.showTeacher,
                 onCheckedChange = viewModel::setShowTeacher,
             )
             GroupSwitchItem(
-                title = stringResource(R.string.settings_widget_progress),
-                subtitle = stringResource(R.string.settings_widget_progress_description),
+                title = correctedString(R.string.settings_widget_progress),
+                subtitle = correctedString(R.string.settings_widget_progress_description),
                 icon = Icons.Rounded.Widgets,
                 tone = accentTone(1),
                 checked = state.settings.widgetShowProgress,
@@ -914,36 +914,36 @@ private fun LazyListScope.contentRows(
     }
 
     item(key = "content_home") {
-        SettingsGroup(title = stringResource(R.string.settings_home_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_home_group)) {
             GroupSwitchItem(
-                title = stringResource(R.string.settings_today_hero),
-                subtitle = stringResource(R.string.settings_today_hero_description),
+                title = correctedString(R.string.settings_today_hero),
+                subtitle = correctedString(R.string.settings_today_hero_description),
                 icon = Icons.Rounded.Timer,
                 tone = accentTone(0),
                 checked = state.settings.todayShowHero,
                 onCheckedChange = viewModel::setTodayShowHero,
             )
             GroupSegmentedItem(
-                title = stringResource(R.string.settings_today_layout),
-                subtitle = stringResource(R.string.settings_today_layout_description),
+                title = correctedString(R.string.settings_today_layout),
+                subtitle = correctedString(R.string.settings_today_layout_description),
                 icon = Icons.Rounded.Reorder,
                 tone = accentTone(2),
                 items = TodayLayout.entries,
                 selectedItem = state.settings.todayLayout,
                 onItemSelected = viewModel::setTodayLayout,
-                labelProvider = { layout -> stringResource(layout.labelRes) },
+                labelProvider = { layout -> correctedString(layout.labelRes) },
             )
             GroupSwitchItem(
-                title = stringResource(R.string.settings_today_whole_day),
-                subtitle = stringResource(R.string.settings_today_whole_day_description),
+                title = correctedString(R.string.settings_today_whole_day),
+                subtitle = correctedString(R.string.settings_today_whole_day_description),
                 icon = Icons.Rounded.ViewDay,
                 tone = accentTone(4),
                 checked = state.settings.todayWholeDay,
                 onCheckedChange = viewModel::setTodayWholeDay,
             )
             GroupSegmentedItem(
-                title = stringResource(R.string.settings_today_homework_count),
-                subtitle = stringResource(R.string.settings_today_homework_count_description),
+                title = correctedString(R.string.settings_today_homework_count),
+                subtitle = correctedString(R.string.settings_today_homework_count_description),
                 icon = Icons.Rounded.EditNote,
                 tone = accentTone(5),
                 items = AppSettings.HOMEWORK_PREVIEW_OPTIONS,
@@ -956,8 +956,8 @@ private fun LazyListScope.contentRows(
                 labelProvider = { count -> count.toString() },
             )
             GroupSwitchItem(
-                title = stringResource(R.string.settings_today_events),
-                subtitle = stringResource(R.string.settings_today_events_description),
+                title = correctedString(R.string.settings_today_events),
+                subtitle = correctedString(R.string.settings_today_events_description),
                 icon = Icons.AutoMirrored.Rounded.EventNote,
                 tone = accentTone(1),
                 checked = state.settings.todayShowEvents,
@@ -967,44 +967,44 @@ private fun LazyListScope.contentRows(
     }
 
     item(key = "content_calendar") {
-        SettingsGroup(title = stringResource(R.string.settings_calendar_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_calendar_group)) {
             GroupSegmentedItem(
-                title = stringResource(R.string.settings_week_start),
-                subtitle = stringResource(R.string.settings_week_start_description),
+                title = correctedString(R.string.settings_week_start),
+                subtitle = correctedString(R.string.settings_week_start_description),
                 icon = Icons.Rounded.CalendarViewWeek,
                 tone = accentTone(3),
                 items = WeekStart.entries,
                 selectedItem = state.settings.weekStart,
                 onItemSelected = viewModel::setWeekStart,
-                labelProvider = { start -> stringResource(start.labelRes) },
+                labelProvider = { start -> correctedString(start.labelRes) },
             )
             GroupSwitchItem(
-                title = stringResource(R.string.settings_week_weekends),
-                subtitle = stringResource(R.string.settings_week_weekends_description),
+                title = correctedString(R.string.settings_week_weekends),
+                subtitle = correctedString(R.string.settings_week_weekends_description),
                 icon = Icons.Rounded.Weekend,
                 tone = accentTone(0),
                 checked = state.settings.weekShowWeekends,
                 onCheckedChange = viewModel::setWeekShowWeekends,
             )
             GroupSwitchItem(
-                title = stringResource(R.string.settings_week_load),
-                subtitle = stringResource(R.string.settings_week_load_description),
+                title = correctedString(R.string.settings_week_load),
+                subtitle = correctedString(R.string.settings_week_load_description),
                 icon = Icons.Rounded.MoreHoriz,
                 tone = accentTone(2),
                 checked = state.settings.weekShowLoad,
                 onCheckedChange = viewModel::setWeekShowLoad,
             )
             GroupSwitchItem(
-                title = stringResource(R.string.settings_week_events),
-                subtitle = stringResource(R.string.settings_week_events_description),
+                title = correctedString(R.string.settings_week_events),
+                subtitle = correctedString(R.string.settings_week_events_description),
                 icon = Icons.AutoMirrored.Rounded.EventNote,
                 tone = accentTone(4),
                 checked = state.settings.weekShowEvents,
                 onCheckedChange = viewModel::setWeekShowEvents,
             )
             GroupSwitchItem(
-                title = stringResource(R.string.settings_week_homework),
-                subtitle = stringResource(R.string.settings_week_homework_description),
+                title = correctedString(R.string.settings_week_homework),
+                subtitle = correctedString(R.string.settings_week_homework_description),
                 icon = Icons.Rounded.EditNote,
                 tone = accentTone(5),
                 checked = state.settings.weekShowHomework,
@@ -1035,15 +1035,15 @@ private fun LazyListScope.syncRows(
     viewModel: SettingsViewModel,
     onEditServer: () -> Unit,
 ) = item(key = "sync") {
-    SettingsGroup(title = stringResource(R.string.settings_sync_group)) {
+    SettingsGroup(title = correctedString(R.string.settings_sync_group)) {
         SyncIntervalRow(
             selectedMinutes = state.settings.syncIntervalMinutes,
             onSelect = viewModel::setSyncInterval,
         )
         GroupLinkItem(
-            title = stringResource(R.string.settings_server_url),
+            title = correctedString(R.string.settings_server_url),
             subtitle = state.settings.baseUrl.takeIf { it.isNotBlank() }
-                ?: stringResource(R.string.settings_server_url_default),
+                ?: correctedString(R.string.settings_server_url_default),
             icon = Icons.Rounded.Dns,
             tone = accentTone(0),
             onClick = onEditServer,
@@ -1053,7 +1053,7 @@ private fun LazyListScope.syncRows(
         // pressed rather than storing a preference. Essentials closes its own
         // updates group with the same shape.
         GroupActionItem(
-            label = stringResource(R.string.settings_refresh_now),
+            label = correctedString(R.string.settings_refresh_now),
             icon = Icons.Rounded.Refresh,
             busy = state.isRefreshing,
             onClick = viewModel::refreshNow,
@@ -1071,10 +1071,10 @@ private fun LazyListScope.aboutRows(
     // page is something you find — and a row you have to scroll to is a row a
     // reader concludes does not exist.
     item(key = "docs") {
-        SettingsGroup(title = stringResource(R.string.docs_group)) {
+        SettingsGroup(title = correctedString(R.string.docs_group)) {
             GroupLinkItem(
-                title = stringResource(R.string.docs_open),
-                subtitle = stringResource(R.string.docs_open_description),
+                title = correctedString(R.string.docs_open),
+                subtitle = correctedString(R.string.docs_open_description),
                 icon = Icons.AutoMirrored.Rounded.MenuBook,
                 tone = accentTone(4),
                 onClick = onOpenDocs,
@@ -1082,10 +1082,10 @@ private fun LazyListScope.aboutRows(
         }
     }
     item(key = "about") {
-        SettingsGroup(title = stringResource(R.string.settings_about_group)) {
+        SettingsGroup(title = correctedString(R.string.settings_about_group)) {
             GroupSwitchItem(
-                title = stringResource(R.string.settings_debug),
-                subtitle = stringResource(R.string.settings_debug_description),
+                title = correctedString(R.string.settings_debug),
+                subtitle = correctedString(R.string.settings_debug_description),
                 icon = Icons.Rounded.BugReport,
                 tone = accentTone(2),
                 checked = state.settings.debugMode,
@@ -1162,7 +1162,7 @@ private fun SyncIntervalRow(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
-                text = stringResource(R.string.settings_sync_interval),
+                text = correctedString(R.string.settings_sync_interval),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
@@ -1199,7 +1199,7 @@ private fun SignOutSheet(
 ) {
     LessonsBottomSheet(
         onDismissRequest = onDismiss,
-        title = stringResource(
+        title = correctedString(
             if (everyClass) R.string.settings_sign_out_all_title else R.string.settings_sign_out_title,
         ),
     ) {
@@ -1209,9 +1209,9 @@ private fun SignOutSheet(
             // over a button that also drops 9«Б» is the kind of wrong that is
             // only discovered afterwards.
             text = when {
-                everyClass -> stringResource(R.string.settings_sign_out_all_message)
-                className != null -> stringResource(R.string.settings_sign_out_message, className)
-                else -> stringResource(R.string.settings_sign_out_message_generic)
+                everyClass -> correctedString(R.string.settings_sign_out_all_message)
+                className != null -> correctedString(R.string.settings_sign_out_message, className)
+                else -> correctedString(R.string.settings_sign_out_message_generic)
             },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1224,7 +1224,7 @@ private fun SignOutSheet(
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
         ) {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.action_cancel))
+                Text(text = correctedString(R.string.action_cancel))
             }
             Button(
                 onClick = onConfirm,
@@ -1233,7 +1233,7 @@ private fun SignOutSheet(
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 ),
             ) {
-                Text(text = stringResource(R.string.settings_sign_out))
+                Text(text = correctedString(R.string.settings_sign_out))
             }
         }
     }

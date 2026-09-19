@@ -36,7 +36,6 @@ import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,7 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -55,6 +53,8 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupSegmentedItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupSwitchItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealAnchor
@@ -257,7 +257,7 @@ private fun WelcomeStep(
     StepScaffold(
         actions = {
             OnboardingActions(
-                label = stringResource(R.string.onboarding_action_begin),
+                label = correctedString(R.string.onboarding_action_begin),
                 icon = Icons.AutoMirrored.Rounded.ArrowForward,
                 onClick = onNext,
             )
@@ -273,11 +273,11 @@ private fun WelcomeStep(
 
         Spacer(Modifier.height(28.dp))
         OnboardingTitle(
-            title = stringResource(
+            title = correctedString(
                 R.string.onboarding_welcome_title,
-                stringResource(R.string.app_name),
+                correctedString(R.string.app_name),
             ),
-            subtitle = stringResource(R.string.onboarding_welcome_subtitle),
+            subtitle = correctedString(R.string.onboarding_welcome_subtitle),
         )
 
         Spacer(Modifier.height(40.dp))
@@ -285,13 +285,13 @@ private fun WelcomeStep(
         RoundedCardContainer {
             ThemeRevealAnchor { reveal ->
                 GroupSegmentedItem(
-                    title = stringResource(R.string.settings_theme_mode),
+                    title = correctedString(R.string.settings_theme_mode),
                     icon = Icons.Rounded.Contrast,
                     tone = accentTone(4),
                     items = ThemeMode.entries,
                     selectedItem = state.settings.themeMode,
                     onItemSelected = { mode -> reveal { viewModel.setThemeMode(mode) } },
-                    labelProvider = { mode -> stringResource(mode.labelRes) },
+                    labelProvider = { mode -> correctedString(mode.labelRes) },
                 )
             }
             // In the same card as the theme rather than a card of its own: the
@@ -302,13 +302,13 @@ private fun WelcomeStep(
             // one of the three labels right beside it, so the sentence that
             // explains it there would only be repeating a word that is visible.
             GroupSegmentedItem(
-                title = stringResource(R.string.settings_language),
+                title = correctedString(R.string.settings_language),
                 icon = Icons.Rounded.Language,
                 tone = accentTone(1),
                 items = AppLanguage.entries,
                 selectedItem = state.settings.language,
                 onItemSelected = viewModel::setLanguage,
-                labelProvider = { language -> stringResource(language.labelRes) },
+                labelProvider = { language -> correctedString(language.labelRes) },
             )
         }
         Spacer(Modifier.height(8.dp))
@@ -338,7 +338,7 @@ private fun AcknowledgementStep(
         Spacer(Modifier.height(24.dp))
 
         OnboardingTitle(
-            title = stringResource(R.string.onboarding_ack_title),
+            title = correctedString(R.string.onboarding_ack_title),
             modifier = Modifier.padding(horizontal = ScreenPadding),
         )
 
@@ -363,18 +363,18 @@ private fun AcknowledgementStep(
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.onboarding_ack_body),
+                    text = correctedString(R.string.onboarding_ack_body),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = stringResource(R.string.onboarding_ack_warning),
+                    text = correctedString(R.string.onboarding_ack_warning),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.error,
                 )
                 Text(
-                    text = stringResource(R.string.onboarding_ack_footer),
+                    text = correctedString(R.string.onboarding_ack_footer),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -385,15 +385,15 @@ private fun AcknowledgementStep(
 
         RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
             GroupSegmentedItem(
-                title = stringResource(R.string.onboarding_ack_reports),
-                subtitle = stringResource(R.string.onboarding_ack_reports_description),
+                title = correctedString(R.string.onboarding_ack_reports),
+                subtitle = correctedString(R.string.onboarding_ack_reports_description),
                 icon = Icons.Rounded.BugReport,
                 tone = accentTone(2),
                 items = CrashReportChoices,
                 selectedItem = state.settings.debugMode,
                 onItemSelected = viewModel::setDebugMode,
                 labelProvider = { keep ->
-                    stringResource(
+                    correctedString(
                         if (keep) R.string.onboarding_reports_on else R.string.onboarding_reports_off,
                     )
                 },
@@ -401,7 +401,7 @@ private fun AcknowledgementStep(
         }
 
         OnboardingActions(
-            label = stringResource(R.string.onboarding_action_understood),
+            label = correctedString(R.string.onboarding_action_understood),
             icon = Icons.Rounded.Check,
             onBack = onBack,
             onClick = onNext,
@@ -428,7 +428,7 @@ private fun PreferencesStep(
     StepScaffold(
         actions = {
             OnboardingActions(
-                label = stringResource(R.string.onboarding_action_all_set),
+                label = correctedString(R.string.onboarding_action_all_set),
                 icon = Icons.Rounded.Check,
                 onBack = onBack,
                 onClick = onNext,
@@ -437,26 +437,26 @@ private fun PreferencesStep(
     ) {
         Spacer(Modifier.height(24.dp))
         OnboardingTitle(
-            title = stringResource(R.string.onboarding_preferences_title),
-            subtitle = stringResource(R.string.onboarding_preferences_subtitle),
+            title = correctedString(R.string.onboarding_preferences_title),
+            subtitle = correctedString(R.string.onboarding_preferences_subtitle),
         )
         Spacer(Modifier.height(24.dp))
 
-        AccentSection(title = stringResource(R.string.onboarding_group_app)) {
+        AccentSection(title = correctedString(R.string.onboarding_group_app)) {
             GroupSwitchItem(
-                title = stringResource(R.string.settings_haptics),
-                subtitle = stringResource(R.string.settings_haptics_description),
+                title = correctedString(R.string.settings_haptics),
+                subtitle = correctedString(R.string.settings_haptics_description),
                 icon = Icons.Rounded.Vibration,
                 tone = accentTone(2),
                 checked = state.settings.hapticsEnabled,
                 onCheckedChange = viewModel::setHapticsEnabled,
             )
             GroupSwitchItem(
-                title = stringResource(R.string.settings_dynamic_color),
+                title = correctedString(R.string.settings_dynamic_color),
                 subtitle = if (SupportsDynamicColor) {
-                    stringResource(R.string.settings_dynamic_color_description)
+                    correctedString(R.string.settings_dynamic_color_description)
                 } else {
-                    stringResource(R.string.settings_dynamic_color_unavailable)
+                    correctedString(R.string.settings_dynamic_color_unavailable)
                 },
                 icon = Icons.Rounded.Palette,
                 tone = accentTone(0),
@@ -465,19 +465,19 @@ private fun PreferencesStep(
                 onCheckedChange = viewModel::setDynamicColor,
             )
             GroupSwitchItem(
-                title = stringResource(R.string.settings_pitch_black),
-                subtitle = stringResource(R.string.settings_pitch_black_description),
+                title = correctedString(R.string.settings_pitch_black),
+                subtitle = correctedString(R.string.settings_pitch_black_description),
                 icon = Icons.Rounded.DarkMode,
                 tone = accentTone(5),
                 checked = state.settings.pitchBlack,
                 onCheckedChange = viewModel::setPitchBlack,
             )
             GroupSwitchItem(
-                title = stringResource(R.string.settings_edge_blur),
+                title = correctedString(R.string.settings_edge_blur),
                 subtitle = if (SupportsShaders) {
-                    stringResource(R.string.settings_edge_blur_description)
+                    correctedString(R.string.settings_edge_blur_description)
                 } else {
-                    stringResource(R.string.settings_blur_unavailable)
+                    correctedString(R.string.settings_blur_unavailable)
                 },
                 icon = Icons.Rounded.BlurLinear,
                 tone = accentTone(1),
@@ -489,18 +489,18 @@ private fun PreferencesStep(
 
         Spacer(Modifier.height(GroupSpacing))
 
-        AccentSection(title = stringResource(R.string.onboarding_group_content)) {
+        AccentSection(title = correctedString(R.string.onboarding_group_content)) {
             GroupSwitchItem(
-                title = stringResource(R.string.settings_show_teacher),
-                subtitle = stringResource(R.string.settings_show_teacher_description),
+                title = correctedString(R.string.settings_show_teacher),
+                subtitle = correctedString(R.string.settings_show_teacher_description),
                 icon = Icons.Rounded.Person,
                 tone = accentTone(3),
                 checked = state.settings.showTeacher,
                 onCheckedChange = viewModel::setShowTeacher,
             )
             GroupSwitchItem(
-                title = stringResource(R.string.settings_widget_progress),
-                subtitle = stringResource(R.string.settings_widget_progress_description),
+                title = correctedString(R.string.settings_widget_progress),
+                subtitle = correctedString(R.string.settings_widget_progress_description),
                 icon = Icons.Rounded.Widgets,
                 tone = accentTone(4),
                 checked = state.settings.widgetShowProgress,
@@ -544,7 +544,7 @@ private fun PermissionsStep(
     StepScaffold(
         actions = {
             OnboardingActions(
-                label = stringResource(
+                label = correctedString(
                     if (settled) {
                         R.string.onboarding_action_continue
                     } else {
@@ -559,8 +559,8 @@ private fun PermissionsStep(
     ) {
         Spacer(Modifier.height(24.dp))
         OnboardingTitle(
-            title = stringResource(R.string.onboarding_permissions_title),
-            subtitle = stringResource(R.string.onboarding_permissions_subtitle),
+            title = correctedString(R.string.onboarding_permissions_title),
+            subtitle = correctedString(R.string.onboarding_permissions_subtitle),
         )
         Spacer(Modifier.height(24.dp))
 

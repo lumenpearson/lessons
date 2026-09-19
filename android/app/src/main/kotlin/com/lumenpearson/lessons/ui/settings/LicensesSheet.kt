@@ -27,7 +27,6 @@ import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,7 +39,6 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -53,6 +51,8 @@ import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
@@ -90,7 +90,7 @@ fun LicensesSheet(onDismiss: () -> Unit) {
 @Composable
 private fun ColumnScope.LicensesContent() {
     Text(
-        text = stringResource(R.string.licences_title),
+        text = correctedString(R.string.licences_title),
         style = MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.Bold,
         textAlign = TextAlign.Center,
@@ -99,7 +99,7 @@ private fun ColumnScope.LicensesContent() {
             .padding(horizontal = ScreenPadding, vertical = 8.dp),
     )
     Text(
-        text = stringResource(R.string.licences_subtitle),
+        text = correctedString(R.string.licences_subtitle),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
@@ -162,14 +162,14 @@ private fun CreditRow(credit: Credit) {
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     Text(
-                        text = stringResource(credit.name),
+                        text = correctedString(credit.name),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = stringResource(credit.licence),
+                        text = correctedString(credit.licence),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -182,7 +182,7 @@ private fun CreditRow(credit: Credit) {
                 // chevron only says what the tap will do.
                 Icon(
                     imageVector = Icons.Rounded.ExpandMore,
-                    contentDescription = stringResource(
+                    contentDescription = correctedString(
                         if (expanded) R.string.licences_collapse else R.string.licences_expand,
                     ),
                     tint = MaterialTheme.colorScheme.outline,
@@ -198,7 +198,7 @@ private fun CreditRow(credit: Credit) {
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = stringResource(credit.note),
+                        text = correctedString(credit.note),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

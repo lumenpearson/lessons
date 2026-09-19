@@ -23,6 +23,7 @@ import com.lumenpearson.lessons.core.model.DeepLink
 import com.lumenpearson.lessons.navigation.LessonsApp
 import com.lumenpearson.lessons.ui.AppShellViewModel
 import com.lumenpearson.lessons.ui.common.AppLocales
+import com.lumenpearson.lessons.ui.translate.CorrectionHost
 import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -169,12 +170,19 @@ class MainActivity : ComponentActivity() {
                 // has to cross the whole window, and the still it wipes away is
                 // a photograph of the whole window.
                 ThemeRevealHost(state = themeReveal) {
-                    LessonsApp(
-                        signedIn = shell.signedIn,
-                        settings = shell.settings,
-                        openDate = openDate,
-                        onDateOpened = { pendingDate.value = null },
-                    )
+                    // Inside the theme, because the editor it hosts is a
+                    // themed sheet; around everything else, because correction
+                    // mode is meant to reach every screen and every sheet the
+                    // app can put up, and a text block outside this is a text
+                    // block a proofreader cannot fix.
+                    CorrectionHost {
+                        LessonsApp(
+                            signedIn = shell.signedIn,
+                            settings = shell.settings,
+                            openDate = openDate,
+                            onDateOpened = { pendingDate.value = null },
+                        )
+                    }
                 }
             }
         }

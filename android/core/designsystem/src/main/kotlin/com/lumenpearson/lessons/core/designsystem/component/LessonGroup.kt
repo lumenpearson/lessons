@@ -15,10 +15,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.model.Lesson
@@ -93,7 +93,7 @@ private fun NowSeparator(modifier: Modifier = Modifier) {
                 .background(accent),
         )
         PillChip(
-            text = stringResource(R.string.ds_lesson_now),
+            text = correctedString(R.string.ds_lesson_now),
             selected = true,
             containerColor = accent,
             contentColor = MaterialTheme.colorScheme.onPrimary,

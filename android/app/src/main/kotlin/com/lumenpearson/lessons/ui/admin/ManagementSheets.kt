@@ -15,14 +15,12 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.ClassJoinMode
@@ -31,6 +29,8 @@ import com.lumenpearson.lessons.core.data.repository.ManageFailure
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import java.time.DayOfWeek
@@ -148,7 +148,7 @@ fun SheetButtons(
     enabled: Boolean = true,
     busy: Boolean = false,
     destructive: Boolean = false,
-    cancelLabel: String = stringResource(R.string.action_cancel),
+    cancelLabel: String = correctedString(R.string.action_cancel),
 ) {
     Row(
         modifier = modifier
@@ -202,12 +202,12 @@ fun ManagementFailureCard(
     if (failure == null) return
     val detail = failure.detailText()
     EmptyState(
-        title = stringResource(R.string.admin_error_title),
+        title = correctedString(R.string.admin_error_title),
         description = listOfNotNull(failure.asText(), detail).joinToString("\n"),
         modifier = modifier,
         // Only the answers a second press could change get a button. Pressing
         // "повторить" on a 409 asks the same question and is told the same no.
-        actionLabel = stringResource(R.string.admin_retry).takeIf { onRetry != null && failure.isRetryable },
+        actionLabel = correctedString(R.string.admin_retry).takeIf { onRetry != null && failure.isRetryable },
         onActionClick = onRetry.takeIf { failure.isRetryable },
     )
 }
@@ -269,21 +269,21 @@ private val ManageFailure.isRetryable: Boolean
 /** Every refusal this surface can produce, as one sentence each. */
 @Composable
 fun ManageFailure.asText(): String = when (this) {
-    ManageFailure.SignedOut -> stringResource(R.string.admin_error_signed_out)
-    ManageFailure.NotLinked -> stringResource(R.string.admin_error_not_linked)
-    is ManageFailure.RoleLost -> stringResource(R.string.admin_error_role_lost)
-    is ManageFailure.NotAllowed -> stringResource(R.string.admin_error_not_allowed)
-    ManageFailure.NotFound -> stringResource(R.string.admin_error_not_found)
-    is ManageFailure.Refused -> stringResource(R.string.admin_error_refused)
-    is ManageFailure.Invalid -> stringResource(R.string.admin_error_invalid)
+    ManageFailure.SignedOut -> correctedString(R.string.admin_error_signed_out)
+    ManageFailure.NotLinked -> correctedString(R.string.admin_error_not_linked)
+    is ManageFailure.RoleLost -> correctedString(R.string.admin_error_role_lost)
+    is ManageFailure.NotAllowed -> correctedString(R.string.admin_error_not_allowed)
+    ManageFailure.NotFound -> correctedString(R.string.admin_error_not_found)
+    is ManageFailure.Refused -> correctedString(R.string.admin_error_refused)
+    is ManageFailure.Invalid -> correctedString(R.string.admin_error_invalid)
     // The server's own sentence, not ours: a 503 here is a feature that is off
     // on this deployment, and only the server knows which one and what to do
     // instead. Falls back to a generic line for a body without a detail.
     is ManageFailure.Unavailable ->
-        detail?.takeIf { it.isNotBlank() } ?: stringResource(R.string.admin_error_unavailable)
+        detail?.takeIf { it.isNotBlank() } ?: correctedString(R.string.admin_error_unavailable)
 
-    is ManageFailure.Offline -> stringResource(R.string.admin_error_offline)
-    is ManageFailure.Unexpected -> stringResource(
+    is ManageFailure.Offline -> correctedString(R.string.admin_error_offline)
+    is ManageFailure.Unexpected -> correctedString(
         R.string.admin_error_unknown,
         code?.toString() ?: reason?.javaClass?.simpleName.orEmpty(),
     )
@@ -300,71 +300,71 @@ fun ManageFailure.detailText(): String? {
         // this one, and the detail line underneath would say it twice.
         else -> null
     }
-    return detail?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.admin_error_detail, it) }
+    return detail?.takeIf { it.isNotBlank() }?.let { correctedString(R.string.admin_error_detail, it) }
 }
 
 /** What a form is objecting to. */
 @Composable
 fun FormProblem.asText(): String = when (this) {
-    FormProblem.NAME_BLANK -> stringResource(R.string.admin_form_name_blank)
-    FormProblem.NAME_TOO_LONG -> stringResource(R.string.admin_form_name_long)
-    FormProblem.SHORT_NAME_TOO_LONG -> stringResource(R.string.admin_form_short_name_long)
-    FormProblem.TEACHER_TOO_LONG -> stringResource(R.string.admin_form_teacher_long)
-    FormProblem.SCHOOL_TOO_LONG -> stringResource(R.string.admin_form_school_long)
-    FormProblem.CITY_TOO_LONG -> stringResource(R.string.admin_form_city_long)
-    FormProblem.COLOUR_UNREADABLE -> stringResource(R.string.admin_form_colour)
-    FormProblem.NO_PERIODS -> stringResource(R.string.admin_form_no_periods)
-    FormProblem.TOO_MANY_PERIODS -> stringResource(R.string.admin_form_too_many_periods)
-    FormProblem.PERIOD_NUMBER_REPEATED -> stringResource(R.string.admin_form_period_repeated)
-    FormProblem.PERIOD_NUMBER_OUT_OF_RANGE -> stringResource(R.string.admin_form_period_range)
-    FormProblem.PERIOD_ENDS_BEFORE_IT_STARTS -> stringResource(R.string.admin_form_period_backwards)
-    FormProblem.EMPTY_PASTE -> stringResource(R.string.admin_form_paste_empty)
-    FormProblem.PASTE_TOO_LONG -> stringResource(R.string.admin_form_paste_long)
-    FormProblem.NAME_DOES_NOT_MATCH -> stringResource(R.string.admin_form_name_mismatch)
+    FormProblem.NAME_BLANK -> correctedString(R.string.admin_form_name_blank)
+    FormProblem.NAME_TOO_LONG -> correctedString(R.string.admin_form_name_long)
+    FormProblem.SHORT_NAME_TOO_LONG -> correctedString(R.string.admin_form_short_name_long)
+    FormProblem.TEACHER_TOO_LONG -> correctedString(R.string.admin_form_teacher_long)
+    FormProblem.SCHOOL_TOO_LONG -> correctedString(R.string.admin_form_school_long)
+    FormProblem.CITY_TOO_LONG -> correctedString(R.string.admin_form_city_long)
+    FormProblem.COLOUR_UNREADABLE -> correctedString(R.string.admin_form_colour)
+    FormProblem.NO_PERIODS -> correctedString(R.string.admin_form_no_periods)
+    FormProblem.TOO_MANY_PERIODS -> correctedString(R.string.admin_form_too_many_periods)
+    FormProblem.PERIOD_NUMBER_REPEATED -> correctedString(R.string.admin_form_period_repeated)
+    FormProblem.PERIOD_NUMBER_OUT_OF_RANGE -> correctedString(R.string.admin_form_period_range)
+    FormProblem.PERIOD_ENDS_BEFORE_IT_STARTS -> correctedString(R.string.admin_form_period_backwards)
+    FormProblem.EMPTY_PASTE -> correctedString(R.string.admin_form_paste_empty)
+    FormProblem.PASTE_TOO_LONG -> correctedString(R.string.admin_form_paste_long)
+    FormProblem.NAME_DOES_NOT_MATCH -> correctedString(R.string.admin_form_name_mismatch)
 }
 
 /** What just happened, in one line. */
 @Composable
 fun ManagementNotice.asText(): String = when (this) {
-    is ManagementNotice.SubjectAdded -> stringResource(R.string.admin_subject_added, name)
+    is ManagementNotice.SubjectAdded -> correctedString(R.string.admin_subject_added, name)
     is ManagementNotice.SubjectRenamed ->
-        stringResource(R.string.admin_subject_renamed, name, moved)
+        correctedString(R.string.admin_subject_renamed, name, moved)
 
-    is ManagementNotice.SubjectSaved -> stringResource(R.string.admin_subject_saved, name)
-    is ManagementNotice.SubjectDeleted -> stringResource(R.string.admin_subject_deleted, name)
-    ManagementNotice.ClassSaved -> stringResource(R.string.admin_class_saved)
-    is ManagementNotice.JoinModeChanged -> stringResource(
+    is ManagementNotice.SubjectSaved -> correctedString(R.string.admin_subject_saved, name)
+    is ManagementNotice.SubjectDeleted -> correctedString(R.string.admin_subject_deleted, name)
+    ManagementNotice.ClassSaved -> correctedString(R.string.admin_class_saved)
+    is ManagementNotice.JoinModeChanged -> correctedString(
         if (mode == ClassJoinMode.INVITE) {
             R.string.admin_class_join_mode_set_invite
         } else {
             R.string.admin_class_join_mode_set_open
         },
     )
-    is ManagementNotice.BellsSaved -> stringResource(R.string.admin_bells_saved, name)
-    is ManagementNotice.BellsDefault -> stringResource(R.string.admin_bells_default_set, name)
-    is ManagementNotice.BellsDeleted -> stringResource(R.string.admin_bells_deleted, name)
+    is ManagementNotice.BellsSaved -> correctedString(R.string.admin_bells_saved, name)
+    is ManagementNotice.BellsDefault -> correctedString(R.string.admin_bells_default_set, name)
+    is ManagementNotice.BellsDeleted -> correctedString(R.string.admin_bells_deleted, name)
     is ManagementNotice.Imported ->
-        stringResource(R.string.admin_timetable_imported, days, lessons, bells)
+        correctedString(R.string.admin_timetable_imported, days, lessons, bells)
 
-    ManagementNotice.DeviceRevoked -> stringResource(R.string.admin_device_revoked_notice)
-    ManagementNotice.DeviceUnlinked -> stringResource(R.string.admin_device_unlinked_notice)
+    ManagementNotice.DeviceRevoked -> correctedString(R.string.admin_device_revoked_notice)
+    ManagementNotice.DeviceUnlinked -> correctedString(R.string.admin_device_unlinked_notice)
     is ManagementNotice.RequestApproved -> if (role == null) {
-        stringResource(R.string.admin_request_approved_plain, who)
+        correctedString(R.string.admin_request_approved_plain, who)
     } else {
-        stringResource(R.string.admin_request_approved, who, role.roleName())
+        correctedString(R.string.admin_request_approved, who, role.roleName())
     }
 
-    is ManagementNotice.RequestDeclined -> stringResource(R.string.admin_request_declined, who)
+    is ManagementNotice.RequestDeclined -> correctedString(R.string.admin_request_declined, who)
 }
 
 /** A role, as the bot names it. */
 @Composable
 fun ClassRole?.roleName(): String = when (this) {
-    ClassRole.VIEWER -> stringResource(R.string.admin_role_name_viewer)
-    ClassRole.EDITOR -> stringResource(R.string.admin_role_name_editor)
-    ClassRole.ADMIN -> stringResource(R.string.admin_role_name_admin)
-    ClassRole.OWNER -> stringResource(R.string.admin_role_name_owner)
-    null -> stringResource(R.string.admin_role_name_unknown)
+    ClassRole.VIEWER -> correctedString(R.string.admin_role_name_viewer)
+    ClassRole.EDITOR -> correctedString(R.string.admin_role_name_editor)
+    ClassRole.ADMIN -> correctedString(R.string.admin_role_name_admin)
+    ClassRole.OWNER -> correctedString(R.string.admin_role_name_owner)
+    null -> correctedString(R.string.admin_role_name_unknown)
 }
 
 /**

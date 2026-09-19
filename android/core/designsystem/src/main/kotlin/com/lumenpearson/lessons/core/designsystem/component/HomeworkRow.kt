@@ -12,16 +12,16 @@ import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
@@ -121,7 +121,7 @@ fun HomeworkRow(
                         modifier = Modifier.size(16.dp),
                     )
                     Text(
-                        text = stringResource(R.string.ds_homework_attachment),
+                        text = correctedString(R.string.ds_homework_attachment),
                         style = MaterialTheme.typography.labelLarge,
                         color = tone.content,
                     )
@@ -136,7 +136,7 @@ fun HomeworkRow(
 private fun HomeworkRowPreview() {
     LessonsTheme {
         Column(modifier = Modifier.padding(16.dp)) {
-            SectionHeader(title = stringResource(R.string.ds_homework_title))
+            SectionHeader(title = correctedString(R.string.ds_homework_title))
             RoundedCardContainer {
                 HomeworkRow(item = PreviewData.homework, onOpenAttachment = {})
                 HomeworkRow(item = PreviewData.homeworkWithoutAttachment)

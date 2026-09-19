@@ -19,7 +19,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -31,6 +30,7 @@ import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.component.SegmentedPicker
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
@@ -39,7 +39,6 @@ import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.ui.common.asRelativeDayLabel
 import com.lumenpearson.lessons.ui.common.asText
-import com.lumenpearson.lessons.ui.translate.Correctable
 
 /**
  * Every piece of homework the cache knows about, grouped by the day it is due.
@@ -100,13 +99,7 @@ fun HomeworkScreen(
                 verticalArrangement = Arrangement.spacedBy(GroupSpacing),
             ) {
                 item(key = "header") {
-                    // Two of this screen's strings are wrapped as a worked
-                    // example of correction mode reaching ordinary UI: the
-                    // header renders whatever the reader has corrected the
-                    // title to, and a long press on it opens the editor.
-                    Correctable(R.string.homework_title) { title ->
-                        ScreenHeader(title = title)
-                    }
+                    ScreenHeader(title = correctedString(R.string.homework_title))
                 }
 
                 item(key = "filter") {
@@ -121,16 +114,14 @@ fun HomeworkScreen(
                     item(key = "skeleton") { SkeletonGroup() }
                 } else if (state.groups.isEmpty()) {
                     item(key = "empty") {
-                        Correctable(R.string.homework_empty_title) { title ->
-                            EmptyState(
-                                title = title,
-                                description = if (state.onlyUpcoming && state.hiddenCount > 0) {
-                                    stringResource(R.string.homework_empty_filtered_description)
-                                } else {
-                                    stringResource(R.string.homework_empty_description)
-                                },
-                            )
-                        }
+                        EmptyState(
+                            title = correctedString(R.string.homework_empty_title),
+                            description = if (state.onlyUpcoming && state.hiddenCount > 0) {
+                                correctedString(R.string.homework_empty_filtered_description)
+                            } else {
+                                correctedString(R.string.homework_empty_description)
+                            },
+                        )
                     }
                 } else {
                     items(
@@ -175,9 +166,9 @@ private fun HomeworkFilterRow(
     modifier: Modifier = Modifier,
 ) {
     val allLabel = if (hiddenCount > 0) {
-        stringResource(R.string.homework_filter_all_with_count, hiddenCount)
+        correctedString(R.string.homework_filter_all_with_count, hiddenCount)
     } else {
-        stringResource(R.string.homework_filter_all)
+        correctedString(R.string.homework_filter_all)
     }
 
     SegmentedPicker(
@@ -185,7 +176,7 @@ private fun HomeworkFilterRow(
         selectedItem = onlyUpcoming,
         onItemSelected = onSelect,
         labelProvider = { upcoming ->
-            if (upcoming) stringResource(R.string.homework_filter_upcoming) else allLabel
+            if (upcoming) correctedString(R.string.homework_filter_upcoming) else allLabel
         },
         modifier = modifier.padding(horizontal = ScreenPadding, vertical = 8.dp),
     )

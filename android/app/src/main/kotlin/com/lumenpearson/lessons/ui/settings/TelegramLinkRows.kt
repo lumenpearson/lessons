@@ -19,7 +19,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
@@ -28,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.toClipEntry
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
@@ -37,6 +35,8 @@ import com.lumenpearson.lessons.core.data.repository.DeviceLink
 import com.lumenpearson.lessons.core.designsystem.component.GroupActionItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -59,7 +59,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.telegramLinkRows(
     onRefresh: () -> Unit,
     onUnlink: () -> Unit,
 ) = item(key = "telegram_link") {
-    SettingsGroup(title = stringResource(R.string.telegram_group)) {
+    SettingsGroup(title = correctedString(R.string.telegram_group)) {
         when (state) {
             DeviceLinkState.Idle, is DeviceLinkState.Loading -> {
                 val known = (state as? DeviceLinkState.Loading)?.known
@@ -67,7 +67,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.telegramLinkRows(
                     LinkBody(known, busy = true, onRefresh = onRefresh, onUnlink = onUnlink)
                 } else {
                     GroupItem(
-                        title = stringResource(R.string.telegram_checking),
+                        title = correctedString(R.string.telegram_checking),
                         icon = Icons.Rounded.Link,
                         tone = accentTone(0),
                         trailing = { LoadingIndicator(modifier = Modifier.size(24.dp)) },
@@ -85,14 +85,14 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.telegramLinkRows(
                     LinkBody(state.known, busy = false, onRefresh = onRefresh, onUnlink = onUnlink)
                 }
                 GroupItem(
-                    title = stringResource(R.string.telegram_check_failed),
+                    title = correctedString(R.string.telegram_check_failed),
                     subtitle = state.cause.message?.takeIf { it.isNotBlank() }
-                        ?: stringResource(R.string.sync_error_generic),
+                        ?: correctedString(R.string.sync_error_generic),
                     icon = Icons.Rounded.LinkOff,
                     tone = errorTone(),
                 )
                 GroupActionItem(
-                    label = stringResource(R.string.telegram_retry),
+                    label = correctedString(R.string.telegram_retry),
                     icon = Icons.Rounded.Refresh,
                     onClick = onRefresh,
                 )
@@ -119,18 +119,18 @@ private fun LinkBody(
 private fun LinkedRows(link: DeviceLink, busy: Boolean, onUnlink: () -> Unit) {
     val role = link.role
     val subtitle = when {
-        role == null -> stringResource(R.string.telegram_linked_no_membership)
-        link.canEdit -> stringResource(R.string.telegram_linked_can_edit, stringResource(role.labelRes))
-        else -> stringResource(R.string.telegram_linked_read_only, stringResource(role.labelRes))
+        role == null -> correctedString(R.string.telegram_linked_no_membership)
+        link.canEdit -> correctedString(R.string.telegram_linked_can_edit, correctedString(role.labelRes))
+        else -> correctedString(R.string.telegram_linked_read_only, correctedString(role.labelRes))
     }
     GroupItem(
-        title = stringResource(R.string.telegram_linked),
+        title = correctedString(R.string.telegram_linked),
         subtitle = subtitle,
         icon = Icons.Rounded.Link,
         tone = accentTone(0),
     )
     GroupActionItem(
-        label = stringResource(R.string.telegram_unlink),
+        label = correctedString(R.string.telegram_unlink),
         icon = Icons.Rounded.LinkOff,
         onClick = onUnlink,
         enabled = !busy,
@@ -143,12 +143,12 @@ private fun UnlinkedRows(link: DeviceLink, busy: Boolean, onRefresh: () -> Unit)
     val uriHandler = LocalUriHandler.current
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
-    val clipLabel = stringResource(R.string.telegram_clipboard_label)
+    val clipLabel = correctedString(R.string.telegram_clipboard_label)
     val code = link.linkCode
 
     GroupItem(
-        title = stringResource(R.string.telegram_not_linked),
-        subtitle = stringResource(R.string.telegram_not_linked_description),
+        title = correctedString(R.string.telegram_not_linked),
+        subtitle = correctedString(R.string.telegram_not_linked_description),
         icon = Icons.Rounded.LinkOff,
         tone = accentTone(0),
     )
@@ -157,8 +157,8 @@ private fun UnlinkedRows(link: DeviceLink, busy: Boolean, onRefresh: () -> Unit)
         // in the row's own weight rather than tucked into a subtitle - and it
         // copies with one tap, because "I mistyped it" is the failure mode.
         GroupItem(
-            title = stringResource(R.string.telegram_code_title),
-            subtitle = stringResource(R.string.telegram_code_hint, code),
+            title = correctedString(R.string.telegram_code_title),
+            subtitle = correctedString(R.string.telegram_code_hint, code),
             icon = Icons.Rounded.Send,
             tone = accentTone(2),
             trailing = {
@@ -178,7 +178,7 @@ private fun UnlinkedRows(link: DeviceLink, busy: Boolean, onRefresh: () -> Unit)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.ContentCopy,
-                            contentDescription = stringResource(R.string.telegram_copy_code),
+                            contentDescription = correctedString(R.string.telegram_copy_code),
                         )
                     }
                 }
@@ -187,7 +187,7 @@ private fun UnlinkedRows(link: DeviceLink, busy: Boolean, onRefresh: () -> Unit)
         val deepLink = link.botDeepLink
         if (deepLink != null) {
             GroupActionItem(
-                label = stringResource(R.string.telegram_open_bot),
+                label = correctedString(R.string.telegram_open_bot),
                 icon = Icons.Rounded.OpenInNew,
                 // A phone with no browser and no Telegram throws here; an
                 // ornament must not take the settings page down with it.
@@ -197,7 +197,7 @@ private fun UnlinkedRows(link: DeviceLink, busy: Boolean, onRefresh: () -> Unit)
         }
     }
     GroupActionItem(
-        label = stringResource(R.string.telegram_check_again),
+        label = correctedString(R.string.telegram_check_again),
         icon = Icons.Rounded.Refresh,
         onClick = onRefresh,
         enabled = !busy,
@@ -210,10 +210,10 @@ private fun UnlinkedRows(link: DeviceLink, busy: Boolean, onRefresh: () -> Unit)
 internal fun UnlinkSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     LessonsBottomSheet(
         onDismissRequest = onDismiss,
-        title = stringResource(R.string.telegram_unlink_title),
+        title = correctedString(R.string.telegram_unlink_title),
     ) {
         Text(
-            text = stringResource(R.string.telegram_unlink_message),
+            text = correctedString(R.string.telegram_unlink_message),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = ScreenPadding),
@@ -225,7 +225,7 @@ internal fun UnlinkSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
         ) {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.action_cancel))
+                Text(text = correctedString(R.string.action_cancel))
             }
             Button(
                 onClick = onConfirm,
@@ -234,7 +234,7 @@ internal fun UnlinkSheet(onDismiss: () -> Unit, onConfirm: () -> Unit) {
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 ),
             ) {
-                Text(text = stringResource(R.string.telegram_unlink))
+                Text(text = correctedString(R.string.telegram_unlink))
             }
         }
     }

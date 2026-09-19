@@ -10,17 +10,17 @@ import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.QueryStats
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.ClassStats
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
@@ -44,7 +44,7 @@ fun StatsSheet(
     val stats = state.stats.value
 
     ManagementSheet(
-        title = stringResource(R.string.admin_stats_title),
+        title = correctedString(R.string.admin_stats_title),
         onDismiss = onDismiss,
         modifier = modifier,
     ) {
@@ -67,24 +67,24 @@ fun StatsSheet(
 
 @Composable
 private fun StatsBody(stats: ClassStats) {
-    stats.today?.let { SheetNote(text = stringResource(R.string.admin_stats_today, it.asDayMonth())) }
+    stats.today?.let { SheetNote(text = correctedString(R.string.admin_stats_today, it.asDayMonth())) }
 
     RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
         NumberRow(
-            title = stringResource(R.string.admin_stats_lessons_per_week),
+            title = correctedString(R.string.admin_stats_lessons_per_week),
             value = stats.lessonsPerWeek.asHours(),
             icon = Icons.Rounded.Schedule,
             tone = 0,
         )
         NumberRow(
-            title = stringResource(R.string.admin_stats_subjects_count),
+            title = correctedString(R.string.admin_stats_subjects_count),
             value = stats.subjectsCount.toString(),
             icon = Icons.AutoMirrored.Rounded.MenuBook,
             tone = 1,
         )
         NumberRow(
-            title = stringResource(R.string.admin_stats_homework),
-            value = stringResource(
+            title = correctedString(R.string.admin_stats_homework),
+            value = correctedString(
                 R.string.admin_stats_homework_value,
                 stats.homeworkOpen,
                 stats.homeworkTotal,
@@ -93,19 +93,19 @@ private fun StatsBody(stats: ClassStats) {
             tone = 2,
         )
         NumberRow(
-            title = stringResource(R.string.admin_stats_devices),
+            title = correctedString(R.string.admin_stats_devices),
             value = stats.devicesActive.toString(),
             icon = Icons.Rounded.PhoneAndroid,
             tone = 3,
         )
         NumberRow(
-            title = stringResource(R.string.admin_stats_overrides),
+            title = correctedString(R.string.admin_stats_overrides),
             value = stats.overridesUpcoming.toString(),
             icon = Icons.Rounded.CalendarMonth,
             tone = 4,
         )
         NumberRow(
-            title = stringResource(R.string.admin_stats_events),
+            title = correctedString(R.string.admin_stats_events),
             value = stats.eventsUpcoming.toString(),
             icon = Icons.Rounded.Event,
             tone = 5,
@@ -113,7 +113,7 @@ private fun StatsBody(stats: ClassStats) {
     }
 
     if (stats.membersByRole.isNotEmpty()) {
-        SheetSection(title = stringResource(R.string.admin_stats_members))
+        SheetSection(title = correctedString(R.string.admin_stats_members))
         RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
             // Strongest first, which is the order the bot lists them in and the
             // order somebody looking for "who can delete my class" reads.
@@ -130,13 +130,13 @@ private fun StatsBody(stats: ClassStats) {
 
     if (stats.subjects.isEmpty()) {
         EmptyState(
-            title = stringResource(R.string.admin_stats_empty_title),
-            description = stringResource(R.string.admin_stats_empty_text),
+            title = correctedString(R.string.admin_stats_empty_title),
+            description = correctedString(R.string.admin_stats_empty_text),
             icon = Icons.Rounded.QueryStats,
             modifier = Modifier.padding(horizontal = ScreenPadding),
         )
     } else {
-        SheetSection(title = stringResource(R.string.admin_stats_hours_section))
+        SheetSection(title = correctedString(R.string.admin_stats_hours_section))
         RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
             stats.subjects.forEach { subject ->
                 GroupItem(
@@ -144,7 +144,7 @@ private fun StatsBody(stats: ClassStats) {
                     tone = subjectTone(subject.name),
                     trailing = {
                         Text(
-                            text = stringResource(
+                            text = correctedString(
                                 R.string.admin_stats_hours,
                                 subject.hours.asHours(),
                             ),

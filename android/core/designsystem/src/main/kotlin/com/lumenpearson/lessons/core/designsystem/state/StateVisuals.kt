@@ -17,8 +17,8 @@ import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import com.lumenpearson.lessons.core.designsystem.R
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -67,15 +67,15 @@ fun DayState.visuals(): StateVisuals = when (this) {
     // Waiting for the day to start: the calm, non-academic green — nothing is
     // demanded of the reader yet.
     is DayState.BeforeSchool -> StateVisuals(
-        label = stringResource(R.string.ds_state_before_school),
-        detail = stringResource(R.string.ds_state_first_subject, next.subject),
+        label = correctedString(R.string.ds_state_before_school),
+        detail = correctedString(R.string.ds_state_first_subject, next.subject),
         tone = accentTone(SlotMorning),
         icon = Icons.Rounded.Schedule,
     )
 
     // A lesson is the app's subject matter, so it gets the scheme's own hue.
     is DayState.InLesson -> StateVisuals(
-        label = stringResource(R.string.ds_state_in_lesson),
+        label = correctedString(R.string.ds_state_in_lesson),
         detail = current.subject,
         tone = accentTone(SlotLesson),
         icon = Icons.AutoMirrored.Rounded.MenuBook,
@@ -83,14 +83,14 @@ fun DayState.visuals(): StateVisuals = when (this) {
 
     // Warm amber: the one moment in the school day that belongs to the pupil.
     is DayState.OnBreak -> StateVisuals(
-        label = stringResource(R.string.ds_state_break),
-        detail = stringResource(R.string.ds_state_next_subject, next.subject),
+        label = correctedString(R.string.ds_state_break),
+        detail = correctedString(R.string.ds_state_next_subject, next.subject),
         tone = accentTone(SlotBreak),
         icon = Icons.Rounded.FreeBreakfast,
     )
 
     is DayState.DuringEvent -> StateVisuals(
-        label = stringResource(event.kind.labelRes()),
+        label = correctedString(event.kind.labelRes()),
         detail = event.title,
         tone = event.kind.tone(),
         icon = event.kind.icon(),
@@ -99,17 +99,17 @@ fun DayState.visuals(): StateVisuals = when (this) {
     // Nothing is running any more, so the state steps back to a neutral tile and
     // lets the homework list below it take the attention.
     is DayState.AfterSchool -> StateVisuals(
-        label = stringResource(R.string.ds_state_after_school),
-        detail = finishedAt?.let { stringResource(R.string.ds_state_finished_at, it.formatHm()) },
+        label = correctedString(R.string.ds_state_after_school),
+        detail = finishedAt?.let { correctedString(R.string.ds_state_finished_at, it.formatHm()) },
         tone = neutralTone(),
         icon = Icons.Rounded.School,
     )
 
     is DayState.DayOff -> StateVisuals(
-        label = stringResource(kind.dayOffLabelRes()),
+        label = correctedString(kind.dayOffLabelRes()),
         detail = note ?: when {
-            homeworkDay != null -> stringResource(R.string.ds_state_homework_ready)
-            else -> stringResource(R.string.ds_state_day_off_detail)
+            homeworkDay != null -> correctedString(R.string.ds_state_homework_ready)
+            else -> correctedString(R.string.ds_state_day_off_detail)
         },
         tone = accentTone(SlotDayOff),
         icon = kind.dayOffIcon(),
@@ -117,8 +117,8 @@ fun DayState.visuals(): StateVisuals = when (this) {
 
     // Muted: an empty state must not look like a real state.
     is DayState.NoData -> StateVisuals(
-        label = stringResource(R.string.ds_state_no_data),
-        detail = stringResource(R.string.ds_state_no_data_detail),
+        label = correctedString(R.string.ds_state_no_data),
+        detail = correctedString(R.string.ds_state_no_data_detail),
         tone = neutralTone(),
         icon = Icons.Rounded.CloudOff,
     )

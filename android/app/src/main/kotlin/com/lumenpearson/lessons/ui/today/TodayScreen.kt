@@ -15,7 +15,6 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,7 +22,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,6 +38,8 @@ import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
 import com.lumenpearson.lessons.core.designsystem.component.StateHeroCard
 import com.lumenpearson.lessons.core.designsystem.state.icon
 import com.lumenpearson.lessons.core.designsystem.state.tone
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
@@ -113,7 +113,7 @@ fun TodayScreen(
             ) {
                 item(key = "header") {
                     ScreenHeader(
-                        title = stringResource(R.string.today_title),
+                        title = correctedString(R.string.today_title),
                         subtitle = state.className,
                     )
                 }
@@ -168,9 +168,9 @@ fun TodayScreen(
 private fun LazyListScope.lessonsSection(state: TodayUiState) {
     item(key = "lessons") {
         val title = if (state.wholeDay) {
-            stringResource(R.string.today_lessons_all)
+            correctedString(R.string.today_lessons_all)
         } else {
-            stringResource(R.string.today_lessons_remaining)
+            correctedString(R.string.today_lessons_remaining)
         }
         SectionHeaderedGroup(title = title) {
             when {
@@ -185,18 +185,18 @@ private fun LazyListScope.lessonsSection(state: TodayUiState) {
                 )
 
                 state.state is DayState.NoData -> EmptyState(
-                    title = stringResource(R.string.today_no_data_title),
-                    description = stringResource(R.string.today_no_data_description),
+                    title = correctedString(R.string.today_no_data_title),
+                    description = correctedString(R.string.today_no_data_description),
                 )
 
                 state.today?.hasLessons == true -> EmptyState(
-                    title = stringResource(R.string.today_lessons_over_title),
-                    description = stringResource(R.string.today_lessons_over_description),
+                    title = correctedString(R.string.today_lessons_over_title),
+                    description = correctedString(R.string.today_lessons_over_description),
                 )
 
                 else -> EmptyState(
-                    title = stringResource(R.string.today_no_lessons_title),
-                    description = stringResource(R.string.today_no_lessons_description),
+                    title = correctedString(R.string.today_no_lessons_title),
+                    description = correctedString(R.string.today_no_lessons_description),
                 )
             }
         }
@@ -208,7 +208,7 @@ private fun LazyListScope.eventsSection(state: TodayUiState) {
     if (!state.showEvents || state.events.isEmpty()) return
 
     item(key = "events") {
-        SectionHeaderedGroup(title = stringResource(R.string.today_events)) {
+        SectionHeaderedGroup(title = correctedString(R.string.today_events)) {
             RoundedCardContainer {
                 state.events.forEach { event ->
                     GroupItem(
@@ -237,7 +237,7 @@ private fun LazyListScope.homeworkSection(state: TodayUiState, onOpenHomework: (
     if (day.homework.isEmpty()) return
 
     item(key = "homework") {
-        val title = stringResource(
+        val title = correctedString(
             R.string.today_homework_for,
             day.date.asRelativeDayLabel(state.now.toLocalDate()),
         )
@@ -250,7 +250,7 @@ private fun LazyListScope.homeworkSection(state: TodayUiState, onOpenHomework: (
                 // button under it: it is one more thing to read, in the same list.
                 if (day.homework.size > state.homeworkPreview) {
                     GroupItem(
-                        title = stringResource(
+                        title = correctedString(
                             R.string.today_homework_more,
                             day.homework.size - state.homeworkPreview,
                         ),

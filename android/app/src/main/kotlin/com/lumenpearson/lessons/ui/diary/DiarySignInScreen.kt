@@ -19,7 +19,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,7 +26,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -40,6 +38,8 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupActionItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupRow
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
@@ -104,13 +104,13 @@ fun DiarySignInScreen(
         verticalArrangement = Arrangement.spacedBy(GroupSpacing),
     ) {
         ScreenHeader(
-            title = stringResource(
+            title = correctedString(
                 if (reauth) R.string.diary_reauth_title else R.string.diary_sign_in_title,
             ),
             subtitle = if (reauth) {
-                stringResource(R.string.diary_reauth_message, knownLogin)
+                correctedString(R.string.diary_reauth_message, knownLogin)
             } else {
-                stringResource(R.string.diary_sign_in_subtitle)
+                correctedString(R.string.diary_sign_in_subtitle)
             },
         )
 
@@ -123,7 +123,7 @@ fun DiarySignInScreen(
                         onEdited()
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.diary_login_label)) },
+                    label = { Text(correctedString(R.string.diary_login_label)) },
                     singleLine = true,
                     // The login is not asked for again on a re-auth: it is
                     // already known, and a field that can be changed there
@@ -145,7 +145,7 @@ fun DiarySignInScreen(
                         onEdited()
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.diary_password_label)) },
+                    label = { Text(correctedString(R.string.diary_password_label)) },
                     singleLine = true,
                     enabled = !busy,
                     isError = failed,
@@ -162,7 +162,7 @@ fun DiarySignInScreen(
                                 } else {
                                     Icons.Rounded.Visibility
                                 },
-                                contentDescription = stringResource(
+                                contentDescription = correctedString(
                                     if (revealed) {
                                         R.string.diary_password_hide
                                     } else {
@@ -181,7 +181,7 @@ fun DiarySignInScreen(
             }
 
             GroupActionItem(
-                label = stringResource(R.string.diary_sign_in_action),
+                label = correctedString(R.string.diary_sign_in_action),
                 icon = Icons.AutoMirrored.Rounded.Login,
                 enabled = canSubmit,
                 busy = busy,
@@ -196,7 +196,7 @@ fun DiarySignInScreen(
             GroupRow(verticalAlignment = Alignment.Top) {
                 AccentIconTile(icon = Icons.Rounded.Lock, tone = accentTone(1))
                 Text(
-                    text = stringResource(R.string.diary_password_notice),
+                    text = correctedString(R.string.diary_password_notice),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -215,6 +215,6 @@ fun DiarySignInScreen(
  */
 @Composable
 internal fun DiaryFailure.asSignInText(): String = when (this) {
-    DiaryFailure.SignInRequired -> stringResource(R.string.diary_error_credentials)
+    DiaryFailure.SignInRequired -> correctedString(R.string.diary_error_credentials)
     else -> asText()
 }

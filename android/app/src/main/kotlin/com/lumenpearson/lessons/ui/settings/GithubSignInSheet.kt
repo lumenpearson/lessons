@@ -26,7 +26,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.toClipEntry
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,6 +51,8 @@ import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
@@ -109,7 +109,7 @@ private fun ColumnScope.GithubSignInContent(
     onRetry: () -> Unit,
 ) {
     Text(
-        text = stringResource(R.string.github_sign_in_title),
+        text = correctedString(R.string.github_sign_in_title),
         style = MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.Bold,
         textAlign = TextAlign.Center,
@@ -137,7 +137,7 @@ private fun ColumnScope.RequestingBlock() {
     Spacer(Modifier.height(StatusGap))
     CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
     Text(
-        text = stringResource(R.string.github_requesting),
+        text = correctedString(R.string.github_requesting),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
@@ -162,7 +162,7 @@ private fun ColumnScope.AwaitingBlock(
     val view = rememberHapticView()
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
-    val clipLabel = stringResource(R.string.github_clipboard_label)
+    val clipLabel = correctedString(R.string.github_clipboard_label)
 
     // Android 13 and later show their own "copied" toast; earlier versions
     // show nothing, so the button says it itself for a moment. Keyed on the
@@ -210,7 +210,7 @@ private fun ColumnScope.AwaitingBlock(
             modifier = Modifier.size(ButtonDefaults.IconSize),
         )
         Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-        Text(text = stringResource(if (copied) R.string.github_copied else R.string.github_copy))
+        Text(text = correctedString(if (copied) R.string.github_copied else R.string.github_copy))
     }
 
     Spacer(Modifier.height(StepGap))
@@ -226,7 +226,7 @@ private fun ColumnScope.AwaitingBlock(
             .padding(horizontal = ScreenPadding)
             .height(PillHeight),
     ) {
-        Text(text = stringResource(R.string.github_open_login))
+        Text(text = correctedString(R.string.github_open_login))
     }
 
     WaitingLine()
@@ -237,7 +237,7 @@ private fun ColumnScope.AwaitingBlock(
 @Composable
 private fun StepLabel(@StringRes text: Int) {
     Text(
-        text = stringResource(text),
+        text = correctedString(text),
         style = MaterialTheme.typography.titleMedium,
         textAlign = TextAlign.Center,
         modifier = Modifier
@@ -260,7 +260,7 @@ private fun ColumnScope.WaitingLine() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = stringResource(R.string.github_waiting),
+            text = correctedString(R.string.github_waiting),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -295,9 +295,9 @@ private fun ExpiryLine(expiresAtMillis: Long) {
 
     Text(
         text = if (minutesLeft > 0) {
-            stringResource(R.string.github_code_valid, minutesLeft)
+            correctedString(R.string.github_code_valid, minutesLeft)
         } else {
-            stringResource(R.string.github_code_expiring)
+            correctedString(R.string.github_code_expiring)
         },
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.outline,
@@ -322,7 +322,7 @@ private fun ColumnScope.SignedInBlock(
         modifier = Modifier.align(Alignment.CenterHorizontally),
     )
     Text(
-        text = stringResource(R.string.github_signed_in_as, account.login),
+        text = correctedString(R.string.github_signed_in_as, account.login),
         style = MaterialTheme.typography.titleMedium,
         textAlign = TextAlign.Center,
         maxLines = 1,
@@ -343,7 +343,7 @@ private fun ColumnScope.SignedInBlock(
             .padding(horizontal = ScreenPadding)
             .height(PillHeight),
     ) {
-        Text(text = stringResource(R.string.github_done))
+        Text(text = correctedString(R.string.github_done))
     }
 }
 
@@ -370,7 +370,7 @@ private fun ColumnScope.FailedBlock(
         modifier = Modifier.align(Alignment.CenterHorizontally),
     )
     Text(
-        text = stringResource(R.string.github_failed_title),
+        text = correctedString(R.string.github_failed_title),
         style = MaterialTheme.typography.titleLarge,
         textAlign = TextAlign.Center,
         modifier = Modifier
@@ -378,7 +378,7 @@ private fun ColumnScope.FailedBlock(
             .padding(horizontal = ScreenPadding),
     )
     Text(
-        text = stringResource(explanationFor(reason)),
+        text = correctedString(explanationFor(reason)),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
@@ -398,7 +398,7 @@ private fun ColumnScope.FailedBlock(
             .padding(horizontal = ScreenPadding)
             .height(PillHeight),
     ) {
-        Text(text = stringResource(R.string.github_retry))
+        Text(text = correctedString(R.string.github_retry))
     }
 }
 
