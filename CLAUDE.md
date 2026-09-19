@@ -44,7 +44,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 1461 tests, about five minutes; `-n auto` puts them on
+- **`python -m pytest -q`** — 1463 tests, about five minutes; `-n auto` puts them on
   every core and finishes in a third of that, which is what CI runs
 - **`python -m mypy`** — one question, of all 81 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every

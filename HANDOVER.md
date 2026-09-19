@@ -30,8 +30,10 @@ one refresh and then nothing until the next cold start — `schedulePeriodic`'s 
 watches the interval, and a re-join moves no interval, so the re-arm moved into
 `SessionEffects`. The `304` path stopped re-reading the whole cached year to re-derive an
 alarm it almost always finds already armed, and asks `FLAG_NO_CREATE` instead; what that
-gives up is written where the decision is. And the alarm chain and the change fingerprint now
-read a fortnight rather than a year, through `snapshotAroundToday` — the bounded read that
+gives up is written where the decision is. And the alarm chain, the change fingerprint and
+both of the widget's reads — the redraw and the tick scheduler that arms it, which is the most
+frequent read there is — now take a fortnight rather than a year, through `snapshotAroundToday`,
+the bounded read that
 `docs/` said could not be written, because `schoolDayAfter` has to reach September from July;
 it is resolved in SQL beyond the bound and handed over as `nextSchoolDay`. Separately,
 `PeriodsForm` keeps its six bell times through a rotation, and `StabilityPromiseTest` is no
@@ -113,7 +115,7 @@ section 7: the widget's tick cadence, and whether the diary credential should ca
 
 Gates on the whole tree at `5f28072`: `ruff` clean, `python -m mypy` clean across all 81
 modules, `pytest -q -n auto` 1461 passed; `./gradlew test assembleDebug assembleRelease`
-successful with 701 Android tests across 88 classes and 0 failures.
+successful with 709 Android tests across 90 classes and 0 failures.
 
 **What nothing has verified.** None of the Android work has run on a real phone: the `304`
 path is a claim about battery that only a device can confirm, `BellRowsRotationTest` uses
@@ -336,9 +338,9 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && python -m pytest -q -n auto                # 1461 tests, ~1.5 min
+cd server  && python -m pytest -q -n auto                # 1463 tests, ~1.5 min
 cd server  && python -m mypy                             # clean, 81 modules
-cd android && ./gradlew test                             # 701 tests
+cd android && ./gradlew test                             # 709 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
