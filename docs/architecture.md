@@ -47,7 +47,7 @@ mutates it:
 | --- | --- | --- |
 | Weekly template | `timetable_entries` | weekday + lesson number + week parity |
 | Bell times | `bell_schedules` / `bell_periods` | named sets, e.g. "Обычное", "Сокращённое" |
-| Замена / отмена | `lesson_overrides` | one date, one lesson number |
+| Substitution or cancellation («замена») | `lesson_overrides` | one date, one lesson number |
 | Holiday, shortened day | `day_overrides` | one date |
 | Event | `day_events` | one date, a time range |
 | Homework | `homework` | the date it is **due** |
@@ -148,9 +148,9 @@ re-arms the chain from scratch anyway. The chain is re-armed on boot, on
 the alert preferences change, and once per cold start, because a missed broadcast
 should cost one launch rather than a reinstall.
 
-The one alert with no clock behind it is "расписание изменилось": each sync
-fingerprints the next seven days — index, subject, start, room, cancelled,
-replaced — and compares it against the previous one. The first sync sets the
+The one alert with no clock behind it is «расписание изменилось» — the timetable has
+changed. Each sync fingerprints the next seven days — index, subject, start, room,
+cancelled, replaced — and compares that against the previous one. The first sync sets the
 baseline and says nothing.
 
 ## What we took from Essentials, and what we changed
@@ -173,95 +173,93 @@ repositories from entry points Hilt does not inject cleanly, and Room already
 costs one KSP processor. `Graph` is a small hand-written container that a test
 can swap wholesale.
 
-## Слой сервисов, и почему телефон не логинится
+## The service layer, and why the phone does not log in
 
-`server/app/services/` — семнадцать модулей чистых async-функций над сессией, и
-существуют они ровно потому, что у каждой функции продукта теперь два входа:
-бот и приложение. Домашка добавляется командой в чате и кнопкой на телефоне;
-замена, событие, особый день — тоже. Две реализации одного правила разошлись бы
-в первый же месяц, поэтому правило одно, а handler'ы и endpoint'ы — две тонкие
-оболочки над ним: журнал изменений, привязка устройств, личные задачи, отметки
-о сделанной домашке, напоминания и их идемпотентность, рассылка подписчикам,
-лента календаря, статистика, экспорт и импорт расписания.
+`server/app/services/` is seventeen modules of pure async functions over a session, and
+they exist for exactly one reason: every feature of the product now has two entrances, the
+bot and the app. Homework is added by a command in a chat and by a button on a phone; so
+are a substitution, an event and a special day. Two implementations of one rule would have
+drifted apart inside a month, so there is one rule and the handlers and endpoints are two
+thin shells over it — the change log, device linking, personal tasks, ticking homework off,
+reminders and their idempotence, the broadcast to subscribers, the calendar feed, the
+statistics, and the timetable export and import.
 
-Прав у телефона своих нет — и это главное решение этого слоя. Устройство
-получает от сервера шестисимвольный код, человек отправляет его боту, и с этого
-момента токен устройства привязан к Telegram-аккаунту. У класса, который
-пускает телефоны только по личным приглашениям (`join_mode`), этого шага нет
-вовсе: код на вход выдаёт бот тому, кого уже узнал, так что телефон оказывается
-привязан в тот же момент, когда подключается. Любая запись с телефона
-проверяется так: найти аккаунт по токену, спросить его роль **в этом классе в
-момент запроса** (`linking.effective_role`), сравнить с EDITOR. Ни роли, ни
-срока действия на устройстве не хранится, потому что хранить нечего: отозвали
-человека в боте — следующее нажатие в приложении получает 403. Отвязка
-устройства не трогает сам токен: приложение продолжает читать расписание, как
-читало до привязки.
+**A phone has no rights of its own**, and that is the central decision of this layer. The
+device gets a six-character code from the server, the person sends it to the bot, and from
+that moment the device token is bound to a Telegram account. A class that lets phones in
+only by personal invitation (`join_mode`) does not have that step at all: the bot hands the
+join code to somebody it already recognises, so the phone is bound at the very moment it
+connects. Every write from a phone is checked like this: find the account by the token, ask
+for its role **in this class at the moment of the request** (`linking.effective_role`),
+compare it against EDITOR. Neither a role nor an expiry is stored on the device, because
+there is nothing to store: revoke somebody in the bot and the next press in the app gets a
+403. Unlinking a device does not touch the token itself — the app goes on reading the
+timetable exactly as it did before it was linked.
 
-У сервера нет своих часов: на serverless между запросами не выполняется ничего.
-Поэтому сводки шлёт внешний тик (`/api/v1/cron/tick` каждые пять минут из
-стороннего планировщика), который спрашивает у базы «что созрело по часам своего
-класса и ещё не отправлено сегодня». Отметка о отправке ставится **до**
-отправки: тик, упавший посередине, не рассылает сводку дважды, а опоздавший на
-десять минут — досылает. Расписание GitHub Actions на этой роли не годится и
-измерено: вместо 288 тиков в сутки оно давало 6.7; workflow остался страховкой,
-подробности — в `deploy.md`.
+The server has no clock of its own: on serverless, nothing runs between requests. So the
+digests are sent by an external tick (`/api/v1/cron/tick` every five minutes from a
+third-party scheduler), which asks the database "what is due by its own class's clock and
+has not been sent yet today". The sent mark is written **before** the send: a tick that
+dies halfway does not send a digest twice, and one that is ten minutes late still sends it.
+A GitHub Actions schedule is not good enough for this role, and that has been measured:
+instead of 288 ticks a day it delivered 6.7. The workflow stayed as a fallback; the details
+are in `deploy.md`.
 
-Этот же тик — единственное место, где что-то удаляется по времени. Брошенные
-диалоги бота, счётчики неудачных входов, сессии дневника, одноразовые коды —
-и на вход в дневник, и на подключение телефона — и молчащие токены устройств
-растут между вызовами, и подмести их больше негде: фоновой задачи,
-которая переживёт ответ, здесь не существует. Сроки и их обоснование — в
-`api.md`, в разделе про `/api/v1/cron/tick`.
+That same tick is the only place where anything is deleted on a timer. Abandoned bot
+dialogues, failed-login counters, diary sessions, one-time codes — both for signing into
+the diary and for connecting a phone — and silent device tokens all grow between calls, and
+there is nowhere else to sweep them: no background task survives a response here. The
+lifetimes and the reasoning behind them are in `api.md`, in the section about
+`/api/v1/cron/tick`.
 
-## Чужой сервис за одной дверью
+## Somebody else's service behind one door
 
-`server/app/providers/petersburg/` — интеграция с электронным дневником
-Санкт-Петербурга. Сервис не документирован: его адреса, имена параметров и
-формы ответов установлены по открытым клиентам, которые с ним разговаривают, и
-использованы как карта, а не скопированы. Из этого следует всё остальное в
-устройстве этого каталога.
+`server/app/providers/petersburg/` is the integration with St Petersburg's electronic
+diary. The service is undocumented: its addresses, its parameter names and the shapes of
+its answers were established from the open clients that talk to it, and used as a map
+rather than copied. Everything else about how this directory is arranged follows from that.
 
-Граница проведена в трёх файлах и держится ими:
+The boundary is drawn in three files and held by them:
 
-| Файл | Знает |
+| File | Knows |
 | --- | --- |
-| `client.py` | адреса, параметры, куку сессии, форматы дат |
-| `mapper.py` | как называются поля в ответах и что означает код 30000 |
-| `models.py` | ничего из перечисленного — это модели нашего приложения |
+| `client.py` | the addresses, the parameters, the session cookie, the date formats |
+| `mapper.py` | what the fields in the answers are called, and what code 30000 means |
+| `models.py` | none of the above — these are our own application's models |
 
-Выше `models.py` никто не знает слов `p_educations[]`, `estimate_value_name`
-или `X-JWT-Token`. Когда наверху переименуют поле, чинится `mapper.py`; когда
-переедет endpoint — `client.py`. Публичный API и Android при этом не меняются,
-и ради этого всё и затевалось.
+Above `models.py`, nobody knows the words `p_educations[]`, `estimate_value_name` or
+`X-JWT-Token`. When a field is renamed upstream, `mapper.py` is what gets fixed; when an
+endpoint moves, `client.py` is. The public API and the Android app do not change, and that
+is what the whole arrangement was for.
 
-Маппер намеренно снисходителен: поле ищется под всеми именами, под которыми
-оно встречалось, а строка, которую не удалось прочитать, выбрасывается, а не
-роняет запрос. Неделя оценок с одной нечитаемой записью полезнее страницы с
-ошибкой. Строгость — на выходе: урок без даты это не урок, и его нет.
+The mapper is deliberately lenient: a field is looked for under every name it has ever
+appeared under, and a row that could not be read is dropped rather than failing the
+request. A week of marks with one unreadable entry is more useful than a page with an
+error. The strictness is on the way out: a lesson with no date is not a lesson, and it does
+not exist.
 
-Снисходительность распространяется и на форму: если наверху `"subject":
-"Физика"` станет `"subject": {"id": 7, "name": "Физика"}`, скаляр достаётся из
-объекта (`mapper.unwrap`, один уровень и только скаляр — идти глубже значит
-гадать, какая из вложенных строк имелась в виду). А вот когда нечитаемой
-оказалась **вся** пачка — это уже не плохая строка, а сменившаяся форма
-ответа, и об этом пишется `WARNING` с перечнем пришедших ключей: пустая неделя
-из-за переименованного поля и пустая неделя из-за каникул иначе выглядят
-одинаково для всех, кто выше.
+The leniency extends to shape as well: if `"subject": "Физика"` upstream becomes
+`"subject": {"id": 7, "name": "Физика"}`, the scalar is taken out of the object
+(`mapper.unwrap`, one level deep and scalars only — going deeper means guessing which of
+the nested strings was meant). But when the **whole** batch turns out to be unreadable,
+that is not a bad row any more, it is a changed response shape, and a `WARNING` is logged
+with the list of keys that arrived: an empty week caused by a renamed field and an empty
+week caused by the holidays look identical from above otherwise.
 
-Пароль не хранится. Логин нужен на один запрос, дальше живёт сессия самого
-сервиса, которая обновляется из его же ответов. Когда она умирает, запрос
-отвечает `401` с `X-Diary-Reauth: required`, и приложение спрашивает пароль
-заново. Цена — фоновая синхронизация дневника не переживает сессию; плата за
-альтернативу — пароль каждой семьи в базе.
+The password is not stored. A login is needed for one request, after which the service's own
+session is what lives on, refreshed from its own answers. When it dies, the request answers
+`401` with `X-Diary-Reauth: required`, and the app asks for the password again. The price is
+that a background sync of the diary does not outlive the session; the price of the
+alternative is every family's password in the database.
 
 ## Testing
 
 | Suite | What it covers | Runs where |
 | --- | --- | --- |
-| `server/tests/test_schedule.py` | template expansion, замены, cancellations, holidays, shortened bells, week parity, next-school-day lookahead | pytest |
+| `server/tests/test_schedule.py` | template expansion, substitutions, cancellations, holidays, shortened bells, week parity, next-school-day lookahead | pytest |
 | `server/tests/test_api.py` | join, bundle, auth failures, revoked tokens, parameter validation | pytest + httpx ASGI |
 | `server/tests/test_roles.py` | the permission ladder, phone normalisation, invite claiming | pytest |
-| `server/tests/test_bot_handlers.py` | timetable and bell parsing, homework upsert, замена parsing, role-grant guards | pytest |
+| `server/tests/test_bot_handlers.py` | timetable and bell parsing, homework upsert, substitution parsing, role-grant guards | pytest |
 | `server/tests/test_services.py` | task grammar, reminder idempotence across zones, ICS folding and escaping, timetable import/export, stats | pytest |
 | `server/tests/test_api_extended.py` | ETag and 304, device linking, write endpoints under every role, tasks scoped to their owner, the calendar feed, the cron tick | pytest + httpx ASGI |
 | `server/tests/test_bot_views.py` | week and "what next" rendering at fixed times, task grouping, reminder settings | pytest |
@@ -270,5 +268,5 @@ can swap wholesale.
 | `server/tests/test_timezones.py` | all eleven Russian zones, ordering, bad-input fallback | pytest |
 | `android/core/model/.../ScheduleEngineTest.kt` | every `DayState`, boundary conditions, event precedence, next-transition scheduling | JVM JUnit |
 
-The Android UI and the Glance widget have no automated coverage yet. See the
-"Known gaps" section of the README — that is the honest status, not an oversight.
+The Android UI and the Glance widget have no automated coverage yet. See the "Honest
+status" section of the README — that is the honest status, not an oversight.

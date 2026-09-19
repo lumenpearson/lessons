@@ -1,120 +1,115 @@
-# Виджет
+# The widget
 
-Главная функция продукта. Виджет отвечает на один вопрос — «что сейчас?» — и
-когда уроки заканчиваются, сам переключается на «что задано».
+The product's headline feature. The widget answers one question — "what now?" — and when
+the lessons end it switches by itself to "what is set".
 
-## Размеры
+## Sizes
 
-`SizeMode.Responsive` с двенадцатью брейкпоинтами. Glance отрисовывает все
-двенадцать один раз, лаунчер выбирает подходящий локально — изменение размера
-не будит процесс и не читает базу.
+`SizeMode.Responsive` with twelve breakpoints. Glance renders all twelve once, and the
+launcher picks the right one locally — resizing wakes no process and reads no database.
 
-| Класс | Брейкпоинт | Клеток | Что показывает |
+| Class | Breakpoint | Cells | What it shows |
 | --- | --- | --- | --- |
-| `TINY` | 110×40 dp | 2×1 | одна строка: состояние и отсчёт |
-| `WIDE` | 250×60 dp | 4×1 | то же, но хватает места на предмет |
-| `SMALL` | 110×110 dp | 2×2 | + предмет и прогресс |
-| `SMALL_TALL` | 110×190 dp | 2×3 | + домашка на сегодня |
-| `NARROW` | 110×300 dp | 2×5 | колонка: расписание дня без метаданных |
-| `MEDIUM` | 250×110 dp | 4×2 | + два следующих урока |
-| `MEDIUM_TALL` | 250×180 dp | 4×3 | + полоса недели |
-| `LARGE` | 250×250 dp | 4×4 | оставшееся расписание дня |
-| `LARGE_TALL` | 250×300 dp | 4×5 | то же и домашка рядом |
-| `XLARGE` | 320×320 dp | 5×5 | расписание + домашнее задание |
-| `TALL` | 320×400 dp | 5×6 | + следующий учебный день |
-| `HUGE` | 320×560 dp | 5×8 | всё сразу, восемь строк |
+| `TINY` | 110×40 dp | 2×1 | one line: the state and the countdown |
+| `WIDE` | 250×60 dp | 4×1 | the same, with room for the subject |
+| `SMALL` | 110×110 dp | 2×2 | + the subject and the progress |
+| `SMALL_TALL` | 110×190 dp | 2×3 | + today's homework |
+| `NARROW` | 110×300 dp | 2×5 | a column: the day's timetable with no metadata |
+| `MEDIUM` | 250×110 dp | 4×2 | + the next two lessons |
+| `MEDIUM_TALL` | 250×180 dp | 4×3 | + the week's strip |
+| `LARGE` | 250×250 dp | 4×4 | the rest of the day's timetable |
+| `LARGE_TALL` | 250×300 dp | 4×5 | the same with the homework beside it |
+| `XLARGE` | 320×320 dp | 5×5 | the timetable plus the homework |
+| `TALL` | 320×400 dp | 5×6 | + the next school day |
+| `HUGE` | 320×560 dp | 5×8 | everything at once, eight rows |
 
-Двенадцать, а не пять, по одной причине: и фреймворк (API 31+), и собственный
-`findBestSize` в Glance выбирают из подходящих брейкпоинтов **ближайший по
-квадрату расстояния**, а не самый крупный из влезающих. Пока рунгов было пять,
-виджет шириной в четыре клетки и высотой больше ~471 dp оказывался ближе к
-узкой колонке 110×300, чем к 250×250, и рисовался в одну колонку на половину
-экрана. Промежуточные рунги — `SMALL_TALL`, `MEDIUM_TALL`, `LARGE_TALL`,
-`TALL` — существуют, чтобы у каждой правдоподобной формы был сосед ближе, чем
-рунг другой ориентации. Это проверяется тестами `WidgetSizeClassTest`, которые
-воспроизводят правило лаунчера, а не доверяют `of()`.
+Twelve rather than five, for one reason: both the framework (API 31+) and Glance's own
+`findBestSize` pick, among the breakpoints that fit, the **nearest by squared distance**
+rather than the largest. While there were five rungs, a widget four cells wide and taller
+than about 471 dp came out closer to the narrow 110×300 column than to 250×250, and drew
+itself as one column over half a screen. The intermediate rungs — `SMALL_TALL`,
+`MEDIUM_TALL`, `LARGE_TALL`, `TALL` — exist so that every plausible shape has a neighbour
+closer than a rung of the other orientation. `WidgetSizeClassTest` holds this: it
+reproduces the launcher's rule rather than trusting `of()`.
 
-`resizeMode="horizontal|vertical"` без верхней границы: виджет растягивается на
-любой размер, а `WidgetSizeClass.of()` сопоставляет фактический размер
-ближайшему подходящему рунгу.
+`resizeMode="horizontal|vertical"` with no upper bound: the widget stretches to any size,
+and `WidgetSizeClass.of()` maps the actual size to the nearest rung that fits.
 
-## Состояния
+## States
 
-Считает `ScheduleEngine.stateAt(timetable, now)` — чистая функция, покрытая
-18 тестами в `:core:model`. Время в ней — время школы, а не телефона: класс во
-Владивостоке и класс в Калининграде могут висеть на одном сервере, и виджет
-берёт «сейчас» из `timetable.nowAtSchool()`.
+Computed by `ScheduleEngine.stateAt(timetable, now)` — a pure function covered by 18 tests
+in `:core:model`. The time inside it is the school's, not the phone's: a class in
+Vladivostok and a class in Kaliningrad can hang off one server, and the widget takes "now"
+from `timetable.nowAtSchool()`.
 
-| Состояние | Когда | Что на экране |
+| State | When | What is on the screen |
 | --- | --- | --- |
-| `BeforeSchool` | до первого звонка | первый урок и сколько до него |
-| `InLesson` | идёт урок | предмет, кабинет, сколько осталось, прогресс |
-| `OnBreak` | между уроками | следующий урок и сколько до него |
-| `DuringEvent` | столовая, линейка, экскурсия | название события и сколько осталось |
-| `AfterSchool` | после последнего звонка | **домашнее задание на следующий учебный день** |
-| `DayOff` | выходной, каникулы | то же самое |
-| `NoData` | нет кэша на эту дату | подсказка открыть приложение |
+| `BeforeSchool` | before the first bell | the first lesson and how long until it |
+| `InLesson` | a lesson is running | subject, room, time left, progress |
+| `OnBreak` | between lessons | the next lesson and how long until it |
+| `DuringEvent` | canteen, assembly, excursion | the event's name and how long is left |
+| `AfterSchool` | after the last bell | **homework for the next school day** |
+| `DayOff` | day off, holidays | the same |
+| `NoData` | no cache for this date | a hint to open the app |
 
-Приоритет при наложении: событие с `coversLesson` перебивает идущий урок;
-событие без него показывается только в перемену. Поэтому «Обед» виден на
-перемене, но не прячет урок.
+The priority when they overlap: an event with `coversLesson` beats a running lesson; an
+event without it is shown only during a break. That is why «Обед» is visible on a break but
+does not hide a lesson.
 
-Заголовок домашки называет день по-человечески: «на завтра», «на понедельник»,
-«на 15 сентября» — в зависимости от того, насколько он далеко.
+The homework heading names the day the way a person would: «на завтра», «на понедельник»,
+«на 15 сентября» — depending on how far away it is.
 
-## Время школы, а не телефона
+## The school's time, not the phone's
 
-Расписание хранится как настенное время школы. Виджет берёт «сейчас» через
-`Timetable.nowAtSchool()`, то есть в часовом поясе класса, а не устройства.
-Для России это не мелочь: между Калининградом и Камчаткой десять часов, и
-родитель в Москве, следящий за школой в Новосибирске, должен видеть её звонки.
+A timetable is stored as the school's wall clock. The widget takes "now" through
+`Timetable.nowAtSchool()`, that is, in the class's time zone rather than the device's. For
+Russia this is not a detail: there are ten hours between Kaliningrad and Kamchatka, and a
+parent in Moscow following a school in Novosibirsk has to see that school's bells.
 
-## Обновления
+## Updates
 
-Два плохих варианта: `updatePeriodMillis` с полом в 30 минут (отсчёт не
-работает) и будильник раз в минуту (около 400 пробуждений в сутки).
+Two bad options: `updatePeriodMillis` with a floor of 30 minutes (the countdown does not
+work) and an alarm once a minute (around 400 wake-ups a day).
 
-`TickCadence` выбирает третий: один будильник до момента, когда текст на экране
-реально изменится.
+`TickCadence` takes a third: one alarm, set for the moment the text on the screen will
+actually change.
 
-| Ситуация | Следующее пробуждение |
+| Situation | The next wake-up |
 | --- | --- |
-| до конца меньше 10 минут | +1 минута |
-| до конца меньше часа | +5 минут |
-| дальше | +15 минут |
-| ближайший звонок | точно на звонок |
-| нет данных вовсе | +1 час |
+| less than 10 minutes left | +1 minute |
+| less than an hour left | +5 minutes |
+| further out | +15 minutes |
+| the nearest bell | exactly on the bell |
+| no data at all | +1 hour |
 
-Побеждает ближайшее из трёх: тик отсчёта, `ScheduleEngine.nextTransition`
-(звонок) и `state.validUntil`. При равенстве выигрывает звонок — опоздать на
-смену состояния хуже, чем на секунду обновить цифру.
+The nearest of three wins: the countdown tick, `ScheduleEngine.nextTransition` (the bell)
+and `state.validUntil`. On a tie the bell wins — being late for a change of state is worse
+than being a second late refreshing a digit.
 
-Звонки ставятся через `setExactAndAllowWhileIdle`, остальное — через
-`setWindow`. Разрешение `SCHEDULE_EXACT_ALARM` **не запрашивается**: Google Play
-выдаёт его будильникам и календарям, а дневник не то и не другое.
-`WidgetTickScheduler` проверяет `canScheduleExactAlarms()` и спокойно
-деградирует до минутного окна.
+Bells are set through `setExactAndAllowWhileIdle`, everything else through `setWindow`. The
+`SCHEDULE_EXACT_ALARM` permission is **not requested**: Google Play grants it to alarm
+clocks and calendars, and a school diary is neither. `WidgetTickScheduler` checks
+`canScheduleExactAlarms()` and degrades calmly to a one-minute window.
 
-Будильники не переживают перезагрузку, поэтому `WidgetTickReceiver` слушает
-`BOOT_COMPLETED`, `MY_PACKAGE_REPLACED`, `TIME_SET` и `TIMEZONE_CHANGED`.
+Alarms do not survive a reboot, so `WidgetTickReceiver` listens for `BOOT_COMPLETED`,
+`MY_PACKAGE_REPLACED`, `TIME_SET` and `TIMEZONE_CHANGED`.
 
-## Офлайн
+## Offline
 
-Виджет читает только Room и DataStore — сети в пути отрисовки нет. Это и есть
-причина, по которой отсчёт продолжает идти в школьном подвале.
+The widget reads only Room and DataStore — there is no network on the drawing path. That is
+exactly why the countdown keeps running in a school basement.
 
-После успешной синхронизации `SyncWorker` шлёт внутренний бродкаст
-`com.lumenpearson.lessons.action.DATA_SYNCED`, на который подписан
-`LessonsWidgetReceiver`. Поэтому `:core:data` не зависит от `:widget` —
-зависимость иначе была бы циклической.
+After a successful sync, `SyncWorker` sends the internal broadcast
+`com.lumenpearson.lessons.action.DATA_SYNCED`, which `LessonsWidgetReceiver` subscribes to.
+That is why `:core:data` does not depend on `:widget` — the dependency would otherwise be
+circular.
 
-Синхронизация, вернувшая `304`, бродкаст **не** шлёт: телефон посылает
-`If-None-Match` с тегом того окна, которое у него уже есть, и `304` означает,
-что рисовать нечего нового — перерисовка на каждый опрос стоила бы ровно того,
-ради чего условный запрос и делается. Отметка «обновлено N назад» при этом
-двигается: проверка была.
+A sync that came back `304` does **not** send the broadcast: the phone sends `If-None-Match`
+with the tag of the window it already has, and a `304` means there is nothing new to draw —
+redrawing on every poll would cost exactly what the conditional request is made to avoid.
+The "updated N ago" mark still moves: the check did happen.
 
-Летом виджет больше не просит потянуть вниз. Окно синхронизации с 1 июня — это
-учебный год, который вот-вот откроется, так что сегодняшнего дня в кэше нет по
-построению; `ScheduleEngine` теперь отвечает на такую дату `DayOff(HOLIDAY)`
-(«Каникулы») вместо `NoData`, и домашку показывает на первый день сентября.
+In summer the widget no longer asks to be pulled down. A sync window starting on 1 June is
+a school year about to open, so today is not in the cache by construction;
+`ScheduleEngine` now answers such a date with `DayOff(HOLIDAY)` («Каникулы») instead of
+`NoData`, and shows the homework for the first day of September.

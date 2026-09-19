@@ -1,61 +1,64 @@
-# Документация
+# Documentation
 
-Восемь документов. Каждый отвечает на свой вопрос, и ни один не пересказывает соседний —
-если ответ не здесь, он в коде, и на него обычно есть ссылка.
+Eight documents. Each answers its own question, and none retells a neighbour — if the
+answer is not here it is in the code, and there is usually a link to it.
 
-## С чего начать
+## Where to start
 
-| Вы | Читайте |
+| You | Read |
 | --- | --- |
-| пользуетесь приложением | [guide.md](guide.md) |
-| ведёте расписание класса | [guide.md](guide.md), потом [bot.md](bot.md) |
-| хотите собрать APK | [build.md](build.md) |
-| разворачиваете сервер | [deploy.md](deploy.md) |
-| пишете код | [architecture.md](architecture.md), затем [CLAUDE.md](../CLAUDE.md) и [CONTRIBUTING.md](../CONTRIBUTING.md) |
-| пишете клиента к API | [api.md](api.md) |
+| use the app | [guide.md](guide.md) |
+| keep a class's timetable | [guide.md](guide.md), then [bot.md](bot.md) |
+| want to build the APK | [build.md](build.md) |
+| are deploying the server | [deploy.md](deploy.md) |
+| are writing code | [architecture.md](architecture.md), then [CLAUDE.md](../CLAUDE.md) and [CONTRIBUTING.md](../CONTRIBUTING.md) |
+| are writing a client for the API | [api.md](api.md) |
 
-## Все документы
+## Every document
 
-| Документ | О чём | Язык |
-| --- | --- | --- |
-| [guide.md](guide.md) | первый запуск, код класса, виджет, уведомления, бот, дневник, режим исправления перевода — для того, кто пользуется | русский |
-| [bot.md](bot.md) | роли, приглашение по номеру телефона, редактирование расписания, все команды | английский |
-| [widget.md](widget.md) | двенадцать размеров, семь состояний, расписание обновлений, почему не тик раз в минуту | русский |
-| [build.md](build.md) | сборка APK в Actions и локально, подпись своим ключом, релиз по тегу, минуты Actions и на что они уходят, подключение приложения к серверу | русский |
-| [deploy.md](deploy.md) | Vercel + Neon или свой сервер, webhook, миграции, почему у сервера нет своих часов | русский |
-| [api.md](api.md) | контракт `/api/v1` целиком: чтение, запись, управление классом, дневник Петербурга | английский, дневник — по-русски |
-| [architecture.md](architecture.md) | почему бот — это бэкенд, модель разрешения расписания, пять модулей Android, слой сервисов, тесты | английский, слой сервисов и дневник — по-русски |
-| [design.md](design.md) | дизайн-система: что взято из Essentials, что исправлено, и разбор каждого заметного решения в интерфейсе | русский |
+| Document | About |
+| --- | --- |
+| [guide.md](guide.md) | first run, the class code, the widget, notifications, the bot, the diary, the translation-correction mode — for whoever uses the app |
+| [bot.md](bot.md) | roles, invitation by phone number, editing the timetable, every command |
+| [widget.md](widget.md) | twelve sizes, seven states, the update schedule, why not a tick once a minute |
+| [build.md](build.md) | building the APK in Actions and locally, signing with your own key, a release from a tag, Actions minutes and where they go, pointing the app at a server |
+| [deploy.md](deploy.md) | Vercel plus Neon or your own server, the webhook, migrations, why the server has no clock of its own |
+| [api.md](api.md) | the whole `/api/v1` contract: reads, writes, class management, the Petersburg diary |
+| [architecture.md](architecture.md) | why the bot is the backend, the timetable resolution model, the five Android modules, the service layer, the tests |
+| [design.md](design.md) | the design system: what was taken from Essentials, what was fixed, and the reasoning behind every visible decision in the interface |
 
-Язык выбран по читателю, а не по вкусу: справочник по API и разбор архитектуры читают с
-кодом рядом, где всё по-английски, а всё, что читает пользователь или тот, кто
-разворачивает проект, — по-русски. Оба справочника писались долго, и разделы, дописанные
-позже, местами русские; это не ошибка, но и не повод переводить остальное.
+Everything written about this project is English — these documents, the code comments, the
+commit messages and the pull request descriptions — so that anybody can read it. The
+product itself is a different matter: the app and the bot speak Russian, and the reader
+chooses the language in the app. Where a document quotes a button, a menu path or an error
+the user will actually see, it quotes it in Russian, because that is what is on the screen.
 
-## Где что искать
+## Where to look for what
 
-- **Как устроено время** — [architecture.md](architecture.md), раздел «Time»: время
-  хранится как настенное время школы, часовой пояс принадлежит классу, а не серверу.
-- **Почему виджет не обновляется раз в минуту** — [widget.md](widget.md), «Обновления».
-- **Почему у сервера нет планировщика** — [deploy.md](deploy.md), раздел «Часы». Часы —
-  внешний cron, а `.github/workflows/reminders.yml` только страховка: расписания GitHub
-  давали 6.7 тика в сутки из 288 запрошенных.
-- **Сколько стоит прогон CI и что меняет публичность репозитория** —
-  [build.md](build.md), «Минуты Actions» и разделы за ним.
-- **Два разных токена** — [api.md](api.md): токен устройства выдаёт `POST /api/v1/join`,
-  токен дневника — `POST /api/v1/diary/login`, и один не подразумевает другой.
-- **Кто пускает телефон в класс** — [api.md](api.md), «Кто пускает телефон: код класса
-  или бот», и [bot.md](bot.md), «Кто пускает телефон»: у класса два режима приёма, и код
-  класса в одном из них не открывает ничего.
-- **Что не проверено** — раздел «Честный статус» в [README](../README.md). Он ведётся
-  намеренно и обновляется вместе с кодом.
+- **How time works** — [architecture.md](architecture.md), the "Time" section: time is
+  stored as the school's wall clock, and the time zone belongs to the class rather than to
+  the server.
+- **Why the widget does not refresh once a minute** — [widget.md](widget.md), "Updates".
+- **Why the server has no scheduler** — [deploy.md](deploy.md), the "The clock" section.
+  The clock is an external cron, and `.github/workflows/reminders.yml` is only a fallback:
+  GitHub's schedules delivered 6.7 ticks a day out of the 288 asked for.
+- **What a CI run costs, and what a public repository changes** — [build.md](build.md),
+  "Actions minutes" and the sections after it.
+- **The two different tokens** — [api.md](api.md): the device token comes from
+  `POST /api/v1/join`, the diary token from `POST /api/v1/diary/login`, and neither implies
+  the other.
+- **Who lets a phone into a class** — [api.md](api.md), "Who lets a phone in: the class
+  code or the bot", and [bot.md](bot.md), "Who lets a phone in": a class has two join
+  modes, and in one of them the class code opens nothing.
+- **What is not verified** — the "Honest status" section of the [README](../README.md). It
+  is kept on purpose and updated together with the code.
 
-## Правила этих документов
+## The rules these documents follow
 
-Документ, который врёт, хуже отсутствующего. Поэтому:
+A document that lies is worse than a missing one. So:
 
-- утверждение проверяется по коду до того, как попадает сюда;
-- изменение, из-за которого документ стал неверным, чинит его в той же порции работы —
-  [bot.md](bot.md) и [widget.md](widget.md) уже переписывались из-за расхождения с кодом,
-  и это дороже, чем не отставать;
-- несделанное называется несделанным.
+- a statement is checked against the code before it lands here;
+- a change that made a document wrong fixes it in the same batch of work —
+  [bot.md](bot.md) and [widget.md](widget.md) have each been rewritten over drifting away
+  from the code, and that is more expensive than keeping up;
+- what is not done is called not done.
