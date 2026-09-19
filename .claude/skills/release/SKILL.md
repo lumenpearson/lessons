@@ -35,7 +35,7 @@ where `*.jks` and `keystore.properties` are gitignored.
 ## 5. Notes
 
 The README's "Honest status" standard applies. Name what was verified and by what — a test,
-a CI run, a deploy, a phone. Name what was only written. «Написано, не запускалось» is a
+a CI run, a deploy, a phone. Name what was only written. "Written, never run" is a
 legitimate line; a claim of verification that did not happen is not.
 
 Redact `<redacted>` for anything that is a credential, and keep deployment ids and the
