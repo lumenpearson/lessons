@@ -1,16 +1,16 @@
 version: 2
 
-# Три экосистемы, и ни одной npm: в репозитории нет Node вовсе.
+# Three ecosystems and no npm: there is no Node in this repository at all.
 #
-#   gradle  -> android/         (settings.gradle.kts и gradle/libs.versions.toml)
-#   pip     -> server/          (pyproject.toml, полный набор с dev)
-#   pip     -> /               (requirements.txt, который ставит Vercel)
+#   gradle  -> android/         (settings.gradle.kts and gradle/libs.versions.toml)
+#   pip     -> server/          (pyproject.toml, the full set including dev)
+#   pip     -> /               (requirements.txt, which is what Vercel installs)
 #   actions -> /               (.github/workflows)
 #
-# Версии Android-зависимостей в libs.versions.toml не выдуманы, а перенесены из
-# проектов, которые на них собираются; заголовок каталога называет источник
-# каждой. Поэтому обновления сгруппированы и ограничены: пять открытых PR с
-# альфами Compose, приехавшие по одной, — это не обновление, а лотерея.
+# The Android versions in libs.versions.toml are not invented: they are carried
+# over from projects that build on them, and the catalog's header names the
+# source of each. That is why updates are grouped and capped — five open pull
+# requests carrying Compose alphas one at a time is a lottery, not an update.
 updates:
   - package-ecosystem: gradle
     directory: /android
@@ -35,19 +35,19 @@ updates:
           - com.squareup.okhttp3:*
           - org.jetbrains.kotlinx:kotlinx-serialization*
     ignore:
-      # AGP, Kotlin и KSP двигаются только вместе и только руками: AGP 9
-      # компилирует Kotlin сам, а версия KSP привязана к версии компилятора.
-      # Разъехавшаяся тройка — не предупреждение, а несобирающийся проект.
+      # AGP, Kotlin and KSP move together and only by hand: AGP 9 compiles
+      # Kotlin itself, and the KSP version is tied to the compiler's. The three
+      # drifting apart is not a warning, it is a project that does not build.
       - dependency-name: com.android.*
         update-types: ["version-update:semver-major"]
       - dependency-name: org.jetbrains.kotlin*
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: com.google.devtools.ksp*
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
-      # Material 3 Expressive и Glance стоят на альфах намеренно: приложение
-      # построено на Expressive, а виджет — на Glance 1.3.0-alpha02, и следующая
-      # альфа меняет API без предупреждения. Обновляются вместе с проверкой
-      # сборки, а не автоматически.
+      # Material 3 Expressive and Glance sit on alphas deliberately: the app is
+      # built on Expressive and the widget on Glance 1.3.0-alpha02, and the next
+      # alpha changes the API without warning. They are updated together with a
+      # build check, not automatically.
       - dependency-name: androidx.compose.material3:material3
       - dependency-name: androidx.glance:*
 
@@ -76,10 +76,10 @@ updates:
           - asyncpg
           - aiosqlite
 
-  # Тот же набор, второй файл: Vercel ставит зависимости из корневого
-  # requirements.txt, потому что его сборщик Python не читает pyproject.toml из
-  # подкаталога. Расхождение между двумя файлами — это разница между тем, что
-  # проверено тестами, и тем, что выполняется в бою, поэтому обновлять надо оба.
+  # The same set, a second file: Vercel installs from the root requirements.txt,
+  # because its Python builder does not read pyproject.toml from a subdirectory.
+  # A drift between the two files is the difference between what the tests cover
+  # and what runs in production, so both have to be updated.
   - package-ecosystem: pip
     directory: /
     schedule:

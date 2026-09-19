@@ -1,143 +1,156 @@
-# Участие в разработке
+# Contributing
 
-Спасибо за интерес к проекту. Здесь — как поднять окружение, какие правила в этом
-репозитории обязательны и что должно быть зелёным до того, как вы отправите pull request.
+Thank you for your interest in the project. This page covers how to bring the environment
+up, which rules in this repository are non-negotiable, and what has to be green before you
+open a pull request.
 
-Участвуя, вы соглашаетесь с [Кодексом поведения](CODE_OF_CONDUCT.md) и
-[Положением об использовании ИИ](AI_USAGE_POLICY.md).
+By taking part you agree to the [Code of Conduct](CODE_OF_CONDUCT.md) and the
+[AI usage policy](AI_USAGE_POLICY.md).
 
-В репозитории три части, и у каждой своя цепочка проверок: сервер на Python,
-Android-приложение на Kotlin и документация. Менять их можно и по отдельности, но
-прогонять проверки нужно у всего, чего коснулись.
+The repository has three parts, and each has its own chain of checks: a Python server, an
+Android app in Kotlin, and the documentation. You may change them separately, but you run
+the checks for everything you touched.
 
-## Окружение
+## Environment
 
-| | Нужно | Где закреплено |
+| | Required | Where it is pinned |
 | --- | --- | --- |
-| Python | 3.11+, CI собирает на 3.12 | `.python-version`, `server/pyproject.toml` |
+| Python | 3.11+, CI builds on 3.12 | `.python-version`, `server/pyproject.toml` |
 | JDK | 21 | `android/app/build.gradle.kts` |
 | Android SDK | compileSdk 37, minSdk 26 | `android/app/build.gradle.kts` |
-| Gradle | 9.5.0 через wrapper | `android/gradle/wrapper/` |
+| Gradle | 9.5.0 through the wrapper | `android/gradle/wrapper/` |
 
-Wrapper с jar лежит в репозитории, поэтому `./gradlew` работает на свежем клоне без
-предустановленного Gradle. Android SDK нужен настоящий: путь к нему кладут в
-`android/local.properties` или в `ANDROID_HOME`.
+The wrapper and its jar are in the repository, so `./gradlew` works on a fresh clone with
+no Gradle installed. The Android SDK has to be real: put the path to it in
+`android/local.properties` or in `ANDROID_HOME`.
 
 ```bash
 cd server
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-cp .env.example .env          # BOT_TOKEN и OWNER_IDS — свои
-.venv/bin/python -m scripts.seed_demo   # демо-класс с кодом DEMO24
+cp .env.example .env          # BOT_TOKEN and OWNER_IDS are your own
+.venv/bin/python -m scripts.seed_demo   # demo class, join code DEMO24
 ```
 
-## Команды
+## Commands
 
-| Команда | Что делает |
+| Command | What it does |
 | --- | --- |
-| `ruff check app tests scripts migrations` | линт сервера — ровно то, что запускает CI |
-| `python -m pytest -q` | тесты сервера; сейчас их 626, идут около двух с половиной минут |
-| `python -m pytest -q tests/test_schedule.py -k parity` | один файл, один тест |
-| `python -m uvicorn app.main:app --reload` | запустить сервер |
-| `alembic upgrade head` | применить миграции (с рабочим `DATABASE_URL`) |
-| `./gradlew test` | все JVM-тесты пяти модулей |
-| `./gradlew :core:model:test --tests '*ScheduleEngineTest*'` | один модуль, один класс |
-| `./gradlew assembleDebug` | отладочный APK |
-| `./gradlew assembleRelease` | релизный APK с R8 и сжатием ресурсов |
+| `ruff check app tests scripts migrations` | lints the server — exactly what CI runs |
+| `python -m mypy` | one question of all 79 modules: does anything reach for an attribute its type does not have? |
+| `python -m pytest -q` | the server tests; 1391 of them, about five minutes, or a third of that with `-n auto` |
+| `python -m pytest -q tests/test_schedule.py -k parity` | one file, one test |
+| `python -m uvicorn app.main:app --reload` | run the server |
+| `alembic upgrade head` | apply the migrations (with a working `DATABASE_URL`) |
+| `./gradlew test` | every JVM test across the five modules |
+| `./gradlew :core:model:test --tests '*ScheduleEngineTest*'` | one module, one class |
+| `./gradlew assembleDebug` | the debug APK |
+| `./gradlew assembleRelease` | the release APK, with R8 and resource shrinking |
 
-Первые пять запускаются из `server/`, остальные из `android/`.
+The first six run from `server/`, the rest from `android/`.
 
-CI (`.github/workflows/ci.yml`) прогоняет ровно это: `ruff`, `pytest`, `./gradlew test`,
-`assembleDebug` и `assembleRelease`. Релизная сборка — на каждый push, а не только на
-релиз: R8 и сжатие ресурсов это классическое «в debug работало, в установленном APK
-сломалось», и ловить такое на pull request дешевле, чем на людях.
+CI (`.github/workflows/ci.yml`) runs exactly this: `ruff`, `pytest -n auto`,
+`./gradlew test`, `assembleDebug` and `assembleRelease`. The release build runs on every
+push, not only on a release: R8 and resource shrinking are the classic "it worked in debug
+and broke in the installed APK", and catching that on a pull request is cheaper than
+catching it on people.
 
-## Правила, которые нельзя нарушать
+`python -m mypy` is not in CI, but run it before you push server code — it is the only
+thing in this project that answers "is this renderer written against a type that exists?"
 
-Проверяются ревью и тестами — автоматического скрипта на каждое из них нет, поэтому
-читайте их как условия, а не как пожелания.
+## Rules that may not be broken
 
-1. **`app/schedule.py` не знает ни FastAPI, ни aiogram.** Он получает строки ORM и
-   отдаёт обычные dataclass'ы, и поэтому его тесты идут секунды без HTTP-клиента. Любой
-   фреймворочный импорт здесь ломает главную причину, по которой этот файл отдельный.
-2. **Одно правило — одна реализация.** У каждой функции продукта две двери: бот и
-   приложение. Правило живёт в `server/app/services/`, а handler бота и endpoint API —
-   две тонкие оболочки над ним. Две реализации «переименовать предмет» разошлись бы за
-   месяц, и разойдётся та, что молчит.
-3. **Схема меняется миграцией Alembic.** После `0001` никакого `create_all`. Боевая база
-   уже на `0004`, и колонка сама в ней не появится.
-4. **На сервере ничего не происходит само.** На Vercel между запросами не выполняется
-   ничего: ни планировщика, ни фоновой задачи. Всё, что должно случаться по часам, идёт
-   через `/api/v1/cron/tick`, который дёргает внешний workflow.
-5. **«Сейчас» — это время школы.** `school_class.tz` на сервере, `Timetable.nowAtSchool()`
-   на клиенте. `LocalDateTime.now()` и `ZoneId.systemDefault()` в Android-коде — почти
-   всегда ошибка: две из четырнадцати подтверждённых аудитом были именно этим.
-6. **`:core:data` не зависит от `:widget`.** После синхронизации `SyncWorker` шлёт
-   внутренний бродкаст `…action.DATA_SYNCED`, который слушает виджет; иначе зависимость
-   стала бы циклической.
-7. **У каждой русской строки есть английская пара.** Проверяет `ResourceTranslationTest`
-   в `:app`: имя без пары в `values-en/`, лишнее имя, разошедшиеся аргументы формата и
-   английский `<plurals>` не из `one` + `other` роняют тест. Android подставит русскую
-   строку посреди английского экрана молча — поэтому тест, а не внимательность.
-8. **Секретов в репозитории нет.** Токен бота, `OWNER_IDS`, `WEBHOOK_SECRET`,
-   `CRON_SECRET` и строка подключения живут в `server/.env` или в окружении хостинга;
-   хранилище ключей для подписи APK — в `~/.gradle/gradle.properties` или в секретах
-   Actions.
+They are enforced by review and by tests — there is no automated script for each of them,
+so read them as conditions rather than as wishes.
 
-## Стиль
+1. **`app/schedule.py` knows neither FastAPI nor aiogram.** It takes ORM rows and hands
+   back ordinary dataclasses, which is why its tests run in seconds with no HTTP client. A
+   framework import here breaks the main reason this file is separate.
+2. **One rule, one implementation.** Every feature of the product has two doors: the bot
+   and the app. The rule lives in `server/app/services/`, and the bot handler and the API
+   endpoint are two thin shells over it. Two implementations of "rename a subject" would
+   disagree within a month, and the one that disagrees quietly is the one that wins.
+3. **The schema changes through an Alembic revision.** No `create_all` after `0001`.
+   Production is already at `0013`, and a column will not appear there on its own. Mind the
+   direction: an additive revision goes on **before** the merge that deploys the code, a
+   `UNIQUE` or a `NOT NULL` **after** it.
+4. **Nothing on the server happens by itself.** On Vercel nothing runs between requests:
+   no scheduler, no background task. Everything that has to happen on a clock goes through
+   `/api/v1/cron/tick`, which an external cron service calls.
+5. **"Now" is the school's time.** `school_class.tz` on the server,
+   `Timetable.nowAtSchool()` on the client. `LocalDateTime.now()` and
+   `ZoneId.systemDefault()` in Android code are almost always a bug: two of the fourteen
+   defects the audit confirmed were exactly this.
+6. **`:core:data` does not depend on `:widget`.** After a sync, `SyncWorker` sends the
+   internal broadcast `…action.DATA_SYNCED`, which the widget listens for; otherwise the
+   dependency would have to be circular.
+7. **Every Russian string has an English twin.** `ResourceTranslationTest` in `:app`
+   enforces it: a name with no counterpart in `values-en/`, a name that exists only in
+   English, format arguments that have drifted apart, and an English `<plurals>` that is
+   not `one` + `other` all fail the test. Android will drop a Russian string into the
+   middle of an English screen without a word — hence a test, rather than attentiveness.
+8. **No secrets in the repository.** The bot token, `OWNER_IDS`, `WEBHOOK_SECRET`,
+   `CRON_SECRET` and the connection string live in `server/.env` or in the host's
+   environment; the keystore that signs the APK lives in `~/.gradle/gradle.properties` or
+   in the Actions secrets.
 
-- **Интерфейс по-русски, код и комментарии по-английски.** `values/` — русские строки и
-  источник, `values-en/` — перевод. Документы в `docs/` пишутся на том языке, на котором
-  их читают: справочники по API и архитектуре — по-английски, всё, что читает
-  пользователь или тот, кто разворачивает проект, — по-русски.
-- **Комментарий объясняет почему, а не что.** Посмотрите любой файл: над решением
-  написано, что сломается без него. Комментарий, пересказывающий соседнюю строку, здесь
-  не приживается.
-- Kotlin — четыре пробела и сто двадцать колонок (`kotlin.code.style=official`), Python —
-  четыре пробела и сто (`line-length` в `pyproject.toml`, его же проверяет ruff). Всё
-  остальное — в `.editorconfig`.
-- **Версия зависимости не выдумывается.** В заголовке `android/gradle/libs.versions.toml`
-  написано, откуда взята каждая; первый прогон CI в этом проекте упал на четырёх
-  версиях, которых нет ни в одном репозитории. Проверяйте по Maven Central или PyPI, а
-  не по памяти.
+## Style
 
-## Коммиты
+- **The interface is Russian; everything written about the project is English.** `values/`
+  holds the Russian strings and is the source, `values-en/` is the translation, and the
+  reader chooses the language in the app. Documentation, code comments, commit messages and
+  pull request descriptions are English, so that anybody can read them.
+- **A comment explains why, not what.** Look at any file here: above a decision it says
+  what would break without it. A comment that retells the line next to it does not survive
+  in this repository.
+- Kotlin is four spaces and a hundred and twenty columns (`kotlin.code.style=official`),
+  Python is four spaces and a hundred (`line-length` in `pyproject.toml`, which is what ruff
+  checks). Everything else is in `.editorconfig`.
+- **A dependency version is never invented.** The header of
+  `android/gradle/libs.versions.toml` says where each one came from; the first CI run in
+  this project failed on four versions that exist in no repository. Check Maven Central or
+  PyPI, not your memory.
 
-Conventional Commits здесь не используются — ни один коммит в истории не начинается с
-`feat:` или `fix:`. Принято другое, и оно тоже последовательно:
+## Commits
 
-- **Заголовок — английское предложение о том, что изменение позволяет проекту делать**, а
-  не о том, что делал автор: «Let the class be run from the phone, by the same rules as
-  from the bot».
-- **Тело объясняет причину** — что было не так, что теперь, и чего изменение не покрывает.
-  Абзацы, а не список изменённых файлов: их и так видно в diff.
-- **Называйте конкретное** — файл, endpoint, настройку, — а не «кое-где поправлено».
-- **Секреты в сообщение не попадают.** Пишите `<redacted>`.
+Conventional Commits are not used here — not one commit in the history starts with `feat:`
+or `fix:`. Something else is the convention, and it is just as consistent:
+
+- **The subject is an English sentence about what the change lets the project do**, not
+  about what the author did: "Let the class be run from the phone, by the same rules as
+  from the bot".
+- **The body explains the reason** — what was wrong, what is true now, and what the change
+  does not cover. Paragraphs, not a list of changed files: the diff shows those already.
+- **Name the specific thing** — the file, the endpoint, the setting — rather than "fixed a
+  few places".
+- **Secrets do not reach the message.** Write `<redacted>`.
 
 ## Pull request
 
-1. Ответвляйтесь от актуального `main`; прямые коммиты в `main` не принимаются.
-2. Одна задача — один PR.
-3. Прогоните локально то, чего коснулись: `ruff check` и `pytest -q` для сервера,
-   `./gradlew test` для Android, обе сборки — если менялся `android/`.
-4. Заполните шаблон, включая раздел «Проверка»: вставьте настоящий вывод команд с
-   числами, а не фразу «всё проходит».
-5. Заполните раздел «Что НЕ покрыто». Он обязателен. **«Написано, не запускалось» —
-   честный статус**, и в README есть целый раздел, который этим занимается; утверждение,
-   что проверено то, что не запускалось, честным статусом не является.
+1. Branch from an up-to-date `main`; direct commits to `main` are not accepted.
+2. One task, one pull request.
+3. Run locally what you touched: `ruff check` and `pytest -q` for the server,
+   `./gradlew test` for Android, and both assembles if `android/` changed.
+4. Fill in the template, including the "Verification" section: paste the real output of the
+   commands, with numbers, rather than the phrase "everything passes".
+5. Fill in the "What is NOT covered" section. It is mandatory. **"Written, never run" is an
+   honest status**, and the README has a whole section that does this on purpose; a claim
+   that something was verified when it was not is not an honest status.
 
-### Тесты
+### Tests
 
-- Новый код сопровождается тестами того же уровня, что и слой, который он меняет.
-  Логика состояний, планировщик уведомлений и разбор чужих ответов покрыты — держите так.
-- Тесты офлайн и детерминированы: сервер тестируется через ASGI-клиент httpx, чужой
-  сервис — через подставной upstream (`tests/test_diary_api.py`), Android — обычными
-  JVM-тестами без эмулятора. Тест, которому нужна сеть, в набор не попадает.
-- Отрицательный тест должен доказуемо ловить регрессию: откатите исправление и убедитесь,
-  что он падает. Иначе он ничего не доказывает.
-- Экранов и виджета автоматические тесты не покрывают — там проверка только руками, и об
-  этом стоит написать в PR прямо: на каком устройстве и на каких размерах виджета.
+- New code comes with tests at the same level as the layer it changes. The state logic, the
+  notification planner and the parsing of somebody else's responses are covered — keep them
+  that way.
+- Tests are offline and deterministic: the server is tested through the httpx ASGI client,
+  a foreign service through a stubbed upstream (`tests/test_diary_api.py`), Android through
+  ordinary JVM tests with no emulator. A test that needs the network does not join the
+  suite.
+- A negative test has to provably catch the regression: revert the fix and make sure it
+  fails. Otherwise it proves nothing.
+- Screens and the widget are not covered by automated tests — there the check is by hand,
+  and it is worth saying so in the pull request: which device, and which widget sizes.
 
-## Безопасность
+## Security
 
-Не открывайте публичный issue на уязвимость — [SECURITY.md](.github/SECURITY.md) описывает
-приватный канал и то, что в этом проекте считается уязвимостью.
+Do not open a public issue for a vulnerability — [SECURITY.md](.github/SECURITY.md)
+describes the private channel and what counts as a vulnerability in this project.

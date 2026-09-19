@@ -1,123 +1,124 @@
-# Кодекс поведения участников
+# Contributor Covenant Code of Conduct
 
-## Наше обязательство
+## Our Pledge
 
-Мы, участники и сопровождающие проекта, обязуемся сделать участие в жизни сообщества
-свободным от притеснений для всех — независимо от возраста, телосложения, видимой или
-невидимой инвалидности, этнической принадлежности, половых признаков, гендерной
-идентичности и самовыражения, уровня опыта, образования, социально-экономического
-положения, национальности, внешности, расы, религии, а также сексуальной идентичности
-и ориентации.
+We as members, contributors, and leaders pledge to make participation in our community a
+harassment-free experience for everyone, regardless of age, body size, visible or invisible
+disability, ethnicity, sex characteristics, gender identity and expression, level of
+experience, education, socio-economic status, nationality, personal appearance, race,
+religion, or sexual identity and orientation.
 
-Мы обязуемся действовать и взаимодействовать так, чтобы поддерживать открытое,
-дружелюбное, многообразное, инклюзивное и здоровое сообщество.
+We pledge to act and interact in ways that contribute to an open, welcoming, diverse,
+inclusive, and healthy community.
 
-## Наши стандарты
+## Our Standards
 
-Примеры поведения, которое создаёт благоприятную среду:
+Examples of behavior that contributes to a positive environment for our community include:
 
-- проявление эмпатии и доброжелательности к другим людям;
-- уважение к чужому мнению, точке зрения и опыту;
-- конструктивная подача и благодарное принятие обратной связи;
-- принятие ответственности за свои ошибки, извинения перед пострадавшими и извлечение
-  уроков из произошедшего;
-- ориентация на то, что лучше для сообщества в целом, а не только лично для нас.
+- Demonstrating empathy and kindness toward other people
+- Being respectful of differing opinions, viewpoints, and experiences
+- Giving and gracefully accepting constructive feedback
+- Accepting responsibility and apologizing to those affected by our mistakes, and learning
+  from the experience
+- Focusing on what is best not just for us as individuals, but for the overall community
 
-Примеры неприемлемого поведения:
+Examples of unacceptable behavior include:
 
-- сексуализированные формулировки, образы, а также сексуальное внимание или домогательства;
-- троллинг, оскорбительные или уничижительные комментарии, личные и политические нападки;
-- публичное или приватное притеснение;
-- публикация чужой частной информации — физического адреса, электронной почты и прочего —
-  без явного разрешения;
-- иное поведение, которое обоснованно считается неуместным в профессиональной среде.
+- The use of sexualized language or imagery, and sexual attention or advances of any kind
+- Trolling, insulting or derogatory comments, and personal or political attacks
+- Public or private harassment
+- Publishing others' private information, such as a physical or email address, without
+  their explicit permission
+- Other conduct which could reasonably be considered inappropriate in a professional
+  setting
 
-## Особенности этого проекта
+## What is particular about this project
 
-Приложением пользуются школьники и их родители, а сообщение об ошибке приходит из
-приложения вместе с таблицей об устройстве. Поэтому к общим правилам добавляется
-несколько конкретных:
+The people who use this app are schoolchildren and their parents, and a bug report arrives
+from inside the app together with a table about the device. So a few specific rules are
+added to the general ones:
 
-- **Не публикуйте данные класса.** В issue, pull request, логах и скриншотах не должно
-  быть фамилий учеников и учителей, номера класса вместе с названием школы, кода класса,
-  ссылки на календарь и содержимого чужого электронного дневника. Расписание
-  воспроизводится на выдуманном классе — для этого есть `scripts/seed_demo.py`.
-- **Не публикуйте секреты.** Токен бота, `WEBHOOK_SECRET`, `CRON_SECRET`, строку
-  подключения к базе и токен устройства замените на `<redacted>`. Токен бота, попавший в
-  публичный issue, придётся отзывать в @BotFather независимо от того, успел ли им
-  кто-нибудь воспользоваться.
-- **Скриншот — тоже публикация.** На экране приложения обычно видно и класс, и школу, и
-  домашнее задание. Обрежьте или замажьте.
-- **Об ошибке говорят на языке поведения.** «Виджет показывает вчерашний день после
-  полуночи в Красноярске» — отчёт. «Кто это вообще писал» — нет.
+- **Do not publish a class's data.** An issue, a pull request, a log or a screenshot must
+  not carry pupils' or teachers' surnames, a class number together with the name of its
+  school, a class code, a calendar link, or the contents of somebody's electronic diary.
+  Reproduce a timetable on a made-up class — `scripts/seed_demo.py` exists for that.
+- **Do not publish secrets.** Replace the bot token, `WEBHOOK_SECRET`, `CRON_SECRET`, the
+  database connection string and a device token with `<redacted>`. A bot token that reaches
+  a public issue has to be revoked in @BotFather whether or not anybody got to use it.
+- **A screenshot is a publication too.** The app's screen usually shows the class, the
+  school and the homework all at once. Crop it or paint over it.
+- **A bug is described in the language of behaviour.** "The widget shows yesterday after
+  midnight in Krasnoyarsk" is a report. "Who even wrote this" is not.
 
-## Обязанности сопровождающих
+## Enforcement Responsibilities
 
-Сопровождающие отвечают за разъяснение и применение стандартов приемлемого поведения и
-принимают справедливые корректирующие меры в ответ на любое поведение, которое считают
-неуместным, угрожающим, оскорбительным или вредоносным.
+Community leaders are responsible for clarifying and enforcing our standards of acceptable
+behavior and will take appropriate and fair corrective action in response to any behavior
+that they deem inappropriate, threatening, offensive, or harmful.
 
-Сопровождающие вправе удалять, редактировать или отклонять комментарии, коммиты, код,
-issue и другие материалы, не соответствующие настоящему Кодексу, и будут сообщать причины
-модерации, когда это уместно. Отдельно: сопровождающие удаляют из issue персональные
-данные школьников без предупреждения и обсуждения — это не мера воздействия, а уборка.
+Community leaders have the right and responsibility to remove, edit, or reject comments,
+commits, code, issues, and other contributions that are not aligned to this Code of
+Conduct, and will communicate reasons for moderation decisions when appropriate. Separately:
+maintainers remove schoolchildren's personal data from an issue without warning and without
+discussion — that is not a sanction, it is cleaning up.
 
-## Область действия
+## Scope
 
-Кодекс действует во всех пространствах проекта, а также в случаях, когда человек
-официально представляет проект в публичном пространстве.
+This Code of Conduct applies within all community spaces, and also applies when an
+individual is officially representing the community in public spaces.
 
-## Применение
+## Enforcement
 
-О случаях оскорбительного, притесняющего или иным образом неприемлемого поведения
-сообщайте сопровождающим приватно — через
-[security advisory](https://github.com/lumenpearson/lessons/security/advisories/new).
-Публичного адреса у проекта нет намеренно (адрес в публичном репозитории — это адрес в
-каждом спам-списке), а обращение по Кодексу не должно становиться публичным. Все жалобы
-будут рассмотрены оперативно и беспристрастно.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the
+maintainers privately, through a
+[security advisory](https://github.com/lumenpearson/lessons/security/advisories/new). The
+project deliberately has no public address (an address in a public repository is an address
+in every spam list), and a report under this Code should not have to become public. All
+complaints will be reviewed and investigated promptly and fairly.
 
-Сопровождающие обязаны уважать неприкосновенность частной жизни и безопасность
-сообщившего о происшествии.
+All community leaders are obligated to respect the privacy and security of the reporter of
+any incident.
 
-## Правила применения
+## Enforcement Guidelines
 
-### 1. Исправление
+### 1. Correction
 
-**Последствие для сообщества.** Непрофессиональное или нежелательное поведение.
+**Community Impact.** Use of inappropriate language or other behavior deemed unprofessional
+or unwelcome in the community.
 
-**Мера.** Приватное письменное предупреждение с пояснением характера нарушения. Может
-быть запрошено публичное извинение.
+**Consequence.** A private, written warning from community leaders, providing clarity around
+the nature of the violation and an explanation of why the behavior was inappropriate. A
+public apology may be requested.
 
-### 2. Предупреждение
+### 2. Warning
 
-**Последствие для сообщества.** Нарушение в результате одного инцидента или серии
-действий.
+**Community Impact.** A violation through a single incident or series of actions.
 
-**Мера.** Предупреждение с описанием последствий продолжения. Запрет на взаимодействие с
-вовлечёнными людьми на определённый срок. Нарушение этих условий может привести к
-временному или постоянному запрету.
+**Consequence.** A warning with consequences for continued behavior. No interaction with the
+people involved for a specified period of time. Violating these terms may lead to a
+temporary or permanent ban.
 
-### 3. Временный запрет
+### 3. Temporary Ban
 
-**Последствие для сообщества.** Серьёзное нарушение стандартов сообщества, включая
-устойчивое неприемлемое поведение.
+**Community Impact.** A serious violation of community standards, including sustained
+inappropriate behavior.
 
-**Мера.** Временный запрет на любое взаимодействие и публичную коммуникацию с сообществом
-на определённый срок.
+**Consequence.** A temporary ban from any sort of interaction or public communication with
+the community for a specified period of time.
 
-### 4. Постоянный запрет
+### 4. Permanent Ban
 
-**Последствие для сообщества.** Систематическое нарушение стандартов сообщества,
-притеснение отдельного человека, агрессия в адрес групп людей — а также умышленная
-публикация персональных данных школьников.
+**Community Impact.** Demonstrating a pattern of violation of community standards,
+harassment of an individual, or aggression toward or disparagement of classes of individuals
+— and also the deliberate publication of schoolchildren's personal data.
 
-**Мера.** Постоянный запрет на любое публичное взаимодействие в рамках сообщества.
+**Consequence.** A permanent ban from any sort of public interaction within the community.
 
-## Атрибуция
+## Attribution
 
-Кодекс адаптирован из [Contributor Covenant](https://www.contributor-covenant.org),
-версия 2.1, доступной по адресу
+This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org),
+version 2.1, available at
 <https://www.contributor-covenant.org/version/2/1/code_of_conduct.html>.
 
-Правила применения основаны на
+The Enforcement Guidelines are based on
 [Mozilla's code of conduct enforcement ladder](https://github.com/mozilla/diversity).

@@ -1,63 +1,64 @@
-name: Ошибка
-description: Что-то работает не так — в приложении, виджете, боте или на сервере
+name: Bug
+description: Something behaves wrongly — in the app, the widget, the bot or on the server
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Спасибо за отчёт. Одна просьба: **не публикуйте здесь токен бота, код класса,
-        пароль от электронного дневника и ссылку на календарь** — замените их на
-        `<redacted>`. Issue публичный, а токен из публичного issue придётся отзывать.
+        Thank you for the report. One request: **do not publish the bot token, a class
+        code, an electronic-diary password or a calendar link here** — replace them with
+        `<redacted>`. An issue is public, and a token from a public issue has to be
+        revoked.
 
-        Отчёт можно отправить и прямо из приложения: «Настройки → О приложении → Сообщить
-        об ошибке». Там уже собрана таблица об устройстве.
+        You can also send a report straight from the app: "Настройки → О приложении →
+        Сообщить об ошибке". The table about the device is already filled in there.
 
   - type: checkboxes
     id: preflight
     attributes:
-      label: Перед отправкой
+      label: Before you submit
       options:
-        - label: Похожий issue ещё не заведён
+        - label: No similar issue has been opened yet
           required: true
-        - label: В тексте нет токенов, паролей и кода класса
+        - label: The text carries no tokens, passwords or class code
           required: true
-        - label: Я посмотрел раздел «Честный статус» в README — это не то, что там уже названо непроверенным
+        - label: I have looked at the "Honest status" section of the README — this is not something already named there as unverified
           required: false
 
   - type: dropdown
     id: area
     attributes:
-      label: Где
+      label: Where
       options:
-        - Приложение — экраны
-        - Приложение — виджет
-        - Приложение — уведомления
-        - Приложение — электронный дневник Петербурга
-        - Бот в Telegram
-        - Сервер / API
-        - Сборка APK, Actions
-        - Не знаю
+        - App — screens
+        - App — widget
+        - App — notifications
+        - App — Petersburg electronic diary
+        - Telegram bot
+        - Server / API
+        - APK build, Actions
+        - I do not know
     validations:
       required: true
 
   - type: textarea
     id: what-happened
     attributes:
-      label: Что произошло
+      label: What happened
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: Что ожидалось
+      label: What you expected
     validations:
       required: true
 
   - type: textarea
     id: steps
     attributes:
-      label: Как воспроизвести
+      label: How to reproduce
       value: |
         1.
         2.
@@ -68,8 +69,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: Версия приложения
-      description: «Настройки → О приложении». Для сервера — коммит или тег.
+      label: App version
+      description: 'Open "Настройки → О приложении" in the app. For the server, a commit or a tag.'
       placeholder: 0.1.0
     validations:
       required: true
@@ -77,44 +78,44 @@ body:
   - type: input
     id: device
     attributes:
-      label: Устройство и Android
+      label: Device and Android version
       placeholder: Pixel 6a, Android 15
 
   - type: input
     id: widget-size
     attributes:
-      label: Размер виджета
-      description: Если дело в виджете — сколько клеток он занимает. Содержимое зависит от размера.
+      label: Widget size
+      description: If the widget is the problem — how many cells it occupies. What it draws depends on its size.
       placeholder: 4×2
 
   - type: dropdown
     id: language
     attributes:
-      label: Язык приложения
+      label: App language
       options:
-        - Русский
+        - Russian
         - English
-        - Как в телефоне
+        - Same as the phone
 
   - type: input
     id: timezone
     attributes:
-      label: Часовой пояс класса
-      description: «⚙️ Класс → 🕒 Часовой пояс» в боте. Важно для всего, что связано со временем.
+      label: The class's time zone
+      description: 'In the bot: "⚙️ Класс → 🕒 Часовой пояс". It matters for everything to do with time.'
       placeholder: Europe/Moscow
 
   - type: textarea
     id: logs
     attributes:
-      label: Логи, ответ сервера, вывод упавшей команды
-      description: Секреты замените на `<redacted>`.
+      label: Logs, the server's answer, the output of the command that failed
+      description: Replace secrets with `<redacted>`.
       render: shell
 
   - type: dropdown
     id: regression
     attributes:
-      label: Раньше работало?
+      label: Did it work before?
       options:
-        - Не знаю
-        - Да, сломалось в какой-то версии
-        - Нет, не работало никогда
+        - I do not know
+        - Yes, it broke in some version
+        - No, it never worked

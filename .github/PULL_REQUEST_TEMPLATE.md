@@ -1,45 +1,44 @@
-# Описание
+# Description
 
-<!-- Что меняется и почему. Ссылка на issue: Closes #123 -->
+<!-- What changes and why. Link an issue: Closes #123 -->
 
-## Что затронуто
+## What is affected
 
-- [ ] `server/app/api` — клиентский API
-- [ ] `server/app/bot` — бот
-- [ ] `server/app/services` — общие правила бота и API
-- [ ] `server/app/providers/petersburg` — электронный дневник
-- [ ] `server/migrations` — схема базы
-- [ ] `android/core/model` — модели и движок состояний
-- [ ] `android/core/data` — Room, сеть, синхронизация, уведомления
-- [ ] `android/core/designsystem` — тема и компоненты
-- [ ] `android/widget` — виджет
-- [ ] `android/app` — экраны
+- [ ] `server/app/api` — the client-facing API
+- [ ] `server/app/bot` — the bot
+- [ ] `server/app/services` — the rules the bot and the API share
+- [ ] `server/app/providers/petersburg` — the electronic diary
+- [ ] `server/migrations` — the database schema
+- [ ] `android/core/model` — the models and the state engine
+- [ ] `android/core/data` — Room, network, sync, notifications
+- [ ] `android/core/designsystem` — theme and components
+- [ ] `android/widget` — the widget
+- [ ] `android/app` — the screens
 - [ ] `docs/`, `README.md`
-- [ ] `.github/` — сборка и автоматизация
+- [ ] `.github/` — build and automation
 
-## Границы
+## Boundaries
 
-Отметьте то, что проверили. Если что-то нарушено осознанно — скажите, почему.
+Tick what you checked. If something is broken deliberately, say why.
 
-- [ ] `app/schedule.py` по-прежнему не импортирует ни FastAPI, ни aiogram
-- [ ] Правило не появилось в двух местах: бот и `/api/v1/manage` вызывают одну
-      функцию из `app/services/`, а не две копии одного решения
-- [ ] Изменение моделей сопровождается ревизией Alembic (голова цепочки —
-      `app/db.py:EXPECTED_REVISION`, сейчас `0013`; `create_all` после `0001`
-      не используется)
-- [ ] На сервере ничего не запланировано «в процессе»: на Vercel между запросами
-      не выполняется ничего, всё по часам идёт через `/api/v1/cron/tick`
-- [ ] «Сейчас» берётся в часовом поясе класса — `school_class.tz` на сервере,
-      `Timetable.nowAtSchool()` на клиенте, — а не у сервера или телефона
-- [ ] `:core:data` не зависит от `:widget`
-- [ ] У каждой новой русской строки есть английская пара в `values-en/`
-- [ ] Ни токена, ни кода класса, ни пароля, ни пути к хранилищу ключей в diff нет
+- [ ] `app/schedule.py` still imports neither FastAPI nor aiogram
+- [ ] The rule did not appear in two places: the bot and `/api/v1/manage` call one
+      function from `app/services/`, not two copies of one decision
+- [ ] A model change comes with an Alembic revision (the head of the chain is
+      `app/db.py:EXPECTED_REVISION`, currently `0013`; no `create_all` after `0001`)
+- [ ] Nothing is scheduled "in process" on the server: nothing runs between requests on
+      Vercel, and everything on a clock goes through `/api/v1/cron/tick`
+- [ ] "Now" is taken in the class's time zone — `school_class.tz` on the server,
+      `Timetable.nowAtSchool()` on the client — and not the server's or the phone's
+- [ ] `:core:data` does not depend on `:widget`
+- [ ] Every new Russian string has its English twin in `values-en/`
+- [ ] There is no token, class code, password or keystore path in the diff
 
-## Проверка
+## Verification
 
 <!--
-Вставьте РЕАЛЬНЫЙ вывод команд, а не фразу «всё проходит».
-Достаточно итоговых строк с числами.
+Paste the REAL output of the commands, not the phrase "everything passes".
+The summary lines with the numbers are enough.
 -->
 
 ```text
@@ -48,26 +47,25 @@ cd server && python -m pytest -q                      →
 cd android && ./gradlew test                          →
 ```
 
-Если менялся `android/`:
+If `android/` changed:
 
 - [ ] `./gradlew assembleDebug`
-- [ ] `./gradlew assembleRelease` — R8 и сжатие ресурсов ломают то, что в debug
-      работало, и на pull request это дешевле, чем в установленном APK
-- [ ] Проверено на устройстве или эмуляторе <!-- модель и версия Android -->
-- [ ] Виджет проверен хотя бы на двух размерах <!-- каких -->
+- [ ] `./gradlew assembleRelease` — R8 and resource shrinking break what worked in debug,
+      and on a pull request that is cheaper than in an installed APK
+- [ ] Checked on a device or an emulator <!-- model and Android version -->
+- [ ] The widget checked at two sizes at least <!-- which -->
 
-## Что НЕ покрыто
+## What is NOT covered
 
 <!--
-Обязательный раздел. «Написано, не запускалось» — честный статус, и его стоит
-написать. Утверждение, что проверено то, что не запускалось, — нет.
-Если изменение чинит что-то, о чём README говорит в «Честном статусе», обновите
-и его.
+A mandatory section. "Written, never run" is an honest status and is worth writing down.
+A claim that something was verified when it was never run is not.
+If the change fixes something the README names in "Honest status", update that too.
 -->
 
-## Документация
+## Documentation
 
-- [ ] `docs/` обновлён, если изменение сделало какой-то документ неверным
-- [ ] `CLAUDE.md` обновлён, если менялись команды, модули или границы
-- [ ] `README.md` обновлён, если менялось то, что видит пользователь
-- [ ] Обновление не требуется
+- [ ] `docs/` updated, if the change made a document wrong
+- [ ] `CLAUDE.md` updated, if commands, modules or boundaries changed
+- [ ] `README.md` updated, if what the user sees changed
+- [ ] No update needed
