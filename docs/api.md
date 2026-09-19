@@ -47,42 +47,39 @@ Failed joins are rate-limited per client address (thirty per fifteen minutes,
 counted in the database so the limit survives serverless cold starts); a
 blocked client gets `429` with `Retry-After`.
 
-### Кто пускает телефон: код класса или бот
+### Who lets a phone in: the class code or the bot
 
-У класса есть режим приёма — `join_mode`, `open` или `invite`, — и он решает,
-чего стоит код класса.
+A class has a join mode — `join_mode`, either `open` or `invite` — and it decides what the
+class code is worth.
 
-`open` — то, чем класс был всегда: код класса пускает всякого, кто его наберёт.
-Это разумно ровно настолько, насколько разумно раздавать расписание всем
-подряд, и совершенно неразумно для класса, который так не считает: код, который
-прочитали вслух и переслали, стоит столько же, сколько самый неаккуратный из
-тех, у кого он есть, а ротация выбрасывает сразу всех, а не того, через кого он
-утёк.
+`open` is what a class always was: the class code lets in anybody who types it. That is
+sensible exactly as far as handing the timetable to all comers is sensible, and entirely
+unsensible for a class that does not see it that way: a code read aloud and forwarded is
+worth as much as the least careful person holding it, and rotating it throws everybody out
+at once rather than the one it leaked through.
 
-`invite` — код класса перестаёт пускать что-либо, и `POST /join` отвечает на
-него `403` с русской фразой в `detail`. Телефон заходит по **личному** коду:
-десять символов, пятнадцать минут, один телефон, один Telegram-аккаунт. Бот
-выдаёт его только тому, кого уже знает как участника класса, — кнопка
-«📱 Подключить телефон» в меню, — так что на вопрос «кто пустил этот телефон»
-всегда есть ответ с именем.
+`invite` means the class code stops letting anything in, and `POST /join` answers it with a
+`403` carrying a Russian sentence in `detail`. A phone joins with a **personal** code: ten
+characters, fifteen minutes, one phone, one Telegram account. The bot hands it out only to
+somebody it already knows as a member of the class — the «📱 Подключить телефон» button in
+the menu — so the question "who let this phone in" always has an answer with a name on it.
 
-Личный код вводится в то же поле `code` и на тот же `POST /join`: для
-приложения это один экран и одна ошибка, а не два способа войти. Он работает и
-в `open` — режимы не исключают друг друга, — и заодно **сразу привязывает**
-устройство к аккаунту, который его взял. В `open` телефон заходит анонимно и
-привязывается потом, вторым кодом в боте, чего почти никто не делает, и список
-устройств зарастает строками, про которые никто не скажет, чьи они.
+A personal code is typed into the same `code` field and goes to the same `POST /join`: for
+the app that is one screen and one error, not two ways to sign in. It works in `open` too —
+the modes do not exclude each other — and it **links the device immediately** to the account
+that took it. In `open` a phone joins anonymously and is linked afterwards with a second
+code from the bot, which almost nobody does, and the device list fills up with rows nobody
+can attribute.
 
-Тот `403` **не считается** неудачной попыткой для лимитера. Лимитер стоит
-против перебора кодов, а этот вызывающий код уже нашёл; считать его значило бы,
-что класс, переключившийся на приглашения, запирает всех, у кого ещё остался
-старый код.
+That `403` is **not counted** as a failed attempt by the rate limiter. The limiter stands
+against guessing codes, and this caller has already found one; counting it would mean that a
+class switching to invitations locks out everybody still holding the old code.
 
-**Переключение ничего не отбирает.** `invite` не отзывает телефон, который
-вошёл по коду класса, ровно как и ротация кода, — а обратное переключение
-возвращает коду класса силу. Меняется `PATCH /api/v1/manage/class` полем
-`join_mode` (админ) или кнопкой в «👥 Доступ» у бота; и то и другое пишет в
-журнал строку `access.join_mode`.
+**Switching takes nothing away.** `invite` does not revoke a phone that joined with the
+class code, exactly as rotating the code does not — and switching back gives the class code
+its force again. It is changed by `PATCH /api/v1/manage/class` with the `join_mode` field
+(admin) or by a button under «👥 Доступ» in the bot; both write an `access.join_mode` line
+to the log.
 
 | Status | Meaning |
 | --- | --- |
@@ -102,22 +99,22 @@ One request returns everything the app and the widget need.
 | Parameter | Default | Notes |
 | --- | --- | --- |
 | `start` | today, in the school's timezone | `YYYY-MM-DD`, 2000–2100 |
-| `days` | `14` | 1–280 — целый учебный год, см. ниже |
+| `days` | `14` | 1–280 — a whole school year, see below |
 
-Потолок в 280 дней — это самый длинный учебный год (274 дня, 1 сентября или
-ближайший будний после него по 31 мая) плюс запас. Прежний потолок в 31 день
-был не ограничением сервера, а размером кэша клиента: приложение просило месяц,
-и календарь за его границей рисовал «Нет данных» — что на экране неотличимо от
-«в этот день нет уроков». Расширение почти ничего не стоит: `ScheduleResolver`
-делает одно и то же число запросов на любой диапазон и разворачивает остальное
-из недельного шаблона в памяти. Замер на демо-классе: 6.0 KiB на 31 день против
-47.9 KiB на 273.
+The ceiling of 280 days is the longest school year (274 days, from 1 September or the next
+weekday after it through to 31 May) plus some slack. The old ceiling of 31 days was not a
+limit of the server but the size of the client's cache: the app asked for a month, and past
+that boundary the calendar drew «Нет данных» — which on a screen is indistinguishable from
+"there are no lessons that day". Widening it costs almost nothing: `ScheduleResolver` makes
+the same number of queries for any range and expands the rest from the weekly template in
+memory. Measured on the demo class: 6.0 KiB for 31 days against 47.9 KiB for 273.
 
-Класс несёт свой номер и периоды учебного года. Номер — число, а не разбор
-названия: «9А» может оказаться «9 инж» или «5-й Б», и регулярное выражение по
-такому молча ошибается на том одном классе, что записан иначе. Периоды приходят
-строками, а не формулой, потому что даты — дело школы: каникулы сдвигаются,
-регион раньше уходит на весенние, карантин съедает неделю.
+A class carries its own number and the periods of its school year. The number is a number
+rather than something parsed out of a name: «9А» may turn out to be «9 инж» or «5-й Б», and
+a regular expression over that is quietly wrong for the one class written differently.
+The periods arrive as rows rather than as a formula, because the dates are the school's
+business: the holidays shift, a region goes on its spring break earlier, a quarantine eats a
+week.
 
 ```json
 {
@@ -274,7 +271,7 @@ code. Idempotent.
 ```
 
 Ordered by date, then subject. `done` is **this person's** tick - thirty
-pupils marking the same задание each see their own - and is always `false`
+pupils marking the same assignment each see their own - and is always `false`
 for an unlinked device.
 
 ### `POST /api/v1/homework/{id}/done`
@@ -365,7 +362,7 @@ A task:
 `POST` takes `title` (required, up to 200 characters) and any of the others.
 `priority` is `0` (low), `1` (normal, the default) or `2` (high).
 `homework_id` may point at a homework row of this class - a task created from
-a задание - and is `422` otherwise. `remind_at` is class wall time; an aware
+an assignment - and is `422` otherwise. `remind_at` is class wall time; an aware
 timestamp (`...Z`, `...+03:00`) is converted, a naive one is taken as is. The
 bot sends one message at that moment and clears the field.
 
@@ -399,7 +396,7 @@ device tokens. An admin rotates it from the bot; `404` on an unknown token.
 homework with `DUE;VALUE=DATE`. Times are `DTSTART;TZID=<zone>` local wall
 time with no `VTIMEZONE` block - every calendar that matters resolves IANA
 names itself. UIDs derive from (class, date, slot), so a re-fetch sees the
-same lesson as the same entry and a new замена replaces it rather than
+same lesson as the same entry and a new substitution replaces it rather than
 appearing twice. The feed is the class's and shared, so nobody's personal
 tasks are in it.
 
@@ -421,7 +418,7 @@ bundle.
 { "due_date": "2026-09-14", "subject": "Алгебра", "text": "№ 12–15", "attachment_url": null }
 ```
 
-Upsert by (date, subject): one задание per subject per day, and sending it
+Upsert by (date, subject): one assignment per subject per day, and sending it
 again replaces the text. Answers the row in the `GET /homework` shape
 (`id`, `due_date`, `subject`, `text`, `attachment_url`, `done`). Subscribers
 with «ДЗ» notifications on are told.
@@ -529,7 +526,7 @@ wall time**, like every other clock on this API: an admin in Vladivostok
 reading a Moscow server's log should not see yesterday evening against this
 morning's change.
 
-Days, замены, events and homework are not on this surface. They are the
+Days, substitutions, events and homework are not on this surface. They are the
 day-to-day writes and they already live under [writing class
 data](#writing-class-data) at the editor's role - `PUT /api/v1/days` is the
 API's «🏖 Особые дни».
@@ -574,7 +571,7 @@ asks for:
 
 The name must match exactly, or `422`; a sheet in the app is not the check,
 because the endpoint is reachable without the sheet. The class, its timetable,
-homework, замены, events, log and every device token go with it - including
+homework, substitutions, events, the log and every device token go with it - including
 the caller's own, so the next request from that phone is a `401`. Answers
 `{"id": 1, "deleted": true}`.
 
@@ -602,7 +599,7 @@ count once the two agree.
 
 Which is why the dictionary is worth filling in. A colour set here reaches
 every lesson of that subject, and a teacher set here is the fallback for every
-lesson whose own cell names nobody — both on ordinary lessons and on замены.
+lesson whose own cell names nobody — both on ordinary lessons and on substitutions.
 Before, an empty dictionary meant a timetable with no colours at all, whatever
 was typed into the template.
 
@@ -617,7 +614,7 @@ Both answer:
 ```
 
 `moved` is the point of `PATCH name`. The timetable, the homework and the
-замены store the subject as **text** as well - deliberately, so a lesson keeps
+substitutions store the subject as **text** as well - deliberately, so a lesson keeps
 its name when a subject is deleted - so a rename is still a cascade, and all of
 it happens in one transaction. `moved` is how many of those rows went with it.
 The template is matched on the link *and* on the old spelling: the link is the
@@ -629,12 +626,12 @@ undone.
 `DELETE` is **refused with `409` while the weekly template still uses the
 subject**, and the detail says how many lessons do (`"12 lesson(s) still use
 this subject"`). It used to succeed and leave the lessons alone — the timetable
-keeps the name, so the class kept its расписание and lost only the colour and
+keeps the name, so the class kept its timetable and lost only the colour and
 the teacher. That stopped meaning anything once the dictionary began keeping
 itself: the name is still in the template, so the next read adopts it straight
 back, stripped of the colour, the short name and the teacher the deleted row
 carried, and the admin was told nothing at all. Two halves of one list are
-deleted in one order — out of the расписание, then out of the dictionary. A
+deleted in one order — out of the timetable, then out of the dictionary. A
 subject nothing teaches still deletes in one call, which is what this endpoint
 was really for.
 
@@ -663,8 +660,8 @@ to stop using one is to make another the default.
 `PUT /manage/bells/{id}/periods` replaces the rows wholesale, because that is
 what editing bells is: move one lesson and every lesson after it shifts.
 Between one and twenty rows, `index` 1-20 and unique, `ends_at` after
-`starts_at`; an empty list is `422`, the same refusal as the bot's «пустой
-присылкой звонки не стереть».
+`starts_at`; an empty list is `422`, the same refusal the bot gives: bells are not
+erased by sending nothing.
 
 `DELETE` refuses the class default and any schedule a special day still points
 at (`409`, with the count). Both are a `SET NULL` in the database, which would
@@ -841,21 +838,21 @@ What is due is decided from each class's own clock and from what was already
 sent today, never from when the last tick ran - so a tick that runs twice in
 a minute or an hour late sends each digest once.
 
-Этот же тик подметает таблицы, которые растут между вызовами — ничто другое
-в этом развёртывании не работает между запросами:
+The same tick sweeps the tables that grow between calls — nothing else in this deployment
+runs between requests:
 
-| Что | Когда удаляется | Почему |
+| What | When it is deleted | Why |
 | --- | --- | --- |
-| Брошенные диалоги бота (`fsm_states`) | спустя сутки | `fsm_purged` |
-| Счётчики неудачных попыток входа (`join_attempts`) | через час | `join_attempts_purged` |
-| Сессии дневника (`diary_sessions`) | через сутки после отказа сервера, через 30 дней без использования | внутри лежит живой токен чужого сервиса |
-| Токены устройств (`device_tokens`) | через 180 дней молчания | каждый `POST /join` создаёт строку; переустановка приложения оставляет старую навсегда |
-| Билеты входа в дневник (`diary_link_codes`) | по истечении | `diary_links_purged` |
-| Личные коды подключения (`device_invites`) | через сутки после истечения | `device_invites_purged`; сутки, а не сразу, — «мой код не работает» спрашивают через минуты, а кто подключил телефон, помнит сам токен устройства |
+| Abandoned bot dialogues (`fsm_states`) | after a day | `fsm_purged` |
+| Failed-join counters (`join_attempts`) | after an hour | `join_attempts_purged` |
+| Diary sessions (`diary_sessions`) | a day after the service refuses one, 30 days after it was last used | a live token for somebody else's service is inside |
+| Device tokens (`device_tokens`) | after 180 days of silence | every `POST /join` creates a row, and reinstalling the app leaves the old one for ever |
+| Diary sign-in tickets (`diary_link_codes`) | on expiry | `diary_links_purged` |
+| Personal connect codes (`device_invites`) | a day after they expire | `device_invites_purged`; a day rather than immediately, because "my code does not work" is asked within minutes, while who connected a phone is remembered by the device token itself |
 
-180 дней — это заведомо больше летних каникул: телефон, молчавший с конца мая,
-в сентябре должен работать. Устройство, которым пользуются, отмечается не реже
-раза в 15 минут при любом чтении.
+180 days is comfortably longer than the summer holidays: a phone silent since the end of May
+has to work in September. A device in use is marked no less than once every 15 minutes, on
+any read.
 
 ## `GET /api/v1/health`
 
@@ -863,20 +860,20 @@ Unauthenticated. Returns `{"status": "ok", "api_version": 1}`. Use it for
 container health checks. `GET /api/v1/warmup` is the same plus one database
 round trip, for keeping a scaled-to-zero database awake (see `deploy.md`).
 
-## Электронный дневник Петербурга
+## The Petersburg electronic diary
 
-Отдельная поверхность под `/api/v1/diary`. Отдельная — потому что это другая
-вещь: `/api/v1` отдаёт расписание класса, которое заполняет бот, а здесь —
-аккаунт конкретной семьи в чужом сервисе `dnevnik2.petersburgedu.ru`. Общего у
-них ничего, кроме сервера.
+A separate surface under `/api/v1/diary`. Separate because it is a different thing:
+`/api/v1` hands out the class's timetable, which the bot fills in, while this is one
+family's account in somebody else's service, `dnevnik2.petersburgedu.ru`. They have nothing
+in common but the server.
 
-**Приложение никогда не обращается к dnevnik2.petersburgedu.ru напрямую.** Ни
-один параметр этого сервиса — `p_educations[]`, `p_datetime_from`, `X-JWT-Token`,
-`estimate_type_code`, `hash_uid` — не пересекает границу нашего API. Если
-завтра там переименуют поле, чинится один каталог `app/providers/petersburg/`,
-а приложение и этот документ не меняются.
+**The app never talks to dnevnik2.petersburgedu.ru directly.** Not one of that service's
+parameters — `p_educations[]`, `p_datetime_from`, `X-JWT-Token`, `estimate_type_code`,
+`hash_uid` — crosses the boundary of our API. If a field is renamed up there tomorrow, one
+directory is what gets fixed, `app/providers/petersburg/`, and neither the app nor this
+document changes.
 
-### Вход
+### Signing in
 
 ```
 POST /api/v1/diary/login
@@ -887,68 +884,66 @@ POST /api/v1/diary/login
 { "token": "…", "login": "parent@example.com" }
 ```
 
-**Пароль не хранится.** Он нужен ровно на один запрос — логин в чужом сервисе, —
-после чего забывается. Хранится только сессия самого дневника, и она обновляется
-на лету: сервис отдаёт свежий токен почти на каждом ответе, и мы его
-переписываем, поэтому живая сессия не умирает от времени. Когда она всё-таки
-перестаёт приниматься, любой запрос отвечает `401` с заголовком
-`X-Diary-Reauth: required` — это просьба спросить пароль заново, а не «токен
-неверный».
+**The password is not stored.** It is needed for exactly one request — the login to
+somebody else's service — after which it is forgotten. Only the diary's own session is
+stored, and it is refreshed on the fly: the service hands back a fresh token on almost every
+answer and we overwrite ours with it, so a session in use does not die of age. When it does
+finally stop being accepted, any request answers `401` with an `X-Diary-Reauth: required`
+header — which is a request to ask for the password again, not "the token is wrong".
 
-Цена решения честная: фоновая синхронизация дневника живёт не дольше сессии.
-Альтернатива — держать пароль каждой семьи в базе ради экономии одного экрана
-входа раз в несколько дней — того не стоит.
+The price of that decision is honest: a background sync of the diary lives no longer than
+the session. The alternative — keeping every family's password in the database to save one
+sign-in screen every few days — is not worth it.
 
-Токен этой сессии — **не** тот же, что у устройства класса. Телефон может быть
-подключён к классу без дневника и к дневнику без класса; один токен на оба
-пришлось бы перевыпускать при изменении любой половины.
+This session's token is **not** the same as the class device's. A phone can be connected to
+a class without a diary and to a diary without a class; one token meaning both would have to
+be re-minted whenever either half changed.
 
-### Что можно спросить
+### What can be asked
 
-| Endpoint | Ответ |
+| Endpoint | Answer |
 | --- | --- |
-| `GET /api/v1/diary/students` | дети, которых видит аккаунт |
-| `GET /api/v1/diary/students/{id}/schedule?from=&to=` | расписание |
-| `GET /api/v1/diary/students/{id}/homework?from=&to=` | домашние задания |
-| `GET /api/v1/diary/students/{id}/grades?from=&to=` | оценки |
-| `GET /api/v1/diary/students/{id}/periods` | учебные периоды |
-| `GET /api/v1/diary/students/{id}/subjects?period_id=` | предметы периода |
-| `GET /api/v1/diary/students/{id}/teachers` | учителя |
-| `GET /api/v1/diary/students/{id}/attendance` | проходы через турникет |
-| `GET /api/v1/diary/students/{id}/overrides` | правки семьи поверх дневника |
-| `PUT /api/v1/diary/students/{id}/overrides` | записать правку |
-| `POST /api/v1/diary/students/{id}/overrides/reset` | сбросить одну |
-| `DELETE /api/v1/diary/students/{id}/overrides/all` | сбросить все |
-| `POST /api/v1/diary/logout` | забыть сессию |
+| `GET /api/v1/diary/students` | the children this account can see |
+| `GET /api/v1/diary/students/{id}/schedule?from=&to=` | the timetable |
+| `GET /api/v1/diary/students/{id}/homework?from=&to=` | the assignments |
+| `GET /api/v1/diary/students/{id}/grades?from=&to=` | the marks |
+| `GET /api/v1/diary/students/{id}/periods` | the school periods |
+| `GET /api/v1/diary/students/{id}/subjects?period_id=` | a period's subjects |
+| `GET /api/v1/diary/students/{id}/teachers` | the teachers |
+| `GET /api/v1/diary/students/{id}/attendance` | the turnstile passages |
+| `GET /api/v1/diary/students/{id}/overrides` | the family's corrections over the diary |
+| `PUT /api/v1/diary/students/{id}/overrides` | write a correction |
+| `POST /api/v1/diary/students/{id}/overrides/reset` | reset one |
+| `DELETE /api/v1/diary/students/{id}/overrides/all` | reset them all |
+| `POST /api/v1/diary/logout` | forget the session |
 
-`from` и `to` — ISO-даты; по умолчанию две недели вперёд, максимум 62 дня.
-`{id}` — идентификатор ребёнка из `/students`, и он **проверяется по списку
-доступных этому аккаунту**: чужой id отвечает 404, а не чужими данными.
+`from` and `to` are ISO dates; the default is two weeks ahead and the maximum is 62 days.
+`{id}` is a child's identifier from `/students`, and it is **checked against the list this
+account may see**: somebody else's id answers 404 rather than somebody else's data.
 
-### Оценка — это не всегда оценка
+### A mark is not always a mark
 
-Сервис кладёт в один список оценки, пропуски, опоздания и замечания и
-различает их числовым кодом. Мы различаем их за клиента:
+The service puts marks, absences, late arrivals and remarks into one list and tells them
+apart by a numeric code. We tell them apart on the client's behalf:
 
 ```json
 { "subject": "Алгебра", "date": "2026-09-11", "value": "Н", "kind": "absence" }
 ```
 
-`value` — то, что пишут в клетку журнала; `kind` — что это на самом деле:
-`grade`, `absence`, `late`, `remark`, `other`. Клиенту не нужно знать, что
-«отсутствовал» — это код 30000.
+`value` is what gets written into the register's cell; `kind` is what it actually is:
+`grade`, `absence`, `late`, `remark`, `other`. A client does not need to know that
+"was absent" is code 30000.
 
-Домашнего задания как отдельной сущности в сервисе нет: это поле урока.
-`/homework` вынимает его и отдаёт списком, потому что спрашивают именно так.
+Homework is not a separate entity in the service: it is a field of a lesson. `/homework`
+takes it out and hands it back as a list, because that is how people ask for it.
 
-### Правки поверх дневника
+### Corrections over the diary
 
-Дневник для нас **только на чтение**, и это не меняется: наверх не уходит ничего.
-Правка — это значение, которое кладётся **поверх** пришедшего сверху на выходе,
-а сброс его снимает. В dnevnik2 при этом не меняется ничего, и учитель правку не
-видит.
+The diary is **read-only** for us, and that does not change: nothing goes upstream. A
+correction is a value laid **over** what came from above, on the way out, and a reset takes
+it off. Nothing changes in dnevnik2, and the teacher does not see the correction.
 
-Урок и задание приходят с ключом и списком правок:
+A lesson and an assignment arrive with a key and a list of corrections:
 
 ```json
 {
@@ -961,99 +956,99 @@ POST /api/v1/diary/login
 }
 ```
 
-`target` **строит только сервер**, а клиент возвращает его дословно. Две
-реализации ключа, который обязан совпасть побайтово, согласуются ровно до
-первого урока без номера.
+`target` is **built by the server alone**, and the client hands it back verbatim. Two
+implementations of a key that has to match byte for byte agree exactly until the first
+lesson with no number.
 
-`original` — это то, что дневник говорит **сейчас**, а не то, что он говорил,
-когда правку писали. `changed_upstream` поднимается, когда эти два разошлись:
-учитель, который наконец заполнил домашку, не должен оказаться спрятан за
-правкой, написанной когда её не было. Сама правка при этом не сбрасывается —
-её написал человек, и выбрасывать её за него код не будет.
+`original` is what the diary says **now**, not what it said when the correction was written.
+`changed_upstream` is raised when those two have diverged: a teacher who has finally filled
+the homework in must not end up hidden behind a correction written when it was empty. The
+correction itself is not reset — a person wrote it, and the code will not throw it away on
+their behalf.
 
-`ambiguous` означает, что в этот день два урока дали один ключ. Так бывает при
-делении на группы: номер урока в дневнике не уникален внутри дня, а различают
-такие уроки кабинет и учитель — то есть ровно те поля, которые правятся. Тогда
-правка не применяется ни к одному из них, и клиент об этом говорит.
+`ambiguous` means that two lessons that day produced one key. That happens when a class is
+split into groups: a lesson's number is not unique within a day in the diary, and what tells
+such lessons apart is the room and the teacher — that is, exactly the fields being
+corrected. The correction is then applied to neither of them, and the client says so.
 
-**Править можно не всё.** У урока — `homework`, `room`, `teacher`, `topic`; у
-задания — `text`. Оценок и турникета в этом списке нет и не будет: отметка и
-проход — это утверждения о том, что произошло, и приложение, позволяющее их
-переписать, производит поддельную запись, которая выглядит официальной.
-`subject` не правится потому, что он половина ключа.
+**Not everything can be corrected.** On a lesson: `homework`, `room`, `teacher`, `topic`; on
+an assignment: `text`. Marks and the turnstile are not in that list and will not be: a mark
+and a passage are statements about what happened, and an app that lets you rewrite one
+produces a forged record that looks official. `subject` is not correctable because it is
+half of the key.
 
-Правки живут на **логине аккаунта**, а не на сессии: сессия дневника умирает
-каждые несколько дней, и правка, ушедшая вместе с ней, исчезла бы сама, молча,
-раньше, чем кто-нибудь нажал бы «сбросить».
+Corrections live on the **account's login** rather than on the session: a diary session dies
+every few days, and a correction that went with it would disappear by itself, silently,
+before anybody pressed "reset".
 
-Сброс одной правки — это `POST .../overrides/reset` с телом
-`{"target": …, "field": …}`, а не `DELETE` с теми же полями в query. `target` —
-строка, склеенная через двоеточие, и в ней стоит название предмета: «ОБЖ и
-экология» ломается об `&`, а длинный ключ обрезает лог прокси. Тело переживает
-и то, и другое. Сброс идемпотентен: снятие того, чего не правили, отвечает 204,
-а не 404 — запрошенное состояние и так достигнуто.
+Resetting one correction is `POST .../overrides/reset` with a body of
+`{"target": …, "field": …}`, not a `DELETE` with the same fields in the query. `target` is a
+string glued together with colons, and a subject's name is inside it: «ОБЖ и экология»
+breaks on `&`, and a long key gets cut by a proxy's log. A body survives both. The reset is
+idempotent: taking off something that was never corrected answers 204 rather than 404 — the
+requested state has been reached either way.
 
-`GET /overrides` перечисляет правки для экрана, который их снимает, и в каждой
-строке есть `original_when_written` — то, что дневник говорил **тогда**. Это
-намеренно другое слово, чем `original` в `edits` урока: то — что дневник
-говорит **сейчас**, то есть значение, которое правка прямо сейчас закрывает.
-Одно и то же поле называется по-разному, потому что означает противоположные
-вещи, и клиент, перепутавший их, показал бы «было / стало» задом наперёд.
+`GET /overrides` lists the corrections for the screen that takes them off, and every row has
+`original_when_written` — what the diary said **then**. That is deliberately a different
+word from the `original` in a lesson's `edits`: that one is what the diary says **now**, that
+is, the value the correction is covering right at this moment. The same field is named
+differently because it means opposite things, and a client that confused them would show
+"before / after" back to front.
 
-**В боте правки не применяются.** Бот рисует день одним куском текста без кнопки
-на урок, так что правка там была бы неотличима от того, что написала школа, и
-снять её было бы нечем — а это та поверхность, которую чаще читает родитель.
-Бот остаётся неизменённым зеркалом дневника; исправления живут в приложении, где
-они видны как исправления и обратимы.
+**Corrections are not applied in the bot.** The bot draws a day as one block of text with no
+button on a lesson, so a correction there would be indistinguishable from what the school
+wrote and there would be nothing to take it off with — and that is the surface a parent reads
+more often. The bot stays an unaltered mirror of the diary; the corrections live in the app,
+where they are visible as corrections and are reversible.
 
-### Коды ошибок
+### Error codes
 
-| Код | Что случилось | Что делать приложению |
+| Code | What happened | What the app should do |
 | --- | --- | --- |
-| `401` | токен нашей сессии не подошёл | попросить войти |
-| `401` + `X-Diary-Reauth: required` | сессия дневника истекла | попросить пароль заново |
-| `404` | такого ребёнка у этого аккаунта нет | — |
-| `422` | на чтениях — диапазон дат вывернут или шире 62 дней; на `PUT .../overrides` — правка отклонена: неизвестный `target`, неправимое поле или пустое значение там, где пусто нельзя | на чтении — почини диапазон; на правке — покажи `detail` |
-| `502` | дневник ответил непонятно | показать, что сервис изменился |
-| `503` | дневник не отвечает | предложить повторить |
+| `401` | our session's token did not fit | ask them to sign in |
+| `401` + `X-Diary-Reauth: required` | the diary's session expired | ask for the password again |
+| `404` | this account has no such child | — |
+| `422` | on reads, the date range is inverted or wider than 62 days; on `PUT .../overrides`, the correction was refused: an unknown `target`, an uncorrectable field, or an empty value where empty is not allowed | on a read, fix the range; on a correction, show `detail` |
+| `502` | the diary answered incomprehensibly | say that the service has changed |
+| `503` | the diary is not answering | offer to retry |
 
-Один код на две разные вещи — это цена того, что и диапазон, и правка
-проверяются как тело запроса. Различает их **вызов**, а не ответ: в теле нет
-ничего, что отделяло бы одно от другого, поэтому клиент решает по тому, какой
-запрос он сделал (`android/core/data/.../DiaryModels.kt` делает ровно это).
+One code for two different things is the price of both the range and the correction being
+checked as a request body. What tells them apart is the **call**, not the answer: there is
+nothing in the body that separates one from the other, so the client decides by which
+request it made (`android/core/data/.../DiaryModels.kt` does exactly that).
 
-`502` — единственный код, который означает, что чинить надо нам: сервис не
-документирован, и когда его ответ перестаёт читаться, это видно именно так.
+`502` is the only code that means we are the ones who have to fix something: the service is
+undocumented, and when its answer stops being readable, this is how it shows.
 
 
-## Четверти и полугодия
+## Quarters and half-years
 
-| Метод | Путь | Роль | Что делает |
+| Method | Path | Role | What it does |
 | --- | --- | --- | --- |
-| `GET` | `/api/v1/manage/terms` | админ | периоды класса; при первом обращении создаёт обычный набор |
-| `PUT` | `/api/v1/manage/terms/scheme` | админ | `{"kind": "quarter"\|"semester"}` — пересоздаёт год по другой схеме |
-| `PUT` | `/api/v1/manage/terms/{index}` | админ | `{"starts_on", "ends_on"}` — двигает края одного периода |
+| `GET` | `/api/v1/manage/terms` | admin | the class's periods; the first call creates the usual set |
+| `PUT` | `/api/v1/manage/terms/scheme` | admin | `{"kind": "quarter"\|"semester"}` — recreates the year on another scheme |
+| `PUT` | `/api/v1/manage/terms/{index}` | admin | `{"starts_on", "ends_on"}` — moves one period's edges |
 
-Схема по умолчанию следует номеру класса: 1–9 учатся четвертями, 10–11 —
-полугодиями. Выбор хранится отдельно от номера, поэтому «никто не решал» и
-«решили четверти для одиннадцатого» — разные состояния, и второе школа вправе
-выбрать.
+The default scheme follows the class's number: years 1–9 are taught in четверти (quarters),
+10–11 in полугодия (half-years). The choice is stored separately from the number, so
+"nobody decided" and "quarters were chosen for year eleven" are different states, and a
+school is entitled to choose the second.
 
-Смена схемы **пересоздаёт** периоды года, а не правит их: четыре четверти и два
-полугодия друг на друга не ложатся, и оставшаяся третья четверть внутри года из
-двух половин — не то состояние, которое стоит хранить.
+Changing the scheme **recreates** the year's periods rather than editing them: four quarters
+and two half-years do not lie on top of each other, and a leftover third quarter inside a
+year made of two halves is not a state worth keeping.
 
-Правка краёв отвечает `422` с русской фразой в `detail`, когда период
-заканчивается раньше начала, вылезает за учебный год или пересекается с соседним.
-Именно фразой, а не ошибкой по полю: нарушено отношение между этим периодом и
-годом или соседями, и «Пересекается с периодом 2 (01.11 — 31.12)» — это то, что
-стоит показать на экране.
+Editing the edges answers `422` with a Russian sentence in `detail` when a period ends before
+it starts, runs outside the school year or overlaps its neighbour. A sentence rather than a
+per-field error, because what is broken is the relation between this period and the year or
+its neighbours, and «Пересекается с периодом 2 (01.11 — 31.12)» is what is worth putting on
+the screen.
 
-## Справочник школ
+## The schools registry
 
-| Метод | Путь | Роль | Что делает |
+| Method | Path | Role | What it does |
 | --- | --- | --- | --- |
-| `GET` | `/api/v1/manage/schools?q=&page=&page_size=&region=` | админ | ищет школу в реестре и отдаёт одну страницу |
+| `GET` | `/api/v1/manage/schools?q=&page=&page_size=&region=` | admin | searches the register for a school and returns one page |
 
 ```json
 {
@@ -1076,30 +1071,31 @@ POST /api/v1/diary/login
 }
 ```
 
-Найденное **не хранится**. Клиент берёт `name` и отправляет его в
-`PATCH /api/v1/manage/class` — в карточке класса лежит название школы, как
-лежало всегда, а не ссылка на чью-то запись.
+What is found is **not stored**. The client takes `name` and sends it to
+`PATCH /api/v1/manage/class` — the class card holds the school's name, as it always did,
+rather than a link to somebody's record.
 
-`truncated` — это не «есть ещё страницы», их считает `pages`. Это «сработал
-потолок реестра»: источник (DaData, поиск по ЕГРЮЛ) рассчитан на подсказки при
-вводе, отдаёт максимум двадцать строк за раз и смещения не имеет. Значит перед
-вами первые двадцать из неизвестно скольких, и дойти до своей школы можно
-только более длинным запросом — дописав город или номер. Клиент, который
-покажет «найдено 20», соврёт про поиск, под который попали триста школ.
+`truncated` does not mean "there are more pages" — `pages` counts those. It means "the
+register's ceiling was hit": the source (DaData, a search over the ЕГРЮЛ company register) is
+built for type-ahead suggestions, returns at most twenty rows at a time, and has no offset.
+So what you have is the first twenty of an unknown number, and the only way to reach your
+school is a longer query — adding the town or the number. A client that shows "20 found"
+would lie about a search that matched three hundred schools.
 
-**Каждый вызов — один поиск наверху**, что бы ни стояло в `page`: смещения у
-источника нет, возобновлять нечего. Клиент, который листает, должен спросить
-один раз с `page_size=20` и резать ответ сам — так делают и бот, и приложение.
-Четыре страницы по пять — это четыре поиска на один вопрос. `page_size` — от 1
-до 20, по умолчанию 5 (размер инлайн-клавиатуры).
+**Every call is one search upstream**, whatever `page` says: the source has no offset and
+there is nothing to resume. A client that pages should ask once with `page_size=20` and cut
+the answer itself — which is what both the bot and the app do. Four pages of five is four
+searches for one question. `page_size` runs from 1 to 20, and the default is 5 (the size of
+an inline keyboard).
 
-`region` — подсказка ранжирования, не фильтр: школа через дорогу от границы
-города всё ещё та самая школа.
+`region` is a ranking hint, not a filter: a school across the road from the city boundary is
+still that school.
 
-Коды: `422` — запрос короче трёх символов (фраза по-русски в `detail`);
-`503` — справочник не настроен (`DADATA_TOKEN` пуст), не отвечает или ответил
-непонятно. Ответ на `503` — дать ввести название руками, а не повторять запрос:
-в боте ровно эта кнопка и появляется.
+The codes: `422` for a query shorter than three characters (with a Russian sentence in
+`detail`); `503` when the registry is not configured (`DADATA_TOKEN` is empty), is not
+answering, or answered incomprehensibly. The answer to a `503` is to let the name be typed
+by hand rather than retrying the request: in the bot, that is exactly the button that
+appears.
 
-Админ, хотя ничего не пишет: каждый вызов тратит часть суточного лимита на
-чужом сервисе, и тратить его есть основания только у своего же класса.
+Admin, even though it writes nothing: every call spends part of a daily limit on somebody
+else's service, and only your own class is reason enough to spend it.
