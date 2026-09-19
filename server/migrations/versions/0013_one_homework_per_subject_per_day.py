@@ -69,6 +69,16 @@ def _has_table(table: str) -> bool:
 
 
 def upgrade() -> None:
+    # SQLite has no ALTER for constraints at all, and a database that got here
+    # through `create_all` already carries this one — which is the only way a
+    # local SQLite file exists. Without this line the chain could not be run
+    # from end to end on SQLite: `alembic upgrade head` against an empty file
+    # ran `0001`…`0012` and then died with «No support for ALTER of
+    # constraints in SQLite dialect», leaving the database stamped at `0012`
+    # and the operator believing `0013` had half applied. `0011` and `0012`
+    # open the same way and for the same reason.
+    if op.get_bind().dialect.name == "sqlite":
+        return
     if not context.is_offline_mode() and not _has_table("homework"):
         return
     op.execute(_DEDUPE)
@@ -76,4 +86,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if op.get_bind().dialect.name == "sqlite":
+        return
     op.drop_constraint(_NAME, "homework", type_="unique")

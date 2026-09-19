@@ -33,7 +33,7 @@ import logging
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from app.config import get_settings
+from app.config import MIN_DIARY_SECRET_LENGTH, get_settings
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +44,10 @@ log = logging.getLogger(__name__)
 #: passphrase somebody thought of. One SHA-256 pass is no defence against a
 #: dictionary, so the length is a blunt filter that stops «diary» and
 #: «changeme» from being a key at all.
-MIN_SECRET_LENGTH = 32
+#: Kept as a name here because this module is where it is enforced; the
+#: value itself lives in `config`, so the startup log cannot disagree with the
+#: cipher about what «configured» means.
+MIN_SECRET_LENGTH = MIN_DIARY_SECRET_LENGTH
 
 
 class DiaryEncryptionUnavailable(RuntimeError):
@@ -63,10 +66,10 @@ def _derive(secret: str) -> bytes:
 
 def cipher() -> Fernet | None:
     """The configured cipher, or ``None`` when no usable secret is set."""
-    secret = get_settings().diary_secret.strip()
-    if len(secret) < MIN_SECRET_LENGTH:
+    settings = get_settings()
+    if not settings.diary_configured:
         return None
-    return Fernet(_derive(secret))
+    return Fernet(_derive(settings.diary_secret_value))
 
 
 def diary_enabled() -> bool:

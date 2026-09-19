@@ -133,6 +133,64 @@ async def test_login_returns_a_token_of_ours_and_never_the_upstream_one(
     assert row.login == "parent@example.com"
 
 
+async def test_guessing_passwords_against_the_upstream_is_rate_limited(
+    client, upstream, session
+):
+    """The other door onto this service spends a one-time ticket *before* the
+    sign-in, and says in its own comment why: «it is what stops whoever holds
+    the URL guessing passwords against the upstream from our address».
+
+    This one had no ticket and no limit, so it was that oracle with the door
+    held open — post a login and a guess, read the answer off the status code,
+    repeat as fast as you like. Two things follow and both are ours:
+    credential stuffing against a third party's school diary proxied through
+    this server, and the upstream blocking this deployment's address, which
+    takes the diary down for every family on it.
+    """
+    from app.api.diary import diary_login_limiter
+
+    upstream.routes[LOGIN_PATH] = with_token
+    for _ in range(diary_login_limiter.limit):
+        refused = await client.post(
+            "/api/v1/diary/login",
+            json={"login": "parent@example.com", "password": "wrong"},
+        )
+        assert refused.status_code == 401
+
+    blocked = await client.post(
+        "/api/v1/diary/login",
+        json={"login": "parent@example.com", "password": "wrong"},
+    )
+    assert blocked.status_code == 429
+    assert "Retry-After" in blocked.headers
+    # And the right password is refused too while the window holds: a limit
+    # that a correct guess walks through is not a limit.
+    still_blocked = await client.post(
+        "/api/v1/diary/login",
+        json={"login": "parent@example.com", "password": "correct"},
+    )
+    assert still_blocked.status_code == 429
+
+
+async def test_a_diary_that_is_off_does_not_spend_a_parent_s_attempts(
+    client, upstream, session, no_diary_secret
+):
+    """Only a refusal the upstream decided counts.
+
+    A 503 because the feature is switched off says nothing about the password,
+    and a parent who meets it ten times must not then be locked out of the
+    login for a quarter of an hour once somebody turns the diary on.
+    """
+    from app.api.diary import diary_login_limiter
+
+    for _ in range(diary_login_limiter.limit + 2):
+        response = await client.post(
+            "/api/v1/diary/login",
+            json={"login": "parent@example.com", "password": "correct"},
+        )
+        assert response.status_code == 503
+
+
 @pytest.fixture
 def no_diary_secret(monkeypatch):
     """Runs one test on a deployment that has no ``DIARY_SECRET``.

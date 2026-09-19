@@ -134,8 +134,12 @@ def _forwarded_entry(header: str | None, hops: int) -> str | None:
     return parts[-hops]
 
 
-def _client_bucket(request: Request) -> str:
+def caller_bucket(request: Request) -> str:
     """Identifies the caller for rate-limiting purposes.
+
+    Public, and no longer ``_client_bucket``, because two endpoint families
+    now measure the same caller: `/join` and the diary sign-in. One bucketing
+    rule for both, or the second one would be measuring something else.
 
     Reading the leftmost ``X-Forwarded-For`` entry is the usual advice and it is
     exactly wrong: that entry is whatever the client sent, so an attacker sets
@@ -292,7 +296,7 @@ async def join(
     with that account's role at the moment of each request — «read-only» has
     not been true of every token since invites existed.
     """
-    client = _client_bucket(request)
+    client = caller_bucket(request)
     retry_after = await join_limiter.blocked_for(session, client)
     if retry_after is not None:
         raise HTTPException(

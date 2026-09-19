@@ -64,7 +64,29 @@ _TIME_FORMATS = ("%H:%M:%S", "%H:%M")
 #: One such field is the difference between a week of lessons and an empty
 #: week, with no error anywhere - so the object is looked into rather than
 #: refused.
-_WRAPPED = ("name", "title", "value", "text", "short_name", "fullname", "id")
+#:
+#: ``id`` is last and is a last resort — and it is why the ``*_name``
+#: spellings above it are named one by one. This API writes `subject_name`,
+#: `teacher_name`, `office_name` and `task_name` at the *top* level, so those
+#: are the likeliest spellings inside a wrapper too; without them a wrapped
+#: `{"id": 12, "subject_name": "Алгебра"}` fell through to the id, and the
+#: family read a week of lessons called «12» in rooms called «3», with nothing
+#: logged because the row *was* readable and `note_if_nothing_read` never
+#: fired. A correction filed against that week is filed under «12» and
+#: survives the fix, landing on nothing.
+_WRAPPED = (
+    "name",
+    "title",
+    "value",
+    "text",
+    "short_name",
+    "fullname",
+    "subject_name",
+    "teacher_name",
+    "office_name",
+    "task_name",
+    "id",
+)
 
 
 def unwrap(value: Any) -> Any:
@@ -127,6 +149,11 @@ def text(source: dict[str, Any], *names: str) -> str | None:
     if isinstance(value, str):
         stripped = value.strip()
         return stripped or None
+    # `bool` is an `int` in Python, and `{"homework": false}` is a shape a JSON
+    # API produces without meaning anything by it. Read as a number it becomes
+    # the word «False», shown to the family as the assignment.
+    if isinstance(value, bool):
+        return None
     if isinstance(value, int | float):
         return str(value)
     return None

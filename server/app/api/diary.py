@@ -17,10 +17,10 @@ from __future__ import annotations
 from datetime import date as Date
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START
+from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START, caller_bucket
 from app.db import get_session
 from app.models import DiarySession
 from app.providers.petersburg import (
@@ -48,6 +48,7 @@ from app.schemas import (
     DiarySubjectOut,
     DiaryTeacherOut,
 )
+from app.security import JoinThrottle
 from app.services import diary as service
 from app.services import diary_overrides as overrides
 
@@ -169,8 +170,29 @@ async def _guard(awaitable):
 # ---------------------------------------------------------------------------
 
 
+#: Failed diary sign-ins one caller may make in a quarter of an hour.
+#:
+#: The other door onto this same service counts even harder: `diary_web`
+#: spends its one-time ticket *before* the sign-in, and its own comment says
+#: why — «it is what stops whoever holds the URL guessing passwords against
+#: the upstream from our address». This endpoint had no ticket and no limit at
+#: all, so it was that oracle with the door held open: anybody could post a
+#: login and a guess and read the answer off the status code, 401 for wrong
+#: and 200 for right, as fast as they liked. Two things follow from that and
+#: both are ours: credential stuffing against a third party's school diary
+#: proxied through this server, and the upstream blocking this deployment's
+#: address — which takes the feature down for every family on it, including
+#: the `/diary/signin` page the ticket was protecting.
+#:
+#: Looser than `/join`'s thirty, because a parent who has forgotten which of
+#: their two e-mail addresses the school has is a real person making real
+#: mistakes, and only failures are counted.
+diary_login_limiter = JoinThrottle(limit=10, window=900.0)
+
+
 @router.post("/login", response_model=DiaryLoginOut)
 async def login(
+    request: Request,
     payload: DiaryLoginIn,
     session: AsyncSession = Depends(get_session),
 ) -> DiaryLoginOut:
@@ -180,6 +202,15 @@ async def login(
     upstream session eventually expires, requests answer 401 with
     ``X-Diary-Reauth: required`` and the app asks for it again.
     """
+    client = f"diary:{caller_bucket(request)}"
+    retry_after = await diary_login_limiter.blocked_for(session, client)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Слишком много попыток входа. Попробуйте позже.",
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
+
     try:
         token, row = await _guard(service.sign_in(session, payload.login, payload.password))
     except service.DiaryDisabled as failure:
@@ -194,6 +225,13 @@ async def login(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Дневник на этом сервере выключен.",
         ) from failure
+    except HTTPException as refusal:
+        # Only a refusal the upstream decided counts. A 503 because the
+        # feature is off, or a 502 because the diary did not answer, says
+        # nothing about the password and must not spend a parent's attempts.
+        if refusal.status_code == status.HTTP_401_UNAUTHORIZED:
+            await diary_login_limiter.record_failure(session, client)
+        raise
     return DiaryLoginOut(token=token, login=row.login)
 
 

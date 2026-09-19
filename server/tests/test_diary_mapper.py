@@ -413,3 +413,41 @@ def test_identity_id_reads_both_shapes():
     assert m.identity_id({"identity": {"id": 7}}) == 7
     assert m.identity_id({"id": 7}) == 7
     assert m.identity_id({"identity": {}}) is None
+
+
+def test_a_wrapper_spelled_the_way_this_api_spells_it_is_read_as_a_name():
+    """`_WRAPPED` ended at `id`, and this API writes `subject_name`.
+
+    A wrapped `{"id": 12, "subject_name": "Алгебра"}` therefore fell through
+    every spelling in the list and landed on the id — and because the row
+    *was* readable, nothing was dropped and `note_if_nothing_read` never
+    fired. The family read a week of lessons called «12», in rooms called
+    «3», with «9» as the homework. A correction filed against that week is
+    filed under «12» and survives the fix, landing on nothing.
+    """
+    (lesson,) = m.to_lessons(
+        [
+            {
+                "date": "15.09.2026",
+                "number": 3,
+                "subject": {"id": 12, "subject_name": "Алгебра"},
+                "teacher": {"id": 55, "teacher_name": "Иванова А. А."},
+                "office": {"id": 3, "office_name": "301"},
+                "task": {"id": 9, "task_name": "§14, упр. 5"},
+            }
+        ]
+    )
+    assert lesson.subject == "Алгебра"
+    assert lesson.teacher == "Иванова А. А."
+    assert lesson.room == "301"
+    assert lesson.homework == "§14, упр. 5"
+
+
+def test_a_boolean_is_not_read_as_a_number():
+    """`bool` is an `int` in Python, so `{"homework": false}` — a shape a JSON
+    API produces without meaning anything by it — was read as the number
+    `False` and shown to the family as the word «False»."""
+    (lesson,) = m.to_lessons(
+        [{"date": "15.09.2026", "number": 1, "subject": "Алгебра", "homework": False}]
+    )
+    assert lesson.homework is None

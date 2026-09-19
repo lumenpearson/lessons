@@ -460,7 +460,7 @@ polling, поэтому внешний адрес и webhook не нужны в�
 | Файл | Зачем |
 | --- | --- |
 | `api/index.py` | точка входа; тонкий реэкспорт `app.main:app`, чтобы serverless и `uvicorn` крутили один и тот же код |
-| `vercel.json` | runtime, `maxDuration`, и rewrite всех путей на функцию |
+| `vercel.json` | регион, команда установки и `maxDuration` функции. **Rewrite'а там нет и быть не должно:** `"/(.*)" → "/api/index"` Vercel маршрутизирует по *переписанному* пути, поэтому FastAPI получал буквальный `/api/index`, и health-check, клиентский API и вебхук Telegram отвечали 404 одновременно. Удалён в PR #5 (`e99d8ca`); эта строка год описывала то, чего в файле нет, — вернувший его воспроизведёт ту же аварию |
 | `requirements.txt` | Vercel не читает `pyproject.toml` из подкаталога; здесь только `asyncpg`, без `aiosqlite` |
 | `.vercelignore` | не тащить в бандл `android/`, тесты и документацию |
 
