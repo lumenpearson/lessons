@@ -82,6 +82,10 @@ internal class TimetableRepositoryImpl(
      * horizon leaves nothing armed behind it, and on a phone whose window has
      * not changed every poll is a `304`, so the sync was the last thing that
      * could have noticed and it was the one path that said nothing.
+     *
+     * Cheap on purpose, because this runs on every poll of a phone whose
+     * schedule is not moving: the container wires it to a check that an alarm
+     * is standing, not to a full re-plan off the cached year.
      */
     private val onNothingChanged: () -> Unit = {},
     /**
@@ -134,6 +138,20 @@ internal class TimetableRepositoryImpl(
         // after it. The widget redraws on the sync broadcast, i.e. by
         // construction at exactly that moment.
         val snapshot = dao.snapshot(classId) ?: return@withContext null
+        buildTimetable(snapshot.schoolClass, snapshot.days, snapshot.nextSchoolDay)
+    }
+
+    override suspend fun snapshotAroundToday(): Timetable? = withContext(ioDispatcher) {
+        val classId = activeClassId.first() ?: return@withContext null
+        // The class's zone, not the device's, and therefore one single-row read
+        // before the transaction that reads the row again: the bound is a
+        // handful of dates around «today», and a phone in Moscow looking at a
+        // school in Novosibirsk is on the wrong date for five hours of every
+        // evening. Two indexed reads of one row against two hundred days of
+        // lessons is the trade being made here.
+        val bound = CachedWindow.around(todayAtSchool())
+        val snapshot = dao.snapshotBetween(classId, bound.start, bound.endInclusive)
+            ?: return@withContext null
         buildTimetable(snapshot.schoolClass, snapshot.days, snapshot.nextSchoolDay)
     }
 

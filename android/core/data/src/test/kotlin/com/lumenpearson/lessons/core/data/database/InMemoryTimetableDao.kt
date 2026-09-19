@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.core.data.database
 
+import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -74,7 +75,30 @@ internal class InMemoryTimetableDao : TimetableDao() {
     }
 
     override suspend fun days(classId: Long): List<SchoolDayWithDetails> =
-        detailsOf(classId, lookahead = false)
+        detailsOf(classId, lookahead = false).also { dayRowsRead += it.size }
+
+    override suspend fun daysBetween(
+        classId: Long,
+        from: LocalDate,
+        to: LocalDate,
+    ): List<SchoolDayWithDetails> = detailsOf(classId, lookahead = false)
+        .filter { it.day.date in from..to }
+        .also { dayRowsRead += it.size }
+
+    /**
+     * The Kotlin twin of the `EXISTS` clause on the real query, cancelled
+     * lessons and all — `SchoolDay.hasLessons` counts only lessons that
+     * actually take place, and a day struck out entirely is not one to point
+     * the next-school-day at.
+     */
+    override suspend fun firstTeachingDayAfter(
+        classId: Long,
+        after: LocalDate,
+    ): SchoolDayWithDetails? = detailsOf(classId, lookahead = false)
+        .firstOrNull { day ->
+            day.day.date > after && day.lessons.any { !it.isCancelled }
+        }
+        ?.also { dayRowsRead += 1 }
 
     override suspend fun nextSchoolDay(classId: Long): SchoolDayWithDetails? =
         detailsOf(classId, lookahead = true).firstOrNull()
@@ -198,6 +222,18 @@ internal class InMemoryTimetableDao : TimetableDao() {
 
     /** How many day rows this class has, lookahead day included. */
     fun dayCountOf(classId: Long): Int = days.count { it.classId == classId }
+
+    /**
+     * How many day rows the one-shot reads have handed back since this fake
+     * was built.
+     *
+     * The cost a caller pays, in the only unit that matters here: each of
+     * those rows drags its lessons, events and homework with it through the
+     * `@Relation`s. A bounded read is supposed to be a fortnight of them and
+     * the whole-year read is some two hundred.
+     */
+    var dayRowsRead: Int = 0
+        private set
 
     /** How many lesson rows hang off this class's days. */
     fun lessonCountOf(classId: Long): Int {

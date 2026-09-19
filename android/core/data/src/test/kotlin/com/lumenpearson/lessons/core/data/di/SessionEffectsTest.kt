@@ -28,6 +28,7 @@ class SessionEffectsTest {
         clearAlerts = { done += "clear-alerts" },
         replanAlerts = { done += "replan-alerts" },
         stopBackgroundSync = { done += "stop-sync" },
+        startBackgroundSync = { done += "start-sync" },
         syncNow = { done += "sync-now" },
     )
 
@@ -53,26 +54,55 @@ class SessionEffectsTest {
         effects.onActiveClassChanged()
 
         assertEquals(
-            listOf("redraw", "clear-alerts", "replan-alerts", "sync-now"),
+            listOf("redraw", "clear-alerts", "replan-alerts", "start-sync", "sync-now"),
             done,
         )
     }
 
     /**
-     * Stated as its own assertion because it is the thing a future edit is
-     * most likely to get wrong: the two answers differ by exactly this pair,
-     * and they are one word apart in the container.
+     * The half of the switch that a cold start used to be the only cure for.
+     *
+     * `SyncScheduler.schedulePeriodic` is called from one place in the whole
+     * app: a `distinctUntilChanged()` collector on the sync interval in
+     * `LessonsApplication`. Signing out and joining a class again in the same
+     * process moves no interval, so nothing re-emits and nothing re-enqueues
+     * — the worker [onSignedOut] cancelled stays cancelled. The one sync
+     * [onActiveClassChanged] asks for makes that invisible: the class is
+     * correct on screen at the moment of joining and then never refreshes
+     * again until the app is killed and reopened.
      */
     @Test
-    fun `only one of the two touches the background sync, and they disagree about it`() {
+    fun `joining a class again after a sign-out re-arms the background refresh`() {
+        effects.onSignedOut()
+        done.clear()
+
+        effects.onActiveClassChanged()
+
+        assertEquals(
+            "the periodic worker was cancelled by the sign-out and only a session " +
+                "change can know to put it back — the interval collector never re-emits",
+            true,
+            "start-sync" in done,
+        )
+    }
+
+    /**
+     * Stated as its own assertion because it is the thing a future edit is
+     * most likely to get wrong: the two answers say opposite things about the
+     * background sync, and they are one word apart in the container.
+     */
+    @Test
+    fun `the two answers point the background sync in opposite directions`() {
         effects.onSignedOut()
         val signedOut = done.toList()
         done.clear()
         effects.onActiveClassChanged()
 
         assertEquals(true, "stop-sync" in signedOut)
+        assertEquals(false, "start-sync" in signedOut)
         assertEquals(false, "sync-now" in signedOut)
         assertEquals(false, "stop-sync" in done)
+        assertEquals(true, "start-sync" in done)
         assertEquals(true, "sync-now" in done)
     }
 }

@@ -126,6 +126,56 @@ object SchoolAlerts {
     }
 
     /**
+     * Makes sure an alarm is standing, without reading the schedule to find out.
+     *
+     * For the sync that got a `304`. [reschedule] would answer this question
+     * too, but it answers it by reading the cache and re-deriving the whole
+     * chain — a fortnight of days with their lessons, events and homework
+     * since [read] was bounded, and every one of some two hundred days before
+     * that — at the default hour-long interval twenty-four times a day, and
+     * ninety-six at the fifteen-minute floor, on the one path that by
+     * definition found nothing to be different. The question is not «what
+     * should be armed», it is «is anything armed», and `FLAG_NO_CREATE`
+     * answers that for a binder call and no I/O at all.
+     *
+     * What it gives up: this trusts the `PendingIntent`'s existence as proof
+     * that an alarm stands. The two come apart if the system drops the alarm
+     * and keeps the intent — some vendor battery managers are said to — and
+     * there this will now sit quiet where a full re-plan would have healed it.
+     * The cases it does still catch are the ones it was kept for: a force-stop
+     * and a package replace take the pending intents with them, so the first
+     * `304` after either finds nothing armed and re-plans. Everything else is
+     * already carried by [NextAlarm.LookAgain], which is what keeps the chain
+     * alive across a holiday without anybody asking.
+     *
+     * A phone with every alert switched off is armed for nothing on purpose,
+     * so the preferences are asked before the cache is: without that, the one
+     * user who has said they want no alerts would pay the full read every
+     * poll, for ever, to be told what they had already said.
+     */
+    fun ensureArmed(context: Context) {
+        val appContext = context.applicationContext
+        val standing = pendingIntent(appContext, create = false) != null
+        val replan = needsReplan(standing) { alertPreferences(appContext)?.silent }
+        if (replan) reschedule(appContext)
+    }
+
+    /**
+     * Whether a `304` has to fall back to the full re-plan.
+     *
+     * Pure, and split out for the same reason [nextAlarm] is: what it decides
+     * is invisible from outside — a chain that is quiet because it is armed
+     * and a chain that is quiet because it is gone look alike from every
+     * screen — so the only place the difference can be held is a test.
+     *
+     * @param silent asked only when nothing is armed, which is what keeps the
+     *   common answer free of I/O. `null` is an unreadable preferences file:
+     *   re-plan, because the alternative is a chain that ends on a bad read.
+     */
+    internal fun needsReplan(alarmStanding: Boolean, silent: () -> Boolean?): Boolean =
+        !alarmStanding && silent() != true
+
+    /**
      * The user has just changed what they want to be told about.
      *
      * [reschedule] plus the shade, and the shade is the half that was missing:
@@ -310,7 +360,13 @@ object SchoolAlerts {
             runBlocking {
                 val settings = preferences.currentSettings()
                 if (settings.alerts.scheduleChanges) {
-                    val timetable = Graph.container.timetableRepository.snapshot()
+                    // The fingerprint is today and the six days after it, so
+                    // the bounded read holds every date it will look at and
+                    // hashes the same bytes the whole-year read hashed. It had
+                    // better: a fingerprint that moved because the *reading*
+                    // narrowed would announce «Расписание изменилось» to
+                    // everybody, once, on the sync after the update.
+                    val timetable = Graph.container.timetableRepository.snapshotAroundToday()
                     val current = timetable?.let { ScheduleFingerprint.of(it) }
                     if (current != null) {
                         val previous = preferences.scheduleFingerprint()
@@ -372,8 +428,24 @@ object SchoolAlerts {
         // The alarm can be the first thing to run after a process restart, so
         // the graph may not exist yet. Same reason SyncWorker opens with this.
         Graph.init(context)
+        // This `runBlocking` re-enters the repository's own `ioDispatcher`,
+        // because `snapshot` opens with `withContext(ioDispatcher)`. It is safe
+        // on `Dispatchers.IO`, which is a pool of sixty-four and hands the work
+        // to a thread other than the blocked one; it would deadlock on a
+        // single-threaded dispatcher, so a test that swaps one in through the
+        // graph has to keep at least two threads. Left as it is rather than
+        // made suspend: every caller here is a receiver or an alarm, and none
+        // of them has a scope to suspend in.
         runBlocking {
-            val timetable = Graph.container.timetableRepository.snapshot() ?: return@runBlocking null
+            // Bounded, not the whole cached year. Everything below plans a week
+            // and a day ahead of a moment that may be half an hour in the past,
+            // and `snapshotAroundToday` covers more than that on both sides —
+            // including the far side of a holiday, which it carries as the
+            // timetable's `nextSchoolDay`. What it does not cover it reports as
+            // «no data», so nothing here may ask about a date further out than
+            // the planner's horizon.
+            val timetable = Graph.container.timetableRepository.snapshotAroundToday()
+                ?: return@runBlocking null
             timetable to LessonsPreferences(context).currentSettings().alerts
         }
     }.onFailure { error -> Log.w(TAG, "Could not read the schedule", error) }.getOrNull()

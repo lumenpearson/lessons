@@ -94,7 +94,7 @@ class DefaultLessonsContainer(
      * tested. This is only the wiring of each name to the thing that does it.
      *
      * Not `lazy` like everything below it, and for the same reason everything
-     * below it is: five lambdas that capture a context are less work than the
+     * below it is: six lambdas that capture a context are less work than the
      * delegate that would defer them, and none of them runs until something
      * calls it.
      */
@@ -103,6 +103,12 @@ class DefaultLessonsContainer(
         clearAlerts = { SchoolAlerts.clear(appContext) },
         replanAlerts = { SchoolAlerts.onDataChanged(appContext) },
         stopBackgroundSync = { SyncScheduler.cancelPeriodic(appContext) },
+        // The stored interval, not a constant: the settings screen owns that
+        // number, and re-arming at the default would quietly undo a user who
+        // had asked for a different one the last time the app was open.
+        startBackgroundSync = {
+            SyncScheduler.schedulePeriodic(appContext, preferences.syncIntervalMinutesBlocking())
+        },
         syncNow = { SyncScheduler.syncNow(appContext, wantsDifferentData = true) },
     )
 
@@ -144,12 +150,15 @@ class DefaultLessonsContainer(
                 SchoolAlerts.onDataChanged(appContext)
             },
             // A `304` changes nothing the widget draws, so it is not told; the
-            // alarm chain is, because what ends the chain is time passing
-            // rather than the data moving. `reschedule` and not
+            // alarm chain is asked whether it is still standing, because what
+            // ends a chain is time passing rather than the data moving. Not
             // `onDataChanged`: there is no new schedule to compare against a
             // fingerprint, and running that comparison against an unchanged
-            // cache would be asking a question whose answer is known.
-            onNothingChanged = { SchoolAlerts.reschedule(appContext) },
+            // cache would be asking a question whose answer is known. And not
+            // `reschedule` either — that re-reads the whole cached year to
+            // re-derive an alarm it almost always finds already armed; see
+            // [SchoolAlerts.ensureArmed] for what the cheap answer gives up.
+            onNothingChanged = { SchoolAlerts.ensureArmed(appContext) },
             // Resolved when it fires, not here: `sessionRepository` is a lazy
             // in this same container and asking for it now would build it on
             // the cold-start path of a class this device may not even be in.

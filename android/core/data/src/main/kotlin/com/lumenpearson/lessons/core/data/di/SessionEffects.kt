@@ -19,6 +19,10 @@ package com.lumenpearson.lessons.core.data.di
  * @param clearAlerts drop the armed alarm *and* what is already on the shade.
  * @param replanAlerts recompute the chain from the class now on screen.
  * @param stopBackgroundSync cancel the periodic `SyncWorker`.
+ * @param startBackgroundSync install the periodic `SyncWorker` at the stored
+ *   interval. Idempotent — `schedulePeriodic` enqueues unique work with
+ *   `UPDATE`, so asking again neither stacks a second worker nor pushes the
+ *   next run out by a period.
  * @param syncNow ask for one refresh, as soon as the platform allows.
  */
 internal class SessionEffects(
@@ -26,6 +30,7 @@ internal class SessionEffects(
     private val clearAlerts: () -> Unit,
     private val replanAlerts: () -> Unit,
     private val stopBackgroundSync: () -> Unit,
+    private val startBackgroundSync: () -> Unit,
     private val syncNow: () -> Unit,
 ) {
 
@@ -42,9 +47,9 @@ internal class SessionEffects(
      * had no caller at all, so a phone that signed out went on waking every
      * fifteen minutes for the rest of the install's life. Nothing was wrong
      * with what it then did — `SyncWorker` reads the session, finds none and
-     * reports success — but the wake-up is real and it is forever, and the
-     * next `schedulePeriodic` on the next launch reinstates it anyway, so
-     * nothing is lost by stopping now.
+     * reports success — but the wake-up is real and it is forever, and joining
+     * a class again reinstates it through [onActiveClassChanged], so nothing
+     * is lost by stopping now.
      */
     fun onSignedOut() {
         redrawWidget()
@@ -68,11 +73,25 @@ internal class SessionEffects(
      * all it says — so after a switch it is an unattributed statement about a
      * class the phone is no longer showing, and tapping it opens the app on the
      * other one.
+     *
+     * [startBackgroundSync] is here rather than left to the app module, and the
+     * reason is that the app module cannot do it. `schedulePeriodic` has one
+     * caller — `LessonsApplication.observeSyncInterval()`, a
+     * `distinctUntilChanged()` collector on `syncIntervalMinutes` — so it runs
+     * when the *interval* moves. A sign-out and a re-join in one process move
+     * no interval: [onSignedOut] cancels the periodic worker, the collector
+     * never re-emits, and the class joined a moment later gets [syncNow] and
+     * then nothing at all until the next cold start. Fresh once and stale
+     * after, which is indistinguishable on screen from a phone that is syncing.
+     * The collector cannot see a session change and this table is nothing but
+     * session changes, so the re-arm belongs on this side of the line; making
+     * it idempotent is what lets both of them ask.
      */
     fun onActiveClassChanged() {
         redrawWidget()
         clearAlerts()
         replanAlerts()
+        startBackgroundSync()
         syncNow()
     }
 }
