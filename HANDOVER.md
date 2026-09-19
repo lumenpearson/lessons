@@ -55,6 +55,17 @@ shadowing, and `app/api/routing.py` exists because dishka's compiled wrapper car
 globals, so under postponed annotations FastAPI took an endpoint's `-> Response` for a
 response model.
 
+**An adversarial re-pass over the container work itself**, which found four
+things and one of them was behaviour: `write_bell_periods` answered
+«перестали звонить уроков: N» with a *state* — which rows these bells do not
+cover — while the field it fills is documented as an *event*. Nothing deletes
+an orphaned row, so the same write repeated said it again. The other three were
+comments asserting mechanisms that are not true, including one of mine that
+claimed dishka nests the scopes it opens per observer when it makes siblings of
+them; `ContextMiddleware` opens the one scope itself now, from the live
+container, which also stops a cached webhook dispatcher serving from a closed
+one.
+
 **One defect found by the clock.** «📒 Неделя» in the diary took its Monday from
 `today - today.weekday()`, so on a Sunday it showed the six days that had just ended. It
 surfaced as a test that had been wrong since it was written and went red for the first time
@@ -115,7 +126,8 @@ section 7: the widget's tick cadence, and whether the diary credential should ca
 
 Gates on the whole tree at `5f28072`: `ruff` clean, `python -m mypy` clean across all 81
 modules, `pytest -q -n auto` 1461 passed; `./gradlew test assembleDebug assembleRelease`
-successful with 709 Android tests across 90 classes and 0 failures.
+successful with 709 Android tests across 90 classes and 0 failures. The server
+count is 1465 after the adversarial re-pass described below.
 
 **What nothing has verified.** None of the Android work has run on a real phone: the `304`
 path is a claim about battery that only a device can confirm, `BellRowsRotationTest` uses
@@ -338,7 +350,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && python -m pytest -q -n auto                # 1463 tests, ~1.5 min
+cd server  && python -m pytest -q -n auto                # 1465 tests, ~1.5 min
 cd server  && python -m mypy                             # clean, 81 modules
 cd android && ./gradlew test                             # 709 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
