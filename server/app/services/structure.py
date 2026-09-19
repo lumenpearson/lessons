@@ -162,6 +162,34 @@ async def rename_subject(
     return moved
 
 
+async def orphaned_lessons(
+    session: AsyncSession, class_id: int, rung: set[int]
+) -> list[tuple[int, int]]:
+    """The weekly template's rows that a set of rung numbers does not cover.
+
+    (weekday, index) pairs, because one number under two weekdays is two
+    lessons nobody will see — the same reason `apply_timetable` counts rows
+    and not numbers.
+
+    It is a function of its own rather than a few lines inside
+    [write_bell_periods] because a class loses lessons two ways and only one
+    of them rewrites any rows. Shrinking the class's own schedule is the
+    obvious way. Pointing the class at a *different*, shorter schedule is the
+    other, and it is the same loss exactly — every weekday's lessons past the
+    new last rung stop being drawn, logged or announced anywhere — while no
+    row changes and nothing was computed to notice. Both callers now ask this
+    one question, so the two answers cannot drift.
+    """
+    existing = await session.execute(
+        select(TimetableEntry.weekday, TimetableEntry.index)
+        .where(TimetableEntry.class_id == class_id)
+        .order_by(TimetableEntry.weekday, TimetableEntry.index)
+    )
+    return [
+        (int(weekday), int(index)) for weekday, index in existing if int(index) not in rung
+    ]
+
+
 async def write_bell_periods(
     session: AsyncSession, schedule: BellSchedule, rows: list[BellRow]
 ) -> list[tuple[int, int]]:
@@ -187,21 +215,13 @@ async def write_bell_periods(
     """
     orphaned: list[tuple[int, int]] = []
     if schedule.class_id is not None and schedule.id is not None:
-        rung = {index for index, _, _ in rows}
         default_of = await session.scalar(
             select(SchoolClass.bell_schedule_id).where(SchoolClass.id == schedule.class_id)
         )
         if default_of == schedule.id:
-            existing = await session.execute(
-                select(TimetableEntry.weekday, TimetableEntry.index)
-                .where(TimetableEntry.class_id == schedule.class_id)
-                .order_by(TimetableEntry.weekday, TimetableEntry.index)
+            orphaned = await orphaned_lessons(
+                session, schedule.class_id, {index for index, _, _ in rows}
             )
-            orphaned = [
-                (int(weekday), int(index))
-                for weekday, index in existing
-                if int(index) not in rung
-            ]
 
     await session.execute(sa_delete(BellPeriod).where(BellPeriod.schedule_id == schedule.id))
     for index, start, end in rows:

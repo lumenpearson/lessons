@@ -706,13 +706,30 @@ async def bells_update(
                 detail="в этом расписании звонков нет ни одного урока",
             )
         if school_class.bell_schedule_id != schedule.id:
+            # Moving the default to a *shorter* schedule takes lessons off
+            # every weekday exactly as shrinking the current one does — the
+            # rows past its last rung stay in the database and are drawn,
+            # logged and announced nowhere. `write_bell_periods` has answered
+            # this question since the other way in was closed, but it is only
+            # reached when a schedule's rows are rewritten, and re-pointing
+            # the class rewrites none. Asked here with the incoming
+            # schedule's numbers, through the same function, so the two
+            # cannot answer differently.
+            orphaned = await structure.orphaned_lessons(
+                session,
+                school_class.id,
+                {period.index for period in schedule.periods},
+            )
             school_class.bell_schedule_id = schedule.id
+            summary = f"основное расписание звонков: «{schedule.name}»"
+            if orphaned:
+                summary += f", перестали звонить уроков: {len(orphaned)}"
             await audit.record(
                 session,
                 school_class.id,
                 actor.telegram_id,
                 "bells.default",
-                f"основное расписание звонков: «{schedule.name}»",
+                summary,
             )
 
     await session.commit()
