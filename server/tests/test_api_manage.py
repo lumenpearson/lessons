@@ -833,6 +833,94 @@ async def test_moving_the_default_to_a_shorter_schedule_says_what_stopped_ringin
     assert len(list(still_stored)) == 3
 
 
+async def test_the_bells_default_counts_only_what_this_change_silenced(
+    client, session, school_class
+):
+    """«Перестали звонить уроков: N» was a claim about the wrong set.
+
+    It asked only «which rows does the incoming schedule not cover», which is
+    the right question when a schedule's own rows are rewritten — what it does
+    not cover now, it was covering a moment ago, because it is the same
+    schedule. Pointed at a *different* schedule it counts rows that were
+    already silent, so a class whose default had been shrunk at some point was
+    told lessons had stopped ringing when it moved to a schedule ringing
+    exactly the same numbers, and told it again when it moved to one ringing
+    strictly more.
+
+    The admin reads that sentence in the audit log, and from the bot in an
+    alert that says «они остались в базе, но их никто не увидит». Saying it
+    about nothing teaches them to stop reading it.
+    """
+    token = await _admin(client, session, school_class)
+
+    # Shrink the class's own default so that lesson 3 is already silent. This
+    # is the precondition, and it reports the loss correctly.
+    default_id = school_class.bell_schedule_id
+    shrunk = await client.put(
+        f"/api/v1/manage/bells/{default_id}/periods",
+        json={
+            "periods": [
+                {"index": 1, "starts_at": "08:30", "ends_at": "09:10"},
+                {"index": 2, "starts_at": "09:20", "ends_at": "10:00"},
+            ]
+        },
+        headers=_auth(token),
+    )
+    assert shrunk.status_code == 200, shrunk.text
+
+    # Now move to a schedule ringing exactly the same numbers. Nothing changes
+    # for any lesson, so nothing should be claimed.
+    same = (
+        await client.post(
+            "/api/v1/manage/bells", json={"name": "Такое же"}, headers=_auth(token)
+        )
+    ).json()
+    await client.put(
+        f"/api/v1/manage/bells/{same['id']}/periods",
+        json={
+            "periods": [
+                {"index": 1, "starts_at": "09:00", "ends_at": "09:40"},
+                {"index": 2, "starts_at": "09:50", "ends_at": "10:30"},
+            ]
+        },
+        headers=_auth(token),
+    )
+    moved = await client.patch(
+        f"/api/v1/manage/bells/{same['id']}", json={"is_default": True}, headers=_auth(token)
+    )
+    assert moved.status_code == 200, moved.text
+
+    line = [row for row in await _audit(session, school_class) if row.action == "bells.default"]
+    assert len(line) == 1
+    assert "перестали звонить" not in line[0].summary
+
+    # And a schedule ringing strictly more says nothing either.
+    longer = (
+        await client.post(
+            "/api/v1/manage/bells", json={"name": "Длиннее"}, headers=_auth(token)
+        )
+    ).json()
+    await client.put(
+        f"/api/v1/manage/bells/{longer['id']}/periods",
+        json={
+            "periods": [
+                {"index": 1, "starts_at": "09:00", "ends_at": "09:40"},
+                {"index": 2, "starts_at": "09:50", "ends_at": "10:30"},
+                {"index": 4, "starts_at": "11:00", "ends_at": "11:40"},
+            ]
+        },
+        headers=_auth(token),
+    )
+    grew = await client.patch(
+        f"/api/v1/manage/bells/{longer['id']}", json={"is_default": True}, headers=_auth(token)
+    )
+    assert grew.status_code == 200, grew.text
+
+    lines = [row for row in await _audit(session, school_class) if row.action == "bells.default"]
+    assert len(lines) == 2
+    assert all("перестали звонить" not in row.summary for row in lines)
+
+
 async def test_moving_the_default_to_a_schedule_that_rings_everything_says_nothing_extra(
     client, session, school_class
 ):

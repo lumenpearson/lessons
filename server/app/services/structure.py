@@ -190,6 +190,30 @@ async def orphaned_lessons(
     ]
 
 
+async def lessons_silenced_by(
+    session: AsyncSession, class_id: int, was_rung: set[int], now_rung: set[int]
+) -> list[tuple[int, int]]:
+    """The template rows that stop ringing *because of this change*.
+
+    [orphaned_lessons] answers «which rows does this set of bells not cover»,
+    which is the right question when a schedule's own rows are rewritten: what
+    it did not cover a moment ago it was covering, because it is the same
+    schedule. It is the wrong question when the class is pointed at a
+    *different* schedule, and the difference is not academic — a class whose
+    default was shrunk at some point has rows that were already silent, and
+    counting those again said «перестали звонить уроков: 1» when the admin
+    moved to a schedule ringing exactly the same numbers, and said it again
+    when they moved to one ringing strictly more.
+
+    So the rows counted here are the ones the new bells miss *and* the old
+    bells rang. A row nobody was going to hear either way is not news.
+    """
+    lost = was_rung - now_rung
+    if not lost:
+        return []
+    return [pair for pair in await orphaned_lessons(session, class_id, now_rung) if pair[1] in lost]
+
+
 async def write_bell_periods(
     session: AsyncSession, schedule: BellSchedule, rows: list[BellRow]
 ) -> list[tuple[int, int]]:

@@ -228,6 +228,48 @@ async def homework_delete(
 # --------------------------------------------------------------------------
 
 
+async def _refuse_if_no_lesson_can_be_drawn(
+    session: AsyncSession, school_class: SchoolClass, day: Date
+) -> None:
+    """Refuse a substitution on a day the resolver draws no lessons on at all.
+
+    `_resolve_day` has two early returns above the override loop, and a
+    substitution written for a day that takes either of them is stored, written
+    to the audit log and announced to every subscriber — and drawn on no phone,
+    in no widget, in no calendar feed. The two are out of season, and a day
+    somebody marked «выходной» by hand.
+
+    Both are asked here rather than re-read, so this endpoint and the resolver
+    cannot answer differently. Note what is *not* asked: whether the day has a
+    lesson at this number. It need not — a substitution at an empty number is
+    how a lesson is added to a day, and the bell check above is what keeps that
+    honest. The question is only whether this day draws lessons at all.
+    """
+    year_start, year_end = school_year_bounds(day)
+    if not year_start <= day <= year_end:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "эта дата вне учебного года — замену ставить не на что; "
+                "для летних дел есть события"
+            ),
+        )
+
+    marked = await session.scalar(
+        select(DayOverride).where(
+            DayOverride.class_id == school_class.id, DayOverride.date == day
+        )
+    )
+    if marked is not None and marked.kind is DayKind.HOLIDAY:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "этот день отмечен как выходной — уроков на нём нет; "
+                "снимите отметку или поставьте событие"
+            ),
+        )
+
+
 @router.put("/overrides", response_model=OverrideOut)
 async def override_put(
     payload: OverrideIn,
@@ -268,6 +310,15 @@ async def override_put(
             )
         return OverrideOut(date=payload.date, index=payload.index, action="clear")
 
+    # Asked before the create/update split, and deliberately not inside it.
+    # The bell check below is create-only on purpose — an existing row at a bad
+    # number must stay editable, which is how a class gets out of one — but
+    # these two are not that shape: a row already sitting on a summer date or a
+    # hand-marked holiday is exactly the one whose re-announcement would say
+    # «🔁 Замена» about a lesson nobody will ever see, and every row written
+    # before this endpoint learned to refuse is such a row.
+    await _refuse_if_no_lesson_can_be_drawn(session, school_class, payload.date)
+
     if existing is None:
         # A substitution at a number the day has no bell for is stored, written to
         # the log, announced to everybody with «🔁 Замена … урок №8» — and
@@ -282,25 +333,6 @@ async def override_put(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"нет звонка для урока №{payload.index} в этот день",
             )
-        # Out of season there is no lesson to substitute. The resolver returns
-        # a June day before it ever reads the overrides, so a substitution
-        # written on one is stored, logged and announced to the whole class,
-        # and drawn on no phone, in no widget, in no calendar feed. The
-        # question is asked with the resolver's own `school_year_bounds` and
-        # not with a second reading of the rule, because two answers to "is
-        # this in season" disagree within a month. An excursion in June is a
-        # real thing and is still allowed — it is an event, and events are kept
-        # out of season on purpose; it is the lessons that are not.
-        year_start, year_end = school_year_bounds(payload.date)
-        if not year_start <= payload.date <= year_end:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=(
-                    "эта дата вне учебного года — замену ставить не на что; "
-                    "для летних дел есть события"
-                ),
-            )
-
         # Cancelling needs something to cancel, and so does a replacement that
         # names no subject. A substitution at an empty number is a legitimate
         # edit — it is how a lesson is *added* to a day — but only when it

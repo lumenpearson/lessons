@@ -28,6 +28,7 @@ from app.models import (
     BellSchedule,
     BotUser,
     DayEvent,
+    DayKind,
     DayOverride,
     DeviceToken,
     DiarySession,
@@ -1169,6 +1170,95 @@ async def test_a_substitution_outside_the_school_year_is_refused(
     assert "вне учебного года" in refused.json()["detail"]
     assert await session.scalar(select(LessonOverride)) is None
     assert recording_bot.sent == []
+
+
+async def test_a_substitution_on_a_hand_marked_holiday_is_refused(
+    client, session, school_class, recording_bot
+):
+    """The third date shape, and the one a class actually creates.
+
+    `_resolve_day` has two early returns above the override loop, not one:
+    out of season, and `kind is DayKind.HOLIDAY`. The first was closed and the
+    second was not, and the guard that would have caught it was written — it
+    was simply gated behind «and no subject», so a replacement *carrying* a
+    subject walked straight past. «Каникулы» marked by hand is a thing every
+    class does, where a June substitution is a thing almost nobody does.
+
+    Stored, audited, and «🔁 Замена 14 сентября — Консультация» to every
+    subscriber; the bundle for that day answers no lessons. The bot cannot
+    reach it — it builds its picker from the day's own lessons and says «В этот
+    день уроков нет — заменять нечего».
+    """
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    day = MONDAY + timedelta(days=7)
+    session.add(
+        DayOverride(
+            class_id=school_class.id, date=day, kind=DayKind.HOLIDAY, note="Каникулы"
+        )
+    )
+    await session.commit()
+
+    refused = await client.put(
+        "/api/v1/overrides",
+        json={
+            "date": day.isoformat(),
+            "index": 1,
+            "action": "replace",
+            "subject": "Консультация",
+        },
+        headers=_auth(token),
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert "выходной" in refused.json()["detail"]
+    assert await session.scalar(select(LessonOverride)) is None
+    assert recording_bot.sent == []
+
+
+async def test_an_existing_substitution_out_of_season_cannot_be_re_announced(
+    client, session, school_class, recording_bot
+):
+    """Refusing on create only leaves every row written before the fix live.
+
+    The bell check above is create-only for a stated reason — an existing row
+    at a number that does not ring must stay editable, which is how a class
+    gets out of one. The season and holiday checks are not that shape: a row
+    already sitting on a summer date is exactly the one whose update would
+    announce «🔁 Замена» about a lesson nobody can see, and every such row
+    written before this endpoint learned to refuse is one of those.
+
+    Clearing it still works, which is the way out that matters.
+    """
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    summer = date(MONDAY.year + 1, 6, 7)
+    session.add(
+        LessonOverride(
+            class_id=school_class.id,
+            date=summer,
+            index=1,
+            action=OverrideAction.REPLACE,
+            subject_name="Старое",
+        )
+    )
+    await session.commit()
+
+    refused = await client.put(
+        "/api/v1/overrides",
+        json={"date": summer.isoformat(), "index": 1, "action": "replace", "subject": "Новое"},
+        headers=_auth(token),
+    )
+    assert refused.status_code == 422, refused.text
+    assert "вне учебного года" in refused.json()["detail"]
+    assert recording_bot.sent == []
+
+    # The row is still there and is still removable — that is the way out.
+    cleared = await client.put(
+        "/api/v1/overrides",
+        json={"date": summer.isoformat(), "index": 1, "action": "clear"},
+        headers=_auth(token),
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert await session.scalar(select(LessonOverride)) is None
 
 
 async def test_days_set_and_clear(client, session, school_class, recording_bot):

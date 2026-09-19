@@ -1309,6 +1309,16 @@ async def _schedules_of(session: AsyncSession, class_id: int) -> list[BellSchedu
     )
 
 
+async def _rung_by_default(session: AsyncSession, school_class: SchoolClass) -> set[int]:
+    """The lesson numbers the class rings today. Empty when it has no default."""
+    if school_class.bell_schedule_id is None:
+        return set()
+    current = await session.scalar(
+        select(BellSchedule).where(BellSchedule.id == school_class.bell_schedule_id)
+    )
+    return {period.index for period in current.periods} if current is not None else set()
+
+
 async def _schedule_by_id(
     session: AsyncSession, school_class: SchoolClass, raw: str
 ) -> BellSchedule | None:
@@ -1602,8 +1612,9 @@ async def bells_make_default(
     # weekday exactly as shrinking the current one does, and nothing rewrites a
     # row, so `write_bell_periods` never runs and never counts them. Asked here
     # through the same function the API asks, so the two answer alike.
-    orphaned = await structure.orphaned_lessons(
-        session, school_class.id, {period.index for period in schedule.periods}
+    was = await _rung_by_default(session, school_class)
+    orphaned = await structure.lessons_silenced_by(
+        session, school_class.id, was, {period.index for period in schedule.periods}
     )
     school_class.bell_schedule_id = schedule.id
     summary = f"основное расписание звонков: «{schedule.name}»"

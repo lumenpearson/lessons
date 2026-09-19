@@ -657,6 +657,22 @@ async def bells_create(
     return _schedule_out(schedule, school_class)
 
 
+async def _rung_by_default(
+    session: AsyncSession, school_class: SchoolClass
+) -> set[int]:
+    """The lesson numbers the class rings today, before anything is changed.
+
+    An empty set when the class has no default at all, which is the honest
+    reading: nothing was ringing, so nothing can stop.
+    """
+    if school_class.bell_schedule_id is None:
+        return set()
+    current = await session.scalar(
+        select(BellSchedule).where(BellSchedule.id == school_class.bell_schedule_id)
+    )
+    return {period.index for period in current.periods} if current is not None else set()
+
+
 @router.patch("/bells/{schedule_id}", response_model=BellScheduleOut)
 async def bells_update(
     schedule_id: int,
@@ -715,9 +731,15 @@ async def bells_update(
             # the class rewrites none. Asked here with the incoming
             # schedule's numbers, through the same function, so the two
             # cannot answer differently.
-            orphaned = await structure.orphaned_lessons(
+            # What the class rang a moment ago, against what it will ring
+            # now. Asking only the incoming schedule counts rows that were
+            # already silent, which said «перестали звонить уроков: N» on a
+            # move to a schedule ringing exactly the same numbers.
+            was = await _rung_by_default(session, school_class)
+            orphaned = await structure.lessons_silenced_by(
                 session,
                 school_class.id,
+                was,
                 {period.index for period in schedule.periods},
             )
             school_class.bell_schedule_id = schedule.id
