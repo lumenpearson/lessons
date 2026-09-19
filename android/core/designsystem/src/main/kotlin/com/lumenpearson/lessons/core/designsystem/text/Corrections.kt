@@ -51,14 +51,22 @@ interface Corrections {
     /**
      * Whether the reader is proofreading right now.
      *
-     * Read before anything else in this file does any work, because the answer
-     * is no in every build anybody ships.
+     * This gates the outline, the gesture and the registry — not the words.
+     * [correctionOf] answers the same thing either way, on purpose: switching
+     * the mode off is how a reader takes the outlines away and reads the app in
+     * their own wording to find out whether it still fits the rows. Reverting
+     * every correction at that moment would take away the only way to check
+     * them, while the session sheet went on listing them.
      */
     val enabled: Boolean
 
     /**
      * What should be drawn in place of the string [id] ships with, which is
      * [shipped] itself unless this session has corrected it.
+     *
+     * Asked of every string in the app on every composition, including in a
+     * build where nobody has ever opened the settings row, so an
+     * implementation answers the empty case before it does anything else.
      *
      * For a string with format arguments this is the *pattern*: the correction
      * is written against `Осталось %1$d мин`, not against the sentence one
@@ -140,8 +148,10 @@ val LocalCorrections = staticCompositionLocalOf<Corrections> { NoCorrections }
 fun correctedString(@StringRes id: Int): String {
     val corrections = LocalCorrections.current
     val shipped = stringResource(id)
-    if (!corrections.enabled) return shipped
+    // Corrected first, gated second: the words follow the session and only the
+    // registry follows the mode. See [Corrections.enabled].
     val shown = corrections.correctionOf(id, shipped)
+    if (!corrections.enabled) return shown
     OnScreen(corrections, id, shown)
     return shown
 }
@@ -161,11 +171,11 @@ fun correctedString(@StringRes id: Int, vararg formatArgs: Any): String {
     val corrections = LocalCorrections.current
     val shipped = stringResource(id)
     val locale = LocalResources.current.configuration.locales[0] ?: Locale.getDefault()
-    if (!corrections.enabled) return format(locale, shipped, formatArgs) ?: shipped
     val corrected = corrections.correctionOf(id, shipped)
     val shown = format(locale, corrected, formatArgs)
         ?: format(locale, shipped, formatArgs)
         ?: shipped
+    if (!corrections.enabled) return shown
     OnScreen(corrections, id, shown)
     return shown
 }

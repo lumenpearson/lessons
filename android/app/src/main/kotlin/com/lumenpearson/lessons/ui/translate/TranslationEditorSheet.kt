@@ -98,7 +98,7 @@ private fun ColumnScope.EditorContent(
 
     IdentityCard(
         stringKeys = keys,
-        folder = TranslationXml.valuesFolder(locale),
+        folder = TranslationXml.valuesFolder(keys.first(), locale),
         original = original,
     )
 

@@ -154,8 +154,43 @@ class AppCorrectionsTest {
         assertTrue(!corrections().enabled)
     }
 
+    @Test
+    fun `but the corrections themselves survive the mode being switched off`() {
+        // Switching the mode off is how a reader takes the outlines away and
+        // reads the app in their own wording to see whether it still fits the
+        // rows. Reverting every correction at that moment would take away the
+        // only way to check them, while «Исправления» went on listing them.
+        TranslationMode.record(
+            key = "homework_title",
+            locale = "ru",
+            original = "Задания",
+            corrected = "Домашка",
+        )
+        TranslationMode.enabled = false
+        assertEquals("Домашка", corrections().correctionOf(3, "Задания"))
+    }
+
+    @Test
+    fun `a session nobody has started costs one read and no lookup`() {
+        // Asked of every string in the app on every composition, including in
+        // the build everybody ships. Counting the table calls is the only way
+        // to see the difference between "returns the same string" and "does
+        // no work to return it".
+        TranslationMode.clear()
+        val corrections = corrections()
+        repeat(5) { corrections.correctionOf(3, "Задания") }
+        assertEquals(0, table.nameLookups)
+    }
+
     private class FakeStringTable(private val rows: Map<Int, Pair<String, String>>) : StringTable {
-        override fun nameOf(id: Int): String? = rows[id]?.first
+        var nameLookups = 0
+            private set
+
+        override fun nameOf(id: Int): String? {
+            nameLookups++
+            return rows[id]?.first
+        }
+
         override fun textOf(id: Int): String = rows.getValue(id).second
     }
 }

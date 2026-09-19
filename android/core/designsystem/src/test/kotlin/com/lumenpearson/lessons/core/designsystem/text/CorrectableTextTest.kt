@@ -63,10 +63,23 @@ class CorrectableTextTest {
      * and they differ only by being shorter — so the widest one is the current
      * one. Ours has exactly one per first parameter, and the same rule picks
      * it.
+     *
+     * Two kinds of method have to be kept out of that comparison first, and
+     * both of them are wider than the overload being looked for, so "widest"
+     * alone would pick one of them. Compose emits a private
+     * `Text_xxx$lambda$n` beside every composable — the same parameters again,
+     * plus the `$changed` ints and a `Composer`. And Material declares a second
+     * public overload taking a `ColorProducer` where this one takes a
+     * `Modifier`: same first parameter, same count, a different second. It ties
+     * with the one that is wanted, and which of the two `maxBy` returns is
+     * whatever order `getDeclaredMethods` happens to be in — unspecified, and
+     * not the same on every JVM. So: public, and a `Modifier` second.
      */
     private fun widest(className: String, first: Class<*>): Method {
         val candidates = Class.forName(className).declaredMethods
+            .filter { java.lang.reflect.Modifier.isPublic(it.modifiers) }
             .filter { it.name.startsWith("Text") && it.parameterTypes.firstOrNull() == first }
+            .filter { it.parameterTypes.getOrNull(1) == androidx.compose.ui.Modifier::class.java }
         assertTrue("No Text overload taking ${first.simpleName} in $className", candidates.isNotEmpty())
         return candidates.maxBy { it.parameterCount }
     }

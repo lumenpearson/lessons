@@ -4,8 +4,8 @@ import android.content.res.Resources
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalResources
 import com.lumenpearson.lessons.core.designsystem.text.Corrections
 import com.lumenpearson.lessons.core.designsystem.text.LocalCorrections
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * One string the editor has been opened on: where it lives, and what it says
@@ -74,8 +75,21 @@ internal class AppCorrections(
      * screen twice from two different strings, and a multiset rather than a set
      * because the same string can be drawn twice on one page — the second copy
      * leaving must not take the first one's entry with it.
+     *
+     * One piece of snapshot state **per text**, held in a plain map, rather
+     * than one snapshot map for the lot. A snapshot map records a read against
+     * the whole map, so every `Text` in the app would be subscribed to every
+     * other one: with the mode on, a scroll registers and forgets a string on
+     * each frame, and the entire visible tree would recompose each time. Split
+     * this way, a text is invalidated only when the entry for its own words
+     * changes.
+     *
+     * The slot is created by whoever asks first, reader or writer, so that a
+     * `Text` asking about words nothing has drawn yet is still subscribed when
+     * they arrive. Concurrent because composition and the effects that write
+     * here are not promised the same thread.
      */
-    private val onScreen = mutableStateMapOf<String, List<Int>>()
+    private val onScreen = ConcurrentHashMap<String, MutableState<List<Int>>>()
 
     /**
      * `R.string.x` to `"x"`, worked out once.
@@ -90,6 +104,10 @@ internal class AppCorrections(
     override val enabled: Boolean get() = TranslationMode.enabled
 
     override fun correctionOf(id: Int, shipped: String): String {
+        // Every string in the app asks this on every composition, in every
+        // build, so the answer for a session nobody has started is one
+        // snapshot read and nothing else — no resource name, no scan.
+        if (TranslationMode.session.isEmpty) return shipped
         val key = nameOf(id) ?: return shipped
         return TranslationMode.session.correctionOf(key, locale) ?: shipped
     }
@@ -100,16 +118,19 @@ internal class AppCorrections(
         // that a long press on one finds nothing and does nothing, instead of
         // opening an editor over a key that cannot be written into `values/`.
         if (nameOf(id) == null) return
-        onScreen[shown] = onScreen[shown].orEmpty() + id
+        val slot = slotFor(shown)
+        slot.value = slot.value + id
     }
 
     override fun forget(id: Int, shown: String) {
-        val remaining = onScreen[shown]?.toMutableList() ?: return
-        remaining.remove(id)
-        if (remaining.isEmpty()) onScreen.remove(shown) else onScreen[shown] = remaining
+        val slot = onScreen[shown] ?: return
+        slot.value = slot.value.toMutableList().also { it.remove(id) }
     }
 
-    override fun keysBehind(shown: String): List<Int> = onScreen[shown].orEmpty().distinct()
+    override fun keysBehind(shown: String): List<Int> = slotFor(shown).value.distinct()
+
+    private fun slotFor(shown: String): MutableState<List<Int>> =
+        onScreen.computeIfAbsent(shown) { mutableStateOf(emptyList()) }
 
     /**
      * Opens the editor on every string that says exactly this.
