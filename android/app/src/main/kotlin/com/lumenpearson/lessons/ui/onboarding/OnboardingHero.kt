@@ -15,6 +15,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -368,7 +369,7 @@ private fun DrawScope.drawBadge(
 internal fun OnboardingReveal(
     modifier: Modifier = Modifier,
     delayMillis: Int = 0,
-    content: @Composable () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     val progress = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
@@ -376,13 +377,21 @@ internal fun OnboardingReveal(
         progress.animateTo(targetValue = 1f, animationSpec = tween(MorphMillis))
     }
 
-    Box(
+    // A `Column`, and the receiver says so. This was a `Box` taking a plain
+    // `@Composable () -> Unit`, which is invisible for the six call sites that
+    // pass one child and silently wrong for the seventh: «Разрешения» passes a
+    // loop, and a `Box` puts every child at `TopStart`, so the three permission
+    // cards were drawn on top of one another with the last one taking every
+    // tap. Two of the three permissions the alerts depend on could not be seen
+    // or pressed, on step four of five of the first run — and nothing caught
+    // it, because a wrapper that stacks its children is a layout fact and this
+    // project has no test that opens that screen.
+    Column(
         modifier = modifier.graphicsLayer {
             val value = progress.value
             alpha = value
             translationY = (1f - value) * 20.dp.toPx()
         },
-    ) {
-        content()
-    }
+        content = content,
+    )
 }
