@@ -102,6 +102,15 @@ DAY_KIND_LABELS = {
 #: That is deliberate and cheaper than parsing twice to find out — but it means
 #: a number in this file is a budget and never a measurement of what Telegram
 #: will count. The margin itself is for a navigation hint a handler may append.
+#:
+#: There is one way the raw count reads *lower* than Telegram's, and it is the
+#: reason this number must not be tidied up towards 4096: Telegram counts UTF-16
+#: code units, and every emoji outside the BMP — «📝», «📥», «🗓», most of the
+#: ones these cards are built from — is two of them where Python sees one. The
+#: tags a raw count includes and a parsed count does not are worth far more
+#: than that in every page measured so far, so the slack has never been spent;
+#: nothing measures it, and at 4096 the first page to prove otherwise would not
+#: be clipped, it would be refused.
 MESSAGE_LIMIT = 3900
 
 

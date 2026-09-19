@@ -1172,6 +1172,58 @@ async def test_a_substitution_outside_the_school_year_is_refused(
     assert recording_bot.sent == []
 
 
+async def test_the_first_of_september_is_not_refused_as_a_summer_date(
+    client, session, school_class, recording_bot
+):
+    """One refusal covered two dates that have nothing in common.
+
+    `school_year_start` moves the first teaching day off a weekend, so in a
+    year where the 1st of September is a Saturday — 2029, and then 2035 — the
+    1st and the 2nd fall before `year_start` and land in the same branch as
+    the 4th of June. Somebody standing on «1 сентября» was told their date was
+    outside the school year and that «для летних дел есть события», which
+    answers a question about a day three months earlier and reads as a bug in
+    the date picker rather than as the horizon it is.
+
+    Still refused — the resolver draws no lessons there either, and a
+    substitution nobody will see is exactly what this check exists to stop.
+    What changes is that the sentence says which day the year starts on, so
+    the next press can be the right one.
+    """
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    opening = date(2029, 9, 1)
+    assert opening.weekday() == 5, "this test is about the 1st landing on a Saturday"
+
+    refused = await client.put(
+        "/api/v1/overrides",
+        json={
+            "date": opening.isoformat(),
+            "index": 1,
+            "action": "replace",
+            "subject": "Линейка",
+        },
+        headers=_auth(token),
+    )
+
+    assert refused.status_code == 422, refused.text
+    detail = refused.json()["detail"]
+    assert "летних" not in detail, detail
+    assert "вне учебного года" not in detail, detail
+    # The Monday the year actually opens on, so the answer names a day.
+    assert "3.09" in detail, detail
+    assert await session.scalar(select(LessonOverride)) is None
+    assert recording_bot.sent == []
+
+    # June is untouched by the split and still reads as the summer.
+    summer = await client.put(
+        "/api/v1/overrides",
+        json={"date": "2029-06-04", "index": 1, "action": "replace", "subject": "Консультация"},
+        headers=_auth(token),
+    )
+    assert summer.status_code == 422, summer.text
+    assert "для летних дел есть события" in summer.json()["detail"]
+
+
 async def test_a_substitution_on_a_hand_marked_holiday_is_refused(
     client, session, school_class, recording_bot
 ):

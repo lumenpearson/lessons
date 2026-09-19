@@ -581,11 +581,14 @@ async def subject_delete(
 # --------------------------------------------------------------------------
 
 
-def _schedule_out(schedule: BellSchedule, school_class: SchoolClass) -> BellScheduleOut:
+def _schedule_out(
+    schedule: BellSchedule, school_class: SchoolClass, silenced: int = 0
+) -> BellScheduleOut:
     return BellScheduleOut(
         id=schedule.id,
         name=schedule.name,
         is_default=schedule.id == school_class.bell_schedule_id,
+        silenced_lessons=silenced,
         periods=[
             BellPeriodOut(index=row.index, starts_at=row.starts_at, ends_at=row.ends_at)
             for row in sorted(schedule.periods, key=lambda row: row.index)
@@ -688,6 +691,7 @@ async def bells_update(
     another one the default.
     """
     schedule = await _schedule_or_404(session, school_class, schedule_id)
+    silenced: list[tuple[int, int]] = []
 
     if payload.name is not None and payload.name != schedule.name:
         old_name = schedule.name
@@ -736,7 +740,7 @@ async def bells_update(
             # already silent, which said «перестали звонить уроков: N» on a
             # move to a schedule ringing exactly the same numbers.
             was = await _rung_by_default(session, school_class)
-            orphaned = await structure.lessons_silenced_by(
+            silenced = await structure.lessons_silenced_by(
                 session,
                 school_class.id,
                 was,
@@ -744,8 +748,8 @@ async def bells_update(
             )
             school_class.bell_schedule_id = schedule.id
             summary = f"основное расписание звонков: «{schedule.name}»"
-            if orphaned:
-                summary += f", перестали звонить уроков: {len(orphaned)}"
+            if silenced:
+                summary += f", перестали звонить уроков: {len(silenced)}"
             await audit.record(
                 session,
                 school_class.id,
@@ -756,7 +760,7 @@ async def bells_update(
 
     await session.commit()
     await session.refresh(schedule, ["periods"])
-    return _schedule_out(schedule, school_class)
+    return _schedule_out(schedule, school_class, len(silenced))
 
 
 @router.put("/bells/{schedule_id}/periods", response_model=BellScheduleOut)
@@ -790,7 +794,7 @@ async def bells_periods(
     )
     await session.commit()
     await session.refresh(schedule, ["periods"])
-    return _schedule_out(schedule, school_class)
+    return _schedule_out(schedule, school_class, len(orphaned))
 
 
 @router.delete("/bells/{schedule_id}", response_model=DeletedOut)

@@ -1073,6 +1073,18 @@ class BellScheduleOut(BaseModel):
     # The one the class runs on when no day says otherwise.
     is_default: bool = False
     periods: list[BellPeriodOut] = []
+    #: Lessons this write stopped ringing, counted in rows rather than in
+    #: numbers — one number under two weekdays is two lessons nobody will see.
+    #:
+    #: Shrinking a schedule, or pointing the class at a shorter one, leaves
+    #: every row past the new last rung stored and drawn nowhere. The bot says
+    #: so in an alert the moment it happens; the API wrote the same count into
+    #: the audit log and answered the caller with a schedule that looked
+    #: entirely fine, so an admin editing bells from the phone lost six
+    #: lessons and was told nothing until they went looking for the log. Zero
+    #: on every read and on every write that silenced nothing, which is almost
+    #: all of them.
+    silenced_lessons: int = 0
 
 
 class BellPeriodsIn(BaseModel):

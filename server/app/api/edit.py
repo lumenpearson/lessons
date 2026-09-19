@@ -43,7 +43,7 @@ from app.models import (
     Role,
     SchoolClass,
 )
-from app.schedule import ScheduleResolver, school_year_bounds
+from app.schedule import SCHOOL_YEAR_START_MONTH, ScheduleResolver, school_year_bounds
 from app.schemas import (
     DayIn,
     DayOverrideOut,
@@ -247,6 +247,31 @@ async def _refuse_if_no_lesson_can_be_drawn(
     """
     year_start, year_end = school_year_bounds(day)
     if not year_start <= day <= year_end:
+        # Two different dates land here and they are not the same refusal.
+        #
+        # Note which comparison they fail: ``day > year_end`` is unreachable.
+        # ``school_year_bounds`` files a date past the end of May under the
+        # year that is *about to open*, so June, July and August come back
+        # already before ``year_start`` — and so do the first days of
+        # September in a year where the 1st is a Saturday, because
+        # ``school_year_start`` moves the first teaching day off a weekend.
+        # 2029 and 2035 are the next two. The month is what tells them apart.
+        #
+        # It mattered because the one sentence they shared said «эта дата вне
+        # учебного года … для летних дел есть события» — which on «1 сентября»
+        # answers a question about a day three months earlier and reads as a
+        # broken date picker rather than as the horizon it is. Whether those
+        # two days should draw a six-day class's Saturday lessons at all is a
+        # question about ``school_year_start``, and it is not answered here.
+        if day.month >= SCHOOL_YEAR_START_MONTH:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "учебный год начинается "
+                    f"{year_start.day}.{year_start.month:02d} — "
+                    "до него уроков ещё нет; поставьте событие"
+                ),
+            )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
