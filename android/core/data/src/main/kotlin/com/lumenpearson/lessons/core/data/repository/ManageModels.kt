@@ -424,8 +424,19 @@ sealed class ManageFailure(message: String, cause: Throwable? = null) :
                 401 -> SignedOut
                 403 -> when {
                     said.equals(DETAIL_NOT_LINKED, ignoreCase = true) -> NotLinked
+                    // `dropLast`, not `removeSuffix`: the guard above matched
+                    // ignoring case and `removeSuffix` does not, so the two
+                    // disagreed on anything but the server's current lowercase
+                    // spelling — and the role then came back as the whole
+                    // sentence, so the screen said «нет роли admin ROLE
+                    // REQUIRED». Dead today, and the live risk is precisely
+                    // that the two spellings are written in two places: the
+                    // day `manage.py` capitalises that message, the guard
+                    // still fires and the extraction silently stops working.
+                    // The length is the same whatever the case, so taking it
+                    // off by length cannot drift from the test above it.
                     said.endsWith(DETAIL_ROLE_SUFFIX, ignoreCase = true) ->
-                        RoleLost(said.removeSuffix(DETAIL_ROLE_SUFFIX).trim().ifBlank { null })
+                        RoleLost(said.dropLast(DETAIL_ROLE_SUFFIX.length).trim().ifBlank { null })
 
                     else -> NotAllowed(said.ifBlank { null })
                 }

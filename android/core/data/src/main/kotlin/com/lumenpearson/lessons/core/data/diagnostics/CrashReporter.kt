@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import java.io.File
+import java.io.IOException
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.time.Instant
@@ -47,6 +48,22 @@ object CrashReporter {
 
     /** How many reports are kept on disk. */
     private const val MAX_REPORTS = 5
+
+    /**
+     * How many reports one second of wall time can hold.
+     *
+     * The name used to be the stamp alone, and `writeText` truncates: two
+     * threads dying in the same second — which is the ordinary shape of a
+     * crash, one failure taking two threads with it — wrote two reports to one
+     * file and the first was gone. Widening the stamp to milliseconds would
+     * only have narrowed the window; the name is made unique by *claiming* it
+     * instead, and this is how many claims are tried before giving up.
+     *
+     * Far past the [MAX_REPORTS] that would survive anyway. A hundredth crash
+     * inside one second is a crash loop, and the hundredth report of it says
+     * what the first did.
+     */
+    private const val MAX_SAME_SECOND = 100
 
     private const val REPORTS_DIR = "crash_reports"
     private const val TAG = "CrashReporter"
@@ -137,10 +154,27 @@ object CrashReporter {
     }
 
     /** Every report on disk, newest first. */
-    fun reports(context: Context): List<File> =
-        directory(context).listFiles { file -> file.isFile && file.extension == "log" }
-            ?.sortedByDescending { it.lastModified() }
-            .orEmpty()
+    fun reports(context: Context): List<File> = newestFirst(
+        directory(context).listFiles { file -> file.isFile && file.extension == "log" }.orEmpty().toList(),
+    )
+
+    /**
+     * Newest first, with the name as the tiebreak.
+     *
+     * `lastModified` alone is not enough once two reports can be written in
+     * the same second, and it is the ordering [prune] deletes by: a
+     * filesystem that stamps in whole seconds — or simply two writes inside
+     * one millisecond — ties, `sortedByDescending` is stable, and the order
+     * that decides which report is destroyed becomes whatever order the
+     * directory happened to list in.
+     *
+     * The name breaks the tie because it is built to: `yyyy-MM-dd_HH-mm-ss`
+     * sorts lexicographically in the order it runs, and the counter after it
+     * is zero-padded so `_02` sorts after `_01` rather than `_10` sorting
+     * between them.
+     */
+    internal fun newestFirst(files: List<File>): List<File> =
+        files.sortedWith(compareByDescending<File> { it.lastModified() }.thenByDescending { it.name })
 
     /** Deletes every report. */
     fun clear(context: Context) {
@@ -194,12 +228,52 @@ object CrashReporter {
         }
 
         return runCatching {
-            val file = File(directory(context), "crash_${stamp(fileStamp, now)}.log")
+            val file = reportFile(directory(context), now)
             file.writeText(report)
             prune(context)
             file
         }.onFailure { Log.e(TAG, "Failed to write crash report", it) }.getOrNull()
     }
+
+    /**
+     * A file of this second that nothing else holds, created here and now.
+     *
+     * `createNewFile` is the whole of it: it tests and claims in one atomic
+     * step, where `exists()` followed by `writeText` is two steps with another
+     * thread's entire report in between. So the name is unique by
+     * construction rather than by hoping two crashes do not land on the same
+     * digits — and a millisecond stamp would only have been a smaller hope.
+     *
+     * The counter is always present and always two digits, because
+     * [newestFirst] falls back to the name and a name is only a useful
+     * tiebreak if it sorts in the order it was written.
+     *
+     * Internal so the claiming can be tested with a real directory; nothing
+     * outside this object has any business naming a report.
+     */
+    internal fun reportFile(directory: File, at: Instant): File {
+        val base = "crash_${stamp(fileStamp, at)}"
+        var candidate = File(directory, name(base, 0))
+        for (attempt in 0 until MAX_SAME_SECOND) {
+            candidate = File(directory, name(base, attempt))
+            val claimed = try {
+                candidate.createNewFile()
+            } catch (failure: IOException) {
+                // Not "this name is taken" — the directory is gone, or is not
+                // writable. Retrying ninety-nine more names cannot help, and
+                // the caller already treats a failed write as a lost report.
+                Log.w(TAG, "Could not claim a crash report file", failure)
+                return candidate
+            }
+            if (claimed) return candidate
+        }
+        // A hundred in one second: let the last one be overwritten rather than
+        // grow a name that sorts nowhere. See [MAX_SAME_SECOND].
+        return candidate
+    }
+
+    private fun name(base: String, attempt: Int): String =
+        "%s_%02d.log".format(Locale.US, base, attempt)
 
     private fun prune(context: Context) {
         runCatching { reports(context).drop(MAX_REPORTS).forEach { it.delete() } }

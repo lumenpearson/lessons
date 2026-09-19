@@ -60,6 +60,24 @@ object SchoolAlerts {
     private val ReadRetry: Duration = Duration.ofMinutes(20)
 
     /**
+     * How long before looking again when the planner sees nothing ahead.
+     *
+     * `AlertPlanner.next` looks a fixed distance ahead — a week and a day —
+     * and cancelling on its `null` made the chain exactly as long as that
+     * horizon. A gap wider than it ends the chain with nothing standing
+     * behind it: the last alert before the winter holidays fires, the planner
+     * finds nothing within eight days of it, the alarm is cancelled, and the
+     * first morning back is silent. Nothing noticed, because a cancelled
+     * chain and a chain with nothing due look identical from here.
+     *
+     * Twelve hours, so a fortnight of holidays costs about twenty-six
+     * wake-ups and the chain is armed again well before the horizon reaches
+     * the first lesson back. It is not a poll for data — the sync does that —
+     * it is the chain refusing to end while the user still wants alerts.
+     */
+    private val HorizonRetry: Duration = Duration.ofHours(12)
+
+    /**
      * How far back a late alarm may still publish what it was armed for.
      *
      * Without the exact-alarm permission the chain falls back to
@@ -105,6 +123,33 @@ object SchoolAlerts {
         // minute and a half of a bell overwrote that bell's alarm with the one
         // after it, and the notification was never posted.
         armNext(appContext, timetable, preferences, after = timetable.nowAtSchool())
+    }
+
+    /**
+     * The user has just changed what they want to be told about.
+     *
+     * [reschedule] plus the shade, and the shade is the half that was missing:
+     * switching an alert off cancelled the armed alarm and left what had
+     * already been posted exactly where it was, so «Через 10 минут: Алгебра»
+     * sat there — still tappable, still opening the app on that day — on the
+     * shade of somebody who had at that moment said they did not want it. The
+     * alarm and the shade are two states and only one of them was answered.
+     *
+     * Its own entry point rather than a line inside [reschedule], because
+     * [reschedule] also runs after every sync, every boot and every app start,
+     * and on those paths nothing the user did is being answered. The
+     * difference is [AlertPreview], which posts under the same id and
+     * deliberately ignores the preferences — «this is somebody asking» — so a
+     * sample of a switched-off alert has every right to stay on the shade
+     * until it is dismissed. Clearing it fifteen minutes later, from a
+     * background sync, would be the app taking back what it was asked for.
+     */
+    fun onAlertsChanged(context: Context) {
+        val appContext = context.applicationContext
+        alertPreferences(appContext)?.let { preferences ->
+            AlertNotifier.cancelDisabled(appContext, preferences)
+        }
+        reschedule(appContext)
     }
 
     /**
@@ -165,17 +210,45 @@ object SchoolAlerts {
         preferences: AlertPreferences,
         after: LocalDateTime,
     ) {
-        if (preferences.silent) {
-            cancel(context)
-            return
+        when (val next = nextAlarm(timetable, preferences, after)) {
+            NextAlarm.None -> cancel(context)
+            is NextAlarm.Alert -> arm(context, next.at, timetable.schoolClass.zone, armedFor = next.at)
+            // No armed moment, for the reason [retryLater] carries none: this
+            // alarm stands for nothing in the timetable, and a moment read back
+            // as one would let a late delivery reach back over a window it was
+            // never meant to speak for.
+            is NextAlarm.LookAgain ->
+                arm(context, next.at, timetable.schoolClass.zone, armedFor = null)
         }
+    }
 
+    /**
+     * What the chain should be armed for next.
+     *
+     * Split out of [armNext] and pure, because the decision it makes is the
+     * one that can end the chain silently and there is no way to see that
+     * happen from outside: a cancelled alarm and an alarm that is simply not
+     * due yet look the same from every screen in the app.
+     */
+    internal fun nextAlarm(
+        timetable: Timetable,
+        preferences: AlertPreferences,
+        after: LocalDateTime,
+    ): NextAlarm {
+        // The one honest cancel. Every alert is switched off, so there is
+        // nothing to come back for and waking twice a day to confirm it would
+        // be the app disagreeing with what the user just said.
+        if (preferences.silent) return NextAlarm.None
         val next = AlertPlanner.next(timetable, preferences, after)
-        if (next == null) {
-            cancel(context)
-            return
+        // Not a cancel. `next` answers within a fixed horizon, so `null` means
+        // «nothing in the next week and a day», not «nothing ever» — the
+        // difference between a holiday and a user who wants no alerts, and the
+        // chain used to treat them alike. See [HorizonRetry].
+        return if (next == null) {
+            NextAlarm.LookAgain(after.plus(HorizonRetry))
+        } else {
+            NextAlarm.Alert(next.at)
         }
-        arm(context, next.at, timetable.schoolClass.zone, armedFor = next.at)
     }
 
     /**
@@ -305,6 +378,18 @@ object SchoolAlerts {
         }
     }.onFailure { error -> Log.w(TAG, "Could not read the schedule", error) }.getOrNull()
 
+    /**
+     * What the user asked for, without the cache.
+     *
+     * Its own read because [read] answers `null` for the ordinary state of
+     * having nothing cached, and one caller — tidying the shade — has a
+     * correct answer in that state. DataStore serves this from memory after
+     * the first read, so the second caller costs a thread hop.
+     */
+    private fun alertPreferences(context: Context): AlertPreferences? = runCatching {
+        runBlocking { LessonsPreferences(context).currentSettings().alerts }
+    }.onFailure { error -> Log.w(TAG, "Could not read the alert preferences", error) }.getOrNull()
+
     private fun arm(context: Context, at: LocalDateTime, zone: ZoneId, armedFor: LocalDateTime?) {
         val alarmManager = context.getSystemService<AlarmManager>() ?: return
         val triggerAt = at.atZone(zone).toInstant().toEpochMilli()
@@ -350,6 +435,33 @@ object SchoolAlerts {
 
         return PendingIntent.getBroadcast(context, REQUEST_CODE, intent, flags)
     }
+}
+
+/**
+ * What the alarm chain should do next, as a value.
+ *
+ * Three answers and not two, which is the whole point of the type: «nothing
+ * to wake for» and «nothing within the horizon» used to be one `null` out of
+ * [AlertPlanner.next], and the chain answered both by cancelling itself.
+ *
+ * @see SchoolAlerts.nextAlarm
+ */
+internal sealed interface NextAlarm {
+
+    /** Every alert is switched off. Nothing is armed, and that is correct. */
+    data object None : NextAlarm
+
+    /** An alert, at the moment it is due, in the school's wall time. */
+    data class Alert(val at: LocalDateTime) : NextAlarm
+
+    /**
+     * Nothing the planner can see from here, so come back and ask again.
+     *
+     * The alarm stands for no alert: a delivery of it publishes nothing and
+     * exists only to keep the chain alive across a gap wider than the
+     * planner's horizon.
+     */
+    data class LookAgain(val at: LocalDateTime) : NextAlarm
 }
 
 /**

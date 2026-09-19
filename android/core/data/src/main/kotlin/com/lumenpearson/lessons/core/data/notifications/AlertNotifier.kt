@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import com.lumenpearson.lessons.core.data.R
 import com.lumenpearson.lessons.core.data.locale.AppLocale
+import com.lumenpearson.lessons.core.model.AlertPreferences
 import com.lumenpearson.lessons.core.model.DeepLink
 import com.lumenpearson.lessons.core.model.LessonAlertDetail
 import com.lumenpearson.lessons.core.model.SchoolAlert
@@ -61,11 +62,15 @@ internal object AlertNotifier {
     /**
      * Stable per kind, so a second morning summary replaces the first rather
      * than stacking. There is never anything to gain from two of these at once.
+     *
+     * Internal rather than private because [disabledIds] answers in them and
+     * the rule about which of them a switched-off preference clears is worth a
+     * test that can name them.
      */
-    private const val ID_LESSON = 0x5A01
-    private const val ID_MORNING = 0x5A02
-    private const val ID_HOMEWORK = 0x5A03
-    private const val ID_CHANGES = 0x5A04
+    internal const val ID_LESSON = 0x5A01
+    internal const val ID_MORNING = 0x5A02
+    internal const val ID_HOMEWORK = 0x5A03
+    internal const val ID_CHANGES = 0x5A04
 
     /** Every notification this object posts; see [tapRequestCode]. */
     internal val NotificationIds: List<Int> =
@@ -219,6 +224,46 @@ internal object AlertNotifier {
             body = context.getString(R.string.alert_changes_body),
             date = null,
         )
+    }
+
+    /**
+     * The notifications a user who has just switched something off should not
+     * still be looking at.
+     *
+     * One id per preference, and deliberately not "all of them if the alerts
+     * are silent": [AlertPreferences.silent] is about the three that are
+     * *planned*, so reading it here would leave «расписание изменилось» on the
+     * shade of somebody who turned the other three off, and would clear it for
+     * somebody who turned the other three off while still wanting it. Each
+     * kind answers for itself.
+     *
+     * Pure, and internal, so the boundary — what goes and what stays — is a
+     * test rather than a reading of four `if`s inside an Android call.
+     */
+    internal fun disabledIds(preferences: AlertPreferences): List<Int> = buildList {
+        if (!preferences.lessonSoon) add(ID_LESSON)
+        if (!preferences.morningSummary) add(ID_MORNING)
+        if (!preferences.homeworkReminder) add(ID_HOMEWORK)
+        if (!preferences.scheduleChanges) add(ID_CHANGES)
+    }
+
+    /**
+     * Drops whatever [disabledIds] names and nothing else.
+     *
+     * Switching an alert off cancelled the armed alarm and left what was
+     * already posted where it was, so «Через 10 минут: Алгебра» sat on the
+     * shade of somebody who had just said they did not want it — still
+     * tappable, still opening the app on that day. The alarm and the shade are
+     * two different states and only one of them was being answered.
+     *
+     * Best-effort like every other post: a receiver must not die for failing
+     * to tidy up.
+     */
+    fun cancelDisabled(context: Context, preferences: AlertPreferences) {
+        runCatching {
+            val manager = NotificationManagerCompat.from(context)
+            disabledIds(preferences).forEach(manager::cancel)
+        }
     }
 
     /** Clears anything still on the shade; used when the user signs out. */

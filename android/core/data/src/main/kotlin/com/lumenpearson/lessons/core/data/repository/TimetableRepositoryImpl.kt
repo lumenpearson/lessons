@@ -72,6 +72,19 @@ internal class TimetableRepositoryImpl(
      */
     private val onDataChanged: () -> Unit = {},
     /**
+     * Called after a sync found the cache already current — a `304`.
+     *
+     * Deliberately not [onDataChanged]: nothing the widget draws has moved, and
+     * a redraw per poll is the cost the conditional request exists to avoid. It
+     * exists for the one thing that *is* time-dependent even when the data is
+     * not — the notification alarm chain, which is one alarm long and re-arms
+     * itself only when an alarm fires. A break longer than the planner's
+     * horizon leaves nothing armed behind it, and on a phone whose window has
+     * not changed every poll is a `304`, so the sync was the last thing that
+     * could have noticed and it was the one path that said nothing.
+     */
+    private val onNothingChanged: () -> Unit = {},
+    /**
      * Called when the server refuses this device's token.
      *
      * The session and the cache are not this class's to drop, and nothing else
@@ -212,6 +225,15 @@ internal class TimetableRepositoryImpl(
                 // deliberately not poked: nothing it draws has changed, and a
                 // redraw per poll is the cost this whole request was avoiding.
                 activeClassId.first()?.let { dao.touchSyncedAt(it, clock.millis()) }
+                // The alarm chain is told anyway, and that is not a
+                // contradiction of the line above. The widget draws the data,
+                // so unchanged data means nothing to redraw; the chain is a
+                // *chain*, one alarm long, and what ends it is not the data
+                // changing but time passing over a gap wider than the planner
+                // looks ahead — a fortnight of holidays, in which nothing on
+                // the server changes and therefore every poll is this branch.
+                // Left silent, this is the path that watches the chain die.
+                onNothingChanged()
                 return@withContext SyncResult.Success
             }
             val body = response.body()
