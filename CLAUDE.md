@@ -402,6 +402,14 @@ points Hilt does not inject cleanly.
   session finished, what it deliberately left alone and what nothing has verified. It is
   working state, not part of `docs/`, so it is stale the moment it stops being updated:
   re-check the PR and CI before trusting it, and update it when you finish a batch.
+- **`.claude/` holds the agent configuration, and it describes the shape rather than
+  repeating this file.** `.claude/agents/` has one agent per area that has produced a defect
+  here, carrying the fact that would have prevented it; `.claude/skills/` has the procedures
+  (`gates`, `audit`, `migration`, `release`, `strings`, `bot-message`, `steward`,
+  `github-pr`, `handover`); `.claude/commands/` has `/where-are-we` and `/pre-push`;
+  `.claude/README.md` says what is deliberately absent — there is no `.mcp.json`, because
+  the Neon and Vercel connections need credentials. `AGENTS.md` and
+  `.github/copilot-instructions.md` are the same pointer for agents that read those instead.
 - **Read a file before editing it; grep every caller before changing a function.** The
   audits in `docs/design.md` exist because a conclusion drawn from call sites was wrong.
 - Secrets never enter the repository: `BOT_TOKEN`, `OWNER_IDS`, `WEBHOOK_SECRET`,

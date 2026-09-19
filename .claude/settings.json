@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew *)",
+      "Bash(ruff check *)",
+      "Bash(ruff format --check *)",
+      "Bash(python -m ruff *)",
+      "Bash(python -m pytest *)",
+      "Bash(python -m pytest)",
+      "Bash(python -m mypy *)",
+      "Bash(python -m mypy)",
+      "Bash(git status *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(git fetch *)",
+      "Bash(rg *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)"
+    ],
+    "ask": [
+      "Edit(./.github/workflows/**)",
+      "Bash(git push --force-with-lease *)"
+    ],
+    "deny": [
+      "Read(./server/.env)",
+      "Read(./server/.env.*)",
+      "Read(./**/local.properties)",
+      "Read(./**/keystore.properties)",
+      "Read(./**/*.jks)",
+      "Read(./**/*.keystore)",
+      "Edit(./server/.env)",
+      "Edit(./**/local.properties)",
+      "Edit(./**/keystore.properties)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(alembic upgrade *)",
+      "Bash(alembic downgrade *)",
+      "Bash(alembic stamp *)",
+      "Bash(python -m alembic *)",
+      "Bash(.venv/bin/alembic *)",
+      "Bash(python -m scripts.seed_demo)",
+      "Bash(python -m scripts.seed_demo *)",
+      "Bash(rm -rf *)"
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "anthropic-skills": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/skills"
+      }
+    }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | grep -qE '/src/main/res/values/strings[^/]*\\.xml$' && echo '{\"systemMessage\":\"Russian strings are the source: every name added here needs its twin in the same module'\\''s values-en/, or ResourceTranslationTest fails.\"}' || true"
+          }
+        ]
+      }
+    ]
+  }
+}
