@@ -92,6 +92,27 @@ def test_owner_ids_that_parse_to_nobody_are_not_mistaken_for_configured(value):
     assert "OWNER_IDS" in problem
 
 
+def test_the_unreadable_owner_ids_is_described_rather_than_reproduced():
+    """This message is raised before the first route is registered, so where it
+    lands is the platform's build log — and `CLAUDE.md` lists `OWNER_IDS` among
+    the values that never belong in one. It used to be quoted into the message
+    verbatim.
+
+    Redacting it must not cost the diagnosis, which is the reason the value was
+    there in the first place: a newline is what is wrong nearly every time, and
+    saying *that* is more use than printing the string it is hiding in.
+    """
+    value = "111111111\n222222222"
+    (problem,) = deployed(OWNER_IDS=value).deployment_problems()
+
+    assert "OWNER_IDS" in problem
+    assert "<redacted>" in problem
+    for id_ in ("111111111", "222222222"):
+        assert id_ not in problem
+    # Still enough to fix it without a second deploy.
+    assert "line break" in problem
+
+
 def test_an_empty_owner_ids_is_left_alone():
     """Empty is a choice: after the first owner, roles live in the database."""
     assert deployed(OWNER_IDS="").deployment_problems() == []

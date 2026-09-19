@@ -37,6 +37,27 @@ class DeploymentNotConfigured(RuntimeError):
     """
 
 
+def _describe_owner_ids(raw: str) -> str:
+    """``OWNER_IDS`` in the terms that debug it, without reproducing it.
+
+    Separate from the message so that the one rule this obeys - say the shape,
+    never the value - is in one place and can be read at a glance. Nothing it
+    returns can be assembled back into an id: a length, a count of pieces and
+    two yes/no answers.
+    """
+    value = raw.strip()
+    pieces = [piece for piece in value.replace(";", ",").split(",") if piece.strip()]
+    # Commas and semicolons both, because `owner_id_list` folds the one into
+    # the other before it splits - describing the value by a rule the parser
+    # does not use would send the reader looking in the wrong place.
+    described = f"{len(value)} characters in {len(pieces)} piece(s) between separators"
+    if "\n" in value or "\r" in value:
+        described += ", with a line break inside it"
+    if not any(character.isdigit() for character in value):
+        described += ", and not a digit anywhere in it"
+    return described
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -202,11 +223,21 @@ class Settings(BaseSettings):
             )
 
         if self.owner_ids.strip() and not self.owner_id_list:
+            # The value is described, never quoted. This message is raised
+            # before the first route is registered, so where it lands is the
+            # platform's build log - and OWNER_IDS is one of the values that
+            # never belongs in one. What a reader actually needs in order to
+            # fix it is not the string, it is the shape of the string: how
+            # long it is, how many pieces the separators cut it into, and
+            # whether there is a newline in it, which is the whole diagnosis
+            # nearly every time.
             problems.append(
-                f"OWNER_IDS is set to {self.owner_ids.strip()!r} and no id can be read out "
-                "of it. Only digits separated by commas count, and a newline is not a "
-                "separator - which is exactly what Vercel's textarea invites - so the "
-                "value looks configured and grants nobody anything."
+                f"OWNER_IDS is set to <redacted> ({_describe_owner_ids(self.owner_ids)}) "
+                "and no id can be read out of it. Only digits separated by commas count, "
+                "and a newline is not a separator - which is exactly what Vercel's "
+                "textarea invites - so the value looks configured and grants nobody "
+                "anything. The value itself is deliberately not repeated here: it would "
+                "be repeated into the build log."
             )
 
         try:

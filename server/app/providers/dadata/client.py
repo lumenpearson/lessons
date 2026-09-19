@@ -203,7 +203,46 @@ async def _post(path: str, payload: dict[str, Any], token: str) -> list[dict[str
         return []
     if not isinstance(suggestions, list):
         raise UnexpectedResponse()
-    return [item for item in suggestions if isinstance(item, dict)]
+    rows = [item for item in suggestions if isinstance(item, dict)]
+    if len(rows) != len(suggestions):
+        _note_rows_that_were_not_objects(suggestions, rows)
+    return rows
+
+
+def _note_rows_that_were_not_objects(
+    suggestions: list[Any], rows: list[dict[str, Any]]
+) -> None:
+    """Say what was dropped for not being an object, and what it was instead.
+
+    The same guard the diary provider carries, for the same reason: `mapper`
+    logs the suggestion it could not read, but it never sees the one that was
+    not an object at all, because this function has already taken it out. A
+    whole answer of the wrong shape therefore reached the bot as «ничего не
+    найдено» - which is also what a school that is genuinely not in the
+    register looks like - and said nothing about which of the two it was.
+
+    Dropping, not raising, and the returned list is the same one as before:
+    `suggest_schools` reads it to decide whether to ask a second time without
+    the ОКВЭД filter, and that decision must not move because a line was added
+    to the log.
+    """
+    kinds = ", ".join(
+        sorted({type(item).__name__ for item in suggestions if not isinstance(item, dict)})
+    )
+    if rows:
+        log.info(
+            "dadata: dropped %d of %d suggestion(s) that were not objects (%s)",
+            len(suggestions) - len(rows),
+            len(suggestions),
+            kinds,
+        )
+        return
+    log.warning(
+        "dadata: all %d suggestion(s) were %s rather than objects; the register's "
+        "shape has moved and the search reads as «nothing found»",
+        len(suggestions),
+        kinds,
+    )
 
 
 def _okved_of(item: dict[str, Any]) -> str:
