@@ -11,10 +11,12 @@ it.
 from __future__ import annotations
 
 import asyncio
+import os
 from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import select
 
+from app.config import get_settings
 from app.db import init_db, session_scope
 from app.models import (
     DEFAULT_BELLS,
@@ -77,7 +79,44 @@ COLORS = {
 }
 
 
+#: What this script refuses to write to without being told twice.
+#:
+#: It runs `create_all` and then puts a class with the world-known join code
+#: `DEMO24` into it, in `JoinMode.OPEN` — a read-token factory whose curl is
+#: printed in `docs/api.md`. Against production that is a live, publicly
+#: documented way into a real class, plus DDL on a database the deploy path
+#: deliberately stopped running `create_all` on. And it is two lines apart in
+#: `CLAUDE.md` from `DATABASE_URL='postgresql+asyncpg://…' alembic upgrade
+#: head`, so the shell that ran the first is the shell that runs this one.
+#:
+#: Its sibling `scripts/init_db` already prints where it is about to write;
+#: this printed «Demo class ready. Join code: DEMO24» and nothing else.
+LOCAL_SCHEMES = ("sqlite",)
+
+
+def _target(database_url: str) -> str:
+    """Where this is about to write, with any password left out."""
+    return database_url.split("@")[-1] if "@" in database_url else database_url
+
+
+def _refuse_unless_confirmed(database_url: str) -> None:
+    if database_url.split(":", 1)[0].split("+", 1)[0] in LOCAL_SCHEMES:
+        return
+    if os.environ.get("SEED_DEMO_I_MEAN_IT") == "yes":
+        print(f"Seeding a NON-LOCAL database on request: {_target(database_url)}")
+        return
+    raise SystemExit(
+        f"Refusing to seed {_target(database_url)}: this is not a local database.\n"
+        "The demo class carries the published join code DEMO24 in open mode, so "
+        "seeding a real deployment hands out read tokens for a real class.\n"
+        "If that is genuinely what you want: SEED_DEMO_I_MEAN_IT=yes"
+    )
+
+
 async def seed() -> None:
+    settings = get_settings()
+    _refuse_unless_confirmed(settings.database_url)
+    print(f"Seeding {_target(settings.database_url)} ...")
     await init_db()
 
     async with session_scope() as session:

@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.dp
  * | [MEDIUM]     | 250 × 110dp | 4×2   | + a "Дальше" column                   |
  * | [MEDIUM_TALL]| 250 × 180dp | 4×3   | + the rest of the day                 |
  * | [LARGE]      | 250 × 250dp | 4×4   | + the week strip                      |
- * | [LARGE_TALL] | 250 × 400dp | 4×6   | + homework, in a four-cell column     |
+ * | [LARGE_TALL] | 250 × 300dp | 4×5   | + homework, in a four-cell column     |
  * | [XLARGE]     | 320 × 320dp | 5×5   | + homework                            |
  * | [TALL]       | 320 × 400dp | 5×6   | + the next school day and its homework|
  * | [HUGE]       | 320 × 560dp | 5×8   | + more of all of it                   |

@@ -124,6 +124,17 @@ internal class TimetableRepositoryImpl(
         buildTimetable(snapshot.schoolClass, snapshot.days, snapshot.nextSchoolDay)
     }
 
+    /**
+     * Whether this device is actually holding the window the tag is about.
+     *
+     * Asked only on a `304`, so it costs one indexed read on the path that was
+     * already the cheap one.
+     */
+    private suspend fun hasCachedWindow(): Boolean {
+        val classId = activeClassId.first() ?: return false
+        return dao.schoolClass(classId) != null
+    }
+
     override suspend fun refresh(days: Int): SyncResult = withContext(ioDispatcher) {
         try {
             val today = todayAtSchool()
@@ -162,11 +173,37 @@ internal class TimetableRepositoryImpl(
             // the stored tag simply stops matching and the next sync asks for
             // everything, which is the direction that heals itself.
             val signature = "${activeClassId.first() ?: 0L}|$start|$window"
-            val response = api.bundle(
+            var response = api.bundle(
                 start = start.toString(),
                 days = window,
                 ifNoneMatch = bundleTags.tagFor(signature),
             )
+            if (response.code() == HTTP_NOT_MODIFIED && !hasCachedWindow()) {
+                // «Nothing changed» is only an answer when there is something
+                // for it to be about. The tag lives in the preferences and
+                // outlives every wipe of the cache — `clearSession`,
+                // `removeSession`, `clearMemberships` and a destructive Room
+                // migration all leave it standing — and the signature is
+                // `classId|start|window`, none of which moves across a leave
+                // and a re-join of the same class. So the phone could send a
+                // tag the server still matched while holding nothing at all,
+                // and go on reporting a successful sync over «Расписание ещё
+                // не загружено» for ever: the home screen, the widget and the
+                // notifications all read the same empty cache, and every pull
+                // to refresh repeated the 304.
+                response = api.bundle(start = start.toString(), days = window, ifNoneMatch = null)
+            }
+            // Retrofit throws `HttpException` for a *body-typed* suspend
+            // method and hands a `Response<T>`-typed one the error response
+            // verbatim — so the `catch` below, which is where `onTokenRejected`
+            // lives, has been unreachable for this call since it started
+            // asking «changed since?». A revoked device therefore kept the
+            // class, the token and a year of somebody else's timetable, and
+            // the screen said «Server returned HTTP 401» in English.
+            if (response.code() == HTTP_UNAUTHORISED) {
+                runCatching { onTokenRejected() }
+                return@withContext SyncResult.Unauthorised
+            }
             if (response.code() == HTTP_NOT_MODIFIED) {
                 // Nothing to write: the window is byte-for-byte what is already
                 // cached. The check still happened, though, and «обновлено N

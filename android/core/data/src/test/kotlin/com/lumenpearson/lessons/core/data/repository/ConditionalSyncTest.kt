@@ -52,6 +52,8 @@ class ConditionalSyncTest {
         var seenTag: String? = null
         var calls = 0
         var answerNotModified = false
+        var status = 0
+        val tagsSeen = mutableListOf<String?>()
 
         override suspend fun join(body: JoinRequestDto) = error("unused")
         override suspend fun health() = error("unused")
@@ -65,14 +67,32 @@ class ConditionalSyncTest {
         ): Response<BundleDto> {
             calls += 1
             seenTag = ifNoneMatch
+            tagsSeen += ifNoneMatch
+            if (status != 0) {
+                val failed = OkResponse.Builder()
+                    .code(status)
+                    .message("")
+                    .protocol(Protocol.HTTP_1_1)
+                    .request(Request.Builder().url("http://test/api/v1/bundle").build())
+                    .build()
+                return Response.error(
+                    "".toResponseBody("application/json".toMediaType()),
+                    failed,
+                )
+            }
+            // A 304 is an answer to a conditional request. The fake used to
+            // give one to any request at all, which is not a thing a server
+            // does — and it hid the retry this repository makes when the tag
+            // turns out to describe a window the phone no longer holds.
+            val notModified = answerNotModified && ifNoneMatch != null
             val raw = OkResponse.Builder()
-                .code(if (answerNotModified) 304 else 200)
+                .code(if (notModified) 304 else 200)
                 .message("")
                 .protocol(Protocol.HTTP_1_1)
                 .request(Request.Builder().url("http://test/api/v1/bundle").build())
                 .apply { etag?.let { header("ETag", it) } }
                 .build()
-            return if (answerNotModified) {
+            return if (notModified) {
                 Response.error(
                     "".toResponseBody("application/json".toMediaType()),
                     raw.newBuilder().code(304).build(),
@@ -90,7 +110,13 @@ class ConditionalSyncTest {
         }
     }
 
-    private fun repository(api: LessonsApi, tags: BundleTagStore, dao: InMemoryTimetableDao, onData: () -> Unit) =
+    private fun repository(
+        api: LessonsApi,
+        tags: BundleTagStore,
+        dao: InMemoryTimetableDao,
+        onData: () -> Unit,
+        onRejected: () -> Unit = {},
+    ) =
         TimetableRepositoryImpl(
             dao = dao,
             api = api,
@@ -98,6 +124,7 @@ class ConditionalSyncTest {
             clock = clock,
             ioDispatcher = UnconfinedTestDispatcher(),
             onDataChanged = onData,
+            onTokenRejected = onRejected,
             bundleTags = tags,
         )
 
@@ -161,5 +188,59 @@ class ConditionalSyncTest {
 
         assertNull("a tag for last year's window is no tag at all", api.seenTag)
         assertEquals(2, tags.written.size)
+    }
+
+    @Test
+    fun `a 304 against an empty cache asks again instead of reporting success`() = runTest {
+        // The tag lives in the preferences and outlives every wipe of the
+        // cache: `clearSession`, `removeSession`, `clearMemberships` and a
+        // destructive Room migration all leave it standing, and the signature
+        // is `classId|start|window`, none of which moves across a leave and a
+        // re-join of the same class. So the phone sent a tag the server still
+        // matched while holding nothing at all — `touchSyncedAt` matched zero
+        // rows, `refresh` answered `Success`, and the home screen, the widget
+        // and the notifications all went on reading an empty cache. Every pull
+        // to refresh repeated the 304.
+        val api = FakeApi(etag = "\"abc\"")
+        val tags = Store()
+        val populated = InMemoryTimetableDao()
+        repository(api, tags, populated, onData = {}).refresh(days = 31)
+
+        api.answerNotModified = true
+        val empty = InMemoryTimetableDao()
+        val result = repository(api, tags, empty, onData = {}).refresh(days = 31)
+
+        assertEquals("\"abc\"", api.tagsSeen[1])
+        assertNull("the second attempt asks for the whole window", api.tagsSeen[2])
+        assertEquals(SyncResult.Success, result)
+        assertNotNull("and the window actually lands this time", empty.schoolClass(1L))
+    }
+
+    @Test
+    fun `a 401 on the bundle throws the device out of the class`() = runTest {
+        // Retrofit throws `HttpException` only for a *body-typed* suspend
+        // method; a `Response<T>`-typed one is handed the error response
+        // verbatim. So the `catch (http: HttpException)` that calls
+        // `onTokenRejected` has been unreachable for this call ever since it
+        // started asking «changed since?», and `TokenRejectedTest` could not
+        // see it because its fake *throws* what real Retrofit never would.
+        //
+        // The cost: a revoked device kept the class, the token and a year of
+        // somebody else's timetable, and the screen said «Server returned HTTP
+        // 401» in English instead of the sentence written for it.
+        val api = FakeApi(etag = null)
+        api.status = 401
+        var rejected = 0
+
+        val result = repository(
+            api,
+            Store(),
+            InMemoryTimetableDao(),
+            onData = {},
+            onRejected = { rejected += 1 },
+        ).refresh(days = 31)
+
+        assertEquals(SyncResult.Unauthorised, result)
+        assertEquals(1, rejected)
     }
 }

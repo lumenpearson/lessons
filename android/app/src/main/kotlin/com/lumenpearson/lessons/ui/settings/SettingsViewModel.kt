@@ -183,7 +183,7 @@ class SettingsViewModel(
      */
     fun refreshDeviceLink() {
         if (deviceLink.value is DeviceLinkState.Loading) return
-        val known = (deviceLink.value as? DeviceLinkState.Ready)?.link
+        val known = deviceLink.value.known
         deviceLink.value = DeviceLinkState.Loading(known)
         viewModelScope.launch {
             val asked = sessionRepository.current()?.classId
@@ -202,7 +202,7 @@ class SettingsViewModel(
 
     /** Unties the phone from its Telegram account; read-only afterwards. */
     fun unlinkDevice() {
-        val known = (deviceLink.value as? DeviceLinkState.Ready)?.link
+        val known = deviceLink.value.known
         deviceLink.value = DeviceLinkState.Loading(known)
         viewModelScope.launch {
             deviceLinkRepository.unlink()
@@ -532,11 +532,28 @@ sealed interface DeviceLinkState {
     /** Nobody has asked yet; the page asks when it opens. */
     data object Idle : DeviceLinkState
 
-    data class Loading(val known: DeviceLink?) : DeviceLinkState
+    data class Loading(override val known: DeviceLink?) : DeviceLinkState
 
     data class Ready(val link: DeviceLink) : DeviceLinkState
 
-    data class Failed(val cause: Throwable, val known: DeviceLink?) : DeviceLinkState
+    data class Failed(val cause: Throwable, override val known: DeviceLink?) : DeviceLinkState
+
+    /**
+     * The last good answer, whichever state is carrying it.
+     *
+     * Asked here rather than at each call site, because each call site asked
+     * `as? Ready` and therefore threw the code away on exactly the press that
+     * exists to recover from a failure: «Повторить» on a failed check blanked
+     * the card, and a phone still without signal never got it back. The card
+     * was showing a code somebody was halfway through typing into the bot.
+     */
+    val known: DeviceLink?
+        get() = when (this) {
+            Idle -> null
+            is Loading -> known
+            is Ready -> link
+            is Failed -> known
+        }
 }
 
 /**

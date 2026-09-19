@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -89,6 +90,17 @@ fun JoinScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showServerSheet by rememberSaveable { mutableStateOf(false) }
+
+    // A one-shot belongs to whoever sees it first, and this screen sees it
+    // first. It does not act on it — joining writes a session and the shell
+    // navigates on the session — but leaving it set hands the next observer
+    // somebody else's join. `AddClassSheet` resolves the same view model
+    // against the Activity's store, so a class joined during onboarding was
+    // still announced when «Добавить класс» was opened an hour later, and the
+    // sheet dismissed itself before the user could type a second code.
+    LaunchedEffect(state.joinedClassId) {
+        if (state.joinedClassId != null) viewModel.consumeJoined()
+    }
 
     if (showServerSheet) {
         ServerUrlSheet(

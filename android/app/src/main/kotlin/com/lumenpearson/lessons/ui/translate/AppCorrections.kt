@@ -41,6 +41,13 @@ internal interface StringTable {
     fun textOf(@StringRes id: Int): String
 }
 
+/**
+ * How many texts the registry keeps entries for before it drops the empty
+ * ones. Large enough that an ordinary screen never prunes, small enough that
+ * a day of proofreading does not accumulate a dictionary.
+ */
+private const val REGISTRY_MAX = 512
+
 /** The real one. */
 internal fun Resources.asStringTable(): StringTable = object : StringTable {
     override fun nameOf(id: Int): String? = TranslationKeys.of(this@asStringTable, id)
@@ -125,12 +132,30 @@ internal class AppCorrections(
     override fun forget(id: Int, shown: String) {
         val slot = onScreen[shown] ?: return
         slot.value = slot.value.toMutableList().also { it.remove(id) }
+        if (slot.value.isEmpty()) pruneIfCrowded()
     }
 
     override fun keysBehind(shown: String): List<Int> = slotFor(shown).value.distinct()
 
     private fun slotFor(shown: String): MutableState<List<Int>> =
         onScreen.computeIfAbsent(shown) { mutableStateOf(emptyList()) }
+
+    /**
+     * Drops empty slots once there are too many of them.
+     *
+     * A slot is created by whoever asks first, and `Modifier.correctable` asks
+     * about **every** `Text` while the mode is on — including a subject, a
+     * teacher's name, «обновлено в 14:32» and the countdown, each of which is
+     * different words a minute later. Nothing ever removed one, so a day of
+     * proofreading built tens of thousands of entries that nothing would read
+     * again. Empty is the safe thing to drop: a slot with ids in it belongs to
+     * text that is on screen right now, and a reader that loses its empty slot
+     * simply makes a new one when it next composes.
+     */
+    private fun pruneIfCrowded() {
+        if (onScreen.size <= REGISTRY_MAX) return
+        onScreen.entries.removeIf { it.value.value.isEmpty() }
+    }
 
     /**
      * Opens the editor on every string that says exactly this.
@@ -151,8 +176,24 @@ internal class AppCorrections(
         val targets = ids.mapNotNull { id ->
             nameOf(id)?.let { CorrectionTarget(key = it, original = strings.textOf(id)) }
         }
-        val original = targets.firstOrNull()?.original ?: return
-        editing = targets.filter { it.original == original }.distinctBy { it.key }
+        if (targets.isEmpty()) return
+        // Grouped by original, and the largest group wins — not «whichever
+        // composed first», which is what taking element zero meant.
+        //
+        // Several originals reach here only when one of them has already been
+        // corrected *into* the words of another, which is exactly what a
+        // proofreader unifying three spellings of one thing produces. The
+        // modifier knows which node was pressed and not which id drew it, so
+        // this cannot always be right; what it can be is stable and explained.
+        // Ties go to the group that ships with these words, because a string
+        // the reader has not touched is the likelier thing to be reading.
+        val byOriginal = targets.groupBy { it.original }
+        val largest = byOriginal.values.maxOf { it.size }
+        // `groupBy` keeps insertion order, so a tie goes to the original that
+        // was registered first — arbitrary, but the same answer every time,
+        // which «element zero of the ids» was not.
+        val chosen = byOriginal.values.first { it.size == largest }
+        editing = chosen.distinctBy { it.key }
     }
 
     private fun nameOf(@StringRes id: Int): String? = names.getOrPut(id) { strings.nameOf(id) }

@@ -91,11 +91,33 @@ jobs:
         id: keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
             echo "signed=false" >> "$GITHUB_OUTPUT"
             echo "::warning::No KEYSTORE_BASE64 secret; the release APK will be signed with the debug key and must not be published."
             exit 0
+          fi
+          # All four, not just the file. Gradle's `hasReleaseSigning` needs the
+          # keystore, its password, the alias and the key's password, and falls
+          # back to the AGP debug key with only a `logger.warn` when any one is
+          # missing — while this step used to report `signed=true` on the file
+          # alone. Name the alias secret KEYSTORE_ALIAS instead of KEY_ALIAS,
+          # or leave KEY_PASSWORD unset trusting "the passwords are the same",
+          # and `git push origin v0.2.0` published a debug-signed APK to a
+          # public release under a summary that called it signed. That key is
+          # the AGP default — same password, same certificate, on every machine
+          # on Earth — so anybody could then build an "update" Android would
+          # accept over the real app.
+          missing=""
+          [ -z "$KEYSTORE_PASSWORD" ] && missing="$missing KEYSTORE_PASSWORD"
+          [ -z "$KEY_ALIAS" ] && missing="$missing KEY_ALIAS"
+          [ -z "$KEY_PASSWORD" ] && missing="$missing KEY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::KEYSTORE_BASE64 is set but$missing is empty. Release signing would silently fall back to the debug key; see docs/build.md."
+            exit 1
           fi
           # Outside the workspace so it can never be picked up by an upload glob.
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
@@ -183,6 +205,13 @@ jobs:
         if: always()
         env:
           INPUT_BUILD_TYPE: ${{ inputs.build_type || 'release' }}
+          # Through the environment, like the "Resolve version" step above and
+          # for the reason written there: a workflow_dispatch input is
+          # attacker-controlled text as far as the shell is concerned, and this
+          # job holds `contents: write`. It was spliced straight into bash here
+          # while the step that was written to be careful about it sat twenty
+          # lines up.
+          VERSION_NAME: ${{ steps.version.outputs.name }}
         run: |
           {
             echo "## APK"
@@ -190,7 +219,7 @@ jobs:
             echo "| | |"
             echo "| --- | --- |"
             echo "| Build type | \`$INPUT_BUILD_TYPE\` |"
-            echo "| versionName | \`${{ steps.version.outputs.name || 'default from build.gradle.kts' }}\` |"
+            echo "| versionName | \`${VERSION_NAME:-default from build.gradle.kts}\` |"
             echo "| versionCode | \`${{ steps.version.outputs.code }}\` |"
             echo "| APKs produced | ${{ steps.collect.outputs.count }} |"
             if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then

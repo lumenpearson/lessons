@@ -140,9 +140,15 @@ internal abstract class TimetableDao {
      * For the sync that got a `304`: the window is byte-for-byte what is
      * cached, so there is nothing to write — but the check did happen, and a
      * mark left alone keeps growing on a phone that is syncing perfectly.
+     *
+     * Answers with the number of rows it moved, which is how the caller finds
+     * out there is no cache to mark. That is a real state: the ETag lives in
+     * the preferences and outlives every wipe of this table, so a leave and a
+     * re-join of the same class sends a tag the server still matches while
+     * the phone holds nothing at all.
      */
     @Query("UPDATE school_class SET synced_at_epoch_millis = :millis WHERE id = :classId")
-    abstract suspend fun touchSyncedAt(classId: Long, millis: Long)
+    abstract suspend fun touchSyncedAt(classId: Long, millis: Long): Int
 
     @Query("DELETE FROM school_class WHERE id = :classId")
     abstract suspend fun deleteSchoolClass(classId: Long)

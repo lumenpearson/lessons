@@ -140,7 +140,7 @@ GitHub считает PR влитым только когда коммиты п�
          затем PR #47, #48 и #49 — `main` на `7e53bd5`
 Открыт:  PR #50 (`dev` → `main`) — режим исправления на всём тексте
 Ветки:   main и dev; dev идёт от `7e53bd5`, то есть от мерджа #49
-Ворота:  ruff чисто, mypy чисто, 1362 серверных теста, 603 Android, обе сборки
+Ворота:  ruff чисто, mypy чисто, 1391 серверный тест, 605 Android, обе сборки
 База:    прод на `0013` — это голова. `0010`–`0012` применены через коннектор
          Neon ДО мерджа, `0013` (UNIQUE) — ПОСЛЕ, как требует её форма.
          Отдельных действий с базой не осталось
@@ -179,9 +179,9 @@ git checkout -B dev origin/main   # тот же dev, новая точка ст�
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # чисто
-cd server  && python -m pytest -q -n auto                 # 1362 теста, ~1.8 мин
+cd server  && python -m pytest -q -n auto                 # 1391 тест, ~1.5 мин
 cd server  && python -m mypy                              # чисто, 79 модулей
-cd android && ./gradlew test                             # 603 теста
+cd android && ./gradlew test                             # 605 тестов
 cd android && ./gradlew assembleDebug assembleRelease    # обе сборки
 ```
 

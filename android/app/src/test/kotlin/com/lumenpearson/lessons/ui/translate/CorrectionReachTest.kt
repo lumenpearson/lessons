@@ -38,13 +38,20 @@ class CorrectionReachTest {
      */
     private val exempt = listOf(
         "core/designsystem/src/main/kotlin/com/lumenpearson/lessons/core/designsystem/text/Corrections.kt",
+        "core/designsystem/src/main/kotlin/com/lumenpearson/lessons/core/designsystem/text/Text.kt",
         "app/src/main/kotlin/com/lumenpearson/lessons/ui/translate/TranslationEditorSheet.kt",
         "app/src/main/kotlin/com/lumenpearson/lessons/ui/translate/TranslationSessionSheet.kt",
     )
 
     @Test
     fun `no screen draws text Material's way`() {
-        val offenders = sources.filter { "import androidx.compose.material3.Text\n" in it.text }
+        // Aliased too. `Text.kt` writes `… as MaterialText` and is not in the
+        // exempt list — it passed only because the alias defeated the match,
+        // which means `… as M3Text` in a new screen would have passed as well,
+        // and the staleness check below cannot see a file nothing exempted.
+        val offenders = sources.filter { source ->
+            OFFENDING_TEXT_IMPORTS.any { it in source.text }
+        }
         assertTrue(
             "These files import Material's Text instead of the design system's: " +
                 offenders.joinToString { it.path } +
@@ -58,6 +65,8 @@ class CorrectionReachTest {
     @Test
     fun `no screen reads a string past the corrections`() {
         val offenders = sources.filter { "import androidx.compose.ui.res.stringResource\n" in it.text }
+            .plus(sources.filter { it.readsResourcesDirectly })
+            .distinct()
         assertTrue(
             "These files read strings with stringResource instead of correctedString: " +
                 offenders.joinToString { it.path } +
@@ -97,7 +106,48 @@ class CorrectionReachTest {
         )
     }
 
-    private class Source(val path: String, val text: String)
+    /**
+     * The imports that draw text without asking about corrections.
+     *
+     * `BasicText` is on the classpath, compiles and draws — nothing uses it
+     * today, and nothing stops the next screen from using it either.
+     */
+    private val OFFENDING_TEXT_IMPORTS = listOf(
+        "import androidx.compose.material3.Text\n",
+        "import androidx.compose.material3.Text as ",
+        "import androidx.compose.foundation.text.BasicText",
+    )
+
+    private class Source(val path: String, val text: String) {
+
+        /**
+         * Whether a composable in this file reads a resource straight off a
+         * `Context` or a `Resources`.
+         *
+         * The two imports are what `correctedString` and this module's `Text`
+         * replaced, and a file that uses neither slips past both of them —
+         * which is exactly where the countdown on the home screen hid.
+         * `Duration.formatCountdown` took a `Context` and called `getString`,
+         * so the largest number on that card was the one thing on it
+         * correction mode could not touch, beside a caption that had both an
+         * outline and an editor.
+         *
+         * Only files that compose: `:core:data` words its own notifications
+         * and the system draws those, so `getString` there is right.
+         */
+        val readsResourcesDirectly: Boolean
+            get() {
+                // The two modules the mode reaches. `:widget` is Glance — it
+                // cannot host a Compose gesture, so `getString` there is the
+                // right call and `docs/design.md` says so; `:core:data` words
+                // its own notifications, which the system draws.
+                val reachable = path.startsWith("app/") ||
+                    path.startsWith("core/designsystem/")
+                return reachable &&
+                    "import androidx.compose.runtime.Composable" in text &&
+                    Regex("""\.get(String|QuantityString)\(""").containsMatchIn(text)
+            }
+    }
 
     private val sources: List<Source> by lazy {
         root.walkTopDown()

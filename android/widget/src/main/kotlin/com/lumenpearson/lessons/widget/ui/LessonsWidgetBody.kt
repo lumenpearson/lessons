@@ -678,7 +678,15 @@ private fun RestDayBody(
             homework = homework,
             size = size,
             maxItems = size.homeworkItems,
-            shortHeader = size == WidgetSizeClass.SMALL || size == WidgetSizeClass.SMALL_TALL,
+            // By width, not by naming the sizes one at a time — the same fix
+            // `EmptyBody` already carries, and for the same reason: the list
+            // was written when there were three narrow rungs and did not grow
+            // when two more arrived. `NARROW` is the same 110 dp as the two
+            // named here, so it was handed «Домашнее задание на понедельник»
+            // into 90 dp of width, where it wraps to two lines and pushes the
+            // third homework row off the bottom. The same widget an hour
+            // earlier takes the `AheadBlock` path and reads «ДЗ на …».
+            shortHeader = size.isNarrow,
             itemMaxLines = if (size.timelineRows > 0) 2 else 1,
         )
     }

@@ -123,7 +123,7 @@ fun StateHeroCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = countdown.formatCountdown(LocalContext.current),
+                        text = countdown.formatCountdown(),
                         style = MaterialTheme.typography.displaySmall,
                         color = scheme.onSurface,
                         maxLines = 1,

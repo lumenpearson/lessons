@@ -340,9 +340,22 @@ private fun PeriodsForm(
 /** `BellPeriodsIn`'s own ceiling, mirrored so the button dims instead of failing. */
 private const val MaxPeriods = 20
 
-/** A 45-minute lesson after a 10-minute break; the shape of a Russian school day. */
+/**
+ * A 45-minute lesson after a 10-minute break; the shape of a Russian school
+ * day.
+ *
+ * The break belongs *between* two lessons, so the first row does not get one:
+ * adding the break unconditionally meant [DefaultFirstBell] could never
+ * actually be produced, and the first row of an empty schedule — the one
+ * «Добавить расписание» creates on purpose — opened at 08:40 instead of 08:30
+ * with every row after it inheriting the shift. Saved unnoticed, that is a
+ * class whose lessons ring ten minutes late in the widget's countdown, in
+ * `AlertPlanner`'s «через 10 минут урок» and in every drawn lesson time,
+ * because all three take their times from the bell row of the same number.
+ */
 private fun nextRowAfter(previous: Pair<Int, Int>?): Pair<Int, Int> {
-    val start = ((previous?.second ?: DefaultFirstBell) + BreakMinutes).coerceAtMost(LastMinute)
+    val start = previous?.let { (it.second + BreakMinutes).coerceAtMost(LastMinute) }
+        ?: DefaultFirstBell
     return start to (start + LessonMinutes).coerceAtMost(LastMinute)
 }
 

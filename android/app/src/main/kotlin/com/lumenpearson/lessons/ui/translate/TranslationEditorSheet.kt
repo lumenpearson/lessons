@@ -97,8 +97,12 @@ private fun ColumnScope.EditorContent(
     val focused by interactionSource.collectIsFocusedAsState()
 
     IdentityCard(
-        stringKeys = keys,
-        folder = TranslationXml.valuesFolder(keys.first(), locale),
+        // One line per key, each with its own file: two keys can carry the
+        // same words from two different modules — `ds_action_back` and
+        // `action_back` are both «Назад» — and naming one folder for both
+        // sent the reader to paste an `:app` string into the design system,
+        // which is the shadowing this routing exists to prevent.
+        places = keys.map { key -> key to TranslationXml.valuesFolder(key, locale) },
         original = original,
     )
 
@@ -175,7 +179,7 @@ private fun ColumnScope.EditorContent(
  * where `l` and `1` stop being different characters.
  */
 @Composable
-private fun IdentityCard(stringKeys: List<String>, folder: String, original: String) {
+private fun IdentityCard(places: List<Pair<String, String>>, original: String) {
     Surface(
         shape = RoundedCornerShape(CardCorner),
         color = MaterialTheme.colorScheme.rowContainer,
@@ -192,12 +196,12 @@ private fun IdentityCard(stringKeys: List<String>, folder: String, original: Str
                 // One per line when the words belong to several strings at
                 // once. All of them are about to get the same correction, so
                 // all of them have to be readable before it is written.
-                value = stringKeys.joinToString("\n"),
+                value = places.joinToString("\n") { (key, _) -> key },
                 monospace = true,
             )
             Labelled(
                 label = stringResource(R.string.translation_editor_file),
-                value = "$folder/",
+                value = places.joinToString("\n") { (_, folder) -> "$folder/" },
                 monospace = true,
             )
             Labelled(

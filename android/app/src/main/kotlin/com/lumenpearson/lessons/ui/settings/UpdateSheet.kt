@@ -483,7 +483,18 @@ internal fun formatBytes(bytes: Long): String {
     }
 }
 
-private val SizeLocale: Locale = Locale.forLanguageTag("ru")
+/**
+ * The locale the size's decimal separator comes from.
+ *
+ * `Locale.getDefault()` and not a pinned «ru»: the unit beside the number is a
+ * resource and *is* translated, so a pinned comma printed "12,4 MB" in an
+ * otherwise English sentence. The default really is the app's language on both
+ * paths — `AppLocale.localized` sets it below API 33 and the platform sets it
+ * above — which is the same thing `DiaryGradesSection.formatAverage` relies on
+ * for the same kind of number.
+ */
+private val SizeLocale: Locale
+    get() = Locale.getDefault()
 
 private const val BytesPerKilobyte = 1024.0
 
