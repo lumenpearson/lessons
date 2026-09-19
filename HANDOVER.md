@@ -45,8 +45,8 @@ for the cron tick — each with its own view of whether the caller or the maker 
 now one container: `Settings` and the session factory at app scope, one `AsyncSession` per
 HTTP request or Telegram update. All sixty-four endpoints ask with
 `session: FromDishka[AsyncSession]` and `db.get_session` is gone; the bot's
-`ContextMiddleware` takes the same provider's session out of the scope `setup_dishka` opens
-on the dispatcher, and still commits there. Dishka rather than FastAPI's `Depends`, which is
+`ContextMiddleware` opens the update's scope itself and takes the session from the same
+provider, and still commits there. Dishka rather than FastAPI's `Depends`, which is
 already a DI system, for one reason: `Depends` cannot serve an aiogram handler. Three things
 worth knowing before adding to it are written in the module: it must not import
 `dishka.integrations.aiogram` (that puts aiogram on every cold-start path), the container is

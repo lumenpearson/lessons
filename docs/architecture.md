@@ -48,8 +48,17 @@ and one `AsyncSession` for as long as one HTTP request or one Telegram update.
 Dishka rather than FastAPI's own `Depends` for one reason: `Depends` cannot
 serve a bot handler, and this project is deliberately two thin shells over one
 implementation. An endpoint writes `session: FromDishka[AsyncSession]`; the
-bot's `ContextMiddleware` takes the session out of the scope
-`setup_dishka` opened on the dispatcher. Same provider, one definition.
+bot's `ContextMiddleware` opens the update's scope and takes the session from
+the same provider. Same provider, one definition.
+
+It opens that scope itself rather than calling `setup_dishka`, and the reason
+is written where the decision is: that helper registers a single middleware on
+*every* observer, so a message opened two scopes that were siblings on the root
+container rather than parent and child — one session per update only while
+nothing asked at update level. It also reads the process container per update
+instead of capturing one, because `api/telegram.py` caches the dispatcher for
+the life of the process and a container closed at shutdown would otherwise go
+on serving every webhook.
 
 What it deliberately does *not* hold is written out at the top of the module:
 the engine, which is built at import so that an unusable `DATABASE_URL` fails

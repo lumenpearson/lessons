@@ -93,8 +93,12 @@ Server modules:
 - `di.py` — the dishka container both shells draw from: `Settings` and the session
   factory at app scope, one `AsyncSession` per HTTP request or Telegram update. An
   endpoint asks with `session: FromDishka[AsyncSession]`; the bot's `ContextMiddleware`
-  takes it out of the scope `setup_dishka` opened on the dispatcher, and still commits
-  there, because for a handler that is the finish line. It is built with
+  opens the update's scope itself — **not** `setup_dishka`, which registers one middleware
+  on every observer and so opened two *sibling* scopes per message, either of which could
+  hand out a second session nothing commits — and it reads `container()` per update rather
+  than capturing one, because `api/telegram.py` caches the dispatcher for the life of the
+  process. It still commits there, because for a handler that is the finish line. It is
+  built with
   `STRICT_VALIDATION`, so a second provider for a type is an error rather than a silent
   shadowing. Do **not** import `dishka.integrations.aiogram` from it — that pulls aiogram
   onto the cold-start path of every request, which is the thing `main.py` and
