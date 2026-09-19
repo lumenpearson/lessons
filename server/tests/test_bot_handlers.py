@@ -172,6 +172,29 @@ async def test_pasting_a_weekday_replaces_it_wholesale(session, school_class):
     assert "сохранено уроков — 3" in message.last
 
 
+async def test_a_paste_of_junk_answers_with_a_message_telegram_will_send(
+    session, school_class
+):
+    """A timetable copied out of an HTML table arrives as hundreds of
+    one-word lines.
+
+    Every sibling of this echo caps it — the import preview at ten, both bell
+    editors at ten and five — and these two did not, so the reply came to
+    20372 characters. Telegram refuses the whole message, and because this is
+    a `Message` and not a `CallbackQuery` there is nothing to apologise on:
+    the weekday had already been rewritten by then, so the admin saw no
+    confirmation, no list of what was saved, and no sign the paste landed.
+    """
+    junk = "\n".join(["1", "Алгебра", "214", "2", "Физика", "305"] * 70)
+    message = FakeMessage(text="1. Алгебра, 214\n" + junk)
+    state = FakeState(data={"weekday": 2})
+
+    await timetable_apply(message, state, session, school_class, Role.ADMIN)
+
+    assert len(message.last) <= 4096
+    assert "… и ещё" in message.last
+
+
 async def test_pasting_replaces_rather_than_merges(session, school_class):
     """Monday already has three lessons from the fixture."""
     message = FakeMessage(text="1. Только один урок")

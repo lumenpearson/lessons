@@ -28,7 +28,7 @@ from app.bot.keyboards import (
 )
 from app.bot.manage_keyboards import RequestAction
 from app.bot.manage_render import person
-from app.bot.render import render_access_list
+from app.bot.render import ACCESS_MEMBERS_MAX, render_access_list
 from app.bot.roles import can_grant
 from app.bot.states import AddInvite
 from app.models import AccessRequest, BotUser, JoinMode, PhoneInvite, Role, SchoolClass
@@ -435,7 +435,7 @@ async def pick_member(
                 ).pack(),
             )
         ]
-        for member in members[:20]
+        for member in members[:ACCESS_MEMBERS_MAX]
     ]
     await callback.message.edit_text("Кому меняем роль?", reply_markup=back_to_menu(rows))
     await callback.answer()

@@ -24,7 +24,7 @@ from __future__ import annotations
 from datetime import date as Date
 from html import escape
 
-from app.bot.render import WEEKDAYS, human_date
+from app.bot.render import WEEKDAYS, clamp, cut, human_date
 from app.providers.petersburg.models import (
     DiaryLesson,
     HomeworkItem,
@@ -38,6 +38,18 @@ MARK_ICONS = {"5": "🟢", "4": "🟢", "3": "🟡", "2": "🔴", "1": "🔴"}
 
 #: A code the register uses where a mark would go.
 ABSENCE_ICONS = {"Н": "⚪", "Б": "⚪", "У": "⚪"}
+
+
+#: A задание or a topic on its row here.
+#:
+#: The diary is fourteen days of somebody else's data: the class's own digest
+#: was given a budget after a fortnight of three заданий a day came to 5371
+#: characters, and this view renders the same shape from a source that has no
+#: length limit at all. Measured at 6113 for an ordinary ninth-year fortnight,
+#: which Telegram refuses whole — «📝 Задания» then answered «что-то пошло не
+#: так» and nothing else, for exactly the families whose school fills the
+#: journal.
+DIARY_TEXT_MAX = 300
 
 
 def mark_icon(value: str) -> str:
@@ -62,10 +74,10 @@ def render_day(lessons: list[DiaryLesson], day: Date, today: Date) -> str:
         if lesson.starts_at and lesson.ends_at:
             lines.append(f"    <code>{lesson.starts_at:%H:%M}–{lesson.ends_at:%H:%M}</code>")
         if lesson.topic:
-            lines.append(f"    <i>{escape(lesson.topic)}</i>")
+            lines.append(f"    <i>{escape(cut(lesson.topic, DIARY_TEXT_MAX))}</i>")
         if lesson.homework:
-            lines.append(f"    📝 {escape(lesson.homework)}")
-    return "\n".join(lines)
+            lines.append(f"    📝 {escape(cut(lesson.homework, DIARY_TEXT_MAX))}")
+    return clamp(lines)
 
 
 def render_homework(items: list[HomeworkItem], start: Date, end: Date, today: Date) -> str:
@@ -86,9 +98,12 @@ def render_homework(items: list[HomeworkItem], start: Date, end: Date, today: Da
         when = human_date(day, today).capitalize()
         lines.append(f"<b>{when}</b>")
         for item in sorted(by_day[day], key=lambda one: one.subject):
-            lines.append(f"• <b>{escape(item.subject)}</b> — {escape(item.text)}")
+            text = escape(cut(item.text, DIARY_TEXT_MAX))
+            lines.append(f"• <b>{escape(item.subject)}</b> — {text}")
         lines.append("")
-    return "\n".join(lines).rstrip()
+    while lines and not lines[-1]:
+        lines.pop()
+    return clamp(lines)
 
 
 def render_marks(marks: list[Mark], start: Date, end: Date) -> str:
@@ -119,7 +134,7 @@ def render_marks(marks: list[Mark], start: Date, end: Date) -> str:
         average = f" · <b>{sum(numeric) / len(numeric):.2f}</b>" if numeric else ""
         lines.append(f"<b>{escape(subject)}</b>{average}")
         lines.append(f"    {drawn}")
-    return "\n".join(lines)
+    return clamp(lines)
 
 
 def render_week(lessons: list[DiaryLesson], start: Date, today: Date) -> str:
@@ -141,7 +156,7 @@ def render_week(lessons: list[DiaryLesson], start: Date, today: Date) -> str:
         names = ", ".join(escape(item.subject) for item in items)
         lines.append(f"{marker}{name}{close} · {len(items)}")
         lines.append(f"    {names}")
-    return "\n".join(lines)
+    return clamp(lines)
 
 
 def render_signed_out() -> str:
