@@ -43,6 +43,27 @@ from app.main import app, lifespan
 from app.models import SchoolClass
 
 
+class Handle:
+    """Stands in for the first app-scope object that owns a real resource."""
+
+
+class HandleProvider(Provider):
+    """At module scope, because dishka resolves a provider's hints with
+    ``get_type_hints``, which cannot see a class declared in a function body."""
+
+    def __init__(self, finalised: list[Handle]) -> None:
+        super().__init__()
+        self._finalised = finalised
+
+    @provide(scope=Scope.APP)
+    async def handle(self) -> AsyncIterator[Handle]:
+        held = Handle()
+        try:
+            yield held
+        finally:
+            self._finalised.append(held)
+
+
 async def test_one_session_per_unit_of_work_and_a_new_one_for_the_next():
     """What «request scope» has to mean for the rest of this to be true.
 
@@ -241,3 +262,31 @@ async def test_a_second_lifespan_is_not_served_from_the_closed_container():
 
     app.state.dishka_container = container()
     assert before is not None
+
+
+async def test_a_closed_container_builds_again_and_finalises_nothing():
+    """Why naming a closed container is worse than an error would be.
+
+    Closing finalises every app-scope object — and then the container goes on
+    answering. Asking it again does not raise and does not hand back what it
+    finalised: it *builds a new one*, in a scope whose exit stack has already
+    run, so nothing will ever close that one. With an app-scoped HTTP client
+    that is a socket per ask, leaked in silence, on a container the application
+    only still names because a shutdown forgot to tell it.
+
+    Nothing app-scoped here holds a resource yet — `Settings` is a plain object
+    and the session factory is a factory — so this is written against a
+    provider of its own rather than against the real ones. That is the point:
+    it is the property that makes the lifespan's line above load-bearing
+    *before* the first resource arrives, not after.
+    """
+    finalised: list[Handle] = []
+    made = make_async_container(HandleProvider(finalised))
+    first = await made.get(Handle)
+    await made.close()
+    assert finalised == [first], "close finalises what the app scope held"
+
+    # No error, no reuse, and no second entry in `finalised` ever.
+    again = await made.get(Handle)
+    assert again is not first
+    assert finalised == [first]
