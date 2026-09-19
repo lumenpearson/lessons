@@ -43,7 +43,7 @@ from app.models import (
     Role,
     SchoolClass,
 )
-from app.schedule import ScheduleResolver
+from app.schedule import ScheduleResolver, school_year_bounds
 from app.schemas import (
     DayIn,
     DayOverrideOut,
@@ -282,19 +282,47 @@ async def override_put(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"нет звонка для урока №{payload.index} в этот день",
             )
-        if payload.action == "cancel":
-            # Cancelling needs something to cancel. A substitution at an empty number
-            # is a legitimate edit — it is how a lesson is *added* to a day —
-            # but «🚫 Урок №7 отменён» about a number nobody was going to be at
-            # goes into the log and into everybody's chat, and the resolver
-            # drops the row on the way out because it only cancels a lesson the
-            # day actually has. The bot cannot reach this: it draws its «🚫»
-            # under a lesson that exists.
+        # Out of season there is no lesson to substitute. The resolver returns
+        # a June day before it ever reads the overrides, so a substitution
+        # written on one is stored, logged and announced to the whole class,
+        # and drawn on no phone, in no widget, in no calendar feed. The
+        # question is asked with the resolver's own `school_year_bounds` and
+        # not with a second reading of the rule, because two answers to "is
+        # this in season" disagree within a month. An excursion in June is a
+        # real thing and is still allowed — it is an event, and events are kept
+        # out of season on purpose; it is the lessons that are not.
+        year_start, year_end = school_year_bounds(payload.date)
+        if not year_start <= payload.date <= year_end:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "эта дата вне учебного года — замену ставить не на что; "
+                    "для летних дел есть события"
+                ),
+            )
+
+        # Cancelling needs something to cancel, and so does a replacement that
+        # names no subject. A substitution at an empty number is a legitimate
+        # edit — it is how a lesson is *added* to a day — but only when it
+        # brings a subject of its own: the resolver inherits the subject from
+        # the template row under the override, and with no row and no subject
+        # it has nothing to draw and drops it on the way out. Either way the
+        # write would be stored, logged, and announced to everybody with
+        # «🚫 Урок №7 отменён» or «🔁 Замена … кабинет/учитель» about a lesson
+        # nobody can see. The bot reaches neither: it draws its «🚫» under a
+        # lesson that exists and always asks for a typed subject. This is the
+        # API-only half of an invariant the timetable already holds.
+        if payload.action == "cancel" or not payload.subject:
             day = (await ScheduleResolver(session, school_class).resolve_range(payload.date, 1))[0]
             if payload.index not in {lesson.index for lesson in day.lessons}:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"в этот день нет урока №{payload.index}, отменять нечего",
+                    detail=(
+                        f"в этот день нет урока №{payload.index}, отменять нечего"
+                        if payload.action == "cancel"
+                        else f"в этот день нет урока №{payload.index}: "
+                        "замене без предмета нечего заменять"
+                    ),
                 )
         existing = LessonOverride(
             class_id=school_class.id,

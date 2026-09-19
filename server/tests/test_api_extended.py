@@ -1094,6 +1094,83 @@ async def test_cancelling_a_lesson_the_day_does_not_have_is_refused(
     assert added.status_code == 200, added.text
 
 
+async def test_a_substitution_with_no_subject_at_an_empty_number_is_refused(
+    client, session, school_class, recording_bot
+):
+    """«🔁 Замена … — кабинет/учитель» about a lesson that is not there.
+
+    `OverrideIn` accepts a replacement carrying only a room or only a teacher,
+    which is right when there is a template lesson underneath to inherit the
+    subject from. With nothing underneath, `subject_name` lands NULL, and the
+    resolver drops the row — `subject = override.subject_name or (existing.subject
+    if existing else None)` is None and the loop moves on. The row was stored,
+    written to the log, and announced to every subscriber as a change to a
+    lesson no phone, no widget and no calendar feed will ever show.
+
+    The bot cannot reach it: it builds its picker from the day's own lessons and
+    always asks for a typed subject. This is the API-only half of the invariant
+    the cancellation above already holds.
+    """
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    day = (MONDAY + timedelta(days=7)).isoformat()
+
+    refused = await client.put(
+        "/api/v1/overrides",
+        json={"date": day, "index": 7, "action": "replace", "teacher": "Иванов И.И."},
+        headers=_auth(token),
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert "нечего заменять" in refused.json()["detail"]
+    assert await session.scalar(select(LessonOverride)) is None
+    assert recording_bot.sent == []
+
+    # The same payload over a lesson the day does have is still a room change,
+    # which is the case the schema was widened for in the first place.
+    over_a_real_lesson = await client.put(
+        "/api/v1/overrides",
+        json={"date": day, "index": 1, "action": "replace", "teacher": "Иванов И.И."},
+        headers=_auth(token),
+    )
+    assert over_a_real_lesson.status_code == 200, over_a_real_lesson.text
+
+
+async def test_a_substitution_outside_the_school_year_is_refused(
+    client, session, school_class, recording_bot
+):
+    """A lesson in June is announced to the class and drawn nowhere.
+
+    `_resolve_day` asks `school_year_bounds` and returns before it reads the
+    overrides at all, so the summer rule that stops the template repeating
+    stops a substitution too — silently, after the write, the audit line and
+    everybody's «🔁 Замена 4 июня». `_check_date`'s own bounds run to 2100 and
+    cannot see this, and they must not learn to: homework and events out of
+    season are deliberately kept, and only the lessons are not.
+
+    The endpoint asks the resolver's own `school_year_bounds` rather than
+    re-reading the rule, so the two cannot drift apart.
+    """
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    summer = date(MONDAY.year + 1, 6, 4)
+    assert summer.month == 6
+
+    refused = await client.put(
+        "/api/v1/overrides",
+        json={
+            "date": summer.isoformat(),
+            "index": 1,
+            "action": "replace",
+            "subject": "Консультация",
+        },
+        headers=_auth(token),
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert "вне учебного года" in refused.json()["detail"]
+    assert await session.scalar(select(LessonOverride)) is None
+    assert recording_bot.sent == []
+
+
 async def test_days_set_and_clear(client, session, school_class, recording_bot):
     await _subscriber(session, school_class, 7001, notify_changes=True)
     token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
