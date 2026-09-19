@@ -6,9 +6,9 @@
 # dead weight in the function bundle.
 fastapi>=0.141.1
 aiogram>=3.31.0
-sqlalchemy[asyncio]>=2.0.52
+sqlalchemy[asyncio]>=2.0.54
 asyncpg>=0.31.0
-pydantic>=2.8
+pydantic>=2.13.5
 pydantic-settings>=2.15.0
 # Level with server/pyproject.toml, ceiling included: every diary call passes
 # per-request cookies, which httpx 0.28 warns it is removing, and a release

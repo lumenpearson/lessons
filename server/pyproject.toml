@@ -11,10 +11,10 @@ dependencies = [
     # coloured keyboard in ``app/bot/button_style.py`` raises at construction
     # rather than quietly drawing grey. requirements.txt already said 3.31.
     "aiogram>=3.31.0",
-    "sqlalchemy[asyncio]>=2.0.52",
+    "sqlalchemy[asyncio]>=2.0.54",
     "aiosqlite>=0.20",
     "asyncpg>=0.31.0",
-    "pydantic>=2.8",
+    "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     # The Petersburg diary provider talks to an upstream over HTTP. It was
     # already here as a test dependency (httpx drives the ASGI client); this
