@@ -2325,29 +2325,24 @@ async def calendar_rotate(
 # --------------------------------------------------------------------------
 
 
-def _export_parts(body: str) -> list[str]:
-    """``split_text``'s parts, measured the way Telegram measures them.
-
-    What is sent is ``escape(part)``, and escaping is not free: every «&» costs
-    four more characters and every «<» or «>» three. ``CHUNK_LIMIT`` counts the
-    raw text, so a 4000-character part of a class whose subjects are written
-    «Алгебра <7>» — twenty-eight brackets in one part is enough — passed 4096
-    the moment it was escaped, and the export stopped dead at that part with
-    nothing said, because this is a `Message` handler.
-
-    The cut is still made on the raw text, per the rule about «&am»: a part
-    split after escaping can end in a half-written entity, which is a message
-    Telegram refuses of its own. Only the *measurement* moves. The limit is
-    shrunk by the expansion this particular export turns out to have rather
-    than by a guess, and by at least one character each time, so the loop ends.
-    """
-    limit = mr.CHUNK_LIMIT
-    while True:
-        parts = mr.split_text(body, limit)
-        worst = max((len(escape(part)) for part in parts), default=0)
-        if worst <= mr.CHUNK_LIMIT or limit <= 1:
-            return parts
-        limit = min(limit - 1, max(1, limit * mr.CHUNK_LIMIT // worst))
+# There is deliberately no `_export_parts` here any more.
+#
+# It re-split the export on the *escaped* length, on the reasoning that «every
+# «&» costs four more characters and every «<» or «>» three». That reasoning is
+# wrong, and the Bot API says so in one line: `sendMessage`'s `text` is
+# «1-4096 characters **after entities parsing**». Telegram counts what it
+# parses — `<code>` costs nothing and `&amp;` counts as the one «&» it becomes
+# — so an export could not overflow by being escaped, and the thing this
+# defended against could not happen.
+#
+# What it did instead was real. Shrinking the limit by the expansion factor
+# turned 200 lines of apostrophes from 6 messages into 34, and 34 consecutive
+# `answer` calls into one chat is the per-chat flood limit: `TelegramRetryAfter`
+# raised out of a `Message` handler, which has no callback to apologise on, so
+# the export stopped partway with nothing said — the exact failure it was
+# written to remove, moved to a different trigger.
+#
+# `split_text` at `CHUNK_LIMIT` is what the export uses, as it did before.
 
 
 @router.message(Command("export"))
@@ -2386,7 +2381,7 @@ async def cmd_export(
         await message.answer("Расписание пустое — экспортировать нечего.")
         return
 
-    parts = _export_parts(body)
+    parts = mr.split_text(body)
     for number, part in enumerate(parts, start=1):
         header = f"📤 Экспорт, часть {number}/{len(parts)}\n" if len(parts) > 1 else ""
         await message.answer(f"{header}<code>{escape(part)}</code>")

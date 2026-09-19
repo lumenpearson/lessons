@@ -87,8 +87,21 @@ DAY_KIND_LABELS = {
 # each ended up without one: the fix was written twice and reached neither
 # ``render_day`` here nor anything in ``diary_render``.
 
-#: What one message may grow to. The margin under 4096 covers the tags, which
-#: Telegram counts, and a navigation hint a handler may append.
+#: What one message may grow to.
+#:
+#: Telegram's ceiling is «1-4096 characters **after entities parsing**», which
+#: is the Bot API's own wording for `sendMessage`'s `text`: it counts what it
+#: parses, so `<b>` costs nothing and `&amp;` counts as the one «&» it becomes.
+#: An earlier version of this comment said the margin was there because
+#: Telegram counts the tags. It does not, and that mistake cost a day — it is
+#: what `_export_parts` in `handlers/manage` was built to defend against, and
+#: that turned six messages into thirty-four and walked into the flood limit.
+#:
+#: Everything here measures the raw string, tags and entities included, so it
+#: is *conservative*: a page cut at 3900 raw is comfortably under 4096 parsed.
+#: That is deliberate and cheaper than parsing twice to find out — but it means
+#: a number in this file is a budget and never a measurement of what Telegram
+#: will count. The margin itself is for a navigation hint a handler may append.
 MESSAGE_LIMIT = 3900
 
 
@@ -242,7 +255,7 @@ ACCESS_LABEL_MAX = 60
 ACCESS_REQUEST_NOTE_MAX = 120
 
 
-def render_access_list(members: list, invites: list, limit: int = MESSAGE_LIMIT) -> str:
+def render_access_list(members: list, invites: list, limit: int) -> str:
     """The member list, inside ``limit`` characters.
 
     ``limit`` is a parameter because this list is never the whole message: the

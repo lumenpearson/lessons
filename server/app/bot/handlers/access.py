@@ -183,7 +183,6 @@ async def access_root(
                     ),
                 ]
             )
-        lines.append("")
 
     extra.append(
         [
@@ -243,9 +242,19 @@ async def access_root(
     # the tail and a floor left for the list.
     tail = "\n\n" + JOIN_MODE_TEXT[school_class.join_mode]
     head = clamp(lines, MESSAGE_LIMIT - len(tail) - ACCESS_LIST_FLOOR)
+    # The blank line between the requests and the list used to be an empty
+    # string on the end of ``lines``, which worked until the head could be
+    # clamped: `clamp` stops before it and appends «… и ещё N строк» instead,
+    # so the separator went with the rows it dropped and the list's own heading
+    # was glued onto the end of that sentence — «… и ещё 2 строки👥 Доступ к
+    # классу». Joined here instead, where it cannot be cut off.
+    seam = "\n" if head else ""
     body = (
         head
-        + render_access_list(members, invites, MESSAGE_LIMIT - len(head) - len(tail))
+        + seam
+        + render_access_list(
+            members, invites, MESSAGE_LIMIT - len(head) - len(seam) - len(tail)
+        )
         # Under the list rather than above it, so it sits next to the button
         # that changes it.
         + tail

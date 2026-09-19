@@ -50,6 +50,7 @@ from app.bot.handlers.week import cmd_next, cmd_week, distinct_from, menu_next, 
 from app.bot.keyboards import main_menu, task_list_keyboard
 from app.bot.render import (
     INVISIBLE,
+    MESSAGE_LIMIT,
     WEEK_TEXT_LIMIT,
     duration,
     plural,
@@ -1260,7 +1261,7 @@ async def _access_view(session, school_class):
             select(PhoneInvite).where(PhoneInvite.class_id == school_class.id)
         )
     )
-    return render_access_list(members, invites)
+    return render_access_list(members, invites, MESSAGE_LIMIT)
 
 
 async def test_an_access_list_with_nobody_in_it_says_nobody_rather_than_nothing(

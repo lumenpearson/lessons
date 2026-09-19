@@ -20,8 +20,9 @@ handed the pathological input in one line.
 from __future__ import annotations
 
 import datetime as dt
+import re
 from dataclasses import dataclass, field
-from html import escape
+from html import escape, unescape
 from types import SimpleNamespace
 from typing import Any
 
@@ -127,7 +128,7 @@ def test_the_access_list_of_a_class_where_both_parents_joined_still_sends():
         )
         for n in range(60)
     ]
-    text = render.render_access_list(members, [])
+    text = render.render_access_list(members, [], render.MESSAGE_LIMIT)
     assert len(text) <= TELEGRAM_LIMIT
 
 
@@ -146,7 +147,7 @@ def test_no_member_is_named_whose_role_no_button_can_change():
         )
         for n in range(25)
     ]
-    text = render.render_access_list(members, [])
+    text = render.render_access_list(members, [], render.MESSAGE_LIMIT)
     assert text.count("Ученик ") == render.ACCESS_MEMBERS_MAX
     assert f"… и ещё {25 - render.ACCESS_MEMBERS_MAX}" in text
 
@@ -643,6 +644,10 @@ async def test_the_requests_above_the_list_cannot_spend_the_whole_page(
     # And the list itself is still there, not clamped away to its «… и ещё».
     assert "<b>👥 Доступ к классу</b>" in body
     assert escape(LONG_MEMBER_NAME) in body
+    # The list's heading starts a line of its own. The blank line that used to
+    # do that was the last entry of `lines`, so clamping the head took it away
+    # and «… и ещё 2 строки» ran straight into «👥 Доступ к классу».
+    assert "\n<b>👥 Доступ к классу</b>" in body
 
 
 async def test_a_substitution_shows_back_exactly_what_it_stored(session, school_class):
@@ -685,15 +690,22 @@ async def test_an_event_shows_back_exactly_what_it_stored(session, school_class)
 
 
 async def test_the_export_sends_every_part_it_promises(session, school_class):
-    """`CHUNK_LIMIT` counted the raw text and the message carries `escape(part)`.
+    """The export arrives whole, and is measured the way Telegram measures it.
 
-    Every «&» costs four more characters and every «<» or «>» three, so a
-    4000-character part of a class whose subjects are written «Алгебра <7>»
-    passed 4096 the moment it was escaped: the parts measured 4679 and the
-    export stopped dead, silently, at the one that did it — `/export` is a
-    plain `answer` with no callback to apologise on, and it doubles as the
-    class's backup. The cut is still made before escaping (a part split after
-    it can end in «&am»); only the measurement moved.
+    This test was first written for a defect that does not exist. The
+    reasoning was that «every «&» costs four more characters and every «<» or
+    «>» three», so an escaped part would pass 4096 — and `_export_parts` was
+    built to re-split on the escaped length. The Bot API settles it in one
+    line: `sendMessage`'s `text` is «1-4096 characters **after entities
+    parsing**». Telegram counts what it parses, so `<code>` costs nothing and
+    `&lt;` counts as the one «<» it becomes. The parts were never too long.
+
+    What the re-splitting did do was turn a long export into many more
+    messages — 200 lines of apostrophes went from 6 to 34 — and 34 consecutive
+    sends into one chat is the per-chat flood limit, raised out of a `Message`
+    handler that has no callback to apologise on. So it is gone, and this now
+    holds the two things that are actually true: the export splits, and what
+    Telegram will count stays under the ceiling.
     """
     for weekday in range(1, 7):
         for index in range(4, 21):
@@ -704,7 +716,13 @@ async def test_the_export_sends_every_part_it_promises(session, school_class):
                     index=index,
                     subject_name="Алгебра <7>",
                     room="214",
-                    teacher="Иванова И.И.",
+                    # Long enough that the export passes `CHUNK_LIMIT` on its
+                    # raw text, which is what actually splits it. The first
+                    # version of this fixture only passed the limit *after*
+                    # escaping, so it stopped splitting at all the moment the
+                    # escaped measurement was removed — and would have gone on
+                    # asserting «> 1 part» about one part.
+                    teacher="Иванова-Петрова Анна Владимировна",
                     parity=WeekParity.ANY,
                 )
             )
@@ -715,6 +733,9 @@ async def test_the_export_sends_every_part_it_promises(session, school_class):
 
     assert len(message.replies) > 1, "the export has to be long enough to split"
     for part in message.replies:
-        assert len(part) <= TELEGRAM_LIMIT
+        # What Telegram counts: the text after entity parsing, so the tags go
+        # and each entity is the one character it stands for.
+        parsed = unescape(re.sub(r"<[^>]+>", "", part))
+        assert len(parsed) <= TELEGRAM_LIMIT, len(parsed)
     # Nothing is lost on the way: the parts still reassemble into the export.
     assert sum(part.count("Алгебра &lt;7&gt;") for part in message.replies) == 6 * 17
