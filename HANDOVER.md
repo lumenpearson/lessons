@@ -7,10 +7,11 @@ place without reopening or redoing anything.
 Last updated: **19 September 2026**, after PRs #47, #48, #49, #50 and #51 were merged. The
 last of them is the agent configuration in `.claude/` and the whole written layer of the
 project moved into English (see "Everything written about the project is English" in
-section 6). `main` and `dev` met at `85064cd`. The database is at head `0013` and
-`EXPECTED_REVISION` did not move, so that merge needed no migration. The production
-deployment it triggered is `READY` on `85064cd`; `/api/v1/warmup` has not been read since,
-and it is the only thing that will say whether the schema and the code still agree.
+section 6). It landed as `85064cd`, and `main` and `dev` are level. The database is at
+head `0013` and `EXPECTED_REVISION` did not move, so that merge needed no migration. The
+production deployment it triggered is `READY` on `85064cd`, and `/api/v1/warmup` was read
+after it: `{"status":"ok","api_version":1,"schema":"0013"}`. That endpoint opens a
+connection, so it answers for the database too, not only for the code.
 
 Two batches earlier: publishing the repository and everything that followed from it (the
 history reviewed for secrets, `pytest` in CI spread across cores, artifacts living a
