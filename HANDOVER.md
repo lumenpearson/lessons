@@ -4,10 +4,18 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **20 September 2026**, with **PR #60 open on `dev`** and twenty-eight commits
-on it. `main` is still at `9e138fb`; nothing in this batch is merged. The database is at head
-`0013` and `EXPECTED_REVISION` did not move — **no model changed, so this batch needs no
-migration**, which is the cheapest thing in it to check and the most expensive to get wrong.
+Last updated: **20 September 2026**. **PR #60 is merged** — thirty-five commits, `main` at
+`104ed38`, `dev` fast-forwarded onto it and carrying nothing of its own. The database is at
+head `0013` and `EXPECTED_REVISION` did not move — **no model changed, so this batch needed
+no migration**, which is the cheapest thing in it to check and the most expensive to get
+wrong.
+
+The deployment the merge triggered is `READY` on `104ed38`, and production was read after it
+rather than assumed: `/api/v1/health` answers `{"status":"ok","api_version":1}` and
+`/api/v1/warmup` — which opens a real connection, so it answers for the database too —
+answers `{"status":"ok","api_version":1,"schema":"0013"}`. That is the dishka container
+serving a real request on a real cold start, which is the one thing about it this branch
+could not check before the merge.
 
 ## What the last session added on top of the audit
 
@@ -124,16 +132,17 @@ The ones that would actually have been felt, one line each:
 Two decisions were deliberately **left to the owner** rather than taken, and both are in
 section 7: the widget's tick cadence, and whether the diary credential should carry a bound.
 
-Gates on the whole tree at `5f28072`: `ruff` clean, `python -m mypy` clean across all 81
-modules, `pytest -q -n auto` 1461 passed; `./gradlew test assembleDebug assembleRelease`
-successful with 709 Android tests across 90 classes and 0 failures. The server
-count is 1465 after the adversarial re-pass described below.
+Gates on the whole tree at `d330d68`, the last commit before the merge: `ruff` clean,
+`python -m mypy` clean across all 81 modules, `pytest -q -n auto` 1465 passed;
+`./gradlew test assembleDebug assembleRelease` successful with 709 Android tests across 90
+classes and 0 failures. CI was green on that head and on the four before it.
 
 **What nothing has verified.** None of the Android work has run on a real phone: the `304`
 path is a claim about battery that only a device can confirm, `BellRowsRotationTest` uses
 `StateRestorationTester`, which re-composes rather than killing the process, and «2 урока
-перестали звонить» has never been on a screen. The dishka wiring has not run on Vercel — the
-26 ms it adds to a cold start is measured on a development machine, and that the webhook path
+перестали звонить» has never been on a screen. The dishka wiring **has** now run on Vercel —
+see the warmup read above — but the 26 ms it adds to a cold start is still measured on a
+development machine rather than there, and that the webhook path
 still defers aiogram is read off the imports rather than timed there.
 
 Before this batch, after PRs #47, #48, #49, #50 and #51 were merged. The
