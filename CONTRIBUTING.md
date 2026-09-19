@@ -18,7 +18,7 @@ the checks for everything you touched.
 | Python | 3.11+, CI builds on 3.12 | `.python-version`, `server/pyproject.toml` |
 | JDK | 21 | `android/app/build.gradle.kts` |
 | Android SDK | compileSdk 37, minSdk 26 | `android/app/build.gradle.kts` |
-| Gradle | 9.5.0 through the wrapper | `android/gradle/wrapper/` |
+| Gradle | 9.7.1 through the wrapper | `android/gradle/wrapper/` |
 
 The wrapper and its jar are in the repository, so `./gradlew` works on a fresh clone with
 no Gradle installed. The Android SDK has to be real: put the path to it in

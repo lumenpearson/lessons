@@ -606,9 +606,11 @@ else.**
   is found and the "introduction shown" flag is not reset. Nobody has upgraded a real
   installation of the previous version. If that is broken, the user sees the code field
   instead of their class — and nothing in the logs.
-- **Nobody has looked at the three build-chain bumps.** AGP 9.3.1 → 9.4.0, Gradle
+- **Nobody has looked at the build-chain bumps.** AGP 9.3.1 → 9.4.0 → 9.4.1, Gradle
   9.5.0 → 9.7.1 and compose-bom 2026.06.01 → 2026.09.00 are proved by every test passing and
-  both assembles building — locally and on the runner. The compose-bom is **the app's entire
+  both assembles building — locally and on the runner. The same goes for the two Python
+  floors raised the same way, sqlalchemy 2.0.54 and pydantic 2.13.5: the suite passes on
+  them and nobody read either changelog. The compose-bom is **the app's entire
   rendering**, and one of its effects already surfaced by itself (`OverlayLayerTest`,
   section 6); what it changed where there is no test, nobody knows. That is the first reason
   on the list to open the APK.

@@ -260,7 +260,7 @@ is not stored. `0005` adds a column for which break the canteen falls on; `0006`
 the diary credentials (and **deletes** the existing sessions — sealing them would mean
 keeping keys that had already sat in backups in the clear) and adds the per-member diary
 columns; `0007` adds the two foreign keys to `classes.id` that `0006` forgot to declare;
-`0008` gives a class a number (1–11) and cuts its year into четверти or полугодия; `0009`
+`0008` gives a class a number (1–11) and cuts its year into quarters or half-years; `0009`
 creates the table of corrections laid over the diary; `0010` adds the class's join mode
 (`classes.join_mode`) and the table of personal connect codes; `0011` brings two timestamps
 in `diary_overrides` up to `NOT NULL`, the way the model builds them: `0009` declared them

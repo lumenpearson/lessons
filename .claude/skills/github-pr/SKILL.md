@@ -68,11 +68,15 @@ like any other pull request.
   green is about the old version.
 - **Both halves of the gates** (`gates` skill). For an AGP or Gradle bump `assembleRelease`
   is the one that matters: R8 and resource shrinking run inside the build being moved.
-- **A bump that turns a test red is not the test's problem.** compose-bom `2026.09.00`
-  changed how a consumed pointer reaches a child and broke `OverlayLayerTest`; the answer
-  was to leave that bump out with the reason written down (#22), not to rewrite the test
-  until the new behaviour looked intended. `Modifier.correctionTarget`, the ripple anchors
-  and predictive back all ride the same mechanism, and not one of them is unit-tested.
+- **A bump that turns a test red is held, understood, and only then taken.** compose-bom
+  `2026.09.00` changed the order in which a consumed pointer reaches a child and turned
+  `OverlayLayerTest` red. It was held back for exactly that (#22). It went in later
+  (`a9d1994`) only once the change was understood and the design had stopped depending on
+  that order at all — the tabs are removed from the composition rather than covered by a
+  layer — and the test was rewritten to pin the new behaviour with the reasoning in
+  `docs/design.md`. What is never right is rewriting the test first so the new behaviour
+  looks intended: `Modifier.correctionTarget`, the ripple anchors and predictive back all
+  ride the same mechanism, and not one of them is unit-tested.
 
 ## Comments
 
