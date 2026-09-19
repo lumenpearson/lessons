@@ -156,74 +156,81 @@ fun OnboardingScreen(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
-        AnimatedContent(
-            targetState = step,
-            transitionSpec = {
-                // Direction carries the meaning: forward pushes the old screen
-                // off to the left, back pulls it in from there. Without it the
-                // two directions look identical and the flow feels one-way.
-                if (targetState.ordinal > initialState.ordinal) {
-                    (slideInHorizontally { it } + fadeIn(tween(StepTransitionMillis)))
-                        .togetherWith(
-                            slideOutHorizontally { -it } + fadeOut(tween(StepTransitionMillis)),
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Above the transition rather than inside a step, because that is
+            // what lets one shape become the next one instead of five shapes
+            // fading past each other. See OnboardingHero.
+            OnboardingHero(step = step)
+
+            AnimatedContent(
+                targetState = step,
+                transitionSpec = {
+                    // Direction carries the meaning: forward pushes the old screen
+                    // off to the left, back pulls it in from there. Without it the
+                    // two directions look identical and the flow feels one-way.
+                    if (targetState.ordinal > initialState.ordinal) {
+                        (slideInHorizontally { it } + fadeIn(tween(StepTransitionMillis)))
+                            .togetherWith(
+                                slideOutHorizontally { -it } + fadeOut(tween(StepTransitionMillis)),
+                            )
+                    } else {
+                        (slideInHorizontally { -it } + fadeIn(tween(StepTransitionMillis)))
+                            .togetherWith(
+                                slideOutHorizontally { it } + fadeOut(tween(StepTransitionMillis)),
+                            )
+                    }
+                },
+                label = "onboarding_step",
+            ) { current ->
+                // Each step travels a full screen width, which is the biggest single
+                // movement in the app; blurring it is what the scroll-blur setting
+                // means here. Driven by the transition's own fraction, so the
+                // shader and the slide can never disagree about where the page is.
+                val slide = transition.animateFloat(
+                    transitionSpec = { tween(StepTransitionMillis) },
+                    label = "onboarding_slide",
+                ) { state -> if (state == EnterExitState.Visible) 1f else 0f }
+                val travel = LocalConfiguration.current.screenWidthDp.dp
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .appSlideMotionBlur(
+                            moving = { transition.isRunning },
+                            fraction = { slide.value },
+                            travel = travel,
+                        ),
+                ) {
+                    when (current) {
+                        OnboardingStep.WELCOME -> WelcomeStep(
+                            state = state,
+                            viewModel = viewModel,
+                            onNext = { goTo(OnboardingStep.ACKNOWLEDGEMENT) },
                         )
-                } else {
-                    (slideInHorizontally { -it } + fadeIn(tween(StepTransitionMillis)))
-                        .togetherWith(
-                            slideOutHorizontally { it } + fadeOut(tween(StepTransitionMillis)),
+
+                        OnboardingStep.ACKNOWLEDGEMENT -> AcknowledgementStep(
+                            state = state,
+                            viewModel = viewModel,
+                            onBack = { goTo(OnboardingStep.WELCOME) },
+                            onNext = { goTo(OnboardingStep.PREFERENCES) },
                         )
-                }
-            },
-            label = "onboarding_step",
-        ) { current ->
-            // Each step travels a full screen width, which is the biggest single
-            // movement in the app; blurring it is what the scroll-blur setting
-            // means here. Driven by the transition's own fraction, so the
-            // shader and the slide can never disagree about where the page is.
-            val slide = transition.animateFloat(
-                transitionSpec = { tween(StepTransitionMillis) },
-                label = "onboarding_slide",
-            ) { state -> if (state == EnterExitState.Visible) 1f else 0f }
-            val travel = LocalConfiguration.current.screenWidthDp.dp
 
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .appSlideMotionBlur(
-                        moving = { transition.isRunning },
-                        fraction = { slide.value },
-                        travel = travel,
-                    ),
-            ) {
-                when (current) {
-                    OnboardingStep.WELCOME -> WelcomeStep(
-                        state = state,
-                        viewModel = viewModel,
-                        onNext = { goTo(OnboardingStep.ACKNOWLEDGEMENT) },
-                    )
+                        OnboardingStep.PREFERENCES -> PreferencesStep(
+                            state = state,
+                            viewModel = viewModel,
+                            onBack = { goTo(OnboardingStep.ACKNOWLEDGEMENT) },
+                            onNext = { goTo(OnboardingStep.PERMISSIONS) },
+                        )
 
-                    OnboardingStep.ACKNOWLEDGEMENT -> AcknowledgementStep(
-                        state = state,
-                        viewModel = viewModel,
-                        onBack = { goTo(OnboardingStep.WELCOME) },
-                        onNext = { goTo(OnboardingStep.PREFERENCES) },
-                    )
+                        OnboardingStep.PERMISSIONS -> PermissionsStep(
+                            onBack = { goTo(OnboardingStep.PREFERENCES) },
+                            onNext = { goTo(OnboardingStep.JOIN) },
+                        )
 
-                    OnboardingStep.PREFERENCES -> PreferencesStep(
-                        state = state,
-                        viewModel = viewModel,
-                        onBack = { goTo(OnboardingStep.ACKNOWLEDGEMENT) },
-                        onNext = { goTo(OnboardingStep.PERMISSIONS) },
-                    )
-
-                    OnboardingStep.PERMISSIONS -> PermissionsStep(
-                        onBack = { goTo(OnboardingStep.PREFERENCES) },
-                        onNext = { goTo(OnboardingStep.JOIN) },
-                    )
-
-                    OnboardingStep.JOIN -> JoinScreen(
-                        onBack = { goTo(OnboardingStep.PERMISSIONS) },
-                    )
+                        OnboardingStep.JOIN -> JoinScreen(
+                            onBack = { goTo(OnboardingStep.PERMISSIONS) },
+                        )
+                    }
                 }
             }
         }
@@ -272,13 +279,15 @@ private fun WelcomeStep(
         SpinnableAppMark()
 
         Spacer(Modifier.height(28.dp))
-        OnboardingTitle(
-            title = correctedString(
-                R.string.onboarding_welcome_title,
-                correctedString(R.string.app_name),
-            ),
-            subtitle = correctedString(R.string.onboarding_welcome_subtitle),
-        )
+        OnboardingReveal {
+            OnboardingTitle(
+                title = correctedString(
+                    R.string.onboarding_welcome_title,
+                    correctedString(R.string.app_name),
+                ),
+                subtitle = correctedString(R.string.onboarding_welcome_subtitle),
+            )
+        }
 
         Spacer(Modifier.height(40.dp))
 
@@ -334,13 +343,14 @@ private fun AcknowledgementStep(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.statusBarsPadding())
         Spacer(Modifier.height(24.dp))
 
-        OnboardingTitle(
-            title = correctedString(R.string.onboarding_ack_title),
-            modifier = Modifier.padding(horizontal = ScreenPadding),
-        )
+        OnboardingReveal {
+            OnboardingTitle(
+                title = correctedString(R.string.onboarding_ack_title),
+                modifier = Modifier.padding(horizontal = ScreenPadding),
+            )
+        }
 
         Spacer(Modifier.height(16.dp))
 
@@ -436,10 +446,12 @@ private fun PreferencesStep(
         },
     ) {
         Spacer(Modifier.height(24.dp))
-        OnboardingTitle(
-            title = correctedString(R.string.onboarding_preferences_title),
-            subtitle = correctedString(R.string.onboarding_preferences_subtitle),
-        )
+        OnboardingReveal {
+            OnboardingTitle(
+                title = correctedString(R.string.onboarding_preferences_title),
+                subtitle = correctedString(R.string.onboarding_preferences_subtitle),
+            )
+        }
         Spacer(Modifier.height(24.dp))
 
         AccentSection(title = correctedString(R.string.onboarding_group_app)) {
@@ -558,10 +570,12 @@ private fun PermissionsStep(
         },
     ) {
         Spacer(Modifier.height(24.dp))
-        OnboardingTitle(
-            title = correctedString(R.string.onboarding_permissions_title),
-            subtitle = correctedString(R.string.onboarding_permissions_subtitle),
-        )
+        OnboardingReveal {
+            OnboardingTitle(
+                title = correctedString(R.string.onboarding_permissions_title),
+                subtitle = correctedString(R.string.onboarding_permissions_subtitle),
+            )
+        }
         Spacer(Modifier.height(24.dp))
 
         prompts.states.forEachIndexed { index, state ->
@@ -618,9 +632,12 @@ private fun AccentSection(
  * The shape a first-run step has: a scrolling body that grows, then the action
  * row, which does not move.
  *
- * The status-bar inset is a spacer at the top of the scrolling body rather than
- * padding around it, so that a long body scrolls up under the clock instead of
- * stopping short of it — the same rule the settings pages follow.
+ * The status-bar inset is **not** here any more. It moved to [OnboardingHero],
+ * which now sits above every step and is therefore what passes under the clock;
+ * a spacer here as well would count the inset twice and leave each step
+ * starting a status bar's height below where it should. The rule the settings
+ * pages follow — content softened under the bar rather than stopping short of
+ * it — is kept, one level up.
  */
 @Composable
 private fun StepScaffold(
@@ -635,10 +652,7 @@ private fun StepScaffold(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = ScreenPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
-            content = {
-                Spacer(Modifier.statusBarsPadding())
-                content()
-            },
+            content = content,
         )
         actions()
     }

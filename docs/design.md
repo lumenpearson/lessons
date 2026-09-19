@@ -1063,3 +1063,60 @@ string.
 
 And a correction lives exactly as long as the process: that is a deliberate decision, and
 `TranslationMode` explains it on the spot.
+
+## A second app was borrowed from, for two things
+
+Everything above comes from Essentials. Two things do not:
+[GMS Flags Reborn](https://github.com/polodarb/GMS-Flags-Reborn) (Apache 2.0, © polodarb)
+is where the shape-changing loader and the transformation between first-run steps come from.
+It is named on the «Лицензии» sheet beside Essentials, and unlike every other Apache 2.0 row
+there its licence text also rides inside the APK, under `assets/notices/` — the other rows
+are dependencies, this one is source that was adapted, and section 4(a) asks whoever passes
+the work on to pass the licence with it. `CodeNoticeTest` holds the file in place the way
+`FontLicenceTest` holds the font's.
+
+### The loader
+
+`LessonsLoadingIndicator` is Material 3 Expressive's `LoadingIndicator`: a shape that becomes
+another shape rather than an arc that sweeps. There was nothing to port — in that project it
+is the same androidx component, and what was taken is the decision to make it the default
+everywhere a wait is shown. The reason is that an arc reads as one unchanging object, so two
+seconds and ten seconds look identical from the first frame, while a shape that has visibly
+become a different shape says time has passed.
+
+**It did not replace the skeletons, and was not meant to.** The two answer different
+questions. `SkeletonGroup` says what is about to appear and keeps the page from changing shape
+when it does, so it stays wherever the layout is already known — every list in the admin
+sheets, the diary's sections, the homework screen. The loader says only that something is
+happening, which is all that can honestly be said where the shape of the answer is not known
+yet: the session being restored before the first screen is chosen, and a sheet that has not
+read its first response. Pull-to-refresh moved to it as well, through
+`LessonsPullToRefreshBox`, so the one gesture that shows a wait on top of content shows the
+same wait as everywhere else.
+
+### The transformation between steps
+
+The first-run flow had a horizontal slide and nothing else: five screens, each arriving whole.
+What GMS Flags Reborn does instead is keep one shape *above* the transition and let it become
+the next step's shape while the body underneath is exchanged. That is the whole mechanism, and
+the position is the mechanism: `AnimatedContent` builds a fresh composable per step, so a badge
+drawn inside a step can only ever fade in as a new object — held above the swap, it has a
+previous shape to morph from.
+
+So `OnboardingHero` sits above the existing slide and carries two things: a `Morph` between two
+`MaterialShapes` polygons with the step's glyph held in the middle, and a row of dots where the
+current one is stretched into a bar. The glyph is exchanged rather than morphed: a glyph is a
+picture of a thing, and half of one picture blended into half of another is not a picture of
+anything. `OnboardingReveal` is the third piece — a fade-and-rise that replays on every step
+swap, so a step's title arrives a beat before the rest of it.
+
+What was left behind is the rest of that screen: the orbiting accent shapes, the parallax, the
+depth maths. They belong to an app whose first run is four screens of its own artwork; this one
+is a school timetable, and one shape is the whole decoration it wants.
+
+**One rule was given up for it.** `StepScaffold` used to carry the status-bar inset itself, so
+that a long step scrolled up under the clock rather than stopping short of it. The strip is now
+the top of the page, so the strip carries the inset and it is the strip that passes under the
+clock. The inset sits *inside* the strip's animated height rather than around it, because the
+strip collapses to nothing on the join step — held outside, it would survive the collapse and
+leave the join screen pushed down by a header that is no longer there.

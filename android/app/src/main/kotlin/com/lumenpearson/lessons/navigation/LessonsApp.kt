@@ -30,7 +30,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -64,6 +63,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.designsystem.component.LessonsFloatingToolbar
+import com.lumenpearson.lessons.core.designsystem.component.LessonsLoadingIndicator
 import com.lumenpearson.lessons.core.designsystem.component.ToolbarAction
 import com.lumenpearson.lessons.core.designsystem.component.ToolbarItem
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
@@ -918,6 +918,6 @@ private fun SplashShell(modifier: Modifier = Modifier) {
             .fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
-        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        LessonsLoadingIndicator()
     }
 }
