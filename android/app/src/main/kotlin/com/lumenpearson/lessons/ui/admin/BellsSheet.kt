@@ -33,12 +33,53 @@ import java.time.LocalTime
 import java.util.Locale
 
 /** What the bells sheet is doing. */
-private sealed interface BellsMode {
+internal sealed interface BellsMode {
     data object List : BellsMode
     data object Add : BellsMode
     data class Rename(val schedule: BellSchedule) : BellsMode
     data class Periods(val schedule: BellSchedule) : BellsMode
     data class Delete(val schedule: BellSchedule) : BellsMode
+}
+
+/**
+ * Which of the sheet's screens is up — the half of [BellsMode] that can be saved.
+ *
+ * [BellsMode] carries a [BellSchedule], which is not `Parcelable` and should not
+ * become one for the sake of a rotation. So what survives is this and the
+ * schedule's id, and [bellsModeOf] puts the two back together.
+ */
+internal enum class BellsScreen { LIST, ADD, RENAME, PERIODS, DELETE }
+
+/**
+ * The mode [screen] and [id] stand for, against the schedules actually on hand.
+ *
+ * Resolved rather than restored, and the difference is what makes saving an id
+ * enough: the sheet reloads on every open, so the rest of a [BellSchedule] has
+ * to come from the list anyway, and a schedule that was renamed in the bot in
+ * the meantime is then drawn as it is now rather than as it was before the
+ * rotation.
+ *
+ * A screen that needs a schedule and has none falls back to the list. That is
+ * two cases at once and both want the same answer: the list has not arrived yet
+ * — where the list screen draws its own skeleton, and this resolves again when
+ * it does — and the schedule is gone, deleted from the bot while this sheet sat
+ * in the background. A rename form over a schedule that no longer exists is a
+ * «Сохранить» that can only fail, under a name nobody can correct.
+ */
+internal fun bellsModeOf(
+    screen: BellsScreen,
+    id: Long?,
+    schedules: List<BellSchedule>?,
+): BellsMode {
+    // Adding needs no schedule, so it must not be refused for want of one.
+    if (screen == BellsScreen.ADD) return BellsMode.Add
+    val schedule = schedules?.firstOrNull { it.id == id } ?: return BellsMode.List
+    return when (screen) {
+        BellsScreen.RENAME -> BellsMode.Rename(schedule)
+        BellsScreen.PERIODS -> BellsMode.Periods(schedule)
+        BellsScreen.DELETE -> BellsMode.Delete(schedule)
+        BellsScreen.LIST, BellsScreen.ADD -> BellsMode.List
+    }
 }
 
 /**
@@ -55,8 +96,19 @@ fun BellsSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var mode by remember { mutableStateOf<BellsMode>(BellsMode.List) }
+    // The screen and the id, not the mode: a rotation — and, below API 33, the
+    // `recreate()` the language picker three pages away performs — rebuilds this
+    // composable from nothing, and a `remember` here put the reader back on the
+    // list with whatever they had typed or set gone. See [bellsModeOf].
+    var screen by rememberSaveable { mutableStateOf(BellsScreen.LIST) }
+    var openId by rememberSaveable { mutableStateOf<Long?>(null) }
     val schedules = state.bells.value
+    val mode = remember(screen, openId, schedules) { bellsModeOf(screen, openId, schedules) }
+
+    fun show(next: BellsScreen, schedule: BellSchedule? = null) {
+        screen = next
+        openId = schedule?.id
+    }
 
     ManagementSheet(
         title = correctedString(R.string.admin_bells_title),
@@ -69,13 +121,13 @@ fun BellsSheet(
                 initial = "",
                 busy = state.working,
                 failure = state.writeFailure,
-                onCancel = { mode = BellsMode.List },
+                onCancel = { show(BellsScreen.LIST) },
                 onSave = { name ->
                     // Created empty: the rows are the next screen, and a
                     // schedule with no times is still a schedule a day can be
                     // pointed at once it has them.
                     viewModel.addBellSchedule(name, emptyList())
-                    mode = BellsMode.List
+                    show(BellsScreen.LIST)
                 },
             )
 
@@ -84,10 +136,10 @@ fun BellsSheet(
                 initial = current.schedule.name,
                 busy = state.working,
                 failure = state.writeFailure,
-                onCancel = { mode = BellsMode.List },
+                onCancel = { show(BellsScreen.LIST) },
                 onSave = { name ->
                     viewModel.renameBellSchedule(current.schedule.id, name)
-                    mode = BellsMode.List
+                    show(BellsScreen.LIST)
                 },
             )
 
@@ -95,10 +147,10 @@ fun BellsSheet(
                 schedule = current.schedule,
                 busy = state.working,
                 failure = state.writeFailure,
-                onCancel = { mode = BellsMode.List },
+                onCancel = { show(BellsScreen.LIST) },
                 onSave = { periods ->
                     viewModel.saveBellPeriods(current.schedule.id, periods)
-                    mode = BellsMode.List
+                    show(BellsScreen.LIST)
                 },
             )
 
@@ -112,9 +164,9 @@ fun BellsSheet(
                     confirmLabel = correctedString(R.string.admin_bells_delete),
                     onConfirm = {
                         viewModel.deleteBellSchedule(current.schedule)
-                        mode = BellsMode.List
+                        show(BellsScreen.LIST)
                     },
-                    onCancel = { mode = BellsMode.List },
+                    onCancel = { show(BellsScreen.LIST) },
                     busy = state.working,
                     destructive = true,
                 )
@@ -146,17 +198,17 @@ fun BellsSheet(
                         ScheduleRows(
                             schedule = schedule,
                             busy = state.working,
-                            onRename = { mode = BellsMode.Rename(schedule) },
-                            onPeriods = { mode = BellsMode.Periods(schedule) },
+                            onRename = { show(BellsScreen.RENAME, schedule) },
+                            onPeriods = { show(BellsScreen.PERIODS, schedule) },
                             onMakeDefault = { viewModel.makeBellScheduleDefault(schedule.id) },
-                            onDelete = { mode = BellsMode.Delete(schedule) },
+                            onDelete = { show(BellsScreen.DELETE, schedule) },
                         )
                     }
                 }
                 GroupActionItem(
                     label = correctedString(R.string.admin_bells_add),
                     icon = Icons.Rounded.Add,
-                    onClick = { mode = BellsMode.Add },
+                    onClick = { show(BellsScreen.ADD) },
                     busy = state.working,
                     modifier = Modifier.padding(horizontal = ScreenPadding),
                 )
