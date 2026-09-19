@@ -11,6 +11,8 @@
     <string name="licence_apache">Apache 2.0 licence</string>
     <string name="licence_ofl">SIL Open Font Licence 1.1</string>
     <string name="credit_essentials">Essentials</string>
+    <string name="credit_gms_flags">GMS Flags Reborn</string>
+    <string name="credit_gms_flags_note">polodarb. The shape-changing loader, and the shape that becomes the next step on first run, were taken from here.</string>
     <string name="credit_essentials_note">Sameera Wijerathna. The design language, the first-run screens, the press ripple and the blur modifiers were carried over from here.</string>
     <string name="credit_compose">Jetpack Compose and Material 3</string>
     <string name="credit_compose_note">Every screen of the app is built out of its components, its motion and its typography.</string>

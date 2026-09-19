@@ -15,6 +15,8 @@
     <string name="licence_apache">Лицензия Apache 2.0</string>
     <string name="licence_ofl">Лицензия SIL Open Font 1.1</string>
     <string name="credit_essentials">Essentials</string>
+    <string name="credit_gms_flags">GMS Flags Reborn</string>
+    <string name="credit_gms_flags_note">polodarb. Лоадер, меняющий форму, и превращение фигуры между шагами первого запуска взяты отсюда.</string>
     <string name="credit_essentials_note">Sameera Wijerathna. Язык оформления, экраны первого запуска, рябь при нажатии и модификаторы размытия перенесены отсюда.</string>
     <string name="credit_compose">Jetpack Compose и Material 3</string>
     <string name="credit_compose_note">Каждый экран приложения собран из его компонентов, движения и типографики.</string>

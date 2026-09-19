@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -16,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.DiaryField
+import com.lumenpearson.lessons.core.designsystem.component.LessonsLoadingIndicator
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
@@ -134,7 +134,7 @@ internal fun DiaryEditSheet(
                 if (!corrections.ambiguous) {
                     Button(onClick = { onSave(typed.toMap()) }, enabled = !saving) {
                         if (saving) {
-                            LoadingIndicator()
+                            LessonsLoadingIndicator()
                         } else {
                             Text(text = correctedString(R.string.diary_edit_save))
                         }
