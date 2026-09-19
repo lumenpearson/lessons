@@ -44,7 +44,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 1362 tests, about five minutes; `-n auto` puts them on
+- **`python -m pytest -q`** — 1391 tests, about five minutes; `-n auto` puts them on
   every core and finishes in a third of that, which is what CI runs
 - **`python -m mypy`** — one question, of all 79 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
@@ -148,7 +148,7 @@ points Hilt does not inject cleanly.
   this project failed on four invented versions that exist in no repository.
 - **Commit messages are English sentences that say what the change makes the project do** —
   "Let the class be run from the phone, by the same rules as from the bot". No Conventional
-  Commits prefix (none of the 178 commits has one), and the body explains the reasoning and
+  Commits prefix (none of the 258 commits has one), and the body explains the reasoning and
   names what is left uncovered. Unlike the owner's other repositories, this history does
   carry a `Co-Authored-By: Claude …` trailer; keep doing what the history does.
 - **Say what is not covered.** The README has an "Honest status" section and it is honest on

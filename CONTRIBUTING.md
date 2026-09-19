@@ -147,8 +147,11 @@ or `fix:`. Something else is the convention, and it is just as consistent:
   suite.
 - A negative test has to provably catch the regression: revert the fix and make sure it
   fails. Otherwise it proves nothing.
-- Screens and the widget are not covered by automated tests — there the check is by hand,
-  and it is worth saying so in the pull request: which device, and which widget sizes.
+- Three screens — the class list, the join mode and the connection errors — are pressed in
+  JVM tests under Robolectric, and the widget's size ladder is walked at real sizes. What
+  no test reaches is a device: there is no `androidTest` directory, so the drawing, the
+  alarms under Doze and the dark theme are checked by hand, and it is worth saying so in the
+  pull request: which device, and which widget sizes.
 
 ## Security
 

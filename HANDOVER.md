@@ -13,6 +13,10 @@ production deployment it triggered is `READY` on `85064cd`, and `/api/v1/warmup`
 after it: `{"status":"ok","api_version":1,"schema":"0013"}`. That endpoint opens a
 connection, so it answers for the database too, not only for the code.
 
+After that batch, two small ones: #55 and #56 corrected this file's own header — it said
+PR #51 was open minutes after it had been merged — and a sweep over every document
+re-measured the numbers they quote. What that sweep found is at the end of section 6.
+
 Two batches earlier: publishing the repository and everything that followed from it (the
 history reviewed for secrets, `pytest` in CI spread across cores, artifacts living a
 week), a deployment that refuses to start rather than quietly taking a local default, and
@@ -1111,7 +1115,48 @@ Two things about the edges of that rule:
   older than this batch reads in two languages, and that is expected rather than missed.
 
 The rule itself is written into `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`
-and the `.claude/` agents and skills that touch strings or releases.
+and the `.claude/` agents and skills that touch strings or releases. Two of them had been
+missed and told the next session to write **this file** in Russian — the `handover` skill
+and the `handover-keeper` agent. Both now say English, and quote the README's "Written,
+never run" instead of its Russian ancestor.
+
+### What the documents claimed, and what was actually true
+
+A number is the part of a document that rots first, so every one of them was re-measured on
+19 September 2026 rather than copied forward:
+
+| Measured | Now |
+| --- | --- |
+| server tests | 1391, over 38 files |
+| Android tests | 605, over 73 classes — `:core:model` 89, `:core:data` 186, `:core:designsystem` 45, `:widget` 45, `:app` 240 |
+| modules under `mypy` | 79 |
+| commits | 258 |
+| schema head | `0013` |
+
+What was wrong and is now right:
+
+* `CLAUDE.md` said 1362 tests and 178 commits.
+* `docs/architecture.md` gave `schedule.py` fifteen tests (it has twenty-two) and
+  `:core:model` fourteen (it has eighty-nine), listed eleven of the thirty-eight server
+  suites as though that were all of them, and ended with "the Android UI and the Glance
+  widget have no automated coverage yet" — which stopped being true when three screens went
+  under Robolectric and the size ladder got a test that walks real sizes.
+* `CONTRIBUTING.md` said the same thing about screens and the widget.
+* `docs/build.md` quoted 1340 tests without saying that was the count at the time of that
+  measurement, so it read as the current one.
+
+Everything else was checked and left alone: `README.md`'s "Honest status", `docs/README.md`,
+the `0013` head wherever it is named, the twelve rungs, and the eight documents plus an
+index. The sweep changed no code and ran no gate — there was nothing to run.
+
+**One thing it found and did not touch.** Five test functions on the server carry a Russian
+word in their names — `test_a_day_with_one_maximum_length_задание_still_sends` and four like
+it, in `test_bot_message_limits.py` and `test_bot_manage.py`. The rule says identifiers are
+English; it also says a quotation of what the user sees keeps its Russian, and an identifier
+has nowhere to put guillemets, so these sit between the two halves of it. Renaming them is a
+code change and would have to pass the gates, which a documentation sweep does not run — so
+it is written down here rather than done quietly. Nothing else in `server/` or `android/`
+has a Cyrillic identifier: Kotlin has none at all.
 
 ## 7. Left to the owner
 

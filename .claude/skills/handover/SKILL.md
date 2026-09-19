@@ -19,13 +19,14 @@ on any sentence in it:
 
 ## At the end of a batch
 
-Update it, in Russian, with four things:
+Update it — in English, like everything else written about this project — with four
+things:
 
 1. **What was done** — one sentence per item, naming what it makes the project do, the same
    voice the commit messages use.
 2. **What was deliberately left alone**, and why. A decision not to do something is state.
-3. **What nothing has verified.** «Написано, не запускалось» is legitimate; a claim of
-   verification that did not happen is not.
+3. **What nothing has verified.** "Written, never run" is legitimate, in the README's
+   words; a claim of verification that did not happen is not.
 4. **What only the owner can do** — the external cron, the bot's `/start`, a Vercel
    environment variable, an APK installed on a real phone.
 
