@@ -16,12 +16,13 @@ act on a sentence in it.
 
 ## Writing it
 
-Update it when you finish a batch, in Russian, and say four things:
+Update it when you finish a batch — in English, like everything else written about this
+project — and say four things:
 
 1. **What was done**, one sentence per item, naming what it makes the project do.
 2. **What was deliberately left alone**, and why — a decision not taken is state too.
-3. **What nothing has verified.** «Написано, не запускалось» is a legitimate status. A claim
-   that something was verified when it was not is not.
+3. **What nothing has verified.** "Written, never run" is a legitimate status, in the
+   README's words. A claim that something was verified when it was not is not.
 4. **What only the owner can do** — the items no session can close: the external cron, the
    bot's `/start`, a Vercel environment variable, an APK installed on a real phone.
 

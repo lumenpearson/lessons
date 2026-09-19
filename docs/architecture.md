@@ -35,8 +35,8 @@ app/
 ```
 
 `schedule.py` is deliberately free of framework imports. It takes ORM rows and
-returns plain dataclasses, which is why it is covered by fifteen tests that run
-in two seconds with no HTTP client involved.
+returns plain dataclasses, which is why its twenty-two tests run in two seconds
+with no HTTP client involved.
 
 ### The resolution model
 
@@ -82,8 +82,8 @@ Five Gradle modules, split along the lines that actually pay for themselves:
 
 `:core:model` being a plain JVM library is the load-bearing decision: the state
 engine is the most logic-dense part of the product, and this makes its test suite
-run in milliseconds with no emulator and no Android SDK. Its fourteen tests walk
-a full school day minute by minute.
+run in milliseconds with no emulator and no Android SDK. Its eighty-nine tests,
+in six classes, walk a full school day minute by minute.
 
 The widget module exists so the home-screen widget can reach the cached timetable
 without dragging the app's entire UI graph into its process.
@@ -254,6 +254,12 @@ alternative is every family's password in the database.
 
 ## Testing
 
+1391 tests on the server across 38 files, 605 on Android across 73 classes; `pytest -q` and
+`./gradlew test`, both offline, both in CI. On Android that is `:core:model` 89,
+`:core:data` 186, `:core:designsystem` 45, `:widget` 45, `:app` 240.
+
+The table below is the load-bearing part of that rather than the whole of it:
+
 | Suite | What it covers | Runs where |
 | --- | --- | --- |
 | `server/tests/test_schedule.py` | template expansion, substitutions, cancellations, holidays, shortened bells, week parity, next-school-day lookahead | pytest |
@@ -266,7 +272,16 @@ alternative is every family's password in the database.
 | `server/tests/test_diary_mapper.py` | upstream shapes → domain models, the absence code, tolerant field names, unreadable rows dropped | pytest |
 | `server/tests/test_diary_api.py` | login, the password never stored, session refresh and expiry, another family's id refused, date formats | pytest + a fake upstream |
 | `server/tests/test_timezones.py` | all eleven Russian zones, ordering, bad-input fallback | pytest |
+| `server/tests/test_bot_message_limits.py` | that no renderer builds a message Telegram refuses at 4096 characters | pytest |
+| `server/tests/test_schema_version.py` | `EXPECTED_REVISION` equals the real Alembic head, and there is exactly one head | pytest |
 | `android/core/model/.../ScheduleEngineTest.kt` | every `DayState`, boundary conditions, event precedence, next-transition scheduling | JVM JUnit |
+| `android/widget/.../WidgetSizeClassTest.kt` | the launcher's nearest-breakpoint rule over real sizes, and that the ladder is monotonic | JVM JUnit |
+| `android/app/.../ResourceTranslationTest.kt` | every Russian string has an English twin, in every module that ships strings | JVM JUnit |
 
-The Android UI and the Glance widget have no automated coverage yet. See the "Honest
-status" section of the README — that is the honest status, not an oversight.
+What nothing covers is a device: there is no `androidTest` directory, so not one test has
+run on hardware or an emulator. Three screens — the class list, the join mode and the
+connection errors — are pressed under Robolectric with a Russian locale and a phone's
+width, and the design system's components are exercised the same way; for the rest of the
+interface, compilation proves the types line up and says nothing about the screen. The
+"Honest status" section of the README keeps the full list — that is the honest status, not
+an oversight.

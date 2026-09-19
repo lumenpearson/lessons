@@ -55,8 +55,9 @@ step costs a minute. Measured here:
 2000 minutes was about 95 full runs, and nearly two thirds of each went into one `pytest`
 step. What stayed in CI for good:
 
-- **`pytest -n auto`.** 1340 tests spread across the runner's cores: 289 s → 101 s on four
-  cores locally, 12:18 → 3:23 on the runner, the same 1340 green. That is safe by
+- **`pytest -n auto`.** The suite spread across the runner's cores: 289 s → 101 s on four
+  cores locally, 12:18 → 3:23 on the runner, the same 1340 green — 1340 was the count when
+  this was measured; it is 1391 today. That is safe by
   construction rather than by luck: `tests/conftest.py` takes the SQLite path from an
   `mkdtemp` computed at import time, and every xdist worker is a separate process with its
   own import, so they never share a database. It started as a saving and stayed for the
