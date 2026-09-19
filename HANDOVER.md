@@ -4,17 +4,21 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **19 September 2026**, after PRs #47, #48, #49 and #50 were merged and while
-**PR #51 is open** — the agent configuration in `.claude/`, and the whole written layer of
-the project moved into English (see "Everything written about the project is English" in
-section 6). `main` is at `22399e9`, `dev` is ten commits ahead of it; the database is at head
-`0013`; production answers `{"status":"ok","schema":"0013"}`. Two batches earlier: publishing the repository and
-everything that followed from it (the history reviewed for secrets, `pytest` in CI spread
-across cores, artifacts living a week), a deployment that refuses to start rather than
-quietly taking a local default, and the Google Sans Flex licence — it is OFL 1.1 rather than
-MIT, as the comment and the documentation claimed: the licence text now travels inside the
-APK, stands as the eighth row under «Лицензии», and `FontLicenceTest` reads the typeface's
-own `name` table so that what is claimed and what lies beside it cannot drift apart.
+Last updated: **19 September 2026**, after PRs #47, #48, #49, #50 and #51 were merged. The
+last of them is the agent configuration in `.claude/` and the whole written layer of the
+project moved into English (see "Everything written about the project is English" in
+section 6). `main` and `dev` met at `85064cd`. The database is at head `0013` and
+`EXPECTED_REVISION` did not move, so that merge needed no migration. The production
+deployment it triggered is `READY` on `85064cd`; `/api/v1/warmup` has not been read since,
+and it is the only thing that will say whether the schema and the code still agree.
+
+Two batches earlier: publishing the repository and everything that followed from it (the
+history reviewed for secrets, `pytest` in CI spread across cores, artifacts living a
+week), a deployment that refuses to start rather than quietly taking a local default, and
+the Google Sans Flex licence — it is OFL 1.1 rather than MIT, as the comment and the
+documentation claimed: the licence text now travels inside the APK, stands as the eighth
+row under «Лицензии», and `FontLicenceTest` reads the typeface's own `name` table so that
+what is claimed and what lies beside it cannot drift apart.
 
 **PR #50 is merged**, five commits; it needed no migration — the model did not change and the
 head stayed `0013`. The first two commits are the translation-correction mode across all of
