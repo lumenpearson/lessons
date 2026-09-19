@@ -126,6 +126,15 @@ internal data class BellScheduleDto(
     @SerialName("name") val name: String = "",
     @SerialName("is_default") val isDefault: Boolean = false,
     @SerialName("periods") val periods: List<BellPeriodDto> = emptyList(),
+    /**
+     * Lessons this write stopped ringing, counted in rows: shrinking a
+     * schedule, or pointing the class at a shorter one, leaves every lesson at
+     * a number past the new last rung stored on the server and drawn nowhere.
+     *
+     * Defaulted, and it has to be: a read answers without it, and so does
+     * every server older than the one that added it.
+     */
+    @SerialName("silenced_lessons") val silencedLessons: Int = 0,
 )
 
 /** Mirrors `BellScheduleIn`: a name, and the rows if they come with it. */

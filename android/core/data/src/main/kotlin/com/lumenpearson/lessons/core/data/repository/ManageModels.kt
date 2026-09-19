@@ -184,6 +184,26 @@ data class BellSchedule(
     val periods: List<BellPeriod>,
 )
 
+/**
+ * A bells write, and what it took away.
+ *
+ * Beside [BellSchedule] rather than inside it, because a count of lessons this
+ * *request* silenced is not a property of the schedule: it is zero on every
+ * read of the same row, and a model carrying a field only one of its producers
+ * ever fills is how a renderer ends up written against a shape nothing builds.
+ *
+ * @property silencedLessons lessons that stopped ringing, counted in rows. One
+ *   lesson number under two weekdays is two lessons nobody will see, not one.
+ *   Nothing is deleted on the server — the rows are simply past the schedule's
+ *   last rung now, and drawn on no phone, in no widget, in no calendar feed and
+ *   in no digest. The bot says this out loud in an alert; it is why the phone
+ *   is told at all.
+ */
+data class BellsWritten(
+    val schedule: BellSchedule,
+    val silencedLessons: Int,
+)
+
 /** The weekly template as text, in the format import reads back. */
 data class TimetableExport(
     val text: String,

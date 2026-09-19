@@ -163,6 +163,10 @@
     <string name="admin_bells_saved">Bells “%1$s” saved</string>
     <string name="admin_bells_default_set">Default bells: “%1$s”</string>
     <string name="admin_bells_deleted">Schedule “%1$s” deleted</string>
+    <plurals name="admin_bells_silenced">
+        <item quantity="one">%1$d lesson no longer rings</item>
+        <item quantity="other">%1$d lessons no longer ring</item>
+    </plurals>
 
     <!-- The timetable: export and import -->
     <string name="admin_timetable_export">Export</string>

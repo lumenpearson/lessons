@@ -287,4 +287,40 @@ class ManageMappersTest {
         val page = SchoolSearchDto(items = emptyList(), truncated = true).toDomain()
         assertTrue(page.truncated)
     }
+
+    // -- what a bells write took away ---------------------------------------
+
+    /**
+     * The count is the one thing about a bells write that no screen can show.
+     *
+     * Shrinking a schedule, or pointing the class at a shorter one, leaves
+     * every lesson at a number past the new last rung stored on the server and
+     * drawn on no phone, in no widget, in no calendar feed and in no digest.
+     * Nothing is deleted and everything is gone, and the only trace was an
+     * audit line the bot writes and this half of the app cannot read. Until
+     * this field the phone answered «Звонки сохранены» over six lessons that
+     * had just left the class.
+     */
+    @Test
+    fun `a bells write says how many lessons it stopped ringing`() {
+        val written = BellScheduleDto(id = 3, name = "Обычное", silencedLessons = 2).toWritten()
+        assertEquals(2, written.silencedLessons)
+        assertEquals("Обычное", written.schedule.name)
+    }
+
+    /**
+     * A read answers without the field, and so does a server older than it.
+     * Both have to mean «nothing was silenced» rather than fail to parse.
+     */
+    @Test
+    fun `a schedule that says nothing about it silenced nothing`() {
+        assertEquals(0, BellScheduleDto(id = 3, name = "Обычное").toWritten().silencedLessons)
+    }
+
+    /** A number the server cannot mean is not a school fact to report. */
+    @Test
+    fun `a negative count is not shown as one`() {
+        val written = BellScheduleDto(id = 3, name = "Обычное", silencedLessons = -1).toWritten()
+        assertEquals(0, written.silencedLessons)
+    }
 }
