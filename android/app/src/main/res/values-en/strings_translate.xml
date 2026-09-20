@@ -8,6 +8,7 @@
     <string name="translation_mode_description">Long-press any text to fix it. The mode ends when the app is closed</string>
     <string name="translation_session">Corrections</string>
     <string name="translation_session_description">The list of fixes, to copy or to send</string>
+    <string name="translation_sign_in_description">Needed to send the corrections to the project</string>
 
     <!-- The sheet holding the session -->
     <string name="translation_session_title">Translation corrections</string>
@@ -15,6 +16,11 @@
     <string name="translation_session_clear">Clear all</string>
     <string name="translation_session_copy">Copy XML</string>
     <string name="translation_session_share">Share</string>
+    <string name="translation_submit">Send to the project</string>
+    <string name="translation_submit_signed_out">Sign in to send</string>
+    <string name="translation_submit_opened">The pull request is open</string>
+    <string name="translation_submit_failed">The corrections could not be sent</string>
+    <string name="translation_submit_refused">Not sent: %1$s</string>
     <string name="translation_session_remove">Drop this fix</string>
     <string name="translation_edit_subtitle">%1$s · was: %2$s</string>
 

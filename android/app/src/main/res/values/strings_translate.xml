@@ -12,6 +12,7 @@
     <string name="translation_mode_description">Долгое нажатие на текст открывает правку. Режим выключается вместе с приложением</string>
     <string name="translation_session">Исправления</string>
     <string name="translation_session_description">Список правок, копирование и отправка</string>
+    <string name="translation_sign_in_description">Нужен, чтобы отправить исправления в проект</string>
 
     <!-- The sheet of accumulated corrections -->
     <string name="translation_session_title">Исправления перевода</string>
@@ -19,6 +20,11 @@
     <string name="translation_session_clear">Очистить всё</string>
     <string name="translation_session_copy">Скопировать XML</string>
     <string name="translation_session_share">Поделиться</string>
+    <string name="translation_submit">Отправить в проект</string>
+    <string name="translation_submit_signed_out">Войдите, чтобы отправить</string>
+    <string name="translation_submit_opened">Pull request открыт</string>
+    <string name="translation_submit_failed">Не удалось отправить исправления</string>
+    <string name="translation_submit_refused">Не отправлено: %1$s</string>
     <string name="translation_session_remove">Убрать правку</string>
     <string name="translation_edit_subtitle">%1$s · было: %2$s</string>
 

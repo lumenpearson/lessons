@@ -464,10 +464,6 @@ fun SettingsSectionScreen(
                     state = state,
                     viewModel = viewModel,
                     onReportBug = { sheets.bugReport = true },
-                    onSignIn = {
-                        sheets.signIn = true
-                        viewModel.signInWithGithub()
-                    },
                     onShowLicenses = { sheets.licenses = true },
                 )
                 // Last on the page about the app itself, below the licences and
@@ -475,7 +471,15 @@ fun SettingsSectionScreen(
                 // errand as reporting a typo, and a mode that changes what a
                 // long press does everywhere should not sit where somebody
                 // reaches by accident.
-                translationRows()
+                translationRows(
+                    account = state.github,
+                    canSignIn = state.githubConfigured,
+                    onSignIn = {
+                        sheets.signIn = true
+                        viewModel.signInWithGithub()
+                    },
+                    onSubmit = viewModel::submitCorrections,
+                )
             }
             SettingsSection.ADMIN -> adminRows(
                 role = state.deviceLink.role,

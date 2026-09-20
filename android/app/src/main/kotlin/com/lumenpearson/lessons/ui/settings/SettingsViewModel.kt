@@ -13,6 +13,8 @@ import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.DeviceLink
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
 import com.lumenpearson.lessons.core.data.repository.GithubRepository
+import com.lumenpearson.lessons.core.data.repository.PullRequestResult
+import com.lumenpearson.lessons.core.data.repository.TranslationChange
 import com.lumenpearson.lessons.core.data.repository.IssueDraft
 import com.lumenpearson.lessons.core.data.repository.IssueResult
 import com.lumenpearson.lessons.core.data.repository.Session
@@ -459,6 +461,17 @@ class SettingsViewModel(
             releaseSheet.value = true
         }
     }
+
+    /**
+     * Offers the session of corrections as a pull request.
+     *
+     * Suspending rather than fire-and-forget, because the sheet shows what
+     * happened and there is nothing else to show it. It runs on the caller's
+     * scope on purpose: the settings screen's, which survives the sheet being
+     * dismissed while GitHub is still forking.
+     */
+    suspend fun submitCorrections(changes: List<TranslationChange>): PullRequestResult =
+        githubRepository.openTranslationPullRequest(changes)
 
     fun signInWithGithub() = githubRepository.signIn()
 

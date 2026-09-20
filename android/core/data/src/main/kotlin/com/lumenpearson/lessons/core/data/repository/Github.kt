@@ -67,7 +67,43 @@ sealed interface IssueResult {
 }
 
 /**
- * GitHub sign-in and the one thing it is for: filing issues from the app.
+ * One corrected string, addressed to the file it lives in.
+ *
+ * @property path the file's path in the repository, module and all —
+ *   `android/core/designsystem/src/main/res/values-en/strings.xml`. Worked out
+ *   by the caller from the key's prefix, because the merged resources a running
+ *   app sees cannot say which module a string came from.
+ * @property key the resource name, `ds_lesson_now`.
+ * @property body the new value, **already escaped** for a resource file. The
+ *   escaping lives with the reader-facing half of the feature, which is where
+ *   the reasoning about `%`, quotes and a leading `@` already is; a second
+ *   escaper here would disagree with it within a month.
+ */
+data class TranslationChange(
+    val path: String,
+    val key: String,
+    val body: String,
+)
+
+/** Outcome of offering a session of corrections as a pull request. */
+sealed interface PullRequestResult {
+
+    /**
+     * @property htmlUrl the pull request, to be opened and to be shown.
+     * @property refused corrections whose key was not in the file its prefix
+     *   pointed at. Reported rather than dropped: a prefix rule that has
+     *   drifted is a bug in this app, and a reader who corrected ten strings
+     *   and got nine deserves to be told which one did not travel.
+     */
+    data class Opened(val htmlUrl: String, val refused: List<String>) : PullRequestResult
+
+    data class Failed(val reason: String?) : PullRequestResult
+}
+
+/**
+ * GitHub sign-in and the two things it is for: filing issues from the app, and
+ * offering a translation correction as a pull request from the reader's own
+ * account.
  *
  * The client id is the app's own, registered by whoever builds it; there is no
  * secret, because the device flow needs none and an APK cannot keep one.
@@ -95,4 +131,20 @@ interface GithubRepository {
 
     /** Files [draft] as the signed-in user. Requires an account. */
     suspend fun fileIssue(draft: IssueDraft): IssueResult
+
+    /**
+     * Opens a pull request carrying [changes], as the signed-in user.
+     *
+     * The branch is cut from the upstream commit rather than from whatever the
+     * reader's fork happens to point at: a fork made a year ago and never
+     * touched since is behind, and a pull request cut from it would carry every
+     * commit made in between as a revert. GitHub lets a fork's ref be created
+     * at a commit from the parent network, which is what makes that possible
+     * and costs nothing.
+     *
+     * Requires an account. Signed out it fails rather than prompting: the
+     * button that reaches this is disabled without one, and a repository that
+     * opened a sign-in sheet would be deciding something the screen owns.
+     */
+    suspend fun openTranslationPullRequest(changes: List<TranslationChange>): PullRequestResult
 }
