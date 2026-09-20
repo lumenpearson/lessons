@@ -4,8 +4,8 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **20 September 2026**. **PRs #63 through #68 are merged**; `main` is at
-`bc7a199`. **The only thing open is PR #69**, which carries this batch and the paragraph you
+Last updated: **20 September 2026**. **PRs #63 through #69 are merged**; `main` is at
+`cbb81e8`. **The only thing open is PR #70**, which carries this batch and the paragraph you
 are reading. Once it merges, `dev` is level with `main` again and the next batch starts from
 a clean one, and the SHA of that merge is for the next close-out to write.
 The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model has changed
@@ -20,6 +20,68 @@ real request on a real cold start, which is the one thing about it the branch co
 check before it merged. **It has not been re-read since, and did not need to be:** everything
 from #62 onwards touched no server code at all — Android, its tests, the build and the
 documents.
+
+## What the last session added: the crash after the link, which was a line of layout
+
+One commit in `dev`, open as PR #70, in the milestone `v0.6.0`. It closes the report the
+batch below could not answer — «приложение вылетает через несколько секунд после привязки
+Telegram», and then «предлагает очистить кэш» — and **it was not the link.**
+
+The bug report the owner sent from the phone carries the fatal exception, on the main
+thread, once at 14:36 and then in a loop for seventy seconds:
+
+```
+java.lang.IllegalStateException: Asking for intrinsic measurements of SubcomposeLayout
+layouts is not supported. This includes components that are built on top of
+SubcomposeLayout, such as lazy lists, BoxWithConstraints, TabRow, etc.
+```
+
+The stack is R8-obfuscated and names neither a file of ours nor a caller of one. What it did
+not have to name: **the app contained exactly one `SubcomposeLayout`**, the
+`BoxWithConstraints` inside `MarqueeText`, and that component is drawn at two dozen call
+sites — every group row, every lesson row, every section header, the toolbar, the pickers.
+A `SubcomposeLayout` cannot answer «how tall would you be at this width», and nothing in this
+repository spells `IntrinsicSize`, which is exactly why it looked safe: Material spells it
+inside its own rows, so the question arrives at a call site that never mentions it. **Which
+Material component asked was not identified and did not need to be** — the component that
+could not answer now can, wherever it is placed.
+
+It came in with #62 and has been in every build since, including the one the owner is
+running. The link had nothing to do with it beyond redrawing the screen.
+
+The fix is the width without the subcomposition: `Modifier.onSizeChanged`, outermost of the
+three modifiers so that it reports the window rather than the string the marquee scrolls
+through it. The price is one frame — until the line has been measured once its width is
+`Constraints.Infinity`, nothing can overflow it, and a line that will scroll is drawn still,
+which is what the first frame of a marquee looks like anyway.
+
+Three things about the tests are worth carrying forward:
+
+* **The reproduction is one line.** `Row(Modifier.height(IntrinsicSize.Min))` is the
+  question, and it throws that exact exception on the old component.
+* **Three of the component's own tests were named for a line that scrolls and never reached
+  one.** Robolectric lays text out with no fonts — every glyph costs about a pixel — so
+  «По этому предмету ничего не задано» measures 35 px and sits inside a 120 dp box with room
+  to spare. They use a string twenty times as long now. One of them, «stays inside its box»,
+  was also reading a number that says nothing: a scrolling line's text node really *is* as
+  wide as the string. What holds is that the row is not pushed apart, so what the test looks
+  at is a neighbour placed after it.
+* **`NoSubcomposedLeafTest` holds the rule rather than review.** It reads
+  `:core:designsystem`'s source and fails on a `BoxWithConstraints`, a `SubcomposeLayout`, a
+  `TabRow` or a lazy list, with the same `//`-above opt-out `NoEllipsisedLineTest` uses.
+  `:app` and `:widget` are outside it for a reason and not for convenience: a lazy list on a
+  screen is the root of its own layout and nothing above it asks it to predict a size — seven
+  screens hold one on those terms. The rule is for a component written to be placed inside a
+  layout it does not own.
+
+`./gradlew test assembleDebug assembleRelease` green: **743 tests across 97 classes**, up
+from 738 across 96. Each of the three guards was proven red first — the intrinsic query
+against the old component, the scrolling test with the width feed cut, and the source rule
+with the word put back into a component.
+
+**What only the owner can do.** Install a build carrying this and link a phone again: none of
+it has run on a device, and the uninstall-first caveat below still applies to a debug-signed
+APK. Nothing on the server side moved, so the database is untouched.
 
 ## What the last session added: a crash report that its own phone can read
 
@@ -42,7 +104,8 @@ presses it and asserts the sheet opens; the other reads `SettingsScreen.kt` and 
 test cannot ask whether a row is on the page everybody has. Proven red against the code
 without the fix.
 
-**The crash itself is not fixed and not yet understood.** What was ruled out, by reading and
+**The crash itself was not fixed by this batch — the one above does that**, and it was none
+of the things ruled out here. What was ruled out, by reading and
 by one throwaway Robolectric reproduction: the account section's composition survives the
 link landing under it (`Ready(unlinked)` → `Loading` → `Ready(linked, ADMIN)` →
 `isRefreshing` both ways); the exact-alarm path catches its `SecurityException` and asks
@@ -334,7 +397,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 3 | `v0.3.0 — The school year` | #27, #32–#35, #43 |
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
-| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#69 |
+| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#70 |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -751,7 +814,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && python -m pytest -q -n auto                # 1465 tests, ~1.5 min
 cd server  && python -m mypy                             # clean, 81 modules
-cd android && ./gradlew test                             # 738 tests
+cd android && ./gradlew test                             # 743 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
