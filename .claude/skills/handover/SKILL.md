@@ -25,9 +25,28 @@ favour somebody has to request. Two sessions in a row had to be told «обно�
 the merge, which is two batches that were reported as done while the one document a new
 session starts from still described the batch before.
 
-If the batch's own pull request has already merged, the update is its own commit on a `dev`
-restarted from `main`, and its own pull request — a merged pull request accepts no new
-commits.
+**Write it while the batch's pull request is still open.** The close-out then rides in with
+the work it describes, which is one pull request instead of two and, more importantly, the
+only arrangement in which the file is true at the moment it merges. If that pull request has
+already merged, the update is its own commit on a `dev` restarted from `main`, and its own
+pull request — a merged pull request accepts no new commits.
+
+## Where the chain stops
+
+A close-out describes a batch. Its own merge is then a thing no close-out describes, and
+writing one for it would need another, for ever. The chain stops in one place, by one rule:
+
+**A close-out never gets a close-out of its own.** The opening paragraph is written to name
+itself — «the only thing open is this file's own pull request» — so it is true while that
+pull request is open, and the one number it then leaves behind, the SHA of its own merge, is
+written by the **next** batch's close-out. Opening a pull request whose only content is
+correcting that SHA is the recursion, not the cure.
+
+Two things follow. The hook never fires for such a merge, because the merge carries
+`HANDOVER.md` — that is the first half of its condition, and the reason it has one. And a
+session that finds the opening naming a pull request that has since merged has not found a
+defect: it has found the batch before its own, and the fix is to write its own close-out
+over it rather than a pull request about it.
 
 ## At the end of a batch
 

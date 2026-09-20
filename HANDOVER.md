@@ -6,8 +6,10 @@ place without reopening or redoing anything.
 
 Last updated: **20 September 2026**. **PRs #63 through #67 are merged**; `main` is at
 `0957628` and `dev` is level with it. **The only thing open is this file's own pull
-request**, which corrects the `Stop` hook that #65 added and nothing else; once it merges,
-`dev` is level with `main` again and the next batch starts from a clean one.
+request**, which corrects the `Stop` hook that #65 added and writes down two rules — where
+the close-out chain stops, and that a green pull request of this session's own work is
+merged without asking. Once it merges, `dev` is level with `main` again and the next batch
+starts from a clean one, and the SHA of that merge is for the next close-out to write.
 The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model has changed
 since, so none of them needed a migration**, which is the cheapest thing to check and the
 most expensive to get wrong.
@@ -102,6 +104,17 @@ path is written and never executed, exactly like the translation flow in #64. No
 been pressed on a device: the pager, the loader, the banner and the arrow are laid out by
 code and seen by nobody. The bundled assets are proven only by the APK's contents, because
 `:core:data`'s tests have no `Context`. And the new `version_code` input has never been run.
+
+**The chain of close-outs stops by rule now, and merging no longer waits for a sentence.**
+Every batch ends in a close-out, whose own merge is then a thing no close-out describes —
+and writing one for that needs another, for ever. The rule: a close-out rides inside its
+batch's own pull request while that pull request is open, it names itself as the only thing
+open, and **the SHA of its own merge is written by the next batch** rather than by a pull
+request about it. Separately, the owner asked for a green pull request of this session's own
+work to be merged without being asked each time; that is recorded in the `github-pr` skill
+as their standing instruction, with the five things to check first and the cases it does not
+cover — an unsettled migration, somebody else's pull request, and «I want to look at this
+one».
 
 **And the hook added in #65 was wrong, in the one case the rule prefers.** It fired after
 #67 merged, saying the close-out was missing — while `HANDOVER.md` had described that batch
