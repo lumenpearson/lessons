@@ -186,6 +186,20 @@ android {
     }
 }
 
+// `BuildPropertyReachTest` reads this file and the APK workflow, neither of
+// which Gradle would otherwise know this task depends on - so a change to
+// either left the task UP-TO-DATE and the check unrun, which for a test whose
+// whole subject is a wire nobody noticed was broken is the same failure twice.
+// CI gets a fresh checkout and would have run it anyway; a laptop would not.
+tasks.withType<Test>().configureEach {
+    inputs.file(layout.projectDirectory.file("build.gradle.kts"))
+        .withPropertyName("appBuildScript")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.layout.projectDirectory.file("../.github/workflows/apk.yml"))
+        .withPropertyName("apkWorkflow")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:data"))

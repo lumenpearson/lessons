@@ -180,6 +180,18 @@ jobs:
           LESSONS_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           LESSONS_VERSION_NAME: ${{ steps.version.outputs.name }}
           LESSONS_VERSION_CODE: ${{ steps.version.outputs.code }}
+          # Two optional build properties that each switch a button on, and
+          # switch nothing else. Neither was passed here for the whole life of
+          # this workflow, so every APK it has ever built had both empty: the
+          # «Войти через GitHub» row was hidden by `githubConfigured`, and with
+          # it the only way to file a bug report from inside the app, and
+          # «Отправить письмом» was hidden too. Nothing said so — that is what
+          # the summary below is for. The client id is not a secret (the device
+          # flow has none, and an APK could not keep one), but it is the
+          # builder's to give, so it lives in the repository's secrets beside
+          # the address.
+          LESSONS_GITHUB_CLIENT_ID: ${{ secrets.LESSONS_GITHUB_CLIENT_ID }}
+          LESSONS_CONTACT_EMAIL: ${{ secrets.LESSONS_CONTACT_EMAIL }}
           INPUT_BUILD_TYPE: ${{ inputs.build_type || 'release' }}
         run: |
           case "$INPUT_BUILD_TYPE" in
@@ -244,11 +256,29 @@ jobs:
           # lines up.
           VERSION_NAME: ${{ steps.version.outputs.name }}
           INPUT_VERSION_CODE: ${{ inputs.version_code }}
+          # Tested for emptiness and never printed. What the summary says is
+          # «on» or «off», which is the question somebody looking for a missing
+          # button is actually asking.
+          GITHUB_CLIENT_ID: ${{ secrets.LESSONS_GITHUB_CLIENT_ID }}
+          CONTACT_EMAIL: ${{ secrets.LESSONS_CONTACT_EMAIL }}
         run: |
           if [ -n "$INPUT_VERSION_CODE" ]; then
             CODE_SOURCE=" (given)"
           else
             CODE_SOURCE=" (this run's number)"
+          fi
+          # A feature that is off is a button that is not on the screen, and an
+          # absent button explains itself to nobody. Said here rather than left
+          # to be discovered on a phone.
+          if [ -n "$GITHUB_CLIENT_ID" ]; then
+            SIGN_IN="on"
+          else
+            SIGN_IN="**off** - no \`LESSONS_GITHUB_CLIENT_ID\` secret, so «Войти через GitHub» and filing a bug report from the app are not in this build"
+          fi
+          if [ -n "$CONTACT_EMAIL" ]; then
+            EMAIL="on"
+          else
+            EMAIL="**off** - no \`LESSONS_CONTACT_EMAIL\` secret, so «Отправить письмом» is not in this build"
           fi
           {
             echo "## APK"
@@ -259,6 +289,8 @@ jobs:
             echo "| versionName | \`${VERSION_NAME:-default from build.gradle.kts}\` |"
             echo "| versionCode | \`${{ steps.version.outputs.code }}\`$CODE_SOURCE |"
             echo "| APKs produced | ${{ steps.collect.outputs.count }} |"
+            echo "| Sign in with GitHub | $SIGN_IN |"
+            echo "| Report by email | $EMAIL |"
             if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
               echo "| Signing | your release keystore |"
             else
