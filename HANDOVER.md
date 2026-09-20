@@ -4,10 +4,10 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **20 September 2026**. **PRs #63 through #66 are merged**; `main` is at
-`51aff53`. **The only thing open is PR #67**, which carries this batch and the paragraph you
-are reading; once it merges, `dev` is level with `main` again and the next batch starts from
-a clean one.
+Last updated: **20 September 2026**. **PRs #63 through #67 are merged**; `main` is at
+`0957628` and `dev` is level with it. **The only thing open is this file's own pull
+request**, which corrects the `Stop` hook that #65 added and nothing else; once it merges,
+`dev` is level with `main` again and the next batch starts from a clean one.
 The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model has changed
 since, so none of them needed a migration**, which is the cheapest thing to check and the
 most expensive to get wrong.
@@ -23,8 +23,9 @@ documents.
 
 ## What the last session added: the guide is fetched, and a debug-signed APK explained
 
-Three commits in `dev`, open as PR #67, in the milestone `v0.6.0`. Two unrelated things
-that arrived in one batch because the first was a question about the second's build.
+Four commits in `dev`, merged as PR #67 (`0957628`), in the milestone `v0.6.0`. Two
+unrelated things that arrived in one batch because the first was a question about the
+second's build.
 
 **Installing 0.6.0 over an older build failed, and the repository was wrong about why.**
 «Приложение не установлено», after offering to update, with the version raised. The cause is
@@ -101,6 +102,16 @@ path is written and never executed, exactly like the translation flow in #64. No
 been pressed on a device: the pager, the loader, the banner and the arrow are laid out by
 code and seen by nobody. The bundled assets are proven only by the APK's contents, because
 `:core:data`'s tests have no `Context`. And the new `version_code` input has never been run.
+
+**And the hook added in #65 was wrong, in the one case the rule prefers.** It fired after
+#67 merged, saying the close-out was missing — while `HANDOVER.md` had described that batch
+since `6caca07`, inside the pull request, which is exactly what the rule asks for. A
+close-out written that way is landed **by** the merge commit, so it is always older than it,
+and a hook comparing only timestamps calls it missing every time the rule is followed
+properly. It now asks first whether the merge's own diff touched `HANDOVER.md`; the
+timestamp is the fallback for a close-out committed after a merge instead. Tested in all
+three directions in a throwaway repository — carried by the merge, not carried, committed
+afterwards — and silent on this tree, where it had just spoken.
 
 ---
 
@@ -1625,9 +1636,13 @@ Three things in `settings.json` worth knowing:
 * **There are two hooks and both only print.** On a write to any module's
   `values/strings*.xml`, the first mentions the twin in `values-en/`. The second,
   `hooks/handover-behind.sh`, runs on `Stop` and speaks only when a merge commit on `HEAD`
-  is newer than the last commit touching `HANDOVER.md` — a state that exists only after a
-  pull request has merged and `dev` has been fast-forwarded onto it, which is exactly when
-  the close-out is the work that is left. A committed hook runs on the machine of everybody
+  **neither carried the close-out nor predates it** — a state that exists only after a pull
+  request has merged and `dev` has been fast-forwarded onto it, which is exactly when the
+  close-out is the work that is left. The first half of that condition is the correction:
+  a close-out written inside its own pull request, which is what the rule asks for while
+  that pull request is open, is landed *by* the merge and is therefore always older than
+  it. Comparing timestamps alone called that missing, and did so the first time the rule
+  was followed properly — on #67. A committed hook runs on the machine of everybody
   who cloned the repository, which is why both are this small and why neither can fail:
   each exits quietly on anything unexpected.
 * **`extraKnownMarketplaces` registers `anthropics/skills`**, but no plugin is enabled:
