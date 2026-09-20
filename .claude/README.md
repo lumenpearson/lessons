@@ -6,10 +6,11 @@ retells a neighbour. What is here is the *shape* — which agent owns what, whic
 real, and which commands are never run from a session.
 
 ```
-settings.json      permissions, one hook, the marketplace this project knows about
+settings.json      permissions, two hooks, the marketplace this project knows about
 agents/            eighteen area agents, one per part of the tree that has its own traps
 skills/            nine procedures, each one a thing that has gone wrong here before
 commands/          two slash commands: /where-are-we, /pre-push
+hooks/             the one hook long enough to need a file of its own
 ```
 
 ## Why eighteen agents and not a hundred
@@ -23,6 +24,21 @@ other nine agents are the areas that split further once they had traps of their 
 
 Add an agent when an area grows a trap that is not written down anywhere else. Delete one
 when its trap stops being true.
+
+## The two hooks
+
+Both say one sentence and only when it applies; neither blocks anything. The first is inline
+in `settings.json` and fires after a write to a `values/strings*.xml`, because the Russian
+file is the source and its English twin is a separate edit nothing else would remind anybody
+about until `ResourceTranslationTest` failed.
+
+The second is `hooks/handover-behind.sh`, on `Stop`. It speaks only when a **merge commit on
+`HEAD` is newer than the last commit touching `HANDOVER.md`** — which during a batch is never
+true, because that merge appears only after the pull request has gone into `main` and `dev`
+has been fast-forwarded onto it. That is precisely the window in which the close-out is the
+work that is left, and the hook goes quiet again the moment the file is committed, so it
+cannot turn into background noise. It exists because the owner had to ask for that update by
+hand twice.
 
 ## `settings.json`
 

@@ -76,6 +76,8 @@ CI is exactly: ruff, pytest `-n auto`, `./gradlew test`, both assembles. `./grad
 - Another agent may be working in this tree — check `git status` before touching a file you
   did not open.
 - `HANDOVER.md` says where the work stands, and is stale the moment it stops being updated.
+  Read it first; update it last. A batch whose pull request has merged is not finished until
+  that file describes it, and nobody should have to ask.
 
 The rest — architecture, the traps each module has already produced, the migration protocol —
 is in `CLAUDE.md`, `docs/architecture.md` and `.claude/skills/`.

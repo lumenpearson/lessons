@@ -142,6 +142,17 @@ like any other pull request.
   looks intended: `Modifier.correctionTarget`, the ripple anchors and predictive back all
   ride the same mechanism, and not one of them is unit-tested.
 
+## After it merges
+
+Three things, in this order, and none of them is optional:
+
+1. `git fetch origin main` and fast-forward `dev` onto it, then push — a merged pull request
+   accepts no new commits, so the next batch needs `dev` level with `main`.
+2. **Update `HANDOVER.md`.** The merge is the trigger; see the `handover` skill. The batch is
+   not finished until the file describes it, and this has twice had to be asked for.
+3. Stop watching the pull request, and say plainly what is now true: the SHA `main` is at,
+   what is open, and what nothing has verified.
+
 ## Comments
 
 Be frugal. Comment when a reply is genuinely necessary — explaining why a suggestion cannot
