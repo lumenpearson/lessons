@@ -4,12 +4,10 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **20 September 2026**. **PRs #63 through #67 are merged**; `main` is at
-`0957628` and `dev` is level with it. **The only thing open is this file's own pull
-request**, which corrects the `Stop` hook that #65 added and writes down two rules — where
-the close-out chain stops, and that a green pull request of this session's own work is
-merged without asking. Once it merges, `dev` is level with `main` again and the next batch
-starts from a clean one, and the SHA of that merge is for the next close-out to write.
+Last updated: **20 September 2026**. **PRs #63 through #68 are merged**; `main` is at
+`bc7a199`. **The only thing open is PR #69**, which carries this batch and the paragraph you
+are reading. Once it merges, `dev` is level with `main` again and the next batch starts from
+a clean one, and the SHA of that merge is for the next close-out to write.
 The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model has changed
 since, so none of them needed a migration**, which is the cheapest thing to check and the
 most expensive to get wrong.
@@ -22,6 +20,47 @@ real request on a real cold start, which is the one thing about it the branch co
 check before it merged. **It has not been re-read since, and did not need to be:** everything
 from #62 onwards touched no server code at all — Android, its tests, the build and the
 documents.
+
+## What the last session added: a crash report that its own phone can read
+
+One commit in `dev`, open as PR #69, in the milestone `v0.6.0`. It is the answer to a
+question that could not be answered: **«приложение вылетает через несколько секунд после
+привязки Telegram» — and there was no way to get the stack trace off the phone.**
+
+The switch that records crash reports has always been on «О приложении», where everybody can
+reach it. The two ways to *read* one were the administrator's — the bug button beside the
+toolbar's pill and the management page's own row. So anybody who is not an administrator
+could turn the feature on, crash, and then have nothing: the file is in the app's external
+files directory, which Android 11 stopped file managers from opening, and no screen they
+could reach would show it. On a Samsung, with no computer, that is a dead end.
+
+The row is now directly under the switch that writes the reports — the same row the
+management page had, moved to `ui/debug/DebugRow.kt` and shared rather than copied, with its
+strings losing the `admin_` prefix along with the gate. Two tests: one composes the row,
+presses it and asserts the sheet opens; the other reads `SettingsScreen.kt` and fails if the
+«О приложении» group stops calling it or starts gating it on the role, because a composition
+test cannot ask whether a row is on the page everybody has. Proven red against the code
+without the fix.
+
+**The crash itself is not fixed and not yet understood.** What was ruled out, by reading and
+by one throwaway Robolectric reproduction: the account section's composition survives the
+link landing under it (`Ready(unlinked)` → `Loading` → `Ready(linked, ADMIN)` →
+`isRefreshing` both ways); the exact-alarm path catches its `SecurityException` and asks
+`canScheduleExactAlarms()` first; nothing polls `/me`; and linking triggers no sync at all —
+`syncNow` has two callers, `SessionEffects` and the widget. So the sync whose state updates
+in the report is the periodic one, landing near the link by coincidence rather than because
+of it. The next step needs the stack trace this batch makes reachable.
+
+`./gradlew test assembleDebug assembleRelease` green: **738 tests across 96 classes**, up
+from 736 across 95.
+
+**What only the owner can do.** Install a build carrying this row — which on the current
+debug-signed APK means uninstalling first, and that takes the device's classes, token, diary
+session and corrections with it. And the reports stay off until the switch is on, by the
+earlier deliberate decision about what may land on disk: this batch changes who can read what
+is written, not when it is written.
+
+---
 
 ## What the last session added: the guide is fetched, and a debug-signed APK explained
 
@@ -295,7 +334,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 3 | `v0.3.0 — The school year` | #27, #32–#35, #43 |
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
-| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#67 |
+| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#69 |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -712,7 +751,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && python -m pytest -q -n auto                # 1465 tests, ~1.5 min
 cd server  && python -m mypy                             # clean, 81 modules
-cd android && ./gradlew test                             # 736 tests
+cd android && ./gradlew test                             # 738 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
