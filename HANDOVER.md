@@ -5,8 +5,11 @@ the moment of handover**, so that a new session — human or agent — continues
 place without reopening or redoing anything.
 
 Last updated: **20 September 2026**. **PRs #60 and #61 are both merged**; `main` is at
-`0143af4` and `dev` is level with it, carrying nothing of its own. **There is no open pull
-request and no branch with unmerged work on it** — the next batch starts from a clean `dev`.
+`0143af4`. **PR #62 is open, and `dev` carries three commits of its own**: the close-out of
+that batch in this file, and then two passes of one Android change — a line pinned to one
+line scrolls instead of ending in «…», and the blocks that were free to wrap stopped being
+capped at two. CI is green on `ea47bdd`, it is mergeable, and it is a draft because nobody
+has asked for it to be merged.
 The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model changed, so
 this batch needed no migration**, which is the cheapest thing in it to check and the most
 expensive to get wrong.
@@ -410,7 +413,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && python -m pytest -q -n auto                # 1465 tests, ~1.5 min
 cd server  && python -m mypy                             # clean, 81 modules
-cd android && ./gradlew test                             # 709 tests
+cd android && ./gradlew test                             # 718 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
