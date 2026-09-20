@@ -22,6 +22,10 @@ on:
         description: "versionName to stamp (blank = the value in build.gradle.kts)"
         type: string
         required: false
+      version_code:
+        description: "versionCode to stamp (blank = this run's number)"
+        type: string
+        required: false
   push:
     tags: ["v*"]
 
@@ -68,14 +72,23 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
 
       # A tag stamps its own version; a manual run may pass one; otherwise the
-      # build file's default stands. versionCode always advances with the run
-      # number so two APKs are never mistaken for each other.
+      # build file's default stands.
+      #
+      # versionCode defaults to the run number, which advances on its own so two
+      # APKs are never mistaken for each other — but it is only a default now.
+      # It used to be the whole rule, and it overrode `lessons.versionCode`
+      # without saying so anywhere: a number raised in build.gradle.kts was
+      # discarded, and the only visible version was the name, which Android does
+      # not compare. An explicit input wins, and it is validated, because a
+      # versionCode that is not a positive integer is a build failure several
+      # minutes in.
       - name: Resolve version
         id: version
         env:
           # Via env, never interpolated into the script: a workflow_dispatch
           # input is attacker-controlled text as far as the shell is concerned.
           INPUT_VERSION_NAME: ${{ inputs.version_name }}
+          INPUT_VERSION_CODE: ${{ inputs.version_code }}
         run: |
           if [ -n "$INPUT_VERSION_NAME" ]; then
             NAME="$INPUT_VERSION_NAME"
@@ -84,8 +97,23 @@ jobs:
           else
             NAME=""
           fi
+          if [ -n "$INPUT_VERSION_CODE" ]; then
+            case "$INPUT_VERSION_CODE" in
+              ''|*[!0-9]*)
+                echo "::error::version_code must be a positive whole number."
+                exit 1
+                ;;
+            esac
+            if [ "$INPUT_VERSION_CODE" -lt 1 ]; then
+              echo "::error::version_code must be a positive whole number."
+              exit 1
+            fi
+            CODE="$INPUT_VERSION_CODE"
+          else
+            CODE="${GITHUB_RUN_NUMBER}"
+          fi
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          echo "code=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
 
       - name: Decode keystore
         id: keystore
@@ -107,10 +135,13 @@ jobs:
           # alone. Name the alias secret KEYSTORE_ALIAS instead of KEY_ALIAS,
           # or leave KEY_PASSWORD unset trusting "the passwords are the same",
           # and `git push origin v0.2.0` published a debug-signed APK to a
-          # public release under a summary that called it signed. That key is
-          # the AGP default — same password, same certificate, on every machine
-          # on Earth — so anybody could then build an "update" Android would
-          # accept over the real app.
+          # public release under a summary that called it signed. The debug key
+          # is generated on the machine that builds and thrown away with it:
+          # the alias and passwords are constants, the key pair is not. So such
+          # a release can never be updated — by anybody, this project included,
+          # because nobody holds the key it was signed with — and its
+          # certificate says only `CN=Android Debug`, which is what every other
+          # debug build on Earth also says.
           missing=""
           [ -z "$KEYSTORE_PASSWORD" ] && missing="$missing KEYSTORE_PASSWORD"
           [ -z "$KEY_ALIAS" ] && missing="$missing KEY_ALIAS"
@@ -126,10 +157,10 @@ jobs:
       # A ::warning:: cannot fail a job, so an absent keystore fell through to
       # the debug key — and the publish step was gated on the tag alone. A tag
       # pushed before the secrets were configured would attach a debug-signed
-      # APK to a public release. That key is the AGP default: same password,
-      # same certificate, on every machine on Earth, so anyone could then build
-      # an "update" Android would accept over it. Checked before the build, so
-      # a misconfigured release fails in seconds rather than after eight
+      # APK to a public release: anonymous (`CN=Android Debug`, like every other
+      # debug build) and impossible to update, because the key that signed it
+      # was generated on that runner and died with it. Checked before the build,
+      # so a misconfigured release fails in seconds rather than after eight
       # minutes of compiling.
       - name: Refuse to publish an unsigned release
         if: github.ref_type == 'tag' && steps.keystore.outputs.signed != 'true'
@@ -212,7 +243,13 @@ jobs:
           # while the step that was written to be careful about it sat twenty
           # lines up.
           VERSION_NAME: ${{ steps.version.outputs.name }}
+          INPUT_VERSION_CODE: ${{ inputs.version_code }}
         run: |
+          if [ -n "$INPUT_VERSION_CODE" ]; then
+            CODE_SOURCE=" (given)"
+          else
+            CODE_SOURCE=" (this run's number)"
+          fi
           {
             echo "## APK"
             echo
@@ -220,7 +257,7 @@ jobs:
             echo "| --- | --- |"
             echo "| Build type | \`$INPUT_BUILD_TYPE\` |"
             echo "| versionName | \`${VERSION_NAME:-default from build.gradle.kts}\` |"
-            echo "| versionCode | \`${{ steps.version.outputs.code }}\` |"
+            echo "| versionCode | \`${{ steps.version.outputs.code }}\`$CODE_SOURCE |"
             echo "| APKs produced | ${{ steps.collect.outputs.count }} |"
             if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
               echo "| Signing | your release keystore |"
