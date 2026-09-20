@@ -56,3 +56,88 @@ internal data class IssueRequestDto(
 internal data class IssueResponseDto(
     @SerialName("html_url") val htmlUrl: String = "",
 )
+
+/**
+ * Response of `GET /repos/{owner}/{repo}`, read to find out whether a fork of
+ * *this* project exists yet.
+ *
+ * GitHub answers `POST /forks` with `202 Accepted` and creates the fork
+ * afterwards, so the repository polls this until it answers.
+ *
+ * **The body is read rather than only the status code**, and that is the whole
+ * point of the type. A reader may already own a repository called `lessons`
+ * that has nothing to do with this one — the name is not rare — and a check
+ * that stopped at `200` would take it for the fork, cut a branch in it and
+ * commit there. [fork] and [parent] are what tell the two apart.
+ */
+@Serializable
+internal data class RepositoryDto(
+    @SerialName("full_name") val fullName: String = "",
+    @SerialName("fork") val fork: Boolean = false,
+    @SerialName("parent") val parent: ParentDto? = null,
+)
+
+/** The repository a fork was made from; see [RepositoryDto]. */
+@Serializable
+internal data class ParentDto(
+    @SerialName("full_name") val fullName: String = "",
+)
+
+/** Response of `GET /repos/{owner}/{repo}/git/ref/{ref}`. */
+@Serializable
+internal data class RefDto(
+    @SerialName("object") val target: RefTargetDto = RefTargetDto(),
+)
+
+/** The commit a ref points at. */
+@Serializable
+internal data class RefTargetDto(
+    @SerialName("sha") val sha: String = "",
+)
+
+/** Body of `POST /repos/{owner}/{repo}/git/refs`. */
+@Serializable
+internal data class CreateRefRequestDto(
+    @SerialName("ref") val ref: String,
+    @SerialName("sha") val sha: String,
+)
+
+/**
+ * Response of `GET /repos/{owner}/{repo}/contents/{path}`.
+ *
+ * @property content the file, base64 with line breaks in it — GitHub wraps at
+ *   60 characters, and a decoder that is not told to ignore them returns
+ *   nothing.
+ * @property sha the blob's, which the update call has to quote back or GitHub
+ *   refuses the write as a lost update.
+ */
+@Serializable
+internal data class ContentsDto(
+    @SerialName("content") val content: String = "",
+    @SerialName("sha") val sha: String = "",
+)
+
+/** Body of `PUT /repos/{owner}/{repo}/contents/{path}`. */
+@Serializable
+internal data class UpdateContentsRequestDto(
+    @SerialName("message") val message: String,
+    @SerialName("content") val content: String,
+    @SerialName("sha") val sha: String,
+    @SerialName("branch") val branch: String,
+)
+
+/** Body of `POST /repos/{owner}/{repo}/pulls`. */
+@Serializable
+internal data class PullRequestRequestDto(
+    @SerialName("title") val title: String,
+    @SerialName("body") val body: String,
+    @SerialName("head") val head: String,
+    @SerialName("base") val base: String,
+    @SerialName("maintainer_can_modify") val maintainerCanModify: Boolean = true,
+)
+
+/** Response of the same: the page to open once the pull request exists. */
+@Serializable
+internal data class PullRequestResponseDto(
+    @SerialName("html_url") val htmlUrl: String = "",
+)

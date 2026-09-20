@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.EditNote
+import androidx.compose.material.icons.rounded.Login
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -13,10 +15,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupLinkItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupSwitchItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
+import com.lumenpearson.lessons.core.data.repository.GithubAccount
+import com.lumenpearson.lessons.core.data.repository.TranslationChange
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 
@@ -28,16 +33,57 @@ import com.lumenpearson.lessons.core.designsystem.theme.accentTone
  * the session sheet are opened from the text being corrected and from this row
  * respectively, and neither needs wiring anywhere else.
  */
-fun LazyListScope.translationRows() = item(key = "translation") { TranslationGroup() }
+internal fun LazyListScope.translationRows(
+    account: GithubAccount?,
+    canSignIn: Boolean,
+    onSignIn: () -> Unit,
+    submit: TranslationSubmit,
+    onSubmit: (List<TranslationChange>) -> Unit,
+    onAcknowledge: () -> Unit,
+) = item(key = "translation") {
+    TranslationGroup(account, canSignIn, onSignIn, submit, onSubmit, onAcknowledge)
+}
 
 @Composable
-private fun TranslationGroup() {
+private fun TranslationGroup(
+    account: GithubAccount?,
+    canSignIn: Boolean,
+    onSignIn: () -> Unit,
+    submit: TranslationSubmit,
+    onSubmit: (List<TranslationChange>) -> Unit,
+    onAcknowledge: () -> Unit,
+) {
     var showSession by remember { mutableStateOf(false) }
     val session = TranslationMode.session
 
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(title = correctedString(R.string.translation_group))
         RoundedCardContainer {
+            // The account sits above the switch rather than in the group about
+            // GitHub, because this is where it is needed and where a reader
+            // looking for it will be: the mode below produces corrections, and
+            // an account is what carries them anywhere. Essentials puts it in
+            // the same place for the same reason.
+            //
+            // Signing in is not required to *make* corrections — the mode, the
+            // editor and the session are local and work offline. It is required
+            // only to send them, and the button that sends them is the one that
+            // goes dark without it.
+            when {
+                account != null -> GroupItem(
+                    title = correctedString(R.string.settings_github_signed_in_as, account.login),
+                    subtitle = correctedString(R.string.translation_sign_in_description),
+                    icon = Icons.Rounded.Code,
+                    tone = accentTone(3),
+                )
+                canSignIn -> GroupLinkItem(
+                    title = correctedString(R.string.settings_github_sign_in),
+                    subtitle = correctedString(R.string.translation_sign_in_description),
+                    icon = Icons.Rounded.Login,
+                    tone = accentTone(3),
+                    onClick = onSignIn,
+                )
+            }
             // Read through [correctedString] like anything else, and not as a
             // joke: the switch that turns the mode on is the first row a
             // proofreader meets while the mode is on, so it had better be
@@ -67,6 +113,14 @@ private fun TranslationGroup() {
     }
 
     if (showSession) {
-        TranslationSessionSheet(onDismiss = { showSession = false })
+        TranslationSessionSheet(
+            onDismiss = {
+                showSession = false
+                onAcknowledge()
+            },
+            isSignedIn = account != null,
+            submit = submit,
+            onSubmit = onSubmit,
+        )
     }
 }

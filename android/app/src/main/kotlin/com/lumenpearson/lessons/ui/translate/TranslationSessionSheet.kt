@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Share
@@ -19,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
@@ -27,7 +29,9 @@ import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.repository.TranslationChange
 import com.lumenpearson.lessons.core.designsystem.component.GroupActionItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
@@ -49,13 +53,34 @@ import kotlinx.coroutines.launch
  * ready to be pasted into a `strings.xml` or dropped into a message by someone
  * who will paste it there.
  *
- * There is no "submit". Essentials posts its sessions to a discussion thread on
- * its own repository; this app has no such thread and no account of its own to
- * post with, and inventing one would be shipping a button whose failure mode is
- * silence.
+ * The third way is a pull request, opened from the reader's own GitHub account
+ * against this project. Essentials sends its sessions as a comment on a
+ * hard-coded discussion thread, which a workflow then turns into a pull request
+ * authored by Actions; the contributor survives only as the commit author. This
+ * does the plainer thing — the work arrives under the name of whoever did it —
+ * and it needs no thread, no workflow and no account of the app's own.
+ *
+ * **The button is dark while signed out rather than live and inert.** Essentials
+ * leaves it enabled and bounces the press to a sign-in prompt; a control that
+ * looks pressable and answers with nothing is the worse of the two.
+ *
+ * @param submit where an attempt has got to. Owned by the settings view model
+ *   rather than by this composition, because the sheet can be dismissed while
+ *   GitHub is still forking and the work must outlive it.
+ * @param onSubmit starts an attempt; it does not wait for one.
+ * @param onAcknowledge called when the sheet closes, so the outcome is forgotten
+ *   and opening the sheet again does not send the reader back to a pull request
+ *   they have already seen. Not called the moment the browser opens: the
+ *   message below the button is the only record the sheet keeps, and clearing
+ *   it there would make it flash and vanish.
  */
 @Composable
-internal fun TranslationSessionSheet(onDismiss: () -> Unit) {
+internal fun TranslationSessionSheet(
+    onDismiss: () -> Unit,
+    isSignedIn: Boolean,
+    submit: TranslationSubmit,
+    onSubmit: (List<TranslationChange>) -> Unit,
+) {
     // [NoCorrections] for the same reason the editor takes it: this sheet draws
     // the originals and the corrections themselves, so leaving the mode live
     // inside it would offer to correct a list of corrections.
@@ -64,13 +89,21 @@ internal fun TranslationSessionSheet(onDismiss: () -> Unit) {
             onDismissRequest = onDismiss,
             title = stringResource(R.string.translation_session_title),
         ) {
-            SessionContent()
+            SessionContent(
+                isSignedIn = isSignedIn,
+                submit = submit,
+                onSubmit = onSubmit,
+            )
         }
     }
 }
 
 @Composable
-private fun ColumnScope.SessionContent() {
+private fun ColumnScope.SessionContent(
+    isSignedIn: Boolean,
+    submit: TranslationSubmit,
+    onSubmit: (List<TranslationChange>) -> Unit,
+) {
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -131,6 +164,45 @@ private fun ColumnScope.SessionContent() {
             icon = Icons.Rounded.Share,
             onClick = { share(context, clipLabel, TranslationXml.fragment(edits)) },
         )
+        val submitLabel = stringResource(
+            if (isSignedIn) R.string.translation_submit else R.string.translation_submit_signed_out,
+        )
+        val sending = submit is TranslationSubmit.Sending
+        GroupActionItem(
+            label = submitLabel,
+            icon = Icons.Rounded.CloudUpload,
+            enabled = isSignedIn && edits.isNotEmpty() && !sending,
+            busy = sending,
+            onClick = { onSubmit(edits.map(TranslationEdit::toChange)) },
+        )
+        val message = when (submit) {
+            is TranslationSubmit.Opened -> {
+                val opened = stringResource(R.string.translation_submit_opened)
+                if (submit.refused.isEmpty()) {
+                    opened
+                } else {
+                    opened + " · " + stringResource(
+                        R.string.translation_submit_refused,
+                        submit.refused.joinToString(),
+                    )
+                }
+            }
+            TranslationSubmit.Failed -> stringResource(R.string.translation_submit_failed)
+            else -> null
+        }
+        // The browser is opened from here rather than from the view model,
+        // which has no activity to open it with, and keyed on the URL so that
+        // recomposing the sheet does not open it again.
+        if (submit is TranslationSubmit.Opened) {
+            LaunchedEffect(submit.htmlUrl) { open(context, submit.htmlUrl) }
+        }
+        if (message != null) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
         GroupItem(
             title = stringResource(R.string.translation_session_clear),
             icon = Icons.Rounded.DeleteSweep,
@@ -159,4 +231,23 @@ private fun share(context: Context, subject: String, fragment: String) {
         }
         context.startActivity(Intent.createChooser(intent, null))
     }
+}
+
+/** A session edit, addressed to the file its key's prefix points at. */
+private fun TranslationEdit.toChange(): TranslationChange = TranslationChange(
+    path = TranslationXml.valuesFolder(key, locale) + "/strings.xml",
+    key = key,
+    body = TranslationXml.escape(corrected),
+)
+
+/**
+ * Opens the pull request that was just made.
+ *
+ * Wrapped because a device with no browser throws, and the pull request exists
+ * either way: the message above already says so, and losing the app over the
+ * last step of a successful errand would be the worst possible ending to it.
+ */
+private fun open(context: Context, url: String) {
+    val intent = Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }
 }

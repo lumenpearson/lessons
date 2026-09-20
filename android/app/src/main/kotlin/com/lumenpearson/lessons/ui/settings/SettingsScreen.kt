@@ -339,6 +339,7 @@ fun SettingsSectionScreen(
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val submitState by viewModel.translationSubmit.collectAsStateWithLifecycle()
     var showServerSheet by rememberSaveable { mutableStateOf(false) }
     var showSignOutSheet by rememberSaveable { mutableStateOf(false) }
     var showUnlinkSheet by rememberSaveable { mutableStateOf(false) }
@@ -464,10 +465,6 @@ fun SettingsSectionScreen(
                     state = state,
                     viewModel = viewModel,
                     onReportBug = { sheets.bugReport = true },
-                    onSignIn = {
-                        sheets.signIn = true
-                        viewModel.signInWithGithub()
-                    },
                     onShowLicenses = { sheets.licenses = true },
                 )
                 // Last on the page about the app itself, below the licences and
@@ -475,7 +472,17 @@ fun SettingsSectionScreen(
                 // errand as reporting a typo, and a mode that changes what a
                 // long press does everywhere should not sit where somebody
                 // reaches by accident.
-                translationRows()
+                translationRows(
+                    account = state.github,
+                    canSignIn = state.githubConfigured,
+                    onSignIn = {
+                        sheets.signIn = true
+                        viewModel.signInWithGithub()
+                    },
+                    submit = submitState,
+                    onSubmit = viewModel::submitCorrections,
+                    onAcknowledge = viewModel::acknowledgeSubmission,
+                )
             }
             SettingsSection.ADMIN -> adminRows(
                 role = state.deviceLink.role,
