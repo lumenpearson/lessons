@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "updated": "2026-09-20",
+  "appVersion": "0.6.0",
+  "files": {
+    "ru": "guide.ru.md",
+    "en": "guide.en.md"
+  }
+}
