@@ -4,24 +4,108 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **20 September 2026**. **PRs #60 and #61 are both merged**; `main` is at
-`0143af4`. **PR #62 is open, and `dev` carries three commits of its own**: the close-out of
-that batch in this file, and then two passes of one Android change — a line pinned to one
-line scrolls instead of ending in «…», and the blocks that were free to wrap stopped being
-capped at two. CI is green on `ea47bdd`, it is mergeable, and it is a draft because nobody
-has asked for it to be merged.
-The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model changed, so
-this batch needed no migration**, which is the cheapest thing in it to check and the most
-expensive to get wrong.
+Last updated: **20 September 2026**. **PRs #60, #61 and #62 are all merged**; `main` is at
+`f13d60e`. **The only thing open is this file's own pull request**, which carries the
+close-out you are reading and nothing else; once it merges, `dev` is level with `main` again
+and the next batch starts from a clean one.
+The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model changed in
+any of the three, so not one of them needed a migration**, which is the cheapest thing to
+check and the most expensive to get wrong.
 
-Production was read after the merge rather than assumed, and again after #61:
-`/api/v1/health` answers `{"status":"ok","api_version":1}` and `/api/v1/warmup` — which
-opens a real connection, so it answers for the database as well as the code — answers
+Production was read after #60 and again after #61, rather than assumed: `/api/v1/health`
+answers `{"status":"ok","api_version":1}` and `/api/v1/warmup` — which opens a real
+connection, so it answers for the database as well as the code — answers
 `{"status":"ok","api_version":1,"schema":"0013"}`. That is the dishka container serving a
 real request on a real cold start, which is the one thing about it the branch could not
-check before it merged, and the schema at the head this batch expected.
+check before it merged. **It was not re-read after #62, and did not need to be:** that batch
+touched no server code at all — Android, its tests, and documents.
 
-## What the last session added on top of the audit
+## What the last session added: nothing on a screen is cut off
+
+Five commits in `dev`, merged as PR #62 (`f13d60e`), in the milestone `v0.6.0`. Three pieces,
+and the second and third are consequences of the first rather than separate work.
+
+**A line that does not fit now scrolls instead of ending in «…».** «По этому предмету ничего
+не задано» was drawn as «По этому предмету ничего н…» in a sheet with a screenful of room
+under it. The app already had the better answer in one place — the segmented picker's labels
+scroll and fade at both ends, because on a picker the whole word *is* the button — and that
+behaviour is `MarqueeText` in `:core:designsystem` now, on 21 call sites. It measures the
+string against the width the box actually has before deciding, because the layout cannot be
+asked: `basicMarquee` hands the text unbounded width, so the node never reports overflow and
+`onTextLayout` answers `false` for ever. A label that fits is left exactly as it was.
+
+**The nine blocks that cannot scroll stopped being capped instead.** A `maxLines = 2` block
+has no single line to move sideways, and stopping there would have left the ellipsis
+standing — only the shape of the answer had to change. Every one of the nine sits inside
+something that scrolls, so the cap is simply gone: a sheet heading, a screen header and its
+subtitle, the supporting line of both row shapes, `RowText`'s subtitle, a lesson's hand-typed
+note, the hero card's detail. The row grows and nothing is lost. The one with least excuse
+was `TimetableSheet`, which echoes the lines the parser refused so the typo in them can be
+found and was cutting them at two. `TimelineBlock` on the week ruler went the other way: its
+height *is* the lesson's duration, floored at 30 dp, so it is the one block in the app that
+genuinely cannot grow, and its title marquees.
+
+**Then the test found a silent clip nobody was looking for.** A bare `maxLines = 1` with no
+`overflow` does not ellipsize — it clips, with nothing to show that anything was cut, which
+is the same refusal with the warning removed. The hero card's countdown row had one: the row
+wraps its content and shares no weight, so at a large font scale the number takes the width
+and «до конца» loses its end in silence. That label marquees with a weight now. The countdown
+beside it deliberately does not — it is rebuilt every tick, so a marquee would be handed a
+new string each second and restart from the left for ever.
+
+`NoEllipsisedLineTest` holds all of it, and it reads **every** module rather than the one it
+lives in — the same correction `ResourceTranslationTest` once needed, for the same reason. It
+refuses any `TextOverflow.Ellipsis` and any bare `maxLines = 1`, with one opt-out: a `//`
+line saying why, which six places carry. Proven red twice, and the second time against real
+code rather than a planted fault — the comment explaining one cap sat above the `Text(`
+instead of above the cap itself.
+
+**Three documents said 709 Android tests across 90 classes; the suite is 718 across 92.**
+The README's «Honest status» table, this file's command cheat-sheet and
+`docs/architecture.md` are corrected. A fourth mention is deliberately left standing: this
+file records the gates «on the whole tree at `d330d68`, the last commit before the merge»,
+and at that commit there really were 709 across 90. Rewriting it to today's number would
+turn a true record of a named commit into a false one.
+
+**Every pull request now carries a milestone, and the rule is written down.** Sixty-two had
+gone in without one, and they have one only because somebody went back and did it by hand.
+There are no issues in this repository — not one has ever been opened — so the milestones are
+the only grouping its history has. Seven exist and they are **retrospective**: the boundaries
+were read off the history rather than declared, and nothing here has ever been tagged or
+released, so `versionName` is still the `0.1.0` default.
+
+| # | Milestone | Covers |
+| --- | --- | --- |
+| 1 | `v0.1.0 — First run on a phone` | #1–#14 |
+| 2 | `v0.2.0 — The diary, and the class run from the bot` | #15–#17, #28–#31 |
+| 3 | `v0.3.0 — The school year` | #27, #32–#35, #43 |
+| 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
+| 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
+| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#62 |
+| 7 | `Dependencies` | every dependabot bump; deliberately not a version |
+
+**What that rule had to record is what a session cannot do.** Nothing here creates a
+milestone or even lists one — no tool, no `gh` CLI, and `issue_write` accepts only a number
+that already exists. So when none fits, ask the owner with the title and the description
+already written, rather than inventing a version or leaving the pull request bare. Two traps
+are written down beside it: a milestone's number can be read back by assigning it and
+searching `milestone:"<title>"`, whose result embeds the milestone object; and GitHub's
+search index lags the write by up to a minute, so `is:pr no:milestone` reported two bare
+pull requests that already carried one. The procedure is in the `github-pr` skill, with a
+pointing line each in `CLAUDE.md` and `AGENTS.md`.
+
+**Deliberately left alone.** `:widget` is outside the no-ellipsis rule and cannot be brought
+in: Glance has no `TextOverflow` at all, and no marquee either, because RemoteViews has no
+frame loop and a widget cannot animate anything. `WidgetStrings.ellipsize` writes the «…»
+into the string by hand because the platform leaves no other answer, and the test says so
+where it excludes the module rather than letting a vacuous pass look like coverage.
+`.github/copilot-instructions.md` did not get the milestone rule: it is short on purpose
+because it is read on every request, and every line in it is about what not to suggest
+inside code.
+
+---
+
+## What the session before it added, on top of the audit
 
 Twenty-five commits after `13348d5`, in five pieces. The first two finished the audit batch;
 the last three are things that batch left behind, and one of them was found by re-reading
@@ -400,7 +484,8 @@ turn empty by themselves.
 ### How to continue
 
 `dev` remains the working branch, but after a merge it is restarted from `main`: a merged
-pull request accepts no new commits, and the whole history of #45 is in `main`.
+pull request accepts no new commits, and every branch that has been merged — #45 through
+#62 — is in `main` already.
 
 ```bash
 git fetch origin
@@ -818,6 +903,18 @@ else.**
 - **Not one server-side fix has been run against a live class.** `claim` is verified by
   claiming twice on one date, but nobody has run two ticks at once; the export's round trip
   is verified by computing both sides, which is all it claims.
+
+- **Nothing from the last batch has been seen moving, or wrapping.** Robolectric composes
+  the marquee but advances no animation and reads no frame, so what is proven is that a line
+  which fits is laid out exactly as before, that a line which does not stays inside its box
+  rather than pushing the row apart, and that the whole string is present either way. That it
+  actually scrolls — and reads well doing so — needs the APK. The same for the other
+  direction: nobody has seen what an uncapped block does with a long string. **A five-line
+  lesson note now makes a five-line row**, and whether an uncapped heading pushes a sheet's
+  first control too far down is a question only a screen can answer.
+- **The fade widths are chosen, not measured.** 8 dp at each end, narrower on a segment
+  because a segment is narrow; nobody has looked at them beside the Essentials original they
+  came from.
 
 **The most useful next action is to install the APK on a phone and live with it for one
 school day.** After that the only questions left are about runtime and layout, and those are
@@ -1357,7 +1454,23 @@ has a Cyrillic identifier: Kotlin has none at all.
 
 All of this is beyond an agent's reach: it needs a phone, a key or a live service.
 
-**Two of them are decisions rather than actions**, both from the second audit, both
+**One of them is a click, and it is the newest.** Milestones 1 to 5 cover versions that are
+finished, and they are still **open**. Closing them is not something a session here can do:
+no tool changes a milestone's state — `issue_write` only assigns an existing one by number —
+and there is no `gh` CLI. One loop does all five, and the state can be read back afterwards
+from the milestone object a `milestone:"<title>"` search embeds:
+
+```bash
+for n in 1 2 3 4 5; do
+  gh api --method PATCH repos/lumenpearson/lessons/milestones/$n \
+    -f state=closed --jq '"\(.number)\t\(.state)\t\(.title)"'
+done
+```
+
+`v0.6.0` and `Dependencies` stay open on purpose: the first is the version being worked on,
+the second takes every future bump.
+
+**Two more are decisions rather than actions**, both from the second audit, both
 deliberately not taken by the session that found them because they trade one real cost
 against another and the trade is the owner's to make.
 
