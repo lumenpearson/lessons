@@ -11,7 +11,7 @@ import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.lumenpearson.lessons.R
@@ -53,7 +53,14 @@ private fun TranslationGroup(
     onSubmit: (List<TranslationChange>) -> Unit,
     onAcknowledge: () -> Unit,
 ) {
-    var showSession by remember { mutableStateOf(false) }
+    // Saveable, not remembered, and this one carries more than the reader's
+    // place in a list. [TranslationSessionSheet.onAcknowledge] is what forgets
+    // a finished pull request, and it runs when the sheet is *dismissed* — a
+    // swipe, the scrim, the back gesture. A rotation is none of those: held in
+    // a plain `remember` the sheet went away without anybody being told, the
+    // outcome stayed `Opened` in the view model, and the next press on this row
+    // opened the pull request in a browser all over again.
+    var showSession by rememberSaveable { mutableStateOf(false) }
     val session = TranslationMode.session
 
     Column(modifier = Modifier.fillMaxWidth()) {

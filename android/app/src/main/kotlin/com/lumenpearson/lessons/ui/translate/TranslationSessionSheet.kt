@@ -21,7 +21,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -191,10 +195,9 @@ private fun ColumnScope.SessionContent(
             else -> null
         }
         // The browser is opened from here rather than from the view model,
-        // which has no activity to open it with, and keyed on the URL so that
-        // recomposing the sheet does not open it again.
+        // which has no activity to open it with.
         if (submit is TranslationSubmit.Opened) {
-            LaunchedEffect(submit.htmlUrl) { open(context, submit.htmlUrl) }
+            OpenOnce(submit.htmlUrl) { open(context, it) }
         }
         if (message != null) {
             Text(
@@ -211,6 +214,35 @@ private fun ColumnScope.SessionContent(
         )
     }
     Spacer(Modifier.height(8.dp))
+}
+
+/**
+ * Hands [url] to a browser, once per URL, whatever happens to the composition.
+ *
+ * A `LaunchedEffect(url)` alone was not that, and the difference is a rotation.
+ * The key stops a *recomposition* re-running the effect; it does nothing about
+ * the composition being torn down and built again, which is exactly what a
+ * configuration change is — and the outcome it reads lives in the settings view
+ * model, which survives one. So a reader who sent their corrections, watched
+ * the pull request open and then turned their phone had it opened again, with
+ * nothing on screen explaining why.
+ *
+ * The latch is therefore [rememberSaveable] rather than a `remember`: it has to
+ * be restored by the same event that rebuilds the effect. It is the URL and not
+ * a flag so that a second, genuinely new pull request still opens.
+ *
+ * `internal` so the rotation can be reproduced without a GitHub account: the
+ * sheet around it cannot be, and this is the whole of the rule.
+ */
+@Composable
+internal fun OpenOnce(url: String, open: (String) -> Unit) {
+    var opened by rememberSaveable { mutableStateOf<String?>(null) }
+    if (url != opened) {
+        LaunchedEffect(url) {
+            open(url)
+            opened = url
+        }
+    }
 }
 
 /**
