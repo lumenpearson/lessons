@@ -98,6 +98,17 @@ there is not a third. **The first press should be the owner's, not a reader's.**
 been pressed on a device either: the row, the dark button, the spinner and the message after
 it are laid out by code and seen by nobody.
 
+**Updating this file is now a written rule rather than a request.** It had to be asked for
+twice — once after #62 and once after #64 — and each time a batch had been called done while
+the document a new session starts from still described the batch before it. The trigger is
+the merge, and it is written in `CLAUDE.md`, in `AGENTS.md`, in the `handover` skill (which
+also lists what goes stale mechanically, because reconstructing that list by hand is most of
+the work) and in `github-pr`'s new «After it merges» section. `/where-are-we` now compares
+the document's claimed state against the commits and says when it is behind. And a second
+hook, `.claude/hooks/handover-behind.sh`, says one sentence on `Stop` when a merge commit is
+newer than the last commit touching this file — which is true only in the window after a
+merge and before the close-out, and stops being true the moment the file is committed.
+
 **Deliberately left alone.** Milestone 6's description on GitHub still reads «PRs #60–#62»
 though it now holds #63 and #64 as well — no tool here edits a milestone, so that is the
 owner's line to change. The update check stays anonymous: it asks GitHub for the latest
@@ -1468,10 +1479,11 @@ so as not to retell `CLAUDE.md` but to describe the shape: who owns what, which 
 real, and which commands are never run from a session.
 
 ```
-.claude/settings.json   permissions, one hook, the marketplace this project knows about
+.claude/settings.json   permissions, two hooks, the marketplace this project knows about
 .claude/agents/         eighteen agents by area
 .claude/skills/         nine procedures
 .claude/commands/       /where-are-we and /pre-push
+.claude/hooks/          the one hook too long to live inline
 .claude/README.md       what is here and what is deliberately absent
 AGENTS.md               a pointer for agents that read something other than `CLAUDE.md`
 .github/copilot-instructions.md   a short file: it is read on every request
@@ -1489,10 +1501,14 @@ Three things in `settings.json` worth knowing:
 * **`deny` compares the start of the command string.** `DATABASE_URL=… .venv/bin/alembic
   upgrade head` walks past the `alembic upgrade *` rule. Those are guard rails, not a fence;
   the reason not to run it by hand is in `skills/migration/SKILL.md`.
-* **There is exactly one hook**, and it only prints: on a write to any module's
-  `values/strings*.xml` it mentions the twin in `values-en/`. A committed hook runs on the
-  machine of everybody who cloned the repository — which is why there is one and why it
-  cannot fail.
+* **There are two hooks and both only print.** On a write to any module's
+  `values/strings*.xml`, the first mentions the twin in `values-en/`. The second,
+  `hooks/handover-behind.sh`, runs on `Stop` and speaks only when a merge commit on `HEAD`
+  is newer than the last commit touching `HANDOVER.md` — a state that exists only after a
+  pull request has merged and `dev` has been fast-forwarded onto it, which is exactly when
+  the close-out is the work that is left. A committed hook runs on the machine of everybody
+  who cloned the repository, which is why both are this small and why neither can fail:
+  each exits quietly on anything unexpected.
 * **`extraKnownMarketplaces` registers `anthropics/skills`**, but no plugin is enabled:
   enabling one is a decision for everybody who clones the repository, not for the session
   that added the file.

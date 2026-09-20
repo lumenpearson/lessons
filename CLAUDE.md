@@ -448,7 +448,16 @@ points Hilt does not inject cleanly.
 - **`HANDOVER.md` at the root says where the work stands** — the branches, what the last
   session finished, what it deliberately left alone and what nothing has verified. It is
   working state, not part of `docs/`, so it is stale the moment it stops being updated:
-  re-check the PR and CI before trusting it, and update it when you finish a batch.
+  re-check the PR and CI before trusting it.
+- **Updating it is the last step of every batch, and nobody should have to ask for it.** The
+  trigger is the merge: once a pull request is in `main`, that batch is not finished until
+  this file describes it. It has had to be asked for twice, and each time a batch had been
+  reported as done while the one document the next session starts from still described the
+  batch before. If the batch's own pull request has already merged, the update is its own
+  commit and its own pull request — with a milestone, like every other. What drifts every
+  time, and is not a judgement call, is listed in the `handover` skill: the opening
+  paragraph, the chain of batch sections, the milestone table, the test counts in their
+  three places, and sections 5 and 7.
 - **`.claude/` holds the agent configuration, and it describes the shape rather than
   repeating this file.** `.claude/agents/` has one agent per area that has produced a defect
   here, carrying the fact that would have prevented it; `.claude/skills/` has the procedures

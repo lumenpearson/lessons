@@ -20,6 +20,11 @@ allowed-tools: Bash(git status *) Bash(git log *) Bash(git branch *) Bash(head *
 `HANDOVER.md` is stale the moment it stops being updated, and another agent may be working
 in this tree — so treat the text above as a claim, not as fact.
 
+**Check whether it is behind.** Compare the SHA the document says `main` is at, and the pull
+requests it calls merged, against the commits above. If work has landed since it was last
+written, say so in the first line and offer to update it — that is the commonest thing this
+command finds, and the document is what the next session starts from.
+
 Tell the user, in three or four lines:
 
 1. Which branch this is and whether anything is uncommitted that you did not write.
