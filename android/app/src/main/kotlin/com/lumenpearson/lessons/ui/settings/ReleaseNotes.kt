@@ -25,7 +25,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.MarkupStyles
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.rememberMarkupStyles
 
 /**
  * A GitHub release body, rendered.
@@ -45,27 +47,8 @@ import com.lumenpearson.lessons.core.designsystem.text.correctedString
 fun ReleaseNotes(markdown: String, modifier: Modifier = Modifier) {
     val blocks = remember(markdown) { parseReleaseNotes(markdown) }
     val scheme = MaterialTheme.colorScheme
-    // Keyed on the two colours it reads rather than on the scheme: ColorScheme
-    // has no value equality, so the scheme itself would rebuild the styles on
-    // every recomposition.
-    val styles = remember(scheme.primary, scheme.surfaceContainer) {
-        InlineStyles(
-            bold = SpanStyle(fontWeight = FontWeight.Bold),
-            // The page colour, not a "highest" surface. The notes sit on a
-            // surfaceBright card, and the tonal step just above that is
-            // invisible in a dark scheme. A hole through which the page shows
-            // is the same trick the 2 dp gaps between rows play, and it reads
-            // in both schemes.
-            code = SpanStyle(fontFamily = FontFamily.Monospace, background = scheme.surfaceContainer),
-            link = TextLinkStyles(
-                style = SpanStyle(
-                    color = scheme.primary,
-                    fontWeight = FontWeight.Medium,
-                    textDecoration = TextDecoration.Underline,
-                ),
-            ),
-        )
-    }
+    // Shared with the guide, which draws the same three marks; see MarkupStyles.
+    val styles = rememberMarkupStyles()
     val changelogLabel = correctedString(R.string.update_notes_full_changelog)
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -126,14 +109,6 @@ private fun BulletRow(text: AnnotatedString) {
     }
 }
 
-/** The three inline spans, resolved once against the theme. */
-@Immutable
-private class InlineStyles(
-    val bold: SpanStyle,
-    val code: SpanStyle,
-    val link: TextLinkStyles,
-)
-
 /**
  * One line with its `**bold**`, `` `code` ``, `[text](url)` and bare URLs applied.
  *
@@ -141,7 +116,7 @@ private class InlineStyles(
  * a release note nests deeper than that, and a tokenizer that does not recurse
  * cannot be made to loop by a stray asterisk.
  */
-private fun inlineText(text: String, styles: InlineStyles): AnnotatedString = buildAnnotatedString {
+private fun inlineText(text: String, styles: MarkupStyles): AnnotatedString = buildAnnotatedString {
     var cursor = 0
     for (match in InlineMarkup.findAll(text)) {
         append(text.substring(cursor, match.range.first))

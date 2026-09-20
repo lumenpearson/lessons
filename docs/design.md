@@ -1164,8 +1164,10 @@ same shape as every other. A list of identical rows is therefore already optimal
 nothing from the annotation; what gains is a list of *different* shapes, where a one-line
 paragraph is otherwise handed the slot a card of eight rows has just vacated and the whole
 subtree is discarded and rebuilt. Of this app's lazy lists exactly one is that shape —
-`DocsScreen`, whose longest page is forty-seven blocks in four kinds — and that is the one that
-now names them. The rest were left alone on purpose: `contentType` on a list of one-off items
+`DocsScreen`, whose pages mix four kinds of block — and that is the one that now names them.
+(Its pages were written in Kotlin then; they are markdown fetched from the repository now, and
+the longest is eleven blocks. The annotation matters for the same reason, and the parsed blocks
+are the same four kinds.) The rest were left alone on purpose: `contentType` on a list of one-off items
 is a line of code that buys nothing, and `WeekScreen`'s strip of day tiles is homogeneous, which
 is the case the default already handles.
 

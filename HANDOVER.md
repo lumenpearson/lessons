@@ -4,23 +4,107 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **20 September 2026**. **PRs #63, #64 and #65 are merged**; `main` is at
-`b1dffb6` and `dev` is level with it. **The only thing open is this file's own pull
-request**, which carries the paragraph you are reading and nothing else; once it merges,
-`dev` is level with `main` again and the next batch starts from a clean one.
-The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model changed in
-either, so neither needed a migration**, which is the cheapest thing to check and the most
-expensive to get wrong.
+Last updated: **20 September 2026**. **PRs #63 through #66 are merged**; `main` is at
+`51aff53`. **The only thing open is PR #67**, which carries this batch and the paragraph you
+are reading; once it merges, `dev` is level with `main` again and the next batch starts from
+a clean one.
+The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model has changed
+since, so none of them needed a migration**, which is the cheapest thing to check and the
+most expensive to get wrong.
 
 Production was read after #60 and again after #61, rather than assumed: `/api/v1/health`
 answers `{"status":"ok","api_version":1}` and `/api/v1/warmup` — which opens a real
 connection, so it answers for the database as well as the code — answers
 `{"status":"ok","api_version":1,"schema":"0013"}`. That is the dishka container serving a
 real request on a real cold start, which is the one thing about it the branch could not
-check before it merged. **It has not been re-read since, and did not need to be:** #62, #63
-and #64 touched no server code at all — Android, its tests, and documents.
+check before it merged. **It has not been re-read since, and did not need to be:** everything
+from #62 onwards touched no server code at all — Android, its tests, the build and the
+documents.
 
-## What the last session added: a correction goes out as a pull request from the reader's own account
+## What the last session added: the guide is fetched, and a debug-signed APK explained
+
+Three commits in `dev`, open as PR #67, in the milestone `v0.6.0`. Two unrelated things
+that arrived in one batch because the first was a question about the second's build.
+
+**Installing 0.6.0 over an older build failed, and the repository was wrong about why.**
+«Приложение не установлено», after offering to update, with the version raised. The cause is
+that **the debug keystore is generated on the machine that builds and thrown away with it**:
+the alias and both passwords are constants, the key pair is not, a runner is a fresh machine
+every run, and the Gradle cache covers `~/.gradle` rather than `~/.android`. So every APK run
+signs with a certificate that has never existed before, and Android compares the certificate
+before it looks at any version. Measured rather than reasoned — the APK from run 15 carries
+`CN=Android Debug` with `validFrom` two minutes into that run's own build step.
+
+Two statements in this repository said otherwise. `docs/build.md` said the debug key "is the
+same for everybody"; `apk.yml` said twice it is "the same certificate on every machine on
+Earth, so anybody could then build an update Android would accept". **Nobody can** — the key
+is gone, which is the real cost, because that includes whoever published it. The second real
+cost is authorship: `CN=Android Debug` is what every debug build says. The gate that refuses
+to publish an unsigned release is unchanged; only its reason is. `docs/build.md` now has the
+section a reader meets this in, including that the only cures are an uninstall — which takes
+the device's classes, token, diary session and corrections with it — or the four secrets.
+
+**`apk.yml` also discarded any `versionCode` it was given**, overriding it with the run
+number and offering no input for it. There is a `version_code` input now; blank still means
+the run number, and it is validated before anything else runs — empty, `0`, `-3`, `1.2`,
+`abc`, `"12 34"` and a command substitution are all refused rather than evaluated.
+
+**The in-app guide stopped being 103 string resources.** It is two markdown files in
+`docs/app/` — `guide.ru.md`, the source, `guide.en.md`, its translation — plus a manifest
+naming the documentation's version and the app version it describes. The app fetches them
+from `raw.githubusercontent.com`, stores them in its own files, and falls back to the copy in
+its assets; `docs/app/` **is** `:core:data`'s asset folder rather than a copy of it, so the
+bytes in the APK are the bytes in the repository. Verified by listing the assets of both
+built APKs.
+
+The format is a deliberately small subset — `##` a page with its metadata comment, `-` a
+list, `1.` with a bold lead a step, `>` an aside, and `**bold**`, `` `code` ``, `[text](url)`
+inside a line. **The parser never throws**: an HTML error page, a JSON body or a truncated
+file parses to no pages, and the repository keeps what it already had rather than replacing a
+working guide with an empty screen.
+
+**Every page now states which documentation it is** — version, date, and the app version it
+was written for — and adds a second line only when there is something to say about the copy:
+no network, an answer that was not a guide, or the copy the app shipped with.
+
+**The sections stopped being screens.** They are peers, so they are a `HorizontalPager`
+swiped like the three home tabs, and the toolbar scrolls it rather than pushing a screen.
+Back therefore has one meaning here, which is what the arrow beside the pill does: leave the
+documentation. `DocsHistory`, the page enum and the depth-per-section that existed to animate
+pushes between peers are gone. Pull to refresh uses `LessonsPullToRefreshBox`, the same
+expressive loader the two other refreshing screens use, and it shows while the automatic
+check runs as the guide opens.
+
+**One defect found by re-reading the diff rather than by a test.** `storedOrBundled`
+preferred a fetched copy over the bundled one unconditionally, so a phone that fetched
+version 3 a year ago and then installed an APK carrying version 5 would have been shown the
+**older** guide — offline, for as long as the network stayed down, which is exactly the case
+the fallback exists for. The rule is a named function of two numbers now, `preferStoredCopy`,
+and it is tested; proven red against the code without the fix.
+
+**What it gives up, and it is a real cost.** The guide's text is no longer a resource, so
+correction mode cannot touch it and `ResourceTranslationTest` no longer guards it. A wrong
+sentence in the documentation is now a pull request against `docs/app/` — the same place the
+app reads it from. `DocsGuideParityTest` took over what could be kept: both languages parse to
+the same pages, in the same order, with the same ids, from the same blocks, with no list of
+one point, no step numbered out of sequence and no paragraph written twice. It reads the
+shipped files rather than a fixture.
+
+`./gradlew test assembleDebug assembleRelease` green: **736 tests across 95 classes**, up
+from 725 across 93. The README, `docs/architecture.md` and this file's cheat-sheet carry that
+number; `architecture.md` gained the section describing the pipeline and `design.md`'s line
+about the documentation's longest page is corrected.
+
+**What nothing has verified.** Not one line of the fetch has run against GitHub — the parser,
+the parity of the two files and the choice between two stored copies are tested, the network
+path is written and never executed, exactly like the translation flow in #64. Nothing has
+been pressed on a device: the pager, the loader, the banner and the arrow are laid out by
+code and seen by nobody. The bundled assets are proven only by the APK's contents, because
+`:core:data`'s tests have no `Context`. And the new `version_code` input has never been run.
+
+---
+
+## What the session before it added: a correction goes out as a pull request
 
 Three commits in `dev`, merged as PR #64 (`e4361a0`), in the milestone `v0.6.0`. Before them,
 PR #63 (`ec0d976`) carried the previous batch's close-out in this file and nothing else, and
@@ -126,7 +210,7 @@ from everybody who never signs in.
 
 ---
 
-## What the session before it added: nothing on a screen is cut off
+## And before that: nothing on a screen is cut off
 
 Five commits in `dev`, merged as PR #62 (`f13d60e`), in the milestone `v0.6.0`. Three pieces,
 and the second and third are consequences of the first rather than separate work.
@@ -187,7 +271,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 3 | `v0.3.0 — The school year` | #27, #32–#35, #43 |
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
-| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#66 |
+| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#67 |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -211,7 +295,7 @@ inside code.
 
 ---
 
-## And the session before that, on top of the audit
+## Earlier still, on top of the audit
 
 Twenty-five commits after `13348d5`, in five pieces. The first two finished the audit batch;
 the last three are things that batch left behind, and one of them was found by re-reading
@@ -591,7 +675,7 @@ turn empty by themselves.
 
 `dev` remains the working branch, but after a merge it is restarted from `main`: a merged
 pull request accepts no new commits, and every branch that has been merged — #45 through
-#66 — is in `main` already.
+#66 — is in `main` already, and #67 is the one still open.
 
 ```bash
 git fetch origin
@@ -604,7 +688,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && python -m pytest -q -n auto                # 1465 tests, ~1.5 min
 cd server  && python -m mypy                             # clean, 81 modules
-cd android && ./gradlew test                             # 725 tests
+cd android && ./gradlew test                             # 736 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
@@ -1030,6 +1114,13 @@ else.**
   branch cut from a stale fork, the owner's own 422 — were reasoned about, not observed.
   **The first press should be the owner's**, because the first press is also the first test.
 
+- **The guide has never been fetched.** The parser, the two languages' parity and the choice
+  between a stored and a bundled copy are tested; the four steps between the app and
+  `raw.githubusercontent.com` are written and have never run. Nor has the bundled fallback
+  been read at runtime — the assets are proven only by listing the built APK, because
+  `:core:data`'s tests have no `Context`. The pager, the loader on the guide, the banner
+  naming its version and the arrow that leaves it have been seen by nobody.
+
 **The most useful next action is to install the APK on a phone and live with it for one
 school day.** After that the only questions left are about runtime and layout, and those are
 invisible from anywhere except a real screen.
@@ -1262,6 +1353,27 @@ would have been pointless.
 And one line without which all of this quietly ceases to exist: `MainActivity` wraps the app
 in `CorrectionHost`. Without it everything builds and draws, and the default implementation
 does nothing. That is in a test too.
+
+### The guide is fetched, and a debug-signed APK is not an update of another one
+
+Two things about builds and documents that cost an afternoon each:
+
+* **Every debug-signed build carries a different certificate.** `~/.android/debug.keystore`
+  is generated on the machine that builds, the first time it is needed — constant alias,
+  constant passwords, a fresh key pair. A CI runner is a fresh machine and the Gradle cache
+  covers `~/.gradle`, not `~/.android`, so one APK run's build never updates another's, and
+  Android says only «Приложение не установлено». `versionName` is never compared and a higher
+  `versionCode` does not help. The cures are an uninstall, which takes the device's classes,
+  token, diary session and corrections, or the four keystore secrets. `docs/build.md` has the
+  long version.
+* **The in-app guide is markdown in `docs/app/`, not `values/`.** `docs/app/` is
+  `:core:data`'s asset folder rather than a copy of it, so a change to the guide is one edit
+  in one place: the app fetches those same files from the repository and falls back to the
+  ones in its APK. The parser understands `##`, `-`, `1.` with a bold lead, `>` and three
+  inline marks, and **never throws** — anything that is not a guide parses to no pages and
+  the stored copy stands. Correction mode cannot reach that text any more, which is the cost;
+  `DocsGuideParityTest` reads the shipped files and holds the two languages level, the job
+  `ResourceTranslationTest` does for everything still in `values/`.
 
 ### A correction leaves the phone as somebody's pull request, and the fork is not its name
 
@@ -1606,6 +1718,12 @@ stay open on purpose, the first because it is the version being worked on and th
 because it takes every future bump. The reason it had to be asked for stands for next time:
 no tool in a session here changes a milestone's state or creates one — `issue_write` only
 assigns an existing one by number — and there is no `gh` CLI.
+
+**The first press of two network paths should be the owner's.** Neither the translation
+pull request from #64 nor the guide's fetch from #67 has ever run against GitHub, and both
+are written to be pressed by a reader. Opening the documentation once on a real phone, with
+and without a network, checks the second of them in about a minute — and the first press of
+«Отправить как pull request» checks the first.
 
 **What is left of it is one line of text.** Milestone 6 describes itself as «PRs #60–#62»
 and now holds #63 and #64 as well. Editing that description needs the same access closing

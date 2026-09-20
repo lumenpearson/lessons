@@ -39,6 +39,14 @@ android {
     sourceSets {
         getByName("test").assets.srcDirs(files("$projectDir/schemas"))
         getByName("androidTest").assets.srcDirs(files("$projectDir/schemas"))
+
+        // The guide the app draws, shipped in the APK as it is written in the
+        // repository — `docs/app/` itself is the asset folder, rather than a
+        // copy of it kept in sync by hand or by a task. There is exactly one
+        // copy of that text, which is the point: the app fetches these same
+        // files from GitHub, and a bundled copy that had drifted from them
+        // would show a reader a guide nobody wrote.
+        getByName("main").assets.srcDirs(rootProject.layout.projectDirectory.dir("../docs/app"))
     }
 }
 

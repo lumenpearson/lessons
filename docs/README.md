@@ -1,7 +1,8 @@
 # Documentation
 
-Eight documents. Each answers its own question, and none retells a neighbour — if the
-answer is not here it is in the code, and there is usually a link to it.
+Eight documents and one folder the app itself reads. Each answers its own question, and
+none retells a neighbour — if the answer is not here it is in the code, and there is
+usually a link to it.
 
 ## Where to start
 
@@ -26,6 +27,7 @@ answer is not here it is in the code, and there is usually a link to it.
 | [api.md](api.md) | the whole `/api/v1` contract: reads, writes, class management, the Petersburg diary |
 | [architecture.md](architecture.md) | why the bot is the backend, the timetable resolution model, the five Android modules, the service layer, the tests |
 | [design.md](design.md) | the design system: what was taken from Essentials, what was fixed, and the reasoning behind every visible decision in the interface |
+| [app/](app/) | **not a document — the guide the app draws.** `guide.ru.md` is the source, `guide.en.md` the translation, `manifest.json` says which version they are and which app version they describe. The app fetches these files from this repository and falls back to the copy built into the APK |
 
 Everything written about this project is English — these documents, the code comments, the
 commit messages and the pull request descriptions — so that anybody can read it. The
@@ -52,6 +54,12 @@ the user will actually see, it quotes it in Russian, because that is what is on 
   modes, and in one of them the class code opens nothing.
 - **What is not verified** — the "Honest status" section of the [README](../README.md). It
   is kept on purpose and updated together with the code.
+- **What the app's own documentation is written in** — [app/guide.ru.md](app/guide.ru.md),
+  whose opening comment states the whole format. It is a deliberately small subset of
+  Markdown: `##` is a page, `-` a list, `1.` with a bold lead a step, `>` an aside. The
+  parser is `DocsMarkdown` in `:core:data`, and `DocsGuideParityTest` holds the two
+  languages to the same pages in the same order — the job `ResourceTranslationTest` does
+  for the text that is still in `values/`.
 
 ## The rules these documents follow
 

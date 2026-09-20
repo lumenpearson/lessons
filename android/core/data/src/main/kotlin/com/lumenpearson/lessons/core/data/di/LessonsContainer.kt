@@ -13,10 +13,12 @@ import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepositoryImpl
+import com.lumenpearson.lessons.core.data.docs.DocsRepositoryImpl
 import com.lumenpearson.lessons.core.data.github.GithubRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.DiaryRepository
+import com.lumenpearson.lessons.core.data.repository.DocsRepository
 import com.lumenpearson.lessons.core.data.repository.DiaryRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.GithubRepository
 import com.lumenpearson.lessons.core.data.repository.ManageRepository
@@ -43,6 +45,13 @@ interface LessonsContainer {
     val updateRepository: UpdateRepository
     val githubRepository: GithubRepository
     val deviceLinkRepository: DeviceLinkRepository
+
+    /**
+     * The guide. Present on every install and needing no session: an install
+     * that has never joined a class is exactly the one whose reader is looking
+     * for the documentation.
+     */
+    val docsRepository: DocsRepository
 
     /**
      * The Petersburg diary. Present whether or not anybody has signed in to
@@ -220,6 +229,13 @@ class DefaultLessonsContainer(
 
     override val deviceLinkRepository: DeviceLinkRepository by lazy {
         DeviceLinkRepositoryImpl(api = api)
+    }
+
+    override val docsRepository: DocsRepository by lazy {
+        // Only a context: the guide is fetched from GitHub with the client in
+        // `GithubApi`, never through `api`, whose interceptor would rewrite the
+        // host to the school server's address.
+        DocsRepositoryImpl(appContext)
     }
 
     override val diaryRepository: DiaryRepository by lazy {

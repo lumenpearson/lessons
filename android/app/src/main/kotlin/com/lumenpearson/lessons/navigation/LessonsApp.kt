@@ -58,6 +58,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.text.intl.Locale
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
@@ -90,9 +91,8 @@ import com.lumenpearson.lessons.core.designsystem.theme.appSlideMotionBlur
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.ui.admin.isClassManager
 import com.lumenpearson.lessons.ui.debug.DebugSheet
-import com.lumenpearson.lessons.ui.docs.DocsHistory
-import com.lumenpearson.lessons.ui.docs.DocsPage
 import com.lumenpearson.lessons.ui.docs.DocsScreen
+import com.lumenpearson.lessons.ui.docs.DocsViewModel
 import com.lumenpearson.lessons.ui.docs.docsToolbarItems
 import com.lumenpearson.lessons.ui.docs.docsToolbarSelection
 import com.lumenpearson.lessons.ui.homework.HomeworkScreen
@@ -294,19 +294,39 @@ private fun HomeShell(
     var openSectionName by rememberSaveable { mutableStateOf<String?>(null) }
     val openSection = remember(openSectionName) { SettingsSection.fromName(openSectionName) }
 
-    // The documentation's whole path, as one saveable string — `null` while it
-    // is closed. A string rather than a list because that is what the open
-    // section above already is, and because the reader's path through the pages
-    // has to survive a rotation as surely as the page they are on: a history
-    // that came back empty would turn one press of "back" into a jump home.
-    var docsPath by rememberSaveable { mutableStateOf<String?>(null) }
-    val docs = remember(docsPath) { DocsHistory.decode(docsPath) }
+    // Whether the guide is open. A flag rather than a path: its sections are
+    // peers on one pager now, so there is no history inside it to remember —
+    // back means "leave", and the pager keeps its own position across a
+    // rotation.
+    var docsOpen by rememberSaveable { mutableStateOf(false) }
+
+    val docsViewModel: DocsViewModel = viewModel(factory = DocsViewModel.Factory)
+    val docsState by docsViewModel.state.collectAsStateWithLifecycle()
+    val docsPages = docsState.library?.guide?.pages.orEmpty()
+
+    // The guide's own pager, hoisted for the reason the tabs' is: the toolbar
+    // is composed by the shell, and it both shows which section is current and
+    // scrolls to another.
+    val docsPagerState = rememberPagerState(pageCount = { docsPages.size })
+
+    // Which language the reader is actually looking at. Below Android 13 the
+    // app's chosen language is applied by wrapping the `Context`, so the
+    // composition is the only place that knows — a repository reading the
+    // phone's locale would hand a Russian reader the English guide.
+    val docsLanguage = Locale.current.language
+
+    // Read as it opens, then checked against the repository. Keyed on the
+    // language too, so switching it while the guide is closed still loads the
+    // right one on the next visit.
+    LaunchedEffect(docsOpen, docsLanguage) {
+        if (docsOpen) docsViewModel.open(docsLanguage)
+    }
 
     // Where the shell is, as one value. Derived from the saved flags rather
     // than replacing them, so what survives process death is unchanged.
-    val destination = remember(settingsOpen, openSection, docs) {
+    val destination = remember(settingsOpen, openSection, docsOpen) {
         when {
-            docs != null -> ShellPage.Docs(docs.current)
+            docsOpen -> ShellPage.Docs
             openSection != null -> ShellPage.Section(openSection)
             settingsOpen -> ShellPage.SettingsRoot
             else -> ShellPage.Tabs
@@ -339,14 +359,20 @@ private fun HomeShell(
     val pageOffsets = remember(tabs.size) { List(tabs.size) { ScrollOffsetHolder() } }
     val settingsOffset = remember { ScrollOffsetHolder() }
     val sectionOffset = remember { ScrollOffsetHolder() }
+    // One per section, for the reason the tabs have one per tab: the pager keeps
+    // its neighbours composed, and a shared holder would let an off-screen page
+    // report its scroll over the visible one's.
     val docsOffset = remember { ScrollOffsetHolder() }
+    val docsOffsets = remember(docsPages.size) {
+        List(docsPages.size.coerceAtLeast(1)) { ScrollOffsetHolder() }
+    }
 
     // A widget tap lands here. Closing the settings layers first, because the
     // request is "show me this day" and a page that slides in over the calendar
     // would answer it with a screen the user did not ask for.
     LaunchedEffect(openDate) {
         val date = openDate ?: return@LaunchedEffect
-        docsPath = null
+        docsOpen = false
         openSectionName = null
         settingsOpen = false
         calendarViewModel.select(date)
@@ -402,50 +428,33 @@ private fun HomeShell(
         settingsOpen = false
     }
 
-    /** Opening the guide from the «О приложении» page, on its first section. */
+    /** Opening the guide from the «О приложении» page. */
     fun openDocs() {
-        docsPath = DocsHistory.opened().encode()
+        docsOpen = true
     }
 
-    /**
-     * The path as it stands *now*, decoded from the saved string rather than
-     * read off [docs].
-     *
-     * [docs] is a `remember`, so it is only as new as the last composition,
-     * while a write to [docsPath] lands in the snapshot at once. Two back
-     * events drained in one input pass — reachable by pressing back twice
-     * during a slide — would both see the stale value and ask to leave the same
-     * page twice, losing a press. The same hazard, and the same fix, as the
-     * bounded step in `OnboardingScreen`.
-     */
-    fun docsHistoryNow(): DocsHistory? = DocsHistory.decode(docsPath)
-
-    /** A tap on a section in the toolbar: a push, so back can walk it off. */
-    fun openDocsPage(page: DocsPage) {
-        docsPath = docsHistoryNow()?.open(page)?.encode() ?: DocsHistory.opened(page).encode()
+    /** A tap on a section in the toolbar: a scroll, not a screen. */
+    fun openDocsPage(index: Int) {
+        scope.launch { docsPagerState.goToPage(motion, index) }
     }
 
     /**
      * The one definition of "back" inside the documentation.
      *
-     * Both ways out run this and neither has a rule of its own, which is the
-     * point: the button beside the pill and the system gesture disagreeing
-     * about where back goes is a bug a reader cannot work around.
+     * The arrow beside the pill and the system gesture both run this, which is
+     * the point: two ways out that disagreed about where back goes is a bug a
+     * reader cannot work around. There is nothing to walk off any more — the
+     * sections are peers on one pager, and a reader on the fourth of them asked
+     * for the fourth rather than arrived at it through three others.
      *
-     * Leaving the documentation goes home rather than to the settings page it
-     * was opened from. The guide is somewhere you go to read, and a reader who
-     * has walked off the end of their own path is finished — handing them back
-     * the settings tree they came through would make them press back twice more
-     * to reach the thing the documentation was about.
+     * Leaving goes home rather than back to the settings page it was opened
+     * from. The guide is somewhere you go to read, and handing a reader who has
+     * finished the settings tree they came through would make them press back
+     * twice more to reach the thing the documentation was about.
      */
     fun docsBack() {
-        val previous = docsHistoryNow()?.back()
-        if (previous != null) {
-            docsPath = previous.encode()
-        } else {
-            docsPath = null
-            closeSettings()
-        }
+        docsOpen = false
+        closeSettings()
     }
 
     // One layer per press, innermost first. Registered before the predictive
@@ -456,13 +465,13 @@ private fun HomeShell(
     // documentation is opened from inside a settings section, so while it is up
     // both of the conditions below are also true, and only one handler may act
     // on one press.
-    BackHandler(enabled = docs != null) { docsBack() }
-    BackHandler(enabled = docs == null && openSection != null) { closeSection() }
-    BackHandler(enabled = docs == null && settingsOpen && openSection == null) { closeSettings() }
+    BackHandler(enabled = docsOpen) { docsBack() }
+    BackHandler(enabled = !docsOpen && openSection != null) { closeSection() }
+    BackHandler(enabled = !docsOpen && settingsOpen && openSection == null) { closeSettings() }
 
     val backProgress = remember { Animatable(0f) }
     PredictiveBackHandler(
-        enabled = docs == null && !settingsOpen && pagerState.currentPage != homePage,
+        enabled = !docsOpen && !settingsOpen && pagerState.currentPage != homePage,
     ) { events ->
         try {
             events.collect { event -> backProgress.snapTo(event.progress) }
@@ -513,7 +522,7 @@ private fun HomeShell(
                     ShellPage.Tabs -> pageOffsets[pagerState.currentPage]
                     ShellPage.SettingsRoot -> settingsOffset
                     is ShellPage.Section -> sectionOffset
-                    is ShellPage.Docs -> docsOffset
+                    ShellPage.Docs -> docsOffsets.getOrElse(docsPagerState.currentPage) { docsOffset }
                 },
                 // Everything here is read from `page`, never from the hoisted
                 // state, and that is the whole discipline of this arrangement:
@@ -526,7 +535,10 @@ private fun HomeShell(
                         modifier = barModifier,
                         selectedIndex = when (page) {
                             ShellPage.Tabs -> pagerState.currentPage
-                            is ShellPage.Docs -> docsToolbarSelection(page.page)
+                            ShellPage.Docs -> docsToolbarSelection(
+                                docsPagerState.currentPage,
+                                docsPages.size,
+                            )
                             else -> -1
                         },
                         items = when (page) {
@@ -542,16 +554,19 @@ private fun HomeShell(
 
                             // The bar is the documentation's only navigation,
                             // so it carries every section rather than a way
-                            // back to a list of them: there is no list.
-                            is ShellPage.Docs -> docsToolbarItems(::openDocsPage)
+                            // back to a list of them: there is no list. The
+                            // sections come from the fetched guide, so one
+                            // added to the documentation appears here without
+                            // a new build.
+                            ShellPage.Docs -> docsToolbarItems(docsPages, ::openDocsPage)
 
                             else -> emptyList()
                         },
                         // Only the destinations that are peers of each other
                         // overflow a phone; the three tabs never will.
-                        scrollableItems = page is ShellPage.Docs,
+                        scrollableItems = page == ShellPage.Docs,
                         title = when (page) {
-                            ShellPage.Tabs, is ShellPage.Docs -> null
+                            ShellPage.Tabs, ShellPage.Docs -> null
                             ShellPage.SettingsRoot -> correctedString(R.string.settings_title)
                             is ShellPage.Section -> correctedString(page.section.titleRes)
                         },
@@ -560,7 +575,7 @@ private fun HomeShell(
                             // documentation that is deliberate: the pill is the
                             // table of contents, and back is the button beside
                             // it — see [shellActionKind].
-                            ShellPage.Tabs, is ShellPage.Docs -> null
+                            ShellPage.Tabs, ShellPage.Docs -> null
                             ShellPage.SettingsRoot -> ::closeSettings
                             is ShellPage.Section -> ::closeSection
                         },
@@ -646,14 +661,18 @@ private fun HomeShell(
                         )
                     }
 
-                    is ShellPage.Docs -> CompositionLocalProvider(
-                        LocalScrollOffset provides docsOffset,
+                    ShellPage.Docs -> CompositionLocalProvider(
+                        // The current section's holder, chosen the same way the
+                        // tabs choose theirs; the screen itself provides one
+                        // per page inside the pager.
+                        LocalScrollOffset provides docsOffsets
+                            .getOrElse(docsPagerState.currentPage) { docsOffset },
                     ) {
-                        // page.page, not docs.current, for the reason the
-                        // section above reads its own: during the slide both
-                        // pages are composed, and the one leaving has to keep
-                        // showing what it was showing.
-                        DocsScreen(page = page.page)
+                        DocsScreen(
+                            state = docsState,
+                            pagerState = docsPagerState,
+                            onRefresh = { docsViewModel.refresh(docsLanguage) },
+                        )
                     }
                 }
             }
@@ -686,30 +705,29 @@ private sealed interface ShellPage {
     }
 
     /**
-     * One page of the guide.
+     * The guide, all of it.
      *
-     * Deeper than a settings section, so opening the guide slides forward and
-     * leaving it slides back — and deeper still for each section along the bar,
-     * which is the one thing [pageTransition] can be told about a move between
-     * peers. Tapping a section to the right of the one on screen then pushes
-     * the page off to the left, exactly as the finger went; tapping one to the
-     * left brings it back. Equal depths would have made every move look like a
-     * retreat.
+     * One destination rather than one per section, which is the change: the
+     * sections are peers on a pager and moving between them is a swipe, so the
+     * shell's `AnimatedContent` has nothing to do between them. It used to push
+     * a screen per section, with a depth per section to make the slide follow
+     * the finger; a pager does that itself, in the same gesture the home tabs
+     * use, and without a history to walk back out of.
+     *
+     * Deeper than a settings section, so opening the guide still slides forward
+     * and leaving it slides back.
      */
-    data class Docs(val page: DocsPage) : ShellPage {
-        override val depth: Int = DocsBaseDepth + page.ordinal
+    data object Docs : ShellPage {
+        override val depth: Int = 3
     }
 }
-
-/** Below the deepest settings page, so the guide always opens forward. */
-private const val DocsBaseDepth = 3
 
 /** As much of the page as the toolbar's action button needs to know. */
 private val ShellPage.destination: ShellDestination
     get() = when (this) {
         ShellPage.Tabs -> ShellDestination.TABS
         ShellPage.SettingsRoot, is ShellPage.Section -> ShellDestination.SETTINGS
-        is ShellPage.Docs -> ShellDestination.DOCS
+        ShellPage.Docs -> ShellDestination.DOCS
     }
 
 /**
