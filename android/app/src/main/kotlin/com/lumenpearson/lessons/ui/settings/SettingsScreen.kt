@@ -110,6 +110,7 @@ import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.core.model.TodayLayout
 import com.lumenpearson.lessons.core.model.WeekStart
 import com.lumenpearson.lessons.navigation.labelRes
+import com.lumenpearson.lessons.ui.debug.DebugRow
 import com.lumenpearson.lessons.ui.common.ServerUrlSheet
 import com.lumenpearson.lessons.ui.diary.DiaryScreen
 import com.lumenpearson.lessons.ui.common.SyncIntervalOptionsMinutes
@@ -1097,6 +1098,15 @@ private fun LazyListScope.aboutRows(
                 tone = accentTone(2),
                 checked = state.settings.debugMode,
                 onCheckedChange = viewModel::setDebugMode,
+            )
+            // Directly under the switch that writes them, and on the page
+            // everybody can reach. The reports used to be readable only from
+            // the two manager routes — the toolbar's bug button and the
+            // management page — while the switch was here, so a reader who was
+            // not an administrator could record a crash and never see it.
+            DebugRow(
+                enabled = state.settings.debugMode,
+                onEnabledChange = viewModel::setDebugMode,
             )
         }
     }

@@ -9,8 +9,6 @@
     <string name="admin_role_description">Only you and other administrators see this page. The server checks permissions on every action.</string>
 
     <string name="admin_tools_group">Tools</string>
-    <string name="admin_debug">Debugging</string>
-    <string name="admin_debug_description">Crash reports, the log and detailed error messages</string>
 
     <!-- Running the class -->
     <string name="admin_manage_group">The class</string>

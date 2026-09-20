@@ -34,7 +34,7 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
-import com.lumenpearson.lessons.ui.debug.DebugSheet
+import com.lumenpearson.lessons.ui.debug.DebugRow
 
 /**
  * Whether this role is allowed to see the management page at all.
@@ -316,33 +316,3 @@ private val ManagementScreen.icon: ImageVector
         ManagementScreen.STATS -> Icons.Rounded.QueryStats
         ManagementScreen.REQUESTS -> Icons.Rounded.PersonAdd
     }
-
-/**
- * The way into the debug sheet, now that the toolbar's button is gated.
- *
- * The sheet is hosted here rather than by the shell because this is the only
- * place that can open it: a row that opens a sheet somebody else owns has to
- * hoist a flag up two screens and back down, and the flag is the bug.
- */
-@Composable
-private fun DebugRow(enabled: Boolean, onEnabledChange: (Boolean) -> Unit) {
-    // Saveable: the sheet survives a rotation, as every other sheet in the app
-    // does, and a recreate() from the language picker three pages away.
-    var open by rememberSaveable { mutableStateOf(false) }
-
-    GroupItem(
-        title = correctedString(R.string.admin_debug),
-        subtitle = correctedString(R.string.admin_debug_description),
-        icon = Icons.Rounded.BugReport,
-        tone = accentTone(5),
-        onClick = { open = true },
-    )
-
-    if (open) {
-        DebugSheet(
-            enabled = enabled,
-            onEnabledChange = onEnabledChange,
-            onDismiss = { open = false },
-        )
-    }
-}

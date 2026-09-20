@@ -20,8 +20,6 @@
     <string name="admin_role_description">Эта страница видна только вам и другим администраторам. Права проверяет сервер при каждом действии.</string>
 
     <string name="admin_tools_group">Инструменты</string>
-    <string name="admin_debug">Отладка</string>
-    <string name="admin_debug_description">Отчёты о сбоях, журнал и подробные сообщения об ошибках</string>
 
     <!-- Class management strings -->
     <string name="admin_manage_group">Класс</string>

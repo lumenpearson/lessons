@@ -206,6 +206,8 @@ The access key you were given and a copy of the timetable stay on the device, so
     <!-- Debugging -->
     <string name="settings_debug">Crash reports</string>
     <string name="settings_debug_description">Keep a record on the device of what happened before the app closed. The report can be sent to the developer.</string>
+    <string name="debug_reports_open">Crash reports</string>
+    <string name="debug_reports_open_description">Read what happened before the app closed, and send the report</string>
     <string name="debug_title">Debugging</string>
     <string name="debug_on_description">Reports are being kept. The last five are stored in the app\'s own folder; they are visible with the phone plugged in by cable.</string>
     <string name="debug_off_description">Reports are not kept. Turn this on if the app closes by itself — then next time there will be something to send.</string>
