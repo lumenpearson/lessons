@@ -43,7 +43,6 @@ import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -51,6 +50,7 @@ import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.modifier.LocalControlCentre
 import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.GroupRowSpacing
@@ -173,18 +173,14 @@ fun GroupItem(
                 text = it,
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }
     val headline: @Composable () -> Unit = {
-        Text(
+        MarqueeText(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = if (enabled) scheme.onSurface else scheme.outline,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
     val colors = ListItemDefaults.colors(containerColor = scheme.rowContainer)
@@ -270,8 +266,6 @@ fun GroupSwitchItem(
                     text = it,
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
         },
@@ -294,12 +288,10 @@ fun GroupSwitchItem(
             selectedContainerColor = scheme.rowSelectedContainer,
         ),
         content = {
-            Text(
+            MarqueeText(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 color = if (enabled) scheme.onSurface else scheme.outline,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
         },
     )
@@ -359,11 +351,9 @@ fun GroupActionItem(
                 )
                 Spacer(Modifier.size(10.dp))
             }
-            Text(
+            MarqueeText(
                 text = label,
                 style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -396,12 +386,10 @@ fun GroupLinkItem(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (value != null) {
-                    Text(
+                    MarqueeText(
                         text = value,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Icon(
@@ -415,33 +403,34 @@ fun GroupLinkItem(
     )
 }
 
-/** The two-line text block of a row, so the two lines never drift apart. */
+/**
+ * The title-and-subtitle block of a row, so the two never drift apart.
+ *
+ * The title is one scrolling line because a row's title is what it is found by;
+ * the subtitle is uncapped, and a long one makes the row taller rather than
+ * losing its end.
+ */
 @Composable
 fun RowText(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     titleColor: Color = MaterialTheme.colorScheme.onSurface,
-    subtitleMaxLines: Int = 2,
 ) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text(
+        MarqueeText(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = titleColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
         if (subtitle != null) {
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = subtitleMaxLines,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }

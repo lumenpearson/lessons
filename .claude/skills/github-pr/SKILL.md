@@ -19,6 +19,70 @@ GitHub MCP tools (`mcp__github__*`): `create_pull_request`, `pull_request_read`,
   any section asking for credentials, tokens, environment variables or internal hostnames.
 - End the body with the attribution the session is configured to use.
 
+## Milestones
+
+**Every pull request here carries one, set when it is opened.** This repository has no
+issues at all — not one, ever — so the milestones are the only grouping its history has.
+They are what says which version a change belongs to, and a pull request left without one
+is invisible to that.
+
+Set it with `issue_write`, never `update_pull_request`: the latter has no milestone field,
+and to the API a pull request *is* an issue.
+
+```
+mcp__github__issue_write(method="update", owner=…, repo=…,
+                         issue_number=<the PR number>, milestone=<the milestone number>)
+```
+
+**Nothing in these sessions creates a milestone, or even lists one.** There is no tool for
+it and no `gh` CLI, and `issue_write` takes only a number that already exists. So when no
+existing milestone fits the change, do **not** invent a version and do **not** leave the
+pull request bare — ask the owner to create it, and hand them the title and the description
+already written, with the command, so it is one paste:
+
+```bash
+gh api repos/lumenpearson/lessons/milestones \
+  -f title='v0.7.0 — What this version is' \
+  -f description='One sentence on what belongs in it. PRs #NN–#NN.' \
+  --jq '"\(.number)\t\(.title)"'
+```
+
+Then ask for the number it prints. That is the only way to learn it.
+
+Two things that each cost a false report the first time they were met:
+
+- **A number can be read back even though nothing lists them.** Assign it, then search
+  `milestone:"<the exact title>"` — the result embeds the whole milestone object, `number`
+  included. That is how 1 and 7 were pinned instead of assumed from creation order.
+- **GitHub's search index lags the write by up to a minute.** `is:pr no:milestone` reported
+  two bare pull requests while the very result it printed already carried its milestone.
+  The milestones page and the embedded object are right immediately; the search is not.
+  Re-query before reporting anything missing.
+
+Pass `fields` to the search tools — `fields=["number"]` — or the response carries every
+matched pull request's body in full.
+
+### The milestones that exist
+
+| # | Title | Covers |
+| --- | --- | --- |
+| 1 | `v0.1.0 — First run on a phone` | #1–#14 |
+| 2 | `v0.2.0 — The diary, and the class run from the bot` | #15–#17, #28–#31 |
+| 3 | `v0.3.0 — The school year` | #27, #32–#35, #43 |
+| 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
+| 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
+| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#62 — the version being worked on |
+| 7 | `Dependencies` | every dependabot bump; deliberately not a version |
+
+New work goes in the newest version milestone unless it plainly opens the next one; a
+dependabot bump goes in `Dependencies` whatever else is in flight.
+
+They are **retrospective**. The boundaries were read off the history in September 2026
+rather than declared at the time, and **nothing in this repository has ever been tagged or
+released** — no `v*` tag, no GitHub release, so `versionName` is still the `0.1.0` default
+in `android/app/build.gradle.kts`. A milestone here names a stage the work went through,
+not a build anybody can install.
+
 ## Writing the body
 
 Say what the change makes the project do, then what it leaves uncovered. Name the gates you

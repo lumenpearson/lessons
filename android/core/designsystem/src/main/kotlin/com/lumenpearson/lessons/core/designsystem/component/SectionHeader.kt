@@ -15,9 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 
@@ -53,23 +53,19 @@ fun SectionHeader(
             modifier = Modifier.weight(1f, fill = false),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Text(
+            MarqueeText(
                 text = title,
                 // titleMedium, the weight Essentials gives every section label:
                 // large enough to structure the page, muted enough that the
                 // groups under it stay the objects on screen.
                 style = MaterialTheme.typography.titleMedium,
                 color = titleColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
             if (subtitle != null) {
-                Text(
+                MarqueeText(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

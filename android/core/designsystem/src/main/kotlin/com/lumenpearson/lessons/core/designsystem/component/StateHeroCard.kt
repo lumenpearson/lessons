@@ -19,7 +19,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
@@ -28,6 +27,7 @@ import com.lumenpearson.lessons.core.designsystem.state.countdown
 import com.lumenpearson.lessons.core.designsystem.state.formatCountdown
 import com.lumenpearson.lessons.core.designsystem.state.progressOrNull
 import com.lumenpearson.lessons.core.designsystem.state.visuals
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
@@ -99,20 +99,16 @@ fun StateHeroCard(
                     // When there is no detail line the label is promoted to the
                     // headline, so "Каникулы" never renders twice.
                     if (visuals.detail != null) {
-                        Text(
+                        MarqueeText(
                             text = visuals.label,
                             style = MaterialTheme.typography.labelLarge,
                             color = visuals.tone.content,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                     Text(
                         text = visuals.detail ?: visuals.label,
                         style = MaterialTheme.typography.headlineSmall,
                         color = scheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -126,17 +122,28 @@ fun StateHeroCard(
                         text = countdown.formatCountdown(),
                         style = MaterialTheme.typography.displaySmall,
                         color = scheme.onSurface,
+                        // Not `MarqueeText`, and the one line in the app held back
+                        // by time rather than width: this string is rebuilt on every
+                        // tick, so a marquee would be handed a new text each second
+                        // and restart from the left for ever. A countdown is also
+                        // bounded by its own format, which none of the others are.
                         maxLines = 1,
                     )
-                    Text(
+                    // The label beside it is neither bounded nor reprinted, and it is
+                    // the one that loses: the row wraps its content, so at a large
+                    // font scale the countdown takes the width first and this was
+                    // clipped with no «…» to show for it. The weight bounds it without
+                    // widening the row while both still fit.
+                    MarqueeText(
                         text = when (state) {
                             is DayState.BeforeSchool -> correctedString(R.string.ds_countdown_until_start)
                             else -> correctedString(R.string.ds_countdown_until_end)
                         },
-                        modifier = Modifier.padding(bottom = 6.dp),
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .padding(bottom = 6.dp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = scheme.onSurfaceVariant,
-                        maxLines = 1,
                     )
                 }
             }

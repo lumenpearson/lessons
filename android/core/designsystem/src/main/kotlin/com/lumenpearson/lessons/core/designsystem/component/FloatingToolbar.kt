@@ -12,7 +12,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,7 +57,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
@@ -67,7 +65,7 @@ import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
-import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
@@ -470,13 +468,14 @@ private fun ToolbarTab(
             }
             if (selected && !hideLabel) {
                 Spacer(Modifier.width(8.dp))
-                Text(
+                // Marquees only if it has to. This used to scroll whatever it
+                // was given, so a label that fitted animated anyway — the
+                // thing the segmented picker measures to avoid, and the reason
+                // that measurement is a component now.
+                MarqueeText(
                     text = item.label,
                     style = MaterialTheme.typography.labelLarge.emphasised(active = selected),
                     color = scheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.basicMarquee(),
                 )
             }
         }
@@ -560,15 +559,17 @@ private fun BackAndTitle(
     }
     if (title != null) {
         Spacer(Modifier.width(ItemGap))
-        Text(
+        // The width range and the padding go on the box, so the title is
+        // measured against the room it will actually be drawn in rather than
+        // against the toolbar. Same reason as the label above: a title that
+        // fits should sit still.
+        MarqueeText(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = scheme.background,
-            maxLines = 1,
             modifier = Modifier
                 .widthIn(min = TitleWidthRange.start, max = TitleWidthRange.endInclusive)
-                .padding(horizontal = 8.dp)
-                .basicMarquee(),
+                .padding(horizontal = 8.dp),
         )
     }
 }

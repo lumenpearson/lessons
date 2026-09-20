@@ -43,7 +43,6 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
@@ -52,6 +51,7 @@ import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
@@ -162,19 +162,17 @@ private fun CreditRow(credit: Credit) {
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Text(
+                    MarqueeText(
+                        // The weight rides in the style, because the style is
+                        // what the line is measured with.
+                        style = MaterialTheme.typography.titleMedium
+                            .copy(fontWeight = FontWeight.Bold),
                         text = correctedString(credit.name),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
+                    MarqueeText(
                         text = correctedString(credit.licence),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 // The description is on the icon rather than on the row so
@@ -243,12 +241,10 @@ private fun ProjectLink(url: String) {
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(LinkIconSize),
         )
-        Text(
+        MarqueeText(
             text = url.removePrefix(HttpsScheme),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }

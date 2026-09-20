@@ -19,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.toClipEntry
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
@@ -223,12 +222,13 @@ private fun RejectedLines(lines: List<String>) {
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             lines.forEach { line ->
+                // Uncapped, and this is the site where that matters most: the
+                // line is echoed so the typo in it can be found and fixed. Cut
+                // it and the typo is as likely as not in the half nobody sees.
                 Text(
                     text = line,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

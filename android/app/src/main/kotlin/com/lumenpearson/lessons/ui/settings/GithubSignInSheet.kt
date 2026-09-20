@@ -40,7 +40,6 @@ import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,6 +50,7 @@ import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
@@ -184,6 +184,9 @@ private fun ColumnScope.AwaitingBlock(
         ),
         color = MaterialTheme.colorScheme.primary,
         textAlign = TextAlign.Center,
+        // A device code is eight characters and a dash, and `autoSize` shrinks it
+        // until even that fits. Breaking it across two lines would be worse than
+        // any of it: it is read off the screen and typed into another device.
         maxLines = 1,
         autoSize = TextAutoSize.StepBased(minFontSize = CodeMinSize, maxFontSize = CodeMaxSize),
         modifier = Modifier
@@ -321,12 +324,12 @@ private fun ColumnScope.SignedInBlock(
         size = StatusTile,
         modifier = Modifier.align(Alignment.CenterHorizontally),
     )
-    Text(
+    // A GitHub login can be thirty-nine characters, and this line carries one
+    // inside a sentence; cutting it off hid the half a reader is checking.
+    MarqueeText(
         text = correctedString(R.string.github_signed_in_as, account.login),
         style = MaterialTheme.typography.titleMedium,
         textAlign = TextAlign.Center,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenPadding),

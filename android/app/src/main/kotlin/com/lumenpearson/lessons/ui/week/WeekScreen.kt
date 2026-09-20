@@ -45,7 +45,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -57,6 +56,7 @@ import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.component.SegmentedPicker
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
@@ -848,20 +848,20 @@ private fun TimelineBlock(
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
-        Text(
+        // The block's height is the lesson's own duration, floored at 30 dp, so a
+        // second line has nowhere to go and a short lesson barely has room for
+        // the first. Of every block in the app this is the one that genuinely
+        // cannot grow, which is exactly what the marquee is for.
+        MarqueeText(
             text = title,
             style = MaterialTheme.typography.labelLarge,
             color = content,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
         )
         if (subtitle != null) {
-            Text(
+            MarqueeText(
                 text = subtitle,
                 style = MaterialTheme.typography.labelSmall,
                 color = content,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
         }
     }

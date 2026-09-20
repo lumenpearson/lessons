@@ -10,11 +10,11 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.state.formatTimeRange
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
@@ -69,33 +69,39 @@ fun LessonRow(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Text(
+            MarqueeText(
                 text = lesson.subject,
                 // The running lesson is the one bold row of the day. Its
                 // neighbours keep the scale's Medium rather than dropping to
                 // Normal, so they still match every other row title in the app.
+                //
+                // The strike-through rides in the style rather than beside it,
+                // because the style is what the line is measured with and a
+                // decoration passed separately would be drawn and not measured.
                 style = MaterialTheme.typography.titleMedium
-                    .emphasised(isCurrent, resting = FontWeight.Medium),
+                    .emphasised(isCurrent, resting = FontWeight.Medium)
+                    .copy(
+                        textDecoration = if (lesson.isCancelled) {
+                            TextDecoration.LineThrough
+                        } else {
+                            null
+                        },
+                    ),
                 color = if (lesson.isCancelled) scheme.onSurfaceVariant else scheme.onSurface,
-                textDecoration = if (lesson.isCancelled) TextDecoration.LineThrough else null,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
-            Text(
+            MarqueeText(
                 text = lesson.metaLine(showTeacher = showTeacher),
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
             val note = lesson.note
             if (note != null) {
+                // A note is the one line of a lesson somebody typed by hand
+                // for this day in particular; the row grows to hold it.
                 Text(
                     text = note,
                     style = MaterialTheme.typography.bodySmall,
                     color = tone.content,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
