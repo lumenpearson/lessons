@@ -76,8 +76,11 @@ CI is exactly: ruff, pytest `-n auto`, `./gradlew test`, both assembles. `./grad
 - Another agent may be working in this tree — check `git status` before touching a file you
   did not open.
 - `HANDOVER.md` says where the work stands, and is stale the moment it stops being updated.
-  Read it first; update it last. A batch whose pull request has merged is not finished until
-  that file describes it, and nobody should have to ask.
+  Read it first; update it last, **inside the batch's own pull request** while it is still
+  open. A batch whose pull request has merged is not finished until that file describes it,
+  and nobody should have to ask. A close-out never gets a close-out of its own.
+- Merge your own green pull request rather than asking: the owner's standing instruction,
+  with the five checks and the one refusal in `.claude/skills/github-pr/SKILL.md`.
 
 The rest — architecture, the traps each module has already produced, the migration protocol —
 is in `CLAUDE.md`, `docs/architecture.md` and `.claude/skills/`.

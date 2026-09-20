@@ -449,9 +449,20 @@ points Hilt does not inject cleanly.
   session finished, what it deliberately left alone and what nothing has verified. It is
   working state, not part of `docs/`, so it is stale the moment it stops being updated:
   re-check the PR and CI before trusting it.
+- **A pull request of this session's own work is merged without asking.** The owner asked for
+  that on 20 September 2026; it is their standing instruction, recorded in the `github-pr`
+  skill with the five things to check first — CI green on the exact head, `mergeable_state`
+  clean, the gates run locally before the push, a milestone attached, and no review waiting
+  on an answer. The merge pins `expectedHeadSha` to the SHA that was checked, which is what
+  makes it safe. A migration whose side of the merge is unsettled, somebody else's pull
+  request, and «I want to look at this one» are outside it.
 - **Updating it is the last step of every batch, and nobody should have to ask for it.** The
   trigger is the merge: once a pull request is in `main`, that batch is not finished until
-  this file describes it. It has had to be asked for twice, and each time a batch had been
+  this file describes it. Write the close-out **while that pull request is still open** — it
+  is then one pull request rather than two, and the file is true at the moment it merges.
+  **A close-out never gets a close-out of its own:** it names itself as the only thing open,
+  and the SHA of its own merge is written by the next batch. A pull request whose only
+  content is correcting that SHA is the recursion rather than the cure. It has had to be asked for twice, and each time a batch had been
   reported as done while the one document the next session starts from still described the
   batch before. If the batch's own pull request has already merged, the update is its own
   commit and its own pull request — with a milestone, like every other. What drifts every

@@ -142,6 +142,38 @@ like any other pull request.
   looks intended: `Modifier.correctionTarget`, the ripple anchors and predictive back all
   ride the same mechanism, and not one of them is unit-tested.
 
+## Merging
+
+**The owner asked, on 20 September 2026, for these to be merged without being asked each
+time.** That is their standing instruction and it is recorded here as such — a skill cannot
+grant itself permission to merge, and this line is not one: it is the owner's word, written
+down so that a session does not have to ask for it again. It is theirs to withdraw, and
+"wait, I want to look at this one" withdraws it for that pull request.
+
+Merge a pull request of this session's own work when **all** of these are true, and check
+them rather than assume them:
+
+1. **CI is green on the exact head**, read from the check runs of that SHA — not from a
+   `check_suite.completed` notice, which by its own wording does not cover this repository's
+   own suites. A skipped job is green; a pending one is not.
+2. **`mergeable_state` is `clean`.** A conflict is work, not a merge.
+3. **The gates ran locally before the push**, for whichever half of the tree changed. CI
+   green on a diff whose gates were never run is a coincidence, not a check.
+4. **It carries a milestone**, like every pull request here.
+5. **No review asks for anything.** A human reviewer's open request outranks this entirely.
+
+Then: `merge_method: "merge"`, `commit_title: "Merge pull request #N from lumenpearson/dev"`,
+and **`expectedHeadSha` pinned to the SHA that was checked** — which is what makes this safe.
+A push that landed between the check and the merge makes the call fail rather than merge
+something nobody looked at.
+
+**Never merge on this authorisation** when the change needs a migration whose side of the
+merge has not been settled (see the `migration` skill — an additive revision goes on *before*
+the merge and a constraint *after*), when the pull request is not this session's own work, or
+when the owner said they wanted to see this one first. When in doubt about any of the five,
+say what is unclear and leave it open; a pull request that waits an hour costs nothing, and
+one merged past a question costs the thing it broke.
+
 ## After it merges
 
 Three things, in this order, and none of them is optional:

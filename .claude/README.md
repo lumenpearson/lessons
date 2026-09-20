@@ -33,9 +33,12 @@ file is the source and its English twin is a separate edit nothing else would re
 about until `ResourceTranslationTest` failed.
 
 The second is `hooks/handover-behind.sh`, on `Stop`. It speaks only when a **merge commit on
-`HEAD` is newer than the last commit touching `HANDOVER.md`** — which during a batch is never
-true, because that merge appears only after the pull request has gone into `main` and `dev`
-has been fast-forwarded onto it. That is precisely the window in which the close-out is the
+`HEAD` neither carried the close-out nor predates it** — which during a batch is never true,
+because that merge appears only after the pull request has gone into `main` and `dev` has
+been fast-forwarded onto it. It asks first whether the merge's own diff touched
+`HANDOVER.md`, because a close-out written inside its own pull request is landed *by* the
+merge and is therefore always older than it; a timestamp alone called that missing, and said
+so the first time the rule was followed properly. That is precisely the window in which the close-out is the
 work that is left, and the hook goes quiet again the moment the file is committed, so it
 cannot turn into background noise. It exists because the owner had to ask for that update by
 hand twice.
