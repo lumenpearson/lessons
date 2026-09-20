@@ -1,6 +1,9 @@
 package com.lumenpearson.lessons.core.designsystem.text
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
@@ -38,11 +41,33 @@ import org.robolectric.annotation.Config
 @Config(qualifiers = "ru-rRU-w411dp")
 class MarqueeTextTest {
 
+    /** Narrower than [tooLong] and wider than [short]; the window in both cases. */
+    private val boxWidth = 120.dp
+
+    /** Wide enough that a weighted line and a neighbour both fit in it. */
+    private val rowWidth = 300.dp
+
     @get:Rule
     val compose = createComposeRule()
 
     private val long = "По этому предмету ничего не задано"
     private val short = "Урок 3"
+
+    /**
+     * A line that overflows *here*, which the sentence above does not.
+     *
+     * Robolectric lays text out without fonts: every glyph costs about a pixel,
+     * so «По этому предмету ничего не задано» measures 35 px and sits inside a
+     * 120 dp box with room to spare. Three tests below were written against it
+     * and passed without ever reaching the scrolling they are named for. No
+     * width measured in this environment says anything about a phone; what a
+     * test here can hold is the decision, and for that the string only has to
+     * be wider than its window whatever a glyph happens to cost.
+     */
+    private val tooLong = List(20) { long }.joinToString(" · ")
+
+    /** A neighbour, so that a row has something a marquee could push out of it. */
+    private val tail = "Конец"
 
     // -- the decision ---------------------------------------------------------
 
@@ -88,23 +113,82 @@ class MarqueeTextTest {
 
     // -- what the decision is in service of -----------------------------------
 
+    /**
+     * That the line really is set scrolling, and not merely confined.
+     *
+     * Nothing in the semantics says «this one moves», and the bounds of a line
+     * that scrolls and a line cut with «…» are the same to every matcher here.
+     * What differs is the layout underneath: a scrolling line is laid out at the
+     * width the string wants and drawn through a narrower window, an ellipsised
+     * one is laid out at the window's width and cut. The text node's own width
+     * is where the two are told apart without watching an animation, and it is
+     * what fails if the width never reaches the decision — which is the way this
+     * component breaks silently.
+     */
     @Test
-    fun `a line that does not fit stays inside its box`() {
+    fun `a line that does not fit is laid out at its full width`() {
         compose.setContent {
             LessonsTheme {
-                Box(Modifier.width(120.dp)) {
-                    MarqueeText(text = long)
+                Box(Modifier.width(boxWidth)) {
+                    MarqueeText(text = tooLong)
                 }
             }
         }
 
-        val bounds = compose.onNodeWithText(long).getBoundsInRoot()
+        val window = with(compose.density) { boxWidth.roundToPx() }
+        val laidOut = compose.onNodeWithText(tooLong).fetchSemanticsNode().size.width
         assertTrue(
-            "A scrolling line is given unbounded width to scroll through, and if " +
-                "that width reached the layout it would push its row apart rather " +
-                "than travel inside it. Measured ${bounds.right - bounds.left}.",
-            (bounds.right - bounds.left).value <= 120f,
+            "A line that has to scroll is laid out at the width of the string and " +
+                "scrolled through its window; one that fell back to an ellipsis is " +
+                "laid out at the window's width and cut there. Laid out $laidOut, " +
+                "window $window.",
+            laidOut > window,
         )
+    }
+
+    /** And a line that fits is not given room it does not need. */
+    @Test
+    fun `a line that fits is laid out no wider than the window`() {
+        compose.setContent {
+            LessonsTheme {
+                Box(Modifier.width(boxWidth)) {
+                    MarqueeText(text = short)
+                }
+            }
+        }
+
+        val window = with(compose.density) { boxWidth.roundToPx() }
+        assertTrue(compose.onNodeWithText(short).fetchSemanticsNode().size.width < window)
+    }
+
+    /**
+     * The unbounded width a marquee is measured at stays inside the marquee.
+     *
+     * This is what the previous version of this test tried to say by measuring
+     * the line's own bounds, and those are the wrong number: the text node
+     * really is as wide as the string — that is the test above — and it is the
+     * slot the row gave it that has to stay put. A neighbour after it is the
+     * only thing that can say so, because it is the thing that would move.
+     */
+    @Test
+    fun `a scrolling line does not push its row apart`() {
+        compose.setContent {
+            LessonsTheme {
+                Row(Modifier.width(rowWidth)) {
+                    MarqueeText(text = tooLong, modifier = Modifier.weight(1f))
+                    Text(text = tail)
+                }
+            }
+        }
+
+        val row = with(compose.density) { rowWidth.roundToPx() }
+        val neighbour = compose.onNodeWithText(tail).fetchSemanticsNode()
+        assertTrue(
+            "the line after a scrolling one is still in the row: it starts at " +
+                "${neighbour.positionInRoot.x} of $row",
+            neighbour.positionInRoot.x < row,
+        )
+        assertTrue("and is not squeezed out of it", neighbour.size.width > 0)
     }
 
     /**
@@ -115,7 +199,7 @@ class MarqueeTextTest {
     fun `a line that fits is laid out where an ordinary one would be`() {
         compose.setContent {
             LessonsTheme {
-                Box(Modifier.width(240.dp)) {
+                Box(Modifier.width(boxWidth)) {
                     MarqueeText(text = short)
                 }
             }
@@ -123,7 +207,38 @@ class MarqueeTextTest {
 
         val bounds = compose.onNodeWithText(short).getBoundsInRoot()
         assertEquals("the text starts at the box's leading edge", 0f, bounds.left.value, 0.5f)
-        assertTrue("and does not fill it", (bounds.right - bounds.left).value < 240f)
+        assertTrue("and does not fill it", (bounds.right - bounds.left).value < boxWidth.value)
+    }
+
+    /**
+     * The crash this component shipped with, and the reason it no longer wraps
+     * itself in a `BoxWithConstraints`.
+     *
+     * A `BoxWithConstraints` is a `SubcomposeLayout`, and a `SubcomposeLayout`
+     * cannot answer «how tall would you be at this width» — asking throws
+     * `IllegalStateException: Asking for intrinsic measurements of
+     * SubcomposeLayout layouts is not supported`. Nothing in this repository
+     * spells `IntrinsicSize`, so this looked safe; Material spells it inside
+     * its own rows, and the app died on the main thread with an R8-obfuscated
+     * stack that named neither this file nor a caller of it.
+     *
+     * `Row(Modifier.height(IntrinsicSize.Min))` is that question in one line.
+     * It is the whole of the regression: this throws on the version that
+     * measured inside a `BoxWithConstraints` and passes on the one that takes
+     * its width from the layout it is already in. The string is one that
+     * scrolls, so the marquee is asked the question too.
+     */
+    @Test
+    fun `a parent may ask how tall this line would be`() {
+        compose.setContent {
+            LessonsTheme {
+                Row(Modifier.width(boxWidth).height(IntrinsicSize.Min)) {
+                    MarqueeText(text = tooLong)
+                }
+            }
+        }
+
+        compose.onNodeWithText(tooLong).assertIsDisplayed()
     }
 
     /** The text is the text: scrolling must not truncate what a reader copies. */
@@ -131,12 +246,12 @@ class MarqueeTextTest {
     fun `the whole string is on screen whether it scrolls or not`() {
         compose.setContent {
             LessonsTheme {
-                Box(Modifier.width(120.dp)) {
-                    MarqueeText(text = long)
+                Box(Modifier.width(boxWidth)) {
+                    MarqueeText(text = tooLong)
                 }
             }
         }
 
-        compose.onNodeWithText(long).assertIsDisplayed()
+        compose.onNodeWithText(tooLong).assertIsDisplayed()
     }
 }
