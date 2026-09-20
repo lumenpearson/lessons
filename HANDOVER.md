@@ -4,9 +4,10 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **20 September 2026**. **PRs #63 and #64 are merged**; `main` is at
-`e4361a0` and `dev` is level with it. **Nothing is open** — no pull request, no branch of its
-own, no dependabot bump waiting — so the next batch starts from a clean `dev`.
+Last updated: **20 September 2026**. **PRs #63, #64 and #65 are merged**; `main` is at
+`b1dffb6` and `dev` is level with it. **The only thing open is this file's own pull
+request**, which carries the paragraph you are reading and nothing else; once it merges,
+`dev` is level with `main` again and the next batch starts from a clean one.
 The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model changed in
 either, so neither needed a migration**, which is the cheapest thing to check and the most
 expensive to get wrong.
@@ -98,9 +99,9 @@ there is not a third. **The first press should be the owner's, not a reader's.**
 been pressed on a device either: the row, the dark button, the spinner and the message after
 it are laid out by code and seen by nobody.
 
-**Updating this file is now a written rule rather than a request.** It had to be asked for
-twice — once after #62 and once after #64 — and each time a batch had been called done while
-the document a new session starts from still described the batch before it. The trigger is
+**Updating this file is now a written rule rather than a request (PR #65).** It had to be
+asked for twice — once after #62 and once after #64 — and each time a batch had been called
+done while the document a new session starts from still described the batch before it. The trigger is
 the merge, and it is written in `CLAUDE.md`, in `AGENTS.md`, in the `handover` skill (which
 also lists what goes stale mechanically, because reconstructing that list by hand is most of
 the work) and in `github-pr`'s new «After it merges» section. `/where-are-we` now compares
@@ -108,6 +109,14 @@ the document's claimed state against the commits and says when it is behind. And
 hook, `.claude/hooks/handover-behind.sh`, says one sentence on `Stop` when a merge commit is
 newer than the last commit touching this file — which is true only in the window after a
 merge and before the close-out, and stops being true the moment the file is committed.
+
+**The hook has since fired for real, and it was right.** It was proved in a throwaway
+repository before it was committed, and the pull request that carried it said in as many
+words that nothing had seen it fire in a session. #65 merged, `dev` was fast-forwarded, and
+it spoke — about #65 itself, which this file did not yet describe. That is what the sentences
+above and the paragraph at the top of this file are. **The regress ends the same way #63
+ended it:** the close-out describes its own pull request while that pull request is open, so
+the file is already true when it merges. A close-out does not get a close-out of its own.
 
 **Deliberately left alone.** Milestone 6's description on GitHub still reads «PRs #60–#62»
 though it now holds #63 and #64 as well — no tool here edits a milestone, so that is the
@@ -178,7 +187,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 3 | `v0.3.0 — The school year` | #27, #32–#35, #43 |
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
-| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#64 |
+| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#66 |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -582,7 +591,7 @@ turn empty by themselves.
 
 `dev` remains the working branch, but after a merge it is restarted from `main`: a merged
 pull request accepts no new commits, and every branch that has been merged — #45 through
-#64 — is in `main` already.
+#66 — is in `main` already.
 
 ```bash
 git fetch origin
