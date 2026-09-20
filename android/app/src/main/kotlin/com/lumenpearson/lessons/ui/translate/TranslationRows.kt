@@ -21,7 +21,6 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupSwitchItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.data.repository.GithubAccount
-import com.lumenpearson.lessons.core.data.repository.PullRequestResult
 import com.lumenpearson.lessons.core.data.repository.TranslationChange
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
@@ -34,19 +33,25 @@ import com.lumenpearson.lessons.core.designsystem.theme.accentTone
  * the session sheet are opened from the text being corrected and from this row
  * respectively, and neither needs wiring anywhere else.
  */
-fun LazyListScope.translationRows(
+internal fun LazyListScope.translationRows(
     account: GithubAccount?,
     canSignIn: Boolean,
     onSignIn: () -> Unit,
-    onSubmit: suspend (List<TranslationChange>) -> PullRequestResult,
-) = item(key = "translation") { TranslationGroup(account, canSignIn, onSignIn, onSubmit) }
+    submit: TranslationSubmit,
+    onSubmit: (List<TranslationChange>) -> Unit,
+    onAcknowledge: () -> Unit,
+) = item(key = "translation") {
+    TranslationGroup(account, canSignIn, onSignIn, submit, onSubmit, onAcknowledge)
+}
 
 @Composable
 private fun TranslationGroup(
     account: GithubAccount?,
     canSignIn: Boolean,
     onSignIn: () -> Unit,
-    onSubmit: suspend (List<TranslationChange>) -> PullRequestResult,
+    submit: TranslationSubmit,
+    onSubmit: (List<TranslationChange>) -> Unit,
+    onAcknowledge: () -> Unit,
 ) {
     var showSession by remember { mutableStateOf(false) }
     val session = TranslationMode.session
@@ -109,8 +114,12 @@ private fun TranslationGroup(
 
     if (showSession) {
         TranslationSessionSheet(
-            onDismiss = { showSession = false },
+            onDismiss = {
+                showSession = false
+                onAcknowledge()
+            },
             isSignedIn = account != null,
+            submit = submit,
             onSubmit = onSubmit,
         )
     }

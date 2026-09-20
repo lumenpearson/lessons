@@ -339,6 +339,7 @@ fun SettingsSectionScreen(
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val submitState by viewModel.translationSubmit.collectAsStateWithLifecycle()
     var showServerSheet by rememberSaveable { mutableStateOf(false) }
     var showSignOutSheet by rememberSaveable { mutableStateOf(false) }
     var showUnlinkSheet by rememberSaveable { mutableStateOf(false) }
@@ -478,7 +479,9 @@ fun SettingsSectionScreen(
                         sheets.signIn = true
                         viewModel.signInWithGithub()
                     },
+                    submit = submitState,
                     onSubmit = viewModel::submitCorrections,
+                    onAcknowledge = viewModel::acknowledgeSubmission,
                 )
             }
             SettingsSection.ADMIN -> adminRows(

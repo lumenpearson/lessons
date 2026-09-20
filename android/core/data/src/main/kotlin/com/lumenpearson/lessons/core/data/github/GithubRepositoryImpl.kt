@@ -247,9 +247,20 @@ internal class GithubRepositoryImpl(
         return false
     }
 
+    /**
+     * Whether [login] already has a fork **of this project**.
+     *
+     * Not "a repository of that name": `lessons` is a common enough word that a
+     * reader may own an unrelated one, and treating it as the fork would cut a
+     * branch and commit into somebody's own work. The parent is what decides,
+     * and a repository that is not a fork at all never qualifies.
+     */
     private suspend fun repositoryExists(token: String, login: String): Boolean {
         val url = GithubApi.API_BASE + "/repos/" + login + "/" + GithubApi.REPO
-        return get(token, url) != null
+        val body = get(token, url) ?: return false
+        val dto = GithubApi.json.decodeFromString(RepositoryDto.serializer(), body)
+        val upstream = GithubApi.OWNER + "/" + GithubApi.REPO
+        return dto.fork && dto.parent?.fullName.equals(upstream, ignoreCase = true)
     }
 
     private suspend fun refSha(token: String, owner: String, ref: String): String? {

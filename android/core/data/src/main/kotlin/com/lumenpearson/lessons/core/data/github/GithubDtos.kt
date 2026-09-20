@@ -58,18 +58,29 @@ internal data class IssueResponseDto(
 )
 
 /**
- * Response of `GET /repos/{owner}/{repo}` — used only to find out whether a
- * fork exists yet.
+ * Response of `GET /repos/{owner}/{repo}`, read to find out whether a fork of
+ * *this* project exists yet.
  *
  * GitHub answers `POST /forks` with `202 Accepted` and creates the fork
- * afterwards, so the repository polls this until it stops answering `404`.
- * Nothing in the body is read; the status code is the whole answer, and the
- * type exists so the call site reads like the others.
+ * afterwards, so the repository polls this until it answers.
+ *
+ * **The body is read rather than only the status code**, and that is the whole
+ * point of the type. A reader may already own a repository called `lessons`
+ * that has nothing to do with this one — the name is not rare — and a check
+ * that stopped at `200` would take it for the fork, cut a branch in it and
+ * commit there. [fork] and [parent] are what tell the two apart.
  */
 @Serializable
 internal data class RepositoryDto(
     @SerialName("full_name") val fullName: String = "",
-    @SerialName("default_branch") val defaultBranch: String = "main",
+    @SerialName("fork") val fork: Boolean = false,
+    @SerialName("parent") val parent: ParentDto? = null,
+)
+
+/** The repository a fork was made from; see [RepositoryDto]. */
+@Serializable
+internal data class ParentDto(
+    @SerialName("full_name") val fullName: String = "",
 )
 
 /** Response of `GET /repos/{owner}/{repo}/git/ref/{ref}`. */

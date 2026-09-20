@@ -20,11 +20,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -34,7 +31,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.lumenpearson.lessons.R
-import com.lumenpearson.lessons.core.data.repository.PullRequestResult
 import com.lumenpearson.lessons.core.data.repository.TranslationChange
 import com.lumenpearson.lessons.core.designsystem.component.GroupActionItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
@@ -68,15 +64,22 @@ import kotlinx.coroutines.launch
  * leaves it enabled and bounces the press to a sign-in prompt; a control that
  * looks pressable and answers with nothing is the worse of the two.
  *
- * @param onSubmit opens the pull request. Suspending, and owned by the settings
- *   view model, because this sheet can be dismissed while GitHub is still
- *   forking and the work must not be cancelled with the composition.
+ * @param submit where an attempt has got to. Owned by the settings view model
+ *   rather than by this composition, because the sheet can be dismissed while
+ *   GitHub is still forking and the work must outlive it.
+ * @param onSubmit starts an attempt; it does not wait for one.
+ * @param onAcknowledge called when the sheet closes, so the outcome is forgotten
+ *   and opening the sheet again does not send the reader back to a pull request
+ *   they have already seen. Not called the moment the browser opens: the
+ *   message below the button is the only record the sheet keeps, and clearing
+ *   it there would make it flash and vanish.
  */
 @Composable
 internal fun TranslationSessionSheet(
     onDismiss: () -> Unit,
     isSignedIn: Boolean,
-    onSubmit: suspend (List<TranslationChange>) -> PullRequestResult,
+    submit: TranslationSubmit,
+    onSubmit: (List<TranslationChange>) -> Unit,
 ) {
     // [NoCorrections] for the same reason the editor takes it: this sheet draws
     // the originals and the corrections themselves, so leaving the mode live
@@ -86,7 +89,11 @@ internal fun TranslationSessionSheet(
             onDismissRequest = onDismiss,
             title = stringResource(R.string.translation_session_title),
         ) {
-            SessionContent(isSignedIn = isSignedIn, onSubmit = onSubmit)
+            SessionContent(
+                isSignedIn = isSignedIn,
+                submit = submit,
+                onSubmit = onSubmit,
+            )
         }
     }
 }
@@ -94,10 +101,9 @@ internal fun TranslationSessionSheet(
 @Composable
 private fun ColumnScope.SessionContent(
     isSignedIn: Boolean,
-    onSubmit: suspend (List<TranslationChange>) -> PullRequestResult,
+    submit: TranslationSubmit,
+    onSubmit: (List<TranslationChange>) -> Unit,
 ) {
-    var submitting by remember { mutableStateOf(false) }
-    var outcome by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -161,41 +167,35 @@ private fun ColumnScope.SessionContent(
         val submitLabel = stringResource(
             if (isSignedIn) R.string.translation_submit else R.string.translation_submit_signed_out,
         )
-        val opened = stringResource(R.string.translation_submit_opened)
-        val failed = stringResource(R.string.translation_submit_failed)
-        val refusedFormat = stringResource(R.string.translation_submit_refused)
+        val sending = submit is TranslationSubmit.Sending
         GroupActionItem(
             label = submitLabel,
             icon = Icons.Rounded.CloudUpload,
-            enabled = isSignedIn && edits.isNotEmpty() && !submitting,
-            busy = submitting,
-            onClick = {
-                submitting = true
-                outcome = null
-                scope.launch {
-                    val result = onSubmit(edits.map(TranslationEdit::toChange))
-                    submitting = false
-                    outcome = when (result) {
-                        is PullRequestResult.Opened -> {
-                            // The session is dropped only now, with a pull
-                            // request to point at. Essentials drops it on a
-                            // posted comment, which is not the same thing: if
-                            // the workflow behind it fails, the reader's work is
-                            // gone and nothing says so.
-                            TranslationMode.clear()
-                            open(context, result.htmlUrl)
-                            if (result.refused.isEmpty()) {
-                                opened
-                            } else {
-                                opened + " · " + refusedFormat.format(result.refused.joinToString())
-                            }
-                        }
-                        is PullRequestResult.Failed -> failed
-                    }
-                }
-            },
+            enabled = isSignedIn && edits.isNotEmpty() && !sending,
+            busy = sending,
+            onClick = { onSubmit(edits.map(TranslationEdit::toChange)) },
         )
-        val message = outcome
+        val message = when (submit) {
+            is TranslationSubmit.Opened -> {
+                val opened = stringResource(R.string.translation_submit_opened)
+                if (submit.refused.isEmpty()) {
+                    opened
+                } else {
+                    opened + " · " + stringResource(
+                        R.string.translation_submit_refused,
+                        submit.refused.joinToString(),
+                    )
+                }
+            }
+            TranslationSubmit.Failed -> stringResource(R.string.translation_submit_failed)
+            else -> null
+        }
+        // The browser is opened from here rather than from the view model,
+        // which has no activity to open it with, and keyed on the URL so that
+        // recomposing the sheet does not open it again.
+        if (submit is TranslationSubmit.Opened) {
+            LaunchedEffect(submit.htmlUrl) { open(context, submit.htmlUrl) }
+        }
         if (message != null) {
             Text(
                 text = message,
