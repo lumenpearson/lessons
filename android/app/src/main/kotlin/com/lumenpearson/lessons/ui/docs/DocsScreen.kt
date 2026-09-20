@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons.ui.docs
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,31 +10,38 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Login
-import androidx.compose.material.icons.automirrored.rounded.MenuBook
-import androidx.compose.material.icons.rounded.AdminPanelSettings
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.NotificationsActive
-import androidx.compose.material.icons.rounded.ViewAgenda
-import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.repository.DocsFailure
+import com.lumenpearson.lessons.core.data.repository.DocsState
 import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
 import com.lumenpearson.lessons.core.designsystem.component.AccentTile
 import com.lumenpearson.lessons.core.designsystem.component.GroupRow
+import com.lumenpearson.lessons.core.designsystem.component.LessonsPullToRefreshBox
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
 import com.lumenpearson.lessons.core.designsystem.component.ToolbarItem
+import com.lumenpearson.lessons.core.designsystem.text.MarkupStyles
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.rememberMarkupStyles
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
@@ -41,33 +49,88 @@ import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
+import com.lumenpearson.lessons.core.model.DocsBlock
+import com.lumenpearson.lessons.core.model.DocsGuidePage
+import com.lumenpearson.lessons.core.model.DocsOrigin
+import com.lumenpearson.lessons.core.model.DocsRelease
+import com.lumenpearson.lessons.core.model.DocsSpan
 
 /**
- * One page of the documentation.
+ * The guide: every page in one pager, and one way out.
  *
- * Deliberately the same shape as a settings page: no `Scaffold`, no top app
- * bar, the status-bar inset inside the list's content padding so the first
- * words scroll up under the softened strip, and the page's name repeated in the
- * pill at the bottom. The documentation is not a special place in the app, and
- * a screen that looked like one would be the first thing a reader had to learn
- * about instead of reading.
+ * **Sections are swiped, not entered.** They used to be a screen each, pushed
+ * and popped, so the bar was a list of destinations and "back" walked a history
+ * nobody had asked for. They are peers — eight sections of one document — and
+ * the app already has the gesture for peers, on its three home tabs. The
+ * toolbar now scrolls the pager instead of pushing a screen, so back has one
+ * meaning here: leave the documentation.
  *
- * There is no navigation here at all — not a row, not a "next page" button.
- * Every way between pages is the floating toolbar, which is the point of the
- * arrangement: one bar, always under the thumb, carrying the whole table of
- * contents.
+ * The pager state is the shell's, not this screen's. The toolbar is composed by
+ * the shell — it rides above this content and outlives it during the slide —
+ * and a bar that could not say which section is current, or scroll to another,
+ * would be a table of contents that does not know where you are.
  */
 @Composable
 fun DocsScreen(
-    page: DocsPage,
+    state: DocsState,
+    pagerState: PagerState,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val library = state.library
+    LessonsPullToRefreshBox(
+        isRefreshing = state.refreshing,
+        onRefresh = onRefresh,
+        modifier = modifier.fillMaxSize(),
+    ) {
+        if (library == null) {
+            // Only before the first read finishes, and only for as long as
+            // opening two files takes. There is no "no documentation" state:
+            // every install carries the guide in its assets.
+            DocsMissing(refreshing = state.refreshing)
+            return@LessonsPullToRefreshBox
+        }
+        HorizontalPager(
+            state = pagerState,
+            // The neighbours stay composed, so a swipe back to a section shows
+            // it where it was left rather than at the top again — the same
+            // reason the home tabs keep theirs.
+            beyondViewportPageCount = 1,
+            modifier = Modifier.fillMaxSize(),
+        ) { index ->
+            val page = library.guide.pages.getOrNull(index)
+            if (page != null) {
+                DocsPageContent(
+                    page = page,
+                    release = library.release,
+                    failure = state.failure,
+                    current = index == pagerState.currentPage,
+                )
+            }
+        }
+    }
+}
+
+/** One section of the guide, scrolling on its own. */
+@Composable
+private fun DocsPageContent(
+    page: DocsGuidePage,
+    release: DocsRelease,
+    failure: DocsFailure?,
+    current: Boolean,
+) {
     val listState = rememberLazyListState()
-    ReportScrollOffset(listState)
+    // Only the page in front reports where it is scrolled to. Its neighbours
+    // are composed but not visible, and a bar that dimmed because the page to
+    // the right happens to be scrolled would be reporting somebody else's.
+    if (current) ReportScrollOffset(listState)
+
+    val styles = rememberMarkupStyles()
+    val runs = remember(page) { docsRuns(page.blocks) }
 
     LazyColumn(
         state = listState,
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .appScrollMotionBlur(listState),
         contentPadding = PaddingValues(
@@ -79,20 +142,96 @@ fun DocsScreen(
         verticalArrangement = Arrangement.spacedBy(GroupSpacing),
     ) {
         item(key = "header") {
-            ScreenHeader(
-                title = correctedString(page.titleRes),
-                subtitle = correctedString(page.summaryRes),
-            )
+            ScreenHeader(title = page.title, subtitle = page.summary)
+        }
+        item(key = "release") {
+            DocsReleaseCard(release = release, failure = failure)
         }
         // Keyed by position rather than by content: two pages may legitimately
         // quote the same string, and a key that repeated inside one list is a
         // crash rather than a cosmetic problem.
         itemsIndexed(
-            items = docsRuns(page.blocks),
+            items = runs,
             key = { index, _ -> index },
             contentType = { _, run -> docsContentType(run) },
         ) { _, run ->
-            DocsRun(run)
+            DocsRun(run = run, styles = styles)
+        }
+    }
+}
+
+/**
+ * Which documentation this is, and whether it is the newest there is.
+ *
+ * On every page rather than only on the first, because the pages are swiped:
+ * a reader who lands on the widget section from the toolbar would otherwise
+ * never meet the one sentence that explains why the screen in front of them is
+ * not the screen described.
+ *
+ * It states the version and the app version whatever happened — that is the
+ * card's job — and adds a line about the copy only when there is something to
+ * say about it. A banner that shouted "offline" at somebody who is simply up to
+ * date would be the thing readers learn to ignore.
+ */
+@Composable
+private fun DocsReleaseCard(release: DocsRelease, failure: DocsFailure?) {
+    val version = correctedString(
+        R.string.docs_release_version,
+        release.version,
+        release.updated,
+        release.appVersion,
+    )
+    val note = when {
+        failure == DocsFailure.OFFLINE -> correctedString(R.string.docs_release_offline)
+        failure == DocsFailure.UNREADABLE -> correctedString(R.string.docs_release_unreadable)
+        release.origin == DocsOrigin.BUNDLED -> correctedString(R.string.docs_release_bundled)
+        else -> null
+    }
+    RoundedCardContainer {
+        GroupRow(
+            container = MaterialTheme.colorScheme.surfaceContainerHigh,
+            verticalAlignment = Alignment.Top,
+        ) {
+            AccentIconTile(
+                icon = if (failure == null) Icons.Rounded.MenuBook else Icons.Rounded.CloudOff,
+                tone = accentTone(if (failure == null) 2 else 4),
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = version,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                if (note != null) {
+                    Text(
+                        text = note,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Before the first read finishes, and in the state the build forgot the assets. */
+@Composable
+private fun DocsMissing(refreshing: Boolean) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(ScreenPadding),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (!refreshing) {
+            Text(
+                text = correctedString(R.string.docs_unavailable),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -129,8 +268,8 @@ internal fun docsRuns(blocks: List<DocsBlock>): List<List<DocsBlock>> {
  * `null` — so a paragraph, which is one `Text`, is offered the slot a card of
  * eight point rows has just vacated, and the whole subtree is thrown away and
  * built again. Naming the shape is what lets a paragraph land in a paragraph's
- * slot; the longest page is forty-seven blocks, which is enough scrolling for
- * it to be worth saying.
+ * slot; the longest page is eleven blocks, which is enough scrolling for it to
+ * be worth saying.
  *
  * It is a function rather than a `when` inlined at the call site because the
  * branches have to agree with [DocsRun]'s, and two `when`s over the same sealed
@@ -151,21 +290,21 @@ internal fun docsContentType(run: List<DocsBlock>): String {
 
 /** One run: either a stack of steps in one container, or a single block. */
 @Composable
-private fun DocsRun(run: List<DocsBlock>) {
+private fun DocsRun(run: List<DocsBlock>, styles: MarkupStyles) {
     if (run.size > 1 || run.first() is DocsBlock.Step) {
         RoundedCardContainer {
             run.forEachIndexed { index, block ->
                 val step = block as DocsBlock.Step
-                StepRow(step = step, tone = index)
+                StepRow(step = step, tone = index, styles = styles)
             }
         }
         return
     }
 
     when (val block = run.first()) {
-        is DocsBlock.Paragraph -> DocsParagraph(block.textRes)
-        is DocsBlock.Points -> DocsPoints(block.itemsRes)
-        is DocsBlock.Note -> DocsNote(block.textRes)
+        is DocsBlock.Paragraph -> DocsParagraph(block.spans, styles)
+        is DocsBlock.Points -> DocsPoints(block.items.map { it.spans }, styles)
+        is DocsBlock.Note -> DocsNote(block.spans, styles)
         // Unreachable: a lone step took the branch above.
         is DocsBlock.Step -> Unit
     }
@@ -181,9 +320,9 @@ private fun DocsRun(run: List<DocsBlock>) {
  * letter of the heading.
  */
 @Composable
-private fun DocsParagraph(textRes: Int) {
+private fun DocsParagraph(spans: List<DocsSpan>, styles: MarkupStyles) {
     Text(
-        text = correctedString(textRes),
+        text = annotated(spans, styles),
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier
@@ -194,9 +333,9 @@ private fun DocsParagraph(textRes: Int) {
 
 /** Several peers, each on a row of the group, marked by a coloured dot. */
 @Composable
-private fun DocsPoints(itemsRes: List<Int>) {
+private fun DocsPoints(items: List<List<DocsSpan>>, styles: MarkupStyles) {
     RoundedCardContainer {
-        itemsRes.forEachIndexed { index, textRes ->
+        items.forEachIndexed { index, spans ->
             GroupRow(verticalAlignment = Alignment.Top) {
                 // A dot rather than the 40 dp icon tile every settings row has:
                 // the points of a list are not eight different things needing
@@ -210,7 +349,7 @@ private fun DocsPoints(itemsRes: List<Int>) {
                     modifier = Modifier.padding(top = DotOffset),
                 ) {}
                 Text(
-                    text = correctedString(textRes),
+                    text = annotated(spans, styles),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
@@ -228,7 +367,7 @@ private fun DocsPoints(itemsRes: List<Int>) {
  * available and costs nothing to read.
  */
 @Composable
-private fun DocsNote(textRes: Int) {
+private fun DocsNote(spans: List<DocsSpan>, styles: MarkupStyles) {
     RoundedCardContainer {
         GroupRow(
             container = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -236,7 +375,7 @@ private fun DocsNote(textRes: Int) {
         ) {
             AccentIconTile(icon = Icons.Rounded.Info, tone = accentTone(5))
             Text(
-                text = correctedString(textRes),
+                text = annotated(spans, styles),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
@@ -247,7 +386,7 @@ private fun DocsNote(textRes: Int) {
 
 /** One numbered stage: the number on the tile, then its own title and prose. */
 @Composable
-private fun StepRow(step: DocsBlock.Step, tone: Int) {
+private fun StepRow(step: DocsBlock.Step, tone: Int, styles: MarkupStyles) {
     GroupRow(verticalAlignment = Alignment.Top) {
         AccentTile(tone = accentTone(tone)) {
             Text(
@@ -260,13 +399,15 @@ private fun StepRow(step: DocsBlock.Step, tone: Int) {
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
+            if (step.title.isNotEmpty()) {
+                Text(
+                    text = annotated(step.title, styles),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
             Text(
-                text = correctedString(step.titleRes),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = correctedString(step.textRes),
+                text = annotated(step.text, styles),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -274,30 +415,34 @@ private fun StepRow(step: DocsBlock.Step, tone: Int) {
     }
 }
 
+/**
+ * The parsed spans of one line, as text the screen can draw.
+ *
+ * Flat, like the release notes' renderer and for the same reason: a bold span
+ * is bold text, not a sub-document. A link is a `LinkAnnotation` rather than a
+ * click handler, so the platform opens it and a screen reader announces it as a
+ * link.
+ */
+private fun annotated(spans: List<DocsSpan>, styles: MarkupStyles): AnnotatedString =
+    buildAnnotatedString {
+        spans.forEach { span ->
+            when {
+                span.link != null -> withLink(
+                    LinkAnnotation.Url(url = span.link!!, styles = styles.link),
+                ) {
+                    append(span.text)
+                }
+
+                span.code -> withStyle(styles.code) { append(span.text) }
+                span.bold -> withStyle(styles.bold) { append(span.text) }
+                else -> append(span.text)
+            }
+        }
+    }
+
 /** Diameter of a point's dot, and how far down the row it sits to meet the first line. */
 private val DotSize = 10.dp
 private val DotOffset = 5.dp
-
-/**
- * The glyph a page carries in the toolbar.
- *
- * Here and not on [DocsPage] so that the enum stays free of Compose; see its
- * own note. Each icon is the one the same subject already wears elsewhere in
- * the app — the diary's book, the notification bell, the badge of the
- * management page — because a reader who has seen the settings list has
- * already learned them.
- */
-internal val DocsPage.icon: ImageVector
-    get() = when (this) {
-        DocsPage.START -> Icons.AutoMirrored.Rounded.Login
-        DocsPage.TABS -> Icons.Rounded.ViewAgenda
-        DocsPage.WIDGET -> Icons.Rounded.Widgets
-        DocsPage.ALERTS -> Icons.Rounded.NotificationsActive
-        DocsPage.LANGUAGE -> Icons.Rounded.Language
-        DocsPage.TELEGRAM -> Icons.Rounded.Link
-        DocsPage.DIARY -> Icons.AutoMirrored.Rounded.MenuBook
-        DocsPage.ADMIN -> Icons.Rounded.AdminPanelSettings
-    }
 
 /**
  * Which toolbar item reads as current, or `-1` for none.
@@ -307,22 +452,27 @@ internal val DocsPage.icon: ImageVector
  * answer — an index into the list the bar was handed. Writing it out is what
  * lets a test say that the documentation's selection tracks its page.
  */
-fun docsToolbarSelection(page: DocsPage?): Int =
-    page?.let { DocsPage.entries.indexOf(it) } ?: -1
+fun docsToolbarSelection(pageIndex: Int, pageCount: Int): Int =
+    if (pageIndex in 0 until pageCount) pageIndex else -1
 
 /**
  * The whole table of contents, as the toolbar's items.
  *
- * Every page, always, in declaration order: a bar that showed only some of
- * them would make "which sections are there" a question the reader has to
- * navigate to answer, and the bar is the only navigation this screen has.
+ * Every page the guide has, in the order it was written: a bar that showed only
+ * some of them would make "which sections are there" a question the reader has
+ * to navigate to answer, and the bar is the only navigation this screen has.
+ *
+ * The labels come from the guide rather than from `values/`, which is the point
+ * of fetching it: a section added to the documentation appears in the bar of an
+ * app that was built before it was written.
  */
-@Composable
-fun docsToolbarItems(onOpen: (DocsPage) -> Unit): List<ToolbarItem> =
-    DocsPage.entries.map { page ->
-        ToolbarItem(
-            icon = page.icon,
-            label = correctedString(page.labelRes),
-            onClick = { onOpen(page) },
-        )
-    }
+fun docsToolbarItems(
+    pages: List<DocsGuidePage>,
+    onOpen: (Int) -> Unit,
+): List<ToolbarItem> = pages.mapIndexed { index, page ->
+    ToolbarItem(
+        icon = docsIcon(page.id),
+        label = page.label,
+        onClick = { onOpen(index) },
+    )
+}

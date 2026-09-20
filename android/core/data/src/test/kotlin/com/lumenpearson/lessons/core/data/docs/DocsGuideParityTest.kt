@@ -101,6 +101,51 @@ class DocsGuideParityTest {
         )
     }
 
+    /**
+     * A list of one is a paragraph wearing a bullet.
+     *
+     * Checked here rather than on the screen, where a lone point looks
+     * deliberate. It used to be checked against the Kotlin that declared the
+     * pages; the pages are markdown now, so the file itself is what is read.
+     */
+    @Test
+    fun `no list has fewer than two points`() {
+        val thin = (russian.pages + english.pages).flatMap { page ->
+            page.blocks.filterIsInstance<DocsBlock.Points>()
+                .filter { it.items.size < 2 }
+                .map { page.id }
+        }
+        assertTrue("lists with a single point: $thin", thin.isEmpty())
+    }
+
+    /** Steps are read as a sequence, so they have to count like one. */
+    @Test
+    fun `steps are numbered from one without gaps`() {
+        (russian.pages + english.pages).forEach { page ->
+            val numbers = page.blocks.filterIsInstance<DocsBlock.Step>().map { it.number }
+            if (numbers.isEmpty()) return@forEach
+            assertEquals("steps on «${page.id}»", (1..numbers.size).toList(), numbers)
+        }
+    }
+
+    /**
+     * The one place the same sentence twice is a bug rather than a style: a
+     * page that quotes another page's paragraph verbatim means one of the two
+     * was meant to say something else.
+     */
+    @Test
+    fun `no paragraph is written on two pages`() {
+        val seen = mutableMapOf<String, String>()
+        val repeats = mutableListOf<String>()
+        russian.pages.forEach { page ->
+            page.blocks.flatMap(::textOf).filter { it.length > REPEAT_MINIMUM }.forEach { line ->
+                val previous = seen.put(line, page.id)
+                if (previous != null) repeats += "«$previous» and «${page.id}» share a line"
+            }
+        }
+        assertTrue(repeats.toString(), repeats.isEmpty())
+    }
+
     @Test
     fun `the manifest names a file for each language and an app version`() {
         val manifest = folder.resolve("manifest.json")
@@ -110,6 +155,14 @@ class DocsGuideParityTest {
             .forEach { field ->
                 assertTrue("the manifest says nothing about $field", text.contains(field))
             }
+    }
+
+    private companion object {
+        /**
+         * Shorter than this and a repeat is a coincidence rather than a
+         * mistake — «Код класса» is a heading two pages may both name.
+         */
+        const val REPEAT_MINIMUM = 40
     }
 
     private fun shapeOf(block: DocsBlock): String = when (block) {

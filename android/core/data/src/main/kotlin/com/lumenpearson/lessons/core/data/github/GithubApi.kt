@@ -30,6 +30,10 @@ internal object GithubApi {
     const val REPO = "lessons"
     const val API_BASE = "https://api.github.com"
     const val WEB_BASE = "https://github.com"
+    const val RAW_BASE = "https://raw.githubusercontent.com"
+
+    /** Where a file is read from: the branch a merge deploys, not a tag. */
+    private const val DEFAULT_BRANCH = "main"
 
     /**
      * The REST API's own media type and the dated version that pins response
@@ -70,6 +74,17 @@ internal object GithubApi {
 
     /** `/releases`, `/issues` — a path under this project's repository. */
     fun repoUrl(path: String): String = "$API_BASE/repos/$OWNER/$REPO$path"
+
+    /**
+     * A file's bytes, from the default branch.
+     *
+     * Not the REST API: `/contents` answers with base64 inside JSON and counts
+     * against a rate limit that is sixty requests an hour for a caller with no
+     * token. `raw` serves the file itself, is cached by GitHub's CDN, and needs
+     * no headers beyond the user agent — which matters, because the one caller
+     * is the documentation and it asks on every visit to the screen.
+     */
+    fun rawUrl(path: String): String = "$RAW_BASE/$OWNER/$REPO/$DEFAULT_BRANCH/$path"
 
     /**
      * GitHub rejects requests with no `User-Agent` and asks that it name the

@@ -193,6 +193,36 @@ changed. Each sync fingerprints the next seven days — index, subject, start, r
 cancelled, replaced — and compares that against the previous one. The first sync sets the
 baseline and says nothing.
 
+### The guide is data, not code
+
+The documentation inside the app used to be 103 string resources and a Kotlin file naming
+which of them made which page. It is now two markdown files in [`docs/app/`](app/) — the
+Russian source and its English translation — and a manifest saying which version they are and
+which version of the app they describe.
+
+```
+docs/app/*.md ──▶ raw.githubusercontent.com ──▶ files/docs/guide.<lang>.md
+       │                                                    │
+       └────────▶ assets/ (built into the APK) ─────────────┴──▶ DocsMarkdown.parse ──▶ pages
+```
+
+Three sources, tried in that order: what was fetched, what is stored, what shipped. The
+bundled copy is why the other two are optional — an install on a train has a guide, and a
+fetch that fails changes nothing but the line at the top of every page, which states the
+version, the date and the app version it was written for. `docs/app/` is the module's asset
+folder rather than a copy of it, so the bytes in the APK are the bytes in the repository.
+
+Why fetching at all, for a document that ships with the app: a guide is wrong the moment a
+screen moves, and the app it describes updates through an APK somebody has to install by
+hand. The parser understands a deliberately small subset of Markdown and never throws —
+anything that is not a guide parses to no pages, and the repository keeps what it already
+had rather than replacing a working guide with an empty screen.
+
+What this gave up is the correction mode: the guide's text is no longer a resource, so it
+cannot be long-pressed and corrected like every other string in the app. A correction to the
+documentation is a pull request against `docs/app/`, which is the same place the app reads
+it from.
+
 ## What we took from Essentials, and what we changed
 
 The design language is modelled on
@@ -294,9 +324,9 @@ alternative is every family's password in the database.
 
 ## Testing
 
-1465 tests on the server across 42 files, 725 on Android across 93 classes; `pytest -q` and
+1465 tests on the server across 42 files, 736 on Android across 95 classes; `pytest -q` and
 `./gradlew test`, both offline, both in CI. On Android that is `:core:model` 94,
-`:core:data` 234, `:core:designsystem` 54, `:widget` 68, `:app` 275.
+`:core:data` 257, `:core:designsystem` 54, `:widget` 68, `:app` 263.
 
 The table below is the load-bearing part of that rather than the whole of it:
 

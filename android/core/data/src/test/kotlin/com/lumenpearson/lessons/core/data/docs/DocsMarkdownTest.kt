@@ -198,3 +198,38 @@ class DocsMarkdownTest {
             }
     }
 }
+
+/**
+ * The one rule of the fallback that can be checked without a device.
+ *
+ * Reading the stored copy needs a `Context`, the assets and a DataStore, so
+ * what is tested is the decision rather than the read: which of the two copies
+ * on a phone is the one worth showing.
+ */
+class DocsStoredCopyTest {
+
+    @Test
+    fun `a newer install beats an older fetch`() {
+        // The case this exists for: a phone that fetched version 3 long ago,
+        // then installed an APK carrying version 5. Offline, "stored wins"
+        // would show the older guide — and go on showing it.
+        assertEquals(false, preferStoredCopy(storedVersion = 3, bundledVersion = 5))
+    }
+
+    @Test
+    fun `a fetch beats the install it overtook`() {
+        assertEquals(true, preferStoredCopy(storedVersion = 7, bundledVersion = 5))
+    }
+
+    @Test
+    fun `the same version stays where it is`() {
+        assertEquals(true, preferStoredCopy(storedVersion = 5, bundledVersion = 5))
+    }
+
+    @Test
+    fun `an APK with no manifest never wins`() {
+        // A build that shipped no manifest reads as version 0, which must not
+        // take a real fetched guide away.
+        assertEquals(true, preferStoredCopy(storedVersion = 1, bundledVersion = 0))
+    }
+}
