@@ -4,23 +4,109 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **20 September 2026**. **PRs #60, #61 and #62 are all merged**; `main` is at
-`f13d60e`. **The only thing open is this file's own pull request**, which carries the
-close-out you are reading and nothing else; once it merges, `dev` is level with `main` again
-and the next batch starts from a clean one.
+Last updated: **20 September 2026**. **PRs #63 and #64 are merged**; `main` is at
+`e4361a0` and `dev` is level with it. **Nothing is open** — no pull request, no branch of its
+own, no dependabot bump waiting — so the next batch starts from a clean `dev`.
 The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model changed in
-any of the three, so not one of them needed a migration**, which is the cheapest thing to
-check and the most expensive to get wrong.
+either, so neither needed a migration**, which is the cheapest thing to check and the most
+expensive to get wrong.
 
 Production was read after #60 and again after #61, rather than assumed: `/api/v1/health`
 answers `{"status":"ok","api_version":1}` and `/api/v1/warmup` — which opens a real
 connection, so it answers for the database as well as the code — answers
 `{"status":"ok","api_version":1,"schema":"0013"}`. That is the dishka container serving a
 real request on a real cold start, which is the one thing about it the branch could not
-check before it merged. **It was not re-read after #62, and did not need to be:** that batch
-touched no server code at all — Android, its tests, and documents.
+check before it merged. **It has not been re-read since, and did not need to be:** #62, #63
+and #64 touched no server code at all — Android, its tests, and documents.
 
-## What the last session added: nothing on a screen is cut off
+## What the last session added: a correction goes out as a pull request from the reader's own account
+
+Three commits in `dev`, merged as PR #64 (`e4361a0`), in the milestone `v0.6.0`. Before them,
+PR #63 (`ec0d976`) carried the previous batch's close-out in this file and nothing else, and
+went into `main` on the owner's instruction.
+
+**Correction mode used to end in a fragment somebody else had to paste.** It produced a
+`<string>` element, and that was the whole delivery: the reader copied it, or shared it, and
+the work reached the project only if a second person carried it. The session sheet now also
+offers to open a pull request, and it is opened **from the account the reader signed in
+with**, not from the project's.
+
+**The sign-in row moved to where it is needed.** It sat in the group about GitHub under
+«О приложении»; it now sits directly above the correction-mode switch, which is where
+somebody looking for it will be. Signing out stays in the old group beside the bug report
+the account is otherwise for — two rows on one page showing the same account state is one
+row too many. **Signing in is not required to make corrections:** the mode, the editor and
+the session are local and work offline, so only the button that *sends* them goes dark
+without an account. The anonymous update check was left alone for the same reason — it needs
+no token, and a sign-in wall there would break something that works.
+
+**Putting a corrected string back is its own file, with its own test.** `StringsDocument`
+replaces one element's body and leaves every other byte of `strings.xml` where it was. Seven
+tests hold the parts that would go wrong quietly: `name="settings_title"` must not match
+`settings_titles_plural`, a `<string-array>` of that name is a different resource, an
+attribute written before `name` must not hide the element, a `>` inside a value must not cut
+the body short, and a key the file does not declare is refused rather than appended.
+
+**What was taken from Essentials, and what was not.** Taken: where the row sits, the shape
+of the flow, the two states of the account row. Not taken, because each is a defect rather
+than a decision — their submit button is enabled while signed out and bounces the press to a
+prompt; they clear the session on a *posted comment*, which is not a delivered correction, so
+if the workflow behind it fails the reader's work is gone and nothing says so; their
+`triggerWorkflowDispatch` passes the user's OAuth token as a workflow input, where it is
+visible in the Actions UI and kept in the run record; and their translation feature carries
+hard-coded English literals beside `stringResource` calls, which `ResourceTranslationTest`
+would refuse here.
+
+**The transport is different on purpose.** Essentials' public path is a comment on a
+hard-coded discussion thread, turned into a pull request by a workflow holding
+`contents: write`; the contributor survives only as the commit author. That needs a
+discussion, a workflow and a write permission this project does not want — and it does not
+do what was asked, because the pull request is not the reader's. A fork and a pull request
+are, and the `public_repo` scope the sign-in already requests covers both, so nobody has to
+re-authorise.
+
+**Two defects in this batch's own code, found by re-reading it rather than by a failure.**
+A repository merely *named* `lessons` was taken for the fork — the check asked for
+`/repos/{login}/lessons` and read any 200 as "the fork is there", so a reader who already
+owned an unrelated repository of that name would have had a branch cut in it and a commit
+written to it, over a corrected string; it now reads the body and requires a fork whose
+parent is this project. And the submit ran on `rememberCoroutineScope()`, which dies with the
+composition, while the comment above it claimed the view model owned it and it survived
+dismissal — closing the sheet cancelled the work. The launch moved to `viewModelScope`, which
+fixed the comment's honesty as well as the behaviour. A third was caught before it shipped:
+acknowledging the outcome inside the `LaunchedEffect` that opens the browser would have
+cleared the message in the same frame it appeared.
+
+**Two things in that code that are easy to get wrong.** The branch is cut from the
+**upstream** commit, not from the fork's own head: a fork made once and never synced is
+behind by everything merged since, and would offer all of it back as reverts. And the
+**owner of a repository cannot fork it** — GitHub answers 422 — so their branch goes straight
+to the upstream repository, which is the case the first person to try this will hit.
+
+**Three places said 718 tests across 92 classes; the suite is 725 across 93.** This file's
+cheat-sheet, the README's «Honest status» table and `docs/architecture.md` are corrected.
+`docs/architecture.md` was wrong in a second way that the total had hidden: its per-module
+breakdown still summed to 709, because the previous batch moved the total and not the five
+numbers under it. They now read `:core:model` 94, `:core:data` 234, `:core:designsystem` 54,
+`:widget` 68, `:app` 275 — counted from the test XML of a real run, and they add up.
+
+**What nothing has verified, and it is the whole point of the batch.** Not one line of the
+fork, the branch, the commit or the pull request has executed against GitHub. There is no
+test for it and no way to write one here — it needs an account, a token and a real
+repository. The two defects above were found by reading, and the same reading cannot prove
+there is not a third. **The first press should be the owner's, not a reader's.** Nothing has
+been pressed on a device either: the row, the dark button, the spinner and the message after
+it are laid out by code and seen by nobody.
+
+**Deliberately left alone.** Milestone 6's description on GitHub still reads «PRs #60–#62»
+though it now holds #63 and #64 as well — no tool here edits a milestone, so that is the
+owner's line to change. The update check stays anonymous: it asks GitHub for the latest
+release, needs no token, and putting it behind the sign-in would take a working feature away
+from everybody who never signs in.
+
+---
+
+## What the session before it added: nothing on a screen is cut off
 
 Five commits in `dev`, merged as PR #62 (`f13d60e`), in the milestone `v0.6.0`. Three pieces,
 and the second and third are consequences of the first rather than separate work.
@@ -81,7 +167,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 3 | `v0.3.0 — The school year` | #27, #32–#35, #43 |
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
-| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#62 |
+| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#64 |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -105,7 +191,7 @@ inside code.
 
 ---
 
-## What the session before it added, on top of the audit
+## And the session before that, on top of the audit
 
 Twenty-five commits after `13348d5`, in five pieces. The first two finished the audit batch;
 the last three are things that batch left behind, and one of them was found by re-reading
@@ -485,7 +571,7 @@ turn empty by themselves.
 
 `dev` remains the working branch, but after a merge it is restarted from `main`: a merged
 pull request accepts no new commits, and every branch that has been merged — #45 through
-#62 — is in `main` already.
+#64 — is in `main` already.
 
 ```bash
 git fetch origin
@@ -498,7 +584,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && python -m pytest -q -n auto                # 1465 tests, ~1.5 min
 cd server  && python -m mypy                             # clean, 81 modules
-cd android && ./gradlew test                             # 718 tests
+cd android && ./gradlew test                             # 725 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
@@ -916,6 +1002,14 @@ else.**
   because a segment is narrow; nobody has looked at them beside the Essentials original they
   came from.
 
+- **The pull request flow has never reached GitHub.** Signing in was already exercised only
+  as far as the token; opening a fork, cutting a branch on it, committing a file and opening
+  the pull request are four calls that have never been made from this app to a real account.
+  `StringsDocumentTest` proves what goes *into* the file, and nothing proves what happens to
+  it afterwards. The failure modes that were closed — a repository merely named `lessons`, a
+  branch cut from a stale fork, the owner's own 422 — were reasoned about, not observed.
+  **The first press should be the owner's**, because the first press is also the first test.
+
 **The most useful next action is to install the APK on a phone and live with it for one
 school day.** After that the only questions left are about runtime and layout, and those are
 invisible from anywhere except a real screen.
@@ -1148,6 +1242,33 @@ would have been pointless.
 And one line without which all of this quietly ceases to exist: `MainActivity` wraps the app
 in `CorrectionHost`. Without it everything builds and draws, and the default implementation
 does nothing. That is in a test too.
+
+### A correction leaves the phone as somebody's pull request, and the fork is not its name
+
+The sheet that collects corrections can now open a pull request against this repository, and
+it opens it from the reader's own account — the `public_repo` scope the sign-in already asks
+for is enough for a fork and a pull request both. Four things about that path are easy to get
+wrong and are written into the code rather than left to memory:
+
+* **A fork is identified by its parent, never by its name.** `lessons` is not a rare word.
+  Asking `/repos/{login}/lessons` and reading a 200 as "the fork is there" is how this app
+  would cut a branch in a stranger's unrelated repository and commit to it. The check reads
+  the body and requires `fork` with the parent's `full_name` equal to this project.
+* **The branch is cut from the upstream commit, not from the fork's head.** GitHub allows a
+  ref at any commit in the parent network, and a fork made once and never synced would offer
+  everything merged since back as reverts.
+* **The owner cannot fork their own repository** — GitHub answers 422 — so for them the
+  branch goes straight to the upstream repository. That is the case the first press will hit,
+  and it is the owner's press that should be first.
+* **`POST /forks` answers 202,** not 201: the fork is created afterwards, so it is polled
+  for. And GitHub wraps base64 contents at 60 characters, so the decode must ignore line
+  breaks (`Base64.DEFAULT`) while the encode must not add them (`Base64.NO_WRAP`).
+
+`StringsDocument` is the part of this with tests: it replaces one element's body and leaves
+every other byte alone, refuses a key the file does not declare rather than appending it, and
+does not confuse `settings_title` with `settings_titles_plural` or with a `<string-array>` of
+the same name. Everything past that — fork, branch, commit, pull request — is written and has
+never run.
 
 ### A constraint migrates in the opposite direction from a column
 
@@ -1454,21 +1575,16 @@ has a Cyrillic identifier: Kotlin has none at all.
 
 All of this is beyond an agent's reach: it needs a phone, a key or a live service.
 
-**One of them is a click, and it is the newest.** Milestones 1 to 5 cover versions that are
-finished, and they are still **open**. Closing them is not something a session here can do:
-no tool changes a milestone's state — `issue_write` only assigns an existing one by number —
-and there is no `gh` CLI. One loop does all five, and the state can be read back afterwards
-from the milestone object a `milestone:"<title>"` search embeds:
+**The milestones were the newest of these, and that one is done.** Milestones 1 to 5 cover
+versions that are finished and the owner has closed all five; `v0.6.0` and `Dependencies`
+stay open on purpose, the first because it is the version being worked on and the second
+because it takes every future bump. The reason it had to be asked for stands for next time:
+no tool in a session here changes a milestone's state or creates one — `issue_write` only
+assigns an existing one by number — and there is no `gh` CLI.
 
-```bash
-for n in 1 2 3 4 5; do
-  gh api --method PATCH repos/lumenpearson/lessons/milestones/$n \
-    -f state=closed --jq '"\(.number)\t\(.state)\t\(.title)"'
-done
-```
-
-`v0.6.0` and `Dependencies` stay open on purpose: the first is the version being worked on,
-the second takes every future bump.
+**What is left of it is one line of text.** Milestone 6 describes itself as «PRs #60–#62»
+and now holds #63 and #64 as well. Editing that description needs the same access closing
+them did.
 
 **Two more are decisions rather than actions**, both from the second audit, both
 deliberately not taken by the session that found them because they trade one real cost
@@ -1562,3 +1678,7 @@ The order that paid off here:
 5. Write "what is not covered" into the commit body and into the honest status in
    `README.md`. "Written, never run" is a legitimate status; a claim that something was
    verified when it was not is not.
+6. Re-read your own diff before you push it, asking what would make it wrong rather than
+   whether it looks right. Both defects in the pull request flow were found that way, in
+   code written an hour earlier in the same session, and neither would have failed a test —
+   there was no test that could have run.
