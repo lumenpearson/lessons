@@ -822,6 +822,25 @@ async def test_a_button_from_a_stale_keyboard_is_refused(session, school_class):
     assert "subject" not in state.data
 
 
+async def test_a_payload_that_only_looks_like_a_number_is_refused_too(
+    session, school_class
+):
+    """`str.isdigit` and `int` do not ask the same question.
+
+    «²» is a digit to the first and a `ValueError` to the second, so the guard
+    passed the payload straight into the conversion — which raises out of the
+    handler, and a press that reaches a traceback never reaches
+    `callback.answer`: the button spins until Telegram gives up on it.
+    """
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(data={"subjects": ["Алгебра"]})
+
+    await homework_pick_subject(callback, HomeworkAction(action="pick_subject", value="²"), state)
+
+    assert callback.alerted
+    assert "subject" not in state.data
+
+
 # --------------------------------------------------------------------------
 # The personal code for a phone, and the class join mode
 # --------------------------------------------------------------------------

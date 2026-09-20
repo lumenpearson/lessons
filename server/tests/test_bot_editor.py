@@ -20,6 +20,7 @@ from app.bot import editor_render
 from app.bot.editor_keyboard import BREAKS, EditorAction, EditorSubject
 from app.bot.handlers import editor
 from app.models import (
+    AuditEntry,
     BellPeriod,
     BellSchedule,
     Role,
@@ -305,6 +306,57 @@ async def test_marking_the_canteen_names_it_on_the_break_it_falls_on(session, sc
     assert "🍽 <b>столовая</b>" in callback.message.last
     # And the ordinary break above it is still an ordinary break.
     assert "⏸ перемена" in callback.message.last
+
+
+async def test_the_canteen_cannot_be_put_on_a_break_the_bells_no_longer_ring(
+    session, school_class
+):
+    """«🍽 Столовая» offers the breaks it can see, and a keyboard outlives them.
+
+    A break needs a bell on both sides, which is why `canteen_keyboard` stops
+    one short of the last lesson — but only the keyboard held that rule. Paste
+    a shorter schedule over the bells, press «после 6» on the card that is
+    still in the chat, and the lunch break was written onto a number that
+    rings nothing: the day view draws the canteen on the gap between bell N
+    and bell N+1, so it drew no canteen at all under a card saying it was
+    marked.
+    """
+    schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
+    rung = max(period.index for period in schedule.periods)
+
+    callback = FakeCallback()
+    await editor.editor_set_canteen(
+        callback,
+        EditorAction(action="eat", day=1, index=rung + 1, flags=BREAKS),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    await session.refresh(schedule)
+    assert callback.alerted
+    assert schedule.canteen_after_index is None
+    assert callback.message.texts == []
+
+
+async def test_the_canteen_cannot_be_put_after_the_last_lesson(session, school_class):
+    """The break after the last bell is a gap of nothing, and the day view
+    declines to draw it — so the card must decline to claim it."""
+    schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
+    last = max(period.index for period in schedule.periods)
+
+    callback = FakeCallback()
+    await editor.editor_set_canteen(
+        callback,
+        EditorAction(action="eat", day=1, index=last, flags=BREAKS),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    await session.refresh(schedule)
+    assert callback.alerted
+    assert schedule.canteen_after_index is None
 
 
 async def test_clearing_the_canteen_sends_it_back_to_being_a_break(session, school_class):
@@ -840,6 +892,59 @@ async def test_editing_a_split_slot_changes_only_the_week_the_button_carried(
 
     assert "<i>чис</i> Физика · 305" in message.last
     assert "<i>знам</i> Химия · 402" in message.last
+
+
+async def test_a_lesson_deleted_while_the_prompt_was_open_says_so_and_logs_nothing(
+    session, school_class
+):
+    """«✏️ Изменить» on a slot somebody has since deleted.
+
+    ``edit_lesson`` rewrites a row and refuses to invent one, and its answer
+    was thrown away: the typed subject went nowhere, the day was redrawn
+    without it — so the admin read it as their own typo — and «📜 Журнал»
+    carried a «timetable.edit» line for a change that never happened. Two
+    admins is the obvious way in; one admin with two of this bot's messages
+    left open in the chat is the commoner one.
+    """
+    state = FakeState()
+    ask = FakeCallback()
+    await editor.editor_ask_lesson(
+        ask,
+        EditorAction(action="edit", day=1, index=3),
+        state,
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    # The last lesson, so closing the gap cannot slide another one onto 3.
+    await editor.editor_drop(
+        FakeCallback(),
+        EditorAction(action="drop", day=1, index=3),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    message = FakeEditable()
+    message.text = "Химия"
+    message.from_user = type("U", (), {"id": 42})()
+    await editor.editor_take_lesson(message, state, session, school_class, Role.ADMIN)
+
+    assert message.last == "Урока уже нет — откройте расписание заново."
+    assert state.cleared
+    assert await session.scalar(
+        select(func.count()).select_from(TimetableEntry).where(
+            TimetableEntry.class_id == school_class.id,
+            TimetableEntry.subject_name == "Химия",
+        )
+    ) == 0
+    logged = list(
+        await session.scalars(
+            select(AuditEntry.action).where(AuditEntry.class_id == school_class.id)
+        )
+    )
+    assert "timetable.edit" not in logged
 
 
 async def test_a_viewer_who_somehow_reaches_the_prompt_is_dropped_out_of_it(

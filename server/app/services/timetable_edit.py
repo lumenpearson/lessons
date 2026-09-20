@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import rows_affected
 from app.models import BellPeriod, DayOverride, SchoolClass, TimetableEntry, WeekParity
+from app.schedule import week_parity
 from app.services import subjects
 
 #: Where a row waits while another takes its number.
@@ -128,6 +129,39 @@ async def rung_indexes_on(session: AsyncSession, class_id: int, day: Date) -> se
         if rows:
             return {int(index) for index in rows}
     return await rung_indexes(session, class_id)
+
+
+async def template_indexes_on(session: AsyncSession, class_id: int, day: Date) -> set[int]:
+    """The lesson numbers the **weekly template** puts on one date.
+
+    The other half of «does this number hold anything»: :func:`rung_indexes_on`
+    answers for the bells, this one for the timetable underneath them. A
+    substitution that names no subject of its own, and a cancellation, both
+    lean on a template row — the resolver reads
+    ``override.subject_name or (existing.subject if existing else None)`` and
+    drops the row when there is neither, and it strikes a lesson through only
+    where the day has one. Without a row underneath, such a write is stored,
+    logged and announced, and then drawn on no phone, in no widget and in no
+    calendar feed.
+
+    Asked of the template rather than of ``ScheduleResolver``'s own day,
+    because the row being edited is one of the things that day is built from:
+    a substitution that added «Астрономия» to an empty number makes the
+    resolver answer «yes, there is a lesson at №7» about itself, and a second
+    write clearing its subject would pass a check it should fail.
+
+    The parity is the date's, because a slot that runs on the numerator week
+    only is not under a denominator Tuesday, and a substitution inheriting a
+    subject from it would inherit nothing.
+    """
+    rows = await session.scalars(
+        select(TimetableEntry.index).where(
+            TimetableEntry.class_id == class_id,
+            TimetableEntry.weekday == day.isoweekday(),
+            TimetableEntry.parity.in_([WeekParity.ANY, week_parity(day)]),
+        )
+    )
+    return {int(index) for index in rows}
 
 
 def can_ring(rung: set[int], index: int) -> bool:

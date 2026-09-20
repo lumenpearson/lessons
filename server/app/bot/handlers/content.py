@@ -257,8 +257,14 @@ async def homework_pick_subject(
     # than the flow it belongs to — a message left open while the day was
     # chosen again. Saying so beats writing homework for whatever subject
     # happens to sit at that position now.
-    index = int(callback_data.value) if callback_data.value.isdigit() else -1
-    if not 0 <= index < len(subjects):
+    #
+    # Through the module's own guard rather than ``isdigit`` + ``int``: the two
+    # do not ask the same question. «²» is a digit to ``str.isdigit`` and a
+    # ``ValueError`` to ``int``, so that spelling let a payload past the check
+    # and into the conversion, which raises out of the handler — and a press
+    # that reaches a traceback never reaches ``callback.answer``.
+    index = _index_or_none(callback_data.value)
+    if index is None or index >= len(subjects):
         await callback.answer("Список устарел. Выберите день заново.", show_alert=True)
         return
 

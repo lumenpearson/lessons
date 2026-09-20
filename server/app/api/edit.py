@@ -44,7 +44,7 @@ from app.models import (
     Role,
     SchoolClass,
 )
-from app.schedule import SCHOOL_YEAR_START_MONTH, ScheduleResolver, school_year_bounds
+from app.schedule import SCHOOL_YEAR_START_MONTH, school_year_bounds
 from app.schemas import (
     DayIn,
     DayOverrideOut,
@@ -366,29 +366,43 @@ async def override_put(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"нет звонка для урока №{payload.index} в этот день",
             )
-        # Cancelling needs something to cancel, and so does a replacement that
-        # names no subject. A substitution at an empty number is a legitimate
-        # edit — it is how a lesson is *added* to a day — but only when it
-        # brings a subject of its own: the resolver inherits the subject from
-        # the template row under the override, and with no row and no subject
-        # it has nothing to draw and drops it on the way out. Either way the
-        # write would be stored, logged, and announced to everybody with
-        # «🚫 Урок №7 отменён» or «🔁 Замена … кабинет/учитель» about a lesson
-        # nobody can see. The bot reaches neither: it draws its «🚫» under a
-        # lesson that exists and always asks for a typed subject. This is the
-        # API-only half of an invariant the timetable already holds.
-        if payload.action == "cancel" or not payload.subject:
-            day = (await ScheduleResolver(session, school_class).resolve_range(payload.date, 1))[0]
-            if payload.index not in {lesson.index for lesson in day.lessons}:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=(
-                        f"в этот день нет урока №{payload.index}, отменять нечего"
-                        if payload.action == "cancel"
-                        else f"в этот день нет урока №{payload.index}: "
-                        "замене без предмета нечего заменять"
-                    ),
-                )
+
+    # Cancelling needs something to cancel, and so does a replacement that
+    # names no subject. A substitution at an empty number is a legitimate
+    # edit — it is how a lesson is *added* to a day — but only when it
+    # brings a subject of its own: the resolver inherits the subject from
+    # the template row under the override, and with no row and no subject
+    # it has nothing to draw and drops it on the way out. Either way the
+    # write would be stored, logged, and announced to everybody with
+    # «🚫 Урок №7 отменён» or «🔁 Замена … кабинет/учитель» about a lesson
+    # nobody can see. The bot reaches neither: it draws its «🚫» under a
+    # lesson that exists and always asks for a typed subject. This is the
+    # API-only half of an invariant the timetable already holds.
+    #
+    # Unlike the bell check above this one runs on update too, and it asks
+    # `timetable_edit` rather than the resolver — because on update the
+    # resolver would be answering about the row being edited. A substitution
+    # that added «Астрономия» to an empty number makes the day report a
+    # lesson at that number, so a second write carrying only a room passed
+    # the check, cleared `subject_name`, and left a row the resolver drops:
+    # announced to every subscriber, drawn nowhere, and no longer refusable
+    # because the number now looked occupied.
+    if payload.action == "cancel" or not payload.subject:
+        on_template = await timetable_edit.template_indexes_on(
+            session, school_class.id, payload.date
+        )
+        if payload.index not in on_template:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"в этот день нет урока №{payload.index}, отменять нечего"
+                    if payload.action == "cancel"
+                    else f"в этот день нет урока №{payload.index}: "
+                    "замене без предмета нечего заменять"
+                ),
+            )
+
+    if existing is None:
         existing = LessonOverride(
             class_id=school_class.id,
             date=payload.date,

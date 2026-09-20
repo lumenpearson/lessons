@@ -357,9 +357,23 @@ async def editor_set_canteen(
         await callback.answer(refusal, show_alert=True)
         return
 
-    schedule, _ = await _bells(session, school_class)
+    schedule, periods = await _bells(session, school_class)
     if schedule is None:
         await callback.answer("Звонков нет", show_alert=True)
+        return
+
+    # The canteen falls on a *break*, and a break needs a bell on both sides of
+    # it — which is why `canteen_keyboard` offers `sorted(periods)[:-1]` and
+    # not every lesson number. Only the keyboard held that rule, and a keyboard
+    # is a message that stays in the chat: after somebody pasted a shorter
+    # schedule over these bells, «после 6» on the card still open wrote a lunch
+    # break onto a number that rings nothing, and the day view — which draws
+    # the canteen on the gap between bell N and bell N+1 — then drew no canteen
+    # at all, under a card saying it was marked.
+    if callback_data.index and callback_data.index not in set(sorted(periods)[:-1]):
+        await callback.answer(
+            "Такой перемены больше нет — откройте «🍽 Столовая» заново.", show_alert=True
+        )
         return
 
     # index 0 is «не отмечать» — the payload's own «no lesson selected».
@@ -570,7 +584,7 @@ async def _write_lesson(
         # the parity the button carried is meaningless there and would create
         # a second row beside it.
         target = group[0].parity if len(group) == 1 else parity
-        await timetable_edit.edit_lesson(
+        written = await timetable_edit.edit_lesson(
             session,
             school_class.id,
             day,
@@ -580,6 +594,18 @@ async def _write_lesson(
             room=room,
             teacher=teacher,
         )
+        if not written:
+            # The slot went away while the prompt was open — one admin's «🗑
+            # Удалить урок» on the card another had already pressed «✏️» on,
+            # and one admin with two of this bot's messages in the chat is
+            # enough on its own. ``edit_lesson`` rewrites a row and refuses to
+            # invent one, and the answer was thrown away: the typed subject
+            # was not written, the day came back without it, and the journal
+            # carried a «timetable.edit» line for a change that never
+            # happened. ``editor_slot`` already says this in the same words.
+            await state.clear()
+            await message.answer("Урока уже нет — откройте расписание заново.")
+            return
         action, note = "timetable.edit", f"урок {index}: {subject}"
 
     await audit.record(
