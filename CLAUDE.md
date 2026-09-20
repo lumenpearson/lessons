@@ -169,6 +169,12 @@ points Hilt does not inject cleanly.
   Commits prefix (none of the 288 commits has one), and the body explains the reasoning and
   names what is left uncovered. Unlike the owner's other repositories, this history does
   carry a `Co-Authored-By: Claude …` trailer; keep doing what the history does.
+- **Every pull request carries a milestone**, set when it is opened. There are no issues in
+  this repository at all, so the milestones are the only grouping its history has. Nothing
+  in a session here can create one or even list one — when none of the seven fits, ask the
+  owner to create it and hand over the title and description already written, rather than
+  inventing a version or leaving the pull request bare. The `github-pr` skill has the
+  numbers, the one tool that sets them, and the two ways this was got wrong first.
 - **Say what is not covered.** The README has an "Honest status" section and it is honest on
   purpose. "Written, never run" is a legitimate status; a claim that something was
   verified when it was not is not.
