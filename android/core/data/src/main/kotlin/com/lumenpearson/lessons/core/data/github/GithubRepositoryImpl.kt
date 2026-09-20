@@ -10,6 +10,7 @@ import com.lumenpearson.lessons.core.data.repository.IssueDraft
 import com.lumenpearson.lessons.core.data.repository.IssueResult
 import com.lumenpearson.lessons.core.data.repository.PullRequestResult
 import com.lumenpearson.lessons.core.data.repository.TranslationChange
+import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -395,7 +396,21 @@ internal class GithubRepositoryImpl(
                 verificationUrl = code.verificationUri,
                 expiresAtMillis = expiresAt,
             )
-            pollUntilDecided(code.deviceCode, code.interval, expiresAt)
+            when (
+                val verdict = pollUntilDecided(
+                    interval = code.interval,
+                    expiresAt = expiresAt,
+                ) { withContext(Dispatchers.IO) { pollOnce(code.deviceCode) } }
+            ) {
+                is PollVerdict.Refused -> DeviceFlow.Failed(verdict.code)
+                // Not cancellable from here on: GitHub has issued the token, and
+                // a sheet closed in the same instant must not lose it — the user
+                // would be typing a second code for a first token that already
+                // sits in their authorised applications list.
+                is PollVerdict.Granted -> withContext(NonCancellable + Dispatchers.IO) {
+                    complete(verdict.token)
+                }
+            }
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (failure: Throwable) {
@@ -403,40 +418,6 @@ internal class GithubRepositoryImpl(
             DeviceFlow.Failed(failure.message ?: failure::class.java.simpleName)
         }
         mutableFlow.value = outcome
-    }
-
-    /**
-     * Asks GitHub whether the code has been entered, at the interval it asked
-     * for, until it says yes or no.
-     *
-     * The interval is GitHub's plus one second: polling a hair early is what
-     * `slow_down` punishes, and two clocks never quite agree. The RFC says a
-     * `slow_down` adds five seconds, and it is added rather than substituted, so
-     * repeated warnings keep backing off.
-     */
-    private suspend fun pollUntilDecided(deviceCode: String, interval: Int, expiresAt: Long): DeviceFlow {
-        var intervalSeconds = interval.coerceAtLeast(MIN_INTERVAL_SECONDS) + 1
-        while (true) {
-            delay(intervalSeconds * 1000L)
-            // GitHub reports `expired_token` itself, but only when asked; the
-            // local check keeps a code whose expiry it mis-stated from being
-            // polled for the rest of the process's life.
-            if (System.currentTimeMillis() > expiresAt + EXPIRY_GRACE_MILLIS) {
-                return DeviceFlow.Failed("expired_token")
-            }
-            when (val poll = withContext(Dispatchers.IO) { pollOnce(deviceCode) }) {
-                PollOutcome.Pending -> Unit
-                PollOutcome.SlowDown -> intervalSeconds += SLOW_DOWN_SECONDS
-                is PollOutcome.Refused -> return DeviceFlow.Failed(poll.code)
-                // Not cancellable from here on: GitHub has issued the token, and
-                // a sheet closed in the same instant must not lose it — the user
-                // would be typing a second code for a first token that already
-                // sits in their authorised applications list.
-                is PollOutcome.Granted -> return withContext(NonCancellable + Dispatchers.IO) {
-                    complete(poll.token)
-                }
-            }
-        }
     }
 
     /**
@@ -519,14 +500,6 @@ internal class GithubRepositoryImpl(
         .header("Accept", "application/json")
         .header("User-Agent", userAgent)
 
-    /** What one poll of the token endpoint came back with. */
-    private sealed interface PollOutcome {
-        data object Pending : PollOutcome
-        data object SlowDown : PollOutcome
-        data class Granted(val token: String) : PollOutcome
-        data class Refused(val code: String) : PollOutcome
-    }
-
     private companion object {
         const val TAG = "Lessons"
 
@@ -573,12 +546,88 @@ internal class GithubRepositoryImpl(
         const val ERROR_PENDING = "authorization_pending"
         const val ERROR_SLOW_DOWN = "slow_down"
 
-        /** GitHub's documented minimum; a response asking for less is not trusted. */
-        const val MIN_INTERVAL_SECONDS = 5
-        const val SLOW_DOWN_SECONDS = 5
-        const val EXPIRY_GRACE_MILLIS = 30_000L
-
         const val HTTP_CREATED = 201
         const val HTTP_UNAUTHORISED = 401
     }
 }
+
+/** What one poll of the token endpoint came back with. */
+internal sealed interface PollOutcome {
+    data object Pending : PollOutcome
+    data object SlowDown : PollOutcome
+    data class Granted(val token: String) : PollOutcome
+    data class Refused(val code: String) : PollOutcome
+}
+
+/** How the polling ended. */
+internal sealed interface PollVerdict {
+
+    /** GitHub issued a token; the caller has to store it without being cancelled. */
+    data class Granted(val token: String) : PollVerdict
+
+    /** GitHub's own error code, or `expired_token` when the code ran out here. */
+    data class Refused(val code: String) : PollVerdict
+}
+
+/**
+ * Asks GitHub whether the code has been entered, at the interval it asked for,
+ * until it says yes or no.
+ *
+ * Outside the repository and taking [poll] as an argument, because what this
+ * decides is invisible from anywhere else: a sign-in that ended and a sign-in
+ * that is still waiting look exactly alike from the sheet, which shows the
+ * same code either way until a state arrives. The rule is what ends it.
+ *
+ * The interval is GitHub's plus one second: polling a hair early is what
+ * `slow_down` punishes, and two clocks never quite agree. The RFC says a
+ * `slow_down` adds five seconds, and it is added rather than substituted, so
+ * repeated warnings keep backing off.
+ *
+ * @param poll one ask of the token endpoint.
+ * @param now the wall clock, injected so the expiry can be reached without
+ *   waiting a quarter of an hour for it.
+ */
+internal suspend fun pollUntilDecided(
+    interval: Int,
+    expiresAt: Long,
+    now: () -> Long = System::currentTimeMillis,
+    poll: suspend () -> PollOutcome,
+): PollVerdict {
+    var intervalSeconds = interval.coerceAtLeast(MIN_INTERVAL_SECONDS) + 1
+    while (true) {
+        delay(intervalSeconds * 1000L)
+        // GitHub reports `expired_token` itself, but only when asked; the local
+        // check keeps a code whose expiry it mis-stated from being polled for
+        // the rest of the process's life.
+        if (now() > expiresAt + EXPIRY_GRACE_MILLIS) {
+            return PollVerdict.Refused("expired_token")
+        }
+        // A request that never arrived is not an answer. The user is at a
+        // browser typing a code that is good for a quarter of an hour, and a
+        // school network drops a request in that time as a matter of course —
+        // so an `IOException` here used to leave the loop, end the sign-in as
+        // «failed», and strand an authorisation that by then often already
+        // existed on GitHub's side. The deadline above is what bounds this;
+        // nothing else is swallowed, because anything else repeats on every
+        // poll and reporting it is the only way it is ever noticed.
+        val outcome = try {
+            poll()
+        } catch (unreachable: IOException) {
+            // Not logged: it is expected, it is answered by asking again in a
+            // few seconds, and a network that is down for the whole quarter of
+            // an hour still ends in the `expired_token` above, which is.
+            continue
+        }
+        when (outcome) {
+            PollOutcome.Pending -> Unit
+            PollOutcome.SlowDown -> intervalSeconds += SLOW_DOWN_SECONDS
+            is PollOutcome.Refused -> return PollVerdict.Refused(outcome.code)
+            is PollOutcome.Granted -> return PollVerdict.Granted(outcome.token)
+        }
+    }
+}
+
+/** GitHub's documented minimum; a response asking for less is not trusted. */
+private const val MIN_INTERVAL_SECONDS = 5
+private const val SLOW_DOWN_SECONDS = 5
+private const val EXPIRY_GRACE_MILLIS = 30_000L

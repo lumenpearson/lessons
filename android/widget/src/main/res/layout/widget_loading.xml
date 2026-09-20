@@ -13,6 +13,15 @@
 
   So it says what it is doing. @android:id/background is what makes the launcher
   round our corners and apply its own widget background treatment.
+
+  The text colour is named rather than inherited, and it has to be: the theme
+  below is DeviceDefault, which is the *dark* one until the DayNight variant
+  arrives in API 29, while the surface under it is the light one out of
+  res/values, because values-night keys off a night mode Android 8 and 9 have no
+  switch for. Inheriting textColorPrimary under that pairing is white on
+  #F4F1EC, and it was — for every Android 8 and 9 phone this sentence was drawn
+  invisibly, which is the blank rectangle the layout exists to prevent, drawn by
+  the layout itself.
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background"
@@ -31,6 +40,7 @@
         android:gravity="center"
         android:maxLines="2"
         android:text="@string/widget_loading"
+        android:textColor="@color/widget_preview_on_surface"
         android:textSize="13sp" />
 
 </FrameLayout>
