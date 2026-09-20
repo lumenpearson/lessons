@@ -1735,6 +1735,37 @@ async def test_a_date_that_is_not_a_date_asks_again(session, school_class):
     assert not state.cleared
 
 
+async def test_a_date_no_calendar_could_hold_asks_again_rather_than_answering_nothing(
+    session, school_class
+):
+    """All digits and still not a date, in the two ways that are not `ValueError`.
+
+    A stuck key on the year makes «12.09.2026» a number `int` reads happily and
+    `date()` then refuses with an `OverflowError` — past an `except ValueError`
+    — and «²» is a digit to `str.isdigit` and a `ValueError` to `int`, raised
+    before the `try` was entered at all. Both left the handler through the
+    exception, and this one is a `Message` with no callback to apologise on:
+    the date was swallowed, nothing was said, and the prompt was still waiting
+    for a date that the next thing typed would be read as.
+    """
+    for typed in ("12.09.99999999999999999999", "²2.09"):
+        message = FakeMessage(text=typed)
+        state = FakeState()
+        await holiday_typed_date(message, state, school_class, Role.EDITOR)
+
+        assert "Не понял дату" in message.last, typed
+        assert not state.cleared
+
+
+async def test_a_holiday_period_whose_year_overflows_is_refused(session, school_class):
+    """The same parser, from «📆 Период» — and this one writes rows."""
+    message = FakeMessage(text="26.10.99999999999999999999-05.11")
+    await holiday_period_apply(message, FakeState(), session, school_class, Role.ADMIN)
+
+    assert "Не понял период" in message.last
+    assert await session.scalar(select(DayOverride)) is None
+
+
 # --------------------------------------------------------------------------
 # Bells
 # --------------------------------------------------------------------------
@@ -3022,6 +3053,20 @@ async def test_a_term_number_that_is_not_a_number_is_refused(session, school_cla
     state = FakeState()
     await term_edit_prompt(
         callback, SimpleNamespace(action="edit", value="пятая"), state, school_class, Role.ADMIN
+    )
+
+    assert callback.alerted
+    assert callback.message.replies == []
+    assert state.state is None
+
+
+async def test_a_term_number_that_only_looks_like_a_digit_is_refused(session, school_class):
+    """«²» passes `str.isdigit` and fails `int`, which is not a refusal but a
+    traceback — and a handler that raises never reaches `callback.answer`."""
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await term_edit_prompt(
+        callback, SimpleNamespace(action="edit", value="²"), state, school_class, Role.ADMIN
     )
 
     assert callback.alerted

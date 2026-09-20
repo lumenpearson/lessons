@@ -208,7 +208,14 @@ async def login(
     upstream session eventually expires, requests answer 401 with
     ``X-Diary-Reauth: required`` and the app asks for it again.
     """
-    client = f"diary:{caller_bucket(request)}"
+    # A bucket of its own, asked for through `caller_bucket` rather than built
+    # by putting «diary:» in front of what it returns. The counter's column is
+    # `VARCHAR(64)` and the digest already fills it, so the prefix made every
+    # recorded failure six characters too long for Postgres: the insert raised
+    # out of the `except` that was recording it, so a wrong password answered
+    # 500 instead of 401 and nothing was ever counted — the limit below existed
+    # only in the tests, where SQLite does not enforce a width.
+    client = caller_bucket(request, scope="diary:")
     retry_after = await diary_login_limiter.blocked_for(session, client)
     if retry_after is not None:
         raise HTTPException(

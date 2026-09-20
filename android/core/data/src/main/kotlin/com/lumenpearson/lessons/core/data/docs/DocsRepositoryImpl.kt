@@ -33,11 +33,20 @@ import okhttp3.Request
  * [DocsState.failure] — the library on screen is replaced by a better one or
  * left exactly as it was.
  */
-internal class DocsRepositoryImpl(context: Context) : DocsRepository {
+internal class DocsRepositoryImpl(
+    private val store: DocsStorage,
+    /**
+     * The body of a `GET`, or `null` for anything that is not a 200 with text.
+     *
+     * Injected rather than called directly so the rules above it — which copy
+     * of the guide wins, and when a fetch is worth making — can be exercised
+     * without a network and without a `Context`. See [githubDownloader] for the
+     * one production implementation.
+     */
+    private val download: (String) -> String?,
+) : DocsRepository {
 
-    private val store = DocsStore(context)
-
-    private val userAgent: String = GithubApi.userAgent(GithubApi.installedVersion(context))
+    constructor(context: Context) : this(DocsStore(context), githubDownloader(context))
 
     private val mutableState = MutableStateFlow(DocsState())
     override val state: StateFlow<DocsState> = mutableState.asStateFlow()
@@ -92,7 +101,7 @@ internal class DocsRepositoryImpl(context: Context) : DocsRepository {
      * newer *until* an install overtakes it.
      */
     private suspend fun storedOrBundled(language: String): DocsLibrary? {
-        val stored = store.storedRelease()
+        val stored = releaseAbout(language, store.storedRelease(language))
         val storedMarkdown = store.storedGuide(language)
         val bundledVersion = store.bundledManifest()?.let(::readManifest)?.version ?: 0
         if (stored != null && storedMarkdown != null &&
@@ -148,9 +157,14 @@ internal class DocsRepositoryImpl(context: Context) : DocsRepository {
         val manifest = readManifest(manifestText)
             ?: return Outcome.Failed(DocsFailure.UNREADABLE)
 
-        val stored = store.storedRelease()
         val hasMarkdown = store.storedGuide(language) != null
-        if (stored != null && stored.version >= manifest.version && hasMarkdown) {
+        if (storedCopyIsCurrent(
+                language = language,
+                stored = store.storedRelease(language),
+                hasMarkdown = hasMarkdown,
+                manifestVersion = manifest.version,
+            )
+        ) {
             return Outcome.Unchanged
         }
 
@@ -163,10 +177,11 @@ internal class DocsRepositoryImpl(context: Context) : DocsRepository {
         // Storing it would replace a working guide with an empty screen.
         if (guide.pages.isEmpty()) return Outcome.Failed(DocsFailure.UNREADABLE)
 
-        val release = DocsStore.StoredRelease(
+        val release = StoredRelease(
             version = manifest.version,
             updated = manifest.updated,
             appVersion = manifest.appVersion,
+            language = language,
         )
         // The write may fail — a full disk, a revoked directory — and this
         // reader still gets the page they asked for. What it costs is the next
@@ -183,34 +198,6 @@ internal class DocsRepositoryImpl(context: Context) : DocsRepository {
                 ),
             ),
         )
-    }
-
-    /** The body of a `GET`, or `null` for anything that is not a 200 with text. */
-    private fun download(url: String): String? = try {
-        val request = Request.Builder()
-            .url(url)
-            .header("User-Agent", userAgent)
-            .build()
-        GithubApi.client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                Log.w(TAG, "GitHub answered ${response.code} for $url")
-                null
-            } else {
-                response.body.string().takeIf { it.isNotBlank() }
-            }
-        }
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (failure: IOException) {
-        // The ordinary case: aeroplane mode, a dead hotspot, a timeout. Not an
-        // error anybody needs to see in the log at warning level every time the
-        // documentation is opened on a train.
-        Log.d(TAG, "Could not reach GitHub for $url: ${failure.message}")
-        null
-    } catch (failure: IllegalStateException) {
-        // OkHttp throws this for a malformed URL built from a manifest field.
-        Log.w(TAG, "Refusing a documentation address that is not a URL", failure)
-        null
     }
 
     private fun readManifest(text: String): DocsManifest? = runCatching {
@@ -230,12 +217,84 @@ internal class DocsRepositoryImpl(context: Context) : DocsRepository {
     }
 
     private companion object {
-        const val TAG = "Lessons"
 
         /** Where the guide lives in the repository, and in the APK's assets. */
         const val FOLDER = "docs/app"
         const val MANIFEST = "manifest.json"
     }
+}
+
+/**
+ * The real downloader: a plain `GET` over the GitHub client.
+ *
+ * A file-level function rather than a method because the repository no longer
+ * owns it — the secondary constructor hands it in — and because the user agent
+ * is read once, here, rather than on every request.
+ */
+private fun githubDownloader(context: Context): (String) -> String? {
+    val userAgent = GithubApi.userAgent(GithubApi.installedVersion(context))
+    return { url ->
+        try {
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", userAgent)
+                .build()
+            GithubApi.client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "GitHub answered ${response.code} for $url")
+                    null
+                } else {
+                    response.body.string().takeIf { it.isNotBlank() }
+                }
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: IOException) {
+            // The ordinary case: aeroplane mode, a dead hotspot, a timeout. Not
+            // an error anybody needs to see in the log at warning level every
+            // time the documentation is opened on a train.
+            Log.d(TAG, "Could not reach GitHub for $url: ${failure.message}")
+            null
+        } catch (failure: IllegalStateException) {
+            // OkHttp throws this for a malformed URL built from a manifest field.
+            Log.w(TAG, "Refusing a documentation address that is not a URL", failure)
+            null
+        }
+    }
+}
+
+/** Every line this file logs goes under the app's one tag. */
+private const val TAG = "Lessons"
+
+/**
+ * The stored release, when it is the one describing [language]'s markdown.
+ *
+ * The manifest versions the two guides together and a refresh fetches one of
+ * them, so «what version this phone holds» is a question per language and used
+ * to be asked without one. A reader who looked at the English guide once took
+ * the new version number for the phone, and the Russian file — still the one
+ * downloaded in September — was from then on compared against it, found to be
+ * current, and never fetched again. Nothing on the screen says a guide is
+ * frozen, and every pull to refresh confirmed it was not.
+ */
+internal fun releaseAbout(language: String, stored: StoredRelease?): StoredRelease? =
+    stored?.takeIf { it.language == language }
+
+/**
+ * Whether this phone already holds [language] at [manifestVersion].
+ *
+ * @param hasMarkdown whether there is a file beside the record at all. A
+ *   release without its markdown is a version number for a guide that is not
+ *   there, which the bundled copy would be shown over for ever.
+ */
+internal fun storedCopyIsCurrent(
+    language: String,
+    stored: StoredRelease?,
+    hasMarkdown: Boolean,
+    manifestVersion: Int,
+): Boolean {
+    val mine = releaseAbout(language, stored) ?: return false
+    return hasMarkdown && mine.version >= manifestVersion
 }
 
 /**

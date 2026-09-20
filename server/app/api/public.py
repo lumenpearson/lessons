@@ -136,7 +136,7 @@ def _forwarded_entry(header: str | None, hops: int) -> str | None:
     return parts[-hops]
 
 
-def caller_bucket(request: Request) -> str:
+def caller_bucket(request: Request, *, scope: str = "") -> str:
     """Identifies the caller for rate-limiting purposes.
 
     Public, and no longer ``_client_bucket``, because two endpoint families
@@ -156,22 +156,32 @@ def caller_bucket(request: Request) -> str:
 
     Otherwise the socket address is used, which is right when the app is run
     directly and, for anything in between, is what ``TRUSTED_PROXY_HOPS`` is for.
+
+    @param scope keeps two families of failures apart — ten wrong diary
+        passwords must not spend a phone's thirty join attempts. It is mixed
+        into the address **before** the digest and never written in front of
+        it: ``JoinAttempt.client_key`` is ``VARCHAR(64)`` and a SHA-256 hex
+        digest is exactly 64 characters, so a prefix is a value Postgres
+        refuses outright — ``value too long for type character varying(64)``,
+        raised out of the insert that was supposed to *record* a failed
+        sign-in. SQLite ignores the width, which is why the whole of this was
+        green here and 500 there.
     """
     settings = get_settings()
 
+    address: str | None = None
     if settings.behind_vercel:
-        vercel = _forwarded_entry(_forwarded_list(request, "x-vercel-forwarded-for"), 1)
-        if vercel:
-            return client_bucket(vercel)
+        address = _forwarded_entry(_forwarded_list(request, "x-vercel-forwarded-for"), 1)
 
-    hops = settings.trusted_proxy_hops
-    if hops > 0:
-        forwarded = _forwarded_entry(_forwarded_list(request, "x-forwarded-for"), hops)
-        if forwarded:
-            return client_bucket(forwarded)
+    if address is None:
+        hops = settings.trusted_proxy_hops
+        if hops > 0:
+            address = _forwarded_entry(_forwarded_list(request, "x-forwarded-for"), hops)
 
-    host = request.client.host if request.client else "unknown"
-    return client_bucket(host)
+    if address is None:
+        address = request.client.host if request.client else "unknown"
+
+    return client_bucket(f"{scope}{address}")
 
 
 def _to_day_out(day: ResolvedDay) -> DayOut:

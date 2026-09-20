@@ -23,7 +23,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.BlurLinear
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Contrast
@@ -62,11 +61,11 @@ import com.lumenpearson.lessons.core.designsystem.theme.appSlideMotionBlur
 import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.ui.join.JoinScreen
+import com.lumenpearson.lessons.ui.settings.EdgeFadeRow
 import com.lumenpearson.lessons.ui.settings.PermissionCard
 import com.lumenpearson.lessons.ui.settings.SettingsUiState
 import com.lumenpearson.lessons.ui.settings.SettingsViewModel
 import com.lumenpearson.lessons.ui.settings.SupportsDynamicColor
-import com.lumenpearson.lessons.ui.settings.SupportsShaders
 import com.lumenpearson.lessons.ui.settings.labelRes
 import com.lumenpearson.lessons.ui.settings.rememberPermissionPrompts
 
@@ -496,17 +495,9 @@ private fun PreferencesStep(
                     checked = state.settings.pitchBlack,
                     onCheckedChange = viewModel::setPitchBlack,
                 )
-                GroupSwitchItem(
-                    title = correctedString(R.string.settings_edge_blur),
-                    subtitle = if (SupportsShaders) {
-                        correctedString(R.string.settings_edge_blur_description)
-                    } else {
-                        correctedString(R.string.settings_blur_unavailable)
-                    },
-                    icon = Icons.Rounded.BlurLinear,
+                EdgeFadeRow(
+                    checked = state.settings.edgeBlur,
                     tone = accentTone(1),
-                    checked = state.settings.edgeBlur && SupportsShaders,
-                    enabled = SupportsShaders,
                     onCheckedChange = viewModel::setEdgeBlur,
                 )
             }

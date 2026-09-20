@@ -172,6 +172,46 @@ async def test_guessing_passwords_against_the_upstream_is_rate_limited(
     assert still_blocked.status_code == 429
 
 
+async def test_a_counted_sign_in_failure_fits_the_column_that_counts_it(
+    client, upstream, session
+):
+    """The limit above only worked because SQLite ignores a column's width.
+
+    ``JoinAttempt.client_key`` is ``VARCHAR(64)`` and ``client_bucket`` returns
+    a SHA-256 hex digest, which is exactly 64 characters. The diary's bucket
+    was built by writing «diary:» in front of one, so every failure this
+    endpoint tried to record was 70 characters: on Postgres the insert raises
+    «value too long for type character varying(64)» — from inside the
+    ``except`` that was recording a 401, so the handler answered 500 instead,
+    and not one attempt was ever counted. The limiter that exists to stop
+    somebody guessing a family's password against the upstream from our
+    address did not exist in production.
+
+    Asserted against the column rather than against the number, so the two
+    cannot drift apart again.
+    """
+    from app.models import JoinAttempt
+
+    upstream.routes[LOGIN_PATH] = with_token
+    refused = await client.post(
+        "/api/v1/diary/login",
+        json={"login": "parent@example.com", "password": "wrong"},
+    )
+    assert refused.status_code == 401
+
+    rows = list(await session.scalars(select(JoinAttempt)))
+    assert len(rows) == 1
+    assert len(rows[0].client_key) <= JoinAttempt.__table__.c.client_key.type.length
+
+    # And it is still a bucket of its own, which is what the prefix was for: a
+    # caller who has mistyped a class code has not also been guessing at
+    # somebody's diary, and ten of one must not spend thirty of the other.
+    mistyped = await client.post("/api/v1/join", json={"code": "NOSUCH12"})
+    assert mistyped.status_code == 404
+    keys = {row.client_key for row in await session.scalars(select(JoinAttempt))}
+    assert len(keys) == 2
+
+
 async def test_a_diary_that_is_off_does_not_spend_a_parent_s_attempts(
     client, upstream, session, no_diary_secret
 ):

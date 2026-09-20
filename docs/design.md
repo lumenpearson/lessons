@@ -718,7 +718,11 @@ authorised applications on GitHub itself.
 The client id is not a constant in the code but a build property, `lessons.github.clientId`
 (or `LESSONS_GITHUB_CLIENT_ID`): whoever builds registers the OAuth App. Without it the
 sign-in row is not shown at all — a row that opens a sheet saying "not configured" would be a
-row about the build rather than about the user. The token and the login are written in one
+row about the build rather than about the user. That decision puts the whole weight on the
+build actually passing the property, and for a long time the APK workflow did not, so this
+half of the app was missing from every build it made and nothing anywhere said so; what
+keeps it honest now is in `docs/build.md`, "Two buttons that are not in the build unless you
+say so". The token and the login are written in one
 transaction after the profile has been fetched, so a token never sits on disk without a name
 beside it; fetching the token is not cancelled by closing the sheet — otherwise the user would
 be typing a second code for a first token that is already in their list.

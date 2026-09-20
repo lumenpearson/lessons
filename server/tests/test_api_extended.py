@@ -1136,6 +1136,78 @@ async def test_a_substitution_with_no_subject_at_an_empty_number_is_refused(
     assert over_a_real_lesson.status_code == 200, over_a_real_lesson.text
 
 
+async def test_a_substitution_cannot_lose_the_subject_that_made_it_visible(
+    client, session, school_class, recording_bot
+):
+    """The same «🔁 Замена … кабинет/учитель» about nothing, reached on update.
+
+    The refusal above was create-only, and the row it exists to refuse could be
+    arrived at in two writes instead of one: add «Астрономия» at an empty
+    number, which is legitimate and is how a lesson is added to a day, then
+    send the same number again carrying only a teacher. The second write found
+    an existing row, skipped every check, and set ``subject_name`` to NULL — so
+    the resolver dropped the row (`override.subject_name or (existing.subject
+    if existing else None)` is None with no template row underneath) and the
+    lesson left every phone, widget, digest and calendar feed while the class
+    was told it had changed.
+
+    Asking the resolver on the update path would not have caught it: the day it
+    answers about already contains the substitution being edited, so «есть ли
+    тут урок» is answered by the very row whose subject is being cleared. The
+    question is put to the weekly template instead.
+    """
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    day = (MONDAY + timedelta(days=7)).isoformat()
+
+    added = await client.put(
+        "/api/v1/overrides",
+        json={"date": day, "index": 7, "action": "replace", "subject": "Астрономия"},
+        headers=_auth(token),
+    )
+    assert added.status_code == 200, added.text
+    announced = len(recording_bot.sent)
+
+    refused = await client.put(
+        "/api/v1/overrides",
+        json={"date": day, "index": 7, "action": "replace", "teacher": "Иванов И.И."},
+        headers=_auth(token),
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert "нечего заменять" in refused.json()["detail"]
+    assert len(recording_bot.sent) == announced
+
+    row = await session.scalar(select(LessonOverride))
+    await session.refresh(row)
+    assert row.subject_name == "Астрономия"
+
+    bundle = await client.get(
+        "/api/v1/bundle", params={"start": day, "days": 1}, headers=_auth(token)
+    )
+    drawn = {lesson["index"] for lesson in bundle.json()["days"][0]["lessons"]}
+    assert 7 in drawn
+
+    # Cancelling it is refused for the same reason and with the same words: the
+    # day's own lessons stop at three, so «🚫 Урок №7 отменён» would strike
+    # through nothing. «Вернуть по расписанию» — ``clear`` — is the way out,
+    # and it still works.
+    cancelled = await client.put(
+        "/api/v1/overrides",
+        json={"date": day, "index": 7, "action": "cancel"},
+        headers=_auth(token),
+    )
+    assert cancelled.status_code == 422, cancelled.text
+    assert "отменять нечего" in cancelled.json()["detail"]
+
+    cleared = await client.put(
+        "/api/v1/overrides",
+        json={"date": day, "index": 7, "action": "clear"},
+        headers=_auth(token),
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert await session.scalar(select(LessonOverride)) is None
+
+
 async def test_a_substitution_outside_the_school_year_is_refused(
     client, session, school_class, recording_bot
 ):

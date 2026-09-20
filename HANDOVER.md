@@ -4,8 +4,8 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **20 September 2026**. **PRs #63 through #68 are merged**; `main` is at
-`bc7a199`. **The only thing open is PR #69**, which carries this batch and the paragraph you
+Last updated: **20 September 2026**. **PRs #63 through #69 are merged**; `main` is at
+`cbb81e8`. **The only thing open is PR #70**, which carries this batch and the paragraph you
 are reading. Once it merges, `dev` is level with `main` again and the next batch starts from
 a clean one, and the SHA of that merge is for the next close-out to write.
 The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model has changed
@@ -20,6 +20,135 @@ real request on a real cold start, which is the one thing about it the branch co
 check before it merged. **It has not been re-read since, and did not need to be:** everything
 from #62 onwards touched no server code at all — Android, its tests, the build and the
 documents.
+
+## What the last session added: the crash, the button that was never built, and twelve defects
+
+Seven commits in `dev`, open as PR #70, in the milestone `v0.6.0`. Three parts: the crash the
+batch below could not explain, a feature that was missing from every APK ever built, and a
+five-agent sweep of the whole tree.
+
+### The crash after the link, which was a line of layout
+
+It closes the report the batch below could not answer — «приложение вылетает через несколько
+секунд после привязки Telegram», and then «предлагает очистить кэш» — and **it was not the
+link.**
+
+The bug report the owner sent from the phone carries the fatal exception, on the main
+thread, once at 14:36 and then in a loop for seventy seconds:
+
+```
+java.lang.IllegalStateException: Asking for intrinsic measurements of SubcomposeLayout
+layouts is not supported. This includes components that are built on top of
+SubcomposeLayout, such as lazy lists, BoxWithConstraints, TabRow, etc.
+```
+
+The stack is R8-obfuscated and names neither a file of ours nor a caller of one. What it did
+not have to name: **the app contained exactly one `SubcomposeLayout`**, the
+`BoxWithConstraints` inside `MarqueeText`, and that component is drawn at two dozen call
+sites — every group row, every lesson row, every section header, the toolbar, the pickers.
+A `SubcomposeLayout` cannot answer «how tall would you be at this width», and nothing in this
+repository spells `IntrinsicSize`, which is exactly why it looked safe: Material spells it
+inside its own rows, so the question arrives at a call site that never mentions it. **Which
+Material component asked was not identified and did not need to be** — the component that
+could not answer now can, wherever it is placed.
+
+It came in with #62 and has been in every build since, including the one the owner is
+running. The link had nothing to do with it beyond redrawing the screen.
+
+The fix is the width without the subcomposition: `Modifier.onSizeChanged`, outermost of the
+three modifiers so that it reports the window rather than the string the marquee scrolls
+through it. The price is one frame — until the line has been measured once its width is
+`Constraints.Infinity`, nothing can overflow it, and a line that will scroll is drawn still,
+which is what the first frame of a marquee looks like anyway.
+
+Three things about the tests are worth carrying forward:
+
+* **The reproduction is one line.** `Row(Modifier.height(IntrinsicSize.Min))` is the
+  question, and it throws that exact exception on the old component.
+* **Three of the component's own tests were named for a line that scrolls and never reached
+  one.** Robolectric lays text out with no fonts — every glyph costs about a pixel — so
+  «По этому предмету ничего не задано» measures 35 px and sits inside a 120 dp box with room
+  to spare. They use a string twenty times as long now. One of them, «stays inside its box»,
+  was also reading a number that says nothing: a scrolling line's text node really *is* as
+  wide as the string. What holds is that the row is not pushed apart, so what the test looks
+  at is a neighbour placed after it.
+* **`NoSubcomposedLeafTest` holds the rule rather than review.** It reads
+  `:core:designsystem`'s source and fails on a `BoxWithConstraints`, a `SubcomposeLayout`, a
+  `TabRow` or a lazy list, with the same `//`-above opt-out `NoEllipsisedLineTest` uses.
+  `:app` and `:widget` are outside it for a reason and not for convenience: a lazy list on a
+  screen is the root of its own layout and nothing above it asks it to predict a size — seven
+  screens hold one on those terms. The rule is for a component written to be placed inside a
+  layout it does not own.
+
+Each of the three guards was proven red first — the intrinsic query against the old
+component, the scrolling test with the width feed cut, and the source rule with the word put
+back into a component.
+
+### «Войти через GitHub» has never been in an APK
+
+The row is shown only when the client id is non-empty, `app/build.gradle.kts` reads it from
+`LESSONS_GITHUB_CLIENT_ID`, and **`apk.yml` passed that property on no day of its life**. So
+every build the workflow ever made had it blank: the row hidden, and with it the only way to
+file a bug report from inside the app and the only way to send a correction as a pull
+request. `LESSONS_CONTACT_EMAIL` was the same story one button along, which is «Отправить
+письмом». Nothing failed and nothing warned — an unset property is an empty string, and
+downstream that is a feature switched off.
+
+Hiding the row stays: a row that opens a sheet saying «не настроено» is a row about the build
+rather than about the reader, and that is written down in `docs/design.md`. What it costs is
+that the whole weight then rests on the build actually passing the property, so the run
+summary reports each one as on or off. `BuildPropertyReachTest` reads the build script and
+the workflow together and fails on a property that is read and never assigned; its first
+version passed on the name appearing in a comment, and was caught by breaking the wire on
+purpose. Both files are declared inputs of the test task — without that, editing the workflow
+left the task `UP-TO-DATE` and the check unrun.
+
+### Twelve defects, from five agents, each closed with a test proven red
+
+On the server: **the diary sign-in throttle did not exist and a wrong password answered
+500** — `JoinAttempt.client_key` is `VARCHAR(64)`, a SHA-256 digest fills it exactly, and the
+diary's key was that digest with «diary:» in front, so the insert raised out of the `except`
+that was re-raising the 401; SQLite ignores a `VARCHAR` width, which is why the test named
+after that limit passed all along. **A substitution could be stripped of the subject that
+made it visible** — the guard ran only on create, and the row is reachable in two writes.
+In the bot: a typed year one digit too long left the handler through `OverflowError`; «²»
+passes `isdigit()` and `int()` refuses it, in two callback handlers as well as the date
+parser; a lesson edit whose slot had gone was audited as though it had happened; the canteen
+could be marked on a break the bells no longer ring.
+
+On the phone: **the widget's loading layout drew its message white on near-white for Android
+8 to 12** — `DeviceDefault` below API 29 is the dark variant and the surface comes from
+`values/`, so the layout drew exactly the blank rectangle it exists to prevent. **The guide
+froze in one language for ever once refreshed in the other** — one manifest version for two
+files, recorded under language-less keys. **One dropped request ended a GitHub sign-in that
+GitHub had already granted.** **The edge wash was drawn on every phone below Android 13 while
+the only switch that names it said it was off and could not be pressed** — the blur is gated
+on API 33, the gradient tint is not, and the row gated the whole switch on shaders. **Turning
+the phone re-opened a pull request already opened** — a `LaunchedEffect` key survives a
+recomposition, not a configuration change.
+
+**Reported and deliberately not fixed**, because each is a decision rather than a correction:
+a command typed into an open bot form is saved as the answer, so «/week» at «пришлите текст
+задания» becomes homework called «/week» and goes to every subscriber, and which commands
+escape is an accident of router order; `request_approve` is forty duplicated lines across the
+API and the bot; `PATCH /manage/class` can move a class from 9 to 10 without its name ceasing
+to say «9А»; `WeekScreen`'s two sheets close on a rotation, and `Lesson` cannot be made
+parcelable without breaking `:core:model`'s purity.
+
+### Gates
+
+`ruff check` clean, `python -m mypy` clean across 81 modules, `python -m pytest -q -n auto`
+**1474 passed** (was 1465). `./gradlew test assembleDebug assembleRelease` green: **760 tests
+across 103 classes** (was 738 across 96). No model changed, so no migration: the database
+stays at `0013`.
+
+**What only the owner can do.** Register an OAuth App — Settings → Developer settings → OAuth
+Apps → New OAuth App, with **Enable Device Flow** ticked — and put its client id in the
+repository secret `LESSONS_GITHUB_CLIENT_ID`, and an address in `LESSONS_CONTACT_EMAIL`.
+There is no client secret to register. Until then the run summary says «off», which is the
+honest answer rather than a silent one. And install a build carrying all of this and link a
+phone again: none of it has run on a device, and the uninstall-first caveat below still
+applies to a debug-signed APK.
 
 ## What the last session added: a crash report that its own phone can read
 
@@ -42,7 +171,8 @@ presses it and asserts the sheet opens; the other reads `SettingsScreen.kt` and 
 test cannot ask whether a row is on the page everybody has. Proven red against the code
 without the fix.
 
-**The crash itself is not fixed and not yet understood.** What was ruled out, by reading and
+**The crash itself was not fixed by this batch — the one above does that**, and it was none
+of the things ruled out here. What was ruled out, by reading and
 by one throwaway Robolectric reproduction: the account section's composition survives the
 link landing under it (`Ready(unlinked)` → `Loading` → `Ready(linked, ADMIN)` →
 `isRefreshing` both ways); the exact-alarm path catches its `SecurityException` and asks
@@ -334,7 +464,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 3 | `v0.3.0 — The school year` | #27, #32–#35, #43 |
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
-| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#69 |
+| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#70 |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -749,9 +879,9 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && python -m pytest -q -n auto                # 1465 tests, ~1.5 min
+cd server  && python -m pytest -q -n auto                # 1474 tests, ~1.5 min
 cd server  && python -m mypy                             # clean, 81 modules
-cd android && ./gradlew test                             # 738 tests
+cd android && ./gradlew test                             # 760 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 

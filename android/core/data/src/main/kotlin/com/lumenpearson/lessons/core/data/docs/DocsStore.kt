@@ -28,6 +28,49 @@ private val Context.docsDataStore: DataStore<Preferences> by preferencesDataStor
 )
 
 /**
+ * What the preferences remember about a stored copy of the guide.
+ *
+ * @property language which of the two documents this record is about. The
+ *   manifest names one version for both files and a refresh fetches one of
+ *   them, so a release with no language on it is a version number that belongs
+ *   to nothing in particular — see [storedCopyIsCurrent] for what that cost.
+ */
+internal data class StoredRelease(
+    val version: Int,
+    val updated: String,
+    val appVersion: String,
+    val language: String,
+)
+
+/**
+ * The three places a guide can come from, as five methods.
+ *
+ * An interface because the real one is a DataStore, an assets folder and a file
+ * in `filesDir`, none of which exist in a plain JVM test — and the rules
+ * [DocsRepositoryImpl] applies over them (which copy wins, when a fetch is
+ * worth making) are the half worth holding still. The same reasoning as
+ * `DiarySessionStore`: what the repository is allowed to do to storage is
+ * written down in one short list.
+ */
+internal interface DocsStorage {
+
+    /** The release the stored markdown for [language] belongs to, if any. */
+    suspend fun storedRelease(language: String): StoredRelease?
+
+    /** The stored markdown for [language], or `null` if this phone has none. */
+    suspend fun storedGuide(language: String): String?
+
+    /** The copy built into the APK. Present on every install. */
+    fun bundledGuide(language: String): String?
+
+    /** The manifest built into the APK, so a bundled guide can name its version. */
+    fun bundledManifest(): String?
+
+    /** @return whether the copy actually landed; a failure costs the next launch a fetch. */
+    suspend fun write(language: String, markdown: String, release: StoredRelease): Boolean
+}
+
+/**
  * Everything kept on the phone about the guide: which release it is, and the
  * markdown itself.
  *
@@ -42,7 +85,7 @@ private val Context.docsDataStore: DataStore<Preferences> by preferencesDataStor
  * bundled fallback behind it, so a full disk, a revoked permission or a
  * half-written file must cost the reader the newest copy, never the screen.
  */
-internal class DocsStore(context: Context) {
+internal class DocsStore(context: Context) : DocsStorage {
 
     private val appContext: Context = context.applicationContext
     private val dataStore = appContext.docsDataStore
@@ -56,27 +99,25 @@ internal class DocsStore(context: Context) {
 
     private fun cached(language: String): File = File(folder, "guide.$language.md")
 
-    /** The release the stored markdown belongs to, or `null` if none is stored. */
-    suspend fun storedRelease(): StoredRelease? = runCatching {
+    override suspend fun storedRelease(language: String): StoredRelease? = runCatching {
         val values = preferences.first()
-        val version = values[KEY_VERSION] ?: return@runCatching null
+        val version = values[versionKey(language)] ?: return@runCatching null
         StoredRelease(
             version = version,
-            updated = values[KEY_UPDATED].orEmpty(),
-            appVersion = values[KEY_APP_VERSION].orEmpty(),
+            updated = values[updatedKey(language)].orEmpty(),
+            appVersion = values[appVersionKey(language)].orEmpty(),
+            language = language,
         )
     }.getOrNull()
 
-    /** The stored markdown for [language], or `null` if this phone has none. */
-    suspend fun storedGuide(language: String): String? = runCatching {
+    override suspend fun storedGuide(language: String): String? = runCatching {
         val file = cached(language)
         if (file.isFile) file.readText() else null
     }.onFailure { failure ->
         Log.w(TAG, "Could not read the stored guide for $language", failure)
     }.getOrNull()?.takeIf { it.isNotBlank() }
 
-    /** The copy built into the APK. Present on every install; see the module's assets. */
-    fun bundledGuide(language: String): String? = runCatching {
+    override fun bundledGuide(language: String): String? = runCatching {
         appContext.assets.open("guide.$language.md").use { stream -> stream.readBytes().decodeToString() }
     }.onFailure { failure ->
         // Not fatal and not silent: it means the build stopped shipping the
@@ -84,8 +125,7 @@ internal class DocsStore(context: Context) {
         Log.w(TAG, "The APK carries no bundled guide for $language", failure)
     }.getOrNull()?.takeIf { it.isNotBlank() }
 
-    /** The manifest built into the APK, so a bundled guide can name its version. */
-    fun bundledManifest(): String? = runCatching {
+    override fun bundledManifest(): String? = runCatching {
         appContext.assets.open("manifest.json").use { stream -> stream.readBytes().decodeToString() }
     }.getOrNull()?.takeIf { it.isNotBlank() }
 
@@ -98,7 +138,11 @@ internal class DocsStore(context: Context) {
      * crash in between leaves a newer file under an older version number — one
      * pointless fetch, and no wrong claim.
      */
-    suspend fun write(language: String, markdown: String, release: StoredRelease): Boolean =
+    override suspend fun write(
+        language: String,
+        markdown: String,
+        release: StoredRelease,
+    ): Boolean =
         runCatching {
             folder.mkdirs()
             val target = cached(language)
@@ -108,26 +152,32 @@ internal class DocsStore(context: Context) {
             partial.writeText(markdown)
             check(partial.renameTo(target)) { "could not replace ${target.name}" }
             dataStore.edit { values ->
-                values[KEY_VERSION] = release.version
-                values[KEY_UPDATED] = release.updated
-                values[KEY_APP_VERSION] = release.appVersion
+                values[versionKey(language)] = release.version
+                values[updatedKey(language)] = release.updated
+                values[appVersionKey(language)] = release.appVersion
             }
             true
         }.onFailure { failure ->
             Log.w(TAG, "Could not store the fetched guide for $language", failure)
         }.getOrDefault(false)
 
-    /** What the preferences remember about the stored copy. */
-    data class StoredRelease(
-        val version: Int,
-        val updated: String,
-        val appVersion: String,
-    )
-
     private companion object {
         const val TAG = "Lessons"
-        val KEY_VERSION = intPreferencesKey("version")
-        val KEY_UPDATED = stringPreferencesKey("updated")
-        val KEY_APP_VERSION = stringPreferencesKey("app_version")
+
+        /**
+         * One record per language, because there is one markdown file per
+         * language and the manifest versions them together.
+         *
+         * The keys used to be `version`, `updated` and `app_version` flat, and
+         * nothing reads those now. An install that holds them therefore starts
+         * as if it had never fetched: the bundled copy is shown, the first
+         * refresh downloads, and the phone is back where it was — one fetch,
+         * against a stale guide that could otherwise never be replaced.
+         */
+        fun versionKey(language: String) = intPreferencesKey("version.$language")
+
+        fun updatedKey(language: String) = stringPreferencesKey("updated.$language")
+
+        fun appVersionKey(language: String) = stringPreferencesKey("app_version.$language")
     }
 }

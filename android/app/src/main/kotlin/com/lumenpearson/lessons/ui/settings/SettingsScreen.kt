@@ -93,6 +93,7 @@ import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.modifier.LiquidRippleAnchor
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
@@ -814,13 +815,9 @@ private fun LazyListScope.feelRows(
 
     item(key = "effects") {
         SettingsGroup(title = correctedString(R.string.settings_effects_group)) {
-            GroupSwitchItem(
-                title = correctedString(R.string.settings_edge_blur),
-                subtitle = correctedString(R.string.settings_edge_blur_description),
-                icon = Icons.Rounded.BlurLinear,
+            EdgeFadeRow(
+                checked = state.settings.edgeBlur,
                 tone = accentTone(0),
-                enabled = SupportsShaders,
-                checked = state.settings.edgeBlur && SupportsShaders,
                 onCheckedChange = viewModel::setEdgeBlur,
             )
             GroupSwitchItem(
@@ -1020,6 +1017,47 @@ private fun LazyListScope.contentRows(
             )
         }
     }
+}
+
+/**
+ * The edge fade, as one row that the settings page and the first-run flow both
+ * draw.
+ *
+ * **It is not gated on [SupportsShaders], and that is the fix rather than an
+ * oversight.** The setting turns on two things and only one of them is a
+ * shader: the blur arrived in Android 13, the gradient wash under the status
+ * bar and behind the toolbar is a `drawRect` that `progressiveBlur` draws on
+ * everything — deliberately, because that wash is what stops a scrolled list
+ * colliding with the clock on the devices that get no blur at all. The shell
+ * asks for it from `AppSettings.edgeBlur` alone, and `edgeBlur` defaults to
+ * true, so below Android 13 the wash was on every screen while the one switch
+ * that names it read «выключено» and refused to be pressed. `minSdk` is 26, so
+ * that is Android 8 through 12.
+ *
+ * Two copies of the row is how it got there: the first-run flow's said
+ * «Доступно на Android 13 и новее» under a switch nobody could move, and the
+ * settings page's said nothing at all. One row now, and the sentence it carries
+ * where there is no blur says what the switch still does rather than that it
+ * does nothing.
+ */
+@Composable
+internal fun EdgeFadeRow(
+    checked: Boolean,
+    tone: AccentTone,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    GroupSwitchItem(
+        title = correctedString(R.string.settings_edge_blur),
+        subtitle = if (SupportsShaders) {
+            correctedString(R.string.settings_edge_blur_description)
+        } else {
+            correctedString(R.string.settings_edge_blur_no_shader)
+        },
+        icon = Icons.Rounded.BlurLinear,
+        tone = tone,
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+    )
 }
 
 /** Label of a home-screen order in the segmented picker. */

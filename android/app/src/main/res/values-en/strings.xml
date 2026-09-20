@@ -266,6 +266,7 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="settings_motion_speed_description">Higher is faster; 1.0 is as designed.</string>
     <string name="settings_edge_blur">Blur under the status bar</string>
     <string name="settings_edge_blur_description">Content melts away smoothly under the status bar.</string>
+    <string name="settings_edge_blur_no_shader">Blur needs Android 13 or newer — on this one content still melts away softly at the edges.</string>
     <string name="settings_motion_blur">Blur while scrolling</string>
     <string name="settings_motion_blur_description">Lists smear along the direction they move in.</string>
     <string name="settings_motion_blur_amount">Blur amount</string>

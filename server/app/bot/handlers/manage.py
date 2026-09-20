@@ -199,20 +199,32 @@ def _parse_day(raw: str, today: Date) -> Date | None:
     A bare day and month is read in the current year unless that lands well in
     the past: a school year straddles New Year, so «10.01» typed in December
     means the January that is coming, not the one that has gone.
+
+    Both conversions are inside the ``try``, and it catches ``OverflowError``
+    as well, because ``str.isdigit()`` is not the same question as «will
+    ``int()`` take this» and ``date()`` does not raise only ``ValueError``.
+    Every character of «²2.09» is a digit to ``isdigit`` and «²2» is a
+    ``ValueError`` to ``int``; «12.09.99999999999999999999» converts happily
+    and then overflows the C long ``date()`` is built on. Either way the
+    exception went straight past the ``except ValueError`` and out of the
+    handler — and both callers are `Message` handlers with no callback to
+    apologise on, so a stuck key on the year bought an answer that never came
+    and a prompt still waiting for a date, which the next thing typed would be
+    read as.
     """
     parts = [part for part in re.split(r"[.\-/\s]+", raw.strip()) if part]
     if len(parts) not in (2, 3) or not all(part.isdigit() for part in parts):
         return None
-    day, month = int(parts[0]), int(parts[1])
-    if len(parts) == 3:
-        year = int(parts[2])
-        if year < 100:
-            year += 2000
-    else:
-        year = today.year
     try:
+        day, month = int(parts[0]), int(parts[1])
+        if len(parts) == 3:
+            year = int(parts[2])
+            if year < 100:
+                year += 2000
+        else:
+            year = today.year
         result = Date(year, month, day)
-    except ValueError:
+    except (ValueError, OverflowError):
         return None
     if len(parts) == 2 and (today - result).days > 90:
         try:
@@ -3051,8 +3063,11 @@ async def term_edit_prompt(
         await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
         return
 
-    index = int(callback_data.value) if callback_data.value.isdigit() else 0
-    if index < 1:
+    # ``_int_or_none``, not ``isdigit`` and ``int``: those two do not ask the
+    # same question, so «²» passed the check and raised inside the conversion
+    # — out of the handler, before ``callback.answer`` was ever reached.
+    index = _int_or_none(callback_data.value)
+    if index is None or index < 1:
         await callback.answer("Неизвестный период", show_alert=True)
         return
 

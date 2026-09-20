@@ -61,7 +61,7 @@ step. What stayed in CI for good:
 
 - **`pytest -n auto`.** The suite spread across the runner's cores: 289 s → 101 s on four
   cores locally, 12:18 → 3:23 on the runner, the same 1340 green — 1340 was the count when
-  this was measured; it is 1465 today. That is safe by
+  this was measured; it is 1474 today. That is safe by
   construction rather than by luck: `tests/conftest.py` takes the SQLite path from an
   `mkdtemp` computed at import time, and every xdist worker is a separate process with its
   own import, so they never share a database. It started as a saving and stayed for the
@@ -242,6 +242,34 @@ build, so that a debug-signed APK cannot go out in a public release.
 After that it is automatic. The workflow decodes the keystore into a temporary directory on
 the runner rather than into the working copy, and deletes it before anything is uploaded —
 so the key cannot leak through an artifact.
+
+## Two buttons that are not in the build unless you say so
+
+`LESSONS_GITHUB_CLIENT_ID` and `LESSONS_CONTACT_EMAIL` are optional, and each one is a
+button. Without the first, «Войти через GitHub» is not on «О приложении» at all — and with
+it goes the only way to file a bug report from inside the app, because that is what the
+account is for. Without the second, «Отправить письмом» is not on the bug-report sheet.
+Nothing in the app explains either absence: the row about a build the reader did not make
+would be a row about the wrong subject, which is a deliberate decision and is written down
+in `docs/design.md`.
+
+**The workflow did not pass either of them for its whole life**, so every APK it has built
+has had both switched off, and the first anybody knew of it was looking for a button that
+was never there. It passes them now, from repository secrets of the same names, and the run
+summary says «on» or «off» for each — which is where to look next time a button is missing.
+
+To switch the first on: **Settings → Developer settings → OAuth Apps → New OAuth App**, with
+**Enable Device Flow** ticked, and put its client id in the repository secret
+`LESSONS_GITHUB_CLIENT_ID`. There is no client secret to register — the device flow does not
+use one, which is the reason this grant was chosen (see `docs/design.md`, "Signing in
+through GitHub is for one thing"). The client id is not itself a secret; it is in the
+repository's secrets because it is the builder's to give, not because it has to be hidden.
+
+The second is an address you are willing to receive bug reports at. It is not in the source
+because an address in a public repository is an address on every spam list.
+
+Locally both are ordinary build properties: `lessons.github.clientId` and
+`lessons.contactEmail` in `~/.gradle/gradle.properties`, or the environment variables above.
 
 ## Locally
 

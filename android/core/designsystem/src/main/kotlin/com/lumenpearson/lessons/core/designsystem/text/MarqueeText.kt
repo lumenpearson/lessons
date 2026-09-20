@@ -1,12 +1,15 @@
 package com.lumenpearson.lessons.core.designsystem.text
 
 import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
@@ -36,17 +39,33 @@ val MarqueeFadeWidth: Dp = 8.dp
  * cannot be read off the layout, and that is the trap this component exists to
  * hide: `basicMarquee` hands the text unbounded width, so the text node never
  * reports visual overflow and anything asking `onTextLayout` gets `false`
- * forever. The string is measured against the width the box actually has
+ * forever. The string is measured against the width the line actually got
  * instead.
  *
  * The fade is applied *outside* the marquee, so it masks the window the text
  * scrolls through rather than travelling with the text.
  *
- * Wraps in a [BoxWithConstraints], which is the one thing it does that the
- * [Text] shim does not: the constraints are what the measurement needs. In a
- * `Row` give it a `weight`, as an ellipsised `Text` there would also need, or
- * it is handed `Constraints.Infinity`, nothing can overflow, and it quietly
- * becomes an ordinary line of text.
+ * **The width comes from the line itself, and must not come from a
+ * [BoxWithConstraints].** Wrapping this in one is the obvious way to learn the
+ * width and it crashed the app: a `BoxWithConstraints` is a `SubcomposeLayout`,
+ * and a `SubcomposeLayout` cannot answer «how tall would you be at this width».
+ * Asking throws `IllegalStateException: Asking for intrinsic measurements of
+ * SubcomposeLayout layouts is not supported` — on the main thread, from a
+ * `Layout` nobody here wrote. Nothing in this repository spells
+ * `IntrinsicSize`, which is what made it look safe; Material spells it inside
+ * its own rows, so the question arrives without any call site mentioning it,
+ * and in a release build the stack names neither this file nor its caller.
+ * [onSizeChanged] answers the same question from the layout this composable is
+ * already in, and a plain layout answers an intrinsic query as it always did.
+ *
+ * The price is one frame: until the line has been measured once its width is
+ * [Constraints.Infinity], nothing can overflow it, and a line that will scroll
+ * is drawn still. That is a frame of not-yet-moving text, which is what the
+ * first frame of a marquee looks like anyway.
+ *
+ * In a `Row` give it a `weight`, as an ellipsised `Text` there would also need,
+ * or it is measured at whatever width it asks for, nothing can overflow, and it
+ * quietly becomes an ordinary line of text.
  *
  * @param style must be the style the line is drawn in — it is what the string
  *   is measured with, and a mismatch measures one font and draws another.
@@ -61,45 +80,50 @@ fun MarqueeText(
     style: TextStyle = LocalTextStyle.current,
 ) {
     val measurer = rememberTextMeasurer()
+    var available by remember { mutableIntStateOf(Constraints.Infinity) }
 
-    BoxWithConstraints(modifier = modifier) {
-        val available = constraints.maxWidth
-        val scrolls = remember(text, style, available) {
-            overflows(
-                measured = measurer.measure(
-                    text = text,
-                    style = style,
-                    // Measuring, not drawing: this is the width the string wants on
-                    // one unbroken line, which is the number the decision needs.
-                    maxLines = 1,
-                    softWrap = false,
-                ).size.width,
-                available = available,
-            )
-        }
-
-        Text(
-            text = text,
-            color = color,
-            textAlign = textAlign,
-            style = style,
-            // One line by definition — this component's whole subject is the line
-            // that has to stay one line. It scrolls instead of being cut.
-            maxLines = 1,
-            softWrap = false,
-            // Clip rather than Ellipsis while scrolling: the marquee's own
-            // window is the clip, and an ellipsis inside unbounded width would
-            // never be reached anyway.
-            overflow = if (scrolls) TextOverflow.Clip else TextOverflow.Ellipsis,
-            modifier = if (scrolls) {
-                Modifier
-                    .fadingEdges(fadeWidth)
-                    .basicMarquee()
-            } else {
-                Modifier
-            },
+    val scrolls = remember(text, style, available) {
+        overflows(
+            measured = measurer.measure(
+                text = text,
+                style = style,
+                // Measuring, not drawing: this is the width the string wants on
+                // one unbroken line, which is the number the decision needs.
+                maxLines = 1,
+                softWrap = false,
+            ).size.width,
+            available = available,
         )
     }
+
+    Text(
+        text = text,
+        color = color,
+        textAlign = textAlign,
+        style = style,
+        // One line by definition — this component's whole subject is the line
+        // that has to stay one line. It scrolls instead of being cut.
+        maxLines = 1,
+        softWrap = false,
+        // Clip rather than Ellipsis while scrolling: the marquee's own
+        // window is the clip, and an ellipsis inside unbounded width would
+        // never be reached anyway.
+        overflow = if (scrolls) TextOverflow.Clip else TextOverflow.Ellipsis,
+        modifier = modifier
+            // Outermost of the three, so that it reports the window rather than
+            // the text: once the marquee is on, the text inside it is as wide as
+            // the string, and only this node is still the width the row gave.
+            .onSizeChanged { available = it.width }
+            .then(
+                if (scrolls) {
+                    Modifier
+                        .fadingEdges(fadeWidth)
+                        .basicMarquee()
+                } else {
+                    Modifier
+                },
+            ),
+    )
 }
 
 /**

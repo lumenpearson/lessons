@@ -262,6 +262,7 @@
     <string name="settings_motion_speed_description">Больше — быстрее; 1,0 — как задумано.</string>
     <string name="settings_edge_blur">Размытие под шторкой</string>
     <string name="settings_edge_blur_description">Содержимое плавно тает под строкой состояния.</string>
+    <string name="settings_edge_blur_no_shader">Размытие есть на Android 13 и новее — на этом содержимое всё равно мягко тает у краёв.</string>
     <string name="settings_motion_blur">Размытие при прокрутке</string>
     <string name="settings_motion_blur_description">Списки смазываются по направлению движения.</string>
     <string name="settings_motion_blur_amount">Сила размытия</string>
