@@ -852,23 +852,38 @@ HOLIDAY_DATE_HELP = (
 )
 
 
-async def _holiday_view(session: AsyncSession, school_class: SchoolClass, role: Role):
+async def _holiday_view(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    role: Role,
+    only: DayKind | None = None,
+):
+    """The list of marked days, optionally narrowed to one kind.
+
+    The filter lives in the callback payload rather than in FSM state, which is
+    the rule the editor's pager already follows: a card on a screen is a card
+    somebody may come back to in an hour, and a filter held in state would
+    either have expired by then or be silently applied to a different screen.
+    Carried in the payload, the card *is* its own filter.
+    """
     today = _today(school_class)
-    overrides = list(
-        await session.scalars(
-            select(DayOverride)
-            .where(DayOverride.class_id == school_class.id, DayOverride.date >= today)
-            .order_by(DayOverride.date)
-        )
+    query = (
+        select(DayOverride)
+        .where(DayOverride.class_id == school_class.id, DayOverride.date >= today)
+        .order_by(DayOverride.date)
     )
+    if only is not None:
+        query = query.where(DayOverride.kind == only)
+    overrides = list(await session.scalars(query))
     schedules = {
         schedule.id: schedule.name
         for schedule in await session.scalars(
             select(BellSchedule).where(BellSchedule.class_id == school_class.id)
         )
     }
-    return mr.render_holidays(overrides, schedules, today), holiday_list_keyboard(
+    return mr.render_holidays(overrides, schedules, today, only), holiday_list_keyboard(
         overrides,
+        only=only,
         can_edit=role.at_least(Role.EDITOR),
         can_period=role.at_least(Role.ADMIN),
     )
@@ -926,6 +941,7 @@ async def cmd_holidays(
 @router.callback_query(DayKindAction.filter(F.action == "list"))
 async def holidays_list(
     callback: CallbackQuery,
+    callback_data: DayKindAction,
     state: FSMContext,
     session: AsyncSession,
     school_class: SchoolClass | None,
@@ -935,7 +951,11 @@ async def holidays_list(
         await callback.answer(_refusal(role, Role.EDITOR), show_alert=True)
         return
     await state.clear()
-    text, keyboard = await _holiday_view(session, school_class, role)
+    # An unreadable filter narrows to nothing rather than raising: the value is
+    # whatever the client sent, and `DayKind(raw)` out of a callback handler
+    # never reaches `callback.answer()`.
+    only = _day_kind_or_none(callback_data.value) if callback_data.value else None
+    text, keyboard = await _holiday_view(session, school_class, role, only)
     await callback.message.edit_text(text, reply_markup=keyboard)
     await callback.answer()
 

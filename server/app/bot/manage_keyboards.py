@@ -342,7 +342,10 @@ def period_kind_keyboard() -> InlineKeyboardMarkup:
 
 
 def holiday_list_keyboard(
-    overrides: list, can_edit: bool, can_period: bool | None = None
+    overrides: list,
+    can_edit: bool,
+    can_period: bool | None = None,
+    only: DayKind | None = None,
 ) -> InlineKeyboardMarkup:
     """Marking one day is an editor's business; a whole range of holiday days
     rewrites weeks of the class's calendar at once and stays with admins."""
@@ -350,6 +353,26 @@ def holiday_list_keyboard(
         can_period = can_edit
 
     rows: list[list[InlineKeyboardButton]] = []
+    # The filter row first, because it decides what the rows under it are.
+    # Two per line: five buttons on one line is five unreadable truncations on
+    # a narrow phone, and these are the words that say what is being looked at.
+    filters = [(None, "Все")] + [(kind, label) for kind, label in PERIOD_KINDS]
+    filters.append((DayKind.SHORTENED, "⏱ Сокращённые"))
+    for index in range(0, len(filters), 2):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    # The one that is on is ticked rather than coloured: a
+                    # style would compete with the «➕ Добавить» below, and the
+                    # tick survives a client that draws no styles at all.
+                    text=("✓ " if kind == only else "") + label,
+                    callback_data=DayKindAction(
+                        action="list", value="" if kind is None else kind.value
+                    ).pack(),
+                )
+                for kind, label in filters[index : index + 2]
+            ]
+        )
     for override in overrides[:LIST_MAX]:
         rows.append(
             [

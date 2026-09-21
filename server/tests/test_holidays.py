@@ -11,11 +11,12 @@ entirely plausible on a calendar.
 from __future__ import annotations
 
 from datetime import date as Date
+from datetime import timedelta
 
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
-from app.models import DayKind, DayOverride, TermKind
+from app.models import DayKind, DayOverride, Role, TermKind
 from app.schedule import DayOffReason, ScheduleResolver
 from app.services import holidays
 from app.services import terms as terms_service
@@ -325,3 +326,99 @@ def test_every_day_kind_can_be_said():
     # are excluded there on purpose, and that exclusion is its own test — but
     # everything it does offer has to be a real kind.
     assert {kind for kind, _ in PERIOD_KINDS} <= set(special)
+
+
+# --------------------------------------------------------------------------
+# Narrowing the bot's list of marked days
+# --------------------------------------------------------------------------
+
+
+async def test_the_bot_list_can_be_narrowed_to_one_kind(session, school_class):
+    """Five kinds in one list is a list somebody scrolls rather than reads.
+
+    The filter lives in the callback payload rather than in FSM state, the way
+    the editor's pager already does: a card on a screen is a card somebody may
+    come back to in an hour, and a filter held in state would have expired by
+    then or be applied to whatever screen they are on instead.
+    """
+    from app.bot.handlers.manage import _holiday_view
+
+    today = Date(2026, 9, 14)
+    for offset, kind in enumerate((DayKind.HOLIDAY, DayKind.REMOTE, DayKind.SELF_STUDY)):
+        session.add(
+            DayOverride(
+                class_id=school_class.id,
+                date=today + timedelta(days=offset + 400),
+                kind=kind,
+            )
+        )
+    await session.commit()
+
+    everything, _ = await _holiday_view(session, school_class, Role.ADMIN)
+    for label in ("Каникулы", "Дистанционное", "Самоподготовка"):
+        assert label in everything
+
+    narrowed, _ = await _holiday_view(session, school_class, Role.ADMIN, DayKind.SELF_STUDY)
+    assert "Самоподготовка" in narrowed
+    assert "Дистанционное" not in narrowed
+
+
+async def test_an_empty_filter_says_which_kind_of_empty_it_is(session, school_class):
+    """«Нет вовсе» and «нет таких» are two different things to do next.
+
+    Telling somebody who narrowed to «дистанционно» that there are no special
+    days at all answers a question they did not ask, and sends them off to
+    mark days that are already there under another kind.
+    """
+    from app.bot.handlers.manage import _holiday_view
+
+    bare, _ = await _holiday_view(session, school_class, Role.ADMIN)
+    assert "Впереди особых дней нет" in bare
+
+    session.add(
+        DayOverride(
+            class_id=school_class.id, date=Date(2027, 4, 5), kind=DayKind.HOLIDAY
+        )
+    )
+    await session.commit()
+
+    filtered, _ = await _holiday_view(session, school_class, Role.ADMIN, DayKind.REMOTE)
+    assert "Впереди особых дней нет" not in filtered
+    assert "Впереди нет дней" in filtered
+    assert "«Все» покажет остальные" in filtered
+
+
+async def test_a_crafted_filter_narrows_to_nothing_rather_than_raising(
+    session, school_class
+):
+    """Callback data is whatever the client sent.
+
+    `DayKind(raw)` raises, and a raise here never reaches `callback.answer()`
+    — the press keeps its spinner until Telegram gives up. The guard turns it
+    into «no filter», which is the harmless reading of an unreadable one.
+    """
+    from app.bot.handlers.manage import _day_kind_or_none
+
+    assert _day_kind_or_none("../../etc/passwd") is None
+    assert _day_kind_or_none("") is None
+    assert _day_kind_or_none(DayKind.SELF_STUDY.value) is DayKind.SELF_STUDY
+
+
+async def test_the_filter_row_offers_every_kind_the_list_can_hold(session, school_class):
+    """A kind that can be marked and cannot be filtered is one that hides in a
+    list of five, which is the thing this row exists to prevent."""
+    from app.bot.manage_keyboards import holiday_list_keyboard
+
+    keyboard = holiday_list_keyboard([], can_edit=True, can_period=True)
+    values = {
+        button.callback_data.split("|", 2)[-1]
+        for row in keyboard.inline_keyboard
+        for button in row
+        if button.callback_data and button.callback_data.startswith("dk|list")
+    }
+
+    for kind in DayKind:
+        if kind is DayKind.NORMAL:
+            continue
+        assert kind.value in values, f"the filter row cannot narrow to {kind.value}"
+    assert "" in values, "«Все» has to be there, or a filter cannot be taken off"

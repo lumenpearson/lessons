@@ -300,17 +300,28 @@ entry has a name, a short name, a teacher and a colour (eight presets, or type
 
 A day that is not a normal school day: **каникулы / выходной** (holiday or day
 off), **сокращённые уроки** (shortened lessons, which then asks which bell
-schedule to ring), **дистанционно** (remote), or **обычный день** (an ordinary
-day), which deletes the mark — "normal" is the absence of a row, not a kind of
-row.
+schedule to ring), **дистанционно** (remote, taught at the usual times),
+**самоподготовка** (set work, nobody at school), **отгул** (a day off this
+class alone was given), or **обычный день** (an ordinary day), which deletes
+the mark — "normal" is the absence of a row, not a kind of row.
+
+The list above the buttons narrows to one kind, and the row of filters carries
+«Все» to take the narrowing off. Which kind is showing lives in the button's
+own payload rather than in the form state, so a card left open for an hour
+still means what it says. An empty list distinguishes «нет вовсе» from «нет
+таких»: the second is a filter to remove, not a calendar to fill in.
 
 Pick the date in the calendar (below) or type `12.09` / `12.09.2026`. A bare
 day and month is read in the year that is coming, because a school year straddles
 New Year. A note can be attached — «осенние каникулы», say.
 
-**📆 Период** (`26.10-05.11`) marks every day inside the range at once, up to
-120 days. Marking single days is an editor's job; a whole range stays with
-admins.
+**📆 Период** asks what to mark the range as — каникулы, дистанционно,
+самоподготовка or отгул — and then takes the dates (`26.10-05.11`), marking
+every day inside at once, up to 120 days. «Обычный день» and «сокращённые» are
+not offered over a range: the first is the same as not marking it, and the
+second points at a bell schedule, so a range would quietly choose the class
+default for a fortnight. Marking single days is an editor's job; a whole range
+stays with admins.
 
 ## Bells — `/bells`
 

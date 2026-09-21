@@ -2742,19 +2742,44 @@ async def test_every_button_opens_the_same_page_as_its_command(session, school_c
     )
     await session.commit()
 
+    # A press lambda rather than a bare handler: «🏖 Особые дни» takes the
+    # filter out of its own payload, so it has one argument the others do not,
+    # and an unfiltered press is the one that has to match the typed command.
     pairs = [
-        (cmd_subjects, subjects_list, Role.EDITOR),
-        (cmd_holidays, holidays_list, Role.EDITOR),
-        (cmd_bells, bells_list, Role.ADMIN),
-        (cmd_devices, devices_list, Role.ADMIN),
-        (cmd_class, class_root, Role.OWNER),
+        (
+            cmd_subjects,
+            lambda cb, role: subjects_list(cb, FakeState(), session, school_class, role),
+            Role.EDITOR,
+        ),
+        (
+            cmd_holidays,
+            lambda cb, role: holidays_list(
+                cb, DayKindAction(action="list"), FakeState(), session, school_class, role
+            ),
+            Role.EDITOR,
+        ),
+        (
+            cmd_bells,
+            lambda cb, role: bells_list(cb, FakeState(), session, school_class, role),
+            Role.ADMIN,
+        ),
+        (
+            cmd_devices,
+            lambda cb, role: devices_list(cb, FakeState(), session, school_class, role),
+            Role.ADMIN,
+        ),
+        (
+            cmd_class,
+            lambda cb, role: class_root(cb, FakeState(), session, school_class, role),
+            Role.OWNER,
+        ),
     ]
-    for command, button, role in pairs:
+    for command, press, role in pairs:
         typed = FakeMessage()
         await command(typed, FakeState(), session, school_class, role)
 
         pressed = FakeCallback(message=FakeEditable())
-        await button(pressed, FakeState(), session, school_class, role)
+        await press(pressed, role)
 
         assert pressed.message.last == typed.last, command.__name__
         assert not pressed.alerted, command.__name__
@@ -3329,7 +3354,9 @@ async def test_every_management_step_checks_the_role_for_itself(session, school_
     )
     await press(
         "holidays_list",
-        lambda cb: holidays_list(cb, FakeState(), session, school_class, viewer),
+        lambda cb: holidays_list(
+            cb, DayKindAction(action="list"), FakeState(), session, school_class, viewer
+        ),
     )
     await press(
         "holiday_add", lambda cb: holiday_add(cb, FakeState(), school_class, viewer)

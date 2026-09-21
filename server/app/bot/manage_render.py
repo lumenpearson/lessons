@@ -209,10 +209,26 @@ def render_subject_card(subject) -> str:
 KIND_LABELS = dict(DAY_KIND_LABELS)
 
 
-def render_holidays(overrides: list[DayOverride], schedules: dict[int, str], today: Date) -> str:
+def render_holidays(
+    overrides: list[DayOverride],
+    schedules: dict[int, str],
+    today: Date,
+    only: DayKind | None = None,
+) -> str:
     lines = ["<b>🏖 Особые дни</b>", ""]
     if not overrides:
-        lines.append("<i>Впереди особых дней нет.</i>")
+        # Which kind of empty, because the two mean different things to do
+        # next: «нет вовсе» is a calendar to fill in, «нет таких» is a filter
+        # to take off. Telling somebody who filtered to «дистанционно» that
+        # there are no special days at all would be answering a question they
+        # did not ask.
+        if only is None:
+            lines.append("<i>Впереди особых дней нет.</i>")
+        else:
+            label = KIND_LABELS.get(only, "такого вида")
+            lines.append(f"<i>Впереди нет дней: {escape(label)}.</i>")
+            lines.append("")
+            lines.append("<i>«Все» покажет остальные.</i>")
         return "\n".join(lines)
 
     for override in overrides[:LIST_MAX]:
