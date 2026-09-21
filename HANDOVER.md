@@ -117,6 +117,26 @@ None of these is closed; all are verified enough to act on.
   missing from the CI path filter, and a dozen string findings — three names for the app,
   two Russian names for `VIEWER`, a nominative weekday where the sentence needs accusative.
 
+### Where the seam actually falls
+
+Traced after the pull request was opened, against both files' `cmap` rather than
+guessed. The chain resolves per character, and the base wins every code point it
+covers — **464 of them are in both files**, so on API 29+ Onest never draws Latin,
+digits or punctuation even though it can.
+
+| | drawn by |
+| --- | --- |
+| `Algebra`, `08:30–09:15`, `«»`, `—`, `…`, `·` | Google Sans Flex |
+| `Алгебра`, `ё`, and **`№`** | Onest |
+| `каб. 214` | `каб` Onest, `. 214` Google Sans Flex |
+| `9А` | `9` Google Sans Flex, `А` Onest |
+| emoji | the system, third in the chain |
+
+`№` is the one worth knowing: Google Sans Flex does not cover it, so «Урок №3»
+breaks between the `№` and the `3` rather than between the word and the number.
+That and «каб. 214» are the two most frequent mixed strings in the app, and they
+are where to look first for a visible seam.
+
 ### What nobody has verified
 
 Onest has not been drawn on a device: what is checked is that it declares the axis the app
