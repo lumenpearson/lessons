@@ -23,10 +23,15 @@ documents.
 
 ## What the last session added: the typeface is compressed by the build
 
-One commit in `dev`, open as PR #75. **The milestone does not exist yet** — the owner was
-asked to create `v0.7.0` and this pull request gets its number the moment they hand it over;
-the command is in the `github-pr` skill and the text is in the request. Until then it is the
-one bare pull request in this repository, and that is a known debt rather than an oversight.
+Four commits in `dev`, open as PR #75, in the milestone `v0.7.0 — Оптимизация` (number 8),
+which the owner created for this batch because none of the seven fitted. Its number was not
+handed over and nothing here lists a milestone, so it was assigned as 8 — the next after the
+seven — and then **read back off the pull request** rather than assumed, which is the only
+check available and is what the `github-pr` skill means by reading a number back.
+
+Its title is Russian where the other seven are English, which is the one place the project's
+own rule — Russian on the screen, English in everything written about the project — is not
+kept today. It is the owner's milestone and theirs to rename; nothing here touched it.
 
 **The instanced font was committed, and that was the arrangement that could not survive an
 update.** The batch below took the file from 3.81 MB to 0.29 MB with `fonttools` and
@@ -748,7 +753,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
-| — | `v0.7.0`, asked for and not yet created | #75 |
+| 8 | `v0.7.0 — Оптимизация` | #75 — created for this batch, and the one Russian title |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
