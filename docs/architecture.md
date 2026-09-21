@@ -324,7 +324,7 @@ alternative is every family's password in the database.
 
 ## Testing
 
-1533 tests on the server across 43 files, 763 on Android across 104 classes; `pytest -q` and
+1559 tests on the server across 43 files, 765 on Android across 105 classes; `pytest -q` and
 `./gradlew test`, both offline, both in CI. On Android that is `:core:model` 94,
 `:core:data` 257, `:core:designsystem` 54, `:widget` 68, `:app` 265.
 

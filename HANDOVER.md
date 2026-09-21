@@ -4,8 +4,8 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **21 September 2026**. **PRs #63 through #70 are merged**; `main` is at
-`7bde4f7`. **The only thing open is PR #71**, which carries this batch and the paragraph you
+Last updated: **21 September 2026**. **PRs #63 through #71 are merged**; `main` is at
+`0cdd7f1`. **The only thing open is PR #72**, which carries this batch and the paragraph you
 are reading. Once it merges, `dev` is level with `main` again and the next batch starts from
 a clean one, and the SHA of that merge is for the next close-out to write.
 The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model has changed
@@ -20,6 +20,56 @@ real request on a real cold start, which is the one thing about it the branch co
 check before it merged. **It has not been re-read since, and did not need to be:** everything
 from #62 onwards touched no server code at all — Android, its tests, the build and the
 documents.
+
+## What the last session added: the two loose ends
+
+One commit in `dev`, open as PR #72, in the milestone `v0.6.0`. Both were named by the batch
+below as found-and-not-taken, and both are now taken.
+
+**A command the bot does not have answers.** Telegram stays silent on one, and for a bot with
+a single screen that is fine — but once a command started breaking out of a half-finished
+form, silence became misleading: «/wek», a typo for «/week», dropped what somebody was
+filling in, said so, and then nothing happened. It says «🤔 Не знаю такой команды. Наберите
+/help, чтобы увидеть список.»
+
+The handler is a router included **last** in `build_router()`, because it matches any command
+at all and so everything that answers one has to be asked first. That contract is invisible,
+so a test walks the whole `COMMANDS` list — the one BotFather shows — and fails if any of
+them reaches the catch-all, turning a comment that had stood over that list since it was
+written into something checked. Proved red both ways: unregistering the router fails the two
+unknown-command tests, and moving it to the front fails all twenty-four menu commands.
+Private chats only, because in a group Telegram hands «/start@otherbot» to every bot that can
+see it.
+
+**«Отладка» keeps the report being read when the phone is turned.** It is the screen where a
+rotation costs most — the report is open while its important line is being copied into a
+message to whoever can fix it — and a rotation dropped the reader back to five
+identical-looking timestamps. The name is saved rather than the file, and the file is looked
+up in the list again, the same shape as the calendar's lesson sheet.
+
+**One thing a test here does not prove, and says so in its own words.** The second case, a
+report whose file has gone, does not discriminate between looking the name up in the list and
+building a `File` from it blind: the body is read with `runCatching`, so a deleted file is an
+empty string either way and the test passes against both. That was checked by running the
+second implementation, not assumed. The lookup is still right for a reason no test here
+reaches — the name comes out of a bundle another build wrote, and the lookup can only ever
+yield a file this app listed.
+
+### Gates
+
+`ruff check` clean, `python -m mypy` clean across 83 modules, `python -m pytest -q -n auto`
+**1559 passed** (was 1533). `./gradlew test assembleDebug assembleRelease` green: **765 tests
+across 105 classes** (was 763 across 104). No model changed, so no migration: the database
+stays at `0013`. `docs/bot.md` gained the unknown-command rule beside the refusal it already
+described, and the test counts moved in all four places.
+
+### What is left
+
+Nothing here has run on a device or against a live Telegram, as with everything above it.
+**What only the owner can do** is unchanged and still outstanding: register an OAuth App with
+**Enable Device Flow** ticked, put its client id in the repository secret
+`LESSONS_GITHUB_CLIENT_ID` and an address in `LESSONS_CONTACT_EMAIL`. Until then «Войти через
+GitHub» is in no build and the APK run summary says «off».
 
 ## What the last session added: the four things the sweep would not decide
 
@@ -531,7 +581,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 3 | `v0.3.0 — The school year` | #27, #32–#35, #43 |
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
-| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#71 |
+| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#72 |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -946,9 +996,9 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && python -m pytest -q -n auto                # 1533 tests, ~1.5 min
-cd server  && python -m mypy                             # clean, 82 modules
-cd android && ./gradlew test                             # 763 tests
+cd server  && python -m pytest -q -n auto                # 1559 tests, ~1.5 min
+cd server  && python -m mypy                             # clean, 83 modules
+cd android && ./gradlew test                             # 765 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 

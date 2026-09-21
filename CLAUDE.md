@@ -44,9 +44,9 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 1533 tests, about five minutes; `-n auto` puts them on
+- **`python -m pytest -q`** — 1559 tests, about five minutes; `-n auto` puts them on
   every core and finishes in a third of that, which is what CI runs
-- **`python -m mypy`** — one question, of all 82 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 83 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. Not in CI — the
   owner has not been asked — but run it before you push server code

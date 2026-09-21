@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,7 +66,14 @@ fun DebugSheet(
 ) {
     val context = LocalContext.current
     var reports by remember { mutableStateOf(CrashReporter.reports(context)) }
-    var opened by remember { mutableStateOf<File?>(null) }
+    // The report's *name*, not the file: a `File` is not saveable, and this is
+    // the one screen where turning the phone costs the most — it is read while
+    // copying a stack trace into a message, which is the whole reason the sheet
+    // exists. Looked up in `reports` rather than reopened blind, so a report
+    // cleared while it was open simply is not there, the way the calendar's
+    // lesson sheet does it.
+    var openedName by rememberSaveable { mutableStateOf<String?>(null) }
+    val opened = reports.firstOrNull { it.name == openedName }
     val stamp = remember { SimpleDateFormat("d MMMM, HH:mm", Locale.getDefault()) }
 
     LessonsBottomSheet(
@@ -109,7 +117,9 @@ fun DebugSheet(
                         subtitle = correctedString(R.string.debug_report_size, file.length() / 1024),
                         icon = Icons.Rounded.BugReport,
                         tone = errorTone(),
-                        onClick = { opened = if (opened == file) null else file },
+                        onClick = {
+                            openedName = if (openedName == file.name) null else file.name
+                        },
                         trailing = {
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 TextButton(onClick = { share(context, file) }) {
@@ -163,7 +173,7 @@ fun DebugSheet(
                     onClick = {
                         CrashReporter.clear(context)
                         reports = emptyList()
-                        opened = null
+                        openedName = null
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
