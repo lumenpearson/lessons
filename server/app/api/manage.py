@@ -40,7 +40,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import current_class, current_device
 from app.api.routing import DishkaAnnotatedRoute
 from app.bot.render import WEEKDAYS
-from app.bot.roles import can_grant
 from app.config import get_settings
 from app.models import (
     AccessRequest,
@@ -90,6 +89,7 @@ from app.schemas import (
     TimetableImportIn,
     TimetableImportOut,
 )
+from app.services import access as access_service
 from app.services import audit, linking, structure, timetable_io
 from app.services import schools as schools_service
 from app.services import stats as stats_service
@@ -298,6 +298,9 @@ async def class_update(
     that is what the log is read for: «что изменилось», not «кто открыл
     настройки». Changing the zone moves no stored time - a bell rings at 08:30
     whatever the zone says - it changes which instant the class calls «сейчас».
+
+    Moving the grade or the letter recomposes the name, because that is where
+    the name came from; a name sent in the same request wins over both.
     """
     changes = payload.model_dump(exclude_unset=True)
     zone = changes.pop("timezone", None)
@@ -326,6 +329,25 @@ async def class_update(
             "class.timezone",
             f"часовой пояс: {zone}",
         )
+    if ("grade" in changes or "letter" in changes) and "name" not in changes:
+        # A class moved from 9 to 10 is not called «9А» any more. The name was
+        # composed from these two at creation (`bot/handlers/start.py`), and a
+        # move that left the old name standing showed the wrong class on every
+        # screen that prints one. Unless the same request also names the class:
+        # an admin who typed a name has said what they want, and recomposing
+        # over it would overrule them within the one request.
+        composed = terms_service.compose_name(
+            school_class.grade, school_class.letter, fallback=school_class.name
+        )
+        if composed != school_class.name:
+            school_class.name = composed
+            await audit.record(
+                session,
+                school_class.id,
+                actor.telegram_id,
+                "class.name",
+                f"name: {composed}",
+            )
     if mode is not None:
         # Through the enum rather than by the string, because the attribute is
         # read back as one by `_class_out` in this same request - and because
@@ -1255,65 +1277,35 @@ async def request_approve(
 ) -> RequestDecisionOut:
     """Grant the role, through the same rules as «👥 Доступ» in the bot.
 
-    ``can_grant`` is the single source of "may I hand out this role" - nobody
-    may grant at or above their own level, and OWNER is granted by the
-    environment alone - and the rank guard below is the one the bot applies
-    when changing an existing member: a peer's role is not yours to change.
-    Without both, an admin could promote a friend to admin and be demoted by
-    them a moment later.
+    Literally the same rules: `services/access.approve_request` is what the
+    bot's own «✅ Выдать» calls, so the two surfaces cannot drift apart. The
+    only thing this one does differently is let an admin answer with a role
+    other than the one asked for - which `can_grant` still gates, inside the
+    service.
 
     The requester is told in Telegram, because that is where they asked.
     """
     request = await _request_or_404(session, school_class, request_id)
     target = Role(payload.role) if payload is not None and payload.role else request.requested_role
 
-    if not can_grant(actor.role, target):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="cannot grant a role at or above your own",
-        )
-
-    member = await session.scalar(
-        select(BotUser).where(
-            BotUser.class_id == school_class.id, BotUser.telegram_id == request.telegram_id
-        )
-    )
-    if member is not None and member.role.rank >= actor.role.rank:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="cannot change this member's role",
-        )
-
-    if member is None:
-        member = BotUser(
-            telegram_id=request.telegram_id,
-            class_id=school_class.id,
+    try:
+        member = await access_service.approve_request(
+            session,
+            school_class,
+            request,
+            actor_id=actor.telegram_id,
+            actor_role=actor.role,
             role=target,
-            granted_by=actor.telegram_id,
         )
-        session.add(member)
-    elif member.role.rank < target.rank:
-        member.role = target
-        member.granted_by = actor.telegram_id
+    except access_service.GrantRefused as refused:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=refused.detail
+        ) from refused
 
-    request.status = "approved"
-    request.decided_by = actor.telegram_id
-    request.decided_at = datetime.now(UTC).replace(tzinfo=None)
     who = _person(member.full_name, member.username, member.telegram_id)
-    await audit.record(
-        session,
-        school_class.id,
-        actor.telegram_id,
-        "access.approve",
-        f"выдана роль {target.title_ru}: {member.full_name or member.telegram_id}",
-    )
     await session.commit()
 
-    await _tell(
-        request.telegram_id,
-        f"✅ Доступ выдан: <b>{target.title_ru}</b> в классе "
-        f"<b>{escape(school_class.name)}</b>. Откройте /start.",
-    )
+    await _tell(request.telegram_id, access_service.approval_notice(school_class, target))
     return RequestDecisionOut(id=request_id, status="approved", role=target.value, who=who)
 
 

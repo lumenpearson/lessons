@@ -191,9 +191,9 @@ Read this before planning a release.
 | Check | Result |
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
-| `python -m mypy` | clean, 81 modules — asks whether anything reaches for an attribute that does not exist |
-| `python -m pytest -q` | 1474 tests, green, about five minutes (`-n auto` — about a minute and a half) |
-| `./gradlew test` | 760 tests, green, all five modules |
+| `python -m mypy` | clean, 82 modules — asks whether anything reaches for an attribute that does not exist |
+| `python -m pytest -q` | 1533 tests, green, about five minutes (`-n auto` — about a minute and a half) |
+| `./gradlew test` | 763 tests, green, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
 

@@ -363,6 +363,85 @@ async def test_class_update_refuses_a_join_mode_nobody_defined(client, session, 
     assert await _audit(session, school_class) == []
 
 
+async def test_moving_the_grade_recomposes_the_name(client, session, school_class):
+    """A class that moved from 9 to 10 is not called «9А» any more.
+
+    The name was composed from the grade and the letter when the class was
+    created; a move that left the old name standing showed the wrong class on
+    every screen that prints one — the card, the digests, the delete
+    confirmation an owner types back.
+    """
+    school_class.grade, school_class.letter = 9, "А"
+    await session.commit()
+    token = await _admin(client, session, school_class)
+
+    body = (
+        await client.patch("/api/v1/manage/class", json={"grade": 10}, headers=_auth(token))
+    ).json()
+
+    assert body["name"] == "10А"
+    await session.refresh(school_class)
+    assert school_class.name == "10А"
+    assert await _actions(session, school_class) == ["class.grade", "class.name"]
+
+
+async def test_a_name_in_the_same_request_wins_over_the_recomposition(
+    client, session, school_class
+):
+    """An admin who typed a name has said what they want."""
+    school_class.grade, school_class.letter = 9, "А"
+    await session.commit()
+    token = await _admin(client, session, school_class)
+
+    body = (
+        await client.patch(
+            "/api/v1/manage/class",
+            json={"grade": 10, "letter": "Б", "name": "10 инженерный"},
+            headers=_auth(token),
+        )
+    ).json()
+
+    assert body["name"] == "10 инженерный"
+    await session.refresh(school_class)
+    assert school_class.name == "10 инженерный"
+    assert school_class.grade == 10 and school_class.letter == "Б"
+
+
+async def test_a_rename_on_its_own_touches_neither_grade_nor_letter(
+    client, session, school_class
+):
+    """Nothing is recomposed when the grade and the letter were not sent: a
+    class called «9А спорт» stays called that."""
+    school_class.grade, school_class.letter = 9, "А"
+    school_class.name = "9А спорт"
+    await session.commit()
+    token = await _admin(client, session, school_class)
+
+    body = (
+        await client.patch("/api/v1/manage/class", json={"name": "9А физмат"}, headers=_auth(token))
+    ).json()
+
+    assert body["name"] == "9А физмат"
+    await session.refresh(school_class)
+    assert school_class.grade == 9 and school_class.letter == "А"
+    assert await _actions(session, school_class) == ["class.name"]
+
+
+async def test_a_class_with_no_grade_keeps_its_name_when_the_letter_moves(
+    client, session, school_class
+):
+    """Every class created before the number existed has a name and nothing
+    else, and `compose_name` refuses to invent «9» out of «9А» by pattern."""
+    token = await _admin(client, session, school_class)
+
+    body = (
+        await client.patch("/api/v1/manage/class", json={"letter": "Б"}, headers=_auth(token))
+    ).json()
+
+    assert body["name"] == "9А"
+    assert await _actions(session, school_class) == ["class.letter"]
+
+
 async def test_class_update_leaves_the_join_mode_alone_when_it_is_not_sent(
     client, session, school_class
 ):

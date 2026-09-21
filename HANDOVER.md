@@ -4,8 +4,8 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **20 September 2026**. **PRs #63 through #69 are merged**; `main` is at
-`cbb81e8`. **The only thing open is PR #70**, which carries this batch and the paragraph you
+Last updated: **21 September 2026**. **PRs #63 through #70 are merged**; `main` is at
+`7bde4f7`. **The only thing open is PR #71**, which carries this batch and the paragraph you
 are reading. Once it merges, `dev` is level with `main` again and the next batch starts from
 a clean one, and the SHA of that merge is for the next close-out to write.
 The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model has changed
@@ -20,6 +20,73 @@ real request on a real cold start, which is the one thing about it the branch co
 check before it merged. **It has not been re-read since, and did not need to be:** everything
 from #62 onwards touched no server code at all — Android, its tests, the build and the
 documents.
+
+## What the last session added: the four things the sweep would not decide
+
+Three commits in `dev`, open as PR #71, in the milestone `v0.6.0`. The batch below found
+these four and deliberately left every one of them, because each is a decision rather than a
+correction. The owner took all four; what follows is what each decision *was*, because the
+code is the easy half.
+
+**A command wins over a half-finished form.** `/week` typed at «Теперь пришлите текст
+задания:» was committed as an assignment whose text was «/week», audited, and pushed to every
+subscriber — and which commands escaped was an accident of which router was included first.
+The decision could have gone the other way (refuse the command, keep the form); it did not,
+because somebody who types a command mid-form wants to be somewhere else. So the state is
+dropped, the bot says «✖️ Форма отменена: вы отправили команду.» and the command runs as
+though the form had never been open.
+
+The mechanism matters more than the behaviour. It is **one outer middleware on the message
+observer**, not a check in each step: the state has to be *cleared*, which no filter can do —
+a filter would let the command run and leave the form sitting there to eat the next plain
+message — and clearing `raw_state` with it means no state-filtered handler can match a
+command, whoever writes the twenty-sixth step. The rule-holder test is parametrised over every
+`State` discovered in the two state modules, so a new form step is a new case with nothing to
+remember. Unregistering the middleware fails 45 of its 48 tests and reproduces the production
+defect exactly; the three that stay green are the three that must be green both ways.
+
+**`request_approve` has one home.** Forty lines carried twice, in `api/manage.py` and
+`bot/handlers/manage.py`. `services/access.py` holds them; both shells find the request, call
+it, translate the refusal into a 403 or a Russian alert, commit and notify. The API keeps its
+extra freedom to name a different role in the body, which `can_grant` still gates inside the
+service. An anti-drift test watches both shells call it.
+
+**A class that moves from 9 to 10 stops being called «9А».** Moving `grade` or `letter`
+recomposes the name — **unless the same request also sets `name`**, because an admin who names
+the class has said what they want. The audit line is written only when the name actually
+changed. The bot has no grade editor, so there is no twin to keep in step today; if «⚙️ Класс»
+ever grows one, the rule belongs in `services/terms.py` rather than in the endpoint.
+
+**The calendar's two sheets survive a rotation.** `Lesson` cannot be saved — it comes from
+`:core:model`, which is pure JVM and must stay that way — so what is saved is what the sheet
+is *about*: the date and the lesson's number, which name one lesson, because the server
+resolves a date into at most one lesson per number and nothing between there and the screen
+adds a row. The lesson is looked up in the week on every composition, and one that is no
+longer there opens no sheet. That lookup closed a second defect the rotation only made
+visible: the sheet held the object it was handed, so withdrawing a substitution while its
+sheet was open left the room, the teacher and the homework of a lesson that had stopped
+existing on screen, with no rotation needed.
+
+### Gates
+
+`ruff check` clean, `python -m mypy` clean across 82 modules, `python -m pytest -q -n auto`
+**1533 passed** (was 1474). `./gradlew test assembleDebug assembleRelease` green: **763 tests
+across 104 classes** (was 760 across 103). No model changed, so no migration: the database
+stays at `0013`. `docs/bot.md` gained the command rule beside its FSM paragraph, and the test
+counts moved in all four places that carry them — `CLAUDE.md`'s was two batches stale.
+
+### What is left, and what nobody has verified
+
+Nothing here has run on a device or against a live Telegram. Two loose ends were found and
+not taken: «/notacommand» now gets the «Форма отменена» line and then silence, because this
+bot has no unknown-command handler — a separate card if it is wanted; and «Отладка» holds the
+crash report it is reading in a plain `remember`, so a rotation drops the reader back to the
+list. That one is a file name and saves cheaply.
+
+**What only the owner can do** is unchanged from the batch below and still outstanding:
+register an OAuth App with **Enable Device Flow** ticked and put its client id in the
+repository secret `LESSONS_GITHUB_CLIENT_ID`, and an address in `LESSONS_CONTACT_EMAIL`.
+Until then «Войти через GitHub» is in no build, and the APK run summary says «off».
 
 ## What the last session added: the crash, the button that was never built, and twelve defects
 
@@ -464,7 +531,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 3 | `v0.3.0 — The school year` | #27, #32–#35, #43 |
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
-| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#70 |
+| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#71 |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -879,9 +946,9 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && python -m pytest -q -n auto                # 1474 tests, ~1.5 min
-cd server  && python -m mypy                             # clean, 81 modules
-cd android && ./gradlew test                             # 760 tests
+cd server  && python -m pytest -q -n auto                # 1533 tests, ~1.5 min
+cd server  && python -m mypy                             # clean, 82 modules
+cd android && ./gradlew test                             # 763 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 

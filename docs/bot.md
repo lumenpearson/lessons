@@ -640,5 +640,17 @@ serverless deployment each update may hit a fresh process, and with memory
 storage every multi-step flow in this document would forget its previous step in
 a way that looks random. The same table holds the «current class» preference.
 
+**A command breaks out of a half-finished form.** Every free-text step is
+filtered by state alone, and nothing but router order kept a command out of one:
+`/week` typed at «Теперь пришлите текст задания:» was committed as an assignment
+whose text was «/week» and pushed to every subscriber. Somebody who types a
+command mid-form wants to be somewhere else, so the state is dropped, the bot
+says «✖️ Форма отменена: вы отправили команду.» and the command runs as though
+the form had never been open. It is one outer middleware —
+`CommandBreakoutMiddleware` in `app/bot/middlewares.py` — rather than a check in
+each step, because the state has to be *cleared*, which no filter can do, and
+because a rule copied into twenty-five handlers is twenty-five places to forget
+it.
+
 Set `RUN_BOT=false` to start the API alone — that is what the test suite and the
 `scripts/seed_demo.py` workflow use.

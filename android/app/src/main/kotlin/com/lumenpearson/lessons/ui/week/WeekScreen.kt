@@ -36,9 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -106,37 +104,17 @@ fun WeekScreen(
     val scrollState = rememberScrollState()
     ReportScrollOffset(scrollState)
 
-    var openLesson by remember { mutableStateOf<Lesson?>(null) }
-    var openDay by remember { mutableStateOf<LocalDate?>(null) }
+    val sheets = rememberScheduleSheets()
 
     val selected = state.selectedDay
 
-    openLesson?.let { lesson ->
-        LessonSheet(
-            lesson = lesson,
-            date = state.selected,
-            homework = selected?.day?.homework.orEmpty()
-                .filter { it.subject.equals(lesson.subject, ignoreCase = true) },
-            showTeacher = state.showTeacher,
-            onDismiss = { openLesson = null },
-        )
-    }
-
-    openDay?.let { date ->
-        val day = state.days.firstOrNull { it.date == date }
-        DaySheet(
-            day = day,
-            date = date,
-            showTeacher = state.showTeacher,
-            showEvents = state.showEvents,
-            showHomework = state.showHomework,
-            onLessonClick = { lesson ->
-                openDay = null
-                openLesson = lesson
-            },
-            onDismiss = { openDay = null },
-        )
-    }
+    ScheduleSheets(
+        sheets = sheets,
+        days = state.days,
+        showTeacher = state.showTeacher,
+        showEvents = state.showEvents,
+        showHomework = state.showHomework,
+    )
 
     Column(
         modifier = modifier
@@ -200,7 +178,7 @@ fun WeekScreen(
                         selected = state.selected,
                         showLoad = state.showLoad,
                         onSelect = viewModel::select,
-                        onOpen = { date -> openDay = date },
+                        onOpen = { date -> sheets.day = date },
                     )
 
                     ScheduleView.DAY -> Unit
@@ -215,7 +193,7 @@ fun WeekScreen(
                 nowAt = state.nowAt,
                 showEvents = state.showEvents,
                 showHomework = state.showHomework,
-                onLessonClick = { lesson -> openLesson = lesson },
+                onLessonClick = { lesson -> sheets.show(state.selected, lesson) },
             )
 
             else -> DayPanel(
@@ -224,8 +202,8 @@ fun WeekScreen(
                 showTeacher = state.showTeacher,
                 showEvents = state.showEvents,
                 showHomework = state.showHomework,
-                onLessonClick = { lesson -> openLesson = lesson },
-                onOpenDay = { openDay = state.selected },
+                onLessonClick = { lesson -> sheets.show(state.selected, lesson) },
+                onOpenDay = { sheets.day = state.selected },
             )
         }
     }
