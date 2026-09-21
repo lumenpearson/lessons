@@ -212,14 +212,29 @@ there is nothing in it that says the build is yours rather than somebody else's.
    diverge, the build fails at signing and the reason will not be obvious. Set one password
    and put it in both secrets.
 
-3. Encode the keystore as base64 **on a single line**:
+3. Encode the keystore as base64 **on a single line**, and check it before pasting:
 
    ```bash
-   base64 -w0 release.jks   # macOS: base64 -i release.jks
+   base64 release.jks | tr -d '\n\r' > keystore.b64
+
+   base64 -d keystore.b64 > check.jks
+   cmp release.jks check.jks && echo "OK"      # must say OK
+   wc -c keystore.b64                          # remember this number
    ```
 
-   `-w0` is mandatory: without it base64 wraps every 76 characters, and pasting that into a
-   secret field gives a file that does not decode.
+   `tr` rather than `-w0`, because `-w0` is a GNU flag and Termux's `base64` is often
+   toybox, which does not have it — and a flag that is not understood puts an error message
+   where the key should be. What actually matters is that neither a carriage return nor a
+   line break survives.
+
+   **The check is not ceremony.** The commonest failure is a value truncated while copying
+   several thousand characters out of a terminal, and it is silent: what you paste looks
+   like base64, and the build stops at «Decode keystore» with no keystore. Compare `wc -c`
+   with the length of what ended up in the field. Delete `check.jks` and `keystore.b64`
+   afterwards - both are copies of your key.
+
+   On a phone, put it in the clipboard rather than selecting it by hand:
+   `termux-clipboard-set < keystore.b64` (`pkg install termux-api`).
 
 4. Add four secrets under **Settings → Secrets and variables → Actions** (on the
    repository, not the organisation, if you are unsure):
@@ -233,6 +248,14 @@ there is nothing in it that says the build is yours rather than somebody else's.
 
 5. Save `release.jks` somewhere it will not disappear along with the phone. A GitHub secret
    is not a backup: its value cannot be read back, only overwritten.
+
+**If «Decode keystore» fails**, the step now says which of three things went wrong instead of
+leaving you with `base64: invalid input` — which is what it said before, and which names
+neither the secret nor this project. When the base64 does not decode it reports the value's
+length, the number to compare with `wc -c` above. When it does decode, `keytool` opens the
+rebuilt file before the build starts, so a wrong `KEYSTORE_PASSWORD`, or a base64 of some
+other file, is caught in seconds rather than eight minutes later inside Gradle, where the
+message blames the password whatever the cause.
 
 You can check the result without cutting a release: **Actions → APK → Run workflow**. If
 `KEYSTORE_BASE64` is not set, the run does not fail — it prints `::warning::` and signs with
