@@ -266,3 +266,62 @@ async def test_the_next_school_day_steps_over_a_public_holiday(session, school_c
 
     assert following is not None
     assert following.date == Date(2027, 3, 15)
+
+
+# --------------------------------------------------------------------------
+# Every kind has to be sayable, everywhere a kind is said
+# --------------------------------------------------------------------------
+
+
+def test_every_day_kind_can_be_said():
+    """A kind with no words is a `KeyError` or the word «День».
+
+    `DayKind` is read from five tables — the card's label, the list's label,
+    the audit's sentence, the single-day picker's buttons and the period
+    picker's — and adding a member touches none of them. Two of those reads are
+    bare subscripts, so a gap is an exception out of a callback handler, which
+    never reaches `callback.answer()` and leaves the button spinning until
+    Telegram gives up. The other three fall back to «День», which is not a
+    crash and is arguably worse: somebody who chose «самоподготовка» is shown a
+    word they did not pick.
+
+    This caught exactly that, one commit after `SELF_STUDY` and `DAY_OFF` were
+    added and `_KIND_SUMMARY` was not.
+
+    `NORMAL` is excluded throughout: the absence of an override is what an
+    ordinary day is, so it never has a row, a button or a line of its own.
+    """
+    from app.bot.handlers.manage import _KIND_BY_TAG, _KIND_SUMMARY
+    from app.bot.manage_keyboards import PERIOD_KINDS, day_kind_keyboard
+    from app.bot.manage_render import KIND_LABELS
+    from app.bot.render import DAY_KIND_LABELS
+
+    special = [kind for kind in DayKind if kind is not DayKind.NORMAL]
+
+    for name, table in (
+        ("DAY_KIND_LABELS", DAY_KIND_LABELS),
+        ("KIND_LABELS", KIND_LABELS),
+        ("_KIND_SUMMARY", _KIND_SUMMARY),
+    ):
+        missing = [kind.value for kind in special if kind not in table]
+        assert missing == [], f"{name} has no words for {missing}"
+
+    # Every kind the picker can send back is one the handler can resolve, and
+    # every kind that exists is one the picker offers — a kind nobody can
+    # choose is a kind that exists only in the database.
+    assert set(_KIND_BY_TAG.values()) == set(special)
+
+    buttons = [
+        button.callback_data.rsplit(":", 1)[-1]
+        for row in day_kind_keyboard("2026-09-14").inline_keyboard
+        for button in row
+        if button.callback_data and button.callback_data.startswith("dk|kind|")
+    ]
+    assert "normal" in buttons, "the way back to an ordinary day is still offered"
+    for kind in special:
+        assert kind.value in buttons, f"the single-day picker cannot choose {kind.value}"
+
+    # The period picker is allowed to offer fewer — `NORMAL` and `SHORTENED`
+    # are excluded there on purpose, and that exclusion is its own test — but
+    # everything it does offer has to be a real kind.
+    assert {kind for kind, _ in PERIOD_KINDS} <= set(special)

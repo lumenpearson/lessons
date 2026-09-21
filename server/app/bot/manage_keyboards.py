@@ -390,6 +390,8 @@ def day_kind_keyboard(iso_date: str) -> InlineKeyboardMarkup:
         ("🏖 Каникулы / выходной", "holiday"),
         ("⏱ Сокращённые уроки", "shortened"),
         ("💻 Дистанционно", "remote"),
+        ("📖 Самоподготовка", "self_study"),
+        ("🌿 Отгул", "day_off"),
         ("✅ Обычный день (убрать)", "normal"),
     ]
     rows = [
@@ -398,7 +400,7 @@ def day_kind_keyboard(iso_date: str) -> InlineKeyboardMarkup:
                 text=label,
                 callback_data=DayKindAction(action="kind", value=f"{iso_date}:{kind}").pack(),
                 # Only «обычный день» is green: it is the one answer here that
-                # puts the day back the way it was, and the three above it are
+                # puts the day back the way it was, and the five above it are
                 # each a different exception rather than degrees of one.
                 style=SUCCESS if kind == "normal" else None,
             )

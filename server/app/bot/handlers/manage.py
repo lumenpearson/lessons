@@ -828,12 +828,23 @@ _KIND_BY_TAG = {
     "holiday": DayKind.HOLIDAY,
     "shortened": DayKind.SHORTENED,
     "remote": DayKind.REMOTE,
+    "self_study": DayKind.SELF_STUDY,
+    "day_off": DayKind.DAY_OFF,
 }
 
+#: The kind said in the middle of a sentence, for the audit line and the
+#: confirmation. Read by **subscript**, not `.get`, and deliberately: a kind
+#: with no entry here is a `KeyError` out of a callback handler, which never
+#: reaches `callback.answer()` and leaves the button spinning until Telegram
+#: gives up. `test_every_day_kind_can_be_said` keeps the table complete so the
+#: subscript stays safe, rather than papering over a gap with a default that
+#: would print «День» at somebody who chose «самоподготовка».
 _KIND_SUMMARY = {
     DayKind.HOLIDAY: "каникулы / выходной",
     DayKind.SHORTENED: "сокращённые уроки",
     DayKind.REMOTE: "дистанционно",
+    DayKind.SELF_STUDY: "самоподготовка",
+    DayKind.DAY_OFF: "отгул",
 }
 
 HOLIDAY_DATE_HELP = (
