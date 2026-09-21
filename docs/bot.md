@@ -165,7 +165,10 @@ and bell N+1's start, so it can only ever be derived.
 schedule* (`bell_schedules.canteen_after_index`), not on a date and not as a
 recurring event: it is the same break every day that schedule is in force,
 and it moves with the bells when a shortened day moves them. The last lesson is
-not offered — there is no break after it.
+not offered — there is no break after it — and a press on a card still open from
+before a shorter schedule was pasted is refused rather than honoured: a keyboard
+is a message that stays in the chat, and a lunch break marked after a lesson that
+no longer rings is drawn nowhere under a card saying it was marked.
 
 Adding or changing a lesson offers **the class's own subjects as buttons**,
 above the typed prompt. Typing still works and is still the only way to give a
@@ -435,10 +438,12 @@ rather than retried forever.
 ## Search — `/find`
 
 `/find параграф 12` searches this class's homework — the text and the subject
-name — from a month back and forward, newest due first, fifteen results. Any
-member may: it is the same text the day view already shows them, reachable by
-memory instead of by date. Case folding is SQL's `lower()`, which on SQLite
-covers Latin only.
+name — from a month back onwards, with no bound ahead, newest due first, fifteen
+results. Any member may: it is the same text the day view already shows them,
+reachable by memory instead of by date. Case folding is SQL's `lower()`, and it
+folds Cyrillic on both dialects: Postgres does it natively, and `app/db.py`
+replaces SQLite's ASCII-only version with Python's on every connection, so
+«Алгебра» is found by «алгебра» on a laptop exactly as it is for the class.
 
 ## The electronic diary — «📒 Мой дневник»
 
@@ -620,12 +625,12 @@ renderer.
   Telegram counts UTF-16 code units, so every emoji outside the BMP — «📝»,
   «📥», «🗓» — is two where Python sees one. A number in `render.py` is a budget,
   never a measurement, and it is not to be tidied up towards 4096.
-* **What is cut is announced.** `clamp`, `more_line` and the per-page caps live
-  in `app/bot/render.py`; every list that stops early says «… и ещё N». The caps
-  differ per page on purpose — a bell schedule's row carries three buttons and
-  twelve lines of times, a subject's one of each — and each one is read by both
-  the renderer and `manage_keyboards`, because a row that is drawn and cannot be
-  pressed is worse than a row that is not drawn. Nothing paginates: past the cap
+* **What is cut is announced.** `clamp` and `more_line` live in `app/bot/render.py`
+  and the per-page caps in `manage_render.py`; every list that stops early says
+  «… и ещё N». The caps differ per page on purpose — a bell schedule's row carries
+  three buttons and twelve lines of times, a subject's one of each — and each one
+  is read by both the renderer and `manage_keyboards`, because a row that is drawn
+  and cannot be pressed is worse than a row that is not drawn. Nothing paginates: past the cap
   a row is only a number.
 * **Cut before escaping, never after.** Cutting an escaped string can leave
   «&am», which is a refused message of its own.

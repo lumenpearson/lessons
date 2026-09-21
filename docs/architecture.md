@@ -122,8 +122,8 @@ Five Gradle modules, split along the lines that actually pay for themselves:
 
 `:core:model` being a plain JVM library is the load-bearing decision: the state
 engine is the most logic-dense part of the product, and this makes its test suite
-run in milliseconds with no emulator and no Android SDK. Its eighty-nine tests,
-in six classes, walk a full school day minute by minute.
+run in milliseconds with no emulator and no Android SDK. Its ninety-four tests,
+in eight classes, walk a full school day minute by minute.
 
 The widget module exists so the home-screen widget can reach the cached timetable
 without dragging the app's entire UI graph into its process.
@@ -206,11 +206,16 @@ docs/app/*.md ──▶ raw.githubusercontent.com ──▶ files/docs/guide.<la
        └────────▶ assets/ (built into the APK) ─────────────┴──▶ DocsMarkdown.parse ──▶ pages
 ```
 
-Three sources, tried in that order: what was fetched, what is stored, what shipped. The
-bundled copy is why the other two are optional — an install on a train has a guide, and a
-fetch that fails changes nothing but the line at the top of every page, which states the
-version, the date and the app version it was written for. `docs/app/` is the module's asset
-folder rather than a copy of it, so the bytes in the APK are the bytes in the repository.
+Three sources, tried in that order: what was fetched, what is stored, what shipped. What the
+phone remembers about a fetched copy is keyed by **language**, because the manifest names one
+version for two files while a refresh brings back one of them: under language-less keys,
+reading the English guide after a new release recorded that version against a Russian copy
+still on the old one, and every later refresh then answered "unchanged" about a file that
+never arrived. The bundled copy is why the other two are optional — an install on a train has
+a guide, and a fetch that fails changes nothing but the line at the top of every page, which
+states the version, the date and the app version it was written for. `docs/app/` is the
+module's asset folder rather than a copy of it, so the bytes in the APK are the bytes in the
+repository.
 
 Why fetching at all, for a document that ships with the app: a guide is wrong the moment a
 screen moves, and the app it describes updates through an APK somebody has to install by
@@ -245,14 +250,15 @@ can swap wholesale.
 
 ## The service layer, and why the phone does not log in
 
-`server/app/services/` is seventeen modules of pure async functions over a session, and
+`server/app/services/` is nineteen modules of pure async functions over a session, and
 they exist for exactly one reason: every feature of the product now has two entrances, the
 bot and the app. Homework is added by a command in a chat and by a button on a phone; so
 are a substitution, an event and a special day. Two implementations of one rule would have
 drifted apart inside a month, so there is one rule and the handlers and endpoints are two
 thin shells over it — the change log, device linking, personal tasks, ticking homework off,
 reminders and their idempotence, the broadcast to subscribers, the calendar feed, the
-statistics, and the timetable export and import.
+statistics, the timetable export and import, and granting the role somebody asked for, which
+was forty lines of permission rules carried in both shells until it was not.
 
 **A phone has no rights of its own**, and that is the central decision of this layer. The
 device gets a six-character code from the server, the person sends it to the bot, and from
@@ -324,9 +330,9 @@ alternative is every family's password in the database.
 
 ## Testing
 
-1559 tests on the server across 43 files, 765 on Android across 105 classes; `pytest -q` and
+1559 tests on the server across 43 files, 768 on Android across 106 classes; `pytest -q` and
 `./gradlew test`, both offline, both in CI. On Android that is `:core:model` 94,
-`:core:data` 257, `:core:designsystem` 54, `:widget` 68, `:app` 265.
+`:core:data` 265, `:core:designsystem` 59, `:widget` 70, `:app` 277.
 
 The table below is the load-bearing part of that rather than the whole of it:
 
@@ -353,9 +359,10 @@ The table below is the load-bearing part of that rather than the whole of it:
 | `android/core/model/.../StabilityPromiseTest.kt` | that nothing in the domain module is a `var`, which is what `compose-stability.conf` promises the Compose compiler | JVM JUnit |
 
 What nothing covers is a device: there is no `androidTest` directory, so not one test has
-run on hardware or an emulator. Three screens — the class list, the join mode and the
-connection errors — are pressed under Robolectric with a Russian locale and a phone's
-width, and the design system's components are exercised the same way; for the rest of the
-interface, compilation proves the types line up and says nothing about the screen. The
-"Honest status" section of the README keeps the full list — that is the honest status, not
-an oversight.
+run on hardware or an emulator. Eleven of the app's screens, sheets and rows are composed
+under Robolectric with a Russian locale and a phone's width — among them the class list, the
+join mode, the connection errors, the first-run reveal, the crash-report sheet and the two
+sheets the calendar reopens after a rotation — and the design system's components are
+exercised the same way; for the rest of the interface, compilation proves the types line up
+and says nothing about the screen. The "Honest status" section of the README keeps the full
+list — that is the honest status, not an oversight.

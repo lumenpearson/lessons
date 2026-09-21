@@ -36,8 +36,8 @@ cp .env.example .env          # BOT_TOKEN and OWNER_IDS are your own
 | Command | What it does |
 | --- | --- |
 | `ruff check app tests scripts migrations` | lints the server — exactly what CI runs |
-| `python -m mypy` | one question of all 79 modules: does anything reach for an attribute its type does not have? |
-| `python -m pytest -q` | the server tests; 1391 of them, about five minutes, or a third of that with `-n auto` |
+| `python -m mypy` | one question of all 83 modules: does anything reach for an attribute its type does not have? |
+| `python -m pytest -q` | the server tests; 1559 of them, about five minutes, or a third of that with `-n auto` |
 | `python -m pytest -q tests/test_schedule.py -k parity` | one file, one test |
 | `python -m uvicorn app.main:app --reload` | run the server |
 | `alembic upgrade head` | apply the migrations (with a working `DATABASE_URL`) |
@@ -147,11 +147,11 @@ or `fix:`. Something else is the convention, and it is just as consistent:
   suite.
 - A negative test has to provably catch the regression: revert the fix and make sure it
   fails. Otherwise it proves nothing.
-- Three screens — the class list, the join mode and the connection errors — are pressed in
-  JVM tests under Robolectric, and the widget's size ladder is walked at real sizes. What
-  no test reaches is a device: there is no `androidTest` directory, so the drawing, the
-  alarms under Doze and the dark theme are checked by hand, and it is worth saying so in the
-  pull request: which device, and which widget sizes.
+- Eleven of the app's screens, sheets and rows are composed in JVM tests under Robolectric,
+  a rotation included where one costs something, and the widget's size ladder is walked at
+  real sizes. What no test reaches is a device: there is no `androidTest` directory, so the
+  drawing, the alarms under Doze and the dark theme are checked by hand, and it is worth
+  saying so in the pull request: which device, and which widget sizes.
 
 ## Security
 

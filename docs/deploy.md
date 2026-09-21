@@ -36,7 +36,7 @@ multi-step flow would break: homework, invitations, substitutions, events, the t
 All three are solved. The webhook is `app/api/telegram.py`, mounted only when a secret is
 set. Postgres the app already handles. Dialogue state is `app/fsm_storage.py`, in the same
 database as the data; the side benefit is that a redeploy no longer cuts off a dialogue in
-progress. 19 tests cover both mechanisms.
+progress. 24 tests cover both mechanisms.
 
 ## Option 1: Vercel + Neon
 
@@ -161,7 +161,9 @@ python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 
 Without it the diary is **switched off entirely** rather than running in plaintext: a silent
 fallback to plaintext would be invisible — the feature answers, and the only difference is in
-a column nobody looks at — and deployments live like that for years.
+a column nobody looks at — and deployments live like that for years. "Too short" counts as
+missing: anything under 32 characters is refused at the same door, and the startup log says
+the diary is off rather than letting a set-but-unusable key look configured.
 
 Three things worth knowing about this key:
 

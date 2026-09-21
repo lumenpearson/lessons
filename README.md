@@ -193,7 +193,7 @@ Read this before planning a release.
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 83 modules — asks whether anything reaches for an attribute that does not exist |
 | `python -m pytest -q` | 1559 tests, green, about five minutes (`-n auto` — about a minute and a half) |
-| `./gradlew test` | 765 tests, green, all five modules |
+| `./gradlew test` | 768 tests, green, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
 
@@ -206,11 +206,13 @@ handing back substitutions, events, homework and `next_school_day`. The state en
 walked through all 1440 minutes of a school day and through all eleven Russian time zones.
 
 **What nothing checks.** There is no `androidTest` directory in this project: not one test
-has run on a device or an emulator. Three screens — the class list, the join mode and the
-connection errors — are pressed in JVM tests under Robolectric, with a Russian locale and
-a phone's width, and those are real presses on real strings. Nobody has pressed the rest
-of the interface or the widget: compilation proves that the types line up and says nothing
-about what happens on the screen. Covered by nothing:
+has run on a device or an emulator. Eleven of the app's screens, sheets and rows — the class
+list, the join mode, the connection errors, the first-run reveal, the crash-report sheet,
+the calendar's two sheets and the rest — are composed in JVM tests under Robolectric, with a
+Russian locale and a phone's width, and those are real presses and real rotations on real
+strings; the design system's components are exercised the same way. Nobody has pressed the
+rest of the interface or the widget: compilation proves that the types line up and says
+nothing about what happens on the screen. Covered by nothing:
 
 * the widget drawn at each of its twelve sizes;
 * the accuracy of the `TickCadence` alarms in real Doze;
@@ -348,6 +350,28 @@ thread. The details and the reasons are in
 None of the five has been checked on a screen. All of them are about what the eye sees,
 and there is no `androidTest` in this project, so what is proved here is only that the size
 ladder's logic became monotonic over real sizes rather than over rungs.
+
+**The app crashed wherever a line of text was drawn, and had done since the marquee
+arrived.** A crash reported as «вылет через несколько секунд после привязки Telegram» had
+nothing to do with linking: the component that scrolls a line instead of cutting it — drawn
+at two dozen call sites, every group row, every lesson row, every heading, the toolbar, the
+pickers — could not answer a question Material asks its own rows, and took the process down
+on the main thread. It is fixed, a test holds the rule, and the reasoning is in
+[docs/design.md](docs/design.md#nothing-is-cut-off-and-nothing-subcomposes-to-find-out-how-wide-it-is).
+Two things belong here rather than there. **Which Material
+component asks was never identified**, so this is a fix at the leaf rather than at the
+caller. And it is the one crash a real phone has reported in this project: it was in a
+component that compiles, draws and is covered by tests — which is what the rest of this
+section keeps saying, and what an hour with an APK would have said sooner.
+
+**Two buttons were in no APK this repository ever built.** «Войти через GitHub» is drawn
+only when the build passes a client id, and the APK workflow passed none — so signing in,
+filing a bug report from inside the app and sending a translation correction as a pull
+request were all absent from every build, with nothing failing and nothing warning, because
+an unset property is an empty string. The same for the contact address behind «Отправить
+письмом». The wire is held by a test now, and each build reports on its summary whether the
+two are on; nothing proves a secret is actually set, so until one is registered the honest
+answer there is «off».
 
 **What does not exist at all.**
 

@@ -37,8 +37,9 @@ and `WidgetSizeClass.of()` maps the actual size to the nearest rung that fits.
 
 ## States
 
-Computed by `ScheduleEngine.stateAt(timetable, now)` — a pure function covered by 18 tests
-in `:core:model`. The time inside it is the school's, not the phone's: a class in
+Computed by `ScheduleEngine.stateAt(timetable, now)` — a pure function covered by the
+thirty-five tests of `ScheduleEngineTest` and `ScheduleEngineEdgeCasesTest` in
+`:core:model`. The time inside it is the school's, not the phone's: a class in
 Vladivostok and a class in Kaliningrad can hang off one server, and the widget takes "now"
 from `timetable.nowAtSchool()`.
 
@@ -86,10 +87,19 @@ The nearest of three wins: the countdown tick, `ScheduleEngine.nextTransition` (
 and `state.validUntil`. On a tie the bell wins — being late for a change of state is worse
 than being a second late refreshing a digit.
 
-Bells are set through `setExactAndAllowWhileIdle`, everything else through `setWindow`. The
-`SCHEDULE_EXACT_ALARM` permission is **not requested**: Google Play grants it to alarm
-clocks and calendars, and a school diary is neither. `WidgetTickScheduler` checks
-`canScheduleExactAlarms()` and degrades calmly to a one-minute window.
+A bell is set through `setExactAndAllowWhileIdle`, everything else through
+`setAndAllowWhileIdle` — **not** `setWindow`, which is what it used to be. Doze holds a
+plain window until the next maintenance pass, and only one alarm exists at a time: the exact
+alarm for a bell is armed by the tick before it, so a countdown tick held by Doze means the
+bell after it is never armed and the chain stops advancing. `SchoolAlerts` refuses
+`setWindow` for the same reason.
+
+The app does declare `SCHEDULE_EXACT_ALARM` and `USE_EXACT_ALARM`: it is installed as an APK
+inside a school rather than through Google Play, where the policy reserving the second of
+those for clocks and calendars would apply. `WidgetTickScheduler` still asks
+`canScheduleExactAlarms()` before each bell and degrades to an inexact alarm, because the
+grant can be absent on a sideloaded build or revoked by hand, and a bell a minute late is
+better than a receiver that crashes and stops the chain for good.
 
 Alarms do not survive a reboot, so `WidgetTickReceiver` listens for `BOOT_COMPLETED`,
 `MY_PACKAGE_REPLACED`, `TIME_SET` and `TIMEZONE_CHANGED`.
