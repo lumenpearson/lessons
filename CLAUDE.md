@@ -65,13 +65,13 @@ Android, from `android/`:
   push, because R8 and resource shrinking are where "worked in debug" stops being true
 - `./gradlew lint` runs the AGP Android lint; CI does not, so do not report it as a gate
 
-The Android half needs one thing the wrapper cannot provide: **Python with `fonttools`**
-(`python3 -m pip install fonttools`). The bundled typeface is a source rather than a
-resource — `core/designsystem/fonts/google_sans_flex.ttf`, 3.81 MB and six variation axes —
-and the build freezes the four the app never moves, which is two megabytes of APK. Without
-it every Android task stops with a message naming `-Plessons.font.axes=all`, which ships
-the font untouched and builds a correct app. `docs/build.md`, "The typeface is compressed
-at build time", has the three settings and what each costs.
+The bundled typeface is **Onest**, `core/designsystem/src/main/res/font/onest.ttf`, and it
+is committed as it was downloaded — one variable axis, `wght`, which the app varies. It
+replaced Google Sans Flex, which has **no Cyrillic at all**, so every Russian word in the
+app was drawn by the device's fallback while the digits beside it came from the bundled
+file. `FontAxisTest` holds both halves now: that the face can draw Russian, and that it
+carries no axis the app never moves — the second is what a re-downloaded multi-axis file
+would fail, and git holds the build-time instancer that used to freeze one.
 
 CI (`.github/workflows/ci.yml`) is: ruff, pytest (`-n auto`), `./gradlew test`, both
 assembles. Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;

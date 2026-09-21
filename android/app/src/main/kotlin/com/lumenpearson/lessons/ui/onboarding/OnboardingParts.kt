@@ -49,7 +49,7 @@ import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
-import com.lumenpearson.lessons.core.designsystem.theme.GoogleSansFlexRounded
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsSans
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -169,11 +169,14 @@ internal fun OnboardingTitle(
     ) {
         Text(
             text = title,
-            // The rounded axis of the app's own face. Essentials reaches for it
-            // on exactly these screens and nowhere else: a setup page is mostly
-            // one sentence, and the sentence is the page.
+            // Bold on the app's own face, which on a setup page is the
+            // whole of the emphasis: the page is mostly one sentence, and the
+            // sentence is the page. This used to ask for a second, rounded
+            // family, which the typeface this app now ships has no axis for —
+            // and which never drew rounded anyway, because that family was
+            // registered at one weight and Compose synthesised the rest.
             style = MaterialTheme.typography.headlineLarge.copy(
-                fontFamily = GoogleSansFlexRounded,
+                fontFamily = LessonsSans,
                 fontWeight = FontWeight.Bold,
             ),
             color = MaterialTheme.colorScheme.onSurface,

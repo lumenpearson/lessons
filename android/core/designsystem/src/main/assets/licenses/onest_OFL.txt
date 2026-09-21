@@ -1,35 +1,28 @@
-Google Sans Flex
-Copyright 2015 Google LLC. All Rights Reserved.
-Google Sans is a trademark of Google.
+Onest
+Copyright 2021 The Onest Project Authors (https://github.com/simpals/onest)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
-The font file says so itself: the bundled `google_sans_flex.ttf` carries the
-licence in its own `name` table, entry 13, and the URL in entry 14. The three
-lines above are entries 0, 1 and 7 of the same table, quoted rather than
-guessed.
+The font file says so itself: the bundled `onest.ttf` carries the licence in
+its own `name` table, entry 13, and the URL in entry 14. The two lines above
+are entries 0 and 1 of the same table, quoted rather than guessed.
 
-The font in this APK is a modified copy: the build freezes the four variation
-axes the app never moves, out of the six the downloaded file declares, which
-takes it from 3.81 MB to 0.29 MB. The licence permits that, and the rename it
-asks of a derivative applies only to a Reserved Font Name, which this typeface
-declares none of. The `name` table is left untouched, so the notices above are
-the original file's own. The unmodified original is in the source repository,
-at `android/core/designsystem/fonts/`.
+The file ships exactly as it was downloaded from the Google Fonts repository -
+one variable axis, `wght` 100 to 900, which is the one the app varies. Nothing
+is frozen out of it and nothing is added, so this is not a modified version in
+the licence's sense.
 
 The licence requires that this notice accompany every copy of the font, so the
 file is an asset rather than a paragraph in a document: it is packaged into the
 APK, beside the typeface it belongs to. The app also names the licence on
 Settings -> О приложении -> Лицензии.
 
-No Reserved Font Name is declared, and the font is not modified here - the
-`wght` and `ROND` axes are set at runtime, the file itself is untouched. The
-trademark is a separate matter from the copyright licence: the typeface may be
-bundled and redistributed, but the name may not be used to brand a product or
-to imply that Google endorses one.
+----------------------------------------------------------------------------
 
-The text below is the canonical OFL 1.1 from https://openfontlicense.org,
-fetched on 18 September 2026, with the template's placeholder copyright block
-replaced by the notice above.
+Copyright 2021 The Onest Project Authors (https://github.com/googlefonts/onest)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+https://scripts.sil.org/OFL
 
 
 -----------------------------------------------------------
@@ -45,7 +38,7 @@ with others.
 
 The OFL allows the licensed fonts to be used, studied, modified and
 redistributed freely as long as they are not sold by themselves. The
-fonts, including any derivative works, can be bundled, embedded,
+fonts, including any derivative works, can be bundled, embedded, 
 redistributed and/or sold with any software provided that any reserved
 names are not used by derivative works. The fonts and derivatives,
 however, cannot be released under any other type of license. The

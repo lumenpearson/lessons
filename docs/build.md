@@ -384,66 +384,39 @@ The same four values are read from the environment variables `LESSONS_KEYSTORE_F
 `LESSONS_KEYSTORE_PASSWORD`, `LESSONS_KEY_ALIAS` and `LESSONS_KEY_PASSWORD` — which is what
 CI uses.
 
-## The typeface is compressed at build time
+## The bundled typeface
 
-The app is set in Google Sans Flex, and the file as it was downloaded is 3.81 MB — more than
-all the code in the release APK. Almost none of that is letters. It is a variable font with
-six variation axes, and an axis costs one set of outline deltas per glyph in the `gvar`
-table: at six axes that table was **3411 KB of the 3811 KB**, while the outlines themselves
-were 31 KB. The app moves two of the six — it varies `wght` and sets `ROND` to 100 — so the
-other four are four fifths of the download for shapes nothing ever asks for.
+The app is set in **Onest**, committed at
+`android/core/designsystem/src/main/res/font/onest.ttf` exactly as Google Fonts publishes
+it: 193 056 bytes, 780 code points, 876 glyphs, one variable axis `wght` from 100 to 900,
+under the SIL Open Font License. Nothing in the build touches it.
 
-So the font is not a resource in this repository, it is a **source**. It lives at
-`android/core/designsystem/fonts/google_sans_flex.ttf`, exactly as downloaded, and a Gradle
-task freezes the axes you do not ask to keep and writes the result into the variant's
-generated resources, where `R.font.google_sans_flex` finds it. Freezing an axis is not
-dropping a feature: the glyphs are redrawn at the value it is frozen at and all 657 are
-kept. What is lost is the ability to ask for a different value later, which is why the axes
-are a setting rather than a decision the build makes for you.
+It replaced **Google Sans Flex**, and the reason is worth writing down because nothing
+failed while it was wrong. That typeface has no Cyrillic — not a dropped subset, none at
+all; its coverage metadata on Google Fonts lists latin, latin-ext, vietnamese, math,
+symbols and five scripts nobody here writes. This app's product language is Russian. So
+every Russian word was drawn by the device's fallback face while the digits and Latin
+beside it came from the bundled file: two typefaces in one row, at different x-heights,
+and 0.29 MB shipped to draw «каб.» in somebody else's font. The «системный шрифт» setting
+was close to a no-op for the only language on the screen. It had been that way since the
+design system was taken from Essentials, which is an English app.
 
-The setting is `lessons.font.axes`, and the sizes below were measured on one tree, three
-builds:
+Google Sans Flex also carried six variation axes where the app moved two, and for one
+batch this repository grew a Gradle task that froze the four nobody asked for — 3.81 MB
+down to 0.29 MB — which is why an Android build briefly needed Python with `fonttools`.
+**It does not any more.** Onest carries one axis and the app varies it, so there is
+nothing left to freeze; the task, the script and the `pip install` in both workflows went
+with it. `./gradlew` on a fresh clone needs nothing but the JDK and the SDK again.
 
-| `-Plessons.font.axes=` | the font | release APK | needs |
-| --- | --- | --- | --- |
-| `wght,ROND` — the default | 0.29 MB | 3.60 MB | Python with `fonttools` |
-| `wght` | 0.27 MB | 3.58 MB | the same |
-| `all` | 3.81 MB | 5.71 MB | nothing |
+What is kept is the guard rather than the fix. `FontAxisTest` fails on a bundled face that
+cannot draw the Russian alphabet, and on one carrying an axis `Type.kt` never varies —
+which is exactly what a re-downloaded multi-axis file would trip, and the instancer that
+used to handle that case is in git history if it is ever wanted back.
 
-`wght` is not the default, although it is smaller. It bakes `ROND` in at 100, which is what
-every screen asks for today, so it looks free — and the day somebody wants a less rounded
-cut, the code will ask for an axis that no longer exists. Android does not complain about
-that: it draws the default and logs nothing. Fifteen kilobytes is not worth a setting that
-can stop working silently.
-
-`all` is the escape hatch, and it is a correct build — the file that ships is the file that
-was downloaded, to the byte. It costs 2.1 MB of APK.
-
-**Installing the tool.** One line, on Python 3.10 or newer (which is what
-`fonttools` 4.65 asks for):
-
-```bash
-python3 -m pip install fonttools
-```
-
-If neither `python3` nor `python` has it, the build stops with a message naming the flag
-rather than a stack trace out of a missing module. To stop passing the flag, put it in
-`~/.gradle/gradle.properties`, beside the signing values above:
-
-```properties
-lessons.font.axes=all
-```
-
-Both Android workflows install `fonttools==4.65.0` and build at the default, because a CI
-run exists to build what ships. It is pinned for the reason every version here is pinned:
-that is the one the sizes above were measured with.
-
-**When you update the typeface**, replace the file under `fonts/` with the new download and
-change nothing else. That is the whole reason this is a build step: the instanced file used
-to be committed, and the obvious way to update a font is to download it again — which would
-have put 2.1 MB back into the APK without anything failing. `FontAxisTest` now fails instead,
-in both directions: an axis the code asks for that the shipped font does not declare, and an
-axis the shipped font carries that the build was not told to keep.
+**If you replace the typeface**, drop the new file in `res/font/`, update
+`src/main/assets/licenses/` with the notice its own `name` table declares, and run
+`./gradlew :core:designsystem:test`. Both guards and `FontLicenceTest` will tell you what
+you got wrong.
 
 ## What the environment needs
 
@@ -452,11 +425,9 @@ axis the shipped font carries that the build was not told to keep.
 | JDK | 21 |
 | Android SDK | compileSdk 37, minSdk 26 |
 | Gradle | through the wrapper, 9.7.1 |
-| Python | 3.10+ with `fonttools`, for the typeface — or `-Plessons.font.axes=all` |
 
 The wrapper and its jar are in the repository, so `./gradlew` works on a fresh clone with
-no Gradle installed. Python is the one thing that is not: see the section above for what the
-build does with it and how to do without.
+no Gradle installed, and nothing else has to be on the machine.
 
 ## Pointing the app at a server
 

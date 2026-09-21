@@ -71,23 +71,6 @@ jobs:
           packages: platform-tools
       - uses: gradle/actions/setup-gradle@v6
 
-      # The bundled typeface is compressed by the build, not committed
-      # compressed: `core/designsystem/fonts/instance.py` freezes the four
-      # variation axes the app never moves and takes the file from 3.81 MB to
-      # 0.29 MB. Without fonttools the Android build refuses and names
-      # `-Plessons.font.axes=all`, which is the right answer on a laptop with
-      # no Python and the wrong one here, where the job exists to build what
-      # ships.
-      #
-      # Pinned for the reason every version in this repository is pinned: this
-      # is the one the change was measured against, and an instancer that
-      # starts producing different bytes should be a change somebody chose.
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-      - name: Install fonttools
-        run: python3 -m pip install fonttools==4.65.0
-
       # A tag stamps its own version; a manual run may pass one; otherwise the
       # build file's default stands.
       #

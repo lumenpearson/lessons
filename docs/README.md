@@ -22,7 +22,7 @@ usually a link to it.
 | [guide.md](guide.md) | first run, the class code, the widget, notifications, the bot, the diary, the translation-correction mode — for whoever uses the app |
 | [bot.md](bot.md) | roles, invitation by phone number, editing the timetable, every command, what a card may say before Telegram refuses it |
 | [widget.md](widget.md) | twelve sizes, seven states, the update schedule, why not a tick once a minute |
-| [build.md](build.md) | building the APK in Actions and locally, signing with your own key, a release from a tag, Actions minutes and where they go, compressing the typeface at build time, pointing the app at a server |
+| [build.md](build.md) | building the APK in Actions and locally, signing with your own key, a release from a tag, Actions minutes and where they go, the bundled typeface, pointing the app at a server |
 | [deploy.md](deploy.md) | Vercel plus Neon or your own server, the webhook, migrations, why the server has no clock of its own |
 | [api.md](api.md) | the whole `/api/v1` contract: reads, writes, class management, the Petersburg diary |
 | [architecture.md](architecture.md) | why the bot is the backend, the timetable resolution model, the five Android modules, the service layer, the tests |

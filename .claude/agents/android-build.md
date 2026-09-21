@@ -25,14 +25,13 @@ JDK 21, compileSdk 37, Gradle from the wrapper — `./gradlew` works on a fresh 
   passwords come from environment variables or `~/.gradle/gradle.properties` and never from
   the repository; `*.jks` and `keystore.properties` are gitignored for that reason.
 
-- **The typeface is compressed by the build, so Gradle needs Python.**
-  `core/designsystem/fonts/google_sans_flex.ttf` is the file as downloaded — 3.81 MB, six
-  variation axes — and `instance<Variant>Font` runs `fonts/instance.py` to freeze the four
-  the app never moves. It is wired through `androidComponents.onVariants` and
-  `addGeneratedSourceDirectory`, **not** `sourceSets["main"].res.srcDir`: AGP 9 refuses a
-  `Provider` there, and a static directory carries no task dependency. `-Plessons.font.axes`
-  chooses `wght,ROND` (the default), `wght` or `all`; `FontAxisTest` holds what each
-  promises.
+- **The bundled typeface is committed, and it has to be able to draw Russian.**
+  `core/designsystem/src/main/res/font/onest.ttf` is Onest as downloaded: one axis,
+  `wght`, which the app varies. It replaced Google Sans Flex, which declares no Cyrillic
+  code point at all, so the app's own language came out of the device's fallback face.
+  `FontAxisTest` now fails on a face that cannot draw Russian and on one carrying an axis
+  nothing moves; a build-time instancer for the second case is in git history and was
+  removed with the six-axis file that needed it.
 
 ## Gates
 

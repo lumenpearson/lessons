@@ -10,13 +10,15 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time
+from datetime import date as Date
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from aiogram.types import CallbackQuery, User
-from sqlalchemy import select
+from sqlalchemy import func, select
 
+from app.bot import render
 from app.bot.handlers import content
 from app.bot.handlers.access import (
     JOIN_MODE_TEXT,
@@ -73,9 +75,10 @@ from app.models import (
     Role,
     SchoolClass,
     TimetableEntry,
+    WeekParity,
 )
 from app.models import OverrideAction as OverrideActionEnum
-from app.services import device_invites, notify, reminders
+from app.services import device_invites, notify, reminders, timetable_edit
 
 MONDAY = date(2026, 9, 7)
 
@@ -253,6 +256,56 @@ async def test_an_editor_cannot_rewrite_the_timetable(session, school_class):
     assert [e.subject_name for e in entries] == ["Алгебра", "Физика", "История"]
 
 
+async def test_the_bot_refuses_a_substitution_on_a_day_marked_as_a_day_off(
+    session, school_class
+):
+    """Stored, logged, announced — and drawn nowhere. The API refused it; the bot did not.
+
+    `_resolve_day` returns before the override loop on a day somebody marked
+    «выходной», so a substitution written for one reaches the log and every
+    subscriber's «🔄 Замена …» push while no phone, widget or calendar feed
+    ever draws it. `api/edit.py` had asked this since it was written; the bot
+    was believed safe because its picker offers no lessons on such a day, which
+    is true of the picker and not of the flow.
+    """
+    day = Date(2026, 9, 14)  # a Monday inside the school year
+    session.add(DayOverride(class_id=school_class.id, date=day, kind=DayKind.HOLIDAY))
+    await session.commit()
+
+    refusal = await content._save_override(
+        session, school_class.id, day, 1, OverrideActionEnum.REPLACE, subject="Алгебра"
+    )
+
+    assert refusal is not None
+    assert "выходной" in refusal
+    assert await session.scalar(select(func.count()).select_from(LessonOverride)) == 0
+
+
+async def test_the_bot_refuses_a_substitution_out_of_the_school_year(session, school_class):
+    """June is offered by the bot's own date picker and drawn by nothing.
+
+    The picker bounds the year 1 September to 1 August — a different rule from
+    `schedule.school_year_bounds`, under the same name in another module — so
+    a summer day is two taps away. Without this check the row is written.
+    """
+    refusal = await content._save_override(
+        session, school_class.id, Date(2026, 6, 15), 1, OverrideActionEnum.REPLACE,
+        subject="Алгебра",
+    )
+
+    assert refusal is not None
+    assert "вне учебного года" in refusal
+    assert await session.scalar(select(func.count()).select_from(LessonOverride)) == 0
+
+
+async def test_both_shells_refuse_such_a_day_in_the_same_words(session, school_class):
+    """One rule, two shells — the thing that was missing, not the sentence."""
+    day = Date(2026, 6, 15)
+    assert await content._save_override(
+        session, school_class.id, day, 1, OverrideActionEnum.REPLACE, subject="Алгебра"
+    ) == await timetable_edit.why_no_lesson_can_be_drawn(session, school_class.id, day)
+
+
 # --------------------------------------------------------------------------
 # Bells parsing
 # --------------------------------------------------------------------------
@@ -280,6 +333,80 @@ async def test_bells_reject_an_inverted_range(session, school_class):
     await bells_apply(message, FakeState(), session, school_class, Role.ADMIN)
 
     assert "Не удалось разобрать" in message.last
+
+
+async def test_the_editor_says_which_lessons_its_new_bells_silenced(session, school_class):
+    """The defect: «✅ Звонки сохранены: 5 уроков» and not a word about the rest.
+
+    This editor wrote the bell rows itself instead of going through
+    `structure.write_bell_periods`, which is the half that answers «which
+    lessons stop ringing». So a shorter paste took every lesson at a dropped
+    number off every phone, out of the widget, out of the calendar feed and out
+    of the digests, and the only thing on the screen was a success line. The
+    other bells editor, three taps deeper under «⚙️ Класс», warned about
+    exactly this — which is how the two came apart without a build failing.
+    """
+    for weekday in (1, 2):
+        for index in (6, 7):
+            session.add(
+                TimetableEntry(
+                    class_id=school_class.id,
+                    weekday=weekday,
+                    index=index,
+                    subject_name="Физика",
+                    parity=WeekParity.ANY,
+                )
+            )
+    await session.commit()
+
+    message = FakeMessage(
+        text="1. 09:00-09:40\n2. 09:50-10:30\n3. 10:40-11:20\n4. 11:30-12:10\n5. 12:20-13:00"
+    )
+    await bells_apply(message, FakeState(), session, school_class, Role.ADMIN)
+
+    assert "больше не звонят" in message.last
+    # The numbers, because they are what somebody has to go and fix, and the
+    # count of rows, because 6 and 7 under two weekdays is four lessons.
+    assert "№ 6, 7" in message.last
+    assert "(4 шт.)" in message.last
+
+
+async def test_both_bells_editors_say_the_same_thing_about_silenced_lessons(
+    session, school_class
+):
+    """One sentence, one place — the invariant the divergence broke.
+
+    Two editors reach the same rows and there is no compiler here: the only
+    thing keeping them from drifting again is that they call one function for
+    the warning. This fails if either grows a copy of the sentence.
+    """
+    session.add(
+        TimetableEntry(
+            class_id=school_class.id,
+            weekday=1,
+            index=7,
+            subject_name="Физика",
+            parity=WeekParity.ANY,
+        )
+    )
+    await session.commit()
+
+    message = FakeMessage(text="1. 09:00-09:40")
+    await bells_apply(message, FakeState(), session, school_class, Role.ADMIN)
+
+    # Monday already carries lessons 1, 2 and 3 from the fixture, so a paste of
+    # one bell row silences 2 and 3 as well as the 7 added above.
+    warning = next(line for line in message.last.splitlines() if "не звонят" in line)
+    assert warning == render.silenced_lessons([(1, 2), (1, 3), (1, 7)])
+
+
+async def test_bells_saved_counts_read_as_russian(session, school_class):
+    """«сохранены: 1 уроков» — the number was printed with one hardcoded form."""
+    message = FakeMessage(text="1. 09:00-09:40")
+    await bells_apply(message, FakeState(), session, school_class, Role.ADMIN)
+
+    assert "1 урок." in message.last
+    assert "1 уроков" not in message.last
 
 
 async def test_bells_refuse_to_wipe_the_schedule_on_a_bad_paste(session, school_class):

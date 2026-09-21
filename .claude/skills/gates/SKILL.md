@@ -34,12 +34,6 @@ Narrower: `./gradlew :core:model:test --tests '*ScheduleEngineTest*'`.
 
 In a sandbox with no network every Gradle invocation needs `--offline`.
 
-Every one of them also needs **Python with `fonttools`** on Python 3.10 or newer
-(`python3 -m pip install fonttools`): the bundled typeface is a source, and the build
-freezes the variation axes the app never moves. Without it the invocation stops naming
-`-Plessons.font.axes=all`, which ships the font as it came — correct, and two megabytes
-larger. Run the gates at the default, because that is what CI and the APK ship.
-
 `./gradlew lint` runs the AGP Android lint. **CI does not run it — do not report it as a
 gate.**
 
