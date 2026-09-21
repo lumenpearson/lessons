@@ -88,10 +88,25 @@ class OverrideAction(enum.StrEnum):
 
 
 class DayKind(enum.StrEnum):
+    """How a whole date deviates from the ordinary weekly rhythm.
+
+    **Stored as the member NAME**, like every ``SAEnum`` in this file, so the
+    column is a ``VARCHAR`` as wide as the longest of these — which is what
+    makes adding one a migration rather than a line. ``SELF_STUDY`` is ten
+    characters and the column was nine; see revision ``0014``.
+    """
+
     NORMAL = "normal"
     HOLIDAY = "holiday"  # a holiday or a day off
     SHORTENED = "shortened"  # shortened lessons (another bell schedule)
     REMOTE = "remote"  # remote teaching
+    #: Set work, nobody at school. Distinct from REMOTE, where there are
+    #: lessons at their usual times and somebody is teaching them.
+    SELF_STUDY = "self_study"
+    #: A day off this class alone was given — a transferred holiday, a day
+    #: after an olympiad. HOLIDAY is «nobody is at school»; this is «we are
+    #: not», and an admin marking one means something different by each.
+    DAY_OFF = "day_off"
 
 
 class JoinMode(enum.StrEnum):

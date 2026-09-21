@@ -173,6 +173,8 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="day_kind_holiday">Holidays</string>
     <string name="day_kind_shortened">Shortened day</string>
     <string name="day_kind_remote">Remote</string>
+    <string name="day_kind_self_study">Self-study</string>
+    <string name="day_kind_day_off">Day off</string>
 
     <!-- Homework -->
     <string name="homework_title">Homework</string>

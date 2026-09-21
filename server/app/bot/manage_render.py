@@ -231,9 +231,21 @@ def render_holidays(overrides: list[DayOverride], schedules: dict[int, str], tod
     return clamp(lines)
 
 
-def render_period_result(first: Date, last: Date, created: int) -> str:
+#: The word the confirmation uses, per kind. Read from `DAY_KIND_LABELS` would
+#: be wrong: those carry an emoji and read as a heading («🏖 Каникулы /
+#: выходной»), and this is the middle of a sentence.
+_PERIOD_WORDS: dict[DayKind, str] = {
+    DayKind.HOLIDAY: "Каникулы",
+    DayKind.REMOTE: "Дистанционное обучение",
+    DayKind.SELF_STUDY: "Самоподготовка",
+    DayKind.DAY_OFF: "Отгул",
+}
+
+
+def render_period_result(first: Date, last: Date, created: int, kind: DayKind) -> str:
+    word = _PERIOD_WORDS.get(kind, "Отмечено")
     return (
-        f"✅ Каникулы с <b>{first:%d.%m}</b> по <b>{last:%d.%m}</b>: "
+        f"✅ {word} с <b>{first:%d.%m}</b> по <b>{last:%d.%m}</b>: "
         f"отмечено {plural(created, 'день', 'дня', 'дней')}."
     )
 

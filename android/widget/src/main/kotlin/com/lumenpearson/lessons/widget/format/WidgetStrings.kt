@@ -115,6 +115,11 @@ internal object WidgetStrings {
         state is DayState.AfterSchool -> R.string.widget_state_after_school_short
         state is DayState.DayOff && state.kind == DayKind.SHORTENED ->
             R.string.widget_state_shortened_short
+        // «САМОПОДГОТОВКА» is fourteen characters and the column holds about
+        // twelve. `NarrowLabelBudgetTest` is what said so, on the build that
+        // added the kind rather than on a phone months later.
+        state is DayState.DayOff && state.kind == DayKind.SELF_STUDY ->
+            R.string.widget_state_self_study_short
         else -> null
     }
 
@@ -164,6 +169,8 @@ internal object WidgetStrings {
             DayKind.HOLIDAY -> R.string.widget_state_holiday
             DayKind.REMOTE -> R.string.widget_state_remote
             DayKind.SHORTENED -> R.string.widget_state_shortened
+            DayKind.SELF_STUDY -> R.string.widget_state_self_study
+            DayKind.DAY_OFF -> R.string.widget_state_day_off_given
             DayKind.NORMAL -> R.string.widget_state_day_off
         },
     )

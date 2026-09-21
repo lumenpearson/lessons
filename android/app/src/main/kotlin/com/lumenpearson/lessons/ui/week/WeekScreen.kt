@@ -751,6 +751,8 @@ internal fun DayKind.asLabel(): String = correctedString(
         DayKind.HOLIDAY -> R.string.day_kind_holiday
         DayKind.SHORTENED -> R.string.day_kind_shortened
         DayKind.REMOTE -> R.string.day_kind_remote
+        DayKind.SELF_STUDY -> R.string.day_kind_self_study
+        DayKind.DAY_OFF -> R.string.day_kind_day_off
     },
 )
 

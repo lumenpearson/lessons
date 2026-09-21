@@ -270,11 +270,13 @@ without it, and on a database built by a real `alembic` run the schema would hav
 from `create_all` — on ours it does not, because the DDL for `0009` came from the model.
 `0012` does the same for eight more timestamps across seven tables, and there it was not a
 no-op: all eight really were nullable, and all eight held no nulls, so it tightened them and
-rewrote nothing. `0013` adds `uq_homework_per_subject_per_day`.
+rewrote nothing. `0013` adds `uq_homework_per_subject_per_day`. `0014` widens
+`day_overrides.kind` to `VARCHAR(10)`: `DayKind` gained `SELF_STUDY`, and a `SAEnum`
+stores the member name, so the column is as wide as the longest of them.
 
 Everything up to `0012` checks with an inspector what is not in the database yet and does
 not rewrite existing tables, so those can be applied to a live class in the middle of a
-school day. The head is `0013`.
+school day. The head is `0014`.
 
 ### A migration goes BEFORE the deploy, not after
 
@@ -317,7 +319,7 @@ a ping meant to warm things up would keep waking a sleeping Neon.
 ### What to apply them with
 
 In practice this project's migrations are applied **through the Neon connector** rather than
-with the `alembic` command — that is how `0005`–`0013` were applied. The Neon project is
+with the `alembic` command — that is how `0005`–`0014` were applied. The Neon project is
 called `lessons`; its identifier is not kept in the repository — anybody with access sees it
 in the Neon console anyway, and in a public repository it is just the address of somebody
 else's database.

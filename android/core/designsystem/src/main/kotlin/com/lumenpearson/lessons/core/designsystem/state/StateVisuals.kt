@@ -10,6 +10,7 @@ import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.FreeBreakfast
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.School
@@ -188,12 +189,18 @@ private fun DayKind.dayOffLabelRes(): Int = when (this) {
     DayKind.HOLIDAY -> R.string.ds_state_holiday
     DayKind.REMOTE -> R.string.ds_state_remote_day
     DayKind.SHORTENED -> R.string.ds_state_shortened_day
+    DayKind.SELF_STUDY -> R.string.ds_state_self_study_day
+    DayKind.DAY_OFF -> R.string.ds_state_day_off_given
     DayKind.NORMAL -> R.string.ds_state_day_off
 }
 
 private fun DayKind.dayOffIcon(): ImageVector = when (this) {
     DayKind.REMOTE -> Icons.Rounded.Wifi
     DayKind.SHORTENED -> Icons.Rounded.Schedule
+    // Set work rather than a day at the beach: the point of the kind is that
+    // there is something to do, and a deckchair would say the opposite.
+    DayKind.SELF_STUDY -> Icons.Rounded.MenuBook
+    DayKind.DAY_OFF,
     DayKind.HOLIDAY,
     DayKind.NORMAL,
     -> Icons.Rounded.BeachAccess

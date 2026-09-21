@@ -11,6 +11,12 @@ enum class DayKind {
     HOLIDAY,
     SHORTENED,
     REMOTE,
+
+    /** Set work, nobody at school — unlike [REMOTE], which is taught. */
+    SELF_STUDY,
+
+    /** A day off this class alone was given, rather than one everybody has. */
+    DAY_OFF,
     ;
 
     companion object {

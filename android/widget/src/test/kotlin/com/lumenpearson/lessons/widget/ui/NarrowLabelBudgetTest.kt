@@ -66,11 +66,15 @@ class NarrowLabelBudgetTest {
                     R.string.widget_state_after_school_short -> "widget_state_after_school_short"
                 WidgetStrings.shortStateLabelRes(state, narrow = true) ==
                     R.string.widget_state_shortened_short -> "widget_state_shortened_short"
+                WidgetStrings.shortStateLabelRes(state, narrow = true) ==
+                    R.string.widget_state_self_study_short -> "widget_state_self_study_short"
                 state is DayState.AfterSchool -> "widget_state_after_school"
                 state is DayState.DayOff -> when (state.kind) {
                     DayKind.HOLIDAY -> "widget_state_holiday"
                     DayKind.REMOTE -> "widget_state_remote"
                     DayKind.SHORTENED -> "widget_state_shortened"
+                    DayKind.SELF_STUDY -> "widget_state_self_study"
+                    DayKind.DAY_OFF -> "widget_state_day_off_given"
                     DayKind.NORMAL -> "widget_state_day_off"
                 }
                 else -> error("not a rest state: $state")

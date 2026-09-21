@@ -50,6 +50,7 @@ from app.bot.keyboards import (
 )
 from app.bot.manage_keyboards import (
     COLOUR_PRESETS,
+    PERIOD_KINDS,
     AuditAction,
     BellsAction,
     DayKindAction,
@@ -69,6 +70,7 @@ from app.bot.manage_keyboards import (
     device_keyboard,
     holiday_list_keyboard,
     import_keyboard,
+    period_kind_keyboard,
     request_keyboard,
     subject_card_keyboard,
     subject_list_keyboard,
@@ -168,6 +170,19 @@ def _int_or_none(raw: str) -> int | None:
     try:
         return int(raw)
     except (TypeError, ValueError):
+        return None
+
+
+def _day_kind_or_none(raw: str) -> DayKind | None:
+    """A day kind out of callback data or FSM state, or ``None``.
+
+    `DayKind(raw)` raises on anything else, and a raise here leaves the button
+    spinning until Telegram gives up rather than answering — the same trap the
+    `_int_or_none` above exists for, on a value that arrives from the client.
+    """
+    try:
+        return DayKind(raw)
+    except ValueError:
         return None
 
 
@@ -1220,11 +1235,48 @@ async def holiday_period_start(
         await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
         return
 
-    await state.set_state(AddHoliday.period)
+    # Which kind first, dates second. The flow used to mark holidays and
+    # nothing else, so «самоподготовка с 12 по 16» meant marking five days one
+    # at a time — and a week of remote teaching, which is the shape this is
+    # actually needed in, meant five presses and five typos to make.
+    await state.clear()
     await callback.message.edit_text(
-        "📆 <b>Каникулы периодом</b>\n\n"
+        "📆 <b>Отметить период</b>\n\n"
+        "Чем отметить каждый день внутри периода?",
+        reply_markup=period_kind_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(DayKindAction.filter(F.action == "period_kind"))
+async def holiday_period_kind(
+    callback: CallbackQuery,
+    callback_data: DayKindAction,
+    state: FSMContext,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """The kind is picked, now the dates. Re-checked here, not trusted from the
+    press that got this far: a card can sit on a screen after a role changes."""
+    if not _allowed(school_class, role, Role.ADMIN):
+        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
+        return
+
+    kind = _day_kind_or_none(callback_data.value)
+    if kind is None or kind not in {chosen for chosen, _ in PERIOD_KINDS}:
+        # Not an exception. Callback data is whatever the client sent, and a
+        # bare conversion on it leaves the button spinning until Telegram
+        # gives up — see the guards in this module's siblings.
+        await callback.answer("Не знаю такого вида дня.", show_alert=True)
+        return
+
+    label = next(text for chosen, text in PERIOD_KINDS if chosen is kind)
+    await state.set_state(AddHoliday.period)
+    await state.update_data(period_kind=kind.value)
+    await callback.message.edit_text(
+        f"📆 <b>{escape(label)}</b>\n\n"
         "Пришлите период: <code>26.10-05.11</code>.\n"
-        f"Каждый день внутри будет отмечен как каникулы, не больше "
+        f"Каждый день внутри будет отмечен так, не больше "
         f"{PERIOD_MAX_DAYS} дней за раз.",
         reply_markup=cancel_keyboard(),
     )
@@ -1262,21 +1314,25 @@ async def holiday_period_apply(
         )
         return
 
+    # Read from the state the picker wrote, and defaulted rather than refused:
+    # a form that outlives a restart still has a date to apply, and holidays
+    # are what this flow did before there was anything to pick.
+    data = await state.get_data()
+    kind = _day_kind_or_none(str(data.get("period_kind", ""))) or DayKind.HOLIDAY
+
     for offset in range(span):
-        await _upsert_override(
-            session, school_class, first + timedelta(days=offset), DayKind.HOLIDAY
-        )
+        await _upsert_override(session, school_class, first + timedelta(days=offset), kind)
     await audit.record(
         session,
         school_class.id,
         message.from_user.id,
         "dayoverride.period",
-        f"каникулы {first:%d.%m}–{last:%d.%m}, дней: {span}",
+        f"{kind.value}: {first:%d.%m}–{last:%d.%m}, дней: {span}",
     )
     await session.commit()
     await state.clear()
 
-    await message.answer(mr.render_period_result(first, last, span))
+    await message.answer(mr.render_period_result(first, last, span, kind))
     text, keyboard = await _holiday_view(session, school_class, role)
     await message.answer(text, reply_markup=keyboard)
 

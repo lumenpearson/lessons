@@ -69,6 +69,8 @@ DAY_KIND_LABELS = {
     DayKind.HOLIDAY: "🏖 Каникулы / выходной",
     DayKind.SHORTENED: "⏱ Сокращённые уроки",
     DayKind.REMOTE: "💻 Дистанционное обучение",
+    DayKind.SELF_STUDY: "📖 Самоподготовка",
+    DayKind.DAY_OFF: "🌿 Отгул",
 }
 
 

@@ -169,6 +169,8 @@
     <string name="day_kind_holiday">Каникулы</string>
     <string name="day_kind_shortened">Сокращённый день</string>
     <string name="day_kind_remote">Дистанционно</string>
+    <string name="day_kind_self_study">Самоподготовка</string>
+    <string name="day_kind_day_off">Отгул</string>
 
     <!-- Homework -->
     <string name="homework_title">Задания</string>

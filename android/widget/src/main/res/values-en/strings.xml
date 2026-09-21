@@ -20,6 +20,9 @@
     <string name="widget_state_shortened">Short day</string>
     <string name="widget_state_shortened_short">Short day</string>
     <string name="widget_state_remote">Remote</string>
+    <string name="widget_state_self_study">Self-study</string>
+    <string name="widget_state_self_study_short">Self-study</string>
+    <string name="widget_state_day_off_given">Day off</string>
     <string name="widget_state_no_data">No timetable</string>
 
     <string name="widget_countdown_hm">%1$d h %2$d min</string>

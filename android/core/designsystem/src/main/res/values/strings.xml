@@ -14,6 +14,8 @@
     <string name="ds_state_day_off">Выходной</string>
     <string name="ds_state_holiday">Каникулы</string>
     <string name="ds_state_remote_day">Дистанционный день</string>
+    <string name="ds_state_self_study_day">Самоподготовка</string>
+    <string name="ds_state_day_off_given">Отгул</string>
     <string name="ds_state_shortened_day">Сокращённый день</string>
     <string name="ds_state_no_data">Нет расписания</string>
 
