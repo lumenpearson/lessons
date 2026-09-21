@@ -41,24 +41,26 @@ for the only language on the screen. It had been that way since the design syste
 from Essentials, which is an English app and had no way to notice. Nothing failed and
 nothing was logged.
 
-The replacement is **Onest**, committed at `core/designsystem/src/main/res/font/onest.ttf`
-as Google Fonts publishes it: 193 056 bytes, 780 code points, 162 of them Cyrillic, 876
-glyphs, one axis `wght`. The release APK went from **3 771 298 to 3 746 671 bytes** — it got
-*smaller* while gaining the alphabet.
+**The app now bundles both faces and chains them by coverage.** Google Sans Flex draws
+Latin and digits, Onest (193 056 bytes, 162 Cyrillic code points) draws Cyrillic, and
+`FallbackTypeface.kt` puts them in one `Typeface.CustomFallbackBuilder` — Latin, then
+Cyrillic, then the system — handed to Compose through `AndroidFont`, one chain per weight.
+That construction is the only one that chooses by coverage: a Compose `FontFamily` picks by
+weight and style, and so does a font-family XML. **`CustomFallbackBuilder` is API 29 and
+this app's floor is 26**, so Android 8.0 and 9.0 are set in Onest alone — correct, and
+merely less like itself.
 
-**The build-time instancer merged one batch earlier is gone with it.** It existed because
-Google Sans Flex carried six axes and the app moved two; Onest carries one and the app
-varies it, so there was nothing left to freeze. The task, `fonts/instance.py`, the
-`-Plessons.font.axes` property and the `pip install fonttools` in both workflows all went,
-and `./gradlew` on a fresh clone needs nothing but the JDK and the SDK again. What stayed is
-the guard rather than the fix: `FontAxisTest` now fails on a face that cannot draw the
-Russian alphabet and on one carrying an axis `Type.kt` never varies — both proved red
-against the old file — and git holds the instancer for the day a multi-axis face is wanted.
+Google Sans Flex is committed frozen from six axes to `wght` alone, 3.81 MB to 0.26 MB; the
+command that produced it is in `docs/build.md`. Both files now carry one axis and the app
+varies it, so **the build-time instancer from the batch before is gone**: there is nothing
+left to freeze, and `./gradlew` needs no Python again. The guard stayed where the fix was —
+`FontAxisTest` fails if the pair cannot draw the Russian alphabet, if either file carries an
+axis `Type.kt` never varies, or if a bundled file is named by nothing, and each was proved
+red by breaking it.
 
 `GoogleSansFlexRounded` went too. It had three callers asking it for SemiBold and Bold, and
 it was registered at one weight, so Compose synthesised what they asked for rather than the
-font drawing it — and Onest has no rounded axis to offer instead. They now ask `LessonsSans`
-for a real weight.
+font drawing it — and neither file now has a rounded axis to offer instead.
 
 ### Two rules that existed in one shell and not the other
 
@@ -86,8 +88,9 @@ Also: «✅ Звонки сохранены: 1 уроков» and «Распис
 ### Gates
 
 `ruff check` clean, `python -m mypy` clean across 83 modules, `python -m pytest -q -n auto`
-**1565 passed** (was 1559). `./gradlew test assembleDebug assembleRelease` green: **769 tests
-across 106 classes**. No model changed, so no migration: the database stays at `0013`.
+**1565 passed** (was 1559). `./gradlew test assembleDebug assembleRelease` green: **770 tests
+across 106 classes**. The release APK is **3 852 053 bytes** — 80 KB more than the 3 771 298
+it started the day at, which is the second typeface bought with the alphabet. No model changed, so no migration: the database stays at `0013`.
 
 ### Found and not fixed — the list is the deliverable
 

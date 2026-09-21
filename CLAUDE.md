@@ -65,13 +65,15 @@ Android, from `android/`:
   push, because R8 and resource shrinking are where "worked in debug" stops being true
 - `./gradlew lint` runs the AGP Android lint; CI does not, so do not report it as a gate
 
-The bundled typeface is **Onest**, `core/designsystem/src/main/res/font/onest.ttf`, and it
-is committed as it was downloaded — one variable axis, `wght`, which the app varies. It
-replaced Google Sans Flex, which has **no Cyrillic at all**, so every Russian word in the
-app was drawn by the device's fallback while the digits beside it came from the bundled
-file. `FontAxisTest` holds both halves now: that the face can draw Russian, and that it
-carries no axis the app never moves — the second is what a re-downloaded multi-axis file
-would fail, and git holds the build-time instancer that used to freeze one.
+The app is set in **two** bundled faces, both under
+`core/designsystem/src/main/res/font/` and both carrying one axis, `wght`:
+`google_sans_flex.ttf` draws Latin and digits, `onest.ttf` draws Cyrillic, and
+`FallbackTypeface.kt` chains them with `Typeface.CustomFallbackBuilder` because neither a
+Compose `FontFamily` nor a font-family XML chooses by coverage. API 26–28 cannot express a
+custom chain and get Onest alone. Google Sans Flex has **no Cyrillic at all**, which is why
+the second file exists: while it was alone, every Russian word came from the device's
+fallback beside digits from the bundle. `FontAxisTest` holds all three halves — the pair
+draws Russian, neither carries an axis nothing varies, and no file is bundled unnamed.
 
 CI (`.github/workflows/ci.yml`) is: ruff, pytest (`-n auto`), `./gradlew test`, both
 assembles. Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;

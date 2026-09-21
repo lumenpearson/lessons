@@ -147,6 +147,10 @@ cd android
 ./gradlew assembleDebug     # or assembleRelease
 ```
 
+The app is set in two bundled faces — Google Sans Flex for Latin and digits, Onest for
+Cyrillic — chained so that each draws what it can. Android 8.0 and 9.0 cannot express a
+custom chain and are set in Onest alone.
+
 With no keystore configured, the release build is signed with the debug key: it installs
 on a phone, but it must not be published. How to plug in your own key and how to tell the app where the server is, is in
 [docs/build.md](docs/build.md).

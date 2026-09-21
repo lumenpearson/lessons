@@ -11,64 +11,49 @@ import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.model.AppFont
 
 /**
- * Onest, bundled as the single variable font file Google Fonts publishes.
+ * The app's face: Google Sans Flex for Latin and digits, Onest for Cyrillic.
  *
- * **It replaced Google Sans Flex, and the reason is the only one that matters
- * for this product: that typeface has no Cyrillic at all.** Its own coverage
- * metadata on Google Fonts lists ten subsets — latin, latin-ext, vietnamese,
- * math, symbols and five scripts nobody here writes — and not one code point
- * in U+0400–U+04FF. So every Russian word in an app whose product language is
- * Russian was drawn by the device's fallback face while the digits and the
- * Latin beside it came from the bundled file: two typefaces in one row, at
- * different x-heights, and 0.29 MB shipped to draw «каб.» in somebody else's
- * font. That had been true since the design system was taken from Essentials,
- * which is an English app and had no way to notice.
+ * **Google Sans Flex has no Cyrillic at all** — its coverage on Google Fonts
+ * is latin, latin-ext, vietnamese, math, symbols and five scripts nobody here
+ * writes, with zero code points in U+0400–U+04FF. This app's product language
+ * is Russian, so while it was the only bundled file every Russian word came
+ * out of whatever face the device happened to fall back to, beside digits
+ * drawn from the bundle: two typefaces in one row and no way to notice, since
+ * nothing fails and nothing is logged. That had been true since the design
+ * system was taken from Essentials, which is an English app.
  *
- * Onest is a geometric sans in the same family of shapes, drawn with Cyrillic
- * from the start: 780 code points, 162 of them Cyrillic, 876 glyphs, in
- * 193 056 bytes — smaller than the instanced file it replaces, and able to
- * draw the app.
+ * Both are bundled now and [ChainFont] puts them in one fallback chain, which
+ * is the only construction that chooses by coverage rather than by weight —
+ * see its note for why neither `FontFamily` nor a font-family XML can express
+ * this, and what API 26 to 28 get instead.
  *
- * **Nothing instances it, and nothing needs to.** Google Sans Flex carried six
- * variation axes and the app moved two, which is what the build-time instancer
- * in `fonts/instance.py` existed to fix; Onest carries exactly one, `wght`,
- * and the app varies it. There is nothing to freeze, so the task, the script
- * and the Python that every Android build needed for them are gone —
- * `FontAxisTest` keeps the guard that would catch a multi-axis file arriving
- * here again, and git holds the machinery for the day it does.
+ * Both files carry one variable axis, `wght`, which is the one the app varies;
+ * Google Sans Flex is frozen from its six down to that one, because an axis
+ * costs a set of outline deltas per glyph and the other five were 3.5 MB of
+ * shapes nothing here asks for. `FontAxisTest` holds both halves: that the
+ * bundled files between them draw Russian, and that neither carries an axis
+ * `Type.kt` never moves.
  *
- * **SIL Open Font License 1.1, Copyright 2021 The Onest Project Authors.**
- * Taken from the file's own `name` table, entry 13, rather than from where it
- * was downloaded — this module has already carried a licence claim that was
- * wrong for months because it was copied from a repository's README. The
- * notice the OFL requires to travel with every copy is packaged beside it, in
- * `src/main/assets/licenses/onest_OFL.txt`, and the app names the licence on
- * the «Лицензии» sheet. The file ships byte for byte as downloaded, so nothing
- * here is a modified version in the licence's sense.
+ * **SIL Open Font License 1.1** for both — Google Sans Flex is Copyright 2015
+ * Google LLC, Onest Copyright 2021 The Onest Project Authors. Each claim is
+ * taken from that file's own `name` table rather than from where it was
+ * downloaded, and the notices the licence requires travel beside them in
+ * `src/main/assets/licenses/`. `FontLicenceTest` checks the pairing; the app
+ * names both on the «Лицензии» sheet.
  *
- * Essentials declares its family with one `Normal` entry and lets the platform
- * synthesise everything heavier. That is fine for a settings app, but this one
- * leans on real weight — the hero card's headline, the countdown, the numbers
- * on the widget — and a synthesised bold on a variable font smears the stems.
- * So each weight is registered as its own instance of the same file with the
- * `wght` axis pinned, which is what a variable font is for and costs no extra
- * bytes.
+ * A weight is registered rather than synthesised, which is what the chain is
+ * built per weight for: Essentials declares one `Normal` entry and lets the
+ * platform fake the rest, and a faked bold on a variable font smears the
+ * stems. This app leans on real weight — the hero headline, the countdown, the
+ * numbers on the widget — so each of the five is a real instance of both
+ * files.
  */
-private fun onestFont(weight: FontWeight): Font = Font(
-    resId = R.font.onest,
-    weight = weight,
-    variationSettings = FontVariation.Settings(
-        FontVariation.weight(weight.weight),
-    ),
-)
-
-/** The app's typeface. */
 val LessonsSans: FontFamily = FontFamily(
-    onestFont(FontWeight.Light),
-    onestFont(FontWeight.Normal),
-    onestFont(FontWeight.Medium),
-    onestFont(FontWeight.SemiBold),
-    onestFont(FontWeight.Bold),
+    ChainFont(FontWeight.Light),
+    ChainFont(FontWeight.Normal),
+    ChainFont(FontWeight.Medium),
+    ChainFont(FontWeight.SemiBold),
+    ChainFont(FontWeight.Bold),
 )
 
 /**

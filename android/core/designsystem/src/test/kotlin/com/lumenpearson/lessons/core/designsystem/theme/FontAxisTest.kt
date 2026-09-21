@@ -6,29 +6,29 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The bundled typeface can draw this app, and carries nothing it does not need.
+ * The bundled faces draw this app between them, and carry nothing they need not.
  *
- * Both halves were learned the same way, from one file that failed both.
+ * Two files ship, and the split is deliberate: Google Sans Flex for Latin and
+ * digits, Onest for Cyrillic, chained by coverage in `FallbackTypeface.kt`.
  *
- * **Google Sans Flex has no Cyrillic.** Not a subset of it — none: its coverage
- * on Google Fonts is latin, latin-ext, vietnamese, math, symbols and five
- * scripts nobody here writes, and zero code points in U+0400–U+04FF. This app's
- * product language is Russian. So for as long as it was bundled, every Russian
- * word came from the device's fallback face while the digits and Latin beside
- * it came from the bundled one — two typefaces in one row, at different
- * x-heights — and the «системный шрифт» setting was close to a no-op for the
- * only language on the screen. Nothing failed, nothing was logged, and it had
- * been true since the design system was taken from an English app. That is what
- * the alphabet test below is for, and it is the one guard here that would have
- * caught it.
+ * **The reason is the defect this class was rewritten for.** Google Sans Flex
+ * declares no Cyrillic — not a dropped subset, none: its coverage on Google
+ * Fonts is latin, latin-ext, vietnamese, math, symbols and five scripts nobody
+ * here writes. This app's product language is Russian. So for as long as it was
+ * the only bundled file, every Russian word came from whatever face the device
+ * fell back to, beside digits drawn from the bundle — two typefaces in one row,
+ * at different x-heights — and nothing failed, nothing was logged, and the
+ * «системный шрифт» setting was close to a no-op for the only language on the
+ * screen. The alphabet test below is what would have caught it, and it asks of
+ * the **set** rather than of each file, because one of the two is now allowed
+ * not to draw Russian as long as its partner does.
  *
- * **It also carried six variation axes where the app moves one.** An axis costs
- * one set of outline deltas per glyph in `gvar`, which was 3.41 MB of a 3.81 MB
- * file, so the build grew a task that froze the four nobody asked for. Onest
- * carries exactly `wght`, which the app varies, so there is nothing left to
- * freeze and the task is gone — but the two axis guards stay, because they are
- * free and because the way that saving comes back is somebody downloading a
- * multi-axis file and committing it without noticing.
+ * **Both files also carry exactly one axis, and the app moves exactly that
+ * one.** Google Sans Flex arrived with six; an axis costs a set of outline
+ * deltas per glyph in `gvar`, which was 3.41 MB of a 3.81 MB file, so it is
+ * frozen down to `wght` before being committed. The axis tests are what keep
+ * the other five from walking back in the obvious way — somebody downloading
+ * the upstream file again.
  *
  * The axes the app asks for are read out of `Type.kt` rather than restated
  * here: a test that repeated them would be a second place to keep in step.
@@ -46,29 +46,51 @@ class FontAxisTest {
     }
 
     /**
-     * The guard that was missing while the app shipped a font it could not be
+     * The guard that was missing while the app shipped a face it could not be
      * written in.
      *
      * Russian is not a nice-to-have here: `values/` is the source and
-     * `values-en/` is the translation, so a bundled face without Cyrillic
-     * cannot draw the default build of this app at all. The sample is the
-     * alphabet plus «ё», which Russian keyboards produce and which font
-     * subsets routinely drop on its own.
+     * `values-en/` the translation, so a bundled set that cannot draw Cyrillic
+     * cannot draw the default build of this app at all. Asked of the union,
+     * because the two files divide the alphabet between them on purpose — and
+     * the union is what the fallback chain reaches, so it is the honest
+     * question. The sample is both cases plus «ё», which Russian keyboards
+     * produce and which subsets drop on its own.
      */
     @Test
-    fun `the font can draw the language the product is written in`() {
-        val missing = fonts.flatMap { font ->
-            val covered = codePointsOf(font)
-            RUSSIAN.filterNot { it.code in covered }.map { "${font.name} cannot draw '$it'" }
+    fun `the bundled faces between them can draw the language the product is written in`() {
+        val covered = fonts.flatMap { codePointsOf(it) }.toSet()
+        val missing = RUSSIAN.filterNot { it.code in covered }
+
+        assertTrue(
+            "Nothing bundled here can draw ${missing.size} of the Russian alphabet, " +
+                "starting with '${missing.firstOrNull()}'. That is not a missing screen — " +
+                "Android falls back per run of text, so the Russian comes out of the " +
+                "device's own face and the digits beside it out of one of these, in the " +
+                "same row, and nothing is logged. Either bundle a face that covers " +
+                "Russian or stop bundling any.",
+            missing.isEmpty(),
+        )
+    }
+
+    /**
+     * And that every bundled file is actually reached.
+     *
+     * The chain names its two files by resource id, and a face nobody names is
+     * weight in the APK drawing nothing — which is also how the pair could
+     * silently become a single Latin-only file again, with the test above
+     * still passing on a `res/font` leftover.
+     */
+    @Test
+    fun `every bundled face is asked for by name in the sources`() {
+        val asked = sources.map { it.readText() }
+        val orphans = fonts.filterNot { font ->
+            asked.any { it.contains("R.font.${font.nameWithoutExtension}") }
         }
 
         assertTrue(
-            "A bundled typeface that cannot draw Cyrillic is not a missing screen — " +
-                "Android falls back per run of text, so the Russian comes out of the " +
-                "device's own face and the digits beside it out of this one, in the same " +
-                "row, and nothing is logged. Either bundle a face that covers Russian or " +
-                "stop bundling one:\n" + missing.take(12).joinToString("\n"),
-            missing.isEmpty(),
+            "Bundled and named by nothing: " + orphans.joinToString { it.name },
+            orphans.isEmpty(),
         )
     }
 
@@ -113,16 +135,21 @@ class FontAxisTest {
      * shapes are read, because the second is how a new axis would arrive.
      */
     private val requestedAxes: Set<String> by lazy {
-        moduleDirectories.asSequence()
-            .flatMap { File(it, "src/main/kotlin").walkTopDown() }
-            .filter { it.isFile && it.extension == "kt" }
+        sources
             .flatMap { file ->
                 val text = file.readText()
                 SETTING.findAll(text).map { it.groupValues[1] } +
+                    QUOTED.findAll(text).map { it.groupValues[1] } +
                     if (text.contains("FontVariation.weight(")) sequenceOf("wght") else emptySequence()
             }
             .toSet()
     }
+
+    /** Every Kotlin source that could name a font or an axis. */
+    private val sources: Sequence<File>
+        get() = moduleDirectories.asSequence()
+            .flatMap { File(it, "src/main/kotlin").walkTopDown() }
+            .filter { it.isFile && it.extension == "kt" }
 
     /** Every font that ships, in every module — a face added to `:widget` needs both guards too. */
     private val fonts: List<File> by lazy {
@@ -245,6 +272,15 @@ class FontAxisTest {
     private companion object {
         /** `FontVariation.Setting("ROND", 100f)` — the tag is the first argument. */
         val SETTING = Regex("""FontVariation\.Setting\(\s*"([A-Za-z0-9]{4})"""")
+
+        /**
+         * `setFontVariationSettings("'wght' $weight")` — the platform's own
+         * spelling, which is what the fallback chain has to use because it
+         * builds an `android.graphics.fonts.Font` rather than a Compose one.
+         * Read as well as [SETTING], because an axis asked for in either
+         * spelling is an axis the bundled file has to declare.
+         */
+        val QUOTED = Regex("""'([A-Za-z0-9]{4})'\s""")
 
         /** Both cases, plus «ё», which subsets drop on its own. */
         val RUSSIAN = ("АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ" +

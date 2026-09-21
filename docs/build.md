@@ -384,39 +384,53 @@ The same four values are read from the environment variables `LESSONS_KEYSTORE_F
 `LESSONS_KEYSTORE_PASSWORD`, `LESSONS_KEY_ALIAS` and `LESSONS_KEY_PASSWORD` — which is what
 CI uses.
 
-## The bundled typeface
+## The bundled typeface is two files
 
-The app is set in **Onest**, committed at
-`android/core/designsystem/src/main/res/font/onest.ttf` exactly as Google Fonts publishes
-it: 193 056 bytes, 780 code points, 876 glyphs, one variable axis `wght` from 100 to 900,
-under the SIL Open Font License. Nothing in the build touches it.
+The app is set in **Google Sans Flex for Latin and digits and Onest for Cyrillic**, chained
+by coverage. Both are committed under `android/core/designsystem/src/main/res/font/`, both
+are SIL Open Font License 1.1, and both carry one variable axis, `wght`, which is the one
+the app varies.
 
-It replaced **Google Sans Flex**, and the reason is worth writing down because nothing
-failed while it was wrong. That typeface has no Cyrillic — not a dropped subset, none at
-all; its coverage metadata on Google Fonts lists latin, latin-ext, vietnamese, math,
-symbols and five scripts nobody here writes. This app's product language is Russian. So
-every Russian word was drawn by the device's fallback face while the digits and Latin
-beside it came from the bundled file: two typefaces in one row, at different x-heights,
-and 0.29 MB shipped to draw «каб.» in somebody else's font. The «системный шрифт» setting
-was close to a no-op for the only language on the screen. It had been that way since the
-design system was taken from Essentials, which is an English app.
+| | bytes | code points | what it draws |
+| --- | --- | --- | --- |
+| `google_sans_flex.ttf` | 268 000 | 516 | Latin, digits, punctuation |
+| `onest.ttf` | 193 056 | 780 | Cyrillic, and Latin behind it |
 
-Google Sans Flex also carried six variation axes where the app moved two, and for one
-batch this repository grew a Gradle task that froze the four nobody asked for — 3.81 MB
-down to 0.29 MB — which is why an Android build briefly needed Python with `fonttools`.
-**It does not any more.** Onest carries one axis and the app varies it, so there is
-nothing left to freeze; the task, the script and the `pip install` in both workflows went
-with it. `./gradlew` on a fresh clone needs nothing but the JDK and the SDK again.
+**Why two.** Google Sans Flex declares no Cyrillic at all — not a dropped subset; its
+coverage on Google Fonts is latin, latin-ext, vietnamese, math, symbols and five scripts
+nobody here writes. This app's product language is Russian. So while it was the only
+bundled file, every Russian word was drawn by whatever face the device fell back to, beside
+digits drawn from the bundle: two typefaces in one row, at different x-heights, and nothing
+failed or was logged. It had been that way since the design system was taken from
+Essentials, which is an English app.
 
-What is kept is the guard rather than the fix. `FontAxisTest` fails on a bundled face that
-cannot draw the Russian alphabet, and on one carrying an axis `Type.kt` never varies —
-which is exactly what a re-downloaded multi-axis file would trip, and the instancer that
-used to handle that case is in git history if it is ever wanted back.
+**How the chain is built.** `FallbackTypeface.kt` puts the two files in one
+`Typeface.CustomFallbackBuilder` — Latin first, Cyrillic behind it, the system behind both —
+and hands it to Compose through `AndroidFont`, one per weight. Nothing else can express
+this: a Compose `FontFamily` of several fonts picks between them by weight and style, and a
+font-family XML does the same; only the platform's fallback chain chooses by which file can
+draw the character in hand. `CustomFallbackBuilder` is API 29 and this app's floor is 26, so
+**Android 8.0 and 9.0 are set in Onest alone** — correct, and merely less like itself. That
+is the right way round: the older phone loses the Latin face, not its own alphabet.
 
-**If you replace the typeface**, drop the new file in `res/font/`, update
-`src/main/assets/licenses/` with the notice its own `name` table declares, and run
-`./gradlew :core:designsystem:test`. Both guards and `FontLicenceTest` will tell you what
-you got wrong.
+**Google Sans Flex is frozen before it is committed.** Upstream it carries six axes and
+3.81 MB, of which 3.41 MB is `gvar` — one set of outline deltas per axis per glyph. The app
+moves `wght` and nothing else, so the other five are frozen at their defaults and the file
+is 0.26 MB. That is a one-off done by hand, not a build step: a Gradle task did it for one
+batch, and with both files now down to a single axis there is nothing left for it to do.
+`./gradlew` on a fresh clone needs nothing but the JDK and the SDK.
+
+```bash
+# What produced the committed file, if the typeface is ever updated:
+fonttools varLib.instancer GoogleSansFlex.ttf \
+  opsz=18 wdth=100 GRAD=0 ROND=0 slnt=0 -o google_sans_flex.ttf
+```
+
+**What holds it.** `FontAxisTest` fails if the bundled files between them cannot draw the
+Russian alphabet, if either carries an axis `Type.kt` never varies, or if a file is bundled
+that nothing names — each proved red by breaking it. `FontLicenceTest` reads each file's own
+`name` table and requires a notice under `assets/licenses/` carrying that copyright and that
+licence, so a typeface cannot be swapped without its licence following it.
 
 ## What the environment needs
 
