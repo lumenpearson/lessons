@@ -142,14 +142,21 @@ update.
 Locally:
 
 ```bash
+python3 -m pip install fonttools   # once; the build compresses the typeface with it
 cd android
 ./gradlew test              # every JVM test across the five modules
 ./gradlew assembleDebug     # or assembleRelease
 ```
 
+The typeface is 3.81 MB as downloaded and 0.29 MB as it ships, because the build freezes
+the four variation axes the app never moves — about two megabytes of APK. That is the one
+thing the wrapper cannot do for you; without it the build stops and names
+`-Plessons.font.axes=all`, which ships the font untouched and is a perfectly correct app.
+
 With no keystore configured, the release build is signed with the debug key: it installs
-on a phone, but it must not be published. How to plug in your own key, and how to tell the
-app where the server is, is in [docs/build.md](docs/build.md).
+on a phone, but it must not be published. How to plug in your own key, what the typeface
+setting costs, and how to tell the app where the server is, is in
+[docs/build.md](docs/build.md).
 
 On first run the app walks through four screens and asks for a class code — the one the
 bot hands out with `/code`. A class can be switched to a mode where the class code lets
@@ -193,7 +200,7 @@ Read this before planning a release.
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 83 modules — asks whether anything reaches for an attribute that does not exist |
 | `python -m pytest -q` | 1559 tests, green, about five minutes (`-n auto` — about a minute and a half) |
-| `./gradlew test` | 768 tests, green, all five modules |
+| `./gradlew test` | 770 tests, green, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
 

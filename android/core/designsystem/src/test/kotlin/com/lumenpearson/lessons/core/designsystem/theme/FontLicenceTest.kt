@@ -115,9 +115,11 @@ class FontLicenceTest {
     @Test
     fun `there is a font to guard in the first place`() {
         assertTrue(
-            "No font resource found in any module. If the bundled typeface was " +
-                "deliberately dropped, delete this test with it — a guard over nothing " +
-                "passes for ever and says nothing.",
+            "No font resource found in any module. The bundled one is written by " +
+                "`instance<Variant>Font` and its directory is passed in by Gradle, so a " +
+                "runner that bypasses Gradle sees none. If the typeface was deliberately " +
+                "dropped, delete this test with it — a guard over nothing passes for " +
+                "ever and says nothing.",
             fonts.isNotEmpty(),
         )
     }
@@ -126,9 +128,23 @@ class FontLicenceTest {
 
     private class Notice(val file: File, val text: String)
 
+    /**
+     * The fonts that end up in the APK.
+     *
+     * The bundled typeface is no longer committed under `res/font`: the build
+     * instances it out of `core/designsystem/fonts/` and Gradle hands this test
+     * the directory it wrote, exactly as it does for `FontAxisTest`. The
+     * instancer leaves the `name` table alone, so the copyright and the licence
+     * entry this class reads are the downloaded file's own — which is the point:
+     * the claim is taken from what ships, not from what was compressed.
+     *
+     * Every module's `res/font` is still read, because a font committed to
+     * `:widget` tomorrow needs the guard on the day it arrives.
+     */
     private val fonts: List<BundledFont> by lazy {
-        moduleDirectories
-            .flatMap { File(it, "src/main/res/font").listFiles().orEmpty().toList() }
+        val generated = System.getProperty("lessons.font.directory")?.let { File(it, "font") }
+        (moduleDirectories.map { File(it, "src/main/res/font") } + listOfNotNull(generated))
+            .flatMap { it.listFiles().orEmpty().toList() }
             .filter { it.extension.lowercase() in setOf("ttf", "otf") }
             .sortedBy { it.name }
             .map { BundledFont(it, nameTable(it)) }

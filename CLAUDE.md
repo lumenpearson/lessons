@@ -65,6 +65,14 @@ Android, from `android/`:
   push, because R8 and resource shrinking are where "worked in debug" stops being true
 - `./gradlew lint` runs the AGP Android lint; CI does not, so do not report it as a gate
 
+The Android half needs one thing the wrapper cannot provide: **Python with `fonttools`**
+(`python3 -m pip install fonttools`). The bundled typeface is a source rather than a
+resource — `core/designsystem/fonts/google_sans_flex.ttf`, 3.81 MB and six variation axes —
+and the build freezes the four the app never moves, which is two megabytes of APK. Without
+it every Android task stops with a message naming `-Plessons.font.axes=all`, which ships
+the font untouched and builds a correct app. `docs/build.md`, "The typeface is compressed
+at build time", has the three settings and what each costs.
+
 CI (`.github/workflows/ci.yml`) is: ruff, pytest (`-n auto`), `./gradlew test`, both
 assembles. Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;
 `reminders.yml` is a fallback clock, not the clock (see below). The workflows work — do

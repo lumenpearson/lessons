@@ -10,7 +10,7 @@ You own `android/build.gradle.kts`, the five module build files,
 Modules: `:app`, `:core:model`, `:core:designsystem`, `:core:data`, `:widget`.
 JDK 21, compileSdk 37, Gradle from the wrapper — `./gradlew` works on a fresh clone.
 
-## Three rules with teeth
+## Four rules with teeth
 
 - **AGP 9 compiles Kotlin itself.** Applying `org.jetbrains.kotlin.android` in an Android
   module is a hard build failure, not a warning. Pure-JVM modules (`:core:model`) still use
@@ -24,6 +24,15 @@ JDK 21, compileSdk 37, Gradle from the wrapper — `./gradlew` works on a fresh 
   but `logger.warn`. The APK workflow now fails loudly instead. The keystore and its
   passwords come from environment variables or `~/.gradle/gradle.properties` and never from
   the repository; `*.jks` and `keystore.properties` are gitignored for that reason.
+
+- **The typeface is compressed by the build, so Gradle needs Python.**
+  `core/designsystem/fonts/google_sans_flex.ttf` is the file as downloaded — 3.81 MB, six
+  variation axes — and `instance<Variant>Font` runs `fonts/instance.py` to freeze the four
+  the app never moves. It is wired through `androidComponents.onVariants` and
+  `addGeneratedSourceDirectory`, **not** `sourceSets["main"].res.srcDir`: AGP 9 refuses a
+  `Provider` there, and a static directory carries no task dependency. `-Plessons.font.axes`
+  chooses `wght,ROND` (the default), `wght` or `all`; `FontAxisTest` holds what each
+  promises.
 
 ## Gates
 

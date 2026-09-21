@@ -23,7 +23,7 @@ not by a line between them. `ThinDivider` was deleted from the widget for the sa
 
 | Essentials | Here |
 | --- | --- |
-| `res/font/google_sans_flex.ttf` | the same file in `:core:designsystem` |
+| `res/font/google_sans_flex.ttf` | `:core:designsystem/fonts/` — the same file, instanced by the build |
 | `ui/theme/Type.kt` | `theme/Type.kt` — the scale verbatim |
 | `ui/theme/Shapes.kt` | `theme/Shape.kt` |
 | `ui/core/containers/RoundedCardContainer.kt` | `component/Group.kt` |
@@ -685,12 +685,16 @@ than a link to it. Move the notice, swap the typeface, cut the file down to a UR
 fails naming exactly what diverged. Verified all three ways: with the notice missing, two of
 five tests fail; with it truncated, four; with a different copyright, two.
 
-Two clarifications, so as not to drift from the licence any further. No Reserved Font Name is
-declared, and the file is not modified here — the `wght` and `ROND` axes are set at runtime —
-so the requirement to rename derivatives does not apply to this project. And a trademark
-lives separately from a licence: "Google Sans is a trademark of Google" means the typeface
-may be bundled and redistributed, but a product may not be named after it or imply Google's
-endorsement.
+Two clarifications, so as not to drift from the licence any further. The file **is** modified
+here — the build freezes the four variation axes the app never moves, which is what
+[build.md](build.md) calls compressing the typeface — and the OFL permits that outright. Its
+requirement to rename a derivative applies only to a Reserved Font Name, and this font
+declares none. What the licence does require travels with the copy: `fonttools` leaves the
+`name` table alone, so the copyright and the licence entry in the shipped file are the
+downloaded file's own, and `FontLicenceTest` reads them out of what ships rather than out of
+the source. And a trademark lives separately from a licence: "Google Sans is a trademark of
+Google" means the typeface may be bundled and redistributed, but a product may not be named
+after it or imply Google's endorsement.
 
 ## Bold is a state
 

@@ -3,10 +3,18 @@ Copyright 2015 Google LLC. All Rights Reserved.
 Google Sans is a trademark of Google.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
-The font file says so itself: `res/font/google_sans_flex.ttf` carries the
+The font file says so itself: the bundled `google_sans_flex.ttf` carries the
 licence in its own `name` table, entry 13, and the URL in entry 14. The three
 lines above are entries 0, 1 and 7 of the same table, quoted rather than
 guessed.
+
+The font in this APK is a modified copy: the build freezes the four variation
+axes the app never moves, out of the six the downloaded file declares, which
+takes it from 3.81 MB to 0.29 MB. The licence permits that, and the rename it
+asks of a derivative applies only to a Reserved Font Name, which this typeface
+declares none of. The `name` table is left untouched, so the notices above are
+the original file's own. The unmodified original is in the source repository,
+at `android/core/designsystem/fonts/`.
 
 The licence requires that this notice accompany every copy of the font, so the
 file is an asset rather than a paragraph in a document: it is packaged into the
