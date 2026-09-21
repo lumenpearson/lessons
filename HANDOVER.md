@@ -1246,7 +1246,13 @@ The sixth pass — both of the owner's decisions taken and done:
 
 **Section 3.1 is closed entirely.** No requested work is left untaken.
 
+The block below is **the state on the day this section was written**, kept because the
+migration order it records is the thing worth reading twice. It is not today's: the
+branches, the open pull request and the two test counts have all moved since, and the
+paragraph at the very top of this file is the one that is kept current.
+
 ```
+As of PR #51 — not current; see the top of this file
 Merged:  PR #43, PR #44, PR #45 (six passes, 38 commits, merge 26ad184),
          then PR #47, #48, #49 and #50 — main at 22399e9
 Open:    PR #51 (dev → main) — the agent configuration, and this translation
@@ -1279,8 +1285,8 @@ turn empty by themselves.
 ### How to continue
 
 `dev` remains the working branch, but after a merge it is restarted from `main`: a merged
-pull request accepts no new commits, and every branch that has been merged — #45 through
-#66 — is in `main` already, and #67 is the one still open.
+pull request accepts no new commits. Which pull requests are merged and which one is open
+is at the top of this file, not here — this paragraph is about the two commands under it.
 
 ```bash
 git fetch origin
@@ -1626,12 +1632,16 @@ else.**
 - **There is still no `androidTest` in the project**, and no emulator is available here: the
   container has no `/dev/kvm` and no virtualisation flags, so the system could only be
   started by full software emulation, that is, not at all.
-  **But "nobody has pressed it" is already untrue for three screens.** Robolectric runs
-  Compose's test harness on the JVM (`:core:designsystem` already lived this way), and the
-  same now exists in `:app`: the class group, the join-mode switch and the refusal text on
-  the code screen are composed, pressed and checked against their strings — 21 tests. Those
-  are real presses on real strings rather than stubs: the locale is pinned to `ru-rRU`, or
-  Robolectric takes `values-en/` and the test checks the translation instead of the source.
+  **But "nobody has pressed it" is untrue for a good deal of the app by now.** Robolectric
+  runs Compose's test harness on the JVM (`:core:designsystem` already lived this way), and
+  `:app` has twelve files that compose a real screen and press it: the class group, the
+  join-mode switch, the code screen's refusals, the bell rows, the schedule sheet, the term
+  label, the onboarding reveal, the debug report, the translation session, the edge fade and
+  the Telegram card's failure — 43 tests between them. It started at three screens and 21
+  tests, which is what this paragraph said for several batches after it had stopped being
+  true. Those are real presses on real strings rather than stubs: the locale is pinned to
+  `ru-rRU`, or Robolectric takes `values-en/` and the test checks the translation instead of
+  the source.
   What this does **not** prove: how it looks. Not the layout, not the dark theme, not the
   animations, not dynamic colours, and not the widget — about which what is proved is exactly
   that the size ladder is monotonic over real sizes.
@@ -2322,11 +2332,13 @@ has a Cyrillic identifier: Kotlin has none at all.
 All of this is beyond an agent's reach: it needs a phone, a key or a live service.
 
 **The milestones were the newest of these, and that one is done.** Milestones 1 to 5 cover
-versions that are finished and the owner has closed all five; `v0.6.0` and `Dependencies`
-stay open on purpose, the first because it is the version being worked on and the second
-because it takes every future bump. The reason it had to be asked for stands for next time:
-no tool in a session here changes a milestone's state or creates one — `issue_write` only
-assigns an existing one by number — and there is no `gh` CLI.
+versions that are finished and the owner has closed all five. Three stay open on purpose:
+`v0.6.0`, which is finished but not yet closed; **`v0.7.0 — Оптимизация`, number 8**, which
+the owner created when none of the earlier ones fitted and which is the one this batch and
+the two before it go in; and `Dependencies`, which takes every future bump. There is no
+number 7 — the numbering is GitHub's and it skips. The reason a new one has to be asked for
+stands for next time: no tool in a session here changes a milestone's state or creates one —
+`issue_write` only assigns an existing one by number — and there is no `gh` CLI.
 
 **The first press of two network paths should be the owner's.** Neither the translation
 pull request from #64 nor the guide's fetch from #67 has ever run against GitHub, and both
@@ -2335,8 +2347,8 @@ and without a network, checks the second of them in about a minute — and the f
 «Отправить как pull request» checks the first.
 
 **What is left of it is one line of text.** Milestone 6 describes itself as «PRs #60–#62»
-and now holds #63 and #64 as well. Editing that description needs the same access closing
-them did.
+and now holds everything up to #74. Editing that description needs the same access closing
+it does.
 
 **Two more are decisions rather than actions**, both from the second audit, both
 deliberately not taken by the session that found them because they trade one real cost

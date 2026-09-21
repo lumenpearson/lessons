@@ -554,20 +554,9 @@ blocks out of them, in the order they are asked about:
 3. **today** — everything remaining and what was set for today;
 4. **ahead** — the homework for the next school day, and what that day looks like.
 
-| Rung | Point | What it adds |
-| --- | --- | --- |
-| TINY | 110×40 | the state and how long is left |
-| WIDE | 250×60 | + the subject on the same line |
-| SMALL | 110×110 | + the progress |
-| SMALL_TALL | 110×190 | + "next" and a homework count |
-| NARROW | 110×300 | + the rest of the day as narrow rows |
-| MEDIUM | 250×110 | + a "next" column |
-| MEDIUM_TALL | 250×180 | + the rest of the day |
-| LARGE | 250×250 | + the week's strip |
-| LARGE_TALL | 250×300 | + the homework |
-| XLARGE | 320×320 | + wider and in more detail |
-| TALL | 320×400 | + the next school day |
-| HUGE | 320×560 | + more of all of it |
+The twelve rungs and what each one draws are in [widget.md](widget.md), once — the table
+lived here as well until the two copies disagreed about which rung the week's strip arrives
+on, which is the argument for one of them being a pointer.
 
 The "ahead" block appears earlier than its rung too, if there is one row left for today or
 none at all: five in the afternoon is exactly when a tall widget turned out half empty, and

@@ -104,8 +104,13 @@ jobs:
                 exit 1
                 ;;
             esac
-            if [ "$INPUT_VERSION_CODE" -lt 1 ]; then
-              echo "::error::version_code must be a positive whole number."
+            # Both bounds, and the upper one is the whole point: the digits
+            # check above passes 2147483648 happily, and the build used to
+            # stamp versionCode 1 for it without a word. 2100000000 is Google
+            # Play's ceiling, which is below Int's own; build.gradle.kts
+            # refuses the same range, so a build run any other way fails too.
+            if [ "$INPUT_VERSION_CODE" -lt 1 ] || [ "$INPUT_VERSION_CODE" -gt 2100000000 ]; then
+              echo "::error::version_code must be between 1 and 2100000000."
               exit 1
             fi
             CODE="$INPUT_VERSION_CODE"
