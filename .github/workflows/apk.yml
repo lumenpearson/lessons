@@ -163,7 +163,20 @@ jobs:
             # shape of error the keystore checks above exist to replace. The
             # value is never echoed: it is the signing key.
             rm -f "$RUNNER_TEMP/release.jks"
-            echo "::error::KEYSTORE_BASE64 is set but is not valid base64, so the keystore could not be rebuilt. Its length is ${#KEYSTORE_BASE64} characters; a keystore is usually 3000-6000. Most often the value was truncated while copying. Regenerate it with 'base64 your.jks | tr -d \"\\n\\r\"', check it decodes back with 'base64 -d' and 'cmp', and paste the whole thing; see docs/build.md."
+            # The length is the diagnosis, and its remainder modulo four is
+            # most of it: base64 always comes in groups of four, so anything
+            # else means characters are gone from the end. Two short is the
+            # «==» padding, which is exactly what a selection that stops one
+            # gesture early loses — and a value two characters short still
+            # looks the right size, which is why «about 3000-6000» said here
+            # before was no help at all.
+            remainder=$(( ${#KEYSTORE_BASE64} % 4 ))
+            if [ "$remainder" -ne 0 ]; then
+              why="it is ${#KEYSTORE_BASE64} characters, which is $remainder more than a multiple of four - so the end is missing, most often the trailing '=' padding"
+            else
+              why="it is ${#KEYSTORE_BASE64} characters, a multiple of four, so something inside it is not a base64 character"
+            fi
+            echo "::error::KEYSTORE_BASE64 is set but is not valid base64, so the keystore could not be rebuilt: $why. Set it without selecting anything by hand: gh secret set KEYSTORE_BASE64 --body \"\$(base64 your.jks | tr -d '\\n\\r')\". See docs/build.md."
             exit 1
           fi
           # A value that decoded into something that is not a keystore, or a
