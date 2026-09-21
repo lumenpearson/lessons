@@ -13,6 +13,7 @@ from app.bot.handlers import (
     start,
     tasks,
     timetable,
+    unknown,
     week,
 )
 
@@ -30,6 +31,10 @@ def build_router() -> Router:
     router.include_router(tasks.router)
     router.include_router(reminders.router)
     router.include_router(manage.router)
+    # Last, and it has to be: it matches any command at all, so anything above
+    # it that answers one must have been asked first. What reaches here is a
+    # command nothing in the bot has.
+    router.include_router(unknown.router)
     return router
 
 

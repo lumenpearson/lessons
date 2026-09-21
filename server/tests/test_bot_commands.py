@@ -26,7 +26,8 @@ from aiogram.types import User as TgUser
 from sqlalchemy import select
 
 from app.bot import states
-from app.bot.bot import build_dispatcher
+from app.bot.bot import COMMANDS, build_dispatcher
+from app.bot.handlers.unknown import UNKNOWN_COMMAND
 from app.bot.keyboards import WeekNav
 from app.bot.manage_states import EditSubject
 from app.bot.middlewares import FORM_DROPPED
@@ -278,9 +279,10 @@ async def test_a_slash_inside_the_text_is_left_alone(bot, sent, editor):
 async def test_a_command_the_bot_does_not_have_still_ends_the_form(bot, sent, editor):
     """«/wek» is somebody reaching for «/week», not the text of an assignment.
 
-    Nothing answers it — that is Telegram's own behaviour for an unknown
-    command — but the form is closed and said to be closed, rather than
-    swallowing the typo as an answer.
+    Both lines, in that order: the form really was dropped, and the typo really
+    did nothing. Silence here is what this test used to assert, and it was
+    wrong the moment a command started closing a form — the reader was left
+    holding a closed form with no idea whether the command had done something.
     """
     await _set_state(bot, states.AddHomework.text, due="2026-09-07", subject="Алгебра")
 
@@ -289,7 +291,37 @@ async def test_a_command_the_bot_does_not_have_still_ends_the_form(bot, sent, ed
     async with SessionLocal() as db:
         assert (await db.scalars(select(Homework))).all() == []
     assert await _state_of(bot) is None
-    assert sent.texts == [FORM_DROPPED]
+    assert sent.texts == [FORM_DROPPED, UNKNOWN_COMMAND]
+
+
+async def test_a_command_the_bot_does_not_have_says_so_with_no_form_open(bot, sent, editor):
+    """And on its own, which is the ordinary case: a typo at the keyboard."""
+    await dispatcher().feed_update(bot, _message("/wek"))
+
+    assert sent.texts == [UNKNOWN_COMMAND]
+
+
+@pytest.mark.parametrize("command", [entry.command for entry in COMMANDS])
+async def test_a_command_in_the_menu_is_never_called_unknown(bot, sent, editor, command):
+    """Every command BotFather shows has a handler, and now it is checked.
+
+    `COMMANDS` has carried that as a comment since it was written. It matters
+    more since the catch-all: it matches *any* command, so a router that stops
+    answering one — or is moved below it by somebody tidying the list — turns
+    a command in the menu into «не знаю такой команды», which is the worst of
+    both. A refusal on grounds of role is a fine answer here; being told the
+    command does not exist is not.
+    """
+    await dispatcher().feed_update(bot, _message(f"/{command}"))
+
+    assert UNKNOWN_COMMAND not in sent.texts, f"/{command} is in the menu and reached the catch-all"
+
+
+async def test_a_lone_slash_is_not_called_an_unknown_command(bot, sent, editor):
+    """The same rule as the middleware's, and the same reason: «/» is text."""
+    await dispatcher().feed_update(bot, _message("/"))
+
+    assert sent.texts == []
 
 
 async def test_a_state_from_the_manage_forms_is_dropped_too(bot, sent, session, school_class):

@@ -591,6 +591,14 @@ A command you may not use answers with a refusal rather than silence: Telegram
 shows one command list per bot, and a button that does nothing teaches people to
 distrust the whole thing.
 
+A command the bot does **not** have answers too — «🤔 Не знаю такой команды.
+Наберите /help, чтобы увидеть список.» Telegram itself stays silent on one, and
+for a bot with one screen that is fine; since a command breaks out of a
+half-finished form (below), silence became misleading, because a typo would drop
+what somebody was filling in and then appear to do nothing. The handler is a
+router included **last** in `build_router()`, so every command that has an answer
+is asked first, and a test walks the whole `COMMANDS` list to hold that.
+
 ## What a card may say
 
 Every screen in this document is one Telegram message, and Telegram refuses a
