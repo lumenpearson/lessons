@@ -151,7 +151,48 @@ jobs:
             exit 1
           fi
           # Outside the workspace so it can never be picked up by an upload glob.
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          #
+          # `\r` is stripped and `\n` is not, because the two fail differently:
+          # base64 ignores a newline, so a value wrapped at 76 characters
+          # decodes fine, while a carriage return picked up by copying out of a
+          # terminal is garbage to it and kills the whole decode. Stripping both
+          # costs nothing and removes the difference.
+          if ! printf '%s' "$KEYSTORE_BASE64" | tr -d '\r' | base64 -d > "$RUNNER_TEMP/release.jks" 2>/dev/null; then
+            # `base64: invalid input` is what this said before, and it names
+            # neither the secret, nor this workflow, nor what to do — the exact
+            # shape of error the keystore checks above exist to replace. The
+            # value is never echoed: it is the signing key.
+            rm -f "$RUNNER_TEMP/release.jks"
+            # The length is the diagnosis, and its remainder modulo four is
+            # most of it: base64 always comes in groups of four, so anything
+            # else means characters are gone from the end. Two short is the
+            # «==» padding, which is exactly what a selection that stops one
+            # gesture early loses — and a value two characters short still
+            # looks the right size, which is why «about 3000-6000» said here
+            # before was no help at all.
+            remainder=$(( ${#KEYSTORE_BASE64} % 4 ))
+            if [ "$remainder" -ne 0 ]; then
+              why="it is ${#KEYSTORE_BASE64} characters, which is $remainder more than a multiple of four - so the end is missing, most often the trailing '=' padding"
+            else
+              why="it is ${#KEYSTORE_BASE64} characters, a multiple of four, so something inside it is not a base64 character"
+            fi
+            echo "::error::KEYSTORE_BASE64 is set but is not valid base64, so the keystore could not be rebuilt: $why. Set it without selecting anything by hand: gh secret set KEYSTORE_BASE64 --body \"\$(base64 your.jks | tr -d '\\n\\r')\". See docs/build.md."
+            exit 1
+          fi
+          # A value that decoded into something that is not a keystore, or a
+          # password that does not open it, fails eight minutes later inside
+          # Gradle and blames the password either way. `keytool` is already on
+          # this runner - `setup-java` ran four steps ago - so ask it now.
+          #
+          # The password goes in on stdin, not as `-storepass`: an argument is
+          # readable in the process list by anything else on the machine, and
+          # keytool prompts for it anyway.
+          if ! printf '%s\n' "$KEYSTORE_PASSWORD" \
+              | keytool -list -keystore "$RUNNER_TEMP/release.jks" > /dev/null 2>&1; then
+            rm -f "$RUNNER_TEMP/release.jks"
+            echo "::error::The keystore was rebuilt from KEYSTORE_BASE64 but keytool cannot open it. Either KEYSTORE_PASSWORD is wrong, or the base64 is of some other file, or it was truncated in a way that still decoded. See docs/build.md."
+            exit 1
+          fi
           echo "signed=true" >> "$GITHUB_OUTPUT"
 
       # A ::warning:: cannot fail a job, so an absent keystore fell through to

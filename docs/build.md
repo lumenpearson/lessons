@@ -162,6 +162,12 @@ There are exactly two ways out, and the first is not a fix:
 * **configure the four secrets below.** Then every build is signed with one key that is
   yours, updates install over each other for ever, and none of this arises again.
 
+**The switch to your own key costs one uninstall, once.** Your key is not the debug key
+either, so the first build signed with it cannot install over a debug-signed one any more
+than two debug builds can, and it takes the same things with it — the classes, the device
+token, the diary session, the corrections. It is the last time: every build after that
+updates the one before it.
+
 What publishing a debug-signed APK actually costs is worth being precise about, because it
 is not what it looks like. Nobody can push a fake update over it: the private key it was
 signed with was thrown away with the runner, so no one holds it — **including you**, which
@@ -212,14 +218,44 @@ there is nothing in it that says the build is yours rather than somebody else's.
    diverge, the build fails at signing and the reason will not be obvious. Set one password
    and put it in both secrets.
 
-3. Encode the keystore as base64 **on a single line**:
+3. Encode the keystore as base64 **on a single line**, and check it before pasting:
 
    ```bash
-   base64 -w0 release.jks   # macOS: base64 -i release.jks
+   base64 release.jks | tr -d '\n\r' > keystore.b64
+
+   base64 -d keystore.b64 > check.jks
+   cmp release.jks check.jks && echo "OK"      # must say OK
+   wc -c keystore.b64                          # remember this number
    ```
 
-   `-w0` is mandatory: without it base64 wraps every 76 characters, and pasting that into a
-   secret field gives a file that does not decode.
+   `tr` rather than `-w0`, because `-w0` is a GNU flag and Termux's `base64` is often
+   toybox, which does not have it — and a flag that is not understood puts an error message
+   where the key should be. What actually matters is that neither a carriage return nor a
+   line break survives.
+
+   **The check is not ceremony.** The commonest failure is a value truncated while copying
+   several thousand characters out of a terminal, and it is silent: what you paste looks
+   like base64, and the build stops at «Decode keystore» with no keystore. Compare `wc -c`
+   with the length of what ended up in the field. Delete `check.jks` and `keystore.b64`
+   afterwards - both are copies of your key.
+
+   **On a phone, do not copy it at all.** Selecting several thousand characters in a
+   terminal by hand is the thing that goes wrong; `termux-clipboard-set` is not the way
+   round it either, because the `termux-api` package is only the command and it blocks for
+   ever waiting on the Termux:API app, which is a separate install. Write the secret
+   straight from the shell instead:
+
+   ```bash
+   pkg install gh && gh auth login      # «Login with a web browser» — the same device flow
+   gh secret set KEYSTORE_BASE64 --repo <owner>/<repo> \
+     --body "$(base64 release.jks | tr -d '\n\r')"
+   gh secret list --repo <owner>/<repo>   # names and dates; GitHub returns no values
+   ```
+
+   Nothing is selected, so nothing can be truncated, and no copy of the key is left in a
+   file. If `gh` is not wanted, copy from a text editor rather than from the terminal —
+   `termux-setup-storage` then `cp keystore.b64 ~/storage/downloads/`, open it, select all —
+   and delete that copy afterwards: shared storage is readable by anything on the phone.
 
 4. Add four secrets under **Settings → Secrets and variables → Actions** (on the
    repository, not the organisation, if you are unsure):
@@ -233,6 +269,21 @@ there is nothing in it that says the build is yours rather than somebody else's.
 
 5. Save `release.jks` somewhere it will not disappear along with the phone. A GitHub secret
    is not a backup: its value cannot be read back, only overwritten.
+
+**If «Decode keystore» fails**, the step says which of three things went wrong instead of
+leaving you with `base64: invalid input` — which is what it said before, and which names
+neither the secret nor this project.
+
+| What it says | What it means |
+| --- | --- |
+| `KEYSTORE_BASE64 is set but … KEY_ALIAS is empty` | One of the other three secrets is missing. All four or none: Gradle falls back to the debug key with only a warning when any one of them is absent, which is how a public release once went out debug-signed under a summary calling it signed. |
+| `… is not valid base64 … which is N more than a multiple of four` | Characters are missing from the end — two is the `=` padding, which is what a selection stopping one gesture early loses. This is the one that happens. |
+| `… is not valid base64 … a multiple of four, so something inside it is not a base64 character` | The length is right and the content is not: a stray space, a shell prompt, an error message from a `base64` that did not understand a flag. |
+| `… keytool cannot open it` | It decoded, and what came out is either not a keystore or does not open with `KEYSTORE_PASSWORD`. |
+
+The last one is `keytool` opening the rebuilt file before the build starts, so a wrong
+password or a base64 of the wrong file is caught in seconds rather than eight minutes later
+inside Gradle, where the message blames the password whatever the cause.
 
 You can check the result without cutting a release: **Actions → APK → Run workflow**. If
 `KEYSTORE_BASE64` is not set, the run does not fail — it prints `::warning::` and signs with
@@ -258,18 +309,58 @@ has had both switched off, and the first anybody knew of it was looking for a bu
 was never there. It passes them now, from repository secrets of the same names, and the run
 summary says «on» or «off» for each — which is where to look next time a button is missing.
 
-To switch the first on: **Settings → Developer settings → OAuth Apps → New OAuth App**, with
-**Enable Device Flow** ticked, and put its client id in the repository secret
-`LESSONS_GITHUB_CLIENT_ID`. There is no client secret to register — the device flow does not
-use one, which is the reason this grant was chosen (see `docs/design.md`, "Signing in
-through GitHub is for one thing"). The client id is not itself a secret; it is in the
+### Registering the OAuth App
+
+**Settings → Developer settings → OAuth Apps → New OAuth App**, on your own account. The
+form asks for more than the device flow uses:
+
+| Field | What to put |
+| --- | --- |
+| Application name | What the reader sees on GitHub's confirmation page. A parent is going to read it, so «Дневник» tells them more than «Lessons API» does. |
+| Homepage URL | Required by the form, unused by the device flow. The repository's own address will do. |
+| Authorization callback URL | Also required, also unused: the device flow never redirects. The same address again. |
+| **Enable Device Flow** | **Tick it.** Without it `POST /login/device/code` refuses, and nothing else on the page shows that anything is wrong. |
+| **Expire user access tokens** | **Leave it unticked.** See below — this one costs a day. |
+| Client secret | **Do not generate one.** |
+
+Then copy the **Client ID** from the top of the app's page — `Ov23li…`, twenty characters —
+into the repository secret `LESSONS_GITHUB_CLIENT_ID`.
+
+**«Expire user access tokens» must be off, and the reason is in this codebase rather than in
+GitHub's.** Ticking it makes GitHub hand out an access token that dies after eight hours,
+together with a `refresh_token` to replace it. `AccessTokenDto` in
+`core/data/.../github/GithubDtos.kt` reads `access_token`, `token_type`, `scope` and
+`error`; there is no `refresh_token` field anywhere in `:core:data`, and the only
+`expires_in` in the project is the *device code's* fifteen minutes. So the refresh token is
+parsed into nothing and dropped. Eight hours later `/user` answers 401, the repository does
+what it is written to do with a revoked token — forgets it — and the reader is back at
+«Войти через GitHub». Every day. Nothing logs why, and the symptom looks like a bug in
+sign-in rather than a checkbox on a web page.
+
+**There is no client secret, on purpose.** The device flow is the only OAuth grant that
+works without one, and it was chosen for exactly that: the app is handed out as an APK, and
+anything inside an APK can be read by unzipping it. A leaked client secret would let
+somebody act as this OAuth App, including revoking other people's tokens. The price of
+having none is written down in `docs/design.md` — the token cannot be revoked from inside
+the app; «Выйти» only forgets it, and the real revocation is on
+https://github.com/settings/applications.
+
+The client id is *not* a secret by the same argument — it ships in every APK. It is in the
 repository's secrets because it is the builder's to give, not because it has to be hidden.
+`public_repo` is the whole scope the app asks for: enough to open an issue or a pull request
+on a public repository, and nothing else.
 
-The second is an address you are willing to receive bug reports at. It is not in the source
-because an address in a public repository is an address on every spam list.
+### The address for «Отправить письмом»
 
-Locally both are ordinary build properties: `lessons.github.clientId` and
-`lessons.contactEmail` in `~/.gradle/gradle.properties`, or the environment variables above.
+`LESSONS_CONTACT_EMAIL` is an address you are willing to receive bug reports at. Nothing
+derives it; you choose it. It is not in the source because an address in a public repository
+is an address on every spam list — so if you would rather not publish your own, a separate
+mailbox is the answer, not leaving it empty.
+
+### Setting them for a local build
+
+Both are ordinary build properties: `lessons.github.clientId` and `lessons.contactEmail` in
+`~/.gradle/gradle.properties`, or the environment variables above.
 
 ## Locally
 
