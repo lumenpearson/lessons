@@ -4,24 +4,118 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **21 September 2026**. **PRs #63 through #75 are merged**; `main` is at
-`01a69fc`. **The only thing open is PR #76**, which carries this batch and the paragraph you
+Last updated: **21 September 2026**. **PRs #63 through #76 are merged**; `main` is at
+`01f7a30`. **The only thing open is PR #77**, which carries this batch and the paragraph you
 are reading. Once it merges, `dev` is level with `main` again and the next batch starts from
 a clean one, and the SHA of that merge is for the next close-out to write.
-The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model has changed
-since, so none of them needed a migration**, which is the cheapest thing to check and the
-most expensive to get wrong.
+**The database is at head `0014`**, and `EXPECTED_REVISION` moved with it: `DayKind` gained
+two members, and because a `SAEnum` column stores the member *name* the column is a VARCHAR
+as wide as the longest — `VARCHAR(9)` would have truncated `SELF_STUDY` at the moment of the
+press. `0014` widens it to 10 and was **applied to Neon before this merge**, as an additive
+revision should be.
 
 Production was read after #60 and again after #61, rather than assumed: `/api/v1/health`
 answers `{"status":"ok","api_version":1}` and `/api/v1/warmup` — which opens a real
 connection, so it answers for the database as well as the code — answers
 `{"status":"ok","api_version":1,"schema":"0013"}`. That is the dishka container serving a
 real request on a real cold start, which is the one thing about it the branch could not
-check before it merged. **It has not been re-read since, and did not need to be:** everything
-from #62 onwards touched no server code at all — Android, its tests, the build and the
-documents.
+check before it merged. **It has not been re-read since**, and this batch is the first since
+then that changes server code and the schema together: `/api/v1/warmup` should answer
+`"schema":"0014"` after the merge deploys, and that is the cheapest single check of whether
+the migration and the code met.
 
-## What the last session added: an audit of the whole project, and a typeface that can draw it
+## What the last session added: the school's own dates, the calendar, and a day you can scroll
+
+Open as PR #77, in the milestone `v0.7.0 — Оптимизация`, sixteen commits. Three parts: a
+defect reported from a real class, the calendar the owner asked for on top of it, and the
+day screen that calendar leads to.
+
+### The dates an admin typed decided a term's name and nothing else
+
+«2 полугодие» was given an end of 28 May 2027 in «🗓 Четверти». The phone, scrolled to May
+2027, still drew a full day of lessons on the 29th, the 30th and the 31st — after a manual
+refresh, and after leaving the class and re-joining it with a fresh code. Neither could have
+helped: **the server was sending exactly what it meant to.** `_resolve_day` asked
+`school_year_bounds`, which is `SCHOOL_YEAR_END_MONTH` — 31 May, and always will be.
+
+It was mis-diagnosed twice here before it was found, and the way it was found is worth
+keeping: the transport was proved correct end to end (the bot's write, the `ETag`, the
+phone's `replaceAll`, the flow) and the app turned out to have **no screen that draws a term's
+dates at all**. Only the owner's answer — «судя по трём точкам, прокрутив календарь до мая
+2027» — said what was actually being looked at. The two round-trip tests written during the
+wrong diagnosis are kept as regression guards and labelled as guards rather than as the fix.
+
+The horizon now comes from the class's own `Term` rows, and the gaps **between** terms are
+out of season by the same rule — which is how the autumn holidays are described by moving
+two dates rather than by marking nine days.
+
+### The calendar
+
+`services/holidays.py` holds fourteen statutory non-working days and twenty-five
+observances, apart because they behave differently: a statutory day stops the lessons,
+«День учителя» is a full Wednesday with a badge. **The yearly transfers are deliberately
+absent** — they are set by decree each December, and a wrong non-working day removes a real
+day of teaching while looking exactly like a correct one.
+
+Every day carries `off_reason` (`out_of_year`, `between_terms`, `public_holiday`, or
+nothing) **beside** `kind` rather than inside it, so an older client draws what it drew
+before. The month grid gives each reason its own accent, joins consecutive days of one
+reason into a single band, and writes «Летние каникулы» across a month with no teaching in
+it. A range can be marked self-study, remote or a day off, not only as holidays. The
+calendar filters and the order are in both shells — the chips and «по загруженности» in the
+app, the same narrowing in the bot's list of marked days — and the month can be read as a
+list, which is the one view an order can apply to at all.
+
+### «Календарь → День» is a ribbon now
+
+The hour ruler is **gone**, not kept beside it. It drew the day by position, so a forty-minute
+break was forty minutes of blank screen: nothing to read, nothing to press, two clocks to
+subtract. The day is flattened into a `Ribbon` in `:core:model` — lessons, events, and the
+gaps as rows of their own — and every row says when it runs, how long for, and where the
+clock is inside it. The widget's `remainingTimeline` is that ribbon filtered now rather than
+a second copy of the merge and its tie-break, which nothing had ever tested.
+
+The view owns the page's height instead of adding to its length, which is what the magnetism
+and the tilt both need: a list can only snap, and a card can only lean away from the middle
+of the screen, if the list *is* the viewport. Three settings are the reader's, stored rather
+than remembered — which way the progress runs, whether the scroll settles on a whole row,
+whether the cards have depth — and they live in a sheet on the screen itself because all
+three show what they do the moment they are pressed.
+
+The depth is a ladder of three: AGSL lights the running row where its clock has got to on
+Android 13 and above, everything from `minSdk` 26 up to Android 12 keeps the gradient and
+the perspective tilt, and off is off at every version. `ribbonDepthLevel` is a function of
+the API level rather than an `if` at the call site, so all ten versions this app installs on
+are checked by a test instead of whichever one the runner emulates.
+
+### What CI caught that the local gate could not
+
+`CLAUDE.md` documented the server gate as `python -m pytest`; **CI runs the bare `pytest`.**
+The `-m` form puts the current directory on `sys.path` and the bare one does not, so
+`from tests.test_api import _token` passed here and failed at *collection* on CI. Fixed in
+three layers: the import is gone, a test now refuses any test module importing another, and
+the documented command is the one CI runs.
+
+**Deliberately left alone.** Scrolling the calendar **by years** is not in this batch and is
+not a refusal — it is blocked on a decision only the owner can make. The phone's cache holds
+**one school year** by construction: `SchoolYear.boundsAt(today)` picks the window,
+`TimetableDao.replaceAll` wipes the class's rows on every sync, and the server caps a bundle
+at `MAX_BUNDLE_DAYS = 280`. So either the year picker is bound to the synced year (cheap,
+and very nearly useless — it would scroll to a year with no days in it), or the sync becomes
+windowed on demand, which breaks the one-window-per-class invariant and touches `replaceAll`,
+the Room schema and the `ETag` signature. The second is a batch of its own and the wrong
+thing to start without being asked.
+
+**Verified, and not.** Both halves of the gates are green: `ruff` clean, `pytest -q -n auto`
+**1610 passed**, `python -m mypy` clean across 84 modules, `./gradlew test` **830 tests**,
+both assembles. Every fix was proved red first by mutating the implementation. **Nothing in
+the calendar or the day screen has been seen on a screen** — not the four accents beside one
+another, not the summer's tint across sixty cells, not the tilt, and not the shader, whose
+cost on a mid-range phone is unmeasured. The new day kinds have not been pressed in a real
+Telegram. The Vercel preview is behind SSO, so nothing could be checked against a running
+server either.
+
+## What the batch before added: an audit of the whole project, and a typeface that can draw it
 
 Open as PR #76, in the milestone `v0.7.0 — Оптимизация`. Twelve agents swept the nine areas
 of `.claude/skills/audit/SKILL.md` plus documentation, strings and access, read-only; every
@@ -876,7 +970,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
-| 8 | `v0.7.0 — Оптимизация` | #75, #76 — the one Russian title |
+| 8 | `v0.7.0 — Оптимизация` | #75, #76, #77 — the one Russian title |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -1244,7 +1338,9 @@ The sixth pass — both of the owner's decisions taken and done:
   does **not** wake the widget, but it does move "updated N ago": that line is about the
   check rather than about the data.
 
-**Section 3.1 is closed entirely.** No requested work is left untaken.
+**Section 3.1 was closed entirely when this was written.** One requested item has been
+added since and is open: scrolling the calendar by years, which is a decision rather than
+work — see section 7.
 
 The block below is **the state on the day this section was written**, kept because the
 migration order it records is the thing worth reading twice. It is not today's: the
@@ -1276,7 +1372,9 @@ curl -s https://<project>.vercel.app/api/v1/warmup   # {"status":"ok","schema":"
 
 A `"degraded"` here would mean the deploy had not arrived; before `0013` was applied, the
 same request honestly called the database behind, because `EXPECTED_REVISION` was already
-`0013`.
+`0013`. The head is `0014` today — see the top of this file — and the same request reads it
+the other way round while a revision waits for its merge: the database is *ahead* of the
+code, and `/warmup` says so in as many words, «База впереди кода…».
 
 **The five dependabot pull requests can now be closed without regret** — their bumps arrived
 in `main` together with `dev`. If it managed to recreate them before the merge, they will
@@ -1298,8 +1396,8 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 1610 tests, ~2 min (CI runs this)
-cd server  && python -m mypy                             # clean, 83 modules
-cd android && ./gradlew test                             # 769 tests
+cd server  && python -m mypy                             # clean, 84 modules
+cd android && ./gradlew test                             # 830 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
@@ -1371,19 +1469,22 @@ parity was computed from the ISO week number, which does not alternate in a 53-w
 from January 2027 the whole denominator of the **current** school year slid by a week,
 simultaneously in the API, the widget, the digests and the calendar.
 
-**Migrations:** production is at `0013`, and that is the last revision written. `0007`–`0012`
-were applied **before** the merge through the Neon connector and `0013` after it; the details
-and what each one did are in section 7, item 1. **There is nothing left to do to the database
-before a merge.**
+**Migrations:** production is at `0014`, and that is the last revision written. `0007`–`0012`
+were applied **before** the merge through the Neon connector, `0013` after it (it adds a
+`UNIQUE`, and a constraint migrates in the opposite direction from a column), and `0014`
+before it again. The details and what each one did are in section 7, item 1. **There is
+nothing left to do to the database before a merge.**
 
 ---
 
 ## 3. What has NOT been done
 
-### 3.1. The features that were requested — all three are done
+### 3.1. The features that were requested — all but one are done
 
-**No requested work is left untaken.** The section is kept struck through rather than
-deleted: it shows what exactly was asked for and what it turned out to be.
+**One requested item is left untaken, and it is a decision rather than work:** scrolling the
+calendar by years, which is in section 7 with the two answers and what each costs. Everything
+else that has been asked for is in. The section is kept struck through rather than deleted:
+it shows what exactly was asked for and what it turned out to be.
 
 ~~1. **A pupil choosing their own class.**~~ Done in `8ec2e31`. The phone keeps a list of
    memberships, shows one of them and switches instantly; the cache is split by class, so
@@ -1629,6 +1730,18 @@ and that was the defect.
 This is the main thing worth knowing: **all of this work is proved by tests and by nothing
 else.**
 
+- **Nothing of the calendar or the day screen has been looked at.** What the tests prove is
+  which accent a day resolves to, where a band of one reason ends, which row
+  «вернуться к текущему» lands on, and which of three depth levels a given API level gets.
+  What nobody has seen: the four accents beside one another, whether the summer's tint is
+  faint enough across sixty cells, whether the perspective tilt reads as depth or as a
+  wobble, and whether the AGSL band reads as light rather than as a smear. **What it costs
+  is unmeasured too** — one shader layer and a per-frame clock on a mid-range phone is a
+  frame budget nobody has looked at.
+- **The reported term defect is fixed against tests, not against the class that reported
+  it.** The server fix needs no new APK, so the first real check is that class's next sync
+  after the deploy, and `/api/v1/warmup` answering `"schema":"0014"` is the cheapest sign
+  that the migration and the code actually met.
 - **There is still no `androidTest` in the project**, and no emulator is available here: the
   container has no `/dev/kvm` and no virtualisation flags, so the system could only be
   started by full software emulation, that is, not at all.
@@ -2330,6 +2443,27 @@ has a Cyrillic identifier: Kotlin has none at all.
 ## 7. Left to the owner
 
 All of this is beyond an agent's reach: it needs a phone, a key or a live service.
+
+**The calendar year-scroll is a decision, and nothing else is blocking it.** The owner asked
+for «прокрутки по годам» and it is the one item of that request not in #77. The phone's
+cache holds one school year by construction, so there are exactly two answers and they cost
+very differently:
+
+* **(a) Bind the picker to the year that is synced.** An afternoon's work, and very nearly
+  useless — it would scroll to a year whose days are not in the cache and draw sixty empty
+  cells.
+* **(b) Sync a window on demand.** The honest one, and a batch of its own: it breaks the
+  one-window-per-class invariant and touches `SchoolYear.boundsAt`, `TimetableDao.replaceAll`,
+  the Room schema, the `ETag` signature and `MAX_BUNDLE_DAYS`.
+
+Nothing here should pick between them unasked. **(b) is the one worth doing**; it is only
+recorded as the owner's because it is a week rather than an afternoon.
+
+**The hour ruler is gone.** «Календарь → День» is the ribbon now, and a reader who preferred
+reading the day by position — a gap as a height rather than as a row — has lost that. It was
+a deliberate replacement rather than an addition, because two views of one day is how the
+bot's two timetable editors nearly drifted apart; if it turns out to be missed, the ruler is
+in the history at `f5a8172^`.
 
 **The milestones were the newest of these, and that one is done.** Milestones 1 to 5 cover
 versions that are finished and the owner has closed all five. Three stay open on purpose:
