@@ -12,12 +12,13 @@ from __future__ import annotations
 
 from datetime import date as Date
 
+from httpx import ASGITransport, AsyncClient
+
+from app.main import app
 from app.models import DayKind, DayOverride, TermKind
 from app.schedule import DayOffReason, ScheduleResolver
 from app.services import holidays
 from app.services import terms as terms_service
-from tests.test_api import _token
-from tests.test_api import client as client  # noqa: F401  # the httpx fixture
 
 
 def test_a_statutory_day_stops_lessons_and_an_observance_does_not():
@@ -171,13 +172,20 @@ async def test_a_day_marked_by_hand_on_a_public_holiday_keeps_what_it_was_given(
     assert day.off_reason is DayOffReason.PUBLIC_HOLIDAY
 
 
-async def test_the_bundle_carries_the_name_and_the_reason(client, school_class):
-    token = await _token(client)
-    response = await client.get(
-        "/api/v1/bundle",
-        params={"start": "2026-10-05", "days": 1},
-        headers={"Authorization": f"Bearer {token}"},
-    )
+async def test_the_bundle_carries_the_name_and_the_reason(school_class):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        joined = await client.post(
+            "/api/v1/join", json={"code": "TEST42", "device_name": "pytest"}
+        )
+        assert joined.status_code == 200, joined.text
+        token = joined.json()["token"]
+
+        response = await client.get(
+            "/api/v1/bundle",
+            params={"start": "2026-10-05", "days": 1},
+            headers={"Authorization": f"Bearer {token}"},
+        )
     assert response.status_code == 200, response.text
 
     day = response.json()["days"][0]

@@ -44,8 +44,14 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`python -m pytest -q`** — 1559 tests, about five minutes; `-n auto` puts them on
-  every core and finishes in a third of that, which is what CI runs
+- **`pytest -q -n auto`** — 1605 tests in about two minutes, and **the exact command
+  CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
+  form puts the current directory on `sys.path` and the bare one does not, so a
+  `from tests.test_api import …` in a test file passes locally and fails at
+  *collection* on CI with «No module named 'tests'» about a directory that is plainly
+  there. That shipped once. `tests/test_test_imports.py` now refuses a test module
+  that imports another one at all — a shared fixture belongs in `conftest.py`, which
+  pytest loads by path rather than by import
 - **`python -m mypy`** — one question, of all 83 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. Not in CI — the
@@ -266,7 +272,7 @@ points Hilt does not inject cleanly.
   `alembic upgrade head` by hand and this session has no `DATABASE_URL`; the project is the
   one named `lessons` on the Neon MCP server — the account has two, so read the name rather
   than guessing an id, and the id itself stays out of the repository — and `0005` through
-  `0013` were all applied that way. It is not alembic running — it is the revision's DDL executed as one
+  `0014` were all applied that way. It is not alembic running — it is the revision's DDL executed as one
   transaction, with `alembic_version` stamped in the same transaction — so three things
   follow. Take the DDL from the model rather than writing it out: `CreateTable(...).compile(
   dialect=postgresql.dialect())` prints exactly what `create_all` would build, which is what
@@ -274,7 +280,7 @@ points Hilt does not inject cleanly.
   a half-applied revision cannot claim to be whole. And say what a revision destroys before
   running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
   sentence the owner needs *before* the transaction, not after.
-- **Migrations are Alembic and production is at `0013`, which is the head.** `0001` is a guarded
+- **Migrations are Alembic and production is at `0014`, which is the head.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
@@ -290,7 +296,12 @@ points Hilt does not inject cleanly.
   tightened them and rewrote nothing. `0013` adds `uq_homework_per_subject_per_day`
   and was **applied after the merge, not before** — see the constraint rule
   below; on this database it deleted nothing, because `homework` held no rows
-  and therefore no duplicates.
+  and therefore no duplicates. `0014` widens `day_overrides.kind` from
+  `VARCHAR(9)` to `VARCHAR(10)`, because `DayKind` gained `SELF_STUDY` and a
+  `SAEnum` stores the member **name** — the column is exactly as wide as the
+  longest one, so adding a kind is a migration rather than a line. It is the
+  ordinary additive shape and went on **before** the merge; it rewrites no row
+  and every existing value stays what it was.
   Nothing after `0001` may use `create_all`.
   Beware the enum: `SAEnum(SomeStrEnum)` stores the member **name**, so a `server_default`
   written as `.value` is a string the ORM cannot read back — which on `classes` is a
