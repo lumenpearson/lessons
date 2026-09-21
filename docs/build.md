@@ -233,8 +233,23 @@ there is nothing in it that says the build is yours rather than somebody else's.
    with the length of what ended up in the field. Delete `check.jks` and `keystore.b64`
    afterwards - both are copies of your key.
 
-   On a phone, put it in the clipboard rather than selecting it by hand:
-   `termux-clipboard-set < keystore.b64` (`pkg install termux-api`).
+   **On a phone, do not copy it at all.** Selecting several thousand characters in a
+   terminal by hand is the thing that goes wrong; `termux-clipboard-set` is not the way
+   round it either, because the `termux-api` package is only the command and it blocks for
+   ever waiting on the Termux:API app, which is a separate install. Write the secret
+   straight from the shell instead:
+
+   ```bash
+   pkg install gh && gh auth login      # «Login with a web browser» — the same device flow
+   gh secret set KEYSTORE_BASE64 --repo <owner>/<repo> \
+     --body "$(base64 release.jks | tr -d '\n\r')"
+   gh secret list --repo <owner>/<repo>   # names and dates; GitHub returns no values
+   ```
+
+   Nothing is selected, so nothing can be truncated, and no copy of the key is left in a
+   file. If `gh` is not wanted, copy from a text editor rather than from the terminal —
+   `termux-setup-storage` then `cp keystore.b64 ~/storage/downloads/`, open it, select all —
+   and delete that copy afterwards: shared storage is readable by anything on the phone.
 
 4. Add four secrets under **Settings → Secrets and variables → Actions** (on the
    repository, not the organisation, if you are unsure):
