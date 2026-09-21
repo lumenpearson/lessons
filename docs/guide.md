@@ -298,3 +298,9 @@ If none of that fits — **«Настройки → О приложении → 
 goes out as an issue on GitHub and already contains the table about the device and the
 version. There is no need to add the class code or anybody's surname to it: the issue is
 public.
+
+If the app closes by itself, switch **«Настройки → О приложении → Отчёты о сбоях»** on and
+let it happen once more. The row under the switch opens the last five reports and sends the
+one you choose — it is there for everybody, not only for an administrator, because the
+reports are written into a folder Android no longer lets a file manager open, and the crash
+worth reporting is often the one that leaves no time to reach anything else.

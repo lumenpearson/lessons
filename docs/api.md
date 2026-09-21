@@ -206,6 +206,13 @@ mark, because that is a claim about the check rather than about the payload.
   `start` defaulting to "today" is resolved in the class's zone. Clients must
   derive "now" from this field rather than from the device clock.
 * `kind` on a day is one of `normal`, `holiday`, `shortened`, `remote`.
+* **Out of season a day carries no lessons.** The weekly template stops at the end
+  of May and is not repeated over June, July and August, nor over the days before a
+  year's first teaching day, so those days come back with an empty `lessons` array
+  and — unless somebody marked them by hand, in which case their kind and note
+  stand — `kind: "holiday"`. Events and homework are returned either way: an
+  excursion in June is a real thing, and it is the lessons that are out of season,
+  not the day.
 * `kind` on an event is one of `event`, `canteen`, `exam`, `trip`, `meeting`.
 * A cancelled lesson stays in the array with `is_cancelled: true` rather than
   disappearing, so the UI can strike it through instead of silently renumbering
@@ -439,12 +446,28 @@ and changes the room or teacher), `cancel`, or `clear`, which deletes the row
 and puts the lesson back on the timetable. Answers the stored row with the
 `action` echoed. Subscribers with «замены и события» on are told.
 
-Two `422`s on create, both about a row that would be stored and drawn nowhere:
-the number has no bell that day (`нет звонка для урока №N в этот день` — the
-day view builds its times out of the bell rows), and `cancel` at a number the
-day has no lesson at (`отменять нечего`). `replace` at an empty number is
-fine — that is how a lesson is *added* to a day — and `clear` is always
-allowed, because it is how a class gets out of a row it should not have.
+Every `422` here is about one thing: a row that would be stored, written to the
+log, announced to every subscriber — and drawn on no phone, in no widget and in
+no calendar feed. There are three of them.
+
+* **On create**, a number the day rings no bell at (`нет звонка для урока №N в
+  этот день`): the day view builds its times out of the bell rows. Only on
+  create — an existing row at such a number has to stay editable, because
+  `clear` is how a class gets out of one.
+* **On create and on update**, a `cancel` or a `replace` naming no subject at a
+  number the **weekly template** puts nothing on (`отменять нечего`, `замене без
+  предмета нечего заменять`): such a row has no subject to inherit and the
+  resolver drops it. The question goes to the template rather than to the
+  resolved day, because on update that day already contains the row being
+  edited — a `replace` that added «Астрономия» to an empty number would
+  otherwise vouch for a second write that cleared the subject again.
+* **On any date the resolver draws no lessons on at all**: outside the school
+  year — with its own sentence for the summer and for a date before the year
+  has opened — and on a day already marked «выходной» by hand.
+
+`replace` with a subject at an empty number is fine — that is how a lesson is
+*added* to a day — and `clear` is always allowed, because it is how a class gets
+out of a row it should not have.
 
 ### `PUT /api/v1/events` → `201 {"id": 42}`
 
@@ -489,7 +512,7 @@ instant.
 | Method | Path | Role | Does |
 | --- | --- | --- | --- |
 | `GET` | `/manage/class` | admin | The class card |
-| `PATCH` | `/manage/class` | admin | Rename, re-home, change time zone |
+| `PATCH` | `/manage/class` | admin | Rename, move its year, re-home, change time zone or join mode |
 | `DELETE` | `/manage/class` | owner | Delete the class and everything in it |
 | `GET` | `/manage/subjects` | editor | The dictionary, with ids |
 | `POST` | `/manage/subjects` | admin | Add a subject → `201` |
@@ -555,7 +578,12 @@ API's «🏖 Особые дни».
 
 `PATCH /manage/class` takes any of `name`, `grade`, `letter`, `school`, `city`,
 `timezone`, `join_mode` and answers the card. Only the fields present change; `null` clears
-`school` or `city`. `name` and `timezone` may not be null or blank, and
+`school` or `city`. Moving `grade` or `letter` also **recomposes the name** from the two,
+because that is where the name came from when the class was created: a class that went from
+9 to 10 and stayed called «9А» showed the wrong class on every screen that prints one. A
+request that names the class as well wins over both — an admin who typed a name has said
+what they want — and the `class.name` audit line is written only when the name actually
+changed. `name` and `timezone` may not be null or blank, and
 `timezone` must be one of the eleven Russian zones the bot offers (`422 unknown
 timezone` otherwise). Changing the zone moves no stored time - a bell rings at
 08:30 whatever the zone says - it changes which instant the class calls "now".
@@ -833,9 +861,11 @@ once cannot grant twice.
 
 Not for clients. A serverless deployment has no scheduler, so the morning and
 evening digests and one-off task reminders are sent by whoever calls this
-endpoint - `.github/workflows/reminders.yml` in this repository, every five
-minutes, with the `X-Cron-Secret` header set to the deployment's
-`CRON_SECRET`.
+endpoint, every five minutes, with the `X-Cron-Secret` header set to the
+deployment's `CRON_SECRET`. That caller is an external cron service;
+`.github/workflows/reminders.yml` in this repository asks for the same five
+minutes but is only the fallback, for the measured reason in
+[deploy.md](deploy.md#the-clock-the-server-has-none-and-githubs-will-not-do).
 
 | Status | Meaning |
 | --- | --- |
@@ -853,7 +883,7 @@ runs between requests:
 
 | What | When it is deleted | Why |
 | --- | --- | --- |
-| Abandoned bot dialogues (`fsm_states`) | after a day | `fsm_purged` |
+| Abandoned bot dialogues (`fsm_states`) | after two days | `fsm_purged`; the «current class» preference sits in the same table and is exempt, because it is written once and only read afterwards |
 | Failed-join counters (`join_attempts`) | after an hour | `join_attempts_purged` |
 | Diary sessions (`diary_sessions`) | a day after the service refuses one, 30 days after it was last used | a live token for somebody else's service is inside |
 | Device tokens (`device_tokens`) | after 180 days of silence | every `POST /join` creates a row, and reinstalling the app leaves the old one for ever |
@@ -908,6 +938,13 @@ sign-in screen every few days — is not worth it.
 This session's token is **not** the same as the class device's. A phone can be connected to
 a class without a diary and to a diary without a class; one token meaning both would have to
 be re-minted whenever either half changed.
+
+Failed sign-ins are rate-limited per client address, ten per fifteen minutes, in a bucket of
+their own: ten wrong diary passwords must not spend a phone's thirty `/join` attempts. Past
+that the endpoint answers `429` with `Retry-After`, and it is counted in the database, like
+the join limiter, because nothing in this deployment survives between requests. What the
+limit is for is that this server's address must not become a way of guessing passwords
+against somebody else's school diary.
 
 ### What can be asked
 
@@ -1019,6 +1056,7 @@ where they are visible as corrections and are reversible.
 | `401` + `X-Diary-Reauth: required` | the diary's session expired | ask for the password again |
 | `404` | this account has no such child | — |
 | `422` | on reads, the date range is inverted or wider than 62 days; on `PUT .../overrides`, the correction was refused: an unknown `target`, an uncorrectable field, or an empty value where empty is not allowed | on a read, fix the range; on a correction, show `detail` |
+| `429` | on `/diary/login`, ten failed sign-ins from this address inside fifteen minutes | wait out `Retry-After`, and do not blame the password |
 | `502` | the diary answered incomprehensibly | say that the service has changed |
 | `503` | the diary is not answering | offer to retry |
 

@@ -501,6 +501,48 @@ following one another. A forty-minute gap between lessons looks like two consecu
 a list; on a ruler it looks like a gap. Events get a column beside the lessons, because an
 event overlapping a lesson is information, and a list cannot show an overlap.
 
+## Nothing is cut off, and nothing subcomposes to find out how wide it is
+
+Two rules about one line of text. The first is a matter of taste, held by a test because
+nothing about breaking it looks wrong; the second was paid for with the app going down
+wherever a line was drawn.
+
+**An ellipsis is a promise that there is more and a refusal to show it.** On a segmented
+picker's label that was never acceptable — the whole word is the button — and it is no more
+acceptable on a subject whose end cannot be read, or on «По этому предмету ничего не
+задано» cut mid-word in a sheet with a screenful of room under it. So a line pinned to one
+line scrolls instead: `MarqueeText` in `:core:designsystem`, with the fade applied *outside*
+the marquee so that it masks the window the text moves through rather than travelling with
+it. A block allowed to wrap is simply not capped, because every one of them sits in
+something that scrolls. `NoEllipsisedLineTest` reads the source of every module that draws
+in Compose, because neither cut looks wrong on the way past; a bare `maxLines = 1` is the
+worse of the two, since it clips with no «…» at all and the reader is not even told. Six
+sites opt out with the reason written on the line above them. `:widget` is outside the rule
+and the pass it gets is worth nothing: `RemoteViews` has no frame loop and no
+`TextOverflow`, so the home screen puts its «…» into the string by hand, because the
+platform leaves no other answer.
+
+**Whether a line overflows cannot be read off the layout** — `basicMarquee` hands the text
+unbounded width, so the text node never reports overflow and `onTextLayout` answers `false`
+for ever. The string is measured against the width the line actually got. Learning that
+width through a `BoxWithConstraints` is what anybody would reach for, and it crashed the
+app: a `BoxWithConstraints` is a `SubcomposeLayout`, and a `SubcomposeLayout` cannot answer
+"how tall would you be at this width" — `IllegalStateException: Asking for intrinsic
+measurements of SubcomposeLayout layouts is not supported`, on the main thread, from a
+`Layout` nobody here wrote. Nothing in this repository spells `IntrinsicSize`, which is what
+made it look safe: Material spells it inside its own rows, so the question arrives with no
+call site mentioning it, and in a release build the stack names neither the component nor
+the screen. The width comes from `Modifier.onSizeChanged` now — the layout the composable is
+already in — and the price is one frame in which nothing can overflow and a line that will
+scroll is drawn still, which is what the first frame of a marquee looks like anyway.
+
+`NoSubcomposedLeafTest` holds that for the whole of `:core:designsystem` rather than leaving
+it to review, because the mistake compiles and every screen it is on works until one of them
+is put in a row that measures. `:app` and `:widget` are outside it for a reason rather than
+for convenience: a `LazyColumn` or a `Scaffold` on a screen is the root of its own layout,
+handed a slot and filling it, with nothing above asking it to predict a size. The rule is
+about a component written to be placed inside a layout it does not own.
+
 ## How much the widget says at each size
 
 The size ladder is twelve rungs, and each declares its own portion with flags right on
@@ -1032,7 +1074,7 @@ indistinguishable from `settings_title`. And a correction to a `ds_` string past
 `:app` does not fix the library string — it declares a second one that shadows it: it looks
 right, the original stays wrong, and `ResourceTranslationTest` starts demanding an English
 twin for a string that should not exist. So the routing goes by prefix — not one invented
-here: all 38 of the design system's strings, all 18 of `:core:data`'s and all 77 of the
+here: all 38 of the design system's strings, all 18 of `:core:data`'s and all 76 of the
 widget's already carry it, and no other module uses them. `TranslationXmlTest` reads the
 source tree and holds that rule, because a prefix nobody checks is a prefix until the next
 string.
