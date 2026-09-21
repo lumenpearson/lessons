@@ -474,4 +474,14 @@
     <string name="ribbon_snap_description">Лента останавливается на целом событии, а не между двумя.</string>
     <string name="ribbon_depth_title">Объём</string>
     <string name="ribbon_depth_description">Наклон карточек, градиенты и подсветка текущего события.</string>
+
+    <!-- Scrolling the calendar into a school year that is not in the cache -->
+    <string name="week_year_label">%1$d/%2$02d</string>
+    <string name="week_year_pick">Учебный год</string>
+    <string name="week_year_loading_title">Загружаю год</string>
+    <string name="week_year_loading_description">Расписание на %1$s скачивается.</string>
+    <string name="week_year_missing_title">Год не загружен</string>
+    <string name="week_year_missing_description">Расписание на %1$s ещё не скачано. Потяните вниз, чтобы попробовать снова.</string>
+    <string name="week_year_held">загружен</string>
+    <string name="week_year_not_held">не загружен</string>
 </resources>

@@ -73,6 +73,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
 import com.lumenpearson.lessons.core.model.DayKind
 import com.lumenpearson.lessons.core.model.Lesson
+import com.lumenpearson.lessons.core.model.SchoolYear
 import com.lumenpearson.lessons.core.model.Term
 import com.lumenpearson.lessons.core.model.DayFilter
 import com.lumenpearson.lessons.core.model.DayOrder
@@ -143,6 +144,18 @@ fun WeekScreen(
 
     ReportScrollOffset(scrollState)
 
+    var yearPickerOpen by rememberSaveable { mutableStateOf(false) }
+    if (yearPickerOpen) {
+        YearPickerSheet(
+            currentYear = state.anchorYear,
+            todayYear = SchoolYear.openingYearOf(state.today),
+            syncedYears = state.syncedYears,
+            loadingYear = state.loadingYear,
+            onPick = viewModel::openYear,
+            onDismiss = { yearPickerOpen = false },
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -157,10 +170,12 @@ fun WeekScreen(
         ScheduleHeader(
             periodLabel = state.periodLabel(),
             termLabel = state.termLabel(),
+            yearLabel = yearLabel(state.anchorYear),
             showTodayAction = state.canReturnToToday,
             onToday = viewModel::showToday,
             onPrevious = viewModel::showPrevious,
             onNext = viewModel::showNext,
+            onPickYear = { yearPickerOpen = true },
         )
 
         SegmentedPicker(
@@ -230,6 +245,7 @@ fun WeekScreen(
         DayPanel(
             day = selected,
             date = state.selected,
+            loadingYear = state.loadingYear == SchoolYear.openingYearOf(state.selected),
             showTeacher = state.showTeacher,
             showEvents = state.showEvents,
             showHomework = state.showHomework,
@@ -258,6 +274,18 @@ private fun RibbonPage(
     val listState = rememberLazyListState()
     ReportScrollOffset(listState)
 
+    var yearPickerOpen by rememberSaveable { mutableStateOf(false) }
+    if (yearPickerOpen) {
+        YearPickerSheet(
+            currentYear = state.anchorYear,
+            todayYear = SchoolYear.openingYearOf(state.today),
+            syncedYears = state.syncedYears,
+            loadingYear = state.loadingYear,
+            onPick = viewModel::openYear,
+            onDismiss = { yearPickerOpen = false },
+        )
+    }
+
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     if (settingsOpen) {
         RibbonSettingsSheet(
@@ -283,10 +311,12 @@ private fun RibbonPage(
         ScheduleHeader(
             periodLabel = state.periodLabel(),
             termLabel = state.termLabel(),
+            yearLabel = yearLabel(state.anchorYear),
             showTodayAction = state.canReturnToToday,
             onToday = viewModel::showToday,
             onPrevious = viewModel::showPrevious,
             onNext = viewModel::showNext,
+            onPickYear = { yearPickerOpen = true },
         )
 
         SegmentedPicker(
@@ -309,6 +339,9 @@ private fun RibbonPage(
             depth = state.ribbonDepth,
             showTeacher = state.showTeacher,
             showHomework = state.showHomework,
+            isFetched = state.selectedDay?.isFetched != false,
+            loadingYear = state.loadingYear == SchoolYear.openingYearOf(state.selected),
+            yearName = yearLabel(SchoolYear.openingYearOf(state.selected)),
             listState = listState,
             onLessonClick = onLessonClick,
             onSettings = { settingsOpen = true },
@@ -390,10 +423,12 @@ internal fun Term.label(): String = when (kind) {
 private fun ScheduleHeader(
     periodLabel: String,
     termLabel: String?,
+    yearLabel: String,
     showTodayAction: Boolean,
     onToday: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    onPickYear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -409,6 +444,15 @@ private fun ScheduleHeader(
             // line pushes the grid down on every phone for a word.
             subtitle = listOfNotNull(periodLabel, termLabel).joinToString(" · "),
             modifier = Modifier.weight(1f),
+        )
+        // The school year, and the way into the years either side of it. A chip
+        // rather than a third pair of arrows: the arrows step the *period*,
+        // which is a week here and a month there, and a second pair meaning
+        // «year» beside them is two controls that look the same and are not.
+        PillChip(
+            text = yearLabel,
+            onClick = onPickYear,
+            modifier = Modifier.padding(end = 4.dp),
         )
         // Only offered when it would do something: a "back to today" button on
         // a period that already contains today is noise.
@@ -931,6 +975,8 @@ private fun MonthCell(
 private fun DayPanel(
     day: WeekDayUi?,
     date: LocalDate,
+    /** Whether a fetch of this date's school year is in flight right now. */
+    loadingYear: Boolean,
     showTeacher: Boolean,
     showEvents: Boolean,
     showHomework: Boolean,
@@ -964,6 +1010,28 @@ private fun DayPanel(
         DayChips(day = day, date = date)
 
         when {
+            // Three ways to be empty, and they were one until the cache learned
+            // to hold more than a year. «Нет данных» about a year nobody has
+            // asked for is a timetable that looks like it stops; «загружаю» is
+            // the same screen with the truth on it.
+            schoolDay == null && day?.isFetched == false -> EmptyState(
+                title = correctedString(
+                    if (loadingYear) {
+                        R.string.week_year_loading_title
+                    } else {
+                        R.string.week_year_missing_title
+                    },
+                ),
+                description = correctedString(
+                    if (loadingYear) {
+                        R.string.week_year_loading_description
+                    } else {
+                        R.string.week_year_missing_description
+                    },
+                    yearLabel(SchoolYear.openingYearOf(date)),
+                ),
+            )
+
             schoolDay == null -> EmptyState(
                 title = correctedString(R.string.week_no_data_title),
                 description = correctedString(R.string.week_no_data_description),

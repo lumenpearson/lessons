@@ -119,6 +119,12 @@ internal fun DayRibbonView(
     depth: Boolean,
     showTeacher: Boolean,
     showHomework: Boolean,
+    /** Whether this date's school year is in the cache at all. */
+    isFetched: Boolean,
+    /** Whether a fetch of it is in flight right now. */
+    loadingYear: Boolean,
+    /** «2026/27», for the sentence that names the year being waited on. */
+    yearName: String,
     onLessonClick: (Lesson) -> Unit,
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
@@ -145,17 +151,36 @@ internal fun DayRibbonView(
             verticalArrangement = Arrangement.spacedBy(GroupGap),
         ) {
             header()
+            // The same three ways of being empty the month grid tells apart:
+            // a year nobody has asked for, a year on its way, and a day that
+            // genuinely has nothing on it.
             EmptyState(
                 title = correctedString(
-                    if (day == null) R.string.week_no_data_title else R.string.week_day_off_title,
-                ),
-                description = correctedString(
-                    if (day == null) {
-                        R.string.week_no_data_description
-                    } else {
-                        R.string.week_day_off_description
+                    when {
+                        !isFetched && loadingYear -> R.string.week_year_loading_title
+                        !isFetched -> R.string.week_year_missing_title
+                        day == null -> R.string.week_no_data_title
+                        else -> R.string.week_day_off_title
                     },
                 ),
+                description = if (!isFetched) {
+                    correctedString(
+                        if (loadingYear) {
+                            R.string.week_year_loading_description
+                        } else {
+                            R.string.week_year_missing_description
+                        },
+                        yearName,
+                    )
+                } else {
+                    correctedString(
+                        if (day == null) {
+                            R.string.week_no_data_description
+                        } else {
+                            R.string.week_day_off_description
+                        },
+                    )
+                },
             )
         }
         return
