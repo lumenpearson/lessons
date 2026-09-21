@@ -50,6 +50,10 @@ Chips above the calendar narrow it to what you are after: with lessons, with hom
 
 In the month view the days with no lessons are shaded differently, and it is not decoration: a weekend, the holidays between two terms, the summer and a public holiday are four different answers to “why is this empty”. Consecutive days with the same answer are drawn as one band, and a month with no teaching in it at all is labelled across the grid. The day card names the date where it has a name — both “День Победы” and “День учителя”; the second one still has lessons, the first does not.
 
+The day view is a ribbon: every entry of the day as a row of its own, in the order it happens, with the breaks as rows too rather than as emptiness between two lessons. Beside each row is its time — when it starts and ends, how long it runs for, and, for whatever is running now, how much has gone and how much is left. A button at the bottom returns to what is current; once the day is over there is nothing to return to, and the button is not there.
+
+The ribbon's own settings are under the button beside it, and there are three: which way the progress travels (down the page, as a timetable is printed, or up it, as a countdown feels), whether the scroll settles on a whole row, and whether the cards have depth — the tilt, the gradients and the highlight on what is running. On Android 13 and above that highlight is a shader and runs along the row with the clock; below it the tilt and the gradients remain.
+
 > Tapping a day in the widget opens “Calendar” in its day view, on the date you tapped.
 
 ## The widget

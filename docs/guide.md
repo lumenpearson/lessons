@@ -80,7 +80,7 @@ Three tabs and a gear at the side.
 | Tab | What it shows |
 | --- | --- |
 | **Сегодня** | what is running now and how long is left, then the rest of the day and the assignments |
-| **Календарь** | three scales — day, week and month — with rooms, substitutions and cancellations |
+| **Календарь** | four readings of the same timetable — the day as a ribbon, the week, the month as a grid and the month as a list — with rooms, substitutions and cancellations |
 | **Задания** | homework grouped by the day it is **set for** |
 
 The «Задания» tab shows only future assignments by default — the «Все» button opens the
