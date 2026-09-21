@@ -10,7 +10,6 @@ import androidx.compose.material.icons.rounded.SwipeVertical
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.GroupSwitchItem
@@ -19,7 +18,6 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.component.SegmentedPicker
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
-import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
@@ -63,9 +61,9 @@ internal fun RibbonSettingsSheet(
             labelProvider = { it.asLabel() },
             containerColor = MaterialTheme.colorScheme.rowContainer,
             contentPadding = PaddingValues(4.dp),
-            modifier = Modifier
-                .padding(horizontal = ScreenPadding)
-                .clip(LessonsShapeTokens.Group),
+            // The picker rounds its own tray from the buttons inside it; a
+            // radius chosen here could only agree with them by coincidence.
+            modifier = Modifier.padding(horizontal = ScreenPadding),
         )
 
         RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {

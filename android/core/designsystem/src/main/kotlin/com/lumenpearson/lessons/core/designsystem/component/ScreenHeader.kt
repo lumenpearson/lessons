@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsSans
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
@@ -38,6 +39,7 @@ fun ScreenHeader(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    singleLineSubtitle: Boolean = false,
 ) {
     Column(
         modifier = modifier
@@ -45,7 +47,17 @@ fun ScreenHeader(
             .padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text(
+        // A screen's name never wraps. «Календарь» broke after «Календар» and
+        // dropped its «ь» onto a second line, because the calendar's header put
+        // the title, a year chip and three icon buttons in one `Row` and gave
+        // the title whatever was left — about eight characters at 411 dp. That
+        // header no longer does, but a title is the wrong thing to wrap
+        // whatever it is given: it is one or two words, and a word broken in
+        // half reads as a rendering fault rather than as a long name.
+        // `MarqueeText` is how this app keeps a line on one line — it measures
+        // first, so every title that fits, which is all of them today, is drawn
+        // exactly as a plain `Text` would draw it.
+        MarqueeText(
             text = title,
             // Weight is what marks a heading as a heading. This asked for a
             // second, rounded family until the typeface changed: the face this
@@ -59,11 +71,23 @@ fun ScreenHeader(
             color = MaterialTheme.colorScheme.onSurface,
         )
         if (subtitle != null) {
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // The subtitle is allowed to wrap, and on most screens it should:
+            // `DocsScreen` passes a page's summary here, which is a sentence.
+            // A caller that wants one line asks for it, rather than every
+            // caller inheriting the calendar's answer.
+            if (singleLineSubtitle) {
+                MarqueeText(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

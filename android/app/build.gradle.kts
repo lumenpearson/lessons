@@ -114,6 +114,30 @@ val githubClientId = signingSecret("LESSONS_GITHUB_CLIENT_ID", "lessons.github.c
 // hides the button.
 val contactEmail = signingSecret("LESSONS_CONTACT_EMAIL", "lessons.contactEmail") ?: ""
 
+/*
+ * Where this APK came from, for the about page's badges.
+ *
+ * None of it can be worked out from inside the app, and that is the point: a
+ * build carries no memory of the checkout it was made from, so an APK on a
+ * phone cannot say which repository, which branch or which commit produced it.
+ * The only thing that knows is whatever ran the build, so it passes them in —
+ * `apk.yml` from the `GITHUB_*` variables the runner already has, a local
+ * build from `~/.gradle/gradle.properties` or from nothing at all.
+ *
+ * Every one of them is empty by default and every badge hides itself when its
+ * value is empty, which is what makes a build from a fresh clone with no
+ * configuration still produce a working page. They are facts about the build,
+ * not secrets: a public repository's name, ref and commit are public by
+ * definition. They live here rather than in the source because they change
+ * every build, and a source file that changed every build would make every
+ * build a dirty tree.
+ */
+val buildRepository = signingSecret("LESSONS_BUILD_REPOSITORY", "lessons.build.repository") ?: ""
+val buildRef = signingSecret("LESSONS_BUILD_REF", "lessons.build.ref") ?: ""
+val buildCommit = signingSecret("LESSONS_BUILD_COMMIT", "lessons.build.commit") ?: ""
+val buildNumber = signingSecret("LESSONS_BUILD_NUMBER", "lessons.build.number") ?: ""
+val buildTime = signingSecret("LESSONS_BUILD_TIME", "lessons.build.time") ?: ""
+
 android {
     namespace = "com.lumenpearson.lessons"
     compileSdk = 37
@@ -126,6 +150,11 @@ android {
         versionName = appVersionName
         buildConfigField("String", "GITHUB_CLIENT_ID", "\"$githubClientId\"")
         buildConfigField("String", "CONTACT_EMAIL", "\"$contactEmail\"")
+        buildConfigField("String", "BUILD_REPOSITORY", "\"$buildRepository\"")
+        buildConfigField("String", "BUILD_REF", "\"$buildRef\"")
+        buildConfigField("String", "BUILD_COMMIT", "\"$buildCommit\"")
+        buildConfigField("String", "BUILD_NUMBER", "\"$buildNumber\"")
+        buildConfigField("String", "BUILD_TIME", "\"$buildTime\"")
     }
 
     androidResources {

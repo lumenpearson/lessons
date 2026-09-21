@@ -41,3 +41,26 @@ internal data class HealthDto(
     @SerialName("status") val status: String = "unknown",
     @SerialName("api_version") val apiVersion: Int = 0,
 )
+
+/**
+ * Response of `GET /api/v1/warmup`.
+ *
+ * `/health` says the code is up; this one opens a connection and says whether
+ * the database behind it is the one that code was written against. The
+ * difference is the deployment failure this project has actually had: a merge
+ * lands before its migration is applied, nothing fails at startup, and the
+ * first ORM read of the changed table dies forty frames down a traceback. The
+ * server answers `degraded` and names both revisions instead.
+ *
+ * Every field has a default because this is also what an *older* server
+ * answers, and an about page that crashed on a server one deploy behind would
+ * be worse than one that says «неизвестно».
+ */
+@Serializable
+internal data class WarmupDto(
+    @SerialName("status") val status: String = "unknown",
+    @SerialName("api_version") val apiVersion: Int = 0,
+    @SerialName("schema") val schema: String? = null,
+    @SerialName("expected_schema") val expectedSchema: String? = null,
+    @SerialName("detail") val detail: String? = null,
+)

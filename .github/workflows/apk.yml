@@ -119,6 +119,15 @@ jobs:
           fi
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          # The one provenance fact the runner does not hand over ready-made.
+          # UTC and to the minute: a phone in another zone would render a
+          # runner's local timestamp as a lie, and a build is not interesting
+          # to the second. Computed here, with the other version facts, so it
+          # can be passed to Gradle through `env:` like every other property —
+          # `BuildPropertyReachTest` reads the two files together and counts an
+          # `export` inside a script as not passed, which is the correct answer
+          # for a wire nobody can see from outside the step.
+          echo "built_at=$(date -u +'%Y-%m-%dT%H:%MZ')" >> "$GITHUB_OUTPUT"
 
       - name: Decode keystore
         id: keystore
@@ -238,6 +247,22 @@ jobs:
           # the address.
           LESSONS_GITHUB_CLIENT_ID: ${{ secrets.LESSONS_GITHUB_CLIENT_ID }}
           LESSONS_CONTACT_EMAIL: ${{ secrets.LESSONS_CONTACT_EMAIL }}
+          # Where this APK came from, for the about page's badges. A build
+          # carries no memory of its own checkout, so an installed APK cannot
+          # say which repository, branch or commit produced it unless whatever
+          # ran the build says so — which is this, and only this.
+          #
+          # None of them is a secret: on a public repository the name, the ref
+          # and the commit are public by definition, and they are the three
+          # facts somebody holding a phone needs in order to match it against a
+          # pull request. They come from the runner rather than from settings so
+          # that a build of a fork, or of a branch, describes itself honestly
+          # instead of repeating this repository's name.
+          LESSONS_BUILD_REPOSITORY: ${{ github.repository }}
+          LESSONS_BUILD_REF: ${{ github.ref_name }}
+          LESSONS_BUILD_COMMIT: ${{ github.sha }}
+          LESSONS_BUILD_NUMBER: ${{ github.run_number }}
+          LESSONS_BUILD_TIME: ${{ steps.version.outputs.built_at }}
           INPUT_BUILD_TYPE: ${{ inputs.build_type || 'release' }}
         run: |
           case "$INPUT_BUILD_TYPE" in
@@ -272,12 +297,23 @@ jobs:
           ls -la "$RUNNER_TEMP/apks/"
           echo "count=$(find "$RUNNER_TEMP/apks" -name '*.apk' | wc -l)" >> "$GITHUB_OUTPUT"
 
+      # Deliberately no `retention-days`. This repository's own artifact
+      # retention is the only thing that decides how long the APK survives, and
+      # a larger number here does not raise it — it is silently reduced and
+      # logged as `##[warning]Retention days cannot be greater than the maximum
+      # allowed retention set within the repository. Using 1 instead.` This
+      # asked for ninety days and got one, every run, under a warning that
+      # reads like a build problem and sat there unread while `docs/build.md`
+      # went on promising ninety. Asking for nothing asks for the repository's
+      # setting, which is what was going to happen anyway, and the log stays
+      # clean. To keep the APK longer, raise it in Settings -> Actions ->
+      # General -> "Artifact and log retention"; that is the one place that
+      # changes the answer.
       - uses: actions/upload-artifact@v7
         with:
           name: lessons-apk
           path: ${{ runner.temp }}/apks/*.apk
           if-no-files-found: error
-          retention-days: 90
 
       - name: Publish release
         if: github.ref_type == 'tag' && steps.keystore.outputs.signed == 'true'
@@ -344,4 +380,9 @@ jobs:
             fi
             echo
             echo "Download it from the **lessons-apk** artifact on this run."
+            echo
+            echo "How long it stays is this repository's **artifact retention**"
+            echo "setting, not this workflow's - the workflow asks for no number,"
+            echo "because a larger one is silently reduced. Raise it in Settings"
+            echo "-> Actions -> General if the APK has to outlive the run."
           } >> "$GITHUB_STEP_SUMMARY"

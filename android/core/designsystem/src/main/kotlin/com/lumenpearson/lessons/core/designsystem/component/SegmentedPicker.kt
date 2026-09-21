@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
@@ -39,6 +40,7 @@ import com.lumenpearson.lessons.core.designsystem.modifier.LocalControlCentre
 import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
 import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
+import com.lumenpearson.lessons.core.designsystem.theme.ConcentricShape
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
@@ -87,9 +89,26 @@ fun <T> SegmentedPicker(
     // answer for at most one of the three. See ControlCentre.
     val controlCentre = LocalControlCentre.current
 
+    // The tray is rounded by the buttons in it rather than by a token of its
+    // own. It used to be clipped at the call site with `LessonsShapeTokens
+    // .Group` — 24 dp, the radius of a *group of rows* — around Material's
+    // connected buttons with 4 dp of padding, so the gap between the two curves
+    // was wider at the corners than along the edges. Three numbers picked in
+    // three places, none of them wrong on its own.
+    //
+    // `connectedLeadingButtonShape` is the shape of the first segment, whose
+    // outer corner is the one the tray has to follow; `topStart` is that
+    // corner. The trailing segment is its mirror, so one reading does both
+    // ends.
+    val shape = ConcentricShape(
+        inner = ButtonGroupDefaults.connectedLeadingButtonShape,
+        inset = contentPadding.calculateTopPadding(),
+    )
+
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .clip(shape)
             .background(containerColor)
             .padding(contentPadding),
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),

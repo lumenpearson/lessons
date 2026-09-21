@@ -12,7 +12,12 @@
 | `version_name` | what to write as the versionName; empty means the value from `build.gradle.kts` |
 | `version_code` | what to write as the versionCode; empty means this run's number |
 
-The APK lands in the **lessons-apk** artifact on the run's page and is kept for 90 days.
+The APK lands in the **lessons-apk** artifact on the run's page. **How long it stays is a
+repository setting, not a workflow one** — Settings → Actions → General → "Artifact and log
+retention". No workflow here asks for a number any more, because a number larger than that
+setting is not honoured: it is silently reduced, and the only trace is a warning in the log
+that reads like a build problem. This page promised ninety days for months while every run
+was reducing it, which is the kind of claim a document is worst at catching.
 `versionCode` defaults to the run number, which advances on its own, so two builds cannot be
 confused with each other. Give `version_code` when the number has to be chosen rather than
 inherited — it is the only version Android compares, and what is set in `build.gradle.kts`
@@ -24,9 +29,12 @@ for a release: R8 and resource shrinking are the classic source of "it worked in
 not in the installed APK", and catching that on a pull request is cheaper than catching it
 on users.
 
-The only difference from `lessons-apk` is how long it lives: the CI artifacts last a week,
-this one ninety days, because it exists to be handed to somebody. Why a week is in "Actions
-minutes" below.
+These used to ask for a week where `lessons-apk` asked for ninety days — short on purpose
+for the CI ones, for the reason in "Actions minutes" below. Neither number survived the
+repository's own retention setting, so both now leave it out and all of them live exactly
+as long as that setting says. If the APK has to outlive its run, that setting is the thing
+to raise, and raising it lengthens the CI artifacts too — which is the storage problem
+"Actions minutes" describes, so raise it deliberately rather than by default.
 
 ### Cut a release
 
@@ -295,6 +303,27 @@ the runner rather than into the working copy, and deletes it before anything is 
 so the key cannot leak through an artifact.
 
 ## Two buttons that are not in the build unless you say so
+
+### What the build is told about itself
+
+Five more optional properties, all of them facts about the build rather than secrets:
+`LESSONS_BUILD_REPOSITORY`, `LESSONS_BUILD_REF`, `LESSONS_BUILD_COMMIT`,
+`LESSONS_BUILD_NUMBER` and `LESSONS_BUILD_TIME`. They become the badges on «О
+приложении», and they exist because **a build keeps no memory of the checkout that
+produced it** — an APK on a phone cannot work out which repository, branch or commit it
+came from, so the only thing that can say is whatever ran it.
+
+`apk.yml` fills them from the runner's own `github.repository`, `github.ref_name`,
+`github.sha` and `github.run_number`, plus a UTC timestamp it generates in the build step.
+From the runner rather than from repository settings on purpose: a build of a fork or of a
+branch then describes itself honestly instead of repeating this repository's name. A local
+build sets them in `~/.gradle/gradle.properties` as `lessons.build.repository` and so on,
+or sets none of them — every badge hides itself when its value is empty, and the card says
+«Собрано вручную» instead of drawing a row of blanks.
+
+None of them is secret. On a public repository the name, the ref and the commit are public
+by definition, and they are exactly the three facts somebody holding a phone needs in order
+to match it against a pull request.
 
 `LESSONS_GITHUB_CLIENT_ID` and `LESSONS_CONTACT_EMAIL` are optional, and each one is a
 button. Without the first, «Войти через GitHub» is not on «О приложении» at all — and with

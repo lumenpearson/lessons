@@ -7,6 +7,7 @@ import com.lumenpearson.lessons.core.model.DayFilter
 import com.lumenpearson.lessons.core.model.DayOrder
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.HomeTab
+import com.lumenpearson.lessons.core.model.DayMode
 import com.lumenpearson.lessons.core.model.RibbonFlow
 import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.core.model.TodayLayout
@@ -202,6 +203,14 @@ data class AppSettings(
      * longer than one visit.
      */
     val dayRibbonFlow: RibbonFlow = RibbonFlow.DOWNWARD,
+    /**
+     * Which reading of «День» the calendar opens on — see [DayMode].
+     *
+     * Stored beside the ribbon's own three settings rather than treated as
+     * navigation, because it is the same kind of choice: a way of reading the
+     * same days, kept between visits.
+     */
+    val dayMode: DayMode = DayMode.RIBBON,
     /**
      * Whether the ribbon settles on a whole entry when the scroll stops.
      *

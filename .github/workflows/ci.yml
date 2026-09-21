@@ -206,15 +206,18 @@ jobs:
           name: test-reports
           path: android/**/build/reports/tests/**
           if-no-files-found: ignore
-          retention-days: 7
 
-      # A week, not the default ninety days. Storage is free on a public
-      # repository, but a 27 MB debug APK and a 5 MB release APK per run is
+      # No `retention-days` on any upload here, and that is a correction
+      # rather than a simplification. These asked for a week — short on
+      # purpose, because a 27 MB debug APK and a 5 MB release APK per run is
       # how this repository put every upload into "Artifact storage quota has
-      # been hit" while it was private — a red job on a build that passed —
-      # and nobody has ever wanted the APK of a pull request from two months
-      # ago. `apk.yml` is what keeps its ninety days, because that one exists
-      # to hand somebody an APK.
+      # been hit" while it was private, a red job on a build that passed, and
+      # nobody has ever wanted the APK of a pull request from two months ago.
+      # But the repository's own artifact retention is lower than a week, so
+      # the seven was never what happened: every run reduced it and said so in
+      # a warning, and the number here was a wish rather than a setting. The
+      # repository setting is the one that decides, for this workflow and for
+      # `apk.yml` alike; it is in Settings -> Actions -> General.
       #
       # `if-no-files-found: error` on both: it is the check that the build
       # produced what it claims.
@@ -223,10 +226,8 @@ jobs:
           name: app-debug
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          retention-days: 7
       - uses: actions/upload-artifact@v7
         with:
           name: app-release-unsigned-key
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
-          retention-days: 7

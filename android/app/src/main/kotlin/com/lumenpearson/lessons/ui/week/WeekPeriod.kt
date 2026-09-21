@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.ui.week
 
+import com.lumenpearson.lessons.core.model.DayMode
 import com.lumenpearson.lessons.core.model.WeekStart
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -28,6 +29,7 @@ internal const val DaysInWeek = 7
 internal fun ScheduleView.periodOf(
     anchor: LocalDate,
     weekStart: WeekStart,
+    dayMode: DayMode,
 ): Pair<LocalDate, LocalDate> = when (this) {
     ScheduleView.WEEK -> {
         val start = when (weekStart) {
@@ -47,13 +49,21 @@ internal fun ScheduleView.periodOf(
             last.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
     }
 
-    ScheduleView.DAY -> anchor to anchor
+    // «День» covers what the reading of it needs, and its two readings need
+    // different spans. The ribbon is one date — it draws the breaks between
+    // lessons, which is a sentence about a single day. The list is the month
+    // around it, because «в какой день больше всего» is a question about a
+    // stretch. This used to be two tabs and therefore two branches here; it is
+    // one tab with a mode now, and the mode is what the branch reads.
+    ScheduleView.DAY -> when (dayMode) {
+        DayMode.RIBBON -> anchor to anchor
 
-    // The month itself, without the neighbouring days a grid needs to fill its
-    // corners: a list has no corners, and «30 ноября» at the top of December
-    // would be a row nobody was asking for.
-    ScheduleView.AGENDA ->
-        anchor.withDayOfMonth(1) to anchor.with(TemporalAdjusters.lastDayOfMonth())
+        // The month itself, without the neighbouring days a grid needs to fill
+        // its corners: a list has no corners, and «30 ноября» at the top of
+        // December would be a row nobody was asking for.
+        DayMode.LIST ->
+            anchor.withDayOfMonth(1) to anchor.with(TemporalAdjusters.lastDayOfMonth())
+    }
 }
 
 /**

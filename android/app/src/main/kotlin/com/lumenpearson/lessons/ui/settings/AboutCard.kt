@@ -8,6 +8,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,10 +45,12 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.lumenpearson.lessons.BuildConfig
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.data.repository.ServerStatus
 
 /**
  * The card at the very bottom of the about page: what this is, and who it is by.
@@ -65,7 +70,7 @@ import com.lumenpearson.lessons.core.designsystem.text.correctedString
  * without the round trip.
  */
 @Composable
-fun AboutCard(modifier: Modifier = Modifier) {
+fun AboutCard(serverStatus: ServerStatus, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(CardCorner),
@@ -97,7 +102,11 @@ fun AboutCard(modifier: Modifier = Modifier) {
                 textAlign = TextAlign.Center,
             )
 
+            Badges(serverStatus = serverStatus)
+
             LinkPills()
+
+            Facts()
 
             DesignCredit()
 
@@ -187,12 +196,18 @@ private val Links = listOf(
 )
 
 /**
- * The links, two to a row and equal width.
+ * The links, one to a row and the full width of the card.
  *
- * Equal width is why this is a `Row` of weighted children rather than the
- * reference's `FlowRow`: flowing sizes each pill to its own label, so a short
- * label beside a long one reads as two different kinds of control rather than
- * as two of the same kind.
+ * Two to a row is what this was, and on a 411 dp phone it gave each pill about
+ * 130 dp — «Исходный код» came out as three stacked lines and «Essentials» was
+ * broken into «Essent / ials», a word split in half inside a button. Half of
+ * that was the card being padded twice (see [AboutCard]'s use in the settings
+ * list), and half was two pills sharing a row that was already narrow.
+ *
+ * Full width fixes both and costs one row of height for one extra link. It also
+ * removes the thing the old shape needed a spacer to fake: with one pill per
+ * row every pill is the same width by construction, rather than by an empty
+ * `Box` standing in for a missing one.
  */
 @Composable
 private fun LinkPills() {
@@ -200,21 +215,178 @@ private fun LinkPills() {
         verticalArrangement = Arrangement.spacedBy(PillGap),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Links.chunked(PillsPerRow).forEach { row ->
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(PillGap),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                row.forEach { link ->
-                    LinkPill(link = link, modifier = Modifier.weight(1f))
-                }
-                // Keeps a lone pill on an odd last row the same width as the
-                // ones above it instead of letting it stretch across.
-                repeat(PillsPerRow - row.size) {
-                    Box(modifier = Modifier.weight(1f))
-                }
+        Links.forEach { link ->
+            LinkPill(link = link, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+/**
+ * What this build is and what it is talking to, as a row of chips.
+ *
+ * Two questions that are asked together and answered nowhere else in the app.
+ * «Какая это сборка» cannot be answered by the version alone — every CI build
+ * of a branch carries the same `versionName` — so the repository, the ref and
+ * the commit are what actually identify an APK on a phone against a pull
+ * request. And «сервер жив?» has never had an answer here at all: every screen
+ * reports an unreachable server, a mistyped address and a half-applied
+ * migration as the same «не удалось обновить».
+ *
+ * A [FlowRow] rather than a fixed grid because the chips are a variable set:
+ * a local build has no commit, a build before this change has none of them, and
+ * a server that was never configured contributes one chip instead of three.
+ */
+@Composable
+private fun Badges(serverStatus: ServerStatus) {
+    val build = remember { BuildProvenance.current() }
+    val context = LocalContext.current
+    val view = rememberHapticView()
+
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(BadgeGap, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(BadgeGap),
+    ) {
+        ServerBadges(serverStatus)
+
+        if (build.isLocal) {
+            // Said out loud rather than left blank. A page with no build chips
+            // at all reads as one that forgot to draw them; «собрано вручную»
+            // is a fact, and it is the one that explains why there is no commit
+            // to compare against anything.
+            PillChip(text = correctedString(R.string.about_badge_local_build))
+        }
+
+        if (build.repository.isNotBlank()) {
+            PillChip(
+                text = correctedString(R.string.about_badge_repository, build.repository),
+                icon = Icons.Rounded.Code,
+                onClick = build.repositoryUrl?.let { url -> { open(context, view, url) } },
+            )
+        }
+        if (build.ref.isNotBlank()) {
+            PillChip(text = correctedString(R.string.about_badge_ref, build.ref))
+        }
+        if (build.commit.isNotBlank()) {
+            // The chip worth being tappable: it opens the exact diff this APK
+            // was built from, which is the question somebody holding a phone
+            // and a pull request is actually asking.
+            PillChip(
+                text = correctedString(R.string.about_badge_commit, build.shortCommit),
+                onClick = build.commitUrl?.let { url -> { open(context, view, url) } },
+            )
+        }
+        if (build.number.isNotBlank()) {
+            PillChip(text = correctedString(R.string.about_badge_run, build.number))
+        }
+        if (build.builtAt.isNotBlank()) {
+            PillChip(text = correctedString(R.string.about_badge_built_at, build.builtAt))
+        }
+        if (BuildConfig.DEBUG) {
+            PillChip(
+                text = correctedString(R.string.about_badge_debug),
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+        }
+    }
+}
+
+/**
+ * The server chips: how it answered, and — when it answered — what it is.
+ *
+ * `degraded` is the state worth colouring. It means the API is up and its
+ * database is at a different Alembic revision from the code in front of it,
+ * which is the window between a merge deploying itself and the migration being
+ * applied by hand. Nothing else in the app can see that state: `/health` is
+ * green throughout it, and what fails is every read of whatever gained a
+ * column.
+ */
+@Composable
+private fun FlowRowScope.ServerBadges(status: ServerStatus) {
+    val scheme = MaterialTheme.colorScheme
+    when (status) {
+        ServerStatus.Checking ->
+            PillChip(text = correctedString(R.string.about_badge_server_checking))
+
+        ServerStatus.NotConfigured ->
+            PillChip(text = correctedString(R.string.about_badge_server_none))
+
+        ServerStatus.Unreachable -> PillChip(
+            text = correctedString(R.string.about_badge_server_unreachable),
+            containerColor = scheme.errorContainer,
+            contentColor = scheme.onErrorContainer,
+        )
+
+        is ServerStatus.Ok -> {
+            PillChip(
+                text = correctedString(R.string.about_badge_server_ok),
+                containerColor = scheme.primaryContainer,
+                contentColor = scheme.onPrimaryContainer,
+            )
+            PillChip(text = correctedString(R.string.about_badge_api, status.apiVersion))
+            status.schema?.let { schema ->
+                PillChip(text = correctedString(R.string.about_badge_schema, schema))
             }
         }
+
+        is ServerStatus.Degraded -> {
+            PillChip(
+                text = correctedString(R.string.about_badge_server_degraded),
+                containerColor = scheme.errorContainer,
+                contentColor = scheme.onErrorContainer,
+            )
+            status.schema?.let { schema ->
+                PillChip(text = correctedString(R.string.about_badge_schema, schema))
+            }
+        }
+    }
+}
+
+/**
+ * A few true things about the app that are not otherwise visible from it.
+ *
+ * Every one of them is a decision somebody reading this page would otherwise
+ * have to take on trust or discover by accident — that it works with no
+ * network, that the bot is the only way to write a timetable, that the clock is
+ * the school's rather than the phone's. They are deliberately about behaviour
+ * rather than about the build: a fact that stops being true is a fact this
+ * project has changed its mind about, and it should be edited here in the same
+ * batch as everywhere else.
+ */
+@Composable
+private fun Facts() {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(FactGap),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = correctedString(R.string.about_facts_title),
+            style = MaterialTheme.typography.titleSmall,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Facts.forEach { fact ->
+            Text(
+                text = correctedString(fact),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+/** Opens a URL, guarded the way [LinkPill] guards its own. */
+private fun open(context: android.content.Context, view: android.view.View, url: String) {
+    LessonsHaptics.press(view)
+    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    try {
+        context.startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+        LessonsHaptics.press(view)
     }
 }
 
@@ -275,8 +447,23 @@ private const val AdaptiveCanvasRatio = 108f / 72f
 
 private val PillGap = 8.dp
 
+/** Gap between two badges, in both directions of the flow. */
+private val BadgeGap = 6.dp
+
+/** Gap between two lines of the facts block; tighter than [BlockGap]. */
+private val FactGap = 6.dp
+
+/** The facts block, in the order they are drawn. */
+private val Facts = listOf(
+    R.string.about_fact_offline,
+    R.string.about_fact_bot,
+    R.string.about_fact_windows,
+    R.string.about_fact_clock,
+    R.string.about_fact_fonts,
+    R.string.about_fact_widget,
+)
+
 private val PillIcon = 18.dp
 
 private val PillIconGap = 8.dp
 
-private const val PillsPerRow = 2

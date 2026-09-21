@@ -34,6 +34,19 @@ interface SessionRepository {
     /** One-shot read for workers and the widget. */
     suspend fun current(): Session?
 
+    /**
+     * Asks the configured server how it is, for the about page's badge.
+     *
+     * Here rather than in a repository of its own because this is the object
+     * that already owns «is the address any good» — it is what the join screen
+     * asks before it blames the code somebody typed.
+     *
+     * Never throws: every failure is [ServerStatus.Unreachable]. A status badge
+     * that could take the settings page down would be a worse bug than the one
+     * it reports.
+     */
+    suspend fun serverStatus(): ServerStatus
+
     /** One-shot twin of [sessions]. */
     suspend fun currentAll(): List<Session>
 

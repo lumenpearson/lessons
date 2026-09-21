@@ -45,6 +45,28 @@ val MarqueeFadeWidth: Dp = 8.dp
  * The fade is applied *outside* the marquee, so it masks the window the text
  * scrolls through rather than travelling with the text.
  *
+ * **It scrolls for as long as it is on screen, which is not the default.**
+ * `basicMarquee` stops after `MarqueeDefaults.Iterations` — three — and parks
+ * the line back at its start, clipped. The budget is spent per composition, so
+ * on one list the row that has just been scrolled into view moves and the row
+ * that has been sitting there since the screen opened does not: two lines of
+ * the same component behaving differently, a few seconds apart, with nothing to
+ * see in the code. That was reported from a real phone as «на некоторых лейблах
+ * не двигается, а на некоторых двигается корректно, даже на одном экране», and
+ * it is the same defect twice rather than two.
+ *
+ * Three iterations is a reasonable default for a label that is *decorated* by
+ * scrolling. It is the wrong one for a label that can only be read by
+ * scrolling, which is the only case this component ever applies to — it
+ * measures first, and a line that fits is left alone entirely. A line nobody
+ * can finish reading is worse than a line that keeps moving.
+ *
+ * The cost is a perpetual animation, and it has one consequence worth knowing
+ * about: a Compose test that composes an overflowing line will never see an
+ * idle clock, so `waitForIdle` and every assertion that calls it hang unless
+ * the test sets `mainClock.autoAdvance = false`. `MarqueeTextTest` does, and
+ * says so.
+ *
  * **The width comes from the line itself, and must not come from a
  * [BoxWithConstraints].** Wrapping this in one is the obvious way to learn the
  * width and it crashed the app: a `BoxWithConstraints` is a `SubcomposeLayout`,
@@ -118,7 +140,11 @@ fun MarqueeText(
                 if (scrolls) {
                     Modifier
                         .fadingEdges(fadeWidth)
-                        .basicMarquee()
+                        // Not the default three: see the note above. A line
+                        // only reaches here because it cannot be read at the
+                        // width it was given, so there is no reading of it that
+                        // finishes in three passes and then wants stillness.
+                        .basicMarquee(iterations = Int.MAX_VALUE)
                 } else {
                     Modifier
                 },

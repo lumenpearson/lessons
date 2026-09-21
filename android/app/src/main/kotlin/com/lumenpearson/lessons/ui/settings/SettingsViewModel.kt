@@ -20,6 +20,7 @@ import com.lumenpearson.lessons.ui.translate.TranslationSubmit
 import com.lumenpearson.lessons.core.data.repository.IssueDraft
 import com.lumenpearson.lessons.core.data.repository.IssueResult
 import com.lumenpearson.lessons.core.data.repository.Session
+import com.lumenpearson.lessons.core.data.repository.ServerStatus
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
@@ -84,6 +85,8 @@ data class SettingsUiState(
      * launch finds something — and one host in the shell shows it for both.
      */
     val showReleaseSheet: Boolean = false,
+    /** How the bound server answered, for the about card's badge. */
+    val serverStatus: ServerStatus = ServerStatus.Checking,
 )
 
 /**
@@ -143,8 +146,24 @@ class SettingsViewModel(
 
     private val deviceLink = MutableStateFlow<DeviceLinkState>(DeviceLinkState.Idle)
 
-    val uiState: StateFlow<SettingsUiState> = combine(local, remote, deviceLink) { state, remote, link ->
+    /**
+     * The server's own answer, refreshed on demand rather than on a timer.
+     *
+     * Not part of either `combine` above because it is not a flow anybody
+     * publishes: it is one request, made when this page is opened and again
+     * when the address changes. A poll would wake a Neon compute that has
+     * scaled to zero every time somebody left the settings page open.
+     */
+    private val serverStatus = MutableStateFlow<ServerStatus>(ServerStatus.Checking)
+
+    val uiState: StateFlow<SettingsUiState> = combine(
+        local,
+        remote,
+        deviceLink,
+        serverStatus,
+    ) { state, remote, link, server ->
         state.copy(
+            serverStatus = server,
             update = remote.update,
             github = remote.account,
             githubConfigured = githubRepository.isConfigured,
@@ -160,6 +179,20 @@ class SettingsViewModel(
     )
 
     init {
+        // Asked once when this view model is built, and again whenever the
+        // address is edited — the two moments at which the answer can have
+        // changed for a reason the reader caused. `distinctUntilChanged` is
+        // what keeps every other settings write from making a request.
+        viewModelScope.launch {
+            settingsRepository.settings
+                .map { it.baseUrl }
+                .distinctUntilChanged()
+                .collect {
+                    serverStatus.value = ServerStatus.Checking
+                    serverStatus.value = sessionRepository.serverStatus()
+                }
+        }
+
         // There is a token per class, so switching classes *voids* what is on
         // screen rather than changing it: the role, the link code and the deep
         // link all describe the token that was current when they were asked

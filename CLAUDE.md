@@ -86,9 +86,12 @@ assembles. Nothing else. `apk.yml` builds an installable APK on demand or on a `
 `reminders.yml` is a fallback clock, not the clock (see below). The workflows work — do
 not edit them casually. The repository is public, so standard runners cost nothing; what
 the workflows still carry from the months it was private is in `docs/build.md`, "Actions
-minutes", and it is worth reading before undoing any of it — `-n auto` and a seven-day
-artifact retention are there because a full run was twenty-one billed minutes and a full
-artifact store reported a passing build as red.
+minutes", and it is worth reading before undoing any of it — `-n auto` is there because a
+full run was twenty-one billed minutes, and a short artifact retention because a full
+artifact store reported a passing build as red. **Retention is no longer asked for in any
+workflow**: this repository's own setting is lower than anything they requested, so every
+`retention-days:` was silently reduced under a warning while three documents went on
+quoting the number that had been asked for.
 
 ## Architecture
 

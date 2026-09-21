@@ -1,8 +1,18 @@
 package com.lumenpearson.lessons.core.designsystem.theme
 
+import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
+import androidx.compose.runtime.Immutable
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.toRect
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 /**
@@ -63,3 +73,61 @@ val GroupSpacing: Dp = 16.dp
  * the page between two rows, too narrow to break the slab apart.
  */
 val GroupRowSpacing: Dp = 2.dp
+
+/**
+ * A tray whose corner is concentric with the corners of what it holds.
+ *
+ * Two nested rounded rectangles only look right when the gap between their
+ * curves is the same all the way round, and that happens for exactly one outer
+ * radius: the inner radius plus the padding between them. Any other number
+ * leaves the gap wider at the corner than along the edge — which reads as a
+ * wonky corner rather than as a wrong radius, so it is easy to see and hard to
+ * name. The segmented picker had it: a 24 dp tray token around Material's
+ * connected buttons with 4 dp of padding, three numbers chosen in three places.
+ *
+ * It is a [Shape] rather than a computed `RoundedCornerShape` because the inner
+ * radius is not always a length. Material's connected button shapes are
+ * expressed as a percentage of the button's own height, so the answer is only
+ * known once the tray has been measured, and [createOutline] is where that
+ * happens. The same reason makes it testable: it is a function of a size and a
+ * density and nothing else.
+ *
+ * @param inner the shape of the things inside. A shape that has no corner size
+ *   to read — Material's morphing polygons, for one — falls back to [fallback].
+ * @param inset the padding between [inner] and this, on one side.
+ */
+@Immutable
+class ConcentricShape(
+    private val inner: Shape,
+    private val inset: Dp,
+    private val fallback: Dp = 0.dp,
+) : Shape {
+
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
+        val gap = with(density) { inset.toPx() }
+        // What the inner shape is measured against is the box it actually gets,
+        // which is this one minus the padding on both sides. It matters because
+        // a percentage corner reads its own height: asking the button's shape
+        // about the tray's size would round it by four more pixels than the
+        // button is rounded by, and the gap would be wrong in the direction
+        // this class exists to fix.
+        val innerSize = Size(
+            width = (size.width - gap * 2f).coerceAtLeast(0f),
+            height = (size.height - gap * 2f).coerceAtLeast(0f),
+        )
+        val innerRadius = (inner as? CornerBasedShape)
+            ?.topStart
+            ?.toPx(innerSize, density)
+            ?: with(density) { fallback.toPx() }
+        val radius = (innerRadius + gap)
+            // A radius larger than half the shorter side is not a rounder
+            // rectangle, it is a malformed outline: the two corners of one edge
+            // would overlap. A very short tray simply becomes a capsule.
+            .coerceAtMost(minOf(size.width, size.height) / 2f)
+        return Outline.Rounded(RoundRect(size.toRect(), CornerRadius(radius)))
+    }
+}
