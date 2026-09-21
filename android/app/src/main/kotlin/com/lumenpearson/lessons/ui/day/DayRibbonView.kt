@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
@@ -57,6 +58,10 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.modifier.RibbonDepthLevel
+import com.lumenpearson.lessons.core.designsystem.modifier.progressiveBlur
+import com.lumenpearson.lessons.core.designsystem.modifier.rememberRibbonDepthLevel
+import com.lumenpearson.lessons.core.designsystem.modifier.ribbonSheen
 import com.lumenpearson.lessons.core.designsystem.state.formatCountdown
 import com.lumenpearson.lessons.core.designsystem.state.formatLength
 import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
@@ -128,6 +133,7 @@ internal fun DayRibbonView(
     val view = rememberHapticView()
     val scope = rememberCoroutineScope()
 
+    val level = rememberRibbonDepthLevel(depth)
     val now = rememberTickingClock(nowAt)
     val focus = remember(ribbon, now) { ribbonFocusIndex(ribbon, now) }
 
@@ -166,6 +172,8 @@ internal fun DayRibbonView(
             .collect { LessonsHaptics.tick(view) }
     }
 
+    val edgeHeight = with(LocalDensity.current) { EdgeHeight.toPx() }
+
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
@@ -180,7 +188,20 @@ internal fun DayRibbonView(
             },
             contentPadding = PaddingValues(horizontal = ScreenPadding, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(RowGap),
-            modifier = Modifier.fillMaxSize(),
+            // The soft top and bottom, which is where the immersion of this
+            // screen actually comes from: rows arrive and leave through a blur
+            // instead of being cut off at a line. `progressiveBlur` carries its
+            // own ladder — the blur needs Android 13 and is skipped in
+            // battery-saver mode and on the Samsung builds it makes flicker,
+            // and the gradient is drawn either way — so the edge degrades on
+            // exactly the devices the sheen does.
+            modifier = Modifier
+                .fillMaxSize()
+                .progressiveBlur(
+                    blurRadius = if (level.drawsShader) EdgeBlurRadius else 0f,
+                    topHeight = edgeHeight,
+                    bottomHeight = edgeHeight,
+                ),
         ) {
             item(key = "header") {
                 Column(
@@ -213,7 +234,7 @@ internal fun DayRibbonView(
                     entry = entry,
                     progress = now?.let { progressOf(entry, it) },
                     showTeacher = showTeacher,
-                    depth = depth,
+                    level = level,
                     index = index,
                     listState = listState,
                     onClick = (entry as? RibbonEntry.OfLesson)?.let { { onLessonClick(it.lesson) } },
@@ -335,7 +356,7 @@ private fun RibbonRow(
     entry: RibbonEntry,
     progress: RibbonProgress?,
     showTeacher: Boolean,
-    depth: Boolean,
+    level: RibbonDepthLevel,
     index: Int,
     listState: LazyListState,
     onClick: (() -> Unit)?,
@@ -356,7 +377,15 @@ private fun RibbonRow(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (depth) Modifier.ribbonDepth(index, listState) else Modifier)
+            .then(if (level.drawsDepth) Modifier.ribbonDepth(index, listState) else Modifier)
+            // Under the clip, so the light stops at the card's rounded corners
+            // rather than at the square layer behind them.
+            .ribbonSheen(
+                level = level,
+                progress = progress?.fraction ?: 0f,
+                tint = tone.content,
+                strength = glow,
+            )
             .clip(LessonsShapeTokens.Hero)
             .background(
                 Brush.verticalGradient(
@@ -538,6 +567,8 @@ private fun RibbonEntry.subtitle(showTeacher: Boolean): String? = when (this) {
 }
 
 private val ClockColumnWidth: Dp = 56.dp
+private val EdgeHeight: Dp = 48.dp
+private const val EdgeBlurRadius = 12f
 private val ProgressHeight: Dp = 6.dp
 private val RowGap: Dp = 10.dp
 private val GroupGap: Dp = 16.dp
