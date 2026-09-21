@@ -46,6 +46,8 @@ Three tabs under one floating toolbar; swipe between them or tap an icon in the 
 
 Settings holds nine sections, each one a page of its own: appearance, interaction, content, notifications, sync, class, diary, updates and “about”. An administrator of the class has a tenth — “Managing the class”.
 
+In the month view the days with no lessons are shaded differently, and it is not decoration: a weekend, the holidays between two terms, the summer and a public holiday are four different answers to “why is this empty”. Consecutive days with the same answer are drawn as one band, and a month with no teaching in it at all is labelled across the grid. The day card names the date where it has a name — both “День Победы” and “День учителя”; the second one still has lessons, the first does not.
+
 > Tapping a day in the widget opens “Calendar” in its day view, on the date you tapped.
 
 ## The widget

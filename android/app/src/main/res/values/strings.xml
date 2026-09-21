@@ -152,6 +152,9 @@
     <string name="week_no_data_description">Расписание на этот день ещё не загружено.</string>
     <string name="week_day_off_title">Уроков нет</string>
     <string name="week_day_off_description">Выходной или свободный день.</string>
+    <string name="week_day_off_year_over">Учебный год окончен — каникулы.</string>
+    <string name="week_day_off_between_terms">Каникулы между учебными периодами.</string>
+    <string name="week_day_off_public_holiday">Праздничный день — уроков нет.</string>
 
     <!-- Lessons -->
     <plurals name="lessons_count">
@@ -440,4 +443,7 @@
     <string name="weekday_acc_5">пятницу</string>
     <string name="weekday_acc_6">субботу</string>
     <string name="weekday_acc_7">воскресенье</string>
+    <!-- Written across a month grid that has no teaching days in it at all. -->
+    <string name="calendar_year_over">Летние каникулы</string>
+    <string name="calendar_between_terms">Каникулы</string>
 </resources>

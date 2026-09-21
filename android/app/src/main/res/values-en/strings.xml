@@ -158,6 +158,9 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="week_no_data_description">The timetable for this day has not been loaded yet.</string>
     <string name="week_day_off_title">No lessons</string>
     <string name="week_day_off_description">A weekend or a free day.</string>
+    <string name="week_day_off_year_over">The school year is over — holidays.</string>
+    <string name="week_day_off_between_terms">Holidays between two terms.</string>
+    <string name="week_day_off_public_holiday">A public holiday — no lessons.</string>
 
     <!-- Lessons -->
     <plurals name="lessons_count">
@@ -441,4 +444,7 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="weekday_acc_5">Friday</string>
     <string name="weekday_acc_6">Saturday</string>
     <string name="weekday_acc_7">Sunday</string>
+    <!-- Written across a month grid that has no teaching days in it at all. -->
+    <string name="calendar_year_over">Summer holidays</string>
+    <string name="calendar_between_terms">Holidays</string>
 </resources>

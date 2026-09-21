@@ -70,6 +70,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
 import com.lumenpearson.lessons.core.model.DayKind
 import com.lumenpearson.lessons.core.model.Lesson
 import com.lumenpearson.lessons.core.model.Term
+import com.lumenpearson.lessons.core.model.DayOffReason
 import com.lumenpearson.lessons.core.model.TermKind
 import com.lumenpearson.lessons.ui.common.asDayMonth
 import com.lumenpearson.lessons.ui.common.asFullWeekday
@@ -469,10 +470,33 @@ private fun MonthGrid(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val weeks = remember(days) { days.chunked(DaysPerRow) }
+    // Computed over the whole month rather than per row, so a stretch that
+    // wraps from Sunday to Monday is one run and draws as one bar.
+    val accents = remember(days) { days.map { it.accent() } }
+    val runs = remember(accents) { accents.runPositions() }
+    val weeks = remember(days) { days.indices.toList().chunked(DaysPerRow) }
 
+    // A whole month with nothing in it is a month somebody scrolls past, and
+    // sixty faintly-tinted cells do not say what they are. The label does.
+    // Only when *every* day of the month agrees: one September day at the
+    // bottom of an August grid means the year has started, and writing
+    // «Летние каникулы» across it would be wrong about the day that matters.
+    val wholeMonthOff = remember(days, accents) {
+        val inMonth = days.indices.filter { days[it].inPeriod }
+        inMonth.isNotEmpty() && inMonth.all {
+            accents[it] == DayAccent.OUT_OF_YEAR || accents[it] == DayAccent.BETWEEN_TERMS
+        }
+    }
+    val bannerText = when {
+        !wholeMonthOff -> null
+        days.any { it.inPeriod && it.day?.offReason == DayOffReason.OUT_OF_YEAR } ->
+            correctedString(R.string.calendar_year_over)
+        else -> correctedString(R.string.calendar_between_terms)
+    }
+
+    Box(modifier = modifier.fillMaxWidth()) {
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenPadding),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -490,10 +514,16 @@ private fun MonthGrid(
         }
 
         weeks.forEach { week ->
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                week.forEach { day ->
+            // Zero spacing inside a run, so the cells of one stretch touch and
+            // read as a single bar; the 4.dp gap is drawn by the cell instead,
+            // on the sides where its run actually ends.
+            Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+                week.forEach { index ->
+                    val day = days[index]
                     MonthCell(
                         day = day,
+                        accent = accents[index],
+                        run = runs[index],
                         selected = day.date == selected,
                         showLoad = showLoad,
                         onClick = {
@@ -505,6 +535,27 @@ private fun MonthGrid(
             }
         }
     }
+
+        if (bannerText != null) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .padding(horizontal = ScreenPadding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = bannerText,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .clip(LessonsShapeTokens.Row)
+                        .background(MaterialTheme.colorScheme.tertiaryContainer)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
+    }
 }
 
 private const val DaysPerRow = 7
@@ -513,28 +564,41 @@ private const val DaysPerRow = 7
 @Composable
 private fun MonthCell(
     day: WeekDayUi,
+    accent: DayAccent,
+    run: RunPosition,
     selected: Boolean,
     showLoad: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val accentColors = accent.colors()
     val container = when {
         selected -> scheme.primary
         day.isToday -> scheme.secondaryContainer
-        day.inPeriod -> scheme.rowContainer
+        day.inPeriod -> accentColors.container
         else -> Color.Transparent
     }
     val content = when {
         selected -> scheme.onPrimary
         day.isToday -> scheme.onSecondaryContainer
-        day.inPeriod -> scheme.onSurface
+        day.inPeriod -> accentColors.content
         else -> scheme.outline
     }
+    // A selected day is its own shape: it is one cell being pointed at, and
+    // squaring its corners to join a run would lose the one thing the
+    // selection is for.
+    val shape = if (selected || day.isToday) LessonsShapeTokens.Row else run.shape()
 
     Column(
         modifier = modifier
-            .clip(LessonsShapeTokens.Row)
+            // The gap the Row used to space with, moved here so it can be left
+            // out between two cells of the same run.
+            .padding(
+                start = if (run.first || selected || day.isToday) 2.dp else 0.dp,
+                end = if (run.last || selected || day.isToday) 2.dp else 0.dp,
+            )
+            .clip(shape)
             .background(container)
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
@@ -598,7 +662,7 @@ private fun DayPanel(
 
             lessons.isEmpty() -> EmptyState(
                 title = correctedString(R.string.week_day_off_title),
-                description = correctedString(R.string.week_day_off_description),
+                description = schoolDay.offReason.asEmptyDescription(),
             )
 
             else -> LessonGroup(
@@ -626,8 +690,9 @@ private fun DayChips(
 ) {
     val kind = day?.day?.kind?.takeIf { it != DayKind.NORMAL }
     val note = day?.day?.note
+    val holiday = day?.day?.holiday
     val isToday = day?.isToday == true
-    if (!isToday && kind == null && note == null) return
+    if (!isToday && kind == null && note == null && holiday == null) return
 
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (isToday) {
@@ -638,10 +703,45 @@ private fun DayChips(
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             )
         }
+        if (holiday != null) {
+            // The server's own words. A date this build has never heard of
+            // still has a name, which is the whole reason the title travels
+            // beside the code rather than the code travelling alone.
+            PillChip(
+                text = holiday.title,
+                containerColor = if (holiday.stopsLessons) {
+                    MaterialTheme.colorScheme.errorContainer
+                } else {
+                    MaterialTheme.colorScheme.tertiaryContainer
+                },
+                contentColor = if (holiday.stopsLessons) {
+                    MaterialTheme.colorScheme.onErrorContainer
+                } else {
+                    MaterialTheme.colorScheme.onTertiaryContainer
+                },
+            )
+        }
         if (kind != null) PillChip(text = kind.asLabel())
         if (note != null) PillChip(text = note)
     }
 }
+
+/**
+ * Why this day is empty, in words somebody can act on.
+ *
+ * «Уроков нет» is true of four different days and useful on one. A blank
+ * Tuesday in November is the holidays, a public holiday, or a timetable with
+ * nothing on it, and those are three different things to do next.
+ */
+@Composable
+internal fun DayOffReason?.asEmptyDescription(): String = correctedString(
+    when (this) {
+        DayOffReason.OUT_OF_YEAR -> R.string.week_day_off_year_over
+        DayOffReason.BETWEEN_TERMS -> R.string.week_day_off_between_terms
+        DayOffReason.PUBLIC_HOLIDAY -> R.string.week_day_off_public_holiday
+        null -> R.string.week_day_off_description
+    },
+)
 
 /** Localized name of a non-normal day kind. */
 @Composable
