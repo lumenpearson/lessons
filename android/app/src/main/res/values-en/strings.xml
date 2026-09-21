@@ -454,4 +454,10 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="calendar_filter_events">With events</string>
     <string name="calendar_filter_marked">Marked</string>
     <string name="calendar_filter_clear">Clear</string>
+    <string name="schedule_view_agenda">List</string>
+    <string name="calendar_order_date_asc">By date</string>
+    <string name="calendar_order_date_desc">Latest first</string>
+    <string name="calendar_order_busiest">By load</string>
+    <string name="calendar_agenda_empty_title">Nothing matches</string>
+    <string name="calendar_agenda_empty_description">No day this month fits the chosen filters.</string>
 </resources>

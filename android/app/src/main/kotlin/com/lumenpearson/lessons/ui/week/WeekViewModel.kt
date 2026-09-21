@@ -42,6 +42,17 @@ enum class ScheduleView {
     WEEK,
     MONTH,
     DAY,
+
+    /**
+     * A month as a list rather than a grid, and the one view an order applies to.
+     *
+     * A grid cannot be sorted and stay a calendar — the 14th before the 3rd is
+     * not a month any more — so «по загруженности» has to be asked somewhere
+     * that is genuinely a list. This is that somewhere, and it is also what
+     * makes a filter useful rather than decorative: filtered days are dropped
+     * here, where there is no grid to put holes in.
+     */
+    AGENDA,
 }
 
 /**
@@ -96,6 +107,8 @@ data class ScheduleUiState(
     val filters: Set<DayFilter> = emptySet(),
     /** The order a list view draws its days in. */
     val order: DayOrder = DayOrder.DATE_ASC,
+    /** The list the agenda view draws: filtered, then ordered. Empty elsewhere. */
+    val agenda: List<SchoolDay> = emptyList(),
     val showTeacher: Boolean = true,
     val showLoad: Boolean = true,
     val showEvents: Boolean = true,
@@ -214,6 +227,14 @@ class WeekViewModel(
             terms = timetable?.schoolClass?.terms.orEmpty(),
             filters = settings.calendarFilters,
             order = settings.calendarOrder,
+            // Built here rather than in the composable: the order and the
+            // filter are one decision about what the list *is*, and a screen
+            // that re-sorted on every recomposition would be doing that
+            // decision twice.
+            agenda = settings.calendarOrder.sort(
+                dates.mapNotNull { date -> timetable?.day(date) }
+                    .filter { it.matches(settings.calendarFilters) },
+            ),
             showTeacher = settings.showTeacher,
             showLoad = settings.weekShowLoad,
             showEvents = settings.weekShowEvents,
@@ -268,6 +289,11 @@ class WeekViewModel(
         }
     }
 
+    /** Changes the order the list view draws its days in, and remembers it. */
+    fun setOrder(order: DayOrder) {
+        viewModelScope.launch { settingsRepository.update { it.copy(calendarOrder = order) } }
+    }
+
     /** Clears every filter, which is the resting state rather than «show nothing». */
     fun clearFilters() {
         viewModelScope.launch { settingsRepository.update { it.copy(calendarFilters = emptySet()) } }
@@ -284,6 +310,8 @@ class WeekViewModel(
             ScheduleView.WEEK -> from.plusWeeks(direction)
             ScheduleView.MONTH -> from.plusMonths(direction)
             ScheduleView.DAY -> from.plusDays(direction)
+            // A month at a time, like the grid it is a list of.
+            ScheduleView.AGENDA -> from.plusMonths(direction)
         }
         anchor.value = moved
         // In the day view the anchor *is* the selection; in the other two the

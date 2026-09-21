@@ -39,12 +39,14 @@ To change class or leave it: Settings → Class. After leaving, the app shows th
 Three tabs under one floating toolbar; swipe between them or tap an icon in the bar. Settings is not a fourth tab but the button beside it: you go in, change one thing and come back.
 
 - “Today” — what is on now and how long is left, then the rest of the day and the homework.
-- “Calendar” — the timetable as a week, a month or a single day, with rooms, replacements and cancellations.
+- “Calendar” — the timetable as a week, a month, a single day or a list, with rooms, replacements and cancellations.
 - “Homework” — assignments grouped by the day they are due on.
 
 “Homework” shows only what is still ahead. The “All” button opens the past ones too, and says how many were hidden.
 
 Settings holds nine sections, each one a page of its own: appearance, interaction, content, notifications, sync, class, diary, updates and “about”. An administrator of the class has a tenth — “Managing the class”.
+
+Chips above the calendar narrow it to what you are after: with lessons, with homework, with events, marked. Several of them are an “or” rather than an “and” — with an “and” the second press would almost always empty the screen. In the month grid the days that do not match are dimmed rather than removed, so the month still lines up with its own weekday header; in “List” they are simply not drawn, where there is no shape to break. The list's order is chosen separately: by date, latest first, or by load.
 
 In the month view the days with no lessons are shaded differently, and it is not decoration: a weekend, the holidays between two terms, the summer and a public holiday are four different answers to “why is this empty”. Consecutive days with the same answer are drawn as one band, and a month with no teaching in it at all is labelled across the grid. The day card names the date where it has a name — both “День Победы” and “День учителя”; the second one still has lessons, the first does not.
 

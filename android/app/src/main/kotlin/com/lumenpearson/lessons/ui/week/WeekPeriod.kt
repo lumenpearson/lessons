@@ -48,6 +48,12 @@ internal fun ScheduleView.periodOf(
     }
 
     ScheduleView.DAY -> anchor to anchor
+
+    // The month itself, without the neighbouring days a grid needs to fill its
+    // corners: a list has no corners, and «30 ноября» at the top of December
+    // would be a row nobody was asking for.
+    ScheduleView.AGENDA ->
+        anchor.withDayOfMonth(1) to anchor.with(TemporalAdjusters.lastDayOfMonth())
 }
 
 /**

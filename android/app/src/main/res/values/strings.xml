@@ -453,4 +453,10 @@
     <string name="calendar_filter_events">С событиями</string>
     <string name="calendar_filter_marked">Отмеченные</string>
     <string name="calendar_filter_clear">Сбросить</string>
+    <string name="schedule_view_agenda">Лента</string>
+    <string name="calendar_order_date_asc">По дате</string>
+    <string name="calendar_order_date_desc">Сначала поздние</string>
+    <string name="calendar_order_busiest">По загруженности</string>
+    <string name="calendar_agenda_empty_title">Ничего не подходит</string>
+    <string name="calendar_agenda_empty_description">В этом месяце нет дней под выбранные фильтры.</string>
 </resources>
