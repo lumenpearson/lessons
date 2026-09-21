@@ -130,6 +130,22 @@ class HomeworkOut(BaseModel):
     attachment_url: str | None = None
 
 
+class HolidayOut(BaseModel):
+    """A named date, whether or not it stops the lessons.
+
+    ``code`` is stable and ``title`` is Russian, the way every other string the
+    server puts on a screen is. A client that wants the name in its own
+    language matches the code and falls back to the title, so a date this
+    server learns before that client does still has something to draw.
+    """
+
+    code: str
+    title: str
+    #: True only for a statutory non-working day, and then the day has no
+    #: lessons. False for an observance — «День учителя» is a full Wednesday.
+    stops_lessons: bool
+
+
 class DayOut(BaseModel):
     date: Date
     weekday: int
@@ -138,6 +154,18 @@ class DayOut(BaseModel):
     events: list[EventOut] = []
     homework: list[HomeworkOut] = []
     note: str | None = None
+    #: What this date is called, if it is called anything.
+    holiday: HolidayOut | None = None
+    #: Why there are no lessons, when the timetable was not what decided it:
+    #: `out_of_year`, `between_terms` or `public_holiday`. Null on an ordinary
+    #: day, including an ordinary empty one — «nobody put lessons on a Sunday»
+    #: is not a reason, it is the absence of one.
+    #:
+    #: Added beside `kind` rather than folded into it: all three arrive as
+    #: `holiday` today, and a client that has never heard of this field keeps
+    #: drawing what it drew. What it buys the ones that have is four different
+    #: accents on a calendar instead of one.
+    off_reason: str | None = None
 
 
 class TermOut(BaseModel):

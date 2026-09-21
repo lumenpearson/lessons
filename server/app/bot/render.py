@@ -13,7 +13,7 @@ from datetime import time as Time
 from html import escape
 
 from app.models import DayKind, EventKind, PersonalTask, ReminderSettings, Role, WeekParity
-from app.schedule import ResolvedDay, ResolvedLesson, week_parity
+from app.schedule import DayOffReason, ResolvedDay, ResolvedLesson, week_parity
 
 MONTHS_GENITIVE = [
     "января",
@@ -186,18 +186,41 @@ def relative_day_name(day: Date, today: Date) -> str:
 DAY_HOMEWORK_TEXT_MAX = 1000
 
 
+#: Why a day is empty, in the words the reader can act on.
+#:
+#: «Уроков нет» is true of all four and useless for three: somebody looking at
+#: a blank Tuesday in November wants to know whether it is the holidays, a
+#: public holiday, or a day the timetable simply has nothing on — and those
+#: are three different things to do next.
+_OFF_REASON_LINES: dict[DayOffReason, str] = {
+    DayOffReason.OUT_OF_YEAR: "Учебный год окончен — уроков нет.",
+    DayOffReason.BETWEEN_TERMS: "Каникулы между периодами — уроков нет.",
+    DayOffReason.PUBLIC_HOLIDAY: "Праздничный день — уроков нет.",
+}
+
+
+def _no_lessons_because(day: ResolvedDay) -> str:
+    return _OFF_REASON_LINES.get(day.off_reason, "Уроков нет.") if day.off_reason else "Уроков нет."
+
+
 def render_day(day: ResolvedDay, today: Date) -> str:
     lines = [f"<b>{escape(human_date(day.date, today)).capitalize()}</b>"]
 
     kind_label = DAY_KIND_LABELS.get(day.kind)
     if kind_label:
         lines.append(kind_label)
+    if day.holiday:
+        # Escaped like everything else that is not this file's own text. These
+        # titles are ours rather than typed by anybody, but the rule is about
+        # where a string is written rather than about who wrote it — «женщин и
+        # девочек» is fine today and the next name added may not be.
+        lines.append(f"🎉 {escape(day.holiday.title)}")
     if day.note:
         lines.append(f"<i>{escape(day.note)}</i>")
 
     if not day.lessons:
         lines.append("")
-        lines.append("Уроков нет.")
+        lines.append(_no_lessons_because(day))
     else:
         lines.append("")
         for lesson in day.lessons:

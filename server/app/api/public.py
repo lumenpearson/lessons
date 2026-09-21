@@ -46,6 +46,7 @@ from app.schemas import (
     DoneIn,
     DoneOut,
     EventOut,
+    HolidayOut,
     HomeworkItemOut,
     HomeworkOut,
     JoinRequest,
@@ -194,6 +195,14 @@ def _to_day_out(day: ResolvedDay) -> DayOut:
         weekday=day.weekday,
         kind=day.kind.value,
         note=day.note,
+        holiday=HolidayOut(
+            code=day.holiday.code,
+            title=day.holiday.title,
+            stops_lessons=day.holiday.stops_lessons,
+        )
+        if day.holiday
+        else None,
+        off_reason=day.off_reason.value if day.off_reason else None,
         lessons=[
             LessonOut(
                 index=lesson.index,
