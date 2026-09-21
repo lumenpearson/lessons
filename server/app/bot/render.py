@@ -339,6 +339,28 @@ def plural(count: int, one: str, few: str, many: str) -> str:
     return f"{count} {form}"
 
 
+def silenced_lessons(silenced: list[tuple[int, int]]) -> str:
+    """What to tell an admin whose new bells left lessons ringing nowhere.
+
+    One sentence in one place, because there are two bells editors and they
+    used to disagree about whether to say anything at all: «🧩 Расписание» →
+    «🔔 Звонки» wrote the rows by hand and reported nothing, while «⚙️ Класс»
+    → «🔔 Звонки» went through `structure.write_bell_periods` and warned. The
+    rule that a lesson needs a bell of its own number is the service's; this
+    is the only sentence that says so, and both editors now print it.
+
+    The numbers are named because they are what somebody has to go and fix,
+    and the count is of rows — one number under two weekdays is two lessons
+    nobody will see.
+    """
+    numbers = ", ".join(str(index) for index in sorted({index for _day, index in silenced}))
+    return (
+        f"⚠️ Уроки № {numbers} в расписании класса больше не звонят "
+        f"({len(silenced)} шт.) — они останутся в базе, но их никто не увидит. "
+        "Добавьте звонки этих номеров или уберите уроки."
+    )
+
+
 def duration(minutes: int) -> str:
     """«1 ч 12 мин», «45 мин», «2 ч» — whole minutes, never seconds."""
     hours, rest = divmod(max(minutes, 0), 60)

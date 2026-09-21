@@ -4,8 +4,8 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **21 September 2026**. **PRs #63 through #74 are merged**; `main` is at
-`9920a9a`. **The only thing open is PR #75**, which carries this batch and the paragraph you
+Last updated: **21 September 2026**. **PRs #63 through #75 are merged**; `main` is at
+`01a69fc`. **The only thing open is PR #76**, which carries this batch and the paragraph you
 are reading. Once it merges, `dev` is level with `main` again and the next batch starts from
 a clean one, and the SHA of that merge is for the next close-out to write.
 The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model has changed
@@ -21,7 +21,130 @@ check before it merged. **It has not been re-read since, and did not need to be:
 from #62 onwards touched no server code at all — Android, its tests, the build and the
 documents.
 
-## What the last session added: the typeface is compressed by the build
+## What the last session added: an audit of the whole project, and a typeface that can draw it
+
+Open as PR #76, in the milestone `v0.7.0 — Оптимизация`. Twelve agents swept the nine areas
+of `.claude/skills/audit/SKILL.md` plus documentation, strings and access, read-only; every
+finding below was then re-verified by hand here and closed by a test proved red without its
+fix. What was found is larger than what is fixed, and the rest is listed at the end rather
+than quietly dropped.
+
+### The app shipped a typeface that cannot draw Russian
+
+**Google Sans Flex has no Cyrillic. Not a dropped subset — none.** Its coverage metadata on
+Google Fonts lists latin, latin-ext, vietnamese, math, symbols and five scripts nobody here
+writes, and zero code points in U+0400–U+04FF; `&subset=cyrillic` returns an empty answer.
+This app's product language is Russian. So every Russian word was drawn by the device's
+fallback face while the digits and Latin beside it came from the bundled file — two
+typefaces in one row, at different x-heights — and «системный шрифт» was close to a no-op
+for the only language on the screen. It had been that way since the design system was taken
+from Essentials, which is an English app and had no way to notice. Nothing failed and
+nothing was logged.
+
+**The app now bundles both faces and chains them by coverage.** Google Sans Flex draws
+Latin and digits, Onest (193 056 bytes, 162 Cyrillic code points) draws Cyrillic, and
+`FallbackTypeface.kt` puts them in one `Typeface.CustomFallbackBuilder` — Latin, then
+Cyrillic, then the system — handed to Compose through `AndroidFont`, one chain per weight.
+That construction is the only one that chooses by coverage: a Compose `FontFamily` picks by
+weight and style, and so does a font-family XML. **`CustomFallbackBuilder` is API 29 and
+this app's floor is 26**, so Android 8.0 and 9.0 are set in Onest alone — correct, and
+merely less like itself.
+
+Google Sans Flex is committed frozen from six axes to `wght` alone, 3.81 MB to 0.26 MB; the
+command that produced it is in `docs/build.md`. Both files now carry one axis and the app
+varies it, so **the build-time instancer from the batch before is gone**: there is nothing
+left to freeze, and `./gradlew` needs no Python again. The guard stayed where the fix was —
+`FontAxisTest` fails if the pair cannot draw the Russian alphabet, if either file carries an
+axis `Type.kt` never varies, or if a bundled file is named by nothing, and each was proved
+red by breaking it.
+
+`GoogleSansFlexRounded` went too. It had three callers asking it for SemiBold and Bold, and
+it was registered at one weight, so Compose synthesised what they asked for rather than the
+font drawing it — and neither file now has a rounded axis to offer instead.
+
+### Two rules that existed in one shell and not the other
+
+**«🔔 Звонки» in the editor silenced lessons and told nobody.** It wrote the bell rows by
+hand instead of going through `structure.write_bell_periods`, which is the half that answers
+«which lessons stop ringing». A five-row paste took lessons 6 and 7 off every phone, out of
+the widget, the calendar feed and the digests, under «✅ Звонки сохранены: 5 уроков» and not
+a word more — while the *same* paste through «⚙️ Класс» warned properly. Two of the twelve
+agents found this independently. It now goes through the service, the warning sentence lives
+once in `render.silenced_lessons` so the two editors cannot drift again, and the handler's
+private copy of `BELL_LINE` is gone in favour of the shared grammar.
+
+**A substitution could be written on a day the resolver never draws.** `_resolve_day`
+returns before the override loop out of the school year and on a day marked «выходной»;
+`api/edit.py` had refused both since it was written, and the bot had neither check. It was
+believed safe because its lesson picker offers nothing on such a day — true of the picker,
+not of the flow, because the bot's calendar bounds the year 1 September to 1 August under
+the same function name as `schedule.school_year_bounds`, which means something else. So June
+is two taps away, and the row was stored, logged and pushed to every subscriber. The rule
+and its three sentences now live in `services/timetable_edit.why_no_lesson_can_be_drawn` and
+both shells call it.
+
+Also: «✅ Звонки сохранены: 1 уроков» and «Расписание создано: 1 уроков» now count in Russian.
+
+### Gates
+
+`ruff check` clean, `python -m mypy` clean across 83 modules, `python -m pytest -q -n auto`
+**1565 passed** (was 1559). `./gradlew test assembleDebug assembleRelease` green: **770 tests
+across 106 classes**. The release APK is **3 852 053 bytes** — 80 KB more than the 3 771 298
+it started the day at, which is the second typeface bought with the alphabet. No model changed, so no migration: the database stays at `0013`.
+
+### Found and not fixed — the list is the deliverable
+
+None of these is closed; all are verified enough to act on.
+
+- **Cleartext HTTP is permitted for every host** (`network_security_config.xml`), and the
+  comment justifying it says «No credentials, no personal data». That stopped being true
+  when the app grew its own diary sign-in: `DiaryApi.login` posts a dnevnik2 password
+  through the same OkHttp client at whatever address the reader typed. Nothing checks the
+  scheme.
+- **`POST /api/v1/diary/login` counts only a 401 against its limiter.** A 200 of HTML from
+  the upstream becomes a 502 and costs nothing, which `api/diary_web.py` already decided the
+  other way at length for the same exception type.
+- **419 of `:app`'s 779 strings can never be corrected**: the translation pull request writes
+  to `values/strings.xml` only, and `:app` splits its resources across eight files.
+- **Twelve callback handlers have no fallback**, so a press on a card whose FSM state is gone
+  answers nothing and the button spins — reachable through the command breakout.
+- **«Мои задачи» draws up to forty rows over ten buttons**; the tail cannot be ticked or
+  deleted.
+- **`DATABASE_URL` set to blank or with a leading space** walks past `deployment_problems()`.
+- Four rotation defects in `:app` (correction editor, diary correction sheet), the widget's
+  narrow-column labels, `docs/widget.md`'s size ladder disagreeing with `docs/design.md`,
+  stale counts in `docs/architecture.md` and sections 1, 5 and 7 of this file, `docs/app/`
+  missing from the CI path filter, and a dozen string findings — three names for the app,
+  two Russian names for `VIEWER`, a nominative weekday where the sentence needs accusative.
+
+### Where the seam actually falls
+
+Traced after the pull request was opened, against both files' `cmap` rather than
+guessed. The chain resolves per character, and the base wins every code point it
+covers — **464 of them are in both files**, so on API 29+ Onest never draws Latin,
+digits or punctuation even though it can.
+
+| | drawn by |
+| --- | --- |
+| `Algebra`, `08:30–09:15`, `«»`, `—`, `…`, `·` | Google Sans Flex |
+| `Алгебра`, `ё`, and **`№`** | Onest |
+| `каб. 214` | `каб` Onest, `. 214` Google Sans Flex |
+| `9А` | `9` Google Sans Flex, `А` Onest |
+| emoji | the system, third in the chain |
+
+`№` is the one worth knowing: Google Sans Flex does not cover it, so «Урок №3»
+breaks between the `№` and the `3` rather than between the word and the number.
+That and «каб. 214» are the two most frequent mixed strings in the app, and they
+are where to look first for a visible seam.
+
+### What nobody has verified
+
+Onest has not been drawn on a device: what is checked is that it declares the axis the app
+varies, covers the Russian alphabet, carries its own OFL notice, and renders under
+Robolectric. The twelve agents' reports are in this session's transcript, not in the
+repository.
+
+## What the batch before added: the typeface is compressed by the build
 
 Four commits in `dev`, open as PR #75, in the milestone `v0.7.0 — Оптимизация` (number 8),
 which the owner created for this batch because none of the seven fitted. Its number was not
@@ -753,7 +876,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
-| 8 | `v0.7.0 — Оптимизация` | #75 — created for this batch, and the one Russian title |
+| 8 | `v0.7.0 — Оптимизация` | #75, #76 — the one Russian title |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -1170,7 +1293,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && python -m pytest -q -n auto                # 1559 tests, ~1.5 min
 cd server  && python -m mypy                             # clean, 83 modules
-cd android && ./gradlew test                             # 770 tests
+cd android && ./gradlew test                             # 769 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 

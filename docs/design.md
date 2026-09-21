@@ -23,7 +23,7 @@ not by a line between them. `ThinDivider` was deleted from the widget for the sa
 
 | Essentials | Here |
 | --- | --- |
-| `res/font/google_sans_flex.ttf` | `:core:designsystem/fonts/` — the same file, instanced by the build |
+| `res/font/google_sans_flex.ttf` | **not taken** — that face has no Cyrillic; `:core:designsystem` ships Onest |
 | `ui/theme/Type.kt` | `theme/Type.kt` — the scale verbatim |
 | `ui/theme/Shapes.kt` | `theme/Shape.kt` |
 | `ui/core/containers/RoundedCardContainer.kt` | `component/Group.kt` |

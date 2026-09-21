@@ -53,7 +53,7 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
-import com.lumenpearson.lessons.core.designsystem.theme.GoogleSansFlexRounded
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsSans
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
@@ -149,11 +149,10 @@ fun JoinScreen(
                 Spacer(Modifier.height(18.dp))
                 Text(
                     text = correctedString(R.string.join_title),
-                    // The rounded axis of the app's own face, which is what
-                    // Essentials reaches for on the one screen that is mostly
-                    // one sentence.
+                    // The app's own face at a real weight — see the note in
+                    // `OnboardingParts` about the rounded family this replaced.
                     style = MaterialTheme.typography.headlineMedium.copy(
-                        fontFamily = GoogleSansFlexRounded,
+                        fontFamily = LessonsSans,
                         fontWeight = FontWeight.SemiBold,
                     ),
                     textAlign = TextAlign.Center,

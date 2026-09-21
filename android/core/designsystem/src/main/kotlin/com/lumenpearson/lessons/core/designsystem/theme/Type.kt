@@ -11,73 +11,49 @@ import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.model.AppFont
 
 /**
- * Google Sans Flex, the typeface Essentials is set in, bundled as the single
- * variable font file the reference ships.
+ * The app's face: Google Sans Flex for Latin and digits, Onest for Cyrillic.
  *
- * It is not in `res/font`. The file as it was downloaded is
- * `core/designsystem/fonts/google_sans_flex.ttf`, a source the build reads: at
- * six variation axes it is 3.81 MB, of which 3.41 MB is outline deltas for
- * shapes this app never asks for, so `instance<Variant>Font` freezes the four
- * it does not move and the 0.29 MB result is what `R.font.google_sans_flex`
- * resolves to. `-Plessons.font.axes=all` ships the file untouched, for a
- * machine with no Python; `FontAxisTest` says what each setting promises.
+ * **Google Sans Flex has no Cyrillic at all** — its coverage on Google Fonts
+ * is latin, latin-ext, vietnamese, math, symbols and five scripts nobody here
+ * writes, with zero code points in U+0400–U+04FF. This app's product language
+ * is Russian, so while it was the only bundled file every Russian word came
+ * out of whatever face the device happened to fall back to, beside digits
+ * drawn from the bundle: two typefaces in one row and no way to notice, since
+ * nothing fails and nothing is logged. That had been true since the design
+ * system was taken from Essentials, which is an English app.
  *
- * **SIL Open Font License 1.1, Copyright 2015 Google LLC.** This comment used
- * to say "MIT from sameerasw/essentials", which was wrong twice over: a
- * repository's licence covers what its author may license, and the typeface is
- * Google's, released by Google under the OFL. The file says so itself — entry
- * 13 of its `name` table — and that is where the claim now comes from rather
- * than from where the file was copied. The notice the OFL requires to travel
- * with every copy is packaged beside it, in
- * `src/main/assets/licenses/google_sans_flex_OFL.txt`, and the app names the
- * licence on the «Лицензии» sheet.
+ * Both are bundled now and [ChainFont] puts them in one fallback chain, which
+ * is the only construction that chooses by coverage rather than by weight —
+ * see its note for why neither `FontFamily` nor a font-family XML can express
+ * this, and what API 26 to 28 get instead.
  *
- * The build does rewrite the file, which the OFL allows: it permits
- * modification outright, and the rename it requires of a derivative applies
- * only to a Reserved Font Name, which this font declares none of. What the
- * licence does require travels with the copy — the instancer leaves the `name`
- * table alone, so the copyright and the licence entry in the shipped file are
- * the downloaded file's own, and `FontLicenceTest` reads them from what ships.
+ * Both files carry one variable axis, `wght`, which is the one the app varies;
+ * Google Sans Flex is frozen from its six down to that one, because an axis
+ * costs a set of outline deltas per glyph and the other five were 3.5 MB of
+ * shapes nothing here asks for. `FontAxisTest` holds both halves: that the
+ * bundled files between them draw Russian, and that neither carries an axis
+ * `Type.kt` never moves.
  *
- * Essentials declares the family with one `Normal` entry and lets the platform
- * synthesise everything heavier. That is fine for a settings app, but this one
- * leans on real weight — the hero card's headline, the countdown, the numbers on
- * the widget — and a synthesised bold on a variable font smears the stems. So
- * each weight is registered as its own instance of the same file with the `wght`
- * axis pinned, which is what a variable font is for and costs no extra bytes.
+ * **SIL Open Font License 1.1** for both — Google Sans Flex is Copyright 2015
+ * Google LLC, Onest Copyright 2021 The Onest Project Authors. Each claim is
+ * taken from that file's own `name` table rather than from where it was
+ * downloaded, and the notices the licence requires travel beside them in
+ * `src/main/assets/licenses/`. `FontLicenceTest` checks the pairing; the app
+ * names both on the «Лицензии» sheet.
+ *
+ * A weight is registered rather than synthesised, which is what the chain is
+ * built per weight for: Essentials declares one `Normal` entry and lets the
+ * platform fake the rest, and a faked bold on a variable font smears the
+ * stems. This app leans on real weight — the hero headline, the countdown, the
+ * numbers on the widget — so each of the five is a real instance of both
+ * files.
  */
-private fun flexFont(weight: FontWeight): Font = Font(
-    resId = R.font.google_sans_flex,
-    weight = weight,
-    variationSettings = FontVariation.Settings(
-        FontVariation.weight(weight.weight),
-    ),
-)
-
-/** The app's typeface. */
-val GoogleSansFlex: FontFamily = FontFamily(
-    flexFont(FontWeight.Light),
-    flexFont(FontWeight.Normal),
-    flexFont(FontWeight.Medium),
-    flexFont(FontWeight.SemiBold),
-    flexFont(FontWeight.Bold),
-)
-
-/**
- * The same face with the rounded axis pushed all the way over.
- *
- * Essentials keeps this as a second family (`GoogleSansFlexRounded`) and uses it
- * where the type sits inside something already round — a pill, a tile, a widget
- * cell. It is exposed for the same reason rather than being applied globally:
- * at body size the rounding costs legibility.
- */
-val GoogleSansFlexRounded: FontFamily = FontFamily(
-    Font(
-        resId = R.font.google_sans_flex,
-        variationSettings = FontVariation.Settings(
-            FontVariation.Setting("ROND", 100f),
-        ),
-    ),
+val LessonsSans: FontFamily = FontFamily(
+    ChainFont(FontWeight.Light),
+    ChainFont(FontWeight.Normal),
+    ChainFont(FontWeight.Medium),
+    ChainFont(FontWeight.SemiBold),
+    ChainFont(FontWeight.Bold),
 )
 
 /**
@@ -89,7 +65,7 @@ val GoogleSansFlexRounded: FontFamily = FontFamily(
  * a borrowed design system stops looking borrowed.
  *
  * It is a table rather than fifteen `TextStyle`s because the family and the size
- * are now settings: a literal `fontFamily = GoogleSansFlex` repeated fifteen
+ * are now settings: a literal `fontFamily = LessonsSans` repeated fifteen
  * times is fifteen places for one of them to keep the old value.
  *
  * @property size the role's size at scale 1, in sp.
@@ -144,11 +120,11 @@ const val MaxTextScale: Float = 2f
  * `TextStyle`s — which is why [LessonsTheme] keeps it inside a `remember` keyed
  * on the two arguments.
  *
- * @param family [GoogleSansFlex], or the device's own face. See [AppFont].
+ * @param family [LessonsSans], or the device's own face. See [AppFont].
  * @param scale multiplies every size in the scale; 1 is the designed one.
  */
 fun lessonsTypography(
-    family: FontFamily = GoogleSansFlex,
+    family: FontFamily = LessonsSans,
     scale: Float = 1f,
 ): Typography = Typography(
     displayLarge = Role(57f, 64f, -0.25f).toTextStyle(family, scale),
@@ -177,6 +153,6 @@ fun lessonsTypography(
  * "системный шрифт" out loud.
  */
 fun fontFamilyOf(font: AppFont): FontFamily = when (font) {
-    AppFont.BUNDLED -> GoogleSansFlex
+    AppFont.BUNDLED -> LessonsSans
     AppFont.SYSTEM -> FontFamily.SansSerif
 }

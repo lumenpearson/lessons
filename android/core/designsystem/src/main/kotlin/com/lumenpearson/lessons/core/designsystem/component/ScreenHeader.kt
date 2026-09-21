@@ -11,7 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.text.Text
-import com.lumenpearson.lessons.core.designsystem.theme.GoogleSansFlexRounded
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsSans
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 
 /**
@@ -47,11 +47,13 @@ fun ScreenHeader(
     ) {
         Text(
             text = title,
-            // The rounded axis of the variable font, as Essentials uses for its
-            // own headings. The rest of the app is the same family upright; the
-            // one rounded weight is what marks a heading as a heading.
+            // Weight is what marks a heading as a heading. This asked for a
+            // second, rounded family until the typeface changed: the face this
+            // app ships has no rounded axis, and the old family drew none
+            // either — it was registered at one weight, so Compose synthesised
+            // the SemiBold rather than the font drawing it.
             style = MaterialTheme.typography.headlineMedium.copy(
-                fontFamily = GoogleSansFlexRounded,
+                fontFamily = LessonsSans,
                 fontWeight = FontWeight.SemiBold,
             ),
             color = MaterialTheme.colorScheme.onSurface,

@@ -34,7 +34,7 @@ class TypographyScaleTest {
 
     @Test
     fun `at scale one the roles are the sizes the app was drawn at`() {
-        val typography = lessonsTypography(GoogleSansFlex, scale = 1f)
+        val typography = lessonsTypography(LessonsSans, scale = 1f)
 
         assertEquals(16f, typography.bodyLarge.fontSize.value, EPSILON)
         assertEquals(24f, typography.bodyLarge.lineHeight.value, EPSILON)
@@ -54,8 +54,8 @@ class TypographyScaleTest {
      */
     @Test
     fun `size and line height scale together, for every role`() {
-        val base = lessonsTypography(GoogleSansFlex, scale = 1f)
-        val large = lessonsTypography(GoogleSansFlex, scale = 1.3f)
+        val base = lessonsTypography(LessonsSans, scale = 1f)
+        val large = lessonsTypography(LessonsSans, scale = 1.3f)
 
         roles(base).zip(roles(large)).forEach { (before, after) ->
             assertEquals(before.fontSize.value * 1.3f, after.fontSize.value, EPSILON)
@@ -73,7 +73,7 @@ class TypographyScaleTest {
     /** Tracking is part of the proportion too: type that grows gets looser, not tighter. */
     @Test
     fun `letter spacing scales with the size`() {
-        val large = lessonsTypography(GoogleSansFlex, scale = 1.3f)
+        val large = lessonsTypography(LessonsSans, scale = 1.3f)
 
         assertEquals(0.5f * 1.3f, large.bodyLarge.letterSpacing.value, EPSILON)
         assertEquals(-0.25f * 1.3f, large.displayLarge.letterSpacing.value, EPSILON)
@@ -87,8 +87,8 @@ class TypographyScaleTest {
      */
     @Test
     fun `an impossible stored scale is clamped rather than honoured`() {
-        val nothing = lessonsTypography(GoogleSansFlex, scale = 0f)
-        val enormous = lessonsTypography(GoogleSansFlex, scale = 99f)
+        val nothing = lessonsTypography(LessonsSans, scale = 0f)
+        val enormous = lessonsTypography(LessonsSans, scale = 99f)
 
         assertEquals(16f * MinTextScale, nothing.bodyLarge.fontSize.value, EPSILON)
         assertEquals(16f * MaxTextScale, enormous.bodyLarge.fontSize.value, EPSILON)
@@ -101,13 +101,13 @@ class TypographyScaleTest {
         val system = lessonsTypography(FontFamily.SansSerif, scale = 1f)
 
         assertTrue(roles(system).all { it.fontFamily == FontFamily.SansSerif })
-        assertTrue(roles(lessonsTypography(GoogleSansFlex, 1f)).all { it.fontFamily == GoogleSansFlex })
+        assertTrue(roles(lessonsTypography(LessonsSans, 1f)).all { it.fontFamily == LessonsSans })
     }
 
     /** The two stored answers, and which face each one means. */
     @Test
     fun `the stored font choice resolves to a family`() {
-        assertEquals(GoogleSansFlex, fontFamilyOf(AppFont.BUNDLED))
+        assertEquals(LessonsSans, fontFamilyOf(AppFont.BUNDLED))
         assertEquals(FontFamily.SansSerif, fontFamilyOf(AppFont.SYSTEM))
     }
 

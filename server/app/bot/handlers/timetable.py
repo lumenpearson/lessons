@@ -13,8 +13,6 @@ and went into the template under that name. One parser, one meaning.
 
 from __future__ import annotations
 
-import re
-from datetime import time
 from html import escape
 
 from aiogram import F, Router
@@ -23,6 +21,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot import render
 from app.bot.keyboards import (
     WEEKDAY_FULL,
     Menu,
@@ -31,7 +30,7 @@ from app.bot.keyboards import (
     cancel_keyboard,
     weekday_picker,
 )
-from app.bot.render import MESSAGE_LIMIT, clamp, more_line
+from app.bot.render import MESSAGE_LIMIT, clamp, more_line, plural
 from app.bot.states import EditBells, EditTimetable
 from app.models import BellPeriod, BellSchedule, Role, SchoolClass, TimetableEntry, WeekParity
 from app.services import audit, structure, timetable_io
@@ -75,15 +74,6 @@ BELLS_HELP = (
     "2. 09:25-10:10\n"
     "3. 10:25-11:10</code>"
 )
-
-BELL_LINE = re.compile(
-    r"^\s*(\d{1,2})\s*[.)]?\s*(\d{1,2}[:.]\d{2})\s*[-–—]\s*(\d{1,2}[:.]\d{2})\s*$"
-)
-
-
-def _parse_time(raw: str) -> time:
-    return time.fromisoformat(raw.replace(".", ":"))
-
 
 def _conflicts(rows: list, candidate) -> bool:
     """Whether ``candidate`` collides with a line already accepted.
@@ -365,33 +355,14 @@ async def bells_apply(
         await state.clear()
         return
 
-    parsed: list[tuple[int, time, time]] = []
-    rejected: list[str] = []
-    seen: set[int] = set()
-    for line in (message.text or "").splitlines():
-        if not line.strip():
-            continue
-        match = BELL_LINE.match(line)
-        if match is None:
-            rejected.append(line.strip())
-            continue
-        try:
-            start = _parse_time(match.group(2))
-            end = _parse_time(match.group(3))
-        except ValueError:
-            rejected.append(line.strip())
-            continue
-        if start >= end:
-            rejected.append(line.strip())
-            continue
-        index = int(match.group(1))
-        # (schedule, index) is unique: a zero or a repeat used to blow up the
-        # commit *after* the old rows had been deleted.
-        if index < 1 or index in seen:
-            rejected.append(line.strip())
-            continue
-        seen.add(index)
-        parsed.append((index, start, end))
+    # The same grammar the week import uses, header implied by the question
+    # that was asked — `manage.bells_rows_apply` does exactly this. There used
+    # to be a second copy of `BELL_LINE` and of every validation under it in
+    # this file; the two agreed line for line, which is how the *reporting*
+    # below came to diverge without anybody noticing.
+    parsed, rejected = timetable_io.parse_bells_block(
+        "== Звонки ==\n" + (message.text or "")
+    )
 
     if not parsed:
         await message.answer(
@@ -403,27 +374,35 @@ async def bells_apply(
     if school_class.bell_schedule_id:
         schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
     if schedule is None:
-        schedule = BellSchedule(class_id=school_class.id, name="Обычное")
+        schedule = BellSchedule(
+            class_id=school_class.id, name=structure.DEFAULT_SCHEDULE_NAME
+        )
         session.add(schedule)
         await session.flush()
         school_class.bell_schedule_id = schedule.id
 
-    await session.execute(delete(BellPeriod).where(BellPeriod.schedule_id == schedule.id))
-    for index, start, end in parsed:
-        session.add(
-            BellPeriod(schedule_id=schedule.id, index=index, starts_at=start, ends_at=end)
-        )
+    # Through the service, which is the half that answers «which lessons stop
+    # ringing». Writing the rows here by hand is what this handler used to do,
+    # and it is why a five-row paste could take lessons 6 and 7 off every phone
+    # in the class under «✅ Звонки сохранены: 5 уроков» and not a word more.
+    silenced = await structure.write_bell_periods(session, schedule, parsed)
+    summary = f"звонки «{schedule.name}»: {len(parsed)} уроков"
+    if silenced:
+        summary += f", перестали звонить уроков: {len(silenced)}"
     await audit.record(
         session,
         school_class.id,
         message.from_user.id,
         "bells.edit",
-        f"звонки «{schedule.name}»: {len(parsed)} уроков",
+        summary,
     )
     await session.commit()
     await state.clear()
 
-    lines = [f"✅ Звонки сохранены: {len(parsed)} уроков."]
+    lines = [f"✅ Звонки сохранены: {plural(len(parsed), 'урок', 'урока', 'уроков')}."]
+    if silenced:
+        lines.append("")
+        lines.append(render.silenced_lessons(silenced))
     if rejected:
         lines.append("")
         lines.append("⚠️ Не разобрал строки:")

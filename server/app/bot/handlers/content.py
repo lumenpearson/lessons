@@ -468,16 +468,31 @@ async def _save_override(
     action: OverrideAction,
     subject: str | None = None,
     room: str | None = None,
-) -> bool:
-    """Write the substitution, or report that this day has no such lesson to change.
+) -> str | None:
+    """Write the substitution, or answer with why this day cannot carry it.
 
-    The resolver takes a lesson's times from the bell row of the same number,
-    so a substitution at a number the day does not ring is stored, logged, announced
-    to everybody with «🔁 Замена … урок №8» and then drawn by nothing. Checked
-    on create only — an existing row at a bad number has to stay clearable,
-    which is how a class gets out of one — and against *this day's* bells,
-    because a shortened day rings a shorter schedule than the class's usual.
+    ``None`` means written. A sentence means refused, and it is the sentence to
+    show — the API says the same ones, because both come from
+    `services/timetable_edit`.
+
+    Two questions, and they are not the same. **Does the day draw lessons at
+    all** — it does not out of the school year or when somebody marked it
+    «выходной», and a row written then is stored, logged and announced to every
+    subscriber while being drawn on no phone. This check had no twin here at
+    all: the bot was thought safe because its lesson picker offers nothing on
+    such a day, which is true of the picker and not of the flow, since the
+    bot's calendar bounds the year differently (1 September to 1 August) and so
+    offers June, July and August. **And does the day ring this number** — the
+    resolver takes a lesson's times from the bell row of the same number, so a
+    row at a number that does not ring is drawn by nothing either. The second
+    is checked on create only, because an existing row at a bad number has to
+    stay clearable, and against *this day's* bells, because a shortened day
+    rings a shorter schedule than the class's usual.
     """
+    out_of_season = await timetable_edit.why_no_lesson_can_be_drawn(session, class_id, day)
+    if out_of_season is not None:
+        return out_of_season
+
     existing = await session.scalar(
         select(LessonOverride).where(
             LessonOverride.class_id == class_id,
@@ -488,7 +503,7 @@ async def _save_override(
     if existing is None:
         rung = await timetable_edit.rung_indexes_on(session, class_id, day)
         if not timetable_edit.can_ring(rung, index):
-            return False
+            return NO_BELL.format(index=index)
         existing = LessonOverride(class_id=class_id, date=day, index=index, action=action)
         session.add(existing)
     existing.action = action
@@ -501,7 +516,7 @@ async def _save_override(
     existing.room = room
     # Staged, not committed: the caller commits it together with its audit
     # line, so a substitution and the record of who made it land as one fact.
-    return True
+    return None
 
 
 @router.message(AddOverride.subject)
@@ -544,9 +559,9 @@ async def override_subject(
         subject=subject,
         room=room,
     )
-    if not written:
+    if written is not None:
         await state.clear()
-        await message.answer(NO_BELL.format(index=index))
+        await message.answer(written)
         return
     await audit.record(
         session,
@@ -592,9 +607,10 @@ async def override_cancel(
     data = await state.get_data()
     day = Date.fromisoformat(data["date"])
     index = int(data["index"])
-    if not await _save_override(session, school_class.id, day, index, OverrideAction.CANCEL):
+    refusal = await _save_override(session, school_class.id, day, index, OverrideAction.CANCEL)
+    if refusal is not None:
         await state.clear()
-        await callback.answer(NO_BELL.format(index=index), show_alert=True)
+        await callback.answer(refusal, show_alert=True)
         return
     await audit.record(
         session,

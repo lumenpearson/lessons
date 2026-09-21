@@ -38,6 +38,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
+from app.bot import render
 from app.bot.handlers.calendar import open_month
 from app.bot.handlers.diary import PETERSBURG as DIARY_PROVIDER
 from app.bot.handlers.timetable import REJECTED_MAX
@@ -1460,16 +1461,11 @@ async def bells_rows_apply(
     lines = [f"✅ Звонки «{escape(schedule.name)}» сохранены: {len(rows)}."]
     if orphaned:
         # The lessons that were already there and no longer ring. They are not
-        # deleted — they are stored and drawn nowhere — so this is the only
-        # place anybody is told, and the numbers are named because that is what
-        # an admin has to go and fix.
-        numbers = ", ".join(str(index) for index in sorted({n for _day, n in orphaned}))
+        # deleted — they are stored and drawn nowhere — so this sentence is the
+        # only place anybody is told, and it lives in `render` because the
+        # other bells editor has to say the very same thing.
         lines.append("")
-        lines.append(
-            f"⚠️ Уроки № {numbers} в расписании класса больше не звонят "
-            f"({len(orphaned)} шт.) — они останутся в базе, но их никто не увидит. "
-            "Добавьте звонки этих номеров или уберите уроки."
-        )
+        lines.append(render.silenced_lessons(orphaned))
     if rejected:
         lines.append("")
         lines.append("⚠️ Не разобрал строки:")
@@ -1564,7 +1560,8 @@ async def bells_new_rows(
     await session.refresh(schedule, ["periods"])
     await state.clear()
 
-    lines = [f"✅ Расписание «{escape(name)}» создано: {len(rows)} уроков."]
+    lines = [f"✅ Расписание «{escape(name)}» создано: "
+        f"{plural(len(rows), 'урок', 'урока', 'уроков')}."]
     if rejected:
         # The same shape as `bells_rows_apply` above and `timetable_apply`:
         # a row cap *and* a character budget. Five was the row cap alone, and

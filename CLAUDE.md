@@ -65,13 +65,15 @@ Android, from `android/`:
   push, because R8 and resource shrinking are where "worked in debug" stops being true
 - `./gradlew lint` runs the AGP Android lint; CI does not, so do not report it as a gate
 
-The Android half needs one thing the wrapper cannot provide: **Python with `fonttools`**
-(`python3 -m pip install fonttools`). The bundled typeface is a source rather than a
-resource — `core/designsystem/fonts/google_sans_flex.ttf`, 3.81 MB and six variation axes —
-and the build freezes the four the app never moves, which is two megabytes of APK. Without
-it every Android task stops with a message naming `-Plessons.font.axes=all`, which ships
-the font untouched and builds a correct app. `docs/build.md`, "The typeface is compressed
-at build time", has the three settings and what each costs.
+The app is set in **two** bundled faces, both under
+`core/designsystem/src/main/res/font/` and both carrying one axis, `wght`:
+`google_sans_flex.ttf` draws Latin and digits, `onest.ttf` draws Cyrillic, and
+`FallbackTypeface.kt` chains them with `Typeface.CustomFallbackBuilder` because neither a
+Compose `FontFamily` nor a font-family XML chooses by coverage. API 26–28 cannot express a
+custom chain and get Onest alone. Google Sans Flex has **no Cyrillic at all**, which is why
+the second file exists: while it was alone, every Russian word came from the device's
+fallback beside digits from the bundle. `FontAxisTest` holds all three halves — the pair
+draws Russian, neither carries an axis nothing varies, and no file is bundled unnamed.
 
 CI (`.github/workflows/ci.yml`) is: ruff, pytest (`-n auto`), `./gradlew test`, both
 assembles. Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;
