@@ -49,7 +49,7 @@ class SyncWindowTest {
             activeClassId = flowOf(1L),
             clock = clockAt(day),
             ioDispatcher = UnconfinedTestDispatcher(),
-        ).refresh(days = 31)
+        ).refresh()
         return LocalDate.parse(api.start!!) to api.days!!
     }
 

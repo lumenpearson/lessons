@@ -7,11 +7,13 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
+import com.lumenpearson.lessons.core.data.repository.SyncResult
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
 import com.lumenpearson.lessons.core.model.DayFilter
 import com.lumenpearson.lessons.core.model.DayOrder
 import com.lumenpearson.lessons.core.model.RibbonFlow
 import com.lumenpearson.lessons.core.model.SchoolDay
+import com.lumenpearson.lessons.core.model.SchoolYear
 import com.lumenpearson.lessons.core.model.matches
 import com.lumenpearson.lessons.core.model.Term
 import java.time.Instant
@@ -28,6 +30,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -80,6 +83,17 @@ data class WeekDayUi(
      * the answer findable.
      */
     val matchesFilters: Boolean = true,
+    /**
+     * Whether the school year this date belongs to has been fetched at all.
+     *
+     * `day == null` used to mean one thing — «the cache does not reach here» —
+     * because the cache reached exactly one year and everything outside it was
+     * outside it. Now it means two: a date inside a fetched year with nothing
+     * on it, and a date in a year nobody has asked for yet. The first is «нет
+     * уроков» and the second is «ещё не загружено», and telling a reader the
+     * first about the second is how a timetable looks like it stops.
+     */
+    val isFetched: Boolean = true,
 )
 
 /**
@@ -122,6 +136,16 @@ data class ScheduleUiState(
     val showHomework: Boolean = true,
     val nowAt: LocalTime? = null,
     /**
+     * Which school years the cache actually holds, by opening year.
+     *
+     * Read from the repository rather than counted off the days: a class made
+     * in March has no rows before it either way, and counting would report its
+     * first autumn as «not loaded» for ever.
+     */
+    val syncedYears: Set<Int> = emptySet(),
+    /** The year a fetch is in flight for, or null. One at a time. */
+    val loadingYear: Int? = null,
+    /**
      * The terms of the class's own year, as the school runs them.
      *
      * Carried rather than derived: the dates move — the holidays shift, a region
@@ -146,7 +170,31 @@ data class ScheduleUiState(
     val canReturnToToday: Boolean
         get() = today !in periodStart..periodEnd ||
             (selected != today && days.any { it.date == today })
+
+    /** The school year the period on screen belongs to, by its opening year. */
+    val anchorYear: Int get() = SchoolYear.openingYearOf(anchor)
+
+    /** Whether that year is in the cache at all. */
+    val anchorYearFetched: Boolean get() = anchorYear in syncedYears
+
+    /** Whether the period on screen is the one currently being fetched. */
+    val anchorYearLoading: Boolean get() = loadingYear == anchorYear
 }
+
+/**
+ * Where the reader is, and what the cache holds around them.
+ *
+ * A holder rather than four flows in the `combine` below, because `combine`
+ * has typed overloads up to five and this screen wants seven. Grouped by what
+ * they are about rather than by convenience: all four answer «which dates is
+ * this screen showing, and are they here».
+ */
+private data class CalendarFocus(
+    val anchor: LocalDate?,
+    val selected: LocalDate?,
+    val syncedYears: Set<Int>,
+    val loadingYear: Int?,
+)
 
 /**
  * Calendar state holder.
@@ -157,11 +205,33 @@ data class ScheduleUiState(
  * midnight moves the highlight instead of stranding it on yesterday.
  */
 class WeekViewModel(
-    timetableRepository: TimetableRepository,
+    private val timetableRepository: TimetableRepository,
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val view = MutableStateFlow(ScheduleView.WEEK)
+
+    /**
+     * The year a fetch is in flight for, or null.
+     *
+     * Held here rather than in the repository because it is a fact about this
+     * screen's own request: the widget and the home screen have no use for it.
+     * What reads it is the empty state — «загружаю год» rather than «нет
+     * данных» — which is the whole difference between a calendar that is
+     * working and one that looks broken.
+     */
+    private val loadingYear = MutableStateFlow<Int?>(null)
+
+    /**
+     * Years this screen has already asked for and been refused, in this session.
+     *
+     * Without it a year the server has nothing for — a class created after it,
+     * a device with no network — is asked for again on every step into it, and
+     * stepping back and forth across 1 September is a request per press. The
+     * set is deliberately not persisted: «try again» is what re-opening the app
+     * means, and a failure here is usually the network rather than the year.
+     */
+    private val refused = MutableStateFlow<Set<Int>>(emptySet())
 
     /** Null until the user moves: the anchor follows today while it is untouched. */
     private val anchor = MutableStateFlow<LocalDate?>(null)
@@ -190,11 +260,25 @@ class WeekViewModel(
         }
     }.distinctUntilChanged()
 
+    /**
+     * The four screen-owned inputs, as one flow.
+     *
+     * `combine` has typed overloads up to five flows and this screen wants
+     * seven, so the four that belong to *where the reader is* travel together:
+     * the date in focus, and what the cache holds around it.
+     */
+    private val focus: Flow<CalendarFocus> = combine(
+        anchor,
+        selected,
+        timetableRepository.syncedYears,
+        loadingYear,
+    ) { anchor, selected, years, loading -> CalendarFocus(anchor, selected, years, loading) }
+
     val uiState: StateFlow<ScheduleUiState> = combine(
         timetableRepository.timetable,
         now,
         view,
-        combine(anchor, selected) { anchor, selected -> anchor to selected },
+        focus,
         settingsRepository.settings,
     ) { timetable, instant, view, focus, settings ->
         // Without a timetable there is no school zone to be in, and the only
@@ -203,7 +287,8 @@ class WeekViewModel(
             // device clock: no timetable, so no school zone to be in — see above.
             ?: LocalDateTime.ofInstant(instant, ZoneId.systemDefault())
         val today = now.toLocalDate()
-        val (storedAnchor, storedSelection) = focus
+        val storedAnchor = focus.anchor
+        val storedSelection = focus.selected
         val anchorDate = storedAnchor ?: today
         val selectedDate = storedSelection ?: today
 
@@ -229,8 +314,11 @@ class WeekViewModel(
                     isToday = date == today,
                     inPeriod = view != ScheduleView.MONTH || date.month == anchorDate.month,
                     matchesFilters = timetable?.day(date).matches(settings.calendarFilters),
+                    isFetched = SchoolYear.openingYearOf(date) in focus.syncedYears,
                 )
             },
+            syncedYears = focus.syncedYears,
+            loadingYear = focus.loadingYear,
             terms = timetable?.schoolClass?.terms.orEmpty(),
             filters = settings.calendarFilters,
             order = settings.calendarOrder,
@@ -285,6 +373,18 @@ class WeekViewModel(
     }
 
     /**
+     * Shows the school year opening in [openingYear], fetching it if need be.
+     *
+     * Lands on 1 September rather than on the same date a year away: the year
+     * picker is «покажи мне тот год», and the answer to that is its beginning.
+     */
+    fun openYear(openingYear: Int) {
+        val start = SchoolYear.start(openingYear)
+        anchor.value = start
+        selected.value = start
+    }
+
+    /**
      * Turns one filter facet on or off, and remembers it.
      *
      * Stored rather than held here: somebody who narrowed the calendar to
@@ -302,6 +402,76 @@ class WeekViewModel(
     /** Changes the order the list view draws its days in, and remembers it. */
     fun setOrder(order: DayOrder) {
         viewModelScope.launch { settingsRepository.update { it.copy(calendarOrder = order) } }
+    }
+
+    init {
+        // One place, watching the period that is actually drawn.
+        //
+        // The anchor is moved by the arrows, by a tap on a day, by the year
+        // picker and by a widget tap, and a fetch hung off each of those is
+        // four chances to forget one — the first draft did exactly that, and
+        // it also had to guess at «неделя начинается с» to work out the
+        // period's bounds outside a coroutine. The state already carries those
+        // bounds, computed from the real setting, so watching it is both
+        // simpler and more correct.
+        //
+        // **Both ends**, because a period can straddle 31 May: a week that
+        // begins in one school year and ends in the next needs both, and
+        // asking about the anchor alone leaves half the strip saying «ещё не
+        // загружено» with nothing on its way to it.
+        viewModelScope.launch {
+            uiState
+                .map { state -> state.periodStart to state.periodEnd }
+                .distinctUntilChanged()
+                .collect { (from, to) ->
+                    // Awaited, not launched, and that is what serialises the
+                    // fetches: this collector is one coroutine, so a request
+                    // in flight parks the collector itself. Stepping quickly
+                    // through 2026 → 2027 → 2028 therefore asks for 2027,
+                    // waits, and then collects the *latest* state — a
+                    // `StateFlow` conflates, so what it resumes on is where
+                    // the reader ended up — and asks for that. Launching each
+                    // fetch instead would fire three at once and is the
+                    // obvious-looking change that breaks it.
+                    ensureYear(from)
+                    if (SchoolYear.openingYearOf(to) != SchoolYear.openingYearOf(from)) {
+                        ensureYear(to)
+                    }
+                }
+        }
+    }
+
+    /**
+     * Asks for a school year this device has not fetched, if it has not already.
+     *
+     * Two things stop it asking twice: a year already held needs nothing, and a
+     * year already refused in this session is not asked again — the usual cause
+     * is the network rather than the year, and stepping back and forth over
+     * 1 September would otherwise be a request per press.
+     *
+     * There is deliberately no «already in flight» check. One was written here
+     * first and proved unreachable: the only caller is a single collector that
+     * awaits this, so a second call cannot begin while the first is running.
+     * A guard that can never fire is a claim about the code that stops being
+     * true silently, and the serialisation it was guessing at is worth stating
+     * where it happens instead.
+     */
+    private suspend fun ensureYear(date: LocalDate) {
+        val openingYear = SchoolYear.openingYearOf(date)
+        if (openingYear in uiState.value.syncedYears) return
+        if (openingYear in refused.value) return
+        loadingYear.value = openingYear
+        try {
+            if (timetableRepository.refreshYear(openingYear) !is SyncResult.Success) {
+                refused.value = refused.value + openingYear
+            }
+        } finally {
+            // In a `finally`, because a cancelled fetch — the screen left, the
+            // class switched — must not leave the year marked as loading for
+            // the life of the view model, which would stop every later request
+            // for every other year.
+            loadingYear.value = null
+        }
     }
 
     /** Turns the day ribbon's progress the other way up, and remembers it. */

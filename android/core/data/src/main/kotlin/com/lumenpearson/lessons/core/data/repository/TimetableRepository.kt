@@ -57,15 +57,42 @@ interface TimetableRepository {
     suspend fun snapshotAroundToday(): Timetable?
 
     /**
-     * Fetches [days] days from the Monday of the current week and replaces the
-     * cache with them.
+     * Which school years of the shown class are actually in the cache.
+     *
+     * Named by the calendar year each one opens in — see
+     * `SchoolYear.openingYearOf`. This is what tells «this month has no
+     * lessons» from «this month has not been fetched», which used to be the
+     * same thing on screen and read as a timetable that stops.
+     *
+     * Empty before the first sync, and empty when this device is in no class.
+     */
+    val syncedYears: Flow<Set<Int>>
+
+    /**
+     * Fetches the school year that holds today and writes it over that year.
+     *
+     * The other years in the cache are left alone. It used to take a number of
+     * days and replace the whole class with them, which is why the calendar
+     * could only ever hold one year: scrolling to the next one would have
+     * destroyed the current one on arrival. A year names itself, so there is
+     * nothing left for a caller to choose — and a parameter nothing can honour
+     * is worse than no parameter.
      *
      * Never throws: network trouble is normal on a phone in a school building,
      * so it is reported as [SyncResult] instead. Callers that want the widget
      * redrawn afterwards should go through `SyncScheduler.syncNow`, which
      * broadcasts on success.
      */
-    suspend fun refresh(days: Int = 31): SyncResult
+    suspend fun refresh(): SyncResult
+
+    /**
+     * The same, for a year the reader has scrolled to rather than the one they
+     * are in.
+     *
+     * @param openingYear the calendar year the school year opens in: 2026 is
+     *   September 2026 to May 2027, which is how a school says it too.
+     */
+    suspend fun refreshYear(openingYear: Int): SyncResult
 
     /**
      * Forgets the cached window of every class this device has left.

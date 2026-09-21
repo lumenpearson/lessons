@@ -47,6 +47,43 @@ internal data class SchoolClassEntity(
 )
 
 /**
+ * One school year this device has actually fetched, for one class.
+ *
+ * The cache used to hold exactly one window per class, so «is this date in the
+ * cache» was the same question as «is there a class row», and every date past
+ * the current year read «Нет данных» — which on screen is indistinguishable
+ * from «no lessons that day». Holding several years means that question has to
+ * be asked of a range rather than of the class, and a row here is the answer.
+ *
+ * It is a table rather than something derived from the days present, because
+ * **a year that was fetched and is genuinely empty has to be tellable from one
+ * that was never fetched.** A class made in March has no days at all before it;
+ * counting rows would report its first September as «not loaded» for ever, and
+ * the calendar would sit on a spinner that never stops.
+ *
+ * Keyed by the year's opening calendar year — see `SchoolYear.openingYearOf` —
+ * because one integer cannot disagree with itself the way a pair of dates can,
+ * and the same number keys the row, the `ETag` signature and the request.
+ *
+ * @property syncedAtEpochMillis when this window was last filled. What decides
+ *   which year is dropped when the cap is reached, so it is the *fetch* time
+ *   rather than the server's `generated_at`: the question being asked is «which
+ *   of these has this phone not looked at for longest».
+ */
+@Entity(
+    tableName = "synced_window",
+    primaryKeys = ["class_id", "opening_year"],
+    indices = [Index(value = ["class_id"])],
+)
+internal data class SyncedWindowEntity(
+    @ColumnInfo(name = "class_id") val classId: Long,
+    @ColumnInfo(name = "opening_year") val openingYear: Int,
+    @ColumnInfo(name = "starts_on") val startsOn: LocalDate,
+    @ColumnInfo(name = "ends_on") val endsOn: LocalDate,
+    @ColumnInfo(name = "synced_at_epoch_millis") val syncedAtEpochMillis: Long,
+)
+
+/**
  * One calendar date, in one class.
  *
  * The primary key is a surrogate id rather than the date because the bundle can

@@ -83,7 +83,7 @@ class TokenRejectedTest {
         activeClassId = flowOf(1L),
         ioDispatcher = UnconfinedTestDispatcher(),
         onTokenRejected = onTokenRejected,
-    ).refresh(days = 31)
+    ).refresh()
 
     // -- the management API -------------------------------------------------
 

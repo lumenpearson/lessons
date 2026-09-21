@@ -475,4 +475,14 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="ribbon_snap_description">The ribbon settles on a whole entry rather than between two.</string>
     <string name="ribbon_depth_title">Depth</string>
     <string name="ribbon_depth_description">Tilted cards, gradients and a highlight on what is running.</string>
+
+    <!-- Scrolling the calendar into a school year that is not in the cache -->
+    <string name="week_year_label">%1$d/%2$02d</string>
+    <string name="week_year_pick">School year</string>
+    <string name="week_year_loading_title">Loading the year</string>
+    <string name="week_year_loading_description">The timetable for %1$s is downloading.</string>
+    <string name="week_year_missing_title">Year not loaded</string>
+    <string name="week_year_missing_description">The timetable for %1$s has not been downloaded yet. Pull down to try again.</string>
+    <string name="week_year_held">loaded</string>
+    <string name="week_year_not_held">not loaded</string>
 </resources>

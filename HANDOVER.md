@@ -4,29 +4,106 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **21 September 2026**. **PRs #63 through #76 are merged**; `main` is at
-`01f7a30`. **The only thing open is PR #77**, which carries this batch and the paragraph you
+Last updated: **21 September 2026**. **PRs #63 through #77 are merged**; `main` is at
+`ddfd305`. **The only thing open is PR #78**, which carries this batch and the paragraph you
 are reading. Once it merges, `dev` is level with `main` again and the next batch starts from
 a clean one, and the SHA of that merge is for the next close-out to write.
-**The database is at head `0014`**, and `EXPECTED_REVISION` moved with it: `DayKind` gained
-two members, and because a `SAEnum` column stores the member *name* the column is a VARCHAR
-as wide as the longest — `VARCHAR(9)` would have truncated `SELF_STUDY` at the moment of the
-press. `0014` widens it to 10 and was **applied to Neon before this merge**, as an additive
-revision should be.
+**The database is at head `0014`** and did not move in this batch: the windowed cache is
+entirely on the Android side, and `/api/v1/bundle` already took an arbitrary `start` and up
+to `MAX_BUNDLE_DAYS = 280`. `0014` was applied to Neon before #77 merged, as an additive
+revision should be — it widened `day_overrides.kind` from `VARCHAR(9)` to `VARCHAR(10)`,
+because `DayKind` gained `SELF_STUDY` and a `SAEnum` column stores the member *name*.
 
 Production was read after #60 and again after #61, rather than assumed: `/api/v1/health`
 answers `{"status":"ok","api_version":1}` and `/api/v1/warmup` — which opens a real
 connection, so it answers for the database as well as the code — answers
 `{"status":"ok","api_version":1,"schema":"0013"}`. That is the dishka container serving a
 real request on a real cold start, which is the one thing about it the branch could not
-check before it merged. **It has not been re-read since**, and this batch is the first since
-then that changes server code and the schema together: `/api/v1/warmup` should answer
-`"schema":"0014"` after the merge deploys, and that is the cheapest single check of whether
-the migration and the code met.
+check before it merged. **It has not been re-read since.** #77 is the first merge since then
+that moved server code and the schema together, so `/api/v1/warmup` should now answer
+`"schema":"0014"` — the cheapest single check of whether that migration and that code met,
+and nobody has made it.
 
-## What the last session added: the school's own dates, the calendar, and a day you can scroll
+## What the last session added: a cache that holds more than one school year
 
-Open as PR #77, in the milestone `v0.7.0 — Оптимизация`, sixteen commits. Three parts: a
+Open as PR #78, in the milestone `v0.7.0 — Оптимизация`. One item, and it is the one #77
+wrote down as a decision the owner had to make: **scrolling the calendar by years**. They
+chose the honest option — a sync windowed on demand — over binding a picker to the year
+already synced, which would have scrolled to a year with no days in it.
+
+### The invariant that had to go
+
+The cache held exactly one window per class, and `replaceAll` wiped that class's rows on
+every sync. So scrolling into another school year could not work at all: arriving would
+have destroyed the year being left, and coming back would have destroyed the one just
+fetched. Every date outside the one window read «Нет данных» — on screen the same thing as
+a week with no lessons in it.
+
+A window is a school year now, named by the year it opens in, and `replaceWindow` replaces
+one of them. `synced_window` is a table rather than something counted off the days present,
+because **a year fetched and genuinely empty has to be tellable from one never fetched** —
+a class made in March has no rows before it either way, and counting would leave the
+calendar on a spinner that never stops.
+
+**The server needed nothing.** `/api/v1/bundle` has always taken an arbitrary `start` and
+up to 280 days, and a school year is 274. The whole batch is Android.
+
+### What fell out rather than being added
+
+The Monday anchor is gone with the whole-class wipe that was its only reason, and its
+summer bug with it: applied in July it reached back far enough to ask for some 320 days,
+past what the server accepts, and the window came back silently clipped in April.
+`refresh` lost its `days` — a parameter nothing could honour, threaded through
+WorkManager's input data to be ignored. And the `ETag` store keeps a tag per window,
+bounded by the cache's own cap rather than a second rule.
+
+### Three defects the tests found and the code did not
+
+1. **Eviction by fetch time was not a rule.** It is not «least recently used» — a year
+   revisited and unchanged answers `304`, which touches the class row rather than the
+   window's — and it ties, so four years fetched inside one millisecond left the order to
+   the query, which returns the newest year first, so the year just asked for was thrown
+   away. It goes by distance from the year holding today now, which is clock-independent.
+2. **A year asked for while another was in flight was dropped and never retried**, because
+   the period had not changed since. It works because the collector *awaits* each fetch:
+   one coroutine, so a request in flight parks the collector, and a `StateFlow` conflates,
+   so what it resumes on is where the reader ended up. Launching each fetch instead is the
+   obvious-looking change, and it is what the test now fails on.
+3. **An «already in flight» guard that could never fire**, for the same reason — removed
+   rather than left as a claim about the code that stops being true silently. That is the
+   second unreachable guard this session found; the first was in the day ribbon.
+
+### On screen
+
+A «2026/27» chip in the header opens a picker of five school years, each marked «загружен»
+or «не загружен». Nothing has to be pressed: the calendar fetches the year it is scrolled
+into, whether it was stepped to, tapped to, picked or opened from the widget — one
+collector watching the period actually drawn, both ends of it, because a week can straddle
+31 May. And a day now says which kind of empty it is: «нет уроков», «загружаю год» and
+«год не загружен» were one sentence before.
+
+**Deliberately left alone.** Three years per class, which is a number rather than a
+measurement: the question a calendar is asked reaches about one year either side of the
+one it is in. Nobody has watched what four or five costs on a phone, and the constant is
+one line (`MAX_YEARS`).
+
+**Verified, and not.** `./gradlew test` **849 tests**, both assembles, and every guard
+proved red first — the old whole-class wipe fails two, letting any year write the lookahead
+fails a third, dropping the lookahead exclusion fails a fourth. The server half was not
+touched and its gates were last green at #77: `ruff` clean, `pytest -q -n auto` 1610,
+`python -m mypy` clean across 84 modules. **Nothing has been seen on a screen** — not the
+chip, not the picker, not what a school year takes to arrive over a school's wifi, and not
+what three years of rows cost a `LazyColumn` that re-reads them on every write.
+
+One note for whoever writes the next test against `WeekViewModel`: **do not use `runTest`.**
+It shares its scheduler with `Dispatchers.Main` when Main is a test dispatcher and then
+drains every pending delay by advancing virtual time, which against this view model never
+finishes — its clock is `while (true) { emit(now); delay(30s) }`. It hung a whole Gradle
+run once.
+
+## What the batch before added: the school's own dates, the calendar, and a day you can scroll
+
+Merged as PR #77 (`ddfd305`), in the milestone `v0.7.0 — Оптимизация`, eighteen commits. Three parts: a
 defect reported from a real class, the calendar the owner asked for on top of it, and the
 day screen that calendar leads to.
 
@@ -1397,7 +1474,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 1610 tests, ~2 min (CI runs this)
 cd server  && python -m mypy                             # clean, 84 modules
-cd android && ./gradlew test                             # 830 tests
+cd android && ./gradlew test                             # 849 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
@@ -1479,12 +1556,13 @@ nothing left to do to the database before a merge.**
 
 ## 3. What has NOT been done
 
-### 3.1. The features that were requested — all but one are done
+### 3.1. The features that were requested — all of them are done
 
-**One requested item is left untaken, and it is a decision rather than work:** scrolling the
-calendar by years, which is in section 7 with the two answers and what each costs. Everything
-else that has been asked for is in. The section is kept struck through rather than deleted:
-it shows what exactly was asked for and what it turned out to be.
+**No requested work is left untaken.** The one item that was open here — scrolling the
+calendar by years — was a decision rather than work, the owner made it on 21 September
+2026 (the windowed sync, not the picker bound to the synced year), and it is done. The
+section is kept struck through rather than deleted: it shows what exactly was asked for
+and what it turned out to be.
 
 ~~1. **A pupil choosing their own class.**~~ Done in `8ec2e31`. The phone keeps a list of
    memberships, shows one of them and switches instantly; the cache is split by class, so
@@ -1730,6 +1808,11 @@ and that was the defect.
 This is the main thing worth knowing: **all of this work is proved by tests and by nothing
 else.**
 
+- **Nothing of the year scrolling has been looked at either.** What the tests prove is
+  which year is asked for and when, which one is dropped, and that a request made while
+  another was in flight comes back. What nobody has seen: the year chip, the picker, how
+  long a school year takes to arrive over a school's wifi, and what three years of day
+  rows cost a `LazyColumn` that re-reads them on every write. The cap of three is a guess.
 - **Nothing of the calendar or the day screen has been looked at.** What the tests prove is
   which accent a day resolves to, where a band of one reason ends, which row
   «вернуться к текущему» lands on, and which of three depth levels a given API level gets.
@@ -2444,20 +2527,11 @@ has a Cyrillic identifier: Kotlin has none at all.
 
 All of this is beyond an agent's reach: it needs a phone, a key or a live service.
 
-**The calendar year-scroll is a decision, and nothing else is blocking it.** The owner asked
-for «прокрутки по годам» and it is the one item of that request not in #77. The phone's
-cache holds one school year by construction, so there are exactly two answers and they cost
-very differently:
-
-* **(a) Bind the picker to the year that is synced.** An afternoon's work, and very nearly
-  useless — it would scroll to a year whose days are not in the cache and draw sixty empty
-  cells.
-* **(b) Sync a window on demand.** The honest one, and a batch of its own: it breaks the
-  one-window-per-class invariant and touches `SchoolYear.boundsAt`, `TimetableDao.replaceAll`,
-  the Room schema, the `ETag` signature and `MAX_BUNDLE_DAYS`.
-
-Nothing here should pick between them unasked. **(b) is the one worth doing**; it is only
-recorded as the owner's because it is a week rather than an afternoon.
+**The calendar year-scroll was a decision and it has been made.** The owner chose (b), the
+windowed sync, on 21 September 2026, over (a), a picker bound to the year already synced —
+which would have scrolled to a year with no days in it. It is done, in #78. What is left of
+it for the owner is one number: the cache keeps three school years per class, which is a
+guess rather than a measurement, and nobody has watched what four costs on a real phone.
 
 **The hour ruler is gone.** «Календарь → День» is the ribbon now, and a reader who preferred
 reading the day by position — a gap as a height rather than as a row — has lost that. It was

@@ -66,4 +66,35 @@ object SchoolYear {
         val bounds = boundsAt(on)
         return ChronoUnit.DAYS.between(bounds.start, bounds.endInclusive).toInt() + 1
     }
+
+    /**
+     * The year [on] belongs to, named by the calendar year it opens in.
+     *
+     * One number, and that is the point: once the cache holds several years it
+     * needs something to file them under, and a pair of dates is two values
+     * that can disagree. «2026» means the year that opens in September 2026 and
+     * ends in May 2027 — which is also how a school says it — so an identifier,
+     * an `ETag` signature and a row's primary key can all be that integer and
+     * mean the same thing.
+     *
+     * Derived from [boundsAt] rather than beside it, because the summer rule is
+     * subtle enough to be worth having in exactly one place: a July date
+     * belongs to the year *about to* open.
+     */
+    fun openingYearOf(on: LocalDate): Int = boundsAt(on).start.let { start ->
+        // The start is 1 September or the Monday after, so its calendar year is
+        // the opening year by construction. Reading it off the bound rather
+        // than recomputing the month test is what keeps the two from drifting.
+        start.year
+    }
+
+    /** The bounds of the year opening in [openingYear], both ends included. */
+    fun boundsOf(openingYear: Int): ClosedRange<LocalDate> =
+        start(openingYear)..end(openingYear)
+
+    /** How many days the year opening in [openingYear] spans, both ends included. */
+    fun daysOf(openingYear: Int): Int {
+        val bounds = boundsOf(openingYear)
+        return ChronoUnit.DAYS.between(bounds.start, bounds.endInclusive).toInt() + 1
+    }
 }

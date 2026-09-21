@@ -85,12 +85,14 @@ object SyncScheduler {
      */
     fun syncNow(
         context: Context,
-        days: Int = SyncWorker.DEFAULT_DAYS,
         wantsDifferentData: Boolean = false,
     ) {
+        // Nothing to hand it. The window is the school year that holds today,
+        // which the repository works out for itself — a caller asking for «a
+        // month» was asking for a window that no longer exists, and the number
+        // was carried through WorkManager's input data to be ignored.
         val builder = OneTimeWorkRequestBuilder<SyncWorker>()
             .setConstraints(constraints)
-            .setInputData(workDataOf(SyncWorker.KEY_DAYS to days))
 
         // Expedited work runs as a foreground service below API 31, which would
         // force this module to ship a notification channel and a

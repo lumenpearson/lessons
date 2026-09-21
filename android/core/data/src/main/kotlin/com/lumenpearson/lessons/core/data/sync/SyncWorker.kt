@@ -48,8 +48,7 @@ class SyncWorker(
             )
         }
 
-        val days = inputData.getInt(KEY_DAYS, DEFAULT_DAYS)
-        return when (val result = container.timetableRepository.refresh(days)) {
+        return when (val result = container.timetableRepository.refresh()) {
             // The repository broadcasts on its own now, so that an in-app
             // refresh reaches the widget too; this path needs nothing extra.
             is SyncResult.Success -> Result.success()
@@ -74,9 +73,6 @@ class SyncWorker(
     }
 
     companion object {
-        /** Input: how many days to fetch. */
-        const val KEY_DAYS: String = "days"
-
         /** Output: why the run failed, for the app to surface or log. */
         const val KEY_ERROR: String = "error"
 
@@ -85,22 +81,6 @@ class SyncWorker(
         
         /** @see SyncResult.NotConfigured */
         const val REASON_NOT_CONFIGURED: String = "not_configured"
-
-        /**
-         * A month, which is what the calendar's month view needs to be a month.
-         *
-         * It was two weeks, then a month. Both were windows measured from
-         * today, and a calendar that draws a year over either of them is part
-         * real and part "нет данных" — which on screen is the same thing as "no
-         * lessons", so a timetable looked like it stopped a month after the
-         * class was made.
-         *
-         * The repository now asks for the school year regardless and treats
-         * this as a floor, so the number matters only to a caller that wants
-         * *more* than the year has left. It stays at a month because that is
-         * the smallest useful ask, not because it is the window.
-         */
-        const val DEFAULT_DAYS: Int = 31
 
         /**
          * After three tries the next scheduled run will happen sooner than the

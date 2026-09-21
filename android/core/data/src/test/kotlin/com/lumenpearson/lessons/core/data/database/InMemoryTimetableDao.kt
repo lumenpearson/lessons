@@ -8,11 +8,12 @@ import kotlinx.coroutines.flow.map
 /**
  * The cache, in memory, for tests that need one that actually remembers.
  *
- * Only the abstract members are implemented, which is the point: `replaceAll`,
- * `clear`, `clearAll` and `snapshot` are concrete on [TimetableDao], so a test
- * written against this exercises the **real** orchestration — the wipe order,
- * the per-class subqueries, the day ids stamped onto children — rather than a
- * second implementation of it that could agree with the first while both are
+ * Only the abstract members are implemented, which is the point: `replaceWindow`,
+ * `dropWindow`, `clear`, `clearAll` and `snapshot` are concrete on
+ * [TimetableDao], so a test written against this exercises the **real**
+ * orchestration — the wipe order, the per-class subqueries, the ranged deletes
+ * that spare the lookahead row, the day ids stamped onto children — rather than
+ * a second implementation of it that could agree with the first while both are
  * wrong.
  *
  * Nothing here is thread-safe, and it does not need to be: the tests drive it
@@ -25,6 +26,7 @@ internal class InMemoryTimetableDao : TimetableDao() {
     private val lessons = mutableListOf<LessonEntity>()
     private val events = mutableListOf<EventEntity>()
     private val homework = mutableListOf<HomeworkEntity>()
+    private val windows = mutableListOf<SyncedWindowEntity>()
     private var nextDayId = 1L
 
     /**
@@ -131,6 +133,90 @@ internal class InMemoryTimetableDao : TimetableDao() {
         touch()
     }
 
+    override fun observeWindows(classId: Long): Flow<List<SyncedWindowEntity>> =
+        revision.map { windowsOf(classId) }
+
+    override suspend fun windows(classId: Long): List<SyncedWindowEntity> = windowsOf(classId)
+
+    private fun windowsOf(classId: Long): List<SyncedWindowEntity> = windows
+        .filter { it.classId == classId }
+        .sortedByDescending { it.openingYear }
+
+    override suspend fun insertWindow(entity: SyncedWindowEntity) {
+        windows.removeAll { it.classId == entity.classId && it.openingYear == entity.openingYear }
+        windows += entity
+        touch()
+    }
+
+    override suspend fun deleteWindow(classId: Long, openingYear: Int) {
+        windows.removeAll { it.classId == classId && it.openingYear == openingYear }
+        touch()
+    }
+
+    override suspend fun deleteWindowsOf(classId: Long) {
+        windows.removeAll { it.classId == classId }
+        touch()
+    }
+
+    override suspend fun deleteWindowsOutside(keep: Collection<Long>) {
+        windows.removeAll { it.classId !in keep }
+        touch()
+    }
+
+    override suspend fun deleteAllWindows() {
+        windows.clear()
+        touch()
+    }
+
+    /**
+     * The Kotlin twins of the ranged deletes, lookahead exclusion and all.
+     *
+     * That exclusion is the half worth copying exactly: the stored lookahead
+     * row sits at a date that also falls inside some window, and a delete that
+     * swept it up while replacing a neighbouring year would take away the one
+     * row that answers `schoolDayAfter` across a gap.
+     */
+    private fun dayIdsBetween(classId: Long, from: LocalDate, to: LocalDate): Set<Long> = days
+        .filter { it.classId == classId && !it.isNextSchoolDay && it.date in from..to }
+        .map { it.id }
+        .toSet()
+
+    override suspend fun deleteHomeworkBetween(classId: Long, from: LocalDate, to: LocalDate) {
+        val owned = dayIdsBetween(classId, from, to)
+        homework.removeAll { it.dayId in owned }
+        touch()
+    }
+
+    override suspend fun deleteEventsBetween(classId: Long, from: LocalDate, to: LocalDate) {
+        val owned = dayIdsBetween(classId, from, to)
+        events.removeAll { it.dayId in owned }
+        touch()
+    }
+
+    override suspend fun deleteLessonsBetween(classId: Long, from: LocalDate, to: LocalDate) {
+        val owned = dayIdsBetween(classId, from, to)
+        lessons.removeAll { it.dayId in owned }
+        touch()
+    }
+
+    override suspend fun deleteDaysBetween(classId: Long, from: LocalDate, to: LocalDate) {
+        val owned = dayIdsBetween(classId, from, to)
+        days.removeAll { it.id in owned }
+        touch()
+    }
+
+    override suspend fun deleteLookaheadOf(classId: Long) {
+        val owned = days
+            .filter { it.classId == classId && it.isNextSchoolDay }
+            .map { it.id }
+            .toSet()
+        homework.removeAll { it.dayId in owned }
+        events.removeAll { it.dayId in owned }
+        lessons.removeAll { it.dayId in owned }
+        days.removeAll { it.id in owned }
+        touch()
+    }
+
     override suspend fun deleteHomeworkOf(classId: Long) {
         val owned = dayIdsOf(classId)
         homework.removeAll { it.dayId in owned }
@@ -222,6 +308,9 @@ internal class InMemoryTimetableDao : TimetableDao() {
 
     /** How many day rows this class has, lookahead day included. */
     fun dayCountOf(classId: Long): Int = days.count { it.classId == classId }
+
+    /** Which school years this class claims to hold, newest first. */
+    fun cachedYearsOf(classId: Long): List<Int> = windowsOf(classId).map { it.openingYear }
 
     /**
      * How many day rows the one-shot reads have handed back since this fake

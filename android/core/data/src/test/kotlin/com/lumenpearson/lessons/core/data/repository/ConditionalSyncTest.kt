@@ -43,6 +43,10 @@ class ConditionalSyncTest {
     private class Store : BundleTagStore {
         val written = mutableMapOf<String, String>()
         override suspend fun tagFor(signature: String): String? = written[signature]
+        override suspend fun forget(signature: String) {
+            written.remove(signature)
+        }
+
         override suspend fun remember(signature: String, etag: String) {
             written[signature] = etag
         }
@@ -135,7 +139,7 @@ class ConditionalSyncTest {
         val api = FakeApi(etag = "\"abc\"")
         val tags = Store()
 
-        repository(api, tags, InMemoryTimetableDao(), onData = {}).refresh(days = 31)
+        repository(api, tags, InMemoryTimetableDao(), onData = {}).refresh()
 
         assertNull("there is nothing to compare against yet", api.seenTag)
         assertEquals(1, tags.written.size)
@@ -149,12 +153,12 @@ class ConditionalSyncTest {
         val dao = InMemoryTimetableDao()
         var redraws = 0
 
-        repository(api, tags, dao, onData = { redraws += 1 }).refresh(days = 31)
+        repository(api, tags, dao, onData = { redraws += 1 }).refresh()
         val afterFirst = dao.schoolClass(1L)?.syncedAtEpochMillis
         assertNotNull(afterFirst)
 
         api.answerNotModified = true
-        val result = repository(api, tags, dao, onData = { redraws += 1 }).refresh(days = 31)
+        val result = repository(api, tags, dao, onData = { redraws += 1 }).refresh()
 
         assertEquals(SyncResult.Success, result)
         assertEquals("\"abc\"", api.seenTag)
@@ -189,13 +193,13 @@ class ConditionalSyncTest {
         var replans = 0
 
         repository(api, tags, dao, onData = { redraws += 1 }, onUnchanged = { replans += 1 })
-            .refresh(days = 31)
+            .refresh()
         assertEquals("the first sync has data, so it announces data", 1, redraws)
         assertEquals(0, replans)
 
         api.answerNotModified = true
         val result = repository(api, tags, dao, onData = { redraws += 1 }, onUnchanged = { replans += 1 })
-            .refresh(days = 31)
+            .refresh()
 
         assertEquals(SyncResult.Success, result)
         assertEquals("nothing it draws has changed", 1, redraws)
@@ -218,7 +222,7 @@ class ConditionalSyncTest {
             InMemoryTimetableDao(),
             onData = { redraws += 1 },
             onUnchanged = { replans += 1 },
-        ).refresh(days = 31)
+        ).refresh()
 
         assertEquals(1, redraws)
         assertEquals(0, replans)
@@ -228,7 +232,7 @@ class ConditionalSyncTest {
     fun `a tag is not reused for a different window`() = runTest {
         val api = FakeApi(etag = "\"abc\"")
         val tags = Store()
-        repository(api, tags, InMemoryTimetableDao(), onData = {}).refresh(days = 31)
+        repository(api, tags, InMemoryTimetableDao(), onData = {}).refresh()
 
         // 1 September moves the window; the stored signature stops matching and
         // the sync asks for the whole thing again rather than comparing against
@@ -244,7 +248,7 @@ class ConditionalSyncTest {
             ioDispatcher = UnconfinedTestDispatcher(),
             bundleTags = tags,
         )
-        nextYear.refresh(days = 31)
+        nextYear.refresh()
 
         assertNull("a tag for last year's window is no tag at all", api.seenTag)
         assertEquals(2, tags.written.size)
@@ -264,11 +268,11 @@ class ConditionalSyncTest {
         val api = FakeApi(etag = "\"abc\"")
         val tags = Store()
         val populated = InMemoryTimetableDao()
-        repository(api, tags, populated, onData = {}).refresh(days = 31)
+        repository(api, tags, populated, onData = {}).refresh()
 
         api.answerNotModified = true
         val empty = InMemoryTimetableDao()
-        val result = repository(api, tags, empty, onData = {}).refresh(days = 31)
+        val result = repository(api, tags, empty, onData = {}).refresh()
 
         assertEquals("\"abc\"", api.tagsSeen[1])
         assertNull("the second attempt asks for the whole window", api.tagsSeen[2])
@@ -298,7 +302,7 @@ class ConditionalSyncTest {
             InMemoryTimetableDao(),
             onData = {},
             onRejected = { rejected += 1 },
-        ).refresh(days = 31)
+        ).refresh()
 
         assertEquals(SyncResult.Unauthorised, result)
         assertEquals(1, rejected)

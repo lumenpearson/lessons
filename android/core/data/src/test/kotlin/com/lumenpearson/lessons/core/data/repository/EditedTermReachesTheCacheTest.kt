@@ -42,6 +42,10 @@ class EditedTermReachesTheCacheTest {
     private class Store : BundleTagStore {
         val written = mutableMapOf<String, String>()
         override suspend fun tagFor(signature: String): String? = written[signature]
+        override suspend fun forget(signature: String) {
+            written.remove(signature)
+        }
+
         override suspend fun remember(signature: String, etag: String) {
             written[signature] = etag
         }
@@ -103,14 +107,14 @@ class EditedTermReachesTheCacheTest {
             bundleTags = Store(),
         )
 
-        repository.refresh(days = 31)
+        repository.refresh()
         assertEquals(LocalDate.parse("2027-05-31"), cachedSecondTermEnd(dao))
 
         // The admin moves it in the bot: a different body, and therefore a
         // different tag, which is what makes the second answer a 200.
         api.terms = semesters("2027-05-28")
         api.etag = "\"two\""
-        repository.refresh(days = 31)
+        repository.refresh()
 
         assertEquals(
             "the edited end date never reached the cache",
@@ -138,10 +142,10 @@ class EditedTermReachesTheCacheTest {
             onTokenRejected = {},
             bundleTags = Store(),
         )
-        repository.refresh(days = 31)
+        repository.refresh()
         api.terms = semesters("2027-05-28")
         api.etag = "\"two\""
-        repository.refresh(days = 31)
+        repository.refresh()
 
         // Through the flow the calendar actually collects, not the DAO.
         val timetable = repository.timetable.first()

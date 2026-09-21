@@ -52,7 +52,7 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 83 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 84 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. Not in CI — the
   owner has not been asked — but run it before you push server code
@@ -154,6 +154,16 @@ Room is the single source of truth; the network only fills it. `:core:data` must
 depend on `:widget` — the sync worker tells the widget it has new data by broadcasting
 `com.lumenpearson.lessons.action.DATA_SYNCED`, precisely so the dependency does not have to
 be circular.
+
+**A window is one school year, and a class holds several of them.** `synced_window` says
+which years this phone has fetched, `replaceWindow` replaces one and leaves the rest, and
+`syncedYears` is what the screens read to tell «нет уроков» from «ещё не загружено». The
+table exists because those two cannot be told apart by counting rows — a class made in
+March has none before it either way. Three years are kept per class; what goes is the one
+furthest from the year holding today, never that year, and its `ETag` goes with its rows.
+Only the sync of the current year writes the lookahead row, and the ranged deletes spare
+it: the server resolves it past the window's end, so for a year ending in May it lands in
+the September inside the *next* window.
 
 There is no Hilt. `Graph` is a small hand-written container a test can swap wholesale,
 because the Glance widget and the WorkManager worker both need repositories from entry

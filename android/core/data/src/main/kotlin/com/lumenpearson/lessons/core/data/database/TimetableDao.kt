@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.Flow
  * parameter is the cheapest way to make forgetting the filter a compile error
  * rather than a wrong timetable that looks right.
  *
- * It is an abstract class rather than an interface because [replaceAll],
+ * It is an abstract class rather than an interface because [replaceWindow],
  * [clear] and [clearAll] need bodies wrapped in `@Transaction`, which Room
  * implements by overriding a concrete method.
  */
@@ -72,7 +72,7 @@ internal abstract class TimetableDao {
     /**
      * All three reads a render needs, taken inside one transaction.
      *
-     * [replaceAll] swaps the class row and the days atomically, so reading them
+     * [replaceWindow] swaps the class row and a year's days atomically, so reading them
      * through three separate statements can straddle that swap and return the
      * class from before it with the days from after — an old "обновлено в …"
      * over a new week, or the reverse. The widget redraws on the sync broadcast,
@@ -136,7 +136,7 @@ internal abstract class TimetableDao {
     /**
      * [snapshot], bounded to a date range.
      *
-     * One transaction for the same reason [snapshot] is one: `replaceAll` swaps
+     * One transaction for the same reason [snapshot] is one: `replaceWindow` swaps
      * the class row and the days together, and three statements either side of
      * that swap return a new week under an old «обновлено в …».
      *
@@ -163,8 +163,8 @@ internal abstract class TimetableDao {
     }
 
     /**
-     * Building blocks of [replaceAll]. They are public only because Room has to
-     * generate overrides; call [replaceAll] instead, so the cache is never left
+     * Building blocks of [replaceWindow]. They are public only because Room has to
+     * generate overrides; call [replaceWindow] instead, so the cache is never left
      * half-written.
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -243,39 +243,134 @@ internal abstract class TimetableDao {
     @Query("DELETE FROM school_class")
     abstract suspend fun deleteAllSchoolClasses()
 
+    /** Every school year this class has actually fetched, newest first. */
+    @Query("SELECT * FROM synced_window WHERE class_id = :classId ORDER BY opening_year DESC")
+    abstract fun observeWindows(classId: Long): Flow<List<SyncedWindowEntity>>
+
+    /** @see observeWindows */
+    @Query("SELECT * FROM synced_window WHERE class_id = :classId ORDER BY opening_year DESC")
+    abstract suspend fun windows(classId: Long): List<SyncedWindowEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertWindow(entity: SyncedWindowEntity)
+
+    @Query("DELETE FROM synced_window WHERE class_id = :classId AND opening_year = :openingYear")
+    abstract suspend fun deleteWindow(classId: Long, openingYear: Int)
+
+    @Query("DELETE FROM synced_window WHERE class_id = :classId")
+    abstract suspend fun deleteWindowsOf(classId: Long)
+
+    @Query("DELETE FROM synced_window WHERE class_id NOT IN (:keep)")
+    abstract suspend fun deleteWindowsOutside(keep: Collection<Long>)
+
+    @Query("DELETE FROM synced_window")
+    abstract suspend fun deleteAllWindows()
+
     /**
-     * Swaps one class's whole synced window atomically.
+     * Ranged deletes, for replacing one window and leaving the others standing.
      *
-     * Wipe-and-reinsert rather than upsert: the server owns the schedule
-     * completely, and a lesson that was deleted upstream has no key the client
-     * could use to notice its absence. Doing it in one transaction means readers
-     * either see the old window or the new one, never a half-empty week - which
-     * matters because the widget can wake up mid-sync.
+     * The lookahead row is excluded from every one of them. It is the day
+     * *past* the window it was resolved for, so a date inside it belongs to
+     * whichever window it falls in as well — and deleting it while replacing a
+     * neighbouring year would take away the one thing that answers
+     * `schoolDayAfter` across a gap. [replaceWindow] rewrites it explicitly,
+     * and only the year that holds today does.
+     */
+    @Query(
+        "DELETE FROM homework WHERE day_id IN (SELECT id FROM school_day " +
+            "WHERE class_id = :classId AND is_next_school_day = 0 " +
+            "AND date BETWEEN :from AND :to)",
+    )
+    abstract suspend fun deleteHomeworkBetween(classId: Long, from: LocalDate, to: LocalDate)
+
+    @Query(
+        "DELETE FROM event WHERE day_id IN (SELECT id FROM school_day " +
+            "WHERE class_id = :classId AND is_next_school_day = 0 " +
+            "AND date BETWEEN :from AND :to)",
+    )
+    abstract suspend fun deleteEventsBetween(classId: Long, from: LocalDate, to: LocalDate)
+
+    @Query(
+        "DELETE FROM lesson WHERE day_id IN (SELECT id FROM school_day " +
+            "WHERE class_id = :classId AND is_next_school_day = 0 " +
+            "AND date BETWEEN :from AND :to)",
+    )
+    abstract suspend fun deleteLessonsBetween(classId: Long, from: LocalDate, to: LocalDate)
+
+    @Query(
+        "DELETE FROM school_day WHERE class_id = :classId AND is_next_school_day = 0 " +
+            "AND date BETWEEN :from AND :to",
+    )
+    abstract suspend fun deleteDaysBetween(classId: Long, from: LocalDate, to: LocalDate)
+
+    /** The stored lookahead row, which belongs to no window in particular. */
+    @Query("DELETE FROM school_day WHERE class_id = :classId AND is_next_school_day = 1")
+    abstract suspend fun deleteLookaheadOf(classId: Long)
+
+    /**
+     * Swaps one school year of one class atomically, leaving its other years be.
      *
-     * Only this class's rows are touched. A sync of 7«А» that wiped the table
-     * would empty 9«Б» behind the user's back, and they would find out by
-     * switching to it and seeing nothing.
+     * Wipe-and-reinsert rather than upsert, and that has not changed: the
+     * server owns the schedule completely, and a lesson deleted upstream has no
+     * key the client could use to notice its absence. What changed is the
+     * *extent* of the wipe. It used to be the class — which is why the calendar
+     * could only ever hold the current year, and why scrolling to the next one
+     * would have destroyed this one on arrival. Now it is the window, so two
+     * years sit side by side and a sync of either leaves the other alone.
      *
-     * @param nextSchoolDay the lookahead day, already flagged; pass `null` when
-     * the server could not resolve one (long holiday at the end of the year).
+     * One transaction, so readers see the old year or the new one and never a
+     * half-empty week — which matters because the widget can wake up mid-sync.
+     *
+     * The window row is written last, inside the same transaction: it is the
+     * claim «this year is cached», and a claim that outran the rows it is about
+     * would leave the calendar reporting a fetched year over an empty grid.
+     *
+     * @param nextSchoolDay the lookahead day, already flagged; pass `null` to
+     *   leave the stored one alone. Only the sync of the year that holds today
+     *   passes one, because that row answers «what is the next school day» from
+     *   *now*, and a fetch of 2031 has no business rewriting it.
      */
     @Transaction
-    open suspend fun replaceAll(
+    open suspend fun replaceWindow(
         schoolClass: SchoolClassEntity,
+        window: SyncedWindowEntity,
         days: List<SchoolDayRecord>,
         nextSchoolDay: SchoolDayRecord?,
     ) {
-        clear(schoolClass.id)
+        val classId = schoolClass.id
+        deleteHomeworkBetween(classId, window.startsOn, window.endsOn)
+        deleteEventsBetween(classId, window.startsOn, window.endsOn)
+        deleteLessonsBetween(classId, window.startsOn, window.endsOn)
+        deleteDaysBetween(classId, window.startsOn, window.endsOn)
+        if (nextSchoolDay != null) deleteLookaheadOf(classId)
         insertSchoolClass(schoolClass)
         (days + listOfNotNull(nextSchoolDay)).forEach { record ->
             // Re-stamped rather than trusted: the class row being written is
             // the one authority on whose window this is, so a record built for
             // another class cannot be filed under this one's id.
-            val dayId = insertDay(record.day.copy(classId = schoolClass.id))
+            val dayId = insertDay(record.day.copy(classId = classId))
             insertLessons(record.lessons.map { it.copy(dayId = dayId) })
             insertEvents(record.events.map { it.copy(dayId = dayId) })
             insertHomework(record.homework.map { it.copy(dayId = dayId) })
         }
+        insertWindow(window.copy(classId = classId))
+    }
+
+    /**
+     * Drops one school year of one class, rows and claim together.
+     *
+     * What the cap is spent through: the cache keeps a few years, not every
+     * year anybody ever scrolled past, and a year dropped without its
+     * `synced_window` row would be a claim about an empty range — a calendar
+     * that says it has the data and draws nothing.
+     */
+    @Transaction
+    open suspend fun dropWindow(classId: Long, window: SyncedWindowEntity) {
+        deleteHomeworkBetween(classId, window.startsOn, window.endsOn)
+        deleteEventsBetween(classId, window.startsOn, window.endsOn)
+        deleteLessonsBetween(classId, window.startsOn, window.endsOn)
+        deleteDaysBetween(classId, window.startsOn, window.endsOn)
+        deleteWindow(classId, window.openingYear)
     }
 
     /**
@@ -292,6 +387,11 @@ internal abstract class TimetableDao {
         deleteEventsOf(classId)
         deleteLessonsOf(classId)
         deleteDaysOf(classId)
+        // Before the class row, and never after it: a window left standing over
+        // no days is a claim that the year is cached, and the calendar believes
+        // claims rather than counting rows — which is the whole reason the
+        // table exists.
+        deleteWindowsOf(classId)
         deleteSchoolClass(classId)
     }
 
@@ -324,7 +424,7 @@ internal abstract class TimetableDao {
      *
      * A sweep rather than a delete at the moment of leaving, because the case
      * it exists for cannot be caught there: a sync already in flight when a
-     * class is left lands afterwards and `replaceAll` re-creates the whole
+     * class is left lands afterwards and `replaceWindow` re-creates the whole
      * window for a class nobody can see any more. Every read is class-filtered
      * so none of it is ever drawn — it is a year of somebody's timetable kept
      * on a phone that asked to be rid of it, which is the part that matters.
@@ -342,6 +442,7 @@ internal abstract class TimetableDao {
         deleteEventsOutside(keep)
         deleteLessonsOutside(keep)
         deleteDaysOutside(keep)
+        deleteWindowsOutside(keep)
         deleteSchoolClassesOutside(keep)
     }
 
@@ -352,6 +453,7 @@ internal abstract class TimetableDao {
         deleteAllEvents()
         deleteAllLessons()
         deleteAllDays()
+        deleteAllWindows()
         deleteAllSchoolClasses()
     }
 }

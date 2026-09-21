@@ -346,26 +346,31 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
     }
 
     /**
-     * The ETag of the `/bundle` window this phone already holds, if it is the
-     * window being asked for again.
+     * The ETag of one `/bundle` window this phone holds, if it holds that one.
      *
-     * Two keys rather than one: the tag is meaningless without the request it
-     * describes, and this app changes that request on 1 September and on every
-     * class switch. A signature that does not match answers `null`, so the next
-     * sync asks for the whole window — which is what it did before any of this
-     * existed, and is the direction that heals itself.
+     * A key per signature rather than one signature and one tag, because the
+     * cache holds a school year per window now and a store with room for one
+     * would make every step between two years a full download in both
+     * directions. The signature is `classId|openingYear`, so a class switch or
+     * another year is simply a different key and answers `null` — which asks
+     * for the whole window, the direction that heals itself.
+     *
+     * Nothing here bounds the number of them; [forgetBundleTag] does, called
+     * when that year is evicted from the cache. The alternative is a
+     * preferences file that only ever grows, one entry per year anybody ever
+     * scrolled past.
      */
-    suspend fun bundleTag(signature: String): String? {
-        val prefs = preferences.first()
-        return if (prefs[KEY_BUNDLE_SIGNATURE] == signature) prefs[KEY_BUNDLE_TAG] else null
-    }
+    suspend fun bundleTag(signature: String): String? =
+        preferences.first()[bundleTagKey(signature)]
 
     /** @see bundleTag */
     suspend fun writeBundleTag(signature: String, etag: String) {
-        dataStore.edit { prefs ->
-            prefs[KEY_BUNDLE_SIGNATURE] = signature
-            prefs[KEY_BUNDLE_TAG] = etag
-        }
+        dataStore.edit { prefs -> prefs[bundleTagKey(signature)] = etag }
+    }
+
+    /** @see bundleTag */
+    suspend fun forgetBundleTag(signature: String) {
+        dataStore.edit { prefs -> prefs.remove(bundleTagKey(signature)) }
     }
 
     /**
@@ -517,8 +522,17 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         val KEY_ALERT_QUIET_TO = intPreferencesKey("alert_quiet_to_minutes")
         val KEY_ALERT_SKIP_HOLIDAYS = booleanPreferencesKey("alert_skip_holidays")
         val KEY_SCHEDULE_FINGERPRINT = stringPreferencesKey("alert_schedule_fingerprint")
-        val KEY_BUNDLE_SIGNATURE = stringPreferencesKey("bundle_etag_signature")
-        val KEY_BUNDLE_TAG = stringPreferencesKey("bundle_etag")
+        /**
+         * One key per window, named after its signature.
+         *
+         * The two keys this replaced — `bundle_etag_signature` and
+         * `bundle_etag` — are deliberately not read any more and not migrated
+         * either: a tag whose window is no longer described the same way is
+         * worth exactly one avoided download, and the cost of getting the
+         * migration wrong is a `304` over rows this phone does not hold. They
+         * are left where they are, which costs two strings.
+         */
+        fun bundleTagKey(signature: String) = stringPreferencesKey("bundle_etag|$signature")
 
         val KEY_BASE_URL = stringPreferencesKey("settings_base_url")
         val KEY_THEME_MODE = stringPreferencesKey("settings_theme_mode")
