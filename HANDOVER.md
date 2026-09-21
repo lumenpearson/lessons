@@ -95,9 +95,12 @@ the database stays at `0013`.
 Nothing in this batch has been drawn on a device; what is checked is that the shipped font
 declares what the code asks for, that it is smaller than the source, and that it renders
 under Robolectric like any other resource. The `all` setting is exercised here by hand and
-**not in CI** — CI builds the default, because a CI run exists to build what ships. And the
-Android workflows' `pip install fonttools` has not run on a GitHub runner yet: it is one
-line, and the first CI run of PR #75 is what proves it.
+**not in CI** — CI builds the default, because a CI run exists to build what ships.
+
+The Android workflows' `pip install fonttools==4.65.0` **has** now run on a GitHub runner:
+the first CI run of PR #75 was green on `b6f0869`, Android in 5 min 43 s against the 4 min
+14 s of the run before it, and that job could not have built at the default setting without
+the instancer. That was the one thing the local gates could not answer.
 
 ## What the batch before added: a signed build, two megabytes off it, and the documents
 
