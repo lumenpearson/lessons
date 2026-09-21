@@ -16,6 +16,12 @@ import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.StickyNote2
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.unit.dp
@@ -43,6 +49,133 @@ import com.lumenpearson.lessons.ui.common.asFullWeekday
 import com.lumenpearson.lessons.ui.common.timeRange
 import java.time.Duration
 import java.time.LocalDate
+
+/**
+ * Which lesson a sheet is about, in a form a bundle takes.
+ *
+ * A date and a lesson number, never the [Lesson] itself: [Lesson] lives in
+ * `:core:model`, a pure JVM module with no Android on its classpath, so it is
+ * neither `Parcelable` nor anything else saved instance state takes — and
+ * making it so would mean putting Android into the one module that is
+ * deliberately without it.
+ *
+ * The pair names one lesson: the server resolves a date into at most one lesson
+ * per number (`schedule.py` builds the day as slots keyed by it, so a template
+ * cell and a substitution at the same number are the same slot), and everything
+ * between there and this screen only drops rows and sorts them.
+ */
+internal data class OpenLesson(val date: LocalDate, val index: Int)
+
+/**
+ * Which of the calendar's two sheets is up, and what about.
+ *
+ * One saveable holder rather than two `rememberSaveable`s in the screen, for the
+ * reason `SupportSheetState` gives. Saveable at all because both were plain
+ * `remember`s: turning the phone closed the lesson sheet, which is the only
+ * place the room, the teacher and the day's homework for that subject can be
+ * read, and put the reader back on the grid they had opened it from.
+ */
+@Stable
+internal class ScheduleSheetState(lesson: OpenLesson?, day: LocalDate?) {
+
+    /** The lesson [ScheduleSheets] is showing, as the key it is looked up by. */
+    var lesson: OpenLesson? by mutableStateOf(lesson)
+
+    /** The date whose [DaySheet] is up. */
+    var day: LocalDate? by mutableStateOf(day)
+
+    /**
+     * Opens [lesson]'s sheet, closing the day sheet it may have been tapped in:
+     * two stacked scrims is a dead end a back gesture has to be used twice to
+     * escape — see [DaySheet].
+     */
+    fun show(date: LocalDate, lesson: Lesson) {
+        day = null
+        this.lesson = OpenLesson(date, lesson.index)
+    }
+
+    companion object {
+        internal val Saver = listSaver<ScheduleSheetState, String>(
+            save = {
+                listOf(
+                    it.lesson?.date?.toString().orEmpty(),
+                    it.lesson?.index?.toString().orEmpty(),
+                    it.day?.toString().orEmpty(),
+                )
+            },
+            restore = { saved ->
+                val date = savedDate(saved[0])
+                val index = saved[1].toIntOrNull()
+                ScheduleSheetState(
+                    lesson = if (date == null || index == null) null else OpenLesson(date, index),
+                    day = savedDate(saved[2]),
+                )
+            },
+        )
+    }
+}
+
+/**
+ * [text] as a date, or `null` when it is not one.
+ *
+ * A saved bundle is this process's own, so a malformed one is not an attack —
+ * but a build that wrote another format is one update away, and the alternative
+ * to refusing it is `LocalDate.parse` throwing under a reader who did nothing
+ * but turn their phone. `decodeBellRows` refuses for the same reason.
+ */
+private fun savedDate(text: String): LocalDate? = runCatching { LocalDate.parse(text) }.getOrNull()
+
+@Composable
+internal fun rememberScheduleSheets(): ScheduleSheetState =
+    rememberSaveable(saver = ScheduleSheetState.Saver) {
+        ScheduleSheetState(lesson = null, day = null)
+    }
+
+/**
+ * The calendar's two sheets, hosted in one place.
+ *
+ * The lesson is looked up in [days] on every composition rather than held: what
+ * survives a rotation is which lesson the sheet was about, and by the time the
+ * state is restored the week can have been reloaded, the substitution withdrawn
+ * or the reader left on another week entirely. A lesson that is no longer there
+ * opens no sheet, which is the honest outcome — the alternative is a room, a
+ * teacher and a homework list belonging to a lesson that has stopped existing.
+ */
+@Composable
+internal fun ScheduleSheets(
+    sheets: ScheduleSheetState,
+    days: List<WeekDayUi>,
+    showTeacher: Boolean,
+    showEvents: Boolean,
+    showHomework: Boolean,
+) {
+    sheets.lesson?.let { open ->
+        val day = days.firstOrNull { it.date == open.date }?.day
+        val lesson = day?.activeLessons?.firstOrNull { it.index == open.index }
+        if (day != null && lesson != null) {
+            LessonSheet(
+                lesson = lesson,
+                date = open.date,
+                homework = day.homework
+                    .filter { it.subject.equals(lesson.subject, ignoreCase = true) },
+                showTeacher = showTeacher,
+                onDismiss = { sheets.lesson = null },
+            )
+        }
+    }
+
+    sheets.day?.let { date ->
+        DaySheet(
+            day = days.firstOrNull { it.date == date },
+            date = date,
+            showTeacher = showTeacher,
+            showEvents = showEvents,
+            showHomework = showHomework,
+            onLessonClick = { tapped -> sheets.show(date, tapped) },
+            onDismiss = { sheets.day = null },
+        )
+    }
+}
 
 /**
  * Everything about one lesson, in a sheet.
