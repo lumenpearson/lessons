@@ -449,4 +449,9 @@ The access key you were given and a copy of the timetable stay on the device, so
     <!-- Written across a month grid that has no teaching days in it at all. -->
     <string name="calendar_year_over">Summer holidays</string>
     <string name="calendar_between_terms">Holidays</string>
+    <string name="calendar_filter_lessons">With lessons</string>
+    <string name="calendar_filter_homework">With homework</string>
+    <string name="calendar_filter_events">With events</string>
+    <string name="calendar_filter_marked">Marked</string>
+    <string name="calendar_filter_clear">Clear</string>
 </resources>

@@ -20,6 +20,8 @@ import com.lumenpearson.lessons.core.data.repository.Session
 import com.lumenpearson.lessons.core.model.AlertPreferences
 import com.lumenpearson.lessons.core.model.AppFont
 import com.lumenpearson.lessons.core.model.AppLanguage
+import com.lumenpearson.lessons.core.model.DayFilter
+import com.lumenpearson.lessons.core.model.DayOrder
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.LessonAlertDetail
 import com.lumenpearson.lessons.core.model.HomeTab
@@ -240,6 +242,12 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
             prefs[KEY_WEEK_LOAD] = updated.weekShowLoad
             prefs[KEY_WEEK_EVENTS] = updated.weekShowEvents
             prefs[KEY_WEEK_HOMEWORK] = updated.weekShowHomework
+            // Names rather than ordinals: an ordinal is a number that silently
+            // means something else the day somebody reorders the enum, and a
+            // stored filter that turned into a different one would be a
+            // calendar quietly narrowed to the wrong thing.
+            prefs[KEY_CALENDAR_FILTERS] = updated.calendarFilters.map { it.name }.toSet()
+            prefs[KEY_CALENDAR_ORDER] = updated.calendarOrder.name
             prefs[KEY_DEBUG_MODE] = updated.debugMode
             prefs[KEY_ONBOARDING_DONE] = updated.onboardingDone
             prefs[KEY_ALERT_LESSON] = updated.alerts.lessonSoon
@@ -415,6 +423,16 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         weekShowLoad = this[KEY_WEEK_LOAD] ?: true,
         weekShowEvents = this[KEY_WEEK_EVENTS] ?: true,
         weekShowHomework = this[KEY_WEEK_HOMEWORK] ?: true,
+        // A name this build does not know is dropped rather than throwing: a
+        // downgrade after a filter was added must narrow to less, not crash on
+        // every read of the settings.
+        calendarFilters = this[KEY_CALENDAR_FILTERS]
+            .orEmpty()
+            .mapNotNull { name -> DayFilter.entries.firstOrNull { it.name == name } }
+            .toSet(),
+        calendarOrder = DayOrder.entries
+            .firstOrNull { it.name == this[KEY_CALENDAR_ORDER] }
+            ?: DayOrder.DATE_ASC,
         debugMode = this[KEY_DEBUG_MODE] ?: false,
         // False only for a genuinely fresh install. The key arrived with the
         // introduction, so on every phone that had the app before it there is
@@ -470,6 +488,8 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         val KEY_DIARY_TOKEN = stringPreferencesKey("diary_token")
         val KEY_DIARY_LOGIN = stringPreferencesKey("diary_login")
 
+        val KEY_CALENDAR_FILTERS = stringSetPreferencesKey("calendar_filters")
+        val KEY_CALENDAR_ORDER = stringPreferencesKey("calendar_order")
         val KEY_DEBUG_MODE = booleanPreferencesKey("settings_debug_mode")
         val KEY_ONBOARDING_DONE = booleanPreferencesKey("settings_onboarding_done")
 

@@ -3,6 +3,8 @@ package com.lumenpearson.lessons.core.data.repository
 import com.lumenpearson.lessons.core.model.AlertPreferences
 import com.lumenpearson.lessons.core.model.AppFont
 import com.lumenpearson.lessons.core.model.AppLanguage
+import com.lumenpearson.lessons.core.model.DayFilter
+import com.lumenpearson.lessons.core.model.DayOrder
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
@@ -179,6 +181,17 @@ data class AppSettings(
     val weekShowEvents: Boolean = true,
     /** The day's homework, under whatever drew its lessons. */
     val weekShowHomework: Boolean = true,
+    /**
+     * Which days the calendar narrows to. Empty is no filter at all, which is
+     * where this rests — see [DayFilter], where the empty set and the OR
+     * between several chosen facets are both deliberate.
+     */
+    val calendarFilters: Set<DayFilter> = emptySet(),
+    /**
+     * The order a list of days is drawn in. Reaches only the views that are
+     * genuinely lists: a month grid cannot be sorted and stay a calendar.
+     */
+    val calendarOrder: DayOrder = DayOrder.DATE_ASC,
     val syncIntervalMinutes: Int = DEFAULT_SYNC_INTERVAL_MINUTES,
     /**
      * Whether the app keeps a crash report when it dies.

@@ -8,7 +8,10 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
+import com.lumenpearson.lessons.core.model.DayFilter
+import com.lumenpearson.lessons.core.model.DayOrder
 import com.lumenpearson.lessons.core.model.SchoolDay
+import com.lumenpearson.lessons.core.model.matches
 import com.lumenpearson.lessons.core.model.Term
 import java.time.Instant
 import java.time.LocalDate
@@ -25,6 +28,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * How much of the timetable the screen shows at once.
@@ -54,6 +58,16 @@ data class WeekDayUi(
     val day: SchoolDay?,
     val isToday: Boolean,
     val inPeriod: Boolean = true,
+    /**
+     * False for a day the current filters exclude.
+     *
+     * Dimmed rather than removed, and that is the whole decision: a month grid
+     * with holes in it stops lining up with the weekday header and with every
+     * calendar anybody has ever read. The filter answers «where is the
+     * homework», and a month that still looks like that month is what makes
+     * the answer findable.
+     */
+    val matchesFilters: Boolean = true,
 )
 
 /**
@@ -78,6 +92,10 @@ data class ScheduleUiState(
     val periodStart: LocalDate = today,
     val periodEnd: LocalDate = today,
     val days: List<WeekDayUi> = emptyList(),
+    /** The facets currently narrowing the calendar; empty is no filter. */
+    val filters: Set<DayFilter> = emptySet(),
+    /** The order a list view draws its days in. */
+    val order: DayOrder = DayOrder.DATE_ASC,
     val showTeacher: Boolean = true,
     val showLoad: Boolean = true,
     val showEvents: Boolean = true,
@@ -120,7 +138,7 @@ data class ScheduleUiState(
  */
 class WeekViewModel(
     timetableRepository: TimetableRepository,
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val view = MutableStateFlow(ScheduleView.WEEK)
@@ -190,9 +208,12 @@ class WeekViewModel(
                     day = timetable?.day(date),
                     isToday = date == today,
                     inPeriod = view != ScheduleView.MONTH || date.month == anchorDate.month,
+                    matchesFilters = timetable?.day(date).matches(settings.calendarFilters),
                 )
             },
             terms = timetable?.schoolClass?.terms.orEmpty(),
+            filters = settings.calendarFilters,
+            order = settings.calendarOrder,
             showTeacher = settings.showTeacher,
             showLoad = settings.weekShowLoad,
             showEvents = settings.weekShowEvents,
@@ -230,6 +251,26 @@ class WeekViewModel(
     /** Puts a date in focus without changing the period. */
     fun select(date: LocalDate) {
         selected.value = date
+    }
+
+    /**
+     * Turns one filter facet on or off, and remembers it.
+     *
+     * Stored rather than held here: somebody who narrowed the calendar to
+     * «с ДЗ» meant it, and losing that on the walk from the calendar to the
+     * homework tab and back would make the chips something to press twice.
+     */
+    fun toggleFilter(filter: DayFilter) {
+        viewModelScope.launch {
+            val current = uiState.value.filters
+            val next = if (filter in current) current - filter else current + filter
+            settingsRepository.update { it.copy(calendarFilters = next) }
+        }
+    }
+
+    /** Clears every filter, which is the resting state rather than «show nothing». */
+    fun clearFilters() {
+        viewModelScope.launch { settingsRepository.update { it.copy(calendarFilters = emptySet()) } }
     }
 
     private fun step(direction: Long) {

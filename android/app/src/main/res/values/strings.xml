@@ -448,4 +448,9 @@
     <!-- Written across a month grid that has no teaching days in it at all. -->
     <string name="calendar_year_over">Летние каникулы</string>
     <string name="calendar_between_terms">Каникулы</string>
+    <string name="calendar_filter_lessons">С уроками</string>
+    <string name="calendar_filter_homework">С ДЗ</string>
+    <string name="calendar_filter_events">С событиями</string>
+    <string name="calendar_filter_marked">Отмеченные</string>
+    <string name="calendar_filter_clear">Сбросить</string>
 </resources>

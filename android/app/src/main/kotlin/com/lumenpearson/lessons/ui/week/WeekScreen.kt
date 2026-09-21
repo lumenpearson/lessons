@@ -10,6 +10,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -70,6 +71,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
 import com.lumenpearson.lessons.core.model.DayKind
 import com.lumenpearson.lessons.core.model.Lesson
 import com.lumenpearson.lessons.core.model.Term
+import com.lumenpearson.lessons.core.model.DayFilter
 import com.lumenpearson.lessons.core.model.DayOffReason
 import com.lumenpearson.lessons.core.model.TermKind
 import com.lumenpearson.lessons.ui.common.asDayMonth
@@ -166,6 +168,11 @@ fun WeekScreen(
             label = "schedule_period",
         ) { (view, _) ->
             Column(verticalArrangement = Arrangement.spacedBy(GroupSpacing)) {
+                FilterChips(
+                    active = state.filters,
+                    onToggle = viewModel::toggleFilter,
+                    onClear = viewModel::clearFilters,
+                )
                 when (view) {
                     ScheduleView.WEEK -> WeekdaySelector(
                         days = state.days,
@@ -558,6 +565,55 @@ private fun MonthGrid(
     }
 }
 
+/**
+ * The four facets, as chips over whatever the calendar is drawing.
+ *
+ * Horizontally scrollable rather than wrapped onto two rows: four Russian
+ * labels do not fit one phone width, and a row that grows taller when a filter
+ * is on moves the grid under the reader's thumb at the moment they press.
+ *
+ * «Сбросить» appears only when something is on. A permanent clear button on a
+ * calendar nobody has filtered is a button that does nothing, and the row is
+ * already competing with the grid for attention.
+ */
+@Composable
+private fun FilterChips(
+    active: Set<DayFilter>,
+    onToggle: (DayFilter) -> Unit,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = ScreenPadding),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        DayFilter.entries.forEach { filter ->
+            PillChip(
+                text = filter.asLabel(),
+                selected = filter in active,
+                onClick = { onToggle(filter) },
+            )
+        }
+        if (active.isNotEmpty()) {
+            PillChip(text = correctedString(R.string.calendar_filter_clear), onClick = onClear)
+        }
+    }
+}
+
+/** What each facet is called, out of resources so both languages have it. */
+@Composable
+internal fun DayFilter.asLabel(): String = correctedString(
+    when (this) {
+        DayFilter.HAS_LESSONS -> R.string.calendar_filter_lessons
+        DayFilter.HAS_HOMEWORK -> R.string.calendar_filter_homework
+        DayFilter.HAS_EVENTS -> R.string.calendar_filter_events
+        DayFilter.MARKED -> R.string.calendar_filter_marked
+    },
+)
+
 private const val DaysPerRow = 7
 
 /** One cell of the month grid. */
@@ -590,6 +646,12 @@ private fun MonthCell(
     // selection is for.
     val shape = if (selected || day.isToday) LessonsShapeTokens.Row else run.shape()
 
+    // Filtered out: dimmed, never removed. A grid with holes in it stops
+    // lining up with its own weekday header. Today and the selection keep
+    // their full weight either way — the filter narrows what is interesting,
+    // it does not move where you are.
+    val dimmed = !day.matchesFilters && !selected && !day.isToday
+
     Column(
         modifier = modifier
             // The gap the Row used to space with, moved here so it can be left
@@ -599,7 +661,7 @@ private fun MonthCell(
                 end = if (run.last || selected || day.isToday) 2.dp else 0.dp,
             )
             .clip(shape)
-            .background(container)
+            .background(if (dimmed) container.copy(alpha = 0.25f) else container)
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -608,11 +670,15 @@ private fun MonthCell(
         Text(
             text = day.date.dayOfMonth.toString(),
             style = MaterialTheme.typography.bodyMedium.emphasised(selected || day.isToday),
-            color = content,
+            color = if (dimmed) content.copy(alpha = 0.38f) else content,
         )
         LoadDots(
             count = if (showLoad) day.day?.activeLessons?.size ?: 0 else 0,
-            color = if (selected) scheme.onPrimary else scheme.primary,
+            color = when {
+                selected -> scheme.onPrimary
+                dimmed -> scheme.primary.copy(alpha = 0.3f)
+                else -> scheme.primary
+            },
         )
     }
 }
