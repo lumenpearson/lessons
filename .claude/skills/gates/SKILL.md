@@ -18,14 +18,14 @@ Setup once: `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"`
    `pyproject.toml`, with its count and its reason. **Not in CI** — the owner has not been
    asked — but run it before you push server code. It is the thing that reproduces the
    «🗓 Четверти» crash.
-3. `python -m pytest -q -n auto` — about 1465 tests. Serial takes about five minutes;
+3. `python -m pytest -q -n auto` — 1559 tests today. Serial takes about five minutes;
    `-n auto` finishes in a third of that and is what CI runs.
 
 Narrower while iterating: `python -m pytest -q tests/test_schedule.py -k parity`.
 
 ## Android, from `android/`
 
-1. `./gradlew test` — all JVM unit tests across the five modules, about 670.
+1. `./gradlew test` — all JVM unit tests across the five modules, 770 today.
 2. `./gradlew assembleDebug`
 3. `./gradlew assembleRelease` — **not optional.** CI builds both on every push, because R8
    and resource shrinking are where "worked in debug" stops being true.
@@ -33,6 +33,12 @@ Narrower while iterating: `python -m pytest -q tests/test_schedule.py -k parity`
 Narrower: `./gradlew :core:model:test --tests '*ScheduleEngineTest*'`.
 
 In a sandbox with no network every Gradle invocation needs `--offline`.
+
+Every one of them also needs **Python with `fonttools`** on Python 3.10 or newer
+(`python3 -m pip install fonttools`): the bundled typeface is a source, and the build
+freezes the variation axes the app never moves. Without it the invocation stops naming
+`-Plessons.font.axes=all`, which ships the font as it came — correct, and two megabytes
+larger. Run the gates at the default, because that is what CI and the APK ship.
 
 `./gradlew lint` runs the AGP Android lint. **CI does not run it — do not report it as a
 gate.**

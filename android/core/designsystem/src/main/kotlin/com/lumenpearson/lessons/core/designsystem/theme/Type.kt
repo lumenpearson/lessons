@@ -12,7 +12,15 @@ import com.lumenpearson.lessons.core.model.AppFont
 
 /**
  * Google Sans Flex, the typeface Essentials is set in, bundled as the single
- * variable font file the reference ships (`res/font/google_sans_flex.ttf`).
+ * variable font file the reference ships.
+ *
+ * It is not in `res/font`. The file as it was downloaded is
+ * `core/designsystem/fonts/google_sans_flex.ttf`, a source the build reads: at
+ * six variation axes it is 3.81 MB, of which 3.41 MB is outline deltas for
+ * shapes this app never asks for, so `instance<Variant>Font` freezes the four
+ * it does not move and the 0.29 MB result is what `R.font.google_sans_flex`
+ * resolves to. `-Plessons.font.axes=all` ships the file untouched, for a
+ * machine with no Python; `FontAxisTest` says what each setting promises.
  *
  * **SIL Open Font License 1.1, Copyright 2015 Google LLC.** This comment used
  * to say "MIT from sameerasw/essentials", which was wrong twice over: a
@@ -24,8 +32,12 @@ import com.lumenpearson.lessons.core.model.AppFont
  * `src/main/assets/licenses/google_sans_flex_OFL.txt`, and the app names the
  * licence on the «Лицензии» sheet.
  *
- * The axes are set at runtime and the file is never rewritten, so nothing here
- * is a modified version in the licence's sense.
+ * The build does rewrite the file, which the OFL allows: it permits
+ * modification outright, and the rename it requires of a derivative applies
+ * only to a Reserved Font Name, which this font declares none of. What the
+ * licence does require travels with the copy — the instancer leaves the `name`
+ * table alone, so the copyright and the licence entry in the shipped file are
+ * the downloaded file's own, and `FontLicenceTest` reads them from what ships.
  *
  * Essentials declares the family with one `Normal` entry and lets the platform
  * synthesise everything heavier. That is fine for a settings app, but this one
