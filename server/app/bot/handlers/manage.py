@@ -136,9 +136,6 @@ SEARCH_MAX = 15
 #: for, and including it makes every search slower and noisier.
 SEARCH_BACK_DAYS = 30
 
-#: Audit lines per page of «📜 Журнал».
-AUDIT_PAGE = 30
-
 COLOUR_RE = re.compile(r"^#?([0-9a-fA-F]{6})$")
 
 SUBJECT_NAME_MAX = 120
@@ -1850,9 +1847,9 @@ async def device_unlink(
 
 
 async def _audit_view(session: AsyncSession, school_class: SchoolClass, offset: int):
-    entries = await audit.recent(session, school_class.id, limit=AUDIT_PAGE + 1, offset=offset)
-    more = len(entries) > AUDIT_PAGE
-    entries = entries[:AUDIT_PAGE]
+    entries = await audit.recent(session, school_class.id, limit=mr.AUDIT_PAGE + 1, offset=offset)
+    more = len(entries) > mr.AUDIT_PAGE
+    entries = entries[:mr.AUDIT_PAGE]
     names = await _member_names(session, school_class.id)
     return (
         mr.render_audit(entries, names, school_class.tz, offset),

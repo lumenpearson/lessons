@@ -305,6 +305,14 @@ async def class_update(
     changes = payload.model_dump(exclude_unset=True)
     zone = changes.pop("timezone", None)
     mode = changes.pop("join_mode", None)
+    if "letter" in changes:
+        # The same rule the bot's «Буква» step applies, not a second one. It
+        # trims, and it reads «-» as «no letter» — which is what the bot tells
+        # people to send and what the phone's own field offers. Stored raw, a
+        # «-» became the literal name «9-» and a padded « А » a `letter` that
+        # never equals the «А» anything compares it with, while `compose_name`
+        # trimmed on its way past and left the name looking correct.
+        changes["letter"] = terms_service.normalise_letter(changes["letter"])
     if zone is not None and not is_supported(zone):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

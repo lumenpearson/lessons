@@ -37,6 +37,15 @@ CHUNK_LIMIT = 4000
 #: half; past that the reader scrolls instead of reading.
 LIST_MAX = 20
 
+#: Audit lines per page of «📜 Журнал».
+#:
+#: Here rather than in the handler, for the reason the caps above are here:
+#: `manage_keyboards` builds «Ещё ›» from this number and the handler reads the
+#: same page with it. While the pager had its own literal 30 the two agreed by
+#: coincidence, and changing one would have skipped or repeated log lines with
+#: nothing to say so.
+AUDIT_PAGE = 30
+
 #: What each list page draws, where the keyboard under it decides the number.
 #: Three of the four used to draw more rows than they offered buttons for —
 #: forty subjects above thirty ✏️ buttons, twenty bell schedules above ten

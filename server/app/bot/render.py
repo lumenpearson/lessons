@@ -706,9 +706,26 @@ def homework_digest_keys(
 # Personal tasks
 # --------------------------------------------------------------------------
 
-#: Lines of tasks in one message before «… и ещё N». Ten buttons is the
-#: keyboard's ceiling; the text may list more so nothing is hidden entirely.
+#: Lines of tasks in one message before «… и ещё N». The text lists more than
+#: the keyboard can offer on purpose, so that nothing is hidden entirely — and
+#: [TASKS_UNREACHABLE] below is what stops that being the silent half of the
+#: same defect the manage pages had, where rows were drawn that no button
+#: could reach and nothing said so.
 TASK_LINES_MAX = 40
+
+#: Task buttons in one keyboard. Telegram allows a hundred; a phone shows about
+#: ten before the message scrolls out of view.
+#:
+#: Declared here rather than in `keyboards`, the way `manage_render` declares
+#: `SUBJECTS_MAX` and `manage_keyboards` reads it: what is drawn and what can
+#: be pressed have to read one number, and this pair had two.
+TASK_BUTTONS_MAX = 10
+
+#: Drawn once, where the buttons stop, when the list is longer than they are.
+TASKS_UNREACHABLE = (
+    "— ниже кнопок нет: отметить и удалить можно только задачи выше, "
+    "остальные — после того, как разберёте эти."
+)
 
 #: A task's title on its row. The column holds 200 characters, and forty rows
 #: of two hundred is twice what Telegram will send — a line budget cannot
@@ -763,9 +780,10 @@ def render_task_list(tasks: list[PersonalTask], today: Date, show_done: bool = F
     lines = ["✅ <b>Мои задачи</b>"]
     budget = TASK_LINES_MAX
     hidden = 0
+    drawn = 0
 
     def _emit(title: str, items: list[PersonalTask]) -> None:
-        nonlocal budget, hidden
+        nonlocal budget, hidden, drawn
         if not items:
             return
         lines.append("")
@@ -774,8 +792,16 @@ def render_task_list(tasks: list[PersonalTask], today: Date, show_done: bool = F
             if budget <= 0:
                 hidden += 1
                 continue
+            # The keyboard takes the first `TASK_BUTTONS_MAX` of the same list
+            # in the same order, so the tail of this text is exactly the part
+            # nothing can press. Saying so once, where it happens, is the
+            # cheapest honest answer: the alternative is either hiding tasks or
+            # a keyboard nobody can scroll.
+            if drawn == TASK_BUTTONS_MAX:
+                lines.append(TASKS_UNREACHABLE)
             lines.append(task_line(task))
             budget -= 1
+            drawn += 1
 
     for group in TASK_GROUPS:
         _emit(group, [task for task in open_tasks if task_group(task, today) == group])

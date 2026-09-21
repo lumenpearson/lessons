@@ -9,6 +9,7 @@ live in ``app.api.edit`` behind a role check.
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import date as Date
 from datetime import datetime, timedelta
 from datetime import time as Time
@@ -16,6 +17,7 @@ from datetime import time as Time
 from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from sqlalchemy import select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class, current_device
@@ -64,6 +66,8 @@ from app.services import calendar as calendar_service
 from app.services import subjects as subjects_service
 from app.services import tasks as task_service
 from app.services import terms as terms_service
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/api/v1", tags=["client"])
 
@@ -229,7 +233,9 @@ async def health() -> dict[str, object]:
 
 
 @router.get("/warmup")
-async def warmup(session: FromDishka[AsyncSession]) -> dict[str, object]:
+async def warmup(
+    response: Response, session: FromDishka[AsyncSession]
+) -> dict[str, object]:
     """Same as `/health`, plus one round trip to the database.
 
     `/health` deliberately never opens a connection, so pinging it keeps the
@@ -240,7 +246,27 @@ async def warmup(session: FromDishka[AsyncSession]) -> dict[str, object]:
     cold starts stack and why hitting this one on a timer is the free
     mitigation for both.
     """
-    await session.execute(text("SELECT 1"))
+    try:
+        await session.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        # The one failure this endpoint is pinged to find out about, and the
+        # one it used to be worst at reporting: an unreachable database raised
+        # out of the handler, so a monitor got a bare `500` with a traceback
+        # behind it and no way to tell «the database is asleep or gone» from
+        # «this endpoint is broken». `503` is the honest code — the service
+        # cannot serve, and it is not the caller's fault — and it is what a
+        # monitor already knows how to page on.
+        #
+        # The text is deliberately not the driver's: a connection error prints
+        # the host, the user and sometimes the password parameters of the URL,
+        # and this endpoint is unauthenticated. It is logged, not answered.
+        log.exception("warmup could not reach the database")
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return {
+            "status": "down",
+            "api_version": API_VERSION,
+            "detail": "База недоступна.",
+        }
 
     # And, since the connection is open anyway, whether the schema is the one
     # this code was written against.

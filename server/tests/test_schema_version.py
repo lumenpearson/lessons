@@ -275,3 +275,34 @@ def test_the_whole_chain_runs_from_nothing_on_sqlite(tmp_path):
         cwd=str(Path(__file__).resolve().parents[1]),
     )
     assert EXPECTED_REVISION in current.stdout, current.stdout
+
+
+async def test_warmup_says_the_database_is_down_rather_than_raising(session, monkeypatch):
+    """A `500` from here is the one answer that tells a monitor nothing.
+
+    This endpoint exists to be pinged, and the failure it is pinged to find is
+    exactly the one it used to handle worst: `session.execute` raising out of
+    the handler gave a bare `500` with a traceback behind it, which reads as
+    «this endpoint is broken» rather than «the database is asleep or gone».
+    `503` is the code for a service that cannot serve through no fault of the
+    caller, and it is what a monitor already knows how to page on.
+
+    The body carries no driver text on purpose. A connection error prints the
+    host and the user out of the URL, and this route is unauthenticated.
+    """
+    from sqlalchemy.exc import OperationalError
+
+    async def refuses(*args, **kwargs):
+        raise OperationalError("SELECT 1", {}, Exception("could not connect to host"))
+
+    monkeypatch.setattr("app.api.public.AsyncSession.execute", refuses, raising=False)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/api/v1/warmup")
+
+    assert response.status_code == 503
+    body = response.json()
+    assert body["status"] == "down"
+    assert "could not connect" not in response.text
+    assert "host" not in body["detail"]

@@ -51,6 +51,8 @@ from app.bot.keyboards import main_menu, task_list_keyboard
 from app.bot.render import (
     INVISIBLE,
     MESSAGE_LIMIT,
+    TASK_BUTTONS_MAX,
+    TASKS_UNREACHABLE,
     WEEK_TEXT_LIMIT,
     duration,
     plural,
@@ -445,6 +447,41 @@ def test_task_list_truncates_and_escapes():
     assert "… и ещё 5" in text
     assert "&lt;Задача 0&gt;" in text
     assert len(text) < 4096
+
+
+def test_the_task_list_says_where_its_buttons_stop():
+    """Forty rows over ten buttons, and nothing on the screen said so.
+
+    The list draws more than the keyboard can offer on purpose — hiding a task
+    is worse than showing one that cannot be ticked from here. What was missing
+    is the sentence admitting it: with eleven open tasks the reader saw eleven
+    rows, ten toggles, and no way to tell which row had lost its button. That
+    is the manage pages' «what is drawn is what can be pressed» rule broken in
+    its quieter direction.
+    """
+    tasks = [make_task(f"Задача {i}") for i in range(12)]
+    text = render_task_list(tasks, MONDAY)
+
+    assert TASKS_UNREACHABLE in text
+    # Exactly where the keyboard runs out: ten task lines above the marker.
+    above = text.split(TASKS_UNREACHABLE)[0]
+    assert sum(line.startswith(("🟡", "⚪", "🔴")) for line in above.splitlines()) == (
+        TASK_BUTTONS_MAX
+    )
+    # And the toggles really are the first ten — read off the labels, because
+    # the same keyboard also carries list actions whose payload starts the same
+    # way, and counting those was this assertion's own first mistake.
+    keyboard = task_list_keyboard(tasks, show_done=False)
+    toggles = [b.text for row in keyboard.inline_keyboard for b in row if b.text.startswith("☐")]
+    assert len(toggles) == TASK_BUTTONS_MAX
+    assert all(f"Задача {i}" in " ".join(toggles) for i in range(TASK_BUTTONS_MAX))
+
+
+def test_a_list_the_keyboard_covers_says_nothing_about_buttons():
+    """And it stays quiet when every row has a button, which is the common case."""
+    tasks = [make_task(f"Задача {i}") for i in range(TASK_BUTTONS_MAX)]
+
+    assert TASKS_UNREACHABLE not in render_task_list(tasks, MONDAY)
 
 
 def test_task_keyboard_shows_ten_buttons_at_most():

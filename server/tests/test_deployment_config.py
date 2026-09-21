@@ -20,6 +20,8 @@ features mandatory.
 from __future__ import annotations
 
 import pytest
+from sqlalchemy.exc import ArgumentError
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import (
     LOCAL_DATABASE_URL,
@@ -27,6 +29,7 @@ from app.config import (
     Settings,
     get_settings,
 )
+from app.database_url import normalise_database_url
 
 DEPLOYED = {
     "VERCEL": "1",
@@ -54,6 +57,45 @@ def test_an_unset_database_url_is_named_rather_than_left_to_sqlalchemy():
     (problem,) = settings.deployment_problems()
     assert "DATABASE_URL" in problem
     assert "aiosqlite" in problem
+
+
+def test_a_database_url_of_whitespace_is_reported_rather_than_accepted():
+    """«Set» and «usable» have to be one question.
+
+    The gate asked `database_url == LOCAL_DATABASE_URL`, which catches unset
+    and nothing else. A value of one space is truthy and unequal to the
+    default, so it walked past and died at import inside SQLAlchemy with
+    `Could not parse SQLAlchemy URL` — naming neither the setting, nor the
+    environment it was wrong in, nor this project. That is exactly the outage
+    this method exists to prevent, one step to the left.
+    """
+    for value in ("", "   ", "\n"):
+        settings = Settings(**{**DEPLOYED, "DATABASE_URL": value})
+        problems = settings.deployment_problems()
+        assert any("DATABASE_URL" in problem for problem in problems), repr(value)
+
+
+def test_a_pasted_url_survives_the_space_in_front_of_it():
+    """A paste into a host's environment form brings its own whitespace.
+
+    Which half of this was broken is worth being exact about, because the
+    obvious half was not. `urlsplit` discards surrounding whitespace itself, so
+    a padded *Postgres* URL came out clean anyway — it goes through the rewrite
+    and is rebuilt by `urlunsplit`. What did not was every URL the module
+    returns **untouched**: SQLite and any non-asyncpg driver take an early
+    return, so the padding reached `create_async_engine`, which raises
+    `ArgumentError` at import naming neither the setting nor this project.
+
+    So the strip belongs at the top, above the branch, and this is the branch
+    that proves it.
+    """
+    padded = "  sqlite+aiosqlite:///./lessons.db\n"
+    url, _ = normalise_database_url(padded)
+
+    assert url == "sqlite+aiosqlite:///./lessons.db"
+    assert create_async_engine(url) is not None
+    with pytest.raises(ArgumentError):
+        create_async_engine(padded)
 
 
 def test_an_empty_bot_token_is_a_refusal_not_a_quiet_absence():

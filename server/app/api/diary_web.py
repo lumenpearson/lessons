@@ -87,15 +87,12 @@ input:focus { outline: 2px solid #2563eb; outline-offset: 1px; border-color: #25
 button { width: 100%; margin-top: 20px; padding: 12px; font-size: 1rem; font-weight: 600;
   border: 0; border-radius: 10px; background: #2563eb; color: #fff; cursor: pointer; }
 .note { margin-top: 18px; font-size: .8rem; color: #6b7280; }
-.bad { margin: 0 0 16px; padding: 10px 12px; border-radius: 10px;
-  background: #fee2e2; color: #991b1b; font-size: .9rem; }
 .ok { font-size: 2rem; margin: 0 0 8px; }
 @media (prefers-color-scheme: dark) {
   body { background: #0b0f19; color: #e5e7eb; }
   main { background: #151b28; box-shadow: none; }
   p.sub, .note { color: #9ca3af; }
   input { background: #0b0f19; border-color: #374151; }
-  .bad { background: #7f1d1d; color: #fecaca; }
 }
 """
 
@@ -129,17 +126,23 @@ def _closed(message: str, status: int = 400, note: str = _ASK_AGAIN) -> HTMLResp
     )
 
 
-def _form(code: str, error: str | None = None) -> HTMLResponse:
+def _form(code: str) -> HTMLResponse:
     # The code goes in the action rather than a hidden field: it is already in
     # the URL the browser is on, and one place for it is one place to get
     # wrong. autocomplete is on, so a password manager can fill this — the
     # people using it are signing in to an account they already have.
-    warning = f"<p class=bad>{escape(error)}</p>" if error else ""
+    #
+    # It takes no error to show, and cannot: the ticket is spent by the attempt,
+    # so a form redrawn with «неверный пароль» above it would be a form whose
+    # submit button no longer works. Every failure ends on `_closed` instead,
+    # which says whether the link is still worth anything. The parameter and
+    # the `401` behind it were here from the first draft and nothing ever passed
+    # one — an unused branch in a renderer is how a page ends up written for an
+    # answer it will never be handed.
     return _page(
         "Вход в дневник",
         f"<h1>Электронный дневник</h1>"
         f"<p class=sub>Санкт-Петербург · dnevnik2.petersburgedu.ru</p>"
-        f"{warning}"
         f'<form method=post action="/diary/signin/{escape(code)}">'
         "<label for=login>Логин</label>"
         "<input id=login name=login type=text inputmode=email autocomplete=username "
@@ -152,7 +155,6 @@ def _form(code: str, error: str | None = None) -> HTMLResponse:
         "<p class=note>Пароль уходит прямо в дневник и нигде не сохраняется — "
         "ни у бота, ни в этой базе. Хранится только сессия дневника, "
         "зашифрованной, и её всегда можно отозвать кнопкой «Выйти».</p>",
-        status=200 if error is None else 401,
     )
 
 

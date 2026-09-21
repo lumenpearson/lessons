@@ -419,8 +419,11 @@ async def test_renaming_a_subject_moves_the_timetable_homework_and_overrides(
     assert homework.subject_name == "Математика"
     override = await session.scalar(select(LessonOverride))
     assert override.subject_name == "Математика"
-    # One timetable row, one homework row, one override.
-    assert "3" in message.last
+    # The whole sentence, not «"3" is somewhere in it»: the message also
+    # carries both names, and «Математика» has no digit in it but a date or a
+    # lesson number in some future wording would — a bare `"3" in` passes on
+    # any of them. Three is one timetable row, one homework row, one override.
+    assert message.last.endswith("Переименовано в расписании, заданиях и заменах: 3.")
 
 
 async def test_renaming_a_subject_is_refused_for_an_editor(session, school_class):
@@ -473,7 +476,11 @@ async def test_a_holiday_period_marks_every_day_inside_it(session, school_class)
 
     days = list(await session.scalars(select(DayOverride).order_by(DayOverride.date)))
     assert [day.date for day in days] == [Date(2027, 1, day) for day in range(2, 7)]
-    assert "5 дней" in message.replies[0]
+    # Anchored on the whole count, not on «5 дней» somewhere inside it:
+    # `plural()` already contains the number, and an `f"{n} {plural(n, …)}"`
+    # slip prints «5 5 дней» — which a substring check reads as correct.
+    assert re.search(r"(?<!\d\s)\b5 дней\b", message.replies[0])
+    assert "5 5" not in message.replies[0]
 
 
 async def test_an_editor_cannot_mark_a_whole_period(session, school_class):

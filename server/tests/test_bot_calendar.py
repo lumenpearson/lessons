@@ -21,7 +21,7 @@ from app.bot.calendar_keyboard import (
     day_card_keyboard,
     month_grid,
     month_keyboard,
-    school_year_bounds,
+    pickable_months,
 )
 from app.bot.handlers import calendar as handlers
 from app.bot.handlers import content
@@ -175,9 +175,9 @@ def test_a_day_button_opens_the_card_and_the_homework_grid_reuses_its_handler():
 
 
 def test_the_school_year_is_the_one_today_falls_in():
-    assert school_year_bounds(date(2026, 9, 1)) == (date(2026, 9, 1), date(2027, 8, 1))
-    assert school_year_bounds(date(2026, 6, 15)) == (date(2025, 9, 1), date(2026, 8, 1))
-    assert school_year_bounds(date(2027, 1, 3)) == (date(2026, 9, 1), date(2027, 8, 1))
+    assert pickable_months(date(2026, 9, 1)) == (date(2026, 9, 1), date(2027, 8, 1))
+    assert pickable_months(date(2026, 6, 15)) == (date(2025, 9, 1), date(2026, 8, 1))
+    assert pickable_months(date(2027, 1, 3)) == (date(2026, 9, 1), date(2027, 8, 1))
 
 
 def test_the_arrows_stop_at_both_ends_of_the_school_year():

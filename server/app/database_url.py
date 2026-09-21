@@ -76,7 +76,16 @@ def normalise_database_url(raw: str) -> tuple[str, dict[str, Any]]:
     every rewrite above - so the documented configuration got the pooler's
     prepared-statement failures and a raw ``sslmode`` handed to a driver that
     does not know the word.
+
+    Surrounding whitespace goes first, and it is the same job as the rest of
+    this module: a URL pasted into a host's environment form arrives with a
+    leading space or a trailing newline often enough that "edit it by hand
+    first" is a step somebody gets wrong once. SQLAlchemy does not forgive it -
+    ``create_async_engine(" postgresql+asyncpg://...")`` raises
+    ``ArgumentError: Could not parse SQLAlchemy URL``, at import, naming
+    neither the setting nor this project.
     """
+    raw = raw.strip()
     if not raw:
         return raw, {}
 

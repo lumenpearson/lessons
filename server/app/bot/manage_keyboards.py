@@ -14,7 +14,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.bot.button_style import DANGER, PRIMARY, SUCCESS
 from app.bot.keyboards import Menu, back_to_menu
-from app.bot.manage_render import BELLS_MAX, DEVICES_MAX, LIST_MAX, SUBJECTS_MAX
+from app.bot.manage_render import AUDIT_PAGE, BELLS_MAX, DEVICES_MAX, LIST_MAX, SUBJECTS_MAX
 
 
 class TermAction(CallbackData, prefix="trm"):
@@ -390,6 +390,18 @@ def bells_pick_keyboard(schedules: list, iso_date: str) -> InlineKeyboardMarkup:
     # A day that really does ring the usual bells is said by picking the usual
     # schedule off this list by name, which is the same fact written so that
     # the card can show it and the resolver can use it.
+    #
+    # «‹ Назад» is not a way to decline — the day already carries the class
+    # default, so leaving changes nothing — it is a way to leave at all. This
+    # was the one card in the bot with no exit row on it, which reads as a
+    # screen that has caught you rather than one that is waiting for an answer.
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="‹ Назад", callback_data=DayKindAction(action="list").pack()
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -487,7 +499,9 @@ def audit_keyboard(offset: int, more: bool) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     text="Ещё ›",
-                    callback_data=AuditAction(action="page", value=str(offset + 30)).pack(),
+                    callback_data=AuditAction(
+                        action="page", value=str(offset + AUDIT_PAGE)
+                    ).pack(),
                     style=PRIMARY,
                 )
             ]

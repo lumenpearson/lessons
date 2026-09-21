@@ -239,10 +239,25 @@ async def login(
             detail="Дневник на этом сервере выключен.",
         ) from failure
     except HTTPException as refusal:
-        # Only a refusal the upstream decided counts. A 503 because the
-        # feature is off, or a 502 because the diary did not answer, says
-        # nothing about the password and must not spend a parent's attempts.
-        if refusal.status_code == status.HTTP_401_UNAUTHORIZED:
+        # Everything but a 503 counts, and the line is drawn where the other
+        # door onto this upstream draws it.
+        #
+        # It used to count a 401 alone, on the reasoning that «a 502 says
+        # nothing about the password». That is only true of the 502s where
+        # nothing ever looked at one — and `UnexpectedResponse`, the commonest
+        # of them, is not that: `PetersburgClient.login` raises it for a 200
+        # whose body is not JSON, and a login form built on Yii answers a
+        # *wrong password* with the same 200 of HTML that a captcha arrives in.
+        # `diary_web` worked this out first and spends its ticket on exactly
+        # that branch, at length, in its own comment. So while the upstream is
+        # serving HTML — which is precisely when it is defending itself — this
+        # endpoint answered 502 to every attempt and recorded none, leaving the
+        # unlimited password oracle the limiter below exists to prevent.
+        #
+        # 503 is the one that is safe to forgive, and it is safe for the reason
+        # `diary_web` names: it means the feature is off, or the transport
+        # failed, or the upstream answered 5xx — nothing read what was typed.
+        if refusal.status_code != status.HTTP_503_SERVICE_UNAVAILABLE:
             await diary_login_limiter.record_failure(session, client)
         raise
     return DiaryLoginOut(token=token, login=row.login)

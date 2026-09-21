@@ -359,3 +359,24 @@ async def test_our_own_crash_still_costs_the_ticket(web, upstream, ticket, sessi
     row = await session.scalar(select(DiaryLinkCode))
     await session.refresh(row)
     assert row.used_at is not None
+
+
+async def test_a_refused_sign_in_never_draws_the_form_again(web, upstream, ticket):
+    """The page that says «не получилось» must not carry a form.
+
+    The ticket is spent by the attempt, so a form drawn under the refusal is a
+    form whose «Войти» does nothing but answer 410 — which reads as a second
+    failure and sends people back to the bot for a third link. `_form` used to
+    take an `error` to print above exactly that, and a `401` to answer it with;
+    nothing ever passed one, and the branch would have been wrong if it had.
+    """
+    response = await web.post(
+        f"/diary/signin/{ticket}",
+        data={"login": "parent@example.com", "password": "wrong"},
+    )
+
+    assert response.status_code == 401
+    assert "<form" not in response.text
+    # Not a style left behind by the branch that went either, which is how a
+    # renderer keeps a shape nothing builds.
+    assert "class=bad" not in response.text

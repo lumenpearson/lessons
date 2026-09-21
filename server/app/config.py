@@ -201,13 +201,21 @@ class Settings(BaseSettings):
         """
         problems: list[str] = []
 
-        if self.database_url == LOCAL_DATABASE_URL:
+        # Stripped before asking, because «set» and «usable» have to be the
+        # same question - the same rule the optional settings below already
+        # follow. A value of one space is truthy and not equal to the default,
+        # so it used to walk straight past this gate and die at import inside
+        # SQLAlchemy with `Could not parse SQLAlchemy URL`, which names neither
+        # this setting nor this project. That is the shape of the outage this
+        # whole method exists to prevent, one step to the left.
+        if self.database_url.strip() in ("", LOCAL_DATABASE_URL):
             problems.append(
-                "DATABASE_URL is unset, so the local SQLite default stands. A deployment "
-                "has no disk to keep that file on, and `aiosqlite` is deliberately absent "
-                "from requirements.txt, so the process dies while importing app.db with "
-                "`ModuleNotFoundError: No module named 'aiosqlite'` raised from inside "
-                "SQLAlchemy - which names neither this setting nor this project."
+                "DATABASE_URL is unset or empty, so the local SQLite default stands. A "
+                "deployment has no disk to keep that file on, and `aiosqlite` is "
+                "deliberately absent from requirements.txt, so the process dies while "
+                "importing app.db with `ModuleNotFoundError: No module named 'aiosqlite'` "
+                "raised from inside SQLAlchemy - which names neither this setting nor "
+                "this project."
             )
 
         if not self.bot_token:

@@ -14,6 +14,7 @@ from aiogram.types import (
 )
 
 from app.bot.button_style import DANGER, PRIMARY, SUCCESS
+from app.bot.render import TASK_BUTTONS_MAX
 from app.models import Role
 from app.providers.dadata.models import SchoolPage
 
@@ -479,11 +480,6 @@ def cut(text: str, limit: int) -> str:
     """Button labels have no wrapping; a long title is cut with an ellipsis."""
     text = " ".join(text.split())
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
-
-
-#: Task buttons in one keyboard. Telegram allows a hundred; a phone shows
-#: about ten before the message scrolls out of view.
-TASK_BUTTONS_MAX = 10
 
 
 def task_list_keyboard(tasks: list, show_done: bool) -> InlineKeyboardMarkup:

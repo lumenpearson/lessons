@@ -100,6 +100,32 @@ def test_only_the_first_word_is_capitalised():
     assert m.humanise("ОСНОВНАЯ ОБЩЕОБРАЗОВАТЕЛЬНАЯ ШКОЛА") == "Основная общеобразовательная школа"
 
 
+def test_a_school_named_after_somebody_keeps_that_persons_name():
+    """Past «им.» the rule inverts, because past «им.» it is a person.
+
+    Three things were wrong at once and all three are on the same register
+    rows. Initials were lowered like long words — «им. а.с. пушкина». The
+    surname after them was lowered too, which is the only word in a school's
+    name that is somebody's. And «ИМ.» itself collected the name's one capital
+    whenever nothing lowerable came before it, which is every «СОШ № 5 ИМ. …»
+    in the register: «МБОУ "СОШ № 5 Им. м.в. ломоносова"».
+    """
+    assert (
+        m.humanise('МБОУ "СРЕДНЯЯ ШКОЛА № 197 ИМ. А.С. ПУШКИНА"')
+        == 'МБОУ "Средняя школа № 197 им. А.С. Пушкина"'
+    )
+    assert (
+        m.humanise('МБОУ "СОШ № 5 ИМ. М.В. ЛОМОНОСОВА"')
+        == 'МБОУ "СОШ № 5 им. М.В. Ломоносова"'
+    )
+    assert (
+        m.humanise("ГБОУ ГИМНАЗИЯ № 3 ИМЕНИ К.Д. УШИНСКОГО")
+        == "ГБОУ Гимназия № 3 имени К.Д. Ушинского"
+    )
+    # And a name with nobody in it is untouched by any of that.
+    assert m.humanise('МБОУ "СРЕДНЯЯ ШКОЛА № 197"') == 'МБОУ "Средняя школа № 197"'
+
+
 def test_a_row_with_no_name_at_all_is_dropped_rather_than_shown():
     item = suggestion()
     item["data"]["name"] = {}
