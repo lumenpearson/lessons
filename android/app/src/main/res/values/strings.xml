@@ -459,4 +459,19 @@
     <string name="calendar_order_busiest">По загруженности</string>
     <string name="calendar_agenda_empty_title">Ничего не подходит</string>
     <string name="calendar_agenda_empty_description">В этом месяце нет дней под выбранные фильтры.</string>
+
+    <!-- The day ribbon: calendar → «День» -->
+    <string name="ribbon_break">Перемена</string>
+    <string name="ribbon_return">К текущему</string>
+    <string name="ribbon_settings">Настройки ленты</string>
+    <string name="ribbon_running">Идёт %1$s · осталось %2$s</string>
+    <string name="ribbon_starts_in">Начнётся через %1$s</string>
+    <string name="ribbon_over">Завершилось</string>
+    <string name="ribbon_flow_title">Прогресс</string>
+    <string name="ribbon_flow_downward">Сверху вниз</string>
+    <string name="ribbon_flow_upward">Снизу вверх</string>
+    <string name="ribbon_snap_title">Магнитная прокрутка</string>
+    <string name="ribbon_snap_description">Лента останавливается на целом событии, а не между двумя.</string>
+    <string name="ribbon_depth_title">Объём</string>
+    <string name="ribbon_depth_description">Наклон карточек, градиенты и подсветка текущего события.</string>
 </resources>

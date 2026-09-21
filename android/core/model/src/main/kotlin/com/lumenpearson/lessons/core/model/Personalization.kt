@@ -234,3 +234,30 @@ enum class WeekStart {
         fun fromName(name: String?): WeekStart = entries.firstOrNull { it.name == name } ?: MONDAY
     }
 }
+
+/**
+ * Which way the day's progress travels along the ribbon.
+ *
+ * Two readings of the same day, and both are somebody's. [DOWNWARD] is how a
+ * timetable is printed: the first lesson at the top, the day falling away
+ * beneath it. [UPWARD] is how a countdown feels — what is left rises towards
+ * you, and the last bell is at the top of the screen where the eye rests.
+ *
+ * Drawn by flipping the list rather than reversing it, so an entry's index is
+ * its place in the day either way. That matters for «вернуться к текущему»,
+ * which scrolls to an index: sorting the list instead would make the target of
+ * that jump depend on a setting, and the first day somebody switched it the
+ * button would land on the wrong row.
+ */
+enum class RibbonFlow {
+    /** The first entry at the top; progress falls. */
+    DOWNWARD,
+
+    /** The first entry at the bottom; progress climbs. */
+    UPWARD,
+    ;
+
+    companion object {
+        fun fromName(name: String?): RibbonFlow = entries.firstOrNull { it.name == name } ?: DOWNWARD
+    }
+}

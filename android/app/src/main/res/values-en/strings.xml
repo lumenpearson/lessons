@@ -460,4 +460,19 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="calendar_order_busiest">By load</string>
     <string name="calendar_agenda_empty_title">Nothing matches</string>
     <string name="calendar_agenda_empty_description">No day this month fits the chosen filters.</string>
+
+    <!-- The day ribbon: calendar → «День» -->
+    <string name="ribbon_break">Break</string>
+    <string name="ribbon_return">To current</string>
+    <string name="ribbon_settings">Ribbon settings</string>
+    <string name="ribbon_running">%1$s in · %2$s left</string>
+    <string name="ribbon_starts_in">Starts in %1$s</string>
+    <string name="ribbon_over">Finished</string>
+    <string name="ribbon_flow_title">Progress</string>
+    <string name="ribbon_flow_downward">Top to bottom</string>
+    <string name="ribbon_flow_upward">Bottom to top</string>
+    <string name="ribbon_snap_title">Magnetic scrolling</string>
+    <string name="ribbon_snap_description">The ribbon settles on a whole entry rather than between two.</string>
+    <string name="ribbon_depth_title">Depth</string>
+    <string name="ribbon_depth_description">Tilted cards, gradients and a highlight on what is running.</string>
 </resources>

@@ -25,6 +25,7 @@ import com.lumenpearson.lessons.core.model.DayOrder
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.LessonAlertDetail
 import com.lumenpearson.lessons.core.model.HomeTab
+import com.lumenpearson.lessons.core.model.RibbonFlow
 import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.core.model.TodayLayout
 import com.lumenpearson.lessons.core.model.WeekStart
@@ -248,6 +249,9 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
             // calendar quietly narrowed to the wrong thing.
             prefs[KEY_CALENDAR_FILTERS] = updated.calendarFilters.map { it.name }.toSet()
             prefs[KEY_CALENDAR_ORDER] = updated.calendarOrder.name
+            prefs[KEY_DAY_RIBBON_FLOW] = updated.dayRibbonFlow.name
+            prefs[KEY_DAY_RIBBON_SNAP] = updated.dayRibbonSnap
+            prefs[KEY_DAY_RIBBON_DEPTH] = updated.dayRibbonDepth
             prefs[KEY_DEBUG_MODE] = updated.debugMode
             prefs[KEY_ONBOARDING_DONE] = updated.onboardingDone
             prefs[KEY_ALERT_LESSON] = updated.alerts.lessonSoon
@@ -433,6 +437,9 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         calendarOrder = DayOrder.entries
             .firstOrNull { it.name == this[KEY_CALENDAR_ORDER] }
             ?: DayOrder.DATE_ASC,
+        dayRibbonFlow = RibbonFlow.fromName(this[KEY_DAY_RIBBON_FLOW]),
+        dayRibbonSnap = this[KEY_DAY_RIBBON_SNAP] ?: true,
+        dayRibbonDepth = this[KEY_DAY_RIBBON_DEPTH] ?: true,
         debugMode = this[KEY_DEBUG_MODE] ?: false,
         // False only for a genuinely fresh install. The key arrived with the
         // introduction, so on every phone that had the app before it there is
@@ -490,6 +497,9 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
 
         val KEY_CALENDAR_FILTERS = stringSetPreferencesKey("calendar_filters")
         val KEY_CALENDAR_ORDER = stringPreferencesKey("calendar_order")
+        val KEY_DAY_RIBBON_FLOW = stringPreferencesKey("day_ribbon_flow")
+        val KEY_DAY_RIBBON_SNAP = booleanPreferencesKey("day_ribbon_snap")
+        val KEY_DAY_RIBBON_DEPTH = booleanPreferencesKey("day_ribbon_depth")
         val KEY_DEBUG_MODE = booleanPreferencesKey("settings_debug_mode")
         val KEY_ONBOARDING_DONE = booleanPreferencesKey("settings_onboarding_done")
 

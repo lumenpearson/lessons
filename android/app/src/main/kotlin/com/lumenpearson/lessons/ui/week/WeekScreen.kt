@@ -37,7 +37,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,6 +83,8 @@ import com.lumenpearson.lessons.ui.common.asDayMonth
 import com.lumenpearson.lessons.ui.common.asFullWeekday
 import com.lumenpearson.lessons.ui.common.asMonthYear
 import com.lumenpearson.lessons.ui.common.asShortWeekday
+import com.lumenpearson.lessons.ui.day.DayRibbonView
+import com.lumenpearson.lessons.ui.day.RibbonSettingsSheet
 import java.time.LocalDate
 import java.util.Locale
 
@@ -107,7 +112,6 @@ fun WeekScreen(
     // One scroll for the whole page: the title, the picker and the grid all move
     // under the status bar, which is what the fade up there is for.
     val scrollState = rememberScrollState()
-    ReportScrollOffset(scrollState)
 
     val sheets = rememberScheduleSheets()
 
@@ -120,6 +124,24 @@ fun WeekScreen(
         showEvents = state.showEvents,
         showHomework = state.showHomework,
     )
+
+    // The ribbon is the one view that owns the page's height instead of adding
+    // to its length. It has to: a scroll can only be magnetic, and a row can
+    // only know where it is in the viewport, if the list *is* the viewport. So
+    // the calendar stops being one long column here, and the header and the
+    // picker sit above a ribbon that takes the rest.
+    if (state.view == ScheduleView.DAY) {
+        RibbonPage(
+            state = state,
+            viewModel = viewModel,
+            day = selected?.day,
+            onLessonClick = { lesson -> sheets.show(state.selected, lesson) },
+            modifier = modifier,
+        )
+        return
+    }
+
+    ReportScrollOffset(scrollState)
 
     Column(
         modifier = modifier
@@ -205,26 +227,94 @@ fun WeekScreen(
             }
         }
 
-        when (state.view) {
-            ScheduleView.DAY -> HourTimeline(
-                day = selected,
-                date = state.selected,
-                nowAt = state.nowAt,
-                showEvents = state.showEvents,
-                showHomework = state.showHomework,
-                onLessonClick = { lesson -> sheets.show(state.selected, lesson) },
-            )
+        DayPanel(
+            day = selected,
+            date = state.selected,
+            showTeacher = state.showTeacher,
+            showEvents = state.showEvents,
+            showHomework = state.showHomework,
+            onLessonClick = { lesson -> sheets.show(state.selected, lesson) },
+            onOpenDay = { sheets.day = state.selected },
+        )
+    }
+}
 
-            else -> DayPanel(
-                day = selected,
-                date = state.selected,
-                showTeacher = state.showTeacher,
-                showEvents = state.showEvents,
-                showHomework = state.showHomework,
-                onLessonClick = { lesson -> sheets.show(state.selected, lesson) },
-                onOpenDay = { sheets.day = state.selected },
-            )
-        }
+/**
+ * The «День» view: the same header and picker over a ribbon that fills the rest.
+ *
+ * A second layout of one screen rather than a second screen. The header and the
+ * picker are the calendar's, and a reader who stepped to Thursday and then
+ * pressed «День» expects both to still be there — a full-screen day would
+ * answer a change of scale with a change of place.
+ */
+@Composable
+private fun RibbonPage(
+    state: ScheduleUiState,
+    viewModel: WeekViewModel,
+    day: SchoolDay?,
+    onLessonClick: (Lesson) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val listState = rememberLazyListState()
+    ReportScrollOffset(listState)
+
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    if (settingsOpen) {
+        RibbonSettingsSheet(
+            flow = state.ribbonFlow,
+            snap = state.ribbonSnap,
+            depth = state.ribbonDepth,
+            onFlow = viewModel::setRibbonFlow,
+            onSnap = viewModel::setRibbonSnap,
+            onDepth = viewModel::setRibbonDepth,
+            onDismiss = { settingsOpen = false },
+        )
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(
+                top = statusBarSpace() + 8.dp,
+                bottom = LocalBottomBarSpace.current,
+            ),
+        verticalArrangement = Arrangement.spacedBy(GroupSpacing),
+    ) {
+        ScheduleHeader(
+            periodLabel = state.periodLabel(),
+            termLabel = state.termLabel(),
+            showTodayAction = state.canReturnToToday,
+            onToday = viewModel::showToday,
+            onPrevious = viewModel::showPrevious,
+            onNext = viewModel::showNext,
+        )
+
+        SegmentedPicker(
+            items = ScheduleView.entries,
+            selectedItem = state.view,
+            onItemSelected = viewModel::setView,
+            labelProvider = { view -> correctedString(view.labelRes) },
+            containerColor = MaterialTheme.colorScheme.rowContainer,
+            contentPadding = PaddingValues(4.dp),
+            modifier = Modifier
+                .padding(horizontal = ScreenPadding)
+                .clip(LessonsShapeTokens.Group),
+        )
+
+        DayRibbonView(
+            day = day,
+            nowAt = state.nowAt,
+            flow = state.ribbonFlow,
+            snap = state.ribbonSnap,
+            depth = state.ribbonDepth,
+            showTeacher = state.showTeacher,
+            showHomework = state.showHomework,
+            listState = listState,
+            onLessonClick = onLessonClick,
+            onSettings = { settingsOpen = true },
+            modifier = Modifier.weight(1f),
+            header = { DayChips(day = state.selectedDay, date = state.selected) },
+        )
     }
 }
 
@@ -974,196 +1064,3 @@ internal fun DayKind.asLabel(): String = correctedString(
         DayKind.DAY_OFF -> R.string.day_kind_day_off
     },
 )
-
-/**
- * The hour ruler.
- *
- * Blocks are positioned by time rather than stacked in order, which is the whole
- * point of this view: a forty-minute window between two lessons is forty minutes
- * of empty space, not a gap you have to work out by reading two clocks. Events
- * get their own column beside the lessons, because a canteen slot that overlaps
- * a lesson is information and a list cannot show an overlap at all.
- */
-@Composable
-private fun HourTimeline(
-    day: WeekDayUi?,
-    date: LocalDate,
-    nowAt: java.time.LocalTime?,
-    showEvents: Boolean,
-    showHomework: Boolean,
-    onLessonClick: (Lesson) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val scheme = MaterialTheme.colorScheme
-    val schoolDay = day?.day
-    val lessons = schoolDay?.activeLessons.orEmpty()
-    val events = schoolDay?.events.orEmpty()
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = ScreenPadding),
-        verticalArrangement = Arrangement.spacedBy(GroupSpacing),
-    ) {
-        DayChips(day = day, date = date)
-
-        if (schoolDay == null) {
-            EmptyState(
-                title = correctedString(R.string.week_no_data_title),
-                description = correctedString(R.string.week_no_data_description),
-            )
-            return@Column
-        }
-        if (lessons.isEmpty() && events.isEmpty()) {
-            EmptyState(
-                title = correctedString(R.string.week_day_off_title),
-                description = correctedString(R.string.week_day_off_description),
-            )
-            return@Column
-        }
-
-        val starts = lessons.map { it.startsAt } + events.map { it.startsAt }
-        val ends = lessons.map { it.endsAt } + events.map { it.endsAt }
-        val firstHour = starts.minOf { it.hour }
-        val lastHour = ends.maxOf { if (it.minute == 0) it.hour else it.hour + 1 }
-        val hours = (lastHour - firstHour).coerceAtLeast(1)
-        val originMinutes = firstHour * MinutesPerHour
-
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.width(HourGutterWidth)) {
-                repeat(hours) { offset ->
-                    Text(
-                        // Locale.ROOT: the gutter is a clock, and a clock is
-                        // read the same in every language this app is drawn in.
-                        // See `BellsSheet.asBellClock`.
-                        text = String.format(Locale.ROOT, "%02d:00", firstHour + offset),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = scheme.outline,
-                        modifier = Modifier.height(HourHeight),
-                    )
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(HourHeight * hours),
-            ) {
-                lessons.forEach { lesson ->
-                    val tone = subjectTone(lesson.subject, lesson.colorHex)
-                    TimelineBlock(
-                        title = lesson.subject,
-                        subtitle = lesson.room?.let {
-                            correctedString(R.string.schedule_room_short, it)
-                        },
-                        startMinutes = lesson.startsAt.minutesOfDay() - originMinutes,
-                        endMinutes = lesson.endsAt.minutesOfDay() - originMinutes,
-                        container = tone.container,
-                        content = tone.content,
-                        onClick = { onLessonClick(lesson) },
-                    )
-                }
-
-                if (nowAt != null) {
-                    val offset = nowAt.minutesOfDay() - originMinutes
-                    if (offset in 0..(hours * MinutesPerHour)) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .offset(y = HourHeight * (offset / MinutesPerHour.toFloat()))
-                                .height(2.dp)
-                                .background(scheme.error),
-                        )
-                    }
-                }
-            }
-
-            if (events.isNotEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .width(EventColumnWidth)
-                        .height(HourHeight * hours),
-                ) {
-                    events.forEach { event ->
-                        TimelineBlock(
-                            title = event.title,
-                            subtitle = event.location,
-                            startMinutes = event.startsAt.minutesOfDay() - originMinutes,
-                            endMinutes = event.endsAt.minutesOfDay() - originMinutes,
-                            container = scheme.secondaryContainer,
-                            content = scheme.onSecondaryContainer,
-                            onClick = null,
-                        )
-                    }
-                }
-            }
-        }
-
-        DayExtras(
-            day = schoolDay,
-            showEvents = showEvents,
-            showHomework = showHomework,
-        )
-    }
-}
-
-/** Height of one hour of the ruler, and the widths beside it. */
-private val HourHeight: Dp = 68.dp
-private val HourGutterWidth: Dp = 44.dp
-private val EventColumnWidth: Dp = 96.dp
-private const val MinutesPerHour = 60
-
-/** Minutes since midnight; the ruler's only coordinate. */
-private fun java.time.LocalTime.minutesOfDay(): Int = hour * MinutesPerHour + minute
-
-/** One block on the ruler, positioned and sized by its own start and end. */
-@Composable
-private fun TimelineBlock(
-    title: String,
-    subtitle: String?,
-    startMinutes: Int,
-    endMinutes: Int,
-    container: Color,
-    content: Color,
-    onClick: (() -> Unit)?,
-    modifier: Modifier = Modifier,
-) {
-    val top = HourHeight * (startMinutes / MinutesPerHour.toFloat())
-    // A ten-minute lesson would otherwise be a colour with no room for a word in
-    // it; below the floor the block stops shrinking and starts overlapping, which
-    // is at least legible.
-    val height = (HourHeight * ((endMinutes - startMinutes) / MinutesPerHour.toFloat()))
-        .coerceAtLeast(MinBlockHeight)
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .offset(y = top)
-            .height(height)
-            .padding(end = 4.dp, bottom = 2.dp)
-            .clip(LessonsShapeTokens.Row)
-            .background(container)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(1.dp),
-    ) {
-        // The block's height is the lesson's own duration, floored at 30 dp, so a
-        // second line has nowhere to go and a short lesson barely has room for
-        // the first. Of every block in the app this is the one that genuinely
-        // cannot grow, which is exactly what the marquee is for.
-        MarqueeText(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = content,
-        )
-        if (subtitle != null) {
-            MarqueeText(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = content,
-            )
-        }
-    }
-}
-
-private val MinBlockHeight: Dp = 30.dp

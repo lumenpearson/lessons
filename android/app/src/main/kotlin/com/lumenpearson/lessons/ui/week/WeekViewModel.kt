@@ -10,6 +10,7 @@ import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
 import com.lumenpearson.lessons.core.model.DayFilter
 import com.lumenpearson.lessons.core.model.DayOrder
+import com.lumenpearson.lessons.core.model.RibbonFlow
 import com.lumenpearson.lessons.core.model.SchoolDay
 import com.lumenpearson.lessons.core.model.matches
 import com.lumenpearson.lessons.core.model.Term
@@ -109,6 +110,12 @@ data class ScheduleUiState(
     val order: DayOrder = DayOrder.DATE_ASC,
     /** The list the agenda view draws: filtered, then ordered. Empty elsewhere. */
     val agenda: List<SchoolDay> = emptyList(),
+    /** Which way the day ribbon's progress runs; see [RibbonFlow]. */
+    val ribbonFlow: RibbonFlow = RibbonFlow.DOWNWARD,
+    /** Whether the ribbon settles on a whole entry when a fling stops. */
+    val ribbonSnap: Boolean = true,
+    /** Whether the ribbon draws its depth. */
+    val ribbonDepth: Boolean = true,
     val showTeacher: Boolean = true,
     val showLoad: Boolean = true,
     val showEvents: Boolean = true,
@@ -235,6 +242,9 @@ class WeekViewModel(
                 dates.mapNotNull { date -> timetable?.day(date) }
                     .filter { it.matches(settings.calendarFilters) },
             ),
+            ribbonFlow = settings.dayRibbonFlow,
+            ribbonSnap = settings.dayRibbonSnap,
+            ribbonDepth = settings.dayRibbonDepth,
             showTeacher = settings.showTeacher,
             showLoad = settings.weekShowLoad,
             showEvents = settings.weekShowEvents,
@@ -292,6 +302,21 @@ class WeekViewModel(
     /** Changes the order the list view draws its days in, and remembers it. */
     fun setOrder(order: DayOrder) {
         viewModelScope.launch { settingsRepository.update { it.copy(calendarOrder = order) } }
+    }
+
+    /** Turns the day ribbon's progress the other way up, and remembers it. */
+    fun setRibbonFlow(flow: RibbonFlow) {
+        viewModelScope.launch { settingsRepository.update { it.copy(dayRibbonFlow = flow) } }
+    }
+
+    /** Switches the ribbon's magnetic scrolling, and remembers it. */
+    fun setRibbonSnap(snap: Boolean) {
+        viewModelScope.launch { settingsRepository.update { it.copy(dayRibbonSnap = snap) } }
+    }
+
+    /** Switches the ribbon's depth — the tilt, the gradients, the shader. */
+    fun setRibbonDepth(depth: Boolean) {
+        viewModelScope.launch { settingsRepository.update { it.copy(dayRibbonDepth = depth) } }
     }
 
     /** Clears every filter, which is the resting state rather than «show nothing». */
