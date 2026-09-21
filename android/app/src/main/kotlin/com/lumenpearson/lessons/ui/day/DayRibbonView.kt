@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -197,9 +198,15 @@ internal fun DayRibbonView(
             .collect { LessonsHaptics.tick(view) }
     }
 
-    val edgeHeight = with(LocalDensity.current) { EdgeHeight.toPx() }
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        // Measured, because the fade has to be a share of *this* view rather
+        // than a fixed 48 dp: the ribbon is a fraction of the screen, and on a
+        // phone held sideways a fixed fade at each end covered most of what was
+        // left. See [ribbonEdgeHeight].
+        val edgeHeight = with(LocalDensity.current) {
+            ribbonEdgeHeight(viewportHeight = maxHeight.toPx(), fullHeight = EdgeHeight.toPx())
+        }
 
-    Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
             // Flipped, not sorted: an entry's index stays its place in the day
@@ -226,6 +233,18 @@ internal fun DayRibbonView(
                     blurRadius = if (level.drawsShader) EdgeBlurRadius else 0f,
                     topHeight = edgeHeight,
                     bottomHeight = edgeHeight,
+                    // **No tint.** `progressiveBlur` paints a 65 % wash of the
+                    // surface colour over each fade, which is right for the
+                    // shell — it owns the whole page and fades it into the
+                    // status bar and the toolbar. The shell already does that
+                    // to this screen. A second one, inside a view that is a
+                    // fraction of the page, put two of those washes over a
+                    // ribbon that had 150 dp to begin with, and the rows
+                    // stopped being readable — which is exactly what was
+                    // reported, and why it got worse the shorter the view was.
+                    // The blur alone softens the edge without taking the colour
+                    // out of what is under it.
+                    showGradientOverlay = false,
                 ),
         ) {
             item(key = "header") {
@@ -551,7 +570,14 @@ private fun Modifier.ribbonDepth(index: Int, listState: LazyListState): Modifier
     // Without it the rotation is an orthographic squash rather than a
     // perspective one, and the row reads as a card being crushed instead of one
     // leaning back.
-    cameraDistance = DepthCamera * density
+    //
+    // **Not multiplied by the density**, which is what this line did first.
+    // `SchoolBell` carries the same warning and the reason: the unit is passed
+    // straight to `RenderNode`, whose camera distance is density-independent,
+    // so scaling it put the camera five times further away than the default on
+    // a 2.75× screen — the tilt flattened to almost nothing, and by a
+    // different amount on every phone.
+    cameraDistance = DepthCamera
     transformOrigin = TransformOrigin(0.5f, if (away < 0f) 1f else 0f)
 }
 
@@ -564,9 +590,9 @@ private fun Modifier.ribbonDepth(index: Int, listState: LazyListState): Modifier
  * throwing rather than by drawing one of them.
  */
 private fun RibbonEntry.identity(): String = when (this) {
-    is RibbonEntry.OfLesson -> "lesson/${'$'}startsAt/${'$'}{lesson.index}"
-    is RibbonEntry.OfEvent -> "event/${'$'}startsAt/${'$'}{event.title}"
-    is RibbonEntry.OfBreak -> "break/${'$'}startsAt"
+    is RibbonEntry.OfLesson -> "lesson/$startsAt/${lesson.index}"
+    is RibbonEntry.OfEvent -> "event/$startsAt/${event.title}"
+    is RibbonEntry.OfBreak -> "break/$startsAt"
 }
 
 /** The row's own words. */
@@ -594,6 +620,25 @@ private fun RibbonEntry.subtitle(showTeacher: Boolean): String? = when (this) {
 private val ClockColumnWidth: Dp = 56.dp
 private val EdgeHeight: Dp = 48.dp
 private const val EdgeBlurRadius = 12f
+
+/**
+ * How far each soft edge reaches in, for a ribbon [viewportHeight] pixels tall.
+ *
+ * At most [EdgeShare] of the view per edge, which is the rule that was missing.
+ * A fade is a hint that the list carries on past the edge; it stops being that
+ * and starts being a curtain once it covers a large share of what there is to
+ * read. The ribbon is handed the height that is left over — a phone on its side
+ * leaves it about 150 dp — so a fixed 48 dp at each end was two thirds of the
+ * view, and the shorter the view the worse it got. That is what «ничего не
+ * видно, из-за соотношения» described.
+ */
+internal fun ribbonEdgeHeight(viewportHeight: Float, fullHeight: Float): Float {
+    if (viewportHeight <= 0f || fullHeight <= 0f) return 0f
+    return minOf(fullHeight, viewportHeight * EdgeShare)
+}
+
+/** No more of the ribbon than this may be under a fade, at each end. */
+private const val EdgeShare = 0.12f
 private val ProgressHeight: Dp = 6.dp
 private val RowGap: Dp = 10.dp
 private val GroupGap: Dp = 16.dp
