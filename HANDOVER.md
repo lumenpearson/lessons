@@ -4,8 +4,8 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **21 September 2026**. **PRs #63 through #73 are merged**; `main` is at
-`130f308`. **The only thing open is PR #74**, which carries this batch and the paragraph you
+Last updated: **21 September 2026**. **PRs #63 through #74 are merged**; `main` is at
+`9920a9a`. **The only thing open is PR #75**, which carries this batch and the paragraph you
 are reading. Once it merges, `dev` is level with `main` again and the next batch starts from
 a clean one, and the SHA of that merge is for the next close-out to write.
 The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model has changed
@@ -21,12 +21,90 @@ check before it merged. **It has not been re-read since, and did not need to be:
 from #62 onwards touched no server code at all — Android, its tests, the build and the
 documents.
 
-## What the last session added: a signed build, two megabytes off it, and the documents
+## What the last session added: the typeface is compressed by the build
 
-Three commits in `dev`, open as PR #74, in the milestone `v0.6.0`. This batch is different
-from the ones below it: most of it came out of the owner configuring the release keystore and
-the two optional secrets **for the first time**, which turned up what the documents did not
-say and what the workflow did not tell you.
+One commit in `dev`, open as PR #75. **The milestone does not exist yet** — the owner was
+asked to create `v0.7.0` and this pull request gets its number the moment they hand it over;
+the command is in the `github-pr` skill and the text is in the request. Until then it is the
+one bare pull request in this repository, and that is a known debt rather than an oversight.
+
+**The instanced font was committed, and that was the arrangement that could not survive an
+update.** The batch below took the file from 3.81 MB to 0.29 MB with `fonttools` and
+committed the result. It works exactly until somebody updates the typeface, because the
+obvious way to update a font is to download it again — and the download is the six-axis
+file, so two megabytes come back into the APK with nothing failing. `FontAxisTest` would
+have caught it; the point is that it should not have to.
+
+So the font is a **source** now. `core/designsystem/fonts/google_sans_flex.ttf` is the file
+as it was downloaded, and `instance<Variant>Font` writes the compressed copy into the
+variant's generated resources on every build. What is in the repository is the thing you
+would download.
+
+**The compression is a setting, which is what was actually asked for.**
+`-Plessons.font.axes` takes a list of axes to keep, or `all`. Measured on one tree, three
+builds:
+
+| `lessons.font.axes` | the font | release APK | needs |
+| --- | --- | --- | --- |
+| `wght,ROND` — the default | 0.29 MB | 3.60 MB | Python 3.10+ with `fonttools` |
+| `wght` | 0.27 MB | 3.58 MB | the same |
+| `all` | 3.81 MB | 5.71 MB | nothing |
+
+`wght` is not the default although it is smaller: it bakes `ROND` in at 100 and the code
+goes on asking for an axis that is gone, which Android answers by drawing the default and
+logging nothing. Fifteen kilobytes is not worth that. `all` is the escape hatch for a
+machine with no Python, and it is a correct build — the file that ships is the file that was
+downloaded, to the byte.
+
+**The cost is that Gradle now needs Python.** Without `fonttools` every Android task stops,
+with a message naming `-Plessons.font.axes=all` rather than a stack trace out of a missing
+module — proved by pointing the task at interpreters that do not exist. Both Android
+workflows install `fonttools==4.65.0`, pinned because that is the one the sizes above were
+measured with.
+
+**Two things AGP 9 decides for you here.** `sourceSets["main"].res.srcDir(provider)` is
+refused outright — a static directory carries no task dependency, so the font would be
+merged before it was written — and the supported way, `addGeneratedSourceDirectory`, is
+per variant and chooses the output path itself. Hence one task per variant (the second is a
+build-cache hit) and the tests being handed the path rather than guessing it.
+
+**`FontAxisTest` was rewritten around the setting**, and every guard was proved red on its
+own side: an axis the app asks for that the shipped font neither declares nor freezes; an
+axis the shipped font carries that the build was not told to keep (reproduced by building
+`all` and running the tests at the default); a `fontAxisPins` value that disagrees with
+`Type.kt`; and the file not actually shrinking. `instance.py` refuses a pin for an axis the
+font does not declare, because that is the one hole a test cannot see — the tag would still
+be in the build file's map and the test would pass while nothing had been frozen.
+
+**The licence claim was wrong and is now right.** `Type.kt`, `docs/design.md` and the OFL
+notice inside the APK all said the file is not modified here. It is: freezing an axis
+rewrites the outlines. The OFL permits it outright, and its rename requirement applies only
+to a Reserved Font Name, which this typeface declares none of; the `name` table is left
+alone, so the copyright and the licence entry in the shipped file are the downloaded file's
+own and `FontLicenceTest` still reads them out of what ships.
+
+### Gates
+
+`./gradlew test assembleDebug assembleRelease` green: **770 tests across 106 classes** (was
+768 across 106). The server was not touched, so its gates were not re-run — `ruff`, `mypy`
+and the 1559 tests were last green on the batch below. No model changed, so no migration:
+the database stays at `0013`.
+
+### What nobody has verified
+
+Nothing in this batch has been drawn on a device; what is checked is that the shipped font
+declares what the code asks for, that it is smaller than the source, and that it renders
+under Robolectric like any other resource. The `all` setting is exercised here by hand and
+**not in CI** — CI builds the default, because a CI run exists to build what ships. And the
+Android workflows' `pip install fonttools` has not run on a GitHub runner yet: it is one
+line, and the first CI run of PR #75 is what proves it.
+
+## What the batch before added: a signed build, two megabytes off it, and the documents
+
+Three commits in `dev`, merged as PR #74 (`9920a9a`), in the milestone `v0.6.0`. This batch
+is different from the ones below it: most of it came out of the owner configuring the
+release keystore and the two optional secrets **for the first time**, which turned up what
+the documents did not say and what the workflow did not tell you.
 
 ### The APK is signed now, and the first one cost three attempts
 
@@ -660,6 +738,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
+| — | `v0.7.0`, asked for and not yet created | #75 |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -1076,7 +1155,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && python -m pytest -q -n auto                # 1559 tests, ~1.5 min
 cd server  && python -m mypy                             # clean, 83 modules
-cd android && ./gradlew test                             # 768 tests
+cd android && ./gradlew test                             # 770 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
