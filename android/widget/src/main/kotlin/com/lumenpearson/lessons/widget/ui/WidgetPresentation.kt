@@ -4,9 +4,11 @@ import android.content.Context
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.HomeworkItem
 import com.lumenpearson.lessons.core.model.Lesson
+import com.lumenpearson.lessons.core.model.RibbonEntry
 import com.lumenpearson.lessons.core.model.ScheduleEngine
 import com.lumenpearson.lessons.core.model.SchoolDay
 import com.lumenpearson.lessons.core.model.SchoolEvent
+import com.lumenpearson.lessons.core.model.ribbonOf
 import com.lumenpearson.lessons.widget.R
 import com.lumenpearson.lessons.widget.format.HomeworkDayLabel
 import com.lumenpearson.lessons.widget.format.WidgetStrings
@@ -346,46 +348,18 @@ internal fun upcomingLessons(
 }
 
 /**
- * The events still to come today.
- *
- * Events were cached and never drawn anywhere on the widget: a class trip, an
- * exam or a canteen slot existed in the snapshot and the home screen showed the
- * lessons it replaces as if nothing were happening. The filter matches
- * [remainingLessonsOf] — something in progress still counts as remaining,
- * because "сейчас идёт" is the answer the widget exists to give.
- */
-internal fun remainingEventsOf(today: SchoolDay?, now: LocalDateTime): List<SchoolEvent> {
-    val time = now.toLocalTime()
-    return today?.events.orEmpty().filter { it.endsAt > time }.sortedBy { it.startsAt }
-}
-
-/**
  * Lessons and events on one axis, in the order they happen.
  *
  * Two lists drawn one after the other would put a trip that replaces the third
  * lesson below the fifth, which is worse than not showing it. Ties go to the
  * event: an event that starts exactly when a lesson does is the thing that
  * replaced it.
+ *
+ * The merge and that tie-break used to live here, in a copy nothing tested —
+ * the rule existed only in the comment above it. They are [ribbonOf]'s now, in
+ * `:core:model`, where the day screen asks the same question of the same day
+ * and `DayRibbonTest` holds the answer. What is left here is the widget's own
+ * half: it wants what is still to come, and it never wants the breaks.
  */
-internal fun remainingTimeline(today: SchoolDay?, now: LocalDateTime): List<TimelineEntry> {
-    val lessons = remainingLessonsOf(today, now).map { TimelineEntry.OfLesson(it) }
-    val events = remainingEventsOf(today, now).map { TimelineEntry.OfEvent(it) }
-    return (lessons + events).sortedWith(
-        compareBy({ it.startsAt }, { if (it is TimelineEntry.OfEvent) 0 else 1 }),
-    )
-}
-
-/** One row of the merged timeline. */
-internal sealed interface TimelineEntry {
-    val startsAt: java.time.LocalTime
-
-    @JvmInline
-    value class OfLesson(val lesson: Lesson) : TimelineEntry {
-        override val startsAt: java.time.LocalTime get() = lesson.startsAt
-    }
-
-    @JvmInline
-    value class OfEvent(val event: SchoolEvent) : TimelineEntry {
-        override val startsAt: java.time.LocalTime get() = event.startsAt
-    }
-}
+internal fun remainingTimeline(today: SchoolDay?, now: LocalDateTime): List<RibbonEntry> =
+    ribbonOf(today).remaining(now.toLocalTime())
