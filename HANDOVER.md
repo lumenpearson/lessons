@@ -4,8 +4,8 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **21 September 2026**. **PRs #63 through #71 are merged**; `main` is at
-`0cdd7f1`. **The only thing open is PR #72**, which carries this batch and the paragraph you
+Last updated: **21 September 2026**. **PRs #63 through #73 are merged**; `main` is at
+`130f308`. **The only thing open is PR #74**, which carries this batch and the paragraph you
 are reading. Once it merges, `dev` is level with `main` again and the next batch starts from
 a clean one, and the SHA of that merge is for the next close-out to write.
 The database is at head `0013` and `EXPECTED_REVISION` did not move: **no model has changed
@@ -20,6 +20,84 @@ real request on a real cold start, which is the one thing about it the branch co
 check before it merged. **It has not been re-read since, and did not need to be:** everything
 from #62 onwards touched no server code at all — Android, its tests, the build and the
 documents.
+
+## What the last session added: a signed build, two megabytes off it, and the documents
+
+Three commits in `dev`, open as PR #74, in the milestone `v0.6.0`. This batch is different
+from the ones below it: most of it came out of the owner configuring the release keystore and
+the two optional secrets **for the first time**, which turned up what the documents did not
+say and what the workflow did not tell you.
+
+### The APK is signed now, and the first one cost three attempts
+
+All four keystore secrets and both optional ones are set, and run #21 produced a release APK
+signed with the owner's own key — the first this repository has ever made. What it cost is
+the useful part. The first attempt died at «Decode keystore» with `base64: invalid input`,
+which names neither the secret nor this project; the value had lost its last two characters
+to a selection in a phone terminal that stopped one gesture early. PR #73 replaced that
+message: it reports the value's length **modulo four**, because base64 always comes in
+groups of four and the remainder is the whole diagnosis, and `keytool` now opens the rebuilt
+file before the build starts rather than letting a wrong password surface eight minutes
+later inside Gradle.
+
+**The next install is an uninstall.** The build on the owner's phone is debug-signed; this
+one is not, and Android compares certificates before versions. It takes the classes, the
+device token, the diary session and the corrections with it. It is the last time.
+
+### Two megabytes, and not one of them was a dependency
+
+The release APK was **5 989 554 bytes** and is **3 771 086** — `res/fU.ttf` was 2296 KB of
+it, 40% of everything shipped and more than all the code.
+
+Nothing about dependencies was the problem, and the batch is worth reading for that as much
+as for the saving. The debug APK is 27 MB against the release's 5.7, so R8 already removes
+about eighty per cent; `material-icons-extended` declares thousands of icons, 112 are used,
+and the rest were gone already. Compose with Material3 is a couple of megabytes of dex on
+its own and no pruning reaches it.
+
+The font was all of it, for a reason that is not about character coverage. It ships with six
+variation axes, and a variable font pays for an axis in `gvar` — outline deltas per axis per
+glyph — which was **3411 KB of a 3811 KB file** while the outlines themselves were 31 KB.
+The app touches two: it varies `wght` and sets `ROND` to 100. The four that never move are
+frozen now; all 657 glyphs are kept and the file is 0.29 MB. `ROND` stays a real axis rather
+than being baked in, which costs 0.02 MB and keeps the code's request meaning something.
+
+`FontAxisTest` holds both directions, each proved red on its own side: an axis the code asks
+for and the font does not declare (Android ignores it silently and draws the default), and an
+axis the font carries that nothing asks for — which is the saving coming back through the
+obvious way to update a typeface. The `name` table is untouched, so `FontLicenceTest` passes
+and the OFL travels with the file.
+
+### The documents were read end to end, and sixteen things were wrong
+
+Not stale — wrong. `docs/widget.md` said alarms go through `setWindow`, which was removed
+because Doze held it, and that `SCHEDULE_EXACT_ALARM` is not requested, while the manifest
+declares it and `USE_EXACT_ALARM`. `docs/api.md` described refusals `PUT /overrides` no
+longer makes, gave `POST /diary/login` no throttle although it finally has one that works,
+named `reminders.yml` as the cron's caller against what `deploy.md` and `CLAUDE.md` say, and
+put the FSM sweep at a day where `STALE_AFTER` is two. `docs/bot.md`'s `/find` was wrong
+twice. `docs/design.md` gained the section the `MarqueeText` crash deserved. The index,
+`docs/README.md`, was accurate end to end and was left alone.
+
+`docs/build.md` gained what the first configuration turned up: the OAuth App registration as
+a table over the form's own fields, and **«Expire user access tokens» must be unticked** —
+`AccessTokenDto` has no `refresh_token` field anywhere in `:core:data`, so with that box
+ticked the token dies after eight hours, `/user` answers 401, the app forgets it, and the
+reader is back at «Войти через GitHub» every day with nothing logged.
+
+### Gates
+
+`ruff check` clean, `python -m mypy` clean across 83 modules, `python -m pytest -q -n auto`
+**1559 passed**. `./gradlew test assembleDebug assembleRelease` green: **768 tests across 106
+classes** (was 765 across 105). No model changed, so no migration: the database stays at
+`0013`.
+
+### What nobody has verified
+
+The instanced font has not been drawn on a device — what is checked is that it declares what
+the code asks for and renders under Robolectric like any other resource. Nothing in the
+GitHub sign-in has run against live GitHub either; the secrets are set and the button is in
+the build, and the first press will be the owner's.
 
 ## What the last session added: the two loose ends
 
@@ -581,7 +659,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 3 | `v0.3.0 — The school year` | #27, #32–#35, #43 |
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
-| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#72 |
+| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
