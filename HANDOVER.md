@@ -97,10 +97,17 @@ declares what the code asks for, that it is smaller than the source, and that it
 under Robolectric like any other resource. The `all` setting is exercised here by hand and
 **not in CI** — CI builds the default, because a CI run exists to build what ships.
 
-The Android workflows' `pip install fonttools==4.65.0` **has** now run on a GitHub runner:
-the first CI run of PR #75 was green on `b6f0869`, Android in 5 min 43 s against the 4 min
-14 s of the run before it, and that job could not have built at the default setting without
-the instancer. That was the one thing the local gates could not answer.
+The Android workflows' `pip install fonttools==4.65.0` **has** now run on a GitHub runner,
+which was the one thing the local gates could not answer: CI was green on `b6f0869` and
+again on `3126597`, and neither job could have built at the default setting without the
+instancer.
+
+What it costs, read off the job log rather than off the job totals: **4.2 s** for the pip
+install, and 0.1 s for `setup-python`, because 3.12 is already on the runner image. The two
+`instance<Variant>Font` tasks span 2.4 s inside a two-and-a-half-minute Gradle build, beside
+everything else it is doing. The three Android jobs came in at 4 min 14 s without any of
+this, 5 min 43 s with it and 3 min 09 s with it again — that spread is Gradle's cache being
+cold or warm, and nothing about this step can be read off it.
 
 ## What the batch before added: a signed build, two megabytes off it, and the documents
 
