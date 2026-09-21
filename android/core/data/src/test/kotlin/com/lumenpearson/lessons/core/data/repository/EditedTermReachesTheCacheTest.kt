@@ -55,6 +55,7 @@ class EditedTermReachesTheCacheTest {
     private class FakeApi(var terms: List<TermDto>, var etag: String) : LessonsApi {
         override suspend fun join(body: JoinRequestDto) = error("unused")
         override suspend fun health() = error("unused")
+        override suspend fun warmup() = error("unused")
         override suspend fun me() = error("unused")
         override suspend fun unlink() = error("unused")
 

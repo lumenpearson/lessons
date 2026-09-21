@@ -53,6 +53,41 @@ internal class SessionRepositoryImpl(
 
     override suspend fun currentAll(): List<Session> = preferences.currentSessions()
 
+    override suspend fun serverStatus(): ServerStatus = withContext(ioDispatcher) {
+        // Asked before the call, not after a failure: with no address the
+        // request would be sent to the placeholder host the Retrofit instance
+        // is built with, fail there, and be reported as «сервер не отвечает» —
+        // which is a sentence about a server nobody has named yet.
+        if (preferences.baseUrlBlocking().isBlank()) return@withContext ServerStatus.NotConfigured
+
+        try {
+            val body = api.warmup()
+            when (body.status) {
+                "ok" -> ServerStatus.Ok(apiVersion = body.apiVersion, schema = body.schema)
+                // `degraded` and `down` are both «the server answered and said
+                // it is not well», and the schema pair is what says which.
+                // Anything else a future server invents lands here too, with
+                // its own sentence, rather than being reported as healthy.
+                else -> ServerStatus.Degraded(
+                    schema = body.schema,
+                    expected = body.expectedSchema,
+                    detail = body.detail,
+                )
+            }
+        } catch (e: CancellationException) {
+            // Rethrown, never swallowed: this runs in the settings screen's
+            // scope, and turning a cancellation into «сервер не отвечает» would
+            // leave a badge accusing the server of a screen that was closed.
+            throw e
+        } catch (_: Exception) {
+            // Everything else is one answer on purpose. A reader cannot act on
+            // the difference between an unresolved host, a refused connection
+            // and a 502, and the exception's own message is the least readable
+            // sentence on the page — it has printed a whole URL before now.
+            ServerStatus.Unreachable
+        }
+    }
+
     override suspend fun join(code: String, deviceName: String?): Result<Session> =
         withContext(ioDispatcher) {
             try {

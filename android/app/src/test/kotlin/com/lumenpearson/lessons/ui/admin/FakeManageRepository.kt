@@ -17,6 +17,7 @@ import com.lumenpearson.lessons.core.data.repository.ManagedClass
 import com.lumenpearson.lessons.core.data.repository.ManagedDevice
 import com.lumenpearson.lessons.core.data.repository.ManagedSubject
 import com.lumenpearson.lessons.core.data.repository.RequestDecision
+import com.lumenpearson.lessons.core.data.repository.ServerStatus
 import com.lumenpearson.lessons.core.data.repository.Session
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SchoolPage
@@ -204,6 +205,9 @@ internal class FakeSessionRepository : SessionRepository {
     override suspend fun current(): Session? = state.value
 
     override suspend fun currentAll(): List<Session> = listOfNotNull(state.value)
+
+    /** No server in these tests, and the management screen never asks. */
+    override suspend fun serverStatus(): ServerStatus = ServerStatus.NotConfigured
 
     override suspend fun join(code: String, deviceName: String?): Result<Session> =
         Result.failure(IllegalStateException("unused"))

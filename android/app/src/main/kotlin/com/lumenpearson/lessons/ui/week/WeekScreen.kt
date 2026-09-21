@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -76,6 +77,7 @@ import com.lumenpearson.lessons.core.model.Lesson
 import com.lumenpearson.lessons.core.model.SchoolYear
 import com.lumenpearson.lessons.core.model.Term
 import com.lumenpearson.lessons.core.model.DayFilter
+import com.lumenpearson.lessons.core.model.DayMode
 import com.lumenpearson.lessons.core.model.DayOrder
 import com.lumenpearson.lessons.core.model.SchoolDay
 import com.lumenpearson.lessons.core.model.DayOffReason
@@ -137,6 +139,7 @@ fun WeekScreen(
             viewModel = viewModel,
             day = selected?.day,
             onLessonClick = { lesson -> sheets.show(state.selected, lesson) },
+            onOpenDay = { date -> sheets.day = date },
             modifier = modifier,
         )
         return
@@ -185,9 +188,10 @@ fun WeekScreen(
             labelProvider = { view -> correctedString(view.labelRes) },
             containerColor = MaterialTheme.colorScheme.rowContainer,
             contentPadding = PaddingValues(4.dp),
-            modifier = Modifier
-                .padding(horizontal = ScreenPadding)
-                .clip(LessonsShapeTokens.Group),
+            // No `clip` here any more: the picker rounds its own tray, from the
+            // corner of the buttons inside it plus this padding. A radius
+            // chosen here could only ever agree with them by coincidence.
+            modifier = Modifier.padding(horizontal = ScreenPadding),
         )
 
         // Keyed on the period as well as the view, so stepping a week slides the
@@ -228,15 +232,9 @@ fun WeekScreen(
                         onOpen = { date -> sheets.day = date },
                     )
 
-                    ScheduleView.AGENDA -> AgendaList(
-                        days = state.agenda,
-                        today = state.today,
-                        selected = state.selected,
-                        order = state.order,
-                        onOrder = viewModel::setOrder,
-                        onOpen = { date -> sheets.day = date },
-                    )
-
+                    // «День» never reaches here: it owns the page's height,
+                    // so `WeekScreen` returns `RibbonPage` above rather than
+                    // adding to this column.
                     ScheduleView.DAY -> Unit
                 }
             }
@@ -269,6 +267,7 @@ private fun RibbonPage(
     viewModel: WeekViewModel,
     day: SchoolDay?,
     onLessonClick: (Lesson) -> Unit,
+    onOpenDay: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -326,30 +325,80 @@ private fun RibbonPage(
             labelProvider = { view -> correctedString(view.labelRes) },
             containerColor = MaterialTheme.colorScheme.rowContainer,
             contentPadding = PaddingValues(4.dp),
-            modifier = Modifier
-                .padding(horizontal = ScreenPadding)
-                .clip(LessonsShapeTokens.Group),
+            // No `clip` here any more: the picker rounds its own tray, from the
+            // corner of the buttons inside it plus this padding. A radius
+            // chosen here could only ever agree with them by coincidence.
+            modifier = Modifier.padding(horizontal = ScreenPadding),
         )
 
-        DayRibbonView(
-            day = day,
-            nowAt = state.nowAt,
-            flow = state.ribbonFlow,
-            snap = state.ribbonSnap,
-            depth = state.ribbonDepth,
-            showTeacher = state.showTeacher,
-            showHomework = state.showHomework,
-            isFetched = state.selectedDay?.isFetched != false,
-            loadingYear = state.loadingYear == SchoolYear.openingYearOf(state.selected),
-            yearName = yearLabel(SchoolYear.openingYearOf(state.selected)),
-            listState = listState,
-            onLessonClick = onLessonClick,
-            onSettings = { settingsOpen = true },
-            modifier = Modifier.weight(1f),
-            header = { DayChips(day = state.selectedDay, date = state.selected) },
+        // The two readings of «День», switched here rather than in the tabs
+        // above. They used to be two tabs — «День» and «Лента» — and they are
+        // not two views: both answer «что идёт», one for the day in front of
+        // you and one for the month around it. Four four-letter labels across a
+        // 360 dp phone is also most of what the picker's marquee was for.
+        SegmentedPicker(
+            items = DayMode.entries,
+            selectedItem = state.dayMode,
+            onItemSelected = viewModel::setDayMode,
+            labelProvider = { mode -> correctedString(mode.labelRes) },
+            containerColor = MaterialTheme.colorScheme.rowContainer,
+            contentPadding = PaddingValues(4.dp),
+            modifier = Modifier.padding(horizontal = ScreenPadding),
         )
+
+        when (state.dayMode) {
+            DayMode.RIBBON -> DayRibbonView(
+                day = day,
+                nowAt = state.nowAt,
+                flow = state.ribbonFlow,
+                snap = state.ribbonSnap,
+                depth = state.ribbonDepth,
+                showTeacher = state.showTeacher,
+                showHomework = state.showHomework,
+                isFetched = state.selectedDay?.isFetched != false,
+                loadingYear = state.loadingYear == SchoolYear.openingYearOf(state.selected),
+                yearName = yearLabel(SchoolYear.openingYearOf(state.selected)),
+                listState = listState,
+                onLessonClick = onLessonClick,
+                onSettings = { settingsOpen = true },
+                modifier = Modifier.weight(1f),
+                header = { DayChips(day = state.selectedDay, date = state.selected) },
+            )
+
+            // The list keeps the page's height too, so a month of rows scrolls
+            // inside it rather than making the whole page longer. That is also
+            // what keeps the header and both pickers in place while it moves —
+            // the thing this tab was rebuilt around.
+            DayMode.LIST -> Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(GroupSpacing),
+            ) {
+                FilterChips(
+                    active = state.filters,
+                    onToggle = viewModel::toggleFilter,
+                    onClear = viewModel::clearFilters,
+                )
+                AgendaList(
+                    days = state.agenda,
+                    today = state.today,
+                    selected = state.selected,
+                    order = state.order,
+                    onOrder = viewModel::setOrder,
+                    onOpen = onOpenDay,
+                )
+            }
+        }
     }
 }
+
+/** Label of a day mode in the picker inside «День». */
+private val DayMode.labelRes: Int
+    get() = when (this) {
+        DayMode.RIBBON -> R.string.day_mode_ribbon
+        DayMode.LIST -> R.string.day_mode_list
+    }
 
 /** How long a period change takes to slide across. */
 private const val PeriodTransitionMillis = 260
@@ -360,7 +409,6 @@ private val ScheduleView.labelRes: Int
         ScheduleView.WEEK -> R.string.schedule_view_week
         ScheduleView.MONTH -> R.string.schedule_view_month
         ScheduleView.DAY -> R.string.schedule_view_day
-        ScheduleView.AGENDA -> R.string.schedule_view_agenda
     }
 
 /**
@@ -378,9 +426,18 @@ private fun ScheduleUiState.periodLabel(): String = when (view) {
         (days.lastOrNull()?.date ?: periodEnd).asDayMonth(),
     )
 
-    ScheduleView.MONTH, ScheduleView.AGENDA -> anchor.asMonthYear()
-    ScheduleView.DAY -> "${selected.asFullWeekday().replaceFirstChar { it.uppercase() }}, " +
-        selected.asDayMonth()
+    ScheduleView.MONTH -> anchor.asMonthYear()
+
+    // «День» names whichever span it is drawing: the date for the ribbon, the
+    // month for the list. The header has to agree with the arrows beside it,
+    // and the arrows step a day in one mode and a month in the other.
+    ScheduleView.DAY -> when (dayMode) {
+        DayMode.RIBBON ->
+            "${selected.asFullWeekday().replaceFirstChar { it.uppercase() }}, " +
+                selected.asDayMonth()
+
+        DayMode.LIST -> anchor.asMonthYear()
+    }
 }
 
 /**
@@ -420,7 +477,7 @@ internal fun Term.label(): String = when (kind) {
  * anybody presses repeatedly.
  */
 @Composable
-private fun ScheduleHeader(
+internal fun ScheduleHeader(
     periodLabel: String,
     termLabel: String?,
     yearLabel: String,
@@ -431,53 +488,93 @@ private fun ScheduleHeader(
     onPickYear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    // Two rows, not one, and that is the whole fix. While the title shared a
+    // row with the chip and three icon buttons it was given what was left —
+    // about eight characters at 411 dp — so «Календарь» wrapped after
+    // «Календар» and the subtitle ran to three lines. Nothing about it looks
+    // wrong in the code: `weight(1f)` is the correct way to share a row, and
+    // the row was simply asked to hold more than it has.
+    //
+    // On its own row the title has the screen's width, which is more than any
+    // title here will ever need, and the controls below have the width they
+    // need rather than the width that is left.
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenPadding),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
         ScreenHeader(
             title = correctedString(R.string.week_title),
             // «Октябрь 2026 · 1 четверть». One line rather than two: the term
             // qualifies the period rather than standing beside it, and a second
-            // line pushes the grid down on every phone for a word.
+            // line pushes the grid down on every phone for a word. It is asked
+            // for explicitly now — the header wraps a subtitle by default,
+            // because `DocsScreen` puts a whole sentence there.
             subtitle = listOfNotNull(periodLabel, termLabel).joinToString(" · "),
-            modifier = Modifier.weight(1f),
+            singleLineSubtitle = true,
         )
-        // The school year, and the way into the years either side of it. A chip
-        // rather than a third pair of arrows: the arrows step the *period*,
-        // which is a week here and a month there, and a second pair meaning
-        // «year» beside them is two controls that look the same and are not.
-        PillChip(
-            text = yearLabel,
-            onClick = onPickYear,
-            modifier = Modifier.padding(end = 4.dp),
-        )
-        // Only offered when it would do something: a "back to today" button on
-        // a period that already contains today is noise.
-        if (showTodayAction) {
-            IconButton(onClick = onToday) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                // Level with the header's own text, which insets itself by 8.
+                .padding(start = 8.dp, end = 8.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // The school year, and the way into the years either side of it. A
+            // chip rather than a third pair of arrows: the arrows step the
+            // *period*, which is a week here and a month there, and a second
+            // pair meaning «year» beside them is two controls that look the
+            // same and are not.
+            PillChip(
+                text = yearLabel,
+                onClick = onPickYear,
+            )
+            Spacer(Modifier.weight(1f))
+            // The slot is always here; only the button inside it comes and
+            // goes. «Вернуться к сегодня» is offered only when it would do
+            // something — a button for a period that already contains today is
+            // noise — but while the button itself was the thing that appeared,
+            // both arrows slid sideways by 48 dp every time the reader stepped
+            // into or out of this week. A control that moves under the thumb
+            // between two presses is worse than a gap.
+            Box(
+                modifier = Modifier.size(IconButtonSlot),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (showTodayAction) {
+                    IconButton(onClick = onToday) {
+                        Icon(
+                            imageVector = Icons.Rounded.Today,
+                            contentDescription = correctedString(R.string.week_current),
+                        )
+                    }
+                }
+            }
+            IconButton(onClick = onPrevious) {
                 Icon(
-                    imageVector = Icons.Rounded.Today,
-                    contentDescription = correctedString(R.string.week_current),
+                    imageVector = Icons.Rounded.ChevronLeft,
+                    contentDescription = correctedString(R.string.week_previous),
+                )
+            }
+            IconButton(onClick = onNext) {
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = correctedString(R.string.week_next),
                 )
             }
         }
-        IconButton(onClick = onPrevious) {
-            Icon(
-                imageVector = Icons.Rounded.ChevronLeft,
-                contentDescription = correctedString(R.string.week_previous),
-            )
-        }
-        IconButton(onClick = onNext) {
-            Icon(
-                imageVector = Icons.Rounded.ChevronRight,
-                contentDescription = correctedString(R.string.week_next),
-            )
-        }
     }
 }
+
+/**
+ * The side of the square an [IconButton] occupies, so a slot can be kept for
+ * one that is not there.
+ *
+ * Material's own minimum touch target, which is what `IconButton` sizes itself
+ * to; named here rather than written as `48.dp` at the one place that needs it,
+ * because the number is only correct as long as it is the same number.
+ */
+private val IconButtonSlot: Dp = 48.dp
 
 /**
  * The week strip.

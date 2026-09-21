@@ -10,6 +10,7 @@ import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.SyncResult
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
 import com.lumenpearson.lessons.core.model.DayFilter
+import com.lumenpearson.lessons.core.model.DayMode
 import com.lumenpearson.lessons.core.model.DayOrder
 import com.lumenpearson.lessons.core.model.RibbonFlow
 import com.lumenpearson.lessons.core.model.SchoolDay
@@ -45,18 +46,20 @@ import kotlinx.coroutines.launch
 enum class ScheduleView {
     WEEK,
     MONTH,
-    DAY,
 
     /**
-     * A month as a list rather than a grid, and the one view an order applies to.
+     * One day, read either as a ribbon or as the month's days in a list.
      *
-     * A grid cannot be sorted and stay a calendar — the 14th before the 3rd is
-     * not a month any more — so «по загруженности» has to be asked somewhere
-     * that is genuinely a list. This is that somewhere, and it is also what
-     * makes a filter useful rather than decorative: filtered days are dropped
-     * here, where there is no grid to put holes in.
+     * There were four of these and the fourth was `AGENDA`, a month as a list
+     * rather than a grid. It was never a fourth *scale*: it answers the same
+     * question as this one over a different span, which is why it is a
+     * [DayMode] inside this view now rather than a tab beside it. What it
+     * brought with it is kept — a grid cannot be sorted and stay a calendar,
+     * the 14th before the 3rd is not a month any more, so «по загруженности»
+     * and a filter that genuinely drops days both need somewhere that is
+     * really a list. That somewhere is [DayMode.LIST].
      */
-    AGENDA,
+    DAY,
 }
 
 /**
@@ -122,6 +125,8 @@ data class ScheduleUiState(
     val filters: Set<DayFilter> = emptySet(),
     /** The order a list view draws its days in. */
     val order: DayOrder = DayOrder.DATE_ASC,
+    /** Which reading of «День» is on screen — the ribbon or the month's list. */
+    val dayMode: DayMode = DayMode.RIBBON,
     /** The list the agenda view draws: filtered, then ordered. Empty elsewhere. */
     val agenda: List<SchoolDay> = emptyList(),
     /** Which way the day ribbon's progress runs; see [RibbonFlow]. */
@@ -292,7 +297,7 @@ class WeekViewModel(
         val anchorDate = storedAnchor ?: today
         val selectedDate = storedSelection ?: today
 
-        val (start, end) = view.periodOf(anchorDate, settings.weekStart)
+        val (start, end) = view.periodOf(anchorDate, settings.weekStart, settings.dayMode)
         val dates = view.datesOf(start, end, settings.weekShowWeekends)
         // A selection outside the drawn dates would leave the detail panel
         // rendering a day the grid does not contain; stepping the period
@@ -330,6 +335,7 @@ class WeekViewModel(
                 dates.mapNotNull { date -> timetable?.day(date) }
                     .filter { it.matches(settings.calendarFilters) },
             ),
+            dayMode = settings.dayMode,
             ribbonFlow = settings.dayRibbonFlow,
             ribbonSnap = settings.dayRibbonSnap,
             ribbonDepth = settings.dayRibbonDepth,
@@ -397,6 +403,18 @@ class WeekViewModel(
             val next = if (filter in current) current - filter else current + filter
             settingsRepository.update { it.copy(calendarFilters = next) }
         }
+    }
+
+    /**
+     * Switches «День» between the ribbon and the month's list, and remembers it.
+     *
+     * The period changes with it — one date against a month — so the anchor is
+     * left exactly where it is and the new period is built around it. Pressing
+     * «Список» on 22 September opens September, and pressing «Лента» again
+     * comes back to the 22nd rather than to the 1st.
+     */
+    fun setDayMode(mode: DayMode) {
+        viewModelScope.launch { settingsRepository.update { it.copy(dayMode = mode) } }
     }
 
     /** Changes the order the list view draws its days in, and remembers it. */
@@ -504,9 +522,16 @@ class WeekViewModel(
         val moved = when (view.value) {
             ScheduleView.WEEK -> from.plusWeeks(direction)
             ScheduleView.MONTH -> from.plusMonths(direction)
-            ScheduleView.DAY -> from.plusDays(direction)
-            // A month at a time, like the grid it is a list of.
-            ScheduleView.AGENDA -> from.plusMonths(direction)
+            // A day at a time for the ribbon, which draws one; a month at a
+            // time for the list, which is a list of one. The arrow steps
+            // whatever is on screen, which is the only rule that needs no
+            // explaining to the person pressing it.
+            // `uiState.value`, for the same reason `today` above is read from
+            // it: this is only ever reached from a UI that is collecting.
+            ScheduleView.DAY -> when (uiState.value.dayMode) {
+                DayMode.RIBBON -> from.plusDays(direction)
+                DayMode.LIST -> from.plusMonths(direction)
+            }
         }
         anchor.value = moved
         // In the day view the anchor *is* the selection; in the other two the

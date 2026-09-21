@@ -1161,7 +1161,12 @@ private fun LazyListScope.aboutRows(
     // the design credit, so the three rows that used to state those separately
     // are gone rather than repeated above it.
     item(key = "about_card") {
-        AboutCard(modifier = Modifier.padding(horizontal = ScreenPadding))
+        // No horizontal padding of its own. The list already insets every item
+        // by `ScreenPadding`, so this added a second one and the card came out
+        // 32 dp narrower on each side than every group above it — which is
+        // most of why its two link buttons were breaking «Essentials» into
+        // «Essent / ials».
+        AboutCard(serverStatus = state.serverStatus)
     }
 }
 

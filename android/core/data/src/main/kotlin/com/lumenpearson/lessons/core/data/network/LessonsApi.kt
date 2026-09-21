@@ -6,6 +6,7 @@ import com.lumenpearson.lessons.core.data.network.dto.HealthDto
 import com.lumenpearson.lessons.core.data.network.dto.JoinRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.JoinResponseDto
 import com.lumenpearson.lessons.core.data.network.dto.UnlinkResponseDto
+import com.lumenpearson.lessons.core.data.network.dto.WarmupDto
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -60,6 +61,18 @@ internal interface LessonsApi {
      */
     @GET("api/v1/health")
     suspend fun health(): HealthDto
+
+    /**
+     * The same probe with the database behind it, and what the about page's
+     * server badge reads.
+     *
+     * Unauthenticated like [health], and deliberately a separate call rather
+     * than a richer [health]: `/health` opens no connection on purpose, so that
+     * pinging it keeps the serverless function warm without waking a database
+     * that has scaled to zero. Asking this one is a decision to pay for that.
+     */
+    @GET("api/v1/warmup")
+    suspend fun warmup(): WarmupDto
 
     /**
      * What the server knows about this device: whether it is tied to a

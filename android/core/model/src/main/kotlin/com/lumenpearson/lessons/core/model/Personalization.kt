@@ -261,3 +261,38 @@ enum class RibbonFlow {
         fun fromName(name: String?): RibbonFlow = entries.firstOrNull { it.name == name } ?: DOWNWARD
     }
 }
+
+/**
+ * Which of the two readings of «День» is on screen.
+ *
+ * The calendar used to offer both as tabs of their own, «День» and «Лента», and
+ * they were never two views: both answer «what is on», one for the day in front
+ * of you and one for the month around it. Four tabs across a 360 dp phone is
+ * also four labels of four characters, which is what the segmented picker's
+ * marquee was doing most of its work for.
+ *
+ * So they are one tab and this is the switch inside it. It is stored rather
+ * than remembered: it is a reading habit, not a detour, and a reader who
+ * prefers the list should not have to find it again after every visit to the
+ * week.
+ *
+ * The two modes do not cover the same dates, and that is deliberate rather than
+ * an inconsistency to iron out. [RIBBON] is one day — it draws the breaks
+ * between the lessons, which only means anything for a day somebody chose.
+ * [LIST] is the month, because the questions it answers — which day is heaviest,
+ * which ones are marked — are questions about a stretch of days. Stepping with
+ * the arrows therefore moves a day in one and a month in the other, which is
+ * what the period each mode shows already implies.
+ */
+enum class DayMode {
+    /** One day, as a ribbon of lessons, breaks and events. */
+    RIBBON,
+
+    /** The month's days as rows, in whichever order was chosen. */
+    LIST,
+    ;
+
+    companion object {
+        fun fromName(name: String?): DayMode = entries.firstOrNull { it.name == name } ?: RIBBON
+    }
+}

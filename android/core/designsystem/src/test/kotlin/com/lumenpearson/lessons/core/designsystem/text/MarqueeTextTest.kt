@@ -12,10 +12,12 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import java.io.File
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -49,6 +51,46 @@ class MarqueeTextTest {
 
     @get:Rule
     val compose = createComposeRule()
+
+    /**
+     * The clock is not advanced on its own, and without this the suite hangs.
+     *
+     * [MarqueeText] scrolls for as long as the line is on screen — the whole
+     * point of it, and the fix for a row that stopped after three passes and
+     * sat there clipped. A perpetual animation means Compose's clock is never
+     * idle, and `waitForIdle` — which every assertion below calls into — waits
+     * for exactly that. With `autoAdvance` left on, the three composed tests
+     * here do not fail: they hang, and take the whole Gradle run with them,
+     * which this project has already paid for once with `runTest` against
+     * `WeekViewModel`'s clock.
+     *
+     * Nothing here needs animation frames. What is asserted is a layout: how
+     * wide the line was measured, and whether it pushed its neighbour out of
+     * the row. Recomposition and layout still happen with the clock held.
+     */
+    @Before
+    fun holdTheClock() {
+        compose.mainClock.autoAdvance = false
+    }
+
+    /**
+     * Two frames by hand, because the clock above is not running.
+     *
+     * [MarqueeText] needs a second pass by construction: the first lays the
+     * line out and reports the width it was given, and only the recomposition
+     * that width causes can decide to scroll. Compose drives recomposition from
+     * frames, so with the clock held the decision is never reached and every
+     * line looks like one that fits — which is how the first version of this
+     * fix «passed» while turning the marquee off everywhere.
+     *
+     * Four frames rather than two, with nothing resting on the number: it is
+     * cheap, and a settle that is one frame short fails as «the line does not
+     * scroll», which is indistinguishable from the defect these tests exist to
+     * catch.
+     */
+    private fun settle() {
+        repeat(4) { compose.mainClock.advanceTimeByFrame() }
+    }
 
     private val long = "По этому предмету ничего не задано"
     private val short = "Урок 3"
@@ -135,6 +177,8 @@ class MarqueeTextTest {
             }
         }
 
+        settle()
+
         val window = with(compose.density) { boxWidth.roundToPx() }
         val laidOut = compose.onNodeWithText(tooLong).fetchSemanticsNode().size.width
         assertTrue(
@@ -156,6 +200,8 @@ class MarqueeTextTest {
                 }
             }
         }
+
+        settle()
 
         val window = with(compose.density) { boxWidth.roundToPx() }
         assertTrue(compose.onNodeWithText(short).fetchSemanticsNode().size.width < window)
@@ -181,6 +227,8 @@ class MarqueeTextTest {
             }
         }
 
+        settle()
+
         val row = with(compose.density) { rowWidth.roundToPx() }
         val neighbour = compose.onNodeWithText(tail).fetchSemanticsNode()
         assertTrue(
@@ -204,6 +252,8 @@ class MarqueeTextTest {
                 }
             }
         }
+
+        settle()
 
         val bounds = compose.onNodeWithText(short).getBoundsInRoot()
         assertEquals("the text starts at the box's leading edge", 0f, bounds.left.value, 0.5f)
@@ -238,7 +288,55 @@ class MarqueeTextTest {
             }
         }
 
+        settle()
+
         compose.onNodeWithText(tooLong).assertIsDisplayed()
+    }
+
+    // -- how long it scrolls for ---------------------------------------------
+
+    /**
+     * That the scrolling does not stop while the line is still on screen.
+     *
+     * `basicMarquee` runs `MarqueeDefaults.Iterations` times — three — and then
+     * parks the line at its start, clipped, for as long as it stays composed.
+     * The budget is per composition, so a list ends up with rows in both
+     * states: the one just scrolled into view moves, the one that has been
+     * there since the screen opened does not. That is what was reported from a
+     * real phone, and what it looks like in a screenshot is one row mid-scroll
+     * beside one sitting still.
+     *
+     * **This is read off the source rather than watched**, the way
+     * `NoEllipsisedLineTest` and `StabilityPromiseTest` read theirs, and the
+     * reason is worth stating so nobody replaces it with something that looks
+     * stronger and is not. A marquee moves its content at *draw* time: the text
+     * node's bounds, its position and its semantics are identical at every
+     * point of the scroll, so no matcher here can see the difference between
+     * moving and parked. Advancing the clock and looking again finds the same
+     * numbers. The only honest JVM-side statement about the iteration count is
+     * about the argument, and the argument is the whole defect.
+     *
+     * The composed tests above are what hold the rest of it: that the line
+     * scrolls at all, and that scrolling does not push its row apart.
+     */
+    @Test
+    fun `the marquee is not left on its default three passes`() {
+        val source = File(designSystemSources, "text/MarqueeText.kt")
+        assertTrue("expected to read ${source.absolutePath}", source.isFile)
+
+        val calls = source.readLines()
+            .map { it.trim() }
+            .filter { it.startsWith(".basicMarquee(") }
+
+        assertEquals("one marquee in this file, and it is the subject", 1, calls.size)
+        assertTrue(
+            "`basicMarquee()` with no `iterations` stops after three passes and " +
+                "leaves the line parked and clipped, which is the defect this " +
+                "component exists to prevent — a line is only given a marquee " +
+                "here because it cannot be read at the width it was given. " +
+                "Found: ${calls.single()}",
+            calls.single().contains("iterations = Int.MAX_VALUE"),
+        )
     }
 
     /** The text is the text: scrolling must not truncate what a reader copies. */
@@ -252,6 +350,35 @@ class MarqueeTextTest {
             }
         }
 
+        settle()
+
         compose.onNodeWithText(tooLong).assertIsDisplayed()
+    }
+
+    private companion object {
+
+        /**
+         * `:core:designsystem`'s own `src/main/kotlin`.
+         *
+         * Found by walking up for `settings.gradle.kts`, because Gradle runs
+         * unit tests with the module directory as the working directory and an
+         * IDE sometimes runs them from the repository root. The same walk as
+         * `NoEllipsisedLineTest`, kept separate rather than shared: that one
+         * discovers every module on purpose, and this one is about one file.
+         */
+        val designSystemSources: File by lazy {
+            var directory: File? = File("").absoluteFile
+            while (directory != null) {
+                if (File(directory, "settings.gradle.kts").isFile) {
+                    return@lazy File(
+                        directory,
+                        "core/designsystem/src/main/kotlin/com/lumenpearson/lessons/" +
+                            "core/designsystem",
+                    )
+                }
+                directory = directory.parentFile
+            }
+            error("Could not find the Gradle root from ${File("").absolutePath}")
+        }
     }
 }

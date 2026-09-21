@@ -231,6 +231,7 @@ class ClassScopedCacheTest {
         override suspend fun bundle(start: String, days: Int, ifNoneMatch: String?) =
             error("unused")
         override suspend fun health() = error("unused")
+        override suspend fun warmup() = error("unused")
         override suspend fun me() = error("unused")
         override suspend fun unlink() = error("unused")
     }

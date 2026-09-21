@@ -50,6 +50,8 @@ internal class AuthInterceptor(
 
     private companion object {
         const val HEADER = "Authorization"
-        val UNAUTHENTICATED_SUFFIXES = listOf("/join", "/health")
+        // `/warmup` joins the two: it is the about page's server badge, and it
+        // is asked before this device has joined anything at all.
+        val UNAUTHENTICATED_SUFFIXES = listOf("/join", "/health", "/warmup")
     }
 }
