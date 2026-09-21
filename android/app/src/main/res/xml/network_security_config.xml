@@ -10,9 +10,21 @@
   private network - which public CAs do not issue - so the practical effect
   would not be "encrypted", it would be "the app does not work".
 
-  The exposure is bounded by what actually crosses the wire: an eight-character
-  class code and a read-only timetable token, carrying a school timetable and
-  homework. No credentials, no personal data, nothing that identifies a pupil.
+  What crosses the wire is NOT bounded the way this comment used to claim. It
+  said "no credentials, no personal data, nothing that identifies a pupil", and
+  that was true when it was written and stopped being true when the app grew
+  its own diary sign-in. DiaryApi.login posts a dnevnik2 login and password to
+  /api/v1/diary/login, through the same OkHttp client and to whatever address
+  the reader typed in settings - so on a plain http:// deployment, anyone on
+  the same school Wi-Fi reads a parent's password for a third party's service,
+  the diary bearer that opens a child's marks and attendance, and a class
+  bearer that is frequently a WRITE token since personal connect codes exist.
+
+  It is still permitted, because the premise above is real: demanding HTTPS on
+  a LAN address would mean "the app does not work" rather than "encrypted".
+  What changed is that the app now says so where it matters. DiarySignInScreen
+  warns before the password is typed when the server address is not https://,
+  which is the one screen where the cost is a password rather than a timetable.
 
   A school that does terminate TLS simply enters an https:// address and this
   configuration stops applying to it; nothing here downgrades a secure URL.

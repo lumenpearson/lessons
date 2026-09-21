@@ -69,6 +69,7 @@ from app.bot.handlers.manage import (
     holiday_kind,
     holiday_note,
     holiday_period_apply,
+    holiday_period_kind,
     holiday_period_start,
     holiday_pick_date,
     holiday_typed_date,
@@ -101,6 +102,7 @@ from app.bot.handlers.manage import (
 )
 from app.bot.handlers.timetable import timetable_apply
 from app.bot.manage_keyboards import (
+    DayKindAction,
     bells_list_keyboard,
     device_keyboard,
     holiday_list_keyboard,
@@ -419,8 +421,11 @@ async def test_renaming_a_subject_moves_the_timetable_homework_and_overrides(
     assert homework.subject_name == "Математика"
     override = await session.scalar(select(LessonOverride))
     assert override.subject_name == "Математика"
-    # One timetable row, one homework row, one override.
-    assert "3" in message.last
+    # The whole sentence, not «"3" is somewhere in it»: the message also
+    # carries both names, and «Математика» has no digit in it but a date or a
+    # lesson number in some future wording would — a bare `"3" in` passes on
+    # any of them. Three is one timetable row, one homework row, one override.
+    assert message.last.endswith("Переименовано в расписании, заданиях и заменах: 3.")
 
 
 async def test_renaming_a_subject_is_refused_for_an_editor(session, school_class):
@@ -473,7 +478,11 @@ async def test_a_holiday_period_marks_every_day_inside_it(session, school_class)
 
     days = list(await session.scalars(select(DayOverride).order_by(DayOverride.date)))
     assert [day.date for day in days] == [Date(2027, 1, day) for day in range(2, 7)]
-    assert "5 дней" in message.replies[0]
+    # Anchored on the whole count, not on «5 дней» somewhere inside it:
+    # `plural()` already contains the number, and an `f"{n} {plural(n, …)}"`
+    # slip prints «5 5 дней» — which a substring check reads as correct.
+    assert re.search(r"(?<!\d\s)\b5 дней\b", message.replies[0])
+    assert "5 5" not in message.replies[0]
 
 
 async def test_an_editor_cannot_mark_a_whole_period(session, school_class):
@@ -2733,19 +2742,44 @@ async def test_every_button_opens_the_same_page_as_its_command(session, school_c
     )
     await session.commit()
 
+    # A press lambda rather than a bare handler: «🏖 Особые дни» takes the
+    # filter out of its own payload, so it has one argument the others do not,
+    # and an unfiltered press is the one that has to match the typed command.
     pairs = [
-        (cmd_subjects, subjects_list, Role.EDITOR),
-        (cmd_holidays, holidays_list, Role.EDITOR),
-        (cmd_bells, bells_list, Role.ADMIN),
-        (cmd_devices, devices_list, Role.ADMIN),
-        (cmd_class, class_root, Role.OWNER),
+        (
+            cmd_subjects,
+            lambda cb, role: subjects_list(cb, FakeState(), session, school_class, role),
+            Role.EDITOR,
+        ),
+        (
+            cmd_holidays,
+            lambda cb, role: holidays_list(
+                cb, DayKindAction(action="list"), FakeState(), session, school_class, role
+            ),
+            Role.EDITOR,
+        ),
+        (
+            cmd_bells,
+            lambda cb, role: bells_list(cb, FakeState(), session, school_class, role),
+            Role.ADMIN,
+        ),
+        (
+            cmd_devices,
+            lambda cb, role: devices_list(cb, FakeState(), session, school_class, role),
+            Role.ADMIN,
+        ),
+        (
+            cmd_class,
+            lambda cb, role: class_root(cb, FakeState(), session, school_class, role),
+            Role.OWNER,
+        ),
     ]
-    for command, button, role in pairs:
+    for command, press, role in pairs:
         typed = FakeMessage()
         await command(typed, FakeState(), session, school_class, role)
 
         pressed = FakeCallback(message=FakeEditable())
-        await button(pressed, FakeState(), session, school_class, role)
+        await press(pressed, role)
 
         assert pressed.message.last == typed.last, command.__name__
         assert not pressed.alerted, command.__name__
@@ -2904,18 +2938,128 @@ async def test_a_picked_date_that_is_not_a_date_is_refused(session, school_class
     assert callback.message.replies == []
 
 
-async def test_the_period_screen_names_the_ceiling_before_anybody_types(
+async def test_the_period_screen_asks_what_to_mark_it_as_before_the_dates(
     session, school_class
 ):
-    from app.bot.handlers.manage import PERIOD_MAX_DAYS
+    """The first screen is the four kinds, and it opens no form.
 
+    Marking a range used to mean holidays and nothing else, so «дистант с 12
+    по 16» was five presses on five day cards. The dates come second now — and
+    the state stays empty until a kind is picked, so a «26.10-05.11» typed at
+    this screen is not swallowed by a form that does not know what to do with
+    it yet.
+    """
     callback = FakeCallback(message=FakeEditable())
     state = FakeState()
     await holiday_period_start(callback, state, school_class, Role.ADMIN)
 
+    card = callback.message.last
+    assert "Самоподготовка" in card or "период" in card
+    assert state.state is None, "nothing is being filled in until a kind is chosen"
+
+
+async def test_the_ceiling_is_named_before_anybody_types_a_date(session, school_class):
+    """Still named before the form opens — one screen later than it used to be.
+
+    This is the promise, not the screen it is made on: somebody about to type
+    «01.09-31.05» has to be told it will be refused before they type it, not
+    after.
+    """
+    from app.bot.handlers.manage import PERIOD_MAX_DAYS
+
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await holiday_period_kind(
+        callback,
+        DayKindAction(action="period_kind", value=DayKind.SELF_STUDY.value),
+        state,
+        school_class,
+        Role.ADMIN,
+    )
+
     assert "26.10-05.11" in callback.message.last
     assert str(PERIOD_MAX_DAYS) in callback.message.last
     assert state.state is not None
+
+
+async def test_a_period_is_marked_with_the_kind_that_was_picked(session, school_class):
+    """The whole point of the picker, end to end."""
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await holiday_period_kind(
+        callback,
+        DayKindAction(action="period_kind", value=DayKind.REMOTE.value),
+        state,
+        school_class,
+        Role.ADMIN,
+    )
+
+    message = FakeMessage(text="02.11.2026-04.11.2026")
+    await holiday_period_apply(message, state, session, school_class, Role.ADMIN)
+
+    days = list(await session.scalars(select(DayOverride).order_by(DayOverride.date)))
+    assert [day.date for day in days] == [Date(2026, 11, day) for day in (2, 3, 4)]
+    assert {day.kind for day in days} == {DayKind.REMOTE}
+    assert "Дистанционное обучение" in message.replies[0]
+
+
+async def test_a_period_with_no_kind_behind_it_is_still_the_holidays(
+    session, school_class
+):
+    """A form that outlived a restart has a date to apply and no kind.
+
+    Refusing it would throw away what somebody just typed over a process
+    boundary they cannot see; holidays are what this flow marked before there
+    was anything to pick, so that is what it falls back to.
+    """
+    message = FakeMessage(text="02.11.2026-03.11.2026")
+    await holiday_period_apply(message, FakeState(), session, school_class, Role.ADMIN)
+
+    days = list(await session.scalars(select(DayOverride)))
+    assert {day.kind for day in days} == {DayKind.HOLIDAY}
+
+
+async def test_a_crafted_kind_is_refused_rather_than_raising(session, school_class):
+    """Callback data is whatever the client sent.
+
+    `DayKind(raw)` raises on anything else, and a raise here never reaches
+    `callback.answer()` — the button keeps its spinner until Telegram gives
+    up, which reads as the app being broken rather than the press being wrong.
+    """
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await holiday_period_kind(
+        callback,
+        DayKindAction(action="period_kind", value="../../etc/passwd"),
+        state,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    assert state.state is None
+    assert callback.message.replies == []
+
+
+async def test_a_kind_this_flow_does_not_offer_is_refused_too(session, school_class):
+    """`NORMAL` and `SHORTENED` are parseable and still not on offer.
+
+    A shortened day points at a bell schedule and `NORMAL` is the absence of a
+    mark, so accepting either over a range would quietly do something nobody
+    asked for — across a fortnight, from one message.
+    """
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await holiday_period_kind(
+        callback,
+        DayKindAction(action="period_kind", value=DayKind.SHORTENED.value),
+        state,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    assert state.state is None
 
 
 async def test_an_editor_is_not_offered_the_period_screen(session, school_class):
@@ -2923,6 +3067,24 @@ async def test_an_editor_is_not_offered_the_period_screen(session, school_class)
     await holiday_period_start(callback, FakeState(), school_class, Role.EDITOR)
 
     assert callback.alerted
+    assert callback.message.replies == []
+
+
+async def test_an_editor_cannot_pick_a_kind_for_a_period_either(session, school_class):
+    """The second screen re-checks, rather than trusting the press that opened it:
+    a card can sit on a phone after the role behind it has changed."""
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await holiday_period_kind(
+        callback,
+        DayKindAction(action="period_kind", value=DayKind.REMOTE.value),
+        state,
+        school_class,
+        Role.EDITOR,
+    )
+
+    assert callback.alerted
+    assert state.state is None
     assert callback.message.replies == []
 
 
@@ -3192,7 +3354,9 @@ async def test_every_management_step_checks_the_role_for_itself(session, school_
     )
     await press(
         "holidays_list",
-        lambda cb: holidays_list(cb, FakeState(), session, school_class, viewer),
+        lambda cb: holidays_list(
+            cb, DayKindAction(action="list"), FakeState(), session, school_class, viewer
+        ),
     )
     await press(
         "holiday_add", lambda cb: holiday_add(cb, FakeState(), school_class, viewer)
@@ -3243,6 +3407,16 @@ async def test_every_management_step_checks_the_role_for_itself(session, school_
     await press(
         "holiday_period_start",
         lambda cb: holiday_period_start(cb, FakeState(), school_class, viewer),
+    )
+    await press(
+        "holiday_period_kind",
+        lambda cb: holiday_period_kind(
+            cb,
+            SimpleNamespace(action="period_kind", value=DayKind.REMOTE.value),
+            FakeState(),
+            school_class,
+            viewer,
+        ),
     )
     await press(
         "bells_list", lambda cb: bells_list(cb, FakeState(), session, school_class, viewer)

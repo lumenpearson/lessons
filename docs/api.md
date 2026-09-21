@@ -116,6 +116,15 @@ The periods arrive as rows rather than as a formula, because the dates are the s
 business: the holidays shift, a region goes on its spring break earlier, a quarantine eats a
 week.
 
+**They also decide which days carry lessons at all.** A day inside none of the class's
+periods is answered as `holiday` with an empty `lessons`, whatever the weekly template
+says — so a half-year ending on 28 May ends the lessons on 28 May, and the gap between two
+quarters is the holidays in it. The conventional periods are contiguous, so a class that
+has never edited them behaves exactly as before, and a class with no periods for that year
+falls back to «1 September to 31 May». This is what the dates were always for; until
+recently they named the period and nothing more, and the calendar went on drawing a full
+day through to 31 May.
+
 ```json
 {
   "api_version": 1,
@@ -133,6 +142,8 @@ week.
       "date": "2026-09-10",
       "weekday": 4,
       "kind": "normal",
+      "off_reason": null,
+      "holiday": null,
       "lessons": [
         {
           "index": 2,
@@ -206,13 +217,29 @@ mark, because that is a claim about the check rather than about the payload.
   `start` defaulting to "today" is resolved in the class's zone. Clients must
   derive "now" from this field rather than from the device clock.
 * `kind` on a day is one of `normal`, `holiday`, `shortened`, `remote`.
-* **Out of season a day carries no lessons.** The weekly template stops at the end
-  of May and is not repeated over June, July and August, nor over the days before a
-  year's first teaching day, so those days come back with an empty `lessons` array
-  and — unless somebody marked them by hand, in which case their kind and note
-  stand — `kind: "holiday"`. Events and homework are returned either way: an
-  excursion in June is a real thing, and it is the lessons that are out of season,
-  not the day.
+* **Out of season a day carries no lessons.** The weekly template is not repeated
+  outside the class's own terms — over June, July and August, over the days before
+  a year's first teaching day, and over the gaps an admin left between two terms —
+  so those days come back with an empty `lessons` array and, unless somebody marked
+  them by hand in which case their kind and note stand, `kind: "holiday"`. A
+  statutory non-working day is the same shape. Events and homework are returned
+  either way: an excursion in June is a real thing, and it is the lessons that are
+  out of season, not the day.
+* **`off_reason` says which of those it is**, because `kind` cannot: all four
+  arrive as `holiday` and a calendar wants to draw them differently. It is
+  `out_of_year`, `between_terms`, `public_holiday`, or absent. Absent on an
+  ordinary day, including an ordinary empty one — «nobody put lessons on a Sunday»
+  is not a reason, it is the absence of one. A client that has never heard of a
+  value it is sent should treat it as absent rather than guess.
+* **`holiday` names the date**, whether or not it teaches: `{"code", "title",
+  "stops_lessons"}`. `stops_lessons` is true only for a statutory non-working day
+  — «День учителя» is a full Wednesday with a badge on it, «День Победы» is not.
+  `title` is Russian, like every other string this server puts on a screen;
+  `code` is stable, so a client can write the name in its own language where it
+  knows the date and fall back to `title` where it does not. The list is in
+  `server/app/services/holidays.py`, and the yearly transfers are deliberately not
+  in it: those are set by decree each December, and a wrong non-working day removes
+  a real day of lessons and looks exactly like a correct one.
 * `kind` on an event is one of `event`, `canteen`, `exam`, `trip`, `meeting`.
 * A cancelled lesson stays in the array with `is_cancelled: true` rather than
   disappearing, so the UI can strike it through instead of silently renumbering

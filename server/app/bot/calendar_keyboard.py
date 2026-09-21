@@ -71,8 +71,18 @@ FLOW_MINIMUM: dict[str, Role] = {
 BLANK = " "
 
 
-def school_year_bounds(today: Date) -> tuple[Date, Date]:
+def pickable_months(today: Date) -> tuple[Date, Date]:
     """First and last month the arrows may reach, as those months' first days.
+
+    **Not `schedule.school_year_bounds`, and the name used to be.** That one
+    answers «which year does this date's teaching belong to» and files a summer
+    date under the year about to open, so on 15 June it returns the September
+    that has not started. This one answers «how far may the arrows walk», and
+    for that June belongs to the year now ending. Two functions of the same
+    name meaning different things is how a substitution came to be offered on a
+    June day the resolver would never draw — see
+    `timetable_edit.why_no_lesson_can_be_drawn`, which is the check that had to
+    be added because of it.
 
     One school year — 1 September to 31 August — the one ``today`` falls in.
     Anything outside it cannot be planned: in June the timetable for September
@@ -86,7 +96,7 @@ def school_year_bounds(today: Date) -> tuple[Date, Date]:
 
 def clamp_month(year: int, month: int, today: Date) -> Date:
     """The asked-for month's first day, pulled back inside the school year."""
-    first, last = school_year_bounds(today)
+    first, last = pickable_months(today)
     asked = Date(year, month, 1)
     return min(max(asked, first), last)
 
@@ -143,7 +153,7 @@ def month_keyboard(flow: str, year: int, month: int, today: Date) -> InlineKeybo
     instead of an error nobody can act on.
     """
     anchor = clamp_month(year, month, today)
-    first, last = school_year_bounds(today)
+    first, last = pickable_months(today)
 
     rows: list[list[InlineKeyboardButton]] = [
         [

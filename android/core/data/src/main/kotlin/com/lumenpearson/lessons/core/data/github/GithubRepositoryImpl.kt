@@ -187,16 +187,34 @@ internal class GithubRepositoryImpl(
 
             val refused = mutableListOf<String>()
             var written = 0
-            for ((path, forPath) in changes.groupBy { it.path }) {
-                val file = contents(token, GithubApi.OWNER, path, baseSha)
-                if (file == null) {
-                    // The path comes from the key's prefix. A path that is not
-                    // in the repository means that rule has drifted, which is
-                    // this app's bug and not the reader's; every key meant for
-                    // the file is reported rather than one of them.
-                    forPath.forEach { refused += it.key }
-                    continue
+
+            // Fetched once each and kept, because a session of corrections
+            // spreads across a handful of files and several of them land in
+            // the same one.
+            val fetched = mutableMapOf<String, Pair<String, String>?>()
+            suspend fun fileAt(path: String): Pair<String, String>? =
+                fetched.getOrPut(path) { contents(token, GithubApi.OWNER, path, baseSha) }
+
+            // Which file a key lives in is asked of the files, not guessed.
+            // The key's prefix picks the module and can go no further: inside
+            // `:app` the prefixes overlap — `settings_` is in `strings.xml`
+            // and in `strings_admin.xml` — so the old single guess of
+            // `strings.xml` refused 419 of that module's 779 strings, every
+            // one of them with «Не отправлено» and no reason a reader could
+            // act on.
+            val resolved = mutableMapOf<String, MutableList<TranslationChange>>()
+            for (change in changes) {
+                val path = change.paths.firstOrNull { candidate ->
+                    val document = fileAt(candidate)?.first
+                    document != null &&
+                        StringsDocument.replace(document, change.key, change.body) != null
                 }
+                if (path == null) refused += change.key
+                else resolved.getOrPut(path) { mutableListOf() } += change
+            }
+
+            for ((path, forPath) in resolved) {
+                val file = fileAt(path) ?: continue
                 var document = file.first
                 for (change in forPath) {
                     val patched = StringsDocument.replace(document, change.key, change.body)

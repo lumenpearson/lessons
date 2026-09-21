@@ -78,7 +78,15 @@ jobs:
           server=false
           while IFS= read -r file; do
             case "$file" in
-              android/*|.github/workflows/*) android=true ;;
+              # `docs/app/` is Android: `:core:data` packages it as assets
+              # (core/data/build.gradle.kts) and `DocsGuideParityTest` holds the
+              # two guides level page for page. A commit touching only
+              # `guide.ru.md` set neither output, both jobs were skipped by
+              # their `if:`, and the workflow was green with nothing having run
+              # — which is how the Russian guide grows a page the English one
+              # does not have, and an English reader gets a toolbar with a
+              # different number of buttons and nothing logged.
+              android/*|docs/app/*|.github/workflows/*) android=true ;;
             esac
             case "$file" in
               server/*|api/*|requirements.txt|.github/workflows/*) server=true ;;

@@ -257,7 +257,7 @@
     <string name="admin_request_declined">%1$s: отказано</string>
 
     <!-- The roles, as the bot names them -->
-    <string name="admin_role_name_viewer">читатель</string>
+    <string name="admin_role_name_viewer">наблюдатель</string>
     <string name="admin_role_name_editor">редактор</string>
     <string name="admin_role_name_admin">администратор</string>
     <string name="admin_role_name_owner">владелец</string>

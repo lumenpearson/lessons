@@ -20,6 +20,7 @@ import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.Lesson
+import com.lumenpearson.lessons.core.model.RibbonEntry
 import com.lumenpearson.lessons.core.model.SchoolDay
 import com.lumenpearson.lessons.widget.R
 import com.lumenpearson.lessons.widget.WidgetOptions
@@ -519,7 +520,7 @@ private fun NowBlock(
  */
 @Composable
 private fun TodayBlock(
-    remaining: List<TimelineEntry>,
+    remaining: List<RibbonEntry>,
     current: Lesson?,
     today: SchoolDay?,
     size: WidgetSizeClass,
@@ -541,7 +542,7 @@ private fun TodayBlock(
             Column(modifier = GlanceModifier.fillMaxWidth()) {
                 remaining.take(size.timelineRows.coerceAtMost(CHILD_LIMIT)).forEach { entry ->
                     when (entry) {
-                        is TimelineEntry.OfLesson -> TimelineRow(
+                        is RibbonEntry.OfLesson -> TimelineRow(
                             lesson = entry.lesson,
                             size = size,
                             options = options,
@@ -552,7 +553,14 @@ private fun TodayBlock(
                             compact = size.isNarrow,
                         )
 
-                        is TimelineEntry.OfEvent -> EventRow(event = entry.event, size = size)
+                        is RibbonEntry.OfEvent -> EventRow(event = entry.event, size = size)
+
+                        // `remaining` never hands one over — the widget lists
+                        // what is left, and a break is a gap between two things
+                        // rather than one of them. The branch is here because
+                        // the ribbon carries breaks for the day screen, which
+                        // draws them as rows of their own.
+                        is RibbonEntry.OfBreak -> Unit
                     }
                 }
             }
@@ -658,12 +666,19 @@ private fun RestDayBody(
     size: WidgetSizeClass,
 ) {
     val context = LocalContext.current
-    val headline = headlineOf(context, state)
     val plan = if (size.showsMeta) dayPlanOf(context, nextDay) else null
 
     Column(modifier = GlanceModifier.fillMaxSize()) {
         Column(modifier = GlanceModifier.fillMaxWidth()) {
-            StateLabel(text = headline.label, size = size)
+            // Not `headlineOf(...).label`, which is the full sentence. This is
+            // the one card where a state label meets a 110 dp column —
+            // `StackBody` serves the narrow rungs too — and `StateLabel` is one
+            // line that Glance cannot ellipsize, so «УРОКИ ЗАКОНЧИЛИСЬ» was
+            // clipped mid-word rather than shortened.
+            StateLabel(
+                text = WidgetStrings.restStateLabel(context, state, narrow = size.isNarrow),
+                size = size,
+            )
             (state as? DayState.DayOff)?.note?.takeIf { it.isNotBlank() }?.let { note ->
                 VSpace(2)
                 CaptionText(text = note.ellipsize(size.homeworkChars), size = size)

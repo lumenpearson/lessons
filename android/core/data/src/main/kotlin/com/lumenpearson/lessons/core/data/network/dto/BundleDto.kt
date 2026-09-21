@@ -69,6 +69,26 @@ internal data class DayDto(
     @SerialName("events") val events: List<EventDto> = emptyList(),
     @SerialName("homework") val homework: List<HomeworkDto> = emptyList(),
     @SerialName("note") val note: String? = null,
+    // Both default, so a server older than this build still parses.
+    @SerialName("holiday") val holiday: HolidayDto? = null,
+    // Free-form for the same reason `kind` is: a server that learns a new
+    // reason must not break a client that has not.
+    @SerialName("off_reason") val offReason: String? = null,
+)
+
+/**
+ * Mirrors `HolidayOut`: what a date is called, whether or not it teaches.
+ *
+ * [title] is Russian, like every other string the server puts on a screen.
+ * [code] is stable, so the app can write the name in the reader's own language
+ * where it knows it and fall back to the server's words where it does not —
+ * which is what lets this server learn a date before the app does.
+ */
+@Serializable
+internal data class HolidayDto(
+    @SerialName("code") val code: String = "",
+    @SerialName("title") val title: String = "",
+    @SerialName("stops_lessons") val stopsLessons: Boolean = false,
 )
 
 /** Mirrors `LessonOut`. Times are `HH:MM:SS` local wall time. */

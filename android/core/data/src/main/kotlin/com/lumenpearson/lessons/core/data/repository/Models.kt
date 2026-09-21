@@ -3,8 +3,11 @@ package com.lumenpearson.lessons.core.data.repository
 import com.lumenpearson.lessons.core.model.AlertPreferences
 import com.lumenpearson.lessons.core.model.AppFont
 import com.lumenpearson.lessons.core.model.AppLanguage
+import com.lumenpearson.lessons.core.model.DayFilter
+import com.lumenpearson.lessons.core.model.DayOrder
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.core.model.HomeTab
+import com.lumenpearson.lessons.core.model.RibbonFlow
 import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.core.model.TodayLayout
 import com.lumenpearson.lessons.core.model.WeekStart
@@ -179,6 +182,42 @@ data class AppSettings(
     val weekShowEvents: Boolean = true,
     /** The day's homework, under whatever drew its lessons. */
     val weekShowHomework: Boolean = true,
+    /**
+     * Which days the calendar narrows to. Empty is no filter at all, which is
+     * where this rests — see [DayFilter], where the empty set and the OR
+     * between several chosen facets are both deliberate.
+     */
+    val calendarFilters: Set<DayFilter> = emptySet(),
+    /**
+     * The order a list of days is drawn in. Reaches only the views that are
+     * genuinely lists: a month grid cannot be sorted and stay a calendar.
+     */
+    val calendarOrder: DayOrder = DayOrder.DATE_ASC,
+    /**
+     * Which way the day ribbon's progress travels — see [RibbonFlow].
+     *
+     * The ribbon's own three settings live here rather than in the screen,
+     * because a screen's `remember` is gone the moment the calendar changes
+     * view, and a reader who turned the progress the other way up meant it for
+     * longer than one visit.
+     */
+    val dayRibbonFlow: RibbonFlow = RibbonFlow.DOWNWARD,
+    /**
+     * Whether the ribbon settles on a whole entry when the scroll stops.
+     *
+     * On by default: the ribbon is read one entry at a time, and a fling that
+     * leaves two half-rows on screen is a scroll somebody has to correct. Off
+     * for anybody who would rather the list simply went where they threw it.
+     */
+    val dayRibbonSnap: Boolean = true,
+    /**
+     * Whether the ribbon draws its depth — the shader, the blur, the gradients.
+     *
+     * Its own switch rather than [animations], because this is the one screen
+     * in the app that asks the GPU for something every frame, and the reason to
+     * turn it off is a warm phone rather than a dislike of movement.
+     */
+    val dayRibbonDepth: Boolean = true,
     val syncIntervalMinutes: Int = DEFAULT_SYNC_INTERVAL_MINUTES,
     /**
      * Whether the app keeps a crash report when it dies.

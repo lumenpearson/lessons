@@ -1,6 +1,8 @@
 package com.lumenpearson.lessons.core.data.network.dto
 
 import com.lumenpearson.lessons.core.model.DayKind
+import com.lumenpearson.lessons.core.model.DayOffReason
+import com.lumenpearson.lessons.core.model.Holiday
 import com.lumenpearson.lessons.core.model.EventKind
 import com.lumenpearson.lessons.core.model.HomeworkItem
 import com.lumenpearson.lessons.core.model.Lesson
@@ -90,7 +92,16 @@ internal fun DayDto.toDomain(): SchoolDay? {
         events = events.mapNotNull { it.toDomain() }.sortedBy { it.startsAt },
         homework = homework.map { it.toDomain() },
         note = note.orNullIfBlank(),
+        holiday = holiday?.toDomain(),
+        offReason = DayOffReason.fromWire(offReason),
     )
+}
+
+/** `null` for a holiday with nothing to say, which is not a holiday. */
+internal fun HolidayDto.toDomain(): Holiday? {
+    val name = title.trim()
+    if (code.isBlank() || name.isEmpty()) return null
+    return Holiday(code = code, title = name, stopsLessons = stopsLessons)
 }
 
 /** Class identity, with an unusable time zone replaced by the server default. */

@@ -287,6 +287,52 @@ async def test_class_update_clears_a_field_with_null_and_leaves_absent_ones(
     assert body["name"] == "9А"  # absent, so untouched
 
 
+async def test_class_update_reads_a_letter_by_the_same_rule_the_bot_does(
+    client, session, school_class
+):
+    """«Переименовать» from the phone must not mean something else than from the bot.
+
+    `services/terms.normalise_letter` is the rule: it trims, and it reads «-»
+    as «no letter» — which is what the bot's own «Буква» step tells people to
+    send. The endpoint stored whatever arrived, so a «-» became the literal
+    name «9-», and a padded « Б » a `letter` column that never equals the «Б»
+    anything compares it against — while `compose_name` trims on its way past
+    and left the name looking right, which is what kept it invisible.
+    """
+    token = await _admin(client, session, school_class)
+
+    padded = await client.patch(
+        "/api/v1/manage/class",
+        json={"grade": 9, "letter": "  Б  "},
+        headers=_auth(token),
+    )
+    assert padded.status_code == 200, padded.text
+    await session.refresh(school_class)
+    assert school_class.letter == "Б"
+    assert school_class.name == "9Б"
+
+    cleared = await client.patch(
+        "/api/v1/manage/class", json={"letter": "-"}, headers=_auth(token)
+    )
+    assert cleared.status_code == 200, cleared.text
+    await session.refresh(school_class)
+    assert school_class.letter is None
+    assert school_class.name == "9"
+
+
+def test_the_letter_a_patch_accepts_is_one_the_rule_can_read():
+    """Two bounds, one length. `ClassPatch` refuses a ninth character and
+    `normalise_letter` raises on one, so today nothing reaches the raise. Let
+    them drift and a letter the schema admits becomes a `TermError` nobody
+    catches — a 500 out of a PATCH that asked for a rename."""
+    from app.schemas import ClassPatch
+    from app.services.terms import MAX_LETTER_LENGTH
+
+    limit = ClassPatch.model_fields["letter"].metadata
+    lengths = [getattr(rule, "max_length", None) for rule in limit]
+    assert MAX_LETTER_LENGTH in lengths
+
+
 async def test_class_update_refuses_an_unknown_zone_and_a_blank_name(
     client, session, school_class
 ):

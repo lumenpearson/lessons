@@ -335,12 +335,20 @@ fun SettingsSectionScreen(
     // a sign-in, a week of a timetable and a register in it, and none of that
     // is a preference. It still arrives as a section so that it inherits the
     // shell's title, its back gesture and the slide that carries it in.
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+
     if (section == SettingsSection.DIARY) {
-        DiaryScreen(modifier = modifier)
+        // A blank address is not «insecure», it is «not configured»: nothing
+        // can be sent at all, so the warning would be about a request that
+        // never happens.
+        val address = state.settings.baseUrl
+        DiaryScreen(
+            insecureServer = address.isNotBlank() &&
+                !address.startsWith("https://", ignoreCase = true),
+            modifier = modifier,
+        )
         return
     }
-
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val submitState by viewModel.translationSubmit.collectAsStateWithLifecycle()
     var showServerSheet by rememberSaveable { mutableStateOf(false) }
     var showSignOutSheet by rememberSaveable { mutableStateOf(false) }

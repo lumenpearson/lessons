@@ -81,7 +81,25 @@ val hasReleaseSigning: Boolean =
 // Version identity can be overridden per build so a tagged release APK is
 // distinguishable from a nightly one. Both fall back to the values below.
 val appVersionName = signingSecret("LESSONS_VERSION_NAME", "lessons.versionName") ?: "0.1.0"
-val appVersionCode = signingSecret("LESSONS_VERSION_CODE", "lessons.versionCode")?.toIntOrNull() ?: 1
+
+// Refuses rather than falling back. `toIntOrNull() ?: 1` was the whole rule,
+// and the number it silently swallowed is exactly the one somebody gets wrong:
+// `2147483648` is one past what an Int holds, passes the workflow's "digits
+// only" check, and used to leave the APK stamped versionCode 1 — which installs
+// over nothing and is never an update of anything. A raised number that does not
+// arrive is invisible until a phone refuses the install, so it is a build
+// failure here instead. The ceiling is Google Play's 2100000000, below Int's own
+// maximum, because an APK above it cannot be published at all.
+val maxVersionCode = 2_100_000_000
+
+val appVersionCode =
+    signingSecret("LESSONS_VERSION_CODE", "lessons.versionCode")?.let { raw ->
+        raw.toIntOrNull()?.takeIf { it in 1..maxVersionCode }
+            ?: throw GradleException(
+                "LESSONS_VERSION_CODE / lessons.versionCode is \"$raw\"; " +
+                    "it must be a whole number between 1 and $maxVersionCode.",
+            )
+    } ?: 1
 
 // The GitHub OAuth App the "sign in with GitHub" row talks to. Whoever builds
 // the app registers one (Settings → Developer settings → OAuth Apps, with

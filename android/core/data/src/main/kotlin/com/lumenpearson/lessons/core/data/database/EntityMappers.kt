@@ -1,6 +1,8 @@
 package com.lumenpearson.lessons.core.data.database
 
 import com.lumenpearson.lessons.core.model.DayKind
+import com.lumenpearson.lessons.core.model.DayOffReason
+import com.lumenpearson.lessons.core.model.Holiday
 import com.lumenpearson.lessons.core.model.EventKind
 import com.lumenpearson.lessons.core.model.HomeworkItem
 import com.lumenpearson.lessons.core.model.Lesson
@@ -94,6 +96,10 @@ internal fun SchoolDay.toRecord(classId: Long, isNextSchoolDay: Boolean): School
             kind = kind.name,
             note = note,
             isNextSchoolDay = isNextSchoolDay,
+            offReason = offReason?.name,
+            holidayCode = holiday?.code,
+            holidayTitle = holiday?.title,
+            holidayStopsLessons = holiday?.stopsLessons ?: false,
         ),
         lessons = lessons.map { lesson ->
             LessonEntity(
@@ -178,6 +184,15 @@ internal fun SchoolDayWithDetails.toDomain(): SchoolDay = SchoolDay(
         )
     },
     note = day.note,
+    // Read back through `fromWire` for the same reason the kinds are: a row
+    // written by a newer build that knew a reason this one does not must load
+    // as «no reason given» rather than take the day with it.
+    offReason = DayOffReason.fromWire(day.offReason),
+    holiday = day.holidayCode?.let { code ->
+        day.holidayTitle?.let { title ->
+            Holiday(code = code, title = title, stopsLessons = day.holidayStopsLessons)
+        }
+    },
 )
 
 /** Assembles the single value the whole app renders from. */

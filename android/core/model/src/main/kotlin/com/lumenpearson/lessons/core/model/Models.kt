@@ -11,6 +11,12 @@ enum class DayKind {
     HOLIDAY,
     SHORTENED,
     REMOTE,
+
+    /** Set work, nobody at school — unlike [REMOTE], which is taught. */
+    SELF_STUDY,
+
+    /** A day off this class alone was given, rather than one everybody has. */
+    DAY_OFF,
     ;
 
     companion object {
@@ -62,6 +68,51 @@ data class HomeworkItem(
     val attachmentUrl: String? = null,
 )
 
+/**
+ * Why a date carries no lessons, when something other than the timetable said so.
+ *
+ * A calendar wants four different accents and `DayKind` can only offer one:
+ * all of these arrive as `holiday`. The summer is a block to write across, the
+ * gap between two quarters is a stretch inside the year, a statutory holiday is
+ * one day, and a day somebody marked by hand is theirs to explain.
+ */
+enum class DayOffReason {
+    /** Before the year opened or after it closed. The summer, mostly. */
+    OUT_OF_YEAR,
+
+    /** Inside the year but in none of its terms: the holidays between them. */
+    BETWEEN_TERMS,
+
+    /** A statutory non-working day — 9 May, 1 January, and twelve more. */
+    PUBLIC_HOLIDAY,
+    ;
+
+    companion object {
+        /**
+         * `null` for anything this build has not heard of, which is the
+         * honest answer: a reason it cannot name is one it cannot accent, and
+         * an accent picked at random is worse than the ordinary one.
+         */
+        fun fromWire(value: String?): DayOffReason? =
+            value?.let { raw -> entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } }
+    }
+}
+
+/**
+ * What a date is called — «День учителя» as much as «День Победы».
+ *
+ * [title] is what the server sent, in Russian. [code] is stable, so a screen
+ * that knows the date can write it in the reader's own language and fall back
+ * to [title] where it does not — which is what lets the server learn a date
+ * before the app does.
+ */
+data class Holiday(
+    val code: String,
+    val title: String,
+    /** True only for a statutory day off, and then the day has no lessons. */
+    val stopsLessons: Boolean,
+)
+
 data class SchoolDay(
     val date: LocalDate,
     val weekday: Int,
@@ -70,6 +121,10 @@ data class SchoolDay(
     val events: List<SchoolEvent> = emptyList(),
     val homework: List<HomeworkItem> = emptyList(),
     val note: String? = null,
+    /** What the date is called, if it is called anything. */
+    val holiday: Holiday? = null,
+    /** Why there are no lessons, when the timetable was not what decided it. */
+    val offReason: DayOffReason? = null,
 ) {
     /** Lessons that actually take place, in timeline order. */
     val activeLessons: List<Lesson>
@@ -129,7 +184,13 @@ data class SchoolClassInfo(
     val grade: Int? = null,
     val letter: String? = null,
     val school: String? = null,
-    val city: String? = null,
+    // There is deliberately no `city` here. One was declared, defaulted to
+    // null, and set by neither mapper — the bundle's `SchoolClassDto` has no
+    // such field and neither does the Room entity — so every screen that asked
+    // for it would have been reading null for ever. A class's city is edited
+    // and shown through `ManagedClassCard`, which is a different type on a
+    // different endpoint; if a reader ever needs it here, the wire has to carry
+    // it first.
     val timeZoneId: String = "Europe/Moscow",
     val termKind: TermKind = TermKind.QUARTER,
     val terms: List<Term> = emptyList(),

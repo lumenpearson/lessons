@@ -8,7 +8,11 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
+import com.lumenpearson.lessons.core.model.DayFilter
+import com.lumenpearson.lessons.core.model.DayOrder
+import com.lumenpearson.lessons.core.model.RibbonFlow
 import com.lumenpearson.lessons.core.model.SchoolDay
+import com.lumenpearson.lessons.core.model.matches
 import com.lumenpearson.lessons.core.model.Term
 import java.time.Instant
 import java.time.LocalDate
@@ -25,6 +29,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * How much of the timetable the screen shows at once.
@@ -38,6 +43,17 @@ enum class ScheduleView {
     WEEK,
     MONTH,
     DAY,
+
+    /**
+     * A month as a list rather than a grid, and the one view an order applies to.
+     *
+     * A grid cannot be sorted and stay a calendar — the 14th before the 3rd is
+     * not a month any more — so «по загруженности» has to be asked somewhere
+     * that is genuinely a list. This is that somewhere, and it is also what
+     * makes a filter useful rather than decorative: filtered days are dropped
+     * here, where there is no grid to put holes in.
+     */
+    AGENDA,
 }
 
 /**
@@ -54,6 +70,16 @@ data class WeekDayUi(
     val day: SchoolDay?,
     val isToday: Boolean,
     val inPeriod: Boolean = true,
+    /**
+     * False for a day the current filters exclude.
+     *
+     * Dimmed rather than removed, and that is the whole decision: a month grid
+     * with holes in it stops lining up with the weekday header and with every
+     * calendar anybody has ever read. The filter answers «where is the
+     * homework», and a month that still looks like that month is what makes
+     * the answer findable.
+     */
+    val matchesFilters: Boolean = true,
 )
 
 /**
@@ -78,6 +104,18 @@ data class ScheduleUiState(
     val periodStart: LocalDate = today,
     val periodEnd: LocalDate = today,
     val days: List<WeekDayUi> = emptyList(),
+    /** The facets currently narrowing the calendar; empty is no filter. */
+    val filters: Set<DayFilter> = emptySet(),
+    /** The order a list view draws its days in. */
+    val order: DayOrder = DayOrder.DATE_ASC,
+    /** The list the agenda view draws: filtered, then ordered. Empty elsewhere. */
+    val agenda: List<SchoolDay> = emptyList(),
+    /** Which way the day ribbon's progress runs; see [RibbonFlow]. */
+    val ribbonFlow: RibbonFlow = RibbonFlow.DOWNWARD,
+    /** Whether the ribbon settles on a whole entry when a fling stops. */
+    val ribbonSnap: Boolean = true,
+    /** Whether the ribbon draws its depth. */
+    val ribbonDepth: Boolean = true,
     val showTeacher: Boolean = true,
     val showLoad: Boolean = true,
     val showEvents: Boolean = true,
@@ -120,7 +158,7 @@ data class ScheduleUiState(
  */
 class WeekViewModel(
     timetableRepository: TimetableRepository,
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val view = MutableStateFlow(ScheduleView.WEEK)
@@ -190,9 +228,23 @@ class WeekViewModel(
                     day = timetable?.day(date),
                     isToday = date == today,
                     inPeriod = view != ScheduleView.MONTH || date.month == anchorDate.month,
+                    matchesFilters = timetable?.day(date).matches(settings.calendarFilters),
                 )
             },
             terms = timetable?.schoolClass?.terms.orEmpty(),
+            filters = settings.calendarFilters,
+            order = settings.calendarOrder,
+            // Built here rather than in the composable: the order and the
+            // filter are one decision about what the list *is*, and a screen
+            // that re-sorted on every recomposition would be doing that
+            // decision twice.
+            agenda = settings.calendarOrder.sort(
+                dates.mapNotNull { date -> timetable?.day(date) }
+                    .filter { it.matches(settings.calendarFilters) },
+            ),
+            ribbonFlow = settings.dayRibbonFlow,
+            ribbonSnap = settings.dayRibbonSnap,
+            ribbonDepth = settings.dayRibbonDepth,
             showTeacher = settings.showTeacher,
             showLoad = settings.weekShowLoad,
             showEvents = settings.weekShowEvents,
@@ -232,6 +284,46 @@ class WeekViewModel(
         selected.value = date
     }
 
+    /**
+     * Turns one filter facet on or off, and remembers it.
+     *
+     * Stored rather than held here: somebody who narrowed the calendar to
+     * «с ДЗ» meant it, and losing that on the walk from the calendar to the
+     * homework tab and back would make the chips something to press twice.
+     */
+    fun toggleFilter(filter: DayFilter) {
+        viewModelScope.launch {
+            val current = uiState.value.filters
+            val next = if (filter in current) current - filter else current + filter
+            settingsRepository.update { it.copy(calendarFilters = next) }
+        }
+    }
+
+    /** Changes the order the list view draws its days in, and remembers it. */
+    fun setOrder(order: DayOrder) {
+        viewModelScope.launch { settingsRepository.update { it.copy(calendarOrder = order) } }
+    }
+
+    /** Turns the day ribbon's progress the other way up, and remembers it. */
+    fun setRibbonFlow(flow: RibbonFlow) {
+        viewModelScope.launch { settingsRepository.update { it.copy(dayRibbonFlow = flow) } }
+    }
+
+    /** Switches the ribbon's magnetic scrolling, and remembers it. */
+    fun setRibbonSnap(snap: Boolean) {
+        viewModelScope.launch { settingsRepository.update { it.copy(dayRibbonSnap = snap) } }
+    }
+
+    /** Switches the ribbon's depth — the tilt, the gradients, the shader. */
+    fun setRibbonDepth(depth: Boolean) {
+        viewModelScope.launch { settingsRepository.update { it.copy(dayRibbonDepth = depth) } }
+    }
+
+    /** Clears every filter, which is the resting state rather than «show nothing». */
+    fun clearFilters() {
+        viewModelScope.launch { settingsRepository.update { it.copy(calendarFilters = emptySet()) } }
+    }
+
     private fun step(direction: Long) {
         // uiState.value.today, not LocalDate.now(): "today" on this screen is
         // the school's, and stepping a week from the device's date lands on a
@@ -243,6 +335,8 @@ class WeekViewModel(
             ScheduleView.WEEK -> from.plusWeeks(direction)
             ScheduleView.MONTH -> from.plusMonths(direction)
             ScheduleView.DAY -> from.plusDays(direction)
+            // A month at a time, like the grid it is a list of.
+            ScheduleView.AGENDA -> from.plusMonths(direction)
         }
         anchor.value = moved
         // In the day view the anchor *is* the selection; in the other two the

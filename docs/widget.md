@@ -14,10 +14,10 @@ launcher picks the right one locally — resizing wakes no process and reads no 
 | `WIDE` | 250×60 dp | 4×1 | the same, with room for the subject |
 | `SMALL` | 110×110 dp | 2×2 | + the subject and the progress |
 | `SMALL_TALL` | 110×190 dp | 2×3 | + today's homework |
-| `NARROW` | 110×300 dp | 2×5 | a column: the day's timetable with no metadata |
+| `NARROW` | 110×300 dp | 2×5 | a column: the rest of the day in narrow rows, metadata and all |
 | `MEDIUM` | 250×110 dp | 4×2 | + the next two lessons |
-| `MEDIUM_TALL` | 250×180 dp | 4×3 | + the week's strip |
-| `LARGE` | 250×250 dp | 4×4 | the rest of the day's timetable |
+| `MEDIUM_TALL` | 250×180 dp | 4×3 | + the rest of the day |
+| `LARGE` | 250×250 dp | 4×4 | + the week's strip above it |
 | `LARGE_TALL` | 250×300 dp | 4×5 | the same with the homework beside it |
 | `XLARGE` | 320×320 dp | 5×5 | the timetable plus the homework |
 | `TALL` | 320×400 dp | 5×6 | + the next school day |

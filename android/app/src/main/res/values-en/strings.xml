@@ -103,7 +103,6 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="schedule_day_details">Details</string>
     <string name="schedule_room_short">room %1$s</string>
     <string name="schedule_lesson_index">Lesson %1$d</string>
-    <string name="schedule_time">Time</string>
     <string name="schedule_duration">%1$d min</string>
     <string name="schedule_room">Room</string>
     <string name="schedule_teacher">Teacher</string>
@@ -159,6 +158,9 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="week_no_data_description">The timetable for this day has not been loaded yet.</string>
     <string name="week_day_off_title">No lessons</string>
     <string name="week_day_off_description">A weekend or a free day.</string>
+    <string name="week_day_off_year_over">The school year is over — holidays.</string>
+    <string name="week_day_off_between_terms">Holidays between two terms.</string>
+    <string name="week_day_off_public_holiday">A public holiday — no lessons.</string>
 
     <!-- Lessons -->
     <plurals name="lessons_count">
@@ -171,6 +173,8 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="day_kind_holiday">Holidays</string>
     <string name="day_kind_shortened">Shortened day</string>
     <string name="day_kind_remote">Remote</string>
+    <string name="day_kind_self_study">Self-study</string>
+    <string name="day_kind_day_off">Day off</string>
 
     <!-- Homework -->
     <string name="homework_title">Homework</string>
@@ -330,9 +334,6 @@ The access key you were given and a copy of the timetable stay on the device, so
     <!-- Notifications -->
     <string name="settings_alerts">Notifications</string>
     <string name="settings_alerts_summary">The bell, the day summary, homework, substitutions and quiet hours</string>
-    <string name="settings_alerts_blocked_group">Access</string>
-    <string name="settings_alerts_blocked">Notifications are off</string>
-    <string name="settings_alerts_blocked_description">Tap to allow them — otherwise the switches below do nothing.</string>
     <string name="settings_alerts_lessons_group">Lessons</string>
     <string name="settings_alert_lesson">Lesson soon</string>
     <string name="settings_alert_lesson_description">The subject and the room a few minutes before the bell</string>
@@ -368,7 +369,6 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="settings_alert_changes_description">Say when the timetable of the next few days has changed</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_description">A school diary with a widget on the home screen. It works offline: the timetable, the substitutions and the homework are kept on the device.</string>
-    <string name="about_design_credit">Design language, font and components — after Essentials (github.com/sameerasw/essentials), MIT licence.</string>
     <string name="about_name_and_version">Lessons v%1$s</string>
     <string name="about_developer_line">Built by lumenpearson</string>
     <!-- Split around the link so the repository name can be tappable inside the sentence. -->
@@ -422,13 +422,10 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="settings_updates_prerelease_description">Test builds. They may be unstable</string>
     <string name="settings_updates_notify">Announce new versions</string>
     <string name="settings_updates_notify_description">Show the release notes when a version is found</string>
-    <string name="settings_updates_release_notes">Release notes</string>
-    <string name="settings_updates_release_notes_description">What changed in the installed version</string>
 
     <!-- About: GitHub, bug reports, licences -->
     <string name="settings_github_group">GitHub</string>
     <string name="settings_github_sign_in">Sign in with GitHub</string>
-    <string name="settings_github_sign_in_description">So that problems can be reported straight from the app</string>
     <string name="settings_github_signed_in_as">Signed in as @%1$s</string>
     <string name="settings_github_sign_out">Sign out</string>
     <string name="settings_bug_report">Report a problem</string>
@@ -436,8 +433,46 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="settings_licenses">Licences and credits</string>
     <string name="settings_licenses_description">The open source the app stands on</string>
     <string name="issue_error_failed">Could not send it to GitHub</string>
-    <string name="issue_filed">Sent. Open it on GitHub?</string>
-    <string name="issue_filed_open">Open</string>
     <string name="bug_report_email_subject">Lessons app report %1$s</string>
 
+    <!-- The English twins of the accusative set: English has no case here, so
+         they are the plain names. They exist so the pair stays one-to-one. -->
+    <string name="day_today_acc">today</string>
+    <string name="day_tomorrow_acc">tomorrow</string>
+    <string name="weekday_acc_1">Monday</string>
+    <string name="weekday_acc_2">Tuesday</string>
+    <string name="weekday_acc_3">Wednesday</string>
+    <string name="weekday_acc_4">Thursday</string>
+    <string name="weekday_acc_5">Friday</string>
+    <string name="weekday_acc_6">Saturday</string>
+    <string name="weekday_acc_7">Sunday</string>
+    <!-- Written across a month grid that has no teaching days in it at all. -->
+    <string name="calendar_year_over">Summer holidays</string>
+    <string name="calendar_between_terms">Holidays</string>
+    <string name="calendar_filter_lessons">With lessons</string>
+    <string name="calendar_filter_homework">With homework</string>
+    <string name="calendar_filter_events">With events</string>
+    <string name="calendar_filter_marked">Marked</string>
+    <string name="calendar_filter_clear">Clear</string>
+    <string name="schedule_view_agenda">List</string>
+    <string name="calendar_order_date_asc">By date</string>
+    <string name="calendar_order_date_desc">Latest first</string>
+    <string name="calendar_order_busiest">By load</string>
+    <string name="calendar_agenda_empty_title">Nothing matches</string>
+    <string name="calendar_agenda_empty_description">No day this month fits the chosen filters.</string>
+
+    <!-- The day ribbon: calendar → «День» -->
+    <string name="ribbon_break">Break</string>
+    <string name="ribbon_return">To current</string>
+    <string name="ribbon_settings">Ribbon settings</string>
+    <string name="ribbon_running">%1$s in · %2$s left</string>
+    <string name="ribbon_starts_in">Starts in %1$s</string>
+    <string name="ribbon_over">Finished</string>
+    <string name="ribbon_flow_title">Progress</string>
+    <string name="ribbon_flow_downward">Top to bottom</string>
+    <string name="ribbon_flow_upward">Bottom to top</string>
+    <string name="ribbon_snap_title">Magnetic scrolling</string>
+    <string name="ribbon_snap_description">The ribbon settles on a whole entry rather than between two.</string>
+    <string name="ribbon_depth_title">Depth</string>
+    <string name="ribbon_depth_description">Tilted cards, gradients and a highlight on what is running.</string>
 </resources>

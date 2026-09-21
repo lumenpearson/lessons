@@ -1,4 +1,4 @@
-"""The answer to a command this bot does not have.
+"""The answer to a press or a command nothing in this bot handles.
 
 Telegram itself stays silent on an unknown command, and for a bot with one
 screen that is fine. This one has twenty-odd forms, and since a command now
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from aiogram import Router
 from aiogram.enums import ChatType
-from aiogram.types import Message
+from aiogram.types import CallbackQuery, Message
 
 from app.bot.middlewares import looks_like_command
 
@@ -44,3 +44,34 @@ def _is_unknown_command(message: Message) -> bool:
 @router.message(_is_unknown_command)
 async def unknown_command(message: Message) -> None:
     await message.answer(UNKNOWN_COMMAND)
+
+
+#: What a button on a card the bot has forgotten says when it is pressed.
+#:
+#: Cut for `answerCallbackQuery`, which refuses past 200 characters, and shown
+#: as an alert rather than a toast: a toast on a card that then does nothing
+#: reads as the tap having missed.
+STALE_CARD = "Эта карточка устарела — откройте экран заново."
+
+
+@router.callback_query()
+async def stale_callback(callback: CallbackQuery) -> None:
+    """Answer a press that reached no handler, so the button stops spinning.
+
+    Telegram spins a button until `answerCallbackQuery` arrives or it gives up,
+    and a press that matches nothing never gets one — aiogram returns
+    `UNHANDLED` without raising, so `bot._on_error` cannot help either. There
+    was no path to this until commands started breaking out of forms: «📝
+    Задать ДЗ» → pick a day → type «/week», and the subject card is left above
+    the week with live buttons and no state behind them. Twelve handlers across
+    six modules are filtered on an FSM state with no sibling for the same
+    payload, and every one of them was that dead press.
+
+    Registered on the router that is included last, so nothing that does handle
+    a press can reach here. The cost is the other side of that: a handler that
+    silently stops matching now answers politely instead of visibly hanging.
+    That is the better failure — the reader is told to open the screen again
+    rather than left holding a spinner — but it is a real trade, and the tests
+    that press a real button are what keep it from hiding one.
+    """
+    await callback.answer(STALE_CARD, show_alert=True)

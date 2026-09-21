@@ -10,6 +10,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -36,7 +37,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,11 +74,17 @@ import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
 import com.lumenpearson.lessons.core.model.DayKind
 import com.lumenpearson.lessons.core.model.Lesson
 import com.lumenpearson.lessons.core.model.Term
+import com.lumenpearson.lessons.core.model.DayFilter
+import com.lumenpearson.lessons.core.model.DayOrder
+import com.lumenpearson.lessons.core.model.SchoolDay
+import com.lumenpearson.lessons.core.model.DayOffReason
 import com.lumenpearson.lessons.core.model.TermKind
 import com.lumenpearson.lessons.ui.common.asDayMonth
 import com.lumenpearson.lessons.ui.common.asFullWeekday
 import com.lumenpearson.lessons.ui.common.asMonthYear
 import com.lumenpearson.lessons.ui.common.asShortWeekday
+import com.lumenpearson.lessons.ui.day.DayRibbonView
+import com.lumenpearson.lessons.ui.day.RibbonSettingsSheet
 import java.time.LocalDate
 import java.util.Locale
 
@@ -102,7 +112,6 @@ fun WeekScreen(
     // One scroll for the whole page: the title, the picker and the grid all move
     // under the status bar, which is what the fade up there is for.
     val scrollState = rememberScrollState()
-    ReportScrollOffset(scrollState)
 
     val sheets = rememberScheduleSheets()
 
@@ -115,6 +124,24 @@ fun WeekScreen(
         showEvents = state.showEvents,
         showHomework = state.showHomework,
     )
+
+    // The ribbon is the one view that owns the page's height instead of adding
+    // to its length. It has to: a scroll can only be magnetic, and a row can
+    // only know where it is in the viewport, if the list *is* the viewport. So
+    // the calendar stops being one long column here, and the header and the
+    // picker sit above a ribbon that takes the rest.
+    if (state.view == ScheduleView.DAY) {
+        RibbonPage(
+            state = state,
+            viewModel = viewModel,
+            day = selected?.day,
+            onLessonClick = { lesson -> sheets.show(state.selected, lesson) },
+            modifier = modifier,
+        )
+        return
+    }
+
+    ReportScrollOffset(scrollState)
 
     Column(
         modifier = modifier
@@ -165,6 +192,11 @@ fun WeekScreen(
             label = "schedule_period",
         ) { (view, _) ->
             Column(verticalArrangement = Arrangement.spacedBy(GroupSpacing)) {
+                FilterChips(
+                    active = state.filters,
+                    onToggle = viewModel::toggleFilter,
+                    onClear = viewModel::clearFilters,
+                )
                 when (view) {
                     ScheduleView.WEEK -> WeekdaySelector(
                         days = state.days,
@@ -181,31 +213,108 @@ fun WeekScreen(
                         onOpen = { date -> sheets.day = date },
                     )
 
+                    ScheduleView.AGENDA -> AgendaList(
+                        days = state.agenda,
+                        today = state.today,
+                        selected = state.selected,
+                        order = state.order,
+                        onOrder = viewModel::setOrder,
+                        onOpen = { date -> sheets.day = date },
+                    )
+
                     ScheduleView.DAY -> Unit
                 }
             }
         }
 
-        when (state.view) {
-            ScheduleView.DAY -> HourTimeline(
-                day = selected,
-                date = state.selected,
-                nowAt = state.nowAt,
-                showEvents = state.showEvents,
-                showHomework = state.showHomework,
-                onLessonClick = { lesson -> sheets.show(state.selected, lesson) },
-            )
+        DayPanel(
+            day = selected,
+            date = state.selected,
+            showTeacher = state.showTeacher,
+            showEvents = state.showEvents,
+            showHomework = state.showHomework,
+            onLessonClick = { lesson -> sheets.show(state.selected, lesson) },
+            onOpenDay = { sheets.day = state.selected },
+        )
+    }
+}
 
-            else -> DayPanel(
-                day = selected,
-                date = state.selected,
-                showTeacher = state.showTeacher,
-                showEvents = state.showEvents,
-                showHomework = state.showHomework,
-                onLessonClick = { lesson -> sheets.show(state.selected, lesson) },
-                onOpenDay = { sheets.day = state.selected },
-            )
-        }
+/**
+ * The «День» view: the same header and picker over a ribbon that fills the rest.
+ *
+ * A second layout of one screen rather than a second screen. The header and the
+ * picker are the calendar's, and a reader who stepped to Thursday and then
+ * pressed «День» expects both to still be there — a full-screen day would
+ * answer a change of scale with a change of place.
+ */
+@Composable
+private fun RibbonPage(
+    state: ScheduleUiState,
+    viewModel: WeekViewModel,
+    day: SchoolDay?,
+    onLessonClick: (Lesson) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val listState = rememberLazyListState()
+    ReportScrollOffset(listState)
+
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    if (settingsOpen) {
+        RibbonSettingsSheet(
+            flow = state.ribbonFlow,
+            snap = state.ribbonSnap,
+            depth = state.ribbonDepth,
+            onFlow = viewModel::setRibbonFlow,
+            onSnap = viewModel::setRibbonSnap,
+            onDepth = viewModel::setRibbonDepth,
+            onDismiss = { settingsOpen = false },
+        )
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(
+                top = statusBarSpace() + 8.dp,
+                bottom = LocalBottomBarSpace.current,
+            ),
+        verticalArrangement = Arrangement.spacedBy(GroupSpacing),
+    ) {
+        ScheduleHeader(
+            periodLabel = state.periodLabel(),
+            termLabel = state.termLabel(),
+            showTodayAction = state.canReturnToToday,
+            onToday = viewModel::showToday,
+            onPrevious = viewModel::showPrevious,
+            onNext = viewModel::showNext,
+        )
+
+        SegmentedPicker(
+            items = ScheduleView.entries,
+            selectedItem = state.view,
+            onItemSelected = viewModel::setView,
+            labelProvider = { view -> correctedString(view.labelRes) },
+            containerColor = MaterialTheme.colorScheme.rowContainer,
+            contentPadding = PaddingValues(4.dp),
+            modifier = Modifier
+                .padding(horizontal = ScreenPadding)
+                .clip(LessonsShapeTokens.Group),
+        )
+
+        DayRibbonView(
+            day = day,
+            nowAt = state.nowAt,
+            flow = state.ribbonFlow,
+            snap = state.ribbonSnap,
+            depth = state.ribbonDepth,
+            showTeacher = state.showTeacher,
+            showHomework = state.showHomework,
+            listState = listState,
+            onLessonClick = onLessonClick,
+            onSettings = { settingsOpen = true },
+            modifier = Modifier.weight(1f),
+            header = { DayChips(day = state.selectedDay, date = state.selected) },
+        )
     }
 }
 
@@ -218,6 +327,7 @@ private val ScheduleView.labelRes: Int
         ScheduleView.WEEK -> R.string.schedule_view_week
         ScheduleView.MONTH -> R.string.schedule_view_month
         ScheduleView.DAY -> R.string.schedule_view_day
+        ScheduleView.AGENDA -> R.string.schedule_view_agenda
     }
 
 /**
@@ -235,7 +345,7 @@ private fun ScheduleUiState.periodLabel(): String = when (view) {
         (days.lastOrNull()?.date ?: periodEnd).asDayMonth(),
     )
 
-    ScheduleView.MONTH -> anchor.asMonthYear()
+    ScheduleView.MONTH, ScheduleView.AGENDA -> anchor.asMonthYear()
     ScheduleView.DAY -> "${selected.asFullWeekday().replaceFirstChar { it.uppercase() }}, " +
         selected.asDayMonth()
 }
@@ -469,10 +579,33 @@ private fun MonthGrid(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val weeks = remember(days) { days.chunked(DaysPerRow) }
+    // Computed over the whole month rather than per row, so a stretch that
+    // wraps from Sunday to Monday is one run and draws as one bar.
+    val accents = remember(days) { days.map { it.accent() } }
+    val runs = remember(accents) { accents.runPositions() }
+    val weeks = remember(days) { days.indices.toList().chunked(DaysPerRow) }
 
+    // A whole month with nothing in it is a month somebody scrolls past, and
+    // sixty faintly-tinted cells do not say what they are. The label does.
+    // Only when *every* day of the month agrees: one September day at the
+    // bottom of an August grid means the year has started, and writing
+    // «Летние каникулы» across it would be wrong about the day that matters.
+    val wholeMonthOff = remember(days, accents) {
+        val inMonth = days.indices.filter { days[it].inPeriod }
+        inMonth.isNotEmpty() && inMonth.all {
+            accents[it] == DayAccent.OUT_OF_YEAR || accents[it] == DayAccent.BETWEEN_TERMS
+        }
+    }
+    val bannerText = when {
+        !wholeMonthOff -> null
+        days.any { it.inPeriod && it.day?.offReason == DayOffReason.OUT_OF_YEAR } ->
+            correctedString(R.string.calendar_year_over)
+        else -> correctedString(R.string.calendar_between_terms)
+    }
+
+    Box(modifier = modifier.fillMaxWidth()) {
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenPadding),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -490,10 +623,16 @@ private fun MonthGrid(
         }
 
         weeks.forEach { week ->
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                week.forEach { day ->
+            // Zero spacing inside a run, so the cells of one stretch touch and
+            // read as a single bar; the 4.dp gap is drawn by the cell instead,
+            // on the sides where its run actually ends.
+            Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+                week.forEach { index ->
+                    val day = days[index]
                     MonthCell(
                         day = day,
+                        accent = accents[index],
+                        run = runs[index],
                         selected = day.date == selected,
                         showLoad = showLoad,
                         onClick = {
@@ -505,7 +644,218 @@ private fun MonthGrid(
             }
         }
     }
+
+        if (bannerText != null) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .padding(horizontal = ScreenPadding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = bannerText,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .clip(LessonsShapeTokens.Row)
+                        .background(MaterialTheme.colorScheme.tertiaryContainer)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
+    }
 }
+
+/**
+ * A month as a list, and the only view an order can apply to.
+ *
+ * Filtered days are dropped here rather than dimmed, which is the opposite of
+ * the grid and right for the same reason: a list has no shape to preserve, so
+ * a day that does not match is a row worth not drawing. The grid keeps its
+ * holes filled because a month with gaps stops lining up with its own header.
+ *
+ * Empty is a real answer and says which kind it is — a month with nothing in
+ * it at all reads differently from one where the filter is hiding everything,
+ * and telling somebody «ничего не найдено» when they have narrowed to «с ДЗ»
+ * in July would be blaming the month for the chip.
+ */
+@Composable
+private fun AgendaList(
+    days: List<SchoolDay>,
+    today: LocalDate,
+    selected: LocalDate,
+    order: DayOrder,
+    onOrder: (DayOrder) -> Unit,
+    onOpen: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = ScreenPadding),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            DayOrder.entries.forEach { candidate ->
+                PillChip(
+                    text = candidate.asLabel(),
+                    selected = candidate == order,
+                    onClick = { onOrder(candidate) },
+                )
+            }
+        }
+
+        if (days.isEmpty()) {
+            EmptyState(
+                title = correctedString(R.string.calendar_agenda_empty_title),
+                description = correctedString(R.string.calendar_agenda_empty_description),
+            )
+            return@Column
+        }
+
+        days.forEach { day ->
+            AgendaRow(
+                day = day,
+                isToday = day.date == today,
+                isSelected = day.date == selected,
+                onClick = { onOpen(day.date) },
+            )
+        }
+    }
+}
+
+/** One day of the agenda: what it is, and how much of it there is. */
+@Composable
+private fun AgendaRow(
+    day: SchoolDay,
+    isToday: Boolean,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val accent = day.agendaAccent()
+    val accentColors = accent.colors()
+    val container = when {
+        isToday -> scheme.secondaryContainer
+        isSelected -> scheme.rowContainer
+        else -> accentColors.container
+    }
+    val content = when {
+        isToday -> scheme.onSecondaryContainer
+        isSelected -> scheme.onSurface
+        else -> accentColors.content
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(LessonsShapeTokens.Row)
+            .background(container)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "${day.date.dayOfMonth} · ${day.date.asShortWeekday()}",
+                style = MaterialTheme.typography.titleSmall.emphasised(isToday),
+                color = content,
+            )
+            val subtitle = day.holiday?.title
+                ?: day.kind.takeIf { it != DayKind.NORMAL }?.asLabel()
+                ?: day.offReason.takeIf { !day.hasLessons }?.asEmptyDescription()
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = content.copy(alpha = 0.75f),
+                )
+            }
+        }
+        Text(
+            text = pluralStringResource(
+                R.plurals.lessons_count,
+                day.activeLessons.size,
+                day.activeLessons.size,
+            ),
+            style = MaterialTheme.typography.labelMedium,
+            color = content.copy(alpha = 0.75f),
+        )
+    }
+}
+
+/** The accent an agenda row carries — the same vocabulary the grid uses. */
+private fun SchoolDay.agendaAccent(): DayAccent = WeekDayUi(
+    date = date,
+    day = this,
+    isToday = false,
+).accent()
+
+/** What each order is called, out of resources so both languages have it. */
+@Composable
+internal fun DayOrder.asLabel(): String = correctedString(
+    when (this) {
+        DayOrder.DATE_ASC -> R.string.calendar_order_date_asc
+        DayOrder.DATE_DESC -> R.string.calendar_order_date_desc
+        DayOrder.BUSIEST_FIRST -> R.string.calendar_order_busiest
+    },
+)
+
+/**
+ * The four facets, as chips over whatever the calendar is drawing.
+ *
+ * Horizontally scrollable rather than wrapped onto two rows: four Russian
+ * labels do not fit one phone width, and a row that grows taller when a filter
+ * is on moves the grid under the reader's thumb at the moment they press.
+ *
+ * «Сбросить» appears only when something is on. A permanent clear button on a
+ * calendar nobody has filtered is a button that does nothing, and the row is
+ * already competing with the grid for attention.
+ */
+@Composable
+private fun FilterChips(
+    active: Set<DayFilter>,
+    onToggle: (DayFilter) -> Unit,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = ScreenPadding),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        DayFilter.entries.forEach { filter ->
+            PillChip(
+                text = filter.asLabel(),
+                selected = filter in active,
+                onClick = { onToggle(filter) },
+            )
+        }
+        if (active.isNotEmpty()) {
+            PillChip(text = correctedString(R.string.calendar_filter_clear), onClick = onClear)
+        }
+    }
+}
+
+/** What each facet is called, out of resources so both languages have it. */
+@Composable
+internal fun DayFilter.asLabel(): String = correctedString(
+    when (this) {
+        DayFilter.HAS_LESSONS -> R.string.calendar_filter_lessons
+        DayFilter.HAS_HOMEWORK -> R.string.calendar_filter_homework
+        DayFilter.HAS_EVENTS -> R.string.calendar_filter_events
+        DayFilter.MARKED -> R.string.calendar_filter_marked
+    },
+)
 
 private const val DaysPerRow = 7
 
@@ -513,29 +863,48 @@ private const val DaysPerRow = 7
 @Composable
 private fun MonthCell(
     day: WeekDayUi,
+    accent: DayAccent,
+    run: RunPosition,
     selected: Boolean,
     showLoad: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val accentColors = accent.colors()
     val container = when {
         selected -> scheme.primary
         day.isToday -> scheme.secondaryContainer
-        day.inPeriod -> scheme.rowContainer
+        day.inPeriod -> accentColors.container
         else -> Color.Transparent
     }
     val content = when {
         selected -> scheme.onPrimary
         day.isToday -> scheme.onSecondaryContainer
-        day.inPeriod -> scheme.onSurface
+        day.inPeriod -> accentColors.content
         else -> scheme.outline
     }
+    // A selected day is its own shape: it is one cell being pointed at, and
+    // squaring its corners to join a run would lose the one thing the
+    // selection is for.
+    val shape = if (selected || day.isToday) LessonsShapeTokens.Row else run.shape()
+
+    // Filtered out: dimmed, never removed. A grid with holes in it stops
+    // lining up with its own weekday header. Today and the selection keep
+    // their full weight either way — the filter narrows what is interesting,
+    // it does not move where you are.
+    val dimmed = !day.matchesFilters && !selected && !day.isToday
 
     Column(
         modifier = modifier
-            .clip(LessonsShapeTokens.Row)
-            .background(container)
+            // The gap the Row used to space with, moved here so it can be left
+            // out between two cells of the same run.
+            .padding(
+                start = if (run.first || selected || day.isToday) 2.dp else 0.dp,
+                end = if (run.last || selected || day.isToday) 2.dp else 0.dp,
+            )
+            .clip(shape)
+            .background(if (dimmed) container.copy(alpha = 0.25f) else container)
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -544,11 +913,15 @@ private fun MonthCell(
         Text(
             text = day.date.dayOfMonth.toString(),
             style = MaterialTheme.typography.bodyMedium.emphasised(selected || day.isToday),
-            color = content,
+            color = if (dimmed) content.copy(alpha = 0.38f) else content,
         )
         LoadDots(
             count = if (showLoad) day.day?.activeLessons?.size ?: 0 else 0,
-            color = if (selected) scheme.onPrimary else scheme.primary,
+            color = when {
+                selected -> scheme.onPrimary
+                dimmed -> scheme.primary.copy(alpha = 0.3f)
+                else -> scheme.primary
+            },
         )
     }
 }
@@ -598,7 +971,7 @@ private fun DayPanel(
 
             lessons.isEmpty() -> EmptyState(
                 title = correctedString(R.string.week_day_off_title),
-                description = correctedString(R.string.week_day_off_description),
+                description = schoolDay.offReason.asEmptyDescription(),
             )
 
             else -> LessonGroup(
@@ -626,8 +999,9 @@ private fun DayChips(
 ) {
     val kind = day?.day?.kind?.takeIf { it != DayKind.NORMAL }
     val note = day?.day?.note
+    val holiday = day?.day?.holiday
     val isToday = day?.isToday == true
-    if (!isToday && kind == null && note == null) return
+    if (!isToday && kind == null && note == null && holiday == null) return
 
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (isToday) {
@@ -638,10 +1012,45 @@ private fun DayChips(
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             )
         }
+        if (holiday != null) {
+            // The server's own words. A date this build has never heard of
+            // still has a name, which is the whole reason the title travels
+            // beside the code rather than the code travelling alone.
+            PillChip(
+                text = holiday.title,
+                containerColor = if (holiday.stopsLessons) {
+                    MaterialTheme.colorScheme.errorContainer
+                } else {
+                    MaterialTheme.colorScheme.tertiaryContainer
+                },
+                contentColor = if (holiday.stopsLessons) {
+                    MaterialTheme.colorScheme.onErrorContainer
+                } else {
+                    MaterialTheme.colorScheme.onTertiaryContainer
+                },
+            )
+        }
         if (kind != null) PillChip(text = kind.asLabel())
         if (note != null) PillChip(text = note)
     }
 }
+
+/**
+ * Why this day is empty, in words somebody can act on.
+ *
+ * «Уроков нет» is true of four different days and useful on one. A blank
+ * Tuesday in November is the holidays, a public holiday, or a timetable with
+ * nothing on it, and those are three different things to do next.
+ */
+@Composable
+internal fun DayOffReason?.asEmptyDescription(): String = correctedString(
+    when (this) {
+        DayOffReason.OUT_OF_YEAR -> R.string.week_day_off_year_over
+        DayOffReason.BETWEEN_TERMS -> R.string.week_day_off_between_terms
+        DayOffReason.PUBLIC_HOLIDAY -> R.string.week_day_off_public_holiday
+        null -> R.string.week_day_off_description
+    },
+)
 
 /** Localized name of a non-normal day kind. */
 @Composable
@@ -651,198 +1060,7 @@ internal fun DayKind.asLabel(): String = correctedString(
         DayKind.HOLIDAY -> R.string.day_kind_holiday
         DayKind.SHORTENED -> R.string.day_kind_shortened
         DayKind.REMOTE -> R.string.day_kind_remote
+        DayKind.SELF_STUDY -> R.string.day_kind_self_study
+        DayKind.DAY_OFF -> R.string.day_kind_day_off
     },
 )
-
-/**
- * The hour ruler.
- *
- * Blocks are positioned by time rather than stacked in order, which is the whole
- * point of this view: a forty-minute window between two lessons is forty minutes
- * of empty space, not a gap you have to work out by reading two clocks. Events
- * get their own column beside the lessons, because a canteen slot that overlaps
- * a lesson is information and a list cannot show an overlap at all.
- */
-@Composable
-private fun HourTimeline(
-    day: WeekDayUi?,
-    date: LocalDate,
-    nowAt: java.time.LocalTime?,
-    showEvents: Boolean,
-    showHomework: Boolean,
-    onLessonClick: (Lesson) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val scheme = MaterialTheme.colorScheme
-    val schoolDay = day?.day
-    val lessons = schoolDay?.activeLessons.orEmpty()
-    val events = schoolDay?.events.orEmpty()
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = ScreenPadding),
-        verticalArrangement = Arrangement.spacedBy(GroupSpacing),
-    ) {
-        DayChips(day = day, date = date)
-
-        if (schoolDay == null) {
-            EmptyState(
-                title = correctedString(R.string.week_no_data_title),
-                description = correctedString(R.string.week_no_data_description),
-            )
-            return@Column
-        }
-        if (lessons.isEmpty() && events.isEmpty()) {
-            EmptyState(
-                title = correctedString(R.string.week_day_off_title),
-                description = correctedString(R.string.week_day_off_description),
-            )
-            return@Column
-        }
-
-        val starts = lessons.map { it.startsAt } + events.map { it.startsAt }
-        val ends = lessons.map { it.endsAt } + events.map { it.endsAt }
-        val firstHour = starts.minOf { it.hour }
-        val lastHour = ends.maxOf { if (it.minute == 0) it.hour else it.hour + 1 }
-        val hours = (lastHour - firstHour).coerceAtLeast(1)
-        val originMinutes = firstHour * MinutesPerHour
-
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.width(HourGutterWidth)) {
-                repeat(hours) { offset ->
-                    Text(
-                        // Locale.ROOT: the gutter is a clock, and a clock is
-                        // read the same in every language this app is drawn in.
-                        // See `BellsSheet.asBellClock`.
-                        text = String.format(Locale.ROOT, "%02d:00", firstHour + offset),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = scheme.outline,
-                        modifier = Modifier.height(HourHeight),
-                    )
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(HourHeight * hours),
-            ) {
-                lessons.forEach { lesson ->
-                    val tone = subjectTone(lesson.subject, lesson.colorHex)
-                    TimelineBlock(
-                        title = lesson.subject,
-                        subtitle = lesson.room?.let {
-                            correctedString(R.string.schedule_room_short, it)
-                        },
-                        startMinutes = lesson.startsAt.minutesOfDay() - originMinutes,
-                        endMinutes = lesson.endsAt.minutesOfDay() - originMinutes,
-                        container = tone.container,
-                        content = tone.content,
-                        onClick = { onLessonClick(lesson) },
-                    )
-                }
-
-                if (nowAt != null) {
-                    val offset = nowAt.minutesOfDay() - originMinutes
-                    if (offset in 0..(hours * MinutesPerHour)) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .offset(y = HourHeight * (offset / MinutesPerHour.toFloat()))
-                                .height(2.dp)
-                                .background(scheme.error),
-                        )
-                    }
-                }
-            }
-
-            if (events.isNotEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .width(EventColumnWidth)
-                        .height(HourHeight * hours),
-                ) {
-                    events.forEach { event ->
-                        TimelineBlock(
-                            title = event.title,
-                            subtitle = event.location,
-                            startMinutes = event.startsAt.minutesOfDay() - originMinutes,
-                            endMinutes = event.endsAt.minutesOfDay() - originMinutes,
-                            container = scheme.secondaryContainer,
-                            content = scheme.onSecondaryContainer,
-                            onClick = null,
-                        )
-                    }
-                }
-            }
-        }
-
-        DayExtras(
-            day = schoolDay,
-            showEvents = showEvents,
-            showHomework = showHomework,
-        )
-    }
-}
-
-/** Height of one hour of the ruler, and the widths beside it. */
-private val HourHeight: Dp = 68.dp
-private val HourGutterWidth: Dp = 44.dp
-private val EventColumnWidth: Dp = 96.dp
-private const val MinutesPerHour = 60
-
-/** Minutes since midnight; the ruler's only coordinate. */
-private fun java.time.LocalTime.minutesOfDay(): Int = hour * MinutesPerHour + minute
-
-/** One block on the ruler, positioned and sized by its own start and end. */
-@Composable
-private fun TimelineBlock(
-    title: String,
-    subtitle: String?,
-    startMinutes: Int,
-    endMinutes: Int,
-    container: Color,
-    content: Color,
-    onClick: (() -> Unit)?,
-    modifier: Modifier = Modifier,
-) {
-    val top = HourHeight * (startMinutes / MinutesPerHour.toFloat())
-    // A ten-minute lesson would otherwise be a colour with no room for a word in
-    // it; below the floor the block stops shrinking and starts overlapping, which
-    // is at least legible.
-    val height = (HourHeight * ((endMinutes - startMinutes) / MinutesPerHour.toFloat()))
-        .coerceAtLeast(MinBlockHeight)
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .offset(y = top)
-            .height(height)
-            .padding(end = 4.dp, bottom = 2.dp)
-            .clip(LessonsShapeTokens.Row)
-            .background(container)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(1.dp),
-    ) {
-        // The block's height is the lesson's own duration, floored at 30 dp, so a
-        // second line has nowhere to go and a short lesson barely has room for
-        // the first. Of every block in the app this is the one that genuinely
-        // cannot grow, which is exactly what the marquee is for.
-        MarqueeText(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = content,
-        )
-        if (subtitle != null) {
-            MarqueeText(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = content,
-            )
-        }
-    }
-}
-
-private val MinBlockHeight: Dp = 30.dp

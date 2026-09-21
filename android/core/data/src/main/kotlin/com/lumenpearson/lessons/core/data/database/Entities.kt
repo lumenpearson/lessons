@@ -78,6 +78,16 @@ internal data class SchoolDayEntity(
     @ColumnInfo(name = "note") val note: String?,
     /** True for the lookahead day that lives outside the synced window. */
     @ColumnInfo(name = "is_next_school_day") val isNextSchoolDay: Boolean = false,
+    /**
+     * `DayOffReason` name, or null. Text for the same reason [kind] is: a
+     * reason this build has never heard of comes back as null rather than
+     * taking the row with it.
+     */
+    @ColumnInfo(name = "off_reason") val offReason: String? = null,
+    /** The named date's stable code, and its Russian title as the server sent it. */
+    @ColumnInfo(name = "holiday_code") val holidayCode: String? = null,
+    @ColumnInfo(name = "holiday_title") val holidayTitle: String? = null,
+    @ColumnInfo(name = "holiday_stops_lessons") val holidayStopsLessons: Boolean = false,
 )
 
 /**

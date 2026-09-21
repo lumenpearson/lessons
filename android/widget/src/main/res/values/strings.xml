@@ -19,10 +19,15 @@
     <string name="widget_state_trip">Экскурсия</string>
     <string name="widget_state_meeting">Собрание</string>
     <string name="widget_state_after_school">Уроки закончились</string>
+    <string name="widget_state_after_school_short">Закончились</string>
     <string name="widget_state_day_off">Выходной</string>
     <string name="widget_state_holiday">Каникулы</string>
     <string name="widget_state_shortened">Сокращённый день</string>
+    <string name="widget_state_shortened_short">Сокращённый</string>
     <string name="widget_state_remote">Дистанционно</string>
+    <string name="widget_state_self_study">Самоподготовка</string>
+    <string name="widget_state_self_study_short">Самоподг.</string>
+    <string name="widget_state_day_off_given">Отгул</string>
     <string name="widget_state_no_data">Нет расписания</string>
 
     <!-- Countdown pieces. %1$d hours, %2$d minutes. -->

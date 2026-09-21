@@ -66,6 +66,31 @@ fun Duration.formatCountdown(): String {
 }
 
 /**
+ * A length of time that is not a countdown: `45 мин`, `1 ч 05 мин`, `0 мин`.
+ *
+ * The same words as [formatCountdown] and the opposite rounding, which is the
+ * only reason it is a second function. A countdown rounds up because "0 мин"
+ * sitting there for a whole minute is the worst thing a countdown can say. A
+ * length is a fact about the thing rather than a promise about the clock: a
+ * lesson from 08:30 to 09:15 is forty-five minutes, and rounding that up to
+ * forty-six would be wrong in a way nobody could explain.
+ *
+ * Which is also why zero prints as `0 мин` here instead of «меньше минуты» — an
+ * entry of no length is a data error, and saying «меньше минуты» about it reads
+ * as a very short lesson rather than as something being wrong.
+ */
+@Composable
+fun Duration.formatLength(): String {
+    val totalMinutes = if (isNegative) 0L else seconds / 60
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return when {
+        hours > 0L -> correctedString(R.string.ds_countdown_hours_minutes, hours, minutes)
+        else -> correctedString(R.string.ds_countdown_minutes, totalMinutes)
+    }
+}
+
+/**
  * A 0f..1f progress value as a whole percentage.
  *
  * Exists so accessibility descriptions and the hero card agree on the rounding;

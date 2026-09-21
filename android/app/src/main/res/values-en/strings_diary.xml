@@ -105,4 +105,5 @@
     <string name="diary_edited_badge">Corrected</string>
     <string name="diary_edit_hint">Tap a lesson or a task to correct it</string>
     <string name="diary_edit_which">%1$s · lesson %2$s</string>
+    <string name="diary_insecure_server">⚠️ The server address starts with http://, so the password travels in the clear and anyone on the same Wi-Fi can read it. This is your dnevnik2 password, not the one for this app. Set up https:// on the server if you can.</string>
 </resources>

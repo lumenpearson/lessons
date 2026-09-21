@@ -19,15 +19,16 @@ from typing import Any
 import pytest
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.base import BaseSession
+from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.methods import TelegramMethod
-from aiogram.types import Chat, Message, Update
+from aiogram.types import CallbackQuery, Chat, Message, Update
 from aiogram.types import User as TgUser
 from sqlalchemy import select
 
 from app.bot import states
 from app.bot.bot import COMMANDS, build_dispatcher
-from app.bot.handlers.unknown import UNKNOWN_COMMAND
+from app.bot.handlers.unknown import STALE_CARD, UNKNOWN_COMMAND
 from app.bot.keyboards import WeekNav
 from app.bot.manage_states import EditSubject
 from app.bot.middlewares import FORM_DROPPED
@@ -130,6 +131,26 @@ def _message(text: str) -> Update:
             chat=Chat(id=USER_ID, type="private"),
             from_user=TgUser(id=USER_ID, is_bot=False, first_name="Тестер"),
             text=text,
+        ),
+    )
+
+
+def _press(data: str) -> Update:
+    """A button press, as Telegram delivers one."""
+    user = TgUser(id=USER_ID, is_bot=False, first_name="Тестер")
+    return Update(
+        update_id=2,
+        callback_query=CallbackQuery(
+            id="press-1",
+            from_user=user,
+            chat_instance="chat-instance",
+            data=data,
+            message=Message(
+                message_id=7,
+                date=datetime.now(UTC),
+                chat=Chat(id=USER_ID, type="private"),
+                from_user=user,
+            ),
         ),
     )
 
@@ -335,3 +356,44 @@ async def test_a_state_from_the_manage_forms_is_dropped_too(bot, sent, session, 
 
     assert await _state_of(bot) is None
     assert FORM_DROPPED in sent.texts
+
+
+async def test_a_press_on_a_card_the_bot_forgot_still_gets_an_answer(bot, sent):
+    """The spinner that never stopped.
+
+    Twelve callback handlers across six modules are filtered on an FSM state
+    and have no sibling for the same payload without it, so once the state is
+    gone the press matches nothing: aiogram returns `UNHANDLED` without
+    raising, `answerCallbackQuery` is never sent, and Telegram spins the button
+    until it gives up. `CommandBreakoutMiddleware` is what made that reachable
+    — «📝 Задать ДЗ», pick a day, type «/week», and the subject card is left
+    above the week with live buttons and no state behind them.
+
+    Driven through the real dispatcher, because what is being held is
+    propagation: the catch-all is on the router included last, and a test that
+    called the handler directly would prove nothing about whether a press ever
+    arrives there.
+    """
+    result = await dispatcher().feed_update(bot, _press("hw:subject:17"))
+
+    assert result is not UNHANDLED
+    answers = [m for m in sent.sent if type(m).__name__ == "AnswerCallbackQuery"]
+    assert [a.text for a in answers] == [STALE_CARD]
+    assert answers[0].show_alert is True
+
+
+async def test_a_press_a_handler_owns_never_reaches_the_catch_all(bot, sent):
+    """And the other direction, which is what makes the catch-all safe.
+
+    Included last means every real handler is asked first. If that stopped
+    being true, this bot would answer «карточка устарела» to working buttons —
+    which is worse than the spinner it replaced, and invisible.
+    """
+    await dispatcher().feed_update(bot, _press(WeekNav(offset=0).pack()))
+
+    # The press is answered by `week`, whatever it decides to say — this user
+    # has no class, so that is «сначала подключитесь», not a week card. What
+    # matters is only that the answer did not come from the catch-all.
+    answers = [m for m in sent.sent if type(m).__name__ == "AnswerCallbackQuery"]
+    assert answers, "the press was not answered at all"
+    assert STALE_CARD not in [a.text for a in answers]

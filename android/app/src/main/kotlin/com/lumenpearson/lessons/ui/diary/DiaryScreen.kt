@@ -76,6 +76,8 @@ import androidx.compose.ui.draw.clip
  */
 @Composable
 fun DiaryScreen(
+    /** Whether the server address is plain `http://`; see `DiarySignInScreen`. */
+    insecureServer: Boolean = false,
     modifier: Modifier = Modifier,
     viewModel: DiaryViewModel = viewModel(factory = DiaryViewModel.Factory),
 ) {
@@ -126,6 +128,7 @@ fun DiaryScreen(
         state.session == null || state.reauth -> DiarySignInScreen(
             reauth = state.reauth,
             knownLogin = state.session?.login.orEmpty(),
+            insecureServer = insecureServer,
             busy = state.signingIn,
             failed = state.signInError != null,
             onSignIn = viewModel::signIn,

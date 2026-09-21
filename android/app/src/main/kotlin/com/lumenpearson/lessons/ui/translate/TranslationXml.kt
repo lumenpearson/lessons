@@ -93,6 +93,28 @@ internal object TranslationXml {
     fun valuesFolder(key: String, locale: String): String =
         "android/" + moduleOf(key) + "/src/main/res/" + valuesDirectory(locale)
 
+    /**
+     * Every file [key] could be declared in, most likely first.
+     *
+     * The prefix picks the module and stops there: within `:app` it cannot
+     * pick the file, because the prefixes overlap — `settings_` is in both
+     * `strings.xml` and `strings_admin.xml`, `bug_` in both `strings.xml` and
+     * `strings_github.xml`. Guessing one of them is what made 419 of `:app`'s
+     * 779 strings impossible to correct: the guess was always `strings.xml`,
+     * the key was not in it, and the reader was told «Не отправлено».
+     *
+     * So the answer is a list and the repository asks the files themselves,
+     * which is the only authority there is. Every other module ships one file,
+     * so for them the list is one long. `TranslationXmlTest` reads the source
+     * tree and fails if a file appears in a module that is not named here.
+     */
+    fun candidateFiles(key: String, locale: String): List<String> {
+        val folder = valuesFolder(key, locale)
+        val module = moduleOf(key)
+        val names = if (module == AppModule) AppStringFiles else listOf(DefaultStringFile)
+        return names.map { "$folder/$it" }
+    }
+
     /** The Gradle module whose `res/` declares [key]; see [valuesFolder]. */
     fun moduleOf(key: String): String =
         ModulePrefixes.entries.firstOrNull { key.startsWith(it.key) }?.value ?: AppModule
@@ -136,6 +158,29 @@ internal object TranslationXml {
 
     /** Where a string lives when its name starts with none of the prefixes below. */
     private const val AppModule = "app"
+
+    /** The one file every other module ships. */
+    private const val DefaultStringFile = "strings.xml"
+
+    /**
+     * `:app`'s eight, in the order they are searched.
+     *
+     * `strings.xml` first because it holds the most and is the only one every
+     * other module has; the rest in any order, since a key is in exactly one
+     * of them. Held against the real tree by `TranslationXmlTest`, which walks
+     * `values/` and fails on a file this list has never heard of — the list
+     * itself being wrong is exactly the failure it is here to prevent.
+     */
+    private val AppStringFiles = listOf(
+        "strings.xml",
+        "strings_admin.xml",
+        "strings_diary.xml",
+        "strings_docs.xml",
+        "strings_github.xml",
+        "strings_telegram.xml",
+        "strings_translate.xml",
+        "strings_updates.xml",
+    )
 
     /**
      * Prefix to module, longest-lived first — order matters only if one prefix

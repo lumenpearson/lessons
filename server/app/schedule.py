@@ -7,6 +7,7 @@ unit-tested without a running app.
 
 from __future__ import annotations
 
+import enum
 from dataclasses import dataclass, field
 from datetime import date as Date
 from datetime import time as Time
@@ -27,10 +28,13 @@ from app.models import (
     OverrideAction,
     SchoolClass,
     Subject,
+    Term,
     TermKind,
     TimetableEntry,
     WeekParity,
 )
+from app.services import holidays
+from app.services.holidays import Holiday
 
 # How far ahead we are willing to look for "the next school day".
 MAX_LOOKAHEAD_DAYS = 21
@@ -179,6 +183,25 @@ class ResolvedHomework:
     id: int | None = None
 
 
+class DayOffReason(enum.StrEnum):
+    """Why a date carries no lessons, when the answer is not «nobody said».
+
+    The client needs this and the day's kind cannot carry it: all four read as
+    `holiday`, and they want four different accents on a calendar — the summer
+    is a block to write across, the gap between two quarters is a stretch, a
+    statutory holiday is one day in red, and a day an admin marked by hand is
+    theirs. Sent alongside `kind` rather than inside it, so a client that has
+    never heard of this field goes on drawing exactly what it drew before.
+    """
+
+    #: Before the year opened or after it closed — the summer, mostly.
+    OUT_OF_YEAR = "out_of_year"
+    #: Inside the year but in none of its terms: the holidays between them.
+    BETWEEN_TERMS = "between_terms"
+    #: A statutory non-working day. See `services/holidays.py`.
+    PUBLIC_HOLIDAY = "public_holiday"
+
+
 @dataclass(slots=True)
 class ResolvedDay:
     date: Date
@@ -188,6 +211,12 @@ class ResolvedDay:
     events: list[ResolvedEvent] = field(default_factory=list)
     homework: list[ResolvedHomework] = field(default_factory=list)
     note: str | None = None
+    #: The named date this is, teaching or not — «День учителя» as well as
+    #: «День Победы». A badge on the day card; only `stops_lessons` behaves.
+    holiday: Holiday | None = None
+    #: Why there are no lessons, when something other than the timetable
+    #: decided it. `None` on an ordinary day, including an empty one.
+    off_reason: DayOffReason | None = None
 
     @property
     def has_lessons(self) -> bool:
@@ -250,6 +279,57 @@ class ScheduleResolver:
                 return day
         return None
 
+    def _off_reason(self, day: Date) -> DayOffReason | None:
+        """Why the weekly template does not apply to ``day``, or ``None``.
+
+        **The class's own terms decide it when the class has any**, and that is
+        the whole point: the dates in «🗓 Четверти» are the school's answer to
+        «when do we teach», typed by an admin, and until now nothing but the
+        term *name* read them. A half-year moved to end on 28 May left 29, 30
+        and 31 May drawing a full day of lessons — on the phone, in the widget
+        and in the calendar feed — because the horizon was
+        `SCHOOL_YEAR_END_MONTH`, which is 31 May and always will be. That is
+        the shape the defect was reported in: the calendar scrolled to May 2027
+        still showed the dots under days the class had already stopped
+        teaching on.
+
+        The gaps *between* terms are out of season for the same reason, and
+        this is where the conventional dates earn their keep: they are
+        contiguous — each term opens the day after the last one closed — so a
+        class that has never touched them sees no change at all. A class whose
+        admin set «1 четверть по 26.10» and «2 четверть с 05.11» gets the
+        autumn holidays it just described, without having to mark nine days by
+        hand.
+
+        Falls back to `school_year_bounds` when the year has no terms, which is
+        every class created before terms existed and any year nobody has opened
+        yet. That is the rule this replaced, so nothing regresses to worse than
+        it was.
+        """
+        year_start, year_end = school_year_bounds(day)
+        this_year = [term for term in self._terms if term.year == year_start.year]
+        if this_year:
+            if not any(term.starts_on <= day <= term.ends_on for term in this_year):
+                # Inside the stretch the terms cover but in none of them is the
+                # holidays between two of them; outside it is the summer. The
+                # two want different accents and a different sentence, and the
+                # client cannot tell them apart from the dates alone without
+                # holding every term it was sent.
+                opens = min(term.starts_on for term in this_year)
+                closes = max(term.ends_on for term in this_year)
+                if opens <= day <= closes:
+                    return DayOffReason.BETWEEN_TERMS
+                return DayOffReason.OUT_OF_YEAR
+        elif not year_start <= day <= year_end:
+            return DayOffReason.OUT_OF_YEAR
+
+        # Checked last, so that 12 June in the summer reads as the summer
+        # rather than as «День России» — both are true and the bigger one is
+        # what somebody scrolling past a whole empty month needs told.
+        if holidays.stops_lessons(day):
+            return DayOffReason.PUBLIC_HOLIDAY
+        return None
+
     # ---- loading -------------------------------------------------------
 
     async def _load(self, start: Date, end: Date) -> None:
@@ -304,6 +384,17 @@ class ScheduleResolver:
                 select(BellSchedule).where(BellSchedule.class_id == class_id)
             )
         ).all()
+        # Every term that could overlap the window, which is at most two school
+        # years' worth: a range may start in May and run into September.
+        terms = (
+            await self.session.scalars(
+                select(Term).where(
+                    Term.class_id == class_id,
+                    Term.year >= school_year_bounds(start)[0].year - 1,
+                    Term.year <= school_year_bounds(end)[0].year,
+                )
+            )
+        ).all()
 
         self._timetable: dict[int, list[TimetableEntry]] = {}
         for entry in timetable:
@@ -324,6 +415,10 @@ class ScheduleResolver:
         self._homework: dict[Date, list[Homework]] = {}
         for item in homework:
             self._homework.setdefault(item.due_date, []).append(item)
+
+        # Sorted, because `_in_term` walks them and the answer is «is this day
+        # inside any of them» rather than «which one».
+        self._terms: list[Term] = sorted(terms, key=lambda t: (t.year, t.index))
 
         self._bells: dict[int, dict[int, BellPeriod]] = {
             schedule.id: {period.index: period for period in schedule.periods}
@@ -384,8 +479,12 @@ class ScheduleResolver:
         # it; an unmarked one reads as the holidays, which is what it is. Events
         # and homework are kept either way — an excursion in June is a real
         # thing, and it is the lessons that are out of season, not the day.
-        year_start, year_end = school_year_bounds(day)
-        if not year_start <= day <= year_end:
+        # Attached whether or not there are lessons: «День учителя» is a
+        # Wednesday with six of them, and the badge is the point.
+        resolved.holiday = holidays.holiday_on(day)
+
+        resolved.off_reason = self._off_reason(day)
+        if resolved.off_reason is not None:
             if day_override is None:
                 resolved.kind = DayKind.HOLIDAY
             return resolved

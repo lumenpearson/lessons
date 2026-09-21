@@ -49,7 +49,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.SchoolDay
-import com.lumenpearson.lessons.ui.common.asRelativeDayLabel
+import com.lumenpearson.lessons.ui.common.asRelativeDayLabelAccusative
 import com.lumenpearson.lessons.ui.common.asText
 import com.lumenpearson.lessons.ui.common.syncedAtLabel
 import com.lumenpearson.lessons.ui.common.timeRange
@@ -239,7 +239,7 @@ private fun LazyListScope.homeworkSection(state: TodayUiState, onOpenHomework: (
     item(key = "homework") {
         val title = correctedString(
             R.string.today_homework_for,
-            day.date.asRelativeDayLabel(state.now.toLocalDate()),
+            day.date.asRelativeDayLabelAccusative(state.now.toLocalDate()),
         )
         SectionHeaderedGroup(title = title) {
             RoundedCardContainer {

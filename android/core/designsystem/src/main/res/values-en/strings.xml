@@ -10,6 +10,8 @@
     <string name="ds_state_day_off">Day off</string>
     <string name="ds_state_holiday">Holidays</string>
     <string name="ds_state_remote_day">Remote day</string>
+    <string name="ds_state_self_study_day">Self-study</string>
+    <string name="ds_state_day_off_given">Day off</string>
     <string name="ds_state_shortened_day">Shortened day</string>
     <string name="ds_state_no_data">No timetable</string>
 

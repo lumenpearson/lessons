@@ -80,7 +80,19 @@ sealed interface IssueResult {
  *   escaper here would disagree with it within a month.
  */
 data class TranslationChange(
-    val path: String,
+    /**
+     * Every file the key could be declared in, most likely first.
+     *
+     * A list rather than one path, because `:app` splits its resources across
+     * eight files and the prefix that picks the *module* cannot pick the file:
+     * `settings_` keys live in both `strings.xml` and `strings_admin.xml`, and
+     * `bug_` in both `strings.xml` and `strings_github.xml`. While this was a
+     * single path pointing at `strings.xml`, 419 of `:app`'s 779 strings —
+     * the whole admin page, the diary, the Telegram card, the guide — could
+     * not be corrected at all: the file was fetched, the key was not in it,
+     * and the reader was told «Не отправлено» with nothing naming the reason.
+     */
+    val paths: List<String>,
     val key: String,
     val body: String,
 )

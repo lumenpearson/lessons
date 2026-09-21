@@ -35,6 +35,17 @@ _ABBREVIATIONS = re.compile(
     r"^(?:[А-ЯЁ]+(?:БОУ|ОУ|ОШ|У)|[A-Z]{2,})$",
 )
 
+#: «А.С.», «М.В.», «А.» — initials, which are not shouting and never were.
+#: Lowered like a long word they came out as «им. а.с. пушкина», which is the
+#: one part of a school's name that is a person's.
+_INITIALS = re.compile(r"^(?:[А-ЯЁA-Z]\.){1,3}$")
+
+#: The word after which what follows is somebody's name rather than a
+#: description. It is itself always lower case — «СОШ № 5 ИМ. ЛОМОНОСОВА» has
+#: no lowerable word in front of it, so «ИМ.» was taken for the name's first
+#: real word and given the one capital: «СОШ № 5 Им. ломоносова».
+_DEDICATION = {"им", "им.", "имени"}
+
 #: Statuses the register uses. Only the first means "operating".
 _LIVE_STATUS = "ACTIVE"
 
@@ -106,10 +117,29 @@ def humanise(name: str) -> str:
     One capital, on the first real word, and lower case after it — a title,
     not a headline. «Средняя Школа» reads as two proper nouns and is not how
     anybody writes their school down.
+
+    Past «им.» that rule inverts, because past «им.» the name is a person's:
+    «им. А.С. Пушкина», not «им. а.с. пушкина». Initials are left as they
+    arrived wherever they appear, and «им.» itself is always lower case — it
+    used to collect the name's one capital whenever nothing lowerable came
+    before it, which is every «СОШ № 5 ИМ. …» in the register.
     """
     parts: list[str] = []
     capitalised = False
+    dedicated = False
     for word in name.split(" "):
+        if word.strip('"«»()').lower() in _DEDICATION:
+            parts.append(word.lower())
+            dedicated = True
+            capitalised = True
+            continue
+        if dedicated:
+            # A surname, not a description: «Пушкина», never «пушкина». The
+            # rule above lowers everything after the first capital, which is
+            # right for «Средняя школа» and wrong for the one word the school
+            # is actually named after.
+            parts.append(word if _keep_case(word) else _capitalise(word))
+            continue
         if _keep_case(word):
             parts.append(word)
             continue
@@ -127,6 +157,8 @@ def _keep_case(word: str) -> bool:
         return True
     # A number, a code, or an abbreviation everyone reads as one unit.
     if not any(character.isalpha() for character in stripped):
+        return True
+    if _INITIALS.match(stripped):
         return True
     return bool(_ABBREVIATIONS.match(stripped))
 

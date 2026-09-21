@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons.widget.format
 
 import android.content.Context
+import androidx.annotation.StringRes
 import com.lumenpearson.lessons.core.model.DayKind
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.EventKind
@@ -67,13 +68,60 @@ internal object WidgetStrings {
         is DayState.NoData -> context.getString(R.string.widget_state_no_data)
     }
 
-    // There is deliberately no `stateLabelShort` here any more, and no
-    // `widget_state_after_school_short` behind it. It clipped «Уроки
-    // закончились» to «Уроков нет» for the 2x1 size, and it specialised
-    // exactly one state — `AfterSchool` — which satisfies
-    // `isHomeworkPrimary`, so the two narrow layouts it was written for take
-    // the homework branch and draw «ДЗ на завтра» instead. No size and no
-    // state could reach it, in either language, for as long as it existed.
+    /**
+     * How many upper-cased characters of a bold caption the 110 dp column holds.
+     *
+     * The three narrow rungs are 110 dp wide, of which padding leaves about 90;
+     * at [WidgetSizeClass.captionSp] of 11 sp, bold and upper-cased, that is
+     * around twelve Cyrillic characters. It is a budget rather than a
+     * measurement because Glance has no way to ask — and no way to ellipsize
+     * either, which is what makes going over it a hard clip mid-word rather
+     * than an «…».
+     */
+    const val NARROW_LABEL_CHARS = 12
+
+    /**
+     * The state label for the card the widget shows once lessons are over.
+     *
+     * Its own function, and only for that card, because it is the only place a
+     * state label meets a narrow column. Everywhere else the label sits beside a
+     * countdown on a layout at least [WidgetSizeClass.MEDIUM] wide, or the
+     * narrow layout takes the homework branch and draws «ДЗ на завтра» instead —
+     * which is exactly why the old blanket `stateLabelShort` was removed as
+     * unreachable. `RestDayBody` is the path that reading missed: `StackBody`
+     * serves `SMALL_TALL` and `NARROW` too, so «УРОКИ ЗАКОНЧИЛИСЬ» and
+     * «СОКРАЩЁННЫЙ ДЕНЬ» were drawn into 90 dp and clipped mid-word.
+     *
+     * The short forms keep the claim rather than trading it for a shorter one:
+     * «Закончились» still says the lessons ended, where the «Уроков нет» the
+     * removed version used says there were none. The other four rest labels are
+     * already inside the budget and are not given a second spelling for the sake
+     * of symmetry.
+     */
+    fun restStateLabel(context: Context, state: DayState, narrow: Boolean): String =
+        shortStateLabelRes(state, narrow)?.let(context::getString) ?: stateLabel(context, state)
+
+    /**
+     * Which shorter spelling [restStateLabel] reaches for, or null for the full one.
+     *
+     * Split out so the choice can be checked without a `Context`: this module's
+     * unit tests run with `isReturnDefaultValues`, where `getString` answers
+     * nothing at all, and they read `res/values/` out of the source tree
+     * instead. A resource id is an `Int` and needs neither.
+     */
+    @StringRes
+    internal fun shortStateLabelRes(state: DayState, narrow: Boolean): Int? = when {
+        !narrow -> null
+        state is DayState.AfterSchool -> R.string.widget_state_after_school_short
+        state is DayState.DayOff && state.kind == DayKind.SHORTENED ->
+            R.string.widget_state_shortened_short
+        // «САМОПОДГОТОВКА» is fourteen characters and the column holds about
+        // twelve. `NarrowLabelBudgetTest` is what said so, on the build that
+        // added the kind rather than on a phone months later.
+        state is DayState.DayOff && state.kind == DayKind.SELF_STUDY ->
+            R.string.widget_state_self_study_short
+        else -> null
+    }
 
     /**
      * "пн" for the week strip.
@@ -121,6 +169,8 @@ internal object WidgetStrings {
             DayKind.HOLIDAY -> R.string.widget_state_holiday
             DayKind.REMOTE -> R.string.widget_state_remote
             DayKind.SHORTENED -> R.string.widget_state_shortened
+            DayKind.SELF_STUDY -> R.string.widget_state_self_study
+            DayKind.DAY_OFF -> R.string.widget_state_day_off_given
             DayKind.NORMAL -> R.string.widget_state_day_off
         },
     )

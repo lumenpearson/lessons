@@ -172,6 +172,69 @@ async def test_guessing_passwords_against_the_upstream_is_rate_limited(
     assert still_blocked.status_code == 429
 
 
+async def test_an_unreadable_answer_from_the_upstream_is_counted_too(
+    client, upstream, session
+):
+    """The 502 that used to be free, and it is the one that matters.
+
+    `PetersburgClient.login` raises `UnexpectedResponse` for a 200 whose body
+    is not JSON, and a login form built on Yii answers a *wrong password* with
+    the same 200 of HTML that a captcha arrives in. `diary_web` worked that out
+    first and spends its one-time ticket on exactly this branch. This endpoint
+    counted a 401 alone, so while the upstream served HTML — which is when it
+    is defending itself — every attempt answered 502 and recorded nothing,
+    leaving the unlimited oracle the limiter exists to prevent.
+    """
+    from app.api.diary import diary_login_limiter
+
+    def maintenance_page(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="<html><body>Технические работы</body></html>")
+
+    upstream.routes[LOGIN_PATH] = maintenance_page
+    for _ in range(diary_login_limiter.limit):
+        unreadable = await client.post(
+            "/api/v1/diary/login",
+            json={"login": "parent@example.com", "password": "guess"},
+        )
+        assert unreadable.status_code == 502
+
+    blocked = await client.post(
+        "/api/v1/diary/login",
+        json={"login": "parent@example.com", "password": "guess"},
+    )
+    assert blocked.status_code == 429
+
+
+async def test_a_diary_that_is_switched_off_costs_a_parent_nothing(
+    client, upstream, session, monkeypatch
+):
+    """The 503 stays free, and for the reason `diary_web` names.
+
+    It means the feature is off, the transport failed, or the upstream answered
+    5xx — nothing ever read what was typed, so it says nothing about the
+    password and must not spend somebody's attempts.
+    """
+    from app.api.diary import diary_login_limiter
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"message": "нет связи"})
+
+    upstream.routes[LOGIN_PATH] = unreachable
+    for _ in range(diary_login_limiter.limit + 2):
+        refused = await client.post(
+            "/api/v1/diary/login",
+            json={"login": "parent@example.com", "password": "correct"},
+        )
+        assert refused.status_code == 503
+
+    upstream.routes[LOGIN_PATH] = with_token
+    accepted = await client.post(
+        "/api/v1/diary/login",
+        json={"login": "parent@example.com", "password": "correct"},
+    )
+    assert accepted.status_code == 200
+
+
 async def test_a_counted_sign_in_failure_fits_the_column_that_counts_it(
     client, upstream, session
 ):
