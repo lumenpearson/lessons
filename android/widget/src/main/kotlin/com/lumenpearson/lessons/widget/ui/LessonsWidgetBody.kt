@@ -658,12 +658,19 @@ private fun RestDayBody(
     size: WidgetSizeClass,
 ) {
     val context = LocalContext.current
-    val headline = headlineOf(context, state)
     val plan = if (size.showsMeta) dayPlanOf(context, nextDay) else null
 
     Column(modifier = GlanceModifier.fillMaxSize()) {
         Column(modifier = GlanceModifier.fillMaxWidth()) {
-            StateLabel(text = headline.label, size = size)
+            // Not `headlineOf(...).label`, which is the full sentence. This is
+            // the one card where a state label meets a 110 dp column —
+            // `StackBody` serves the narrow rungs too — and `StateLabel` is one
+            // line that Glance cannot ellipsize, so «УРОКИ ЗАКОНЧИЛИСЬ» was
+            // clipped mid-word rather than shortened.
+            StateLabel(
+                text = WidgetStrings.restStateLabel(context, state, narrow = size.isNarrow),
+                size = size,
+            )
             (state as? DayState.DayOff)?.note?.takeIf { it.isNotBlank() }?.let { note ->
                 VSpace(2)
                 CaptionText(text = note.ellipsize(size.homeworkChars), size = size)

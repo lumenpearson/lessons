@@ -267,7 +267,7 @@ private fun share(context: Context, subject: String, fragment: String) {
 
 /** A session edit, addressed to the file its key's prefix points at. */
 private fun TranslationEdit.toChange(): TranslationChange = TranslationChange(
-    path = TranslationXml.valuesFolder(key, locale) + "/strings.xml",
+    paths = TranslationXml.candidateFiles(key, locale),
     key = key,
     body = TranslationXml.escape(corrected),
 )

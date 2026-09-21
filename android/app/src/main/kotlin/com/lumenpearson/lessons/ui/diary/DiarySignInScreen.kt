@@ -73,6 +73,8 @@ import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 fun DiarySignInScreen(
     reauth: Boolean,
     knownLogin: String,
+    /** Whether the configured server address is plain `http://`; see below. */
+    insecureServer: Boolean,
     busy: Boolean,
     failed: Boolean,
     onSignIn: (login: String, password: String) -> Unit,
@@ -113,6 +115,29 @@ fun DiarySignInScreen(
                 correctedString(R.string.diary_sign_in_subtitle)
             },
         )
+
+        // Said before the password is typed, not after it has been sent.
+        //
+        // `network_security_config.xml` permits cleartext for every host on
+        // purpose — the realistic deployment is uvicorn on a machine in the
+        // school, reached by LAN address, and no public CA issues a
+        // certificate for one of those. That bargain was struck when the only
+        // thing crossing the wire was a timetable. This screen is where it
+        // stopped being true: the password below is a parent's password for
+        // dnevnik2.petersburgedu.ru, a third party's service, and it goes to
+        // whatever address was typed in settings through the same client as
+        // everything else. On http:// anybody on the same Wi-Fi reads it.
+        if (insecureServer) {
+            RoundedCardContainer {
+                GroupRow {
+                    Text(
+                        text = correctedString(R.string.diary_insecure_server),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        }
 
         RoundedCardContainer {
             GroupRow {

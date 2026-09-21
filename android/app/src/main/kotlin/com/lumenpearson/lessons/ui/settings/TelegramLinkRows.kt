@@ -86,8 +86,14 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.telegramLinkRows(
                 }
                 GroupItem(
                     title = correctedString(R.string.telegram_check_failed),
-                    subtitle = state.cause.message?.takeIf { it.isNotBlank() }
-                        ?: correctedString(R.string.sync_error_generic),
+                    // Not `state.cause.message`. A `Throwable`'s message is
+                    // written by OkHttp or by the platform, in English, about a
+                    // host nobody here typed — and when it was blank the card
+                    // fell through to «Не удалось обновить расписание», which is
+                    // a sentence about the timetable on a card about Telegram.
+                    // Neither tells the reader anything they can act on; the
+                    // «Повторить» row below is the whole of what they can do.
+                    subtitle = correctedString(R.string.telegram_check_failed_hint),
                     icon = Icons.Rounded.LinkOff,
                     tone = errorTone(),
                 )

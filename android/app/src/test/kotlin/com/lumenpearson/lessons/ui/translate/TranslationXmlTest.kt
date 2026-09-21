@@ -163,6 +163,67 @@ class TranslationXmlTest {
         )
     }
 
+    /**
+     * Every key routes to a file that really declares it — the half the prefix
+     * rule cannot answer.
+     *
+     * The module comes from the prefix; the **file** cannot, because inside
+     * `:app` the prefixes overlap: `settings_` is declared in `strings.xml`
+     * and in `strings_admin.xml`, `bug_` in `strings.xml` and in
+     * `strings_github.xml`. While the export guessed `strings.xml` for all of
+     * them, 419 of that module's 779 strings could not be corrected at all —
+     * the file was fetched, the key was not in it, and the reader was told
+     * «Не отправлено» with nothing naming the reason.
+     *
+     * So the app offers candidates and the repository asks the files. This
+     * checks the candidate list is complete: every key in every module must be
+     * findable in one of the files `candidateFiles` would try.
+     */
+    @Test
+    fun `every string is reachable through the files the export would try`() {
+        val unreachable = modules.flatMap { (module, names) ->
+            names.filterNot { key ->
+                TranslationXml.candidateFiles(key, "").any { candidate ->
+                    val file = File(root, candidate)
+                    file.isFile && file.readText().contains("name=\"$key\"")
+                }
+            }.map { "$it (in $module)" }
+        }
+        assertTrue(
+            "The export would fetch every file it knows of for these keys and find none " +
+                "of them, so each would come back as «Не отправлено» with no reason: " +
+                unreachable,
+            unreachable.isEmpty(),
+        )
+    }
+
+    /**
+     * And no file is left out of the list the export searches.
+     *
+     * The other direction, and the one that breaks quietly: adding
+     * `strings_widget.xml` to `:app` tomorrow would make every key in it
+     * unreachable, and the test above would be the only thing that noticed —
+     * after somebody had already been told their correction was not sent.
+     */
+    @Test
+    fun `the export knows about every strings file each module ships`() {
+        val missed = modules.keys.flatMap { module ->
+            val folder = File(root, "android/$module/src/main/res/values")
+            val onDisk = folder.listFiles().orEmpty()
+                .filter { it.extension == "xml" && it.name.startsWith("strings") }
+                .map { it.name }
+            // Asked through a key the module really owns, so the module half of
+            // the routing is exercised rather than assumed.
+            val sample = modules.getValue(module).first()
+            val searched = TranslationXml.candidateFiles(sample, "").map { it.substringAfterLast('/') }
+            (onDisk - searched.toSet()).map { "$module/$it" }
+        }
+        assertTrue(
+            "These files ship strings the export would never look in: $missed",
+            missed.isEmpty(),
+        )
+    }
+
     /** Module directory to the names declared in its default `values/`. */
     private val modules: Map<String, List<String>> by lazy {
         listOf("app", "core/designsystem", "core/data", "widget").associateWith { module ->

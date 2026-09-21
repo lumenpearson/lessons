@@ -107,4 +107,5 @@
     <string name="diary_edited_badge">Исправлено</string>
     <string name="diary_edit_hint">Нажмите на урок или задание, чтобы исправить</string>
     <string name="diary_edit_which">%1$s · урок %2$s</string>
+    <string name="diary_insecure_server">⚠️ Адрес сервера начинается с http:// — пароль пойдёт по сети в открытом виде, и его прочтёт любой в той же сети Wi-Fi. Это пароль от «Дневника», а не от этого приложения. Если можете, настройте на сервере https://.</string>
 </resources>

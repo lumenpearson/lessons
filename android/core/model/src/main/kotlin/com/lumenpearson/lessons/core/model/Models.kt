@@ -129,7 +129,13 @@ data class SchoolClassInfo(
     val grade: Int? = null,
     val letter: String? = null,
     val school: String? = null,
-    val city: String? = null,
+    // There is deliberately no `city` here. One was declared, defaulted to
+    // null, and set by neither mapper — the bundle's `SchoolClassDto` has no
+    // such field and neither does the Room entity — so every screen that asked
+    // for it would have been reading null for ever. A class's city is edited
+    // and shown through `ManagedClassCard`, which is a different type on a
+    // different endpoint; if a reader ever needs it here, the wire has to carry
+    // it first.
     val timeZoneId: String = "Europe/Moscow",
     val termKind: TermKind = TermKind.QUARTER,
     val terms: List<Term> = emptyList(),

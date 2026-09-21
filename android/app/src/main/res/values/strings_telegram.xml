@@ -4,6 +4,7 @@
     <string name="telegram_group">Telegram</string>
     <string name="telegram_checking">Проверяю привязку…</string>
     <string name="telegram_check_failed">Не удалось проверить привязку</string>
+    <string name="telegram_check_failed_hint">Проверьте связь и попробуйте ещё раз.</string>
     <string name="telegram_retry">Повторить</string>
     <string name="telegram_not_linked">Телефон не привязан</string>
     <string name="telegram_not_linked_description">Привяжите телефон к своему Telegram, чтобы редактировать домашние задания и замены прямо из приложения. Права те же, что у вас в боте.</string>

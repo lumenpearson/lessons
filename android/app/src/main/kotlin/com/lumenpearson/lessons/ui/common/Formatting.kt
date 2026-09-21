@@ -96,6 +96,44 @@ internal fun LocalDate.asRelativeDayLabel(today: LocalDate): String = when (this
 }
 
 /**
+ * The same label, in the case «на <день>» needs.
+ *
+ * Russian declines and the nominative does not fit after «на»: the homework
+ * header read «Домашнее задание на среда, 10 сентября», and «на Сегодня» with
+ * a capital on top of it, because [asRelativeDayLabel] answers the question
+ * «which day is this» and nothing else. That is the right answer where it is
+ * used as a bare section header, which is the other caller, so this is a
+ * second function rather than a change to the first.
+ *
+ * `:widget` has its own `widget_weekday_acc_*` for exactly this and says so;
+ * `:app` could not borrow them, because a module does not see another's
+ * resources.
+ *
+ * The English twins are the plain names, since English has no case here — they
+ * exist so the two folders stay one-to-one, which is what
+ * `ResourceTranslationTest` requires.
+ */
+@Composable
+internal fun LocalDate.asRelativeDayLabelAccusative(today: LocalDate): String = when (this) {
+    today -> correctedString(R.string.day_today_acc)
+    today.plusDays(1) -> correctedString(R.string.day_tomorrow_acc)
+    else -> "${asAccusativeWeekday()}, ${asDayMonth()}"
+}
+
+@Composable
+private fun LocalDate.asAccusativeWeekday(): String = correctedString(
+    when (dayOfWeek.value) {
+        1 -> R.string.weekday_acc_1
+        2 -> R.string.weekday_acc_2
+        3 -> R.string.weekday_acc_3
+        4 -> R.string.weekday_acc_4
+        5 -> R.string.weekday_acc_5
+        6 -> R.string.weekday_acc_6
+        else -> R.string.weekday_acc_7
+    },
+)
+
+/**
  * "Обновлено в 14:32" / "Обновлено 07.09 в 14:32", or the never-synced text.
  *
  * Shown as a quiet footer so a user staring at a stale timetable can tell that

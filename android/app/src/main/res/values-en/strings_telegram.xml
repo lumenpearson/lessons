@@ -5,6 +5,7 @@
     <string name="telegram_group">Telegram</string>
     <string name="telegram_checking">Checking the link…</string>
     <string name="telegram_check_failed">Could not check the link</string>
+    <string name="telegram_check_failed_hint">Check the connection and try again.</string>
     <string name="telegram_retry">Retry</string>
     <string name="telegram_not_linked">The phone is not linked</string>
     <string name="telegram_not_linked_description">Link the phone to your Telegram to edit homework and substitutions straight from the app. The rights are the same ones you have in the bot.</string>

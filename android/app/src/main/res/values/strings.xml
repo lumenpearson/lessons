@@ -91,7 +91,6 @@
     <string name="schedule_day_details">Подробно</string>
     <string name="schedule_room_short">каб. %1$s</string>
     <string name="schedule_lesson_index">Урок %1$d</string>
-    <string name="schedule_time">Время</string>
     <string name="schedule_duration">%1$d мин</string>
     <string name="schedule_room">Кабинет</string>
     <string name="schedule_teacher">Учитель</string>
@@ -326,9 +325,6 @@
     <!-- Notifications -->
     <string name="settings_alerts">Уведомления</string>
     <string name="settings_alerts_summary">Звонок, сводка на день, домашка, замены и тихие часы</string>
-    <string name="settings_alerts_blocked_group">Доступ</string>
-    <string name="settings_alerts_blocked">Уведомления выключены</string>
-    <string name="settings_alerts_blocked_description">Нажмите, чтобы разрешить — иначе переключатели ниже ничего не сделают.</string>
     <string name="settings_alerts_lessons_group">Уроки</string>
     <string name="settings_alert_lesson">Скоро урок</string>
     <string name="settings_alert_lesson_description">Предмет и кабинет за несколько минут до звонка</string>
@@ -364,8 +360,7 @@
     <string name="settings_alert_changes_description">Сообщать, когда расписание ближайших дней изменилось</string>
     <string name="about_version">Версия %1$s</string>
     <string name="about_description">Школьный дневник с виджетом на главном экране. Работает офлайн: расписание, замены и домашние задания хранятся на устройстве.</string>
-    <string name="about_design_credit">Оформление, шрифт и компоненты — по мотивам Essentials (github.com/sameerasw/essentials), лицензия MIT.</string>
-    <string name="about_name_and_version">Уроки v%1$s</string>
+    <string name="about_name_and_version">Дневник v%1$s</string>
     <string name="about_developer_line">Собрано lumenpearson</string>
     <!-- Split around the link so the repository name can be tappable inside the sentence. -->
     <string name="about_design_credit_before">Оформление, шрифт и компоненты — по мотивам </string>
@@ -420,13 +415,10 @@
     <string name="settings_updates_prerelease_description">Тестовые сборки. Могут работать нестабильно</string>
     <string name="settings_updates_notify">Сообщать о новых версиях</string>
     <string name="settings_updates_notify_description">Показывать заметки к выпуску, когда версия найдена</string>
-    <string name="settings_updates_release_notes">Заметки к выпуску</string>
-    <string name="settings_updates_release_notes_description">Что изменилось в установленной версии</string>
 
     <!-- About: GitHub, bug reports, licences -->
     <string name="settings_github_group">GitHub</string>
     <string name="settings_github_sign_in">Войти через GitHub</string>
-    <string name="settings_github_sign_in_description">Чтобы отправлять сообщения об ошибках прямо из приложения</string>
     <string name="settings_github_signed_in_as">Вы вошли как @%1$s</string>
     <string name="settings_github_sign_out">Выйти</string>
     <string name="settings_bug_report">Сообщить об ошибке</string>
@@ -434,8 +426,18 @@
     <string name="settings_licenses">Лицензии и благодарности</string>
     <string name="settings_licenses_description">Открытый код, на котором держится приложение</string>
     <string name="issue_error_failed">Не удалось отправить на GitHub</string>
-    <string name="issue_filed">Отправлено. Открыть на GitHub?</string>
-    <string name="issue_filed_open">Открыть</string>
-    <string name="bug_report_email_subject">Отчёт из приложения «Уроки» %1$s</string>
+    <string name="bug_report_email_subject">Отчёт из приложения «Дневник» %1$s</string>
 
+    <!-- Accusative, because the only sentence these fill reads «Домашнее задание
+         на <день>». The nominative «на среда» is what was there, and it is the
+         same problem the widget solved with its own widget_weekday_acc_* set. -->
+    <string name="day_today_acc">сегодня</string>
+    <string name="day_tomorrow_acc">завтра</string>
+    <string name="weekday_acc_1">понедельник</string>
+    <string name="weekday_acc_2">вторник</string>
+    <string name="weekday_acc_3">среду</string>
+    <string name="weekday_acc_4">четверг</string>
+    <string name="weekday_acc_5">пятницу</string>
+    <string name="weekday_acc_6">субботу</string>
+    <string name="weekday_acc_7">воскресенье</string>
 </resources>
