@@ -310,15 +310,26 @@ points Hilt does not inject cleanly.
   hold no nulls) and was applied the usual way, before the merge. Read the
   database before either: `0012` turned out to be a real fix rather than the
   no-op `0011` was, because all eight columns really were nullable there.
-- **The weekly template stops at the end of the school year, and until recently
-  did not.** `SCHOOL_YEAR_END_MONTH` is 5 and `schedule.py`'s comment says June
+- **The weekly template stops when the school says it stops, and twice it did
+  not.** `SCHOOL_YEAR_END_MONTH` is 5 and `schedule.py`'s comment says June
   onwards must not repeat the template; nothing read it, so every summer weekday
   drew a full day on the phone, in the widget, in the calendar feed and in the
   morning digest — whose own rule about staying silent on an empty day could
-  never fire, because the day was never empty. `_resolve_day` now asks
-  `school_year_bounds`. A day somebody marked by hand keeps its kind and note,
-  and events and homework are kept either way: it is the lessons that are out of
-  season, not the day.
+  never fire, because the day was never empty. That was the first half, and
+  `_resolve_day` started asking `school_year_bounds`.
+  The second half is that **the constant is not the school's answer — the terms
+  are.** A class whose «🗓 Четверти» said the half-year ended on 28 May still
+  drew lessons on the 29th, the 30th and the 31st, because the dates an admin
+  typed decided the term's *name* and nothing else, and 31 May is what
+  `SCHOOL_YEAR_END_MONTH` will always mean. `_resolve_day` now asks
+  `ScheduleResolver._is_teaching_day`, which reads the class's own terms for
+  that year and falls back to `school_year_bounds` only when the year has none.
+  The gaps **between** terms are out of season by the same rule, which is how
+  the autumn holidays get marked by moving two dates rather than nine days: the
+  conventional bounds are contiguous, so a class that never touched them is
+  unaffected. A day somebody marked by hand keeps its kind and note, and events
+  and homework are kept either way: it is the lessons that are out of season,
+  not the day.
 - **A lesson number needs a bell of its own number, everywhere a lesson is
   written.** The resolver takes a lesson's times from the bell row of the same
   number and drops what has none, so a row at a number the day does not ring is

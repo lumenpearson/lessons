@@ -116,6 +116,15 @@ The periods arrive as rows rather than as a formula, because the dates are the s
 business: the holidays shift, a region goes on its spring break earlier, a quarantine eats a
 week.
 
+**They also decide which days carry lessons at all.** A day inside none of the class's
+periods is answered as `holiday` with an empty `lessons`, whatever the weekly template
+says — so a half-year ending on 28 May ends the lessons on 28 May, and the gap between two
+quarters is the holidays in it. The conventional periods are contiguous, so a class that
+has never edited them behaves exactly as before, and a class with no periods for that year
+falls back to «1 September to 31 May». This is what the dates were always for; until
+recently they named the period and nothing more, and the calendar went on drawing a full
+day through to 31 May.
+
 ```json
 {
   "api_version": 1,

@@ -62,6 +62,12 @@ PUBLIC_BASE_URL=https://lessons.example.com
    Kamchatka (МСК+9). The year is a number rather than part of a typed name
    because the term scheme follows it: years 1–9 are taught in четверти (quarters)
    and 10–11 in полугодия (half-years), and every date is editable afterwards.
+   Those dates are what the timetable runs between: a day inside none of the
+   class's periods draws no lessons anywhere — phone, widget, calendar feed,
+   digest — so ending a half-year on 28 May ends the lessons on 28 May, and
+   leaving a gap between two quarters marks the holidays in it. The
+   conventional dates are contiguous, so a class that never edits them is
+   unaffected.
 
    The school step searches the register when this deployment has a
    `DADATA_TOKEN` — type «гимназия 3 Казань», pick from the results, five to a

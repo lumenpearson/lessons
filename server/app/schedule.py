@@ -27,6 +27,7 @@ from app.models import (
     OverrideAction,
     SchoolClass,
     Subject,
+    Term,
     TermKind,
     TimetableEntry,
     WeekParity,
@@ -250,6 +251,40 @@ class ScheduleResolver:
                 return day
         return None
 
+    def _is_teaching_day(self, day: Date) -> bool:
+        """Whether the weekly template applies to ``day`` at all.
+
+        **The class's own terms decide it when the class has any**, and that is
+        the whole point: the dates in «🗓 Четверти» are the school's answer to
+        «when do we teach», typed by an admin, and until now nothing but the
+        term *name* read them. A half-year moved to end on 28 May left 29, 30
+        and 31 May drawing a full day of lessons — on the phone, in the widget
+        and in the calendar feed — because the horizon was
+        `SCHOOL_YEAR_END_MONTH`, which is 31 May and always will be. That is
+        the shape the defect was reported in: the calendar scrolled to May 2027
+        still showed the dots under days the class had already stopped
+        teaching on.
+
+        The gaps *between* terms are out of season for the same reason, and
+        this is where the conventional dates earn their keep: they are
+        contiguous — each term opens the day after the last one closed — so a
+        class that has never touched them sees no change at all. A class whose
+        admin set «1 четверть по 26.10» and «2 четверть с 05.11» gets the
+        autumn holidays it just described, without having to mark nine days by
+        hand.
+
+        Falls back to `school_year_bounds` when the year has no terms, which is
+        every class created before terms existed and any year nobody has opened
+        yet. That is the rule this replaced, so nothing regresses to worse than
+        it was.
+        """
+        year = school_year_bounds(day)[0].year
+        this_year = [term for term in self._terms if term.year == year]
+        if not this_year:
+            year_start, year_end = school_year_bounds(day)
+            return year_start <= day <= year_end
+        return any(term.starts_on <= day <= term.ends_on for term in this_year)
+
     # ---- loading -------------------------------------------------------
 
     async def _load(self, start: Date, end: Date) -> None:
@@ -304,6 +339,17 @@ class ScheduleResolver:
                 select(BellSchedule).where(BellSchedule.class_id == class_id)
             )
         ).all()
+        # Every term that could overlap the window, which is at most two school
+        # years' worth: a range may start in May and run into September.
+        terms = (
+            await self.session.scalars(
+                select(Term).where(
+                    Term.class_id == class_id,
+                    Term.year >= school_year_bounds(start)[0].year - 1,
+                    Term.year <= school_year_bounds(end)[0].year,
+                )
+            )
+        ).all()
 
         self._timetable: dict[int, list[TimetableEntry]] = {}
         for entry in timetable:
@@ -324,6 +370,10 @@ class ScheduleResolver:
         self._homework: dict[Date, list[Homework]] = {}
         for item in homework:
             self._homework.setdefault(item.due_date, []).append(item)
+
+        # Sorted, because `_in_term` walks them and the answer is «is this day
+        # inside any of them» rather than «which one».
+        self._terms: list[Term] = sorted(terms, key=lambda t: (t.year, t.index))
 
         self._bells: dict[int, dict[int, BellPeriod]] = {
             schedule.id: {period.index: period for period in schedule.periods}
@@ -384,8 +434,7 @@ class ScheduleResolver:
         # it; an unmarked one reads as the holidays, which is what it is. Events
         # and homework are kept either way — an excursion in June is a real
         # thing, and it is the lessons that are out of season, not the day.
-        year_start, year_end = school_year_bounds(day)
-        if not year_start <= day <= year_end:
+        if not self._is_teaching_day(day):
             if day_override is None:
                 resolved.kind = DayKind.HOLIDAY
             return resolved
