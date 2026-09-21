@@ -4,8 +4,8 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **21 September 2026**. **PRs #63 through #78 are merged**; `main` is at
-`559b306`. **The only thing open is PR #79**, which carries this batch and the paragraph you
+Last updated: **21 September 2026**. **PRs #63 through #79 are merged**; `main` is at
+`a1f2392`. **The only thing open is PR #80**, which carries this batch and the paragraph you
 are reading. Once it merges, `dev` is level with `main` again and the next batch starts from
 a clean one, and the SHA of that merge is for the next close-out to write.
 **The database is at head `0014`** and has not moved for two batches: both were entirely on
@@ -24,9 +24,122 @@ that moved server code and the schema together, so `/api/v1/warmup` should now a
 `"schema":"0014"` — the cheapest single check of whether that migration and that code met,
 and nobody has made it.
 
-## What the last session added: the three defects the first real build had in it
+## What the last session added: six things that drifted on a real screen
 
-Open as PR #79, in the milestone `v0.7.0 — Оптимизация`. Not a feature. #77 shipped a screen
+Open as PR #80, in the milestone `v0.7.0 — Оптимизация`. Six reports from one build on a
+phone, plus a lie the previous batch's own CI log had been printing all along and nobody
+had read.
+
+### The retention was wrong in four places at once
+
+The repository's artifact retention is **one day**. `apk.yml` asked for ninety, `ci.yml` for
+a week, `docs/build.md` promised both numbers and `CLAUDE.md` a third. Every run reduced
+them and said so — `##[warning]Retention days cannot be greater than the maximum allowed
+retention set within the repository. Using 1 instead.` — in a job nobody opens when it is
+green, in a sentence that reads like a build problem.
+
+No workflow asks for a number any more: the repository setting is the only thing that
+decides, so there is nothing left for a workflow to disagree with, and the summary says
+where to raise it. Worth keeping as a shape: **a wish written next to the thing that
+overrides it is not a setting**, and three documents had been quoting the wish.
+
+### A marquee that stopped after three passes
+
+Reported as «на некоторых лейблах не двигается, а на некоторых двигается, даже на одном
+экране», and the diagnosis that invites is wrong. The line *is* a marquee — it is clipped
+mid-glyph with no «…», which is `TextOverflow.Clip`, which this component only sets when it
+has decided to scroll. It had simply spent `MarqueeDefaults.Iterations`, three, and parked
+itself back at the start. The budget is per composition, so a row just scrolled into view
+moves and a row that has been there a while does not.
+
+**The cost of fixing it is a perpetual animation, and that is not free in tests.** Compose's
+clock is then never idle, so `waitForIdle` — which every assertion calls into — hangs rather
+than fails. It is the same trap `runTest` against `WeekViewModel`'s clock cost a whole
+Gradle run for. Three suites now hold the clock and advance it by hand; a new test that
+composes an overflowing line and forgets to will hang, and the note is in `MarqueeText` and
+in each of them.
+
+### «Календарь» wrapped after «Календар»
+
+The title shared one `Row` with a year chip and three icon buttons under `weight(1f)` —
+about eight characters at 411 dp — so the «ь» went to a second line and the subtitle to a
+third. Nothing about it looks wrong in the code: `weight(1f)` is the correct way to share a
+row, and the row was asked to hold more than it has. Title on its own row now, controls on
+theirs.
+
+The second half was movement rather than wrapping: «сегодня» is offered only when it would
+do something, and while the *button* was what appeared, both arrows slid 48 dp sideways
+every time the reader stepped into or out of the current week. The slot is kept whether or
+not the button is in it.
+
+### The picker's tray was rounded by a token rather than by its buttons
+
+24 dp — `LessonsShapeTokens.Group`, the radius of a group of *rows* — around Material's
+connected button shapes with 4 dp of padding. Three numbers chosen in three places, so the
+gap between the two curves was wider at the corners than along the edges, which reads as a
+wonky corner rather than as a wrong radius. `ConcentricShape` computes it: inner radius plus
+padding, the one outer radius that keeps the gap even. A `Shape` rather than a computed
+`RoundedCornerShape`, because Material's connected corners are a percentage of the button's
+own height and the answer is only known once the tray has been measured — which also makes
+it a pure function of a size and a density, and therefore testable.
+
+### «День» and «Лента» are one tab
+
+Asked for, and asked about first: the literal reading of the request removed the immersive
+ribbon entirely, which is a feature the owner had commissioned in detail two batches
+earlier, so it was worth one question. The answer was to merge rather than replace.
+
+They were never two views — both answer «что идёт», one for the day in front of you and one
+for the month around it — and four four-letter labels across a 360 dp phone was most of what
+the picker's marquee was doing its work for. `DayMode` switches them on the screen itself
+and is stored like the ribbon's other three settings. **The two modes cover different
+spans on purpose**: the ribbon is one date, because it draws the breaks between lessons; the
+list is the month, because «в какой день больше всего» is a question about a stretch. So the
+arrows step a day in one and a month in the other, which is what each mode already implies.
+
+### The about card, and where a build came from
+
+It was padded twice — once by the settings list's `contentPadding`, once by itself — so it
+came out 32 dp narrower on each side than every group above it, and its two link buttons
+broke «Essentials» into «Essent / ials». Full width now, one button per row.
+
+The badges say two things nothing else in the app can. **How the bound server answered**,
+including the state that is invisible from everywhere else: API up, database at a different
+Alembic revision, which is the window between a merge deploying itself and the migration
+being applied by hand — `/health` is green all through it. And **which repository, ref and
+commit this APK came from**, with the commit chip opening that exact diff.
+
+That needed five build properties, because **a build keeps no memory of its own checkout**:
+an APK cannot work out its repository, branch or commit unless whatever ran the build says
+so. `apk.yml` fills them from the runner's own `github.*` rather than from repository
+settings, so a build of a fork describes itself honestly. `BuildPropertyReachTest` already
+existed for exactly this class of mistake and earned its keep in the same hour: it caught
+`LESSONS_BUILD_TIME` being `export`ed inside the run script, where nothing outside the step
+can see it.
+
+**Deliberately left alone.** Material's three iterations exist so a screen is not in
+perpetual motion, and this batch chose readability over stillness for lines that cannot be
+read any other way. That is a trade rather than a fix, and if a list of long titles turns
+out to be unpleasant the answer is probably to shorten the titles.
+
+**Verified, and not.** `./gradlew test` **889 tests**, both assembles. The card, the header
+and both link buttons are asserted **displayed** rather than merely composed, which is the
+lesson of the batch before. The server half was not touched; its gates were last green at
+#77 — `ruff` clean, `pytest -q -n auto` 1610, `python -m mypy` clean across 84 modules.
+**Nothing here has been seen on a screen**: whether the concentric corner looks concentric,
+and whether a marquee that never stops is pleasant, is unmeasured. **The server badge has
+never been drawn against a real server** — `ServerStatus` is exercised from a fake and no
+test opens a socket.
+
+One note for whoever writes the next Compose test here: **`performScrollTo` drives the
+scrollable's animation.** With the clock held for the marquees it moves nothing, and every
+node below the fold reports «not displayed» — which is indistinguishable from the element
+being absent, and cost two rounds here. Give the test a tall window instead.
+
+## What the batch before added: the three defects the first real build had in it
+
+Merged as PR #79 (`a1f2392`), in the milestone `v0.7.0 — Оптимизация`. Not a feature. #77
+shipped a screen
 that crashed on opening, and this is the batch that reads the report and closes it — all
 three defects are mine, all in `DayRibbonView.kt`, all introduced in #77. **None of them
 would have fixed itself**: #78 changed the cache and the calendar and never touched that
@@ -1149,7 +1262,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
-| 8 | `v0.7.0 — Оптимизация` | #75–#79 — the one Russian title |
+| 8 | `v0.7.0 — Оптимизация` | #75–#80 — the one Russian title |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -1576,7 +1689,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 1610 tests, ~2 min (CI runs this)
 cd server  && python -m mypy                             # clean, 84 modules
-cd android && ./gradlew test                             # 863 tests
+cd android && ./gradlew test                             # 889 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
@@ -1911,6 +2024,23 @@ every test that asked whether the screen was *built*, and all three fail the one
 whether its rows are **displayed**. If an agent proposes any of them again, check
 `DayRibbonView.kt` first.
 
+**And the six from the build after it** (#80), which are the same family one step wider —
+every one is a layout or a default that nothing in the code reads as wrong:
+
+- a marquee left on `MarqueeDefaults.Iterations`, so a title stops scrolling after three
+  passes and sits clipped — per composition, so two rows of one list disagree;
+- a screen title sharing a `Row` with four controls under `weight(1f)`, which is the
+  correct way to share a row and the wrong amount of room;
+- a button that appears and disappears without its slot being kept, so everything beside it
+  moves 48 dp between two presses;
+- a container radius picked as a token rather than derived from what is inside it;
+- an item that pads itself inside a list that already pads every item;
+- `retention-days:` asking for more than the repository allows, which is silently reduced.
+
+The last one is not an Android defect and is listed with them on purpose: it is the same
+shape. **A number written next to the thing that overrides it is a wish, not a setting**,
+and three documents had been quoting the wish for months.
+
 ---
 
 ## 5. What nobody has verified
@@ -1935,6 +2065,17 @@ else.**
   it crashed on opening. What that proves is that the three defects #79 fixes were the ones
   reported, and the bugreport says so in the platform's own words. It proves nothing about
   how any of it looks, because nobody got far enough to see it.
+- **The server badge has never been drawn against a real server.** `ServerStatus` has four
+  states and a test for each, all of them from a fake; nothing in the suite opens a socket.
+  What that leaves unchecked is the shape of a real answer — whether `/api/v1/warmup` from
+  a phone on a school's wifi resolves into `Ok`, `Degraded` or `Unreachable` as intended,
+  and how long it takes to say so. It is also the first thing in this app that makes a
+  network request from the settings page, so it is the first that can make that page wait.
+- **Nothing of #80 has been looked at either.** The tests compose the about card, the
+  calendar header and both link buttons and assert their text is *displayed*. What nobody
+  has seen: whether the concentric corner reads as concentric, whether a marquee that never
+  stops is pleasant rather than merely readable, and whether stepping a month with the
+  arrows surprises somebody who has just switched «День» into its list mode.
 - **Eighteen `AdrenoVK-0: Shader compilation failed` lines in that bugreport are
   unexplained**, and no other app on that device logs them. They are `I`-level, carry no
   shader source and no reason, and are spread across screens rather than clustered on the
@@ -2647,6 +2788,12 @@ has a Cyrillic identifier: Kotlin has none at all.
 ## 7. Left to the owner
 
 All of this is beyond an agent's reach: it needs a phone, a key or a live service.
+
+**The APK's own badges are new in #80 and they are worth one press.** The about page now
+names the server's state, the repository, the ref and the commit the build came from. Two
+of those cannot be checked from here at all: whether the server badge says the right thing
+about the real deployment, and whether the commit chip opens the right diff on a phone.
+Both are a few seconds on the page that already exists.
 
 **One of these stopped being theoretical in #79, and it is the most useful thing that has
 happened to this project.** The owner installed an APK, used it, and sent back both the
