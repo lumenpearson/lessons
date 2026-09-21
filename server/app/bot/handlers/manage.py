@@ -87,7 +87,7 @@ from app.bot.manage_states import (
 )
 from app.bot.middlewares import prefs_key
 from app.bot.render import clamp, more_line, plural
-from app.bot.roles import can_grant, list_memberships
+from app.bot.roles import list_memberships
 from app.config import get_settings
 from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
@@ -106,6 +106,7 @@ from app.models import (
     TermKind,
     TimetableEntry,
 )
+from app.services import access as access_service
 from app.services import audit, linking, structure, timetable_io
 from app.services import calendar as calendar_service
 from app.services import stats as stats_service
@@ -2848,10 +2849,10 @@ async def request_approve(
 ) -> None:
     """Grant the requested role through the same rules as «👥 Доступ».
 
-    ``can_grant`` is the single source of "may I hand out this role", and the
-    rank guard below is the same one ``access.py`` applies when changing an
-    existing member: nobody may raise somebody to their own level or touch a
-    peer.
+    Literally the same rules: `services/access.approve_request` is also what
+    `PATCH /api/v1/manage/requests/{id}/approve` calls, so a phone and this
+    button cannot come to different answers. The refusal it raises carries the
+    Russian sentence this alert shows.
     """
     if not _allowed(school_class, role, Role.ADMIN):
         await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
@@ -2863,51 +2864,26 @@ async def request_approve(
         return
 
     target_role = request.requested_role
-    if not can_grant(role, target_role):
-        await callback.answer("Нельзя выдать роль выше вашей", show_alert=True)
-        return
-
-    member = await session.scalar(
-        select(BotUser).where(
-            BotUser.class_id == school_class.id,
-            BotUser.telegram_id == request.telegram_id,
-        )
-    )
-    if member is not None and member.role.rank >= role.rank:
-        await callback.answer("Нельзя менять роль этого пользователя", show_alert=True)
-        return
-
-    if member is None:
-        member = BotUser(
-            telegram_id=request.telegram_id,
-            class_id=school_class.id,
+    try:
+        member = await access_service.approve_request(
+            session,
+            school_class,
+            request,
+            actor_id=callback.from_user.id,
+            actor_role=role,
             role=target_role,
-            granted_by=callback.from_user.id,
         )
-        session.add(member)
-    elif member.role.rank < target_role.rank:
-        member.role = target_role
-        member.granted_by = callback.from_user.id
-
-    request.status = "approved"
-    request.decided_by = callback.from_user.id
-    request.decided_at = datetime.now(UTC).replace(tzinfo=None)
+    except access_service.GrantRefused as refused:
+        await callback.answer(str(refused), show_alert=True)
+        return
 
     name = mr.person(member.full_name, member.username, member.telegram_id)
-    await audit.record(
-        session,
-        school_class.id,
-        callback.from_user.id,
-        "access.approve",
-        f"выдана роль {target_role.title_ru}: {member.full_name or member.telegram_id}",
-    )
     await session.commit()
 
     await _tell_requester(
         _bot_of(callback),
         request.telegram_id,
-        f"✅ Доступ выдан: <b>{target_role.title_ru}</b> в классе "
-        f"<b>{escape(school_class.name)}</b>. Откройте /start.",
+        access_service.approval_notice(school_class, target_role),
     )
     await callback.message.edit_text(
         f"✅ {name} — теперь <b>{target_role.title_ru}</b>.", reply_markup=back_to_menu()

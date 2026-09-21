@@ -13,7 +13,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import BotCommand, ErrorEvent
 
 from app.bot.handlers import build_router
-from app.bot.middlewares import ContextMiddleware
+from app.bot.middlewares import CommandBreakoutMiddleware, ContextMiddleware
 from app.config import get_settings
 from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
@@ -60,6 +60,11 @@ def build_dispatcher() -> Dispatcher:
     were half-finished.
     """
     dispatcher = Dispatcher(storage=DatabaseStorage(SessionLocal))
+    # Outer, and therefore before any handler's filters are looked at: it
+    # clears the state a command was typed into, so no free-text step can match
+    # the command as its answer. A filter on each step could not do the
+    # clearing, and the next plain message would have been eaten by the form.
+    dispatcher.message.outer_middleware(CommandBreakoutMiddleware())
     # Both message and callback flows need the session/class/role bundle, and
     # `ContextMiddleware` is also what opens this update's container scope —
     # see the comment in `app/bot/middlewares.py` for why that is done there
