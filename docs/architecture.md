@@ -155,6 +155,40 @@ why the DAO takes the class id as a required parameter on every query rather
 than defaulting it, and why a sync writes under the class the **server**
 resolved the token to rather than the one the device believes is current.
 
+**One class, several school years.** A window is a school year — 1 September, or
+the Monday after, to 31 May — and `synced_window` holds one row per year the
+phone has actually fetched, for each class. A sync replaces the rows of *that*
+year and leaves the others standing, which is what lets the calendar be
+scrolled into next September at all: while the cache held exactly one window
+and a sync wiped the class, arriving in another year would have destroyed the
+one being left.
+
+`synced_window` is a table rather than something counted off the days present,
+because **a year fetched and genuinely empty has to be tellable from one never
+fetched**. A class made in March has no rows before it either way; counting
+would report its first autumn as «ещё не загружено» for ever, and the calendar
+would sit on a spinner that never stops. The screens read `syncedYears` to
+choose between «нет уроков», «загружаю год» and «год не загружен».
+
+Three years are kept per class. What goes is the year *furthest* from the one
+holding today, never that year itself, and the `ETag` of a dropped year goes
+with its rows — a tag kept for data the phone no longer holds is a `304` over
+nothing. Fetch time was the first rule tried and it was wrong twice: a year
+revisited and unchanged answers `304`, which touches the class row rather than
+the window's, so it was never «least recently used»; and it ties, so years
+fetched inside one millisecond left the order to the query.
+
+Two rules are easy to break. Only the sync of the year holding today writes the
+lookahead row — it answers «what is the next school day» from *now*, and a
+fetch of 2029 rewriting it points the widget at a Monday three years out. And
+the ranged deletes exclude that row, which is not defensive: the server
+resolves the lookahead past the window's end, so for a year ending in May it
+lands in the September *inside the next window*, and a delete without the
+exclusion loses it on the first step forward.
+
+The server needed nothing for any of this. `/api/v1/bundle` has always taken an
+arbitrary `start` and up to `MAX_BUNDLE_DAYS = 280`, and a school year is 274.
+
 After a successful sync, `SyncWorker` sends a package-internal broadcast
 (`com.lumenpearson.lessons.action.DATA_SYNCED`) that the widget receiver listens
 for. That is why `:core:data` does not depend on `:widget` — the dependency would
@@ -330,9 +364,9 @@ alternative is every family's password in the database.
 
 ## Testing
 
-1573 tests on the server across 43 files, 772 on Android across 106 classes; `pytest -q` and
-`./gradlew test`, both offline, both in CI. On Android that is `:core:model` 94,
-`:core:data` 265, `:core:designsystem` 64, `:widget` 70, `:app` 279.
+1610 tests on the server, 849 on Android; `pytest -q -n auto` and `./gradlew test`, both
+offline, both in CI. On Android that is `:core:model` 117, `:core:data` 279,
+`:core:designsystem` 74, `:widget` 74, `:app` 305.
 
 The table below is the load-bearing part of that rather than the whole of it:
 
