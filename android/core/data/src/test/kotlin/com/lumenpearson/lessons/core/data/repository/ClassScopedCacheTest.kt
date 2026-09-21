@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.database.InMemoryTimetableDao
+import com.lumenpearson.lessons.core.data.database.replaceYear
 import com.lumenpearson.lessons.core.data.database.LessonEntity
 import com.lumenpearson.lessons.core.data.database.SchoolClassEntity
 import com.lumenpearson.lessons.core.data.database.SchoolDayEntity
@@ -29,7 +30,7 @@ import org.junit.Test
  * somebody else's timetable. Nothing on screen would say so.
  *
  * These tests drive the real [com.lumenpearson.lessons.core.data.database.TimetableDao]
- * orchestration through an in-memory store: `replaceAll`, `clear` and
+ * orchestration through an in-memory store: `replaceWindow`, `clear` and
  * `clearAll` are concrete on the DAO, so what is asserted here is the shipped
  * wipe order and the shipped subqueries, not a second copy of them.
  */
@@ -41,8 +42,8 @@ class ClassScopedCacheTest {
     @Test
     fun `two classes cached together keep their own days`() = runTest {
         val dao = InMemoryTimetableDao()
-        dao.replaceAll(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
-        dao.replaceAll(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
+        dao.replaceYear(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
+        dao.replaceYear(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
 
         assertEquals(listOf(1L, 2L), dao.cachedClassIds())
         assertEquals("Алгебра", dao.days(1).single().lessons.single().subject)
@@ -52,12 +53,12 @@ class ClassScopedCacheTest {
     @Test
     fun `syncing one class does not empty the other`() = runTest {
         val dao = InMemoryTimetableDao()
-        dao.replaceAll(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
-        dao.replaceAll(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
+        dao.replaceYear(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
+        dao.replaceYear(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
 
         // The sync that used to wipe the table. 7«А» gets a new window; 9«Б»
         // is not being synced and must come out of it untouched.
-        dao.replaceAll(
+        dao.replaceYear(
             classRow(1, "7А"),
             listOf(day(1, monday, "Геометрия"), day(1, monday.plusDays(1), "Физика")),
             null,
@@ -72,8 +73,8 @@ class ClassScopedCacheTest {
     @Test
     fun `leaving one class does not empty the other`() = runTest {
         val dao = InMemoryTimetableDao()
-        dao.replaceAll(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
-        dao.replaceAll(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
+        dao.replaceYear(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
+        dao.replaceYear(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
 
         dao.clear(1)
 
@@ -90,8 +91,8 @@ class ClassScopedCacheTest {
     @Test
     fun `signing out of everything empties the cache`() = runTest {
         val dao = InMemoryTimetableDao()
-        dao.replaceAll(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
-        dao.replaceAll(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
+        dao.replaceYear(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
+        dao.replaceYear(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
 
         dao.clearAll()
 
@@ -107,8 +108,8 @@ class ClassScopedCacheTest {
         // draw it — every read is class-filtered — so it is a year of somebody
         // else's timetable kept on a phone that asked to stop holding it.
         val dao = InMemoryTimetableDao()
-        dao.replaceAll(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
-        dao.replaceAll(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
+        dao.replaceYear(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
+        dao.replaceYear(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
 
         dao.retainOnly(setOf(2L))
 
@@ -124,7 +125,7 @@ class ClassScopedCacheTest {
         // `NOT IN ()` is not valid SQL, so "the device is in no class" is the
         // one case that cannot be expressed as a narrower delete.
         val dao = InMemoryTimetableDao()
-        dao.replaceAll(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
+        dao.replaceYear(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
 
         dao.retainOnly(emptySet())
 
@@ -135,8 +136,8 @@ class ClassScopedCacheTest {
     @Test
     fun `the sweep leaves a phone that has left nothing alone`() = runTest {
         val dao = InMemoryTimetableDao()
-        dao.replaceAll(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
-        dao.replaceAll(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
+        dao.replaceYear(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
+        dao.replaceYear(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
 
         dao.retainOnly(setOf(1L, 2L))
 
@@ -153,7 +154,7 @@ class ClassScopedCacheTest {
         // row is the authority, so this lands in 1 and 2 stays empty — which is
         // what stops a switch mid-sync from filing one class's week under the
         // other's name.
-        dao.replaceAll(classRow(1, "7А"), listOf(day(2, monday, "Алгебра")), null)
+        dao.replaceYear(classRow(1, "7А"), listOf(day(2, monday, "Алгебра")), null)
 
         assertEquals(1, dao.dayCountOf(1))
         assertEquals(0, dao.dayCountOf(2))
@@ -162,8 +163,8 @@ class ClassScopedCacheTest {
     @Test
     fun `the timetable on screen follows the class that is selected`() = runTest {
         val dao = InMemoryTimetableDao()
-        dao.replaceAll(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
-        dao.replaceAll(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
+        dao.replaceYear(classRow(1, "7А"), listOf(day(1, monday, "Алгебра")), null)
+        dao.replaceYear(classRow(2, "9Б"), listOf(day(2, monday, "История")), null)
 
         val active = MutableStateFlow<Long?>(1L)
         val repository = TimetableRepositoryImpl(

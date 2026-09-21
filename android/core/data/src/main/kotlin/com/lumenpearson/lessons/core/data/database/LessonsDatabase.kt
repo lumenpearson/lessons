@@ -16,6 +16,10 @@ import androidx.room.TypeConverters
  * window per joined class instead of exactly one window. Nothing migrates — see
  * the note on [build] — so the first sync after an update refills the class the
  * user is looking at, and the others refill as they are opened.
+ *
+ * Version 5 adds `synced_window`, because a class no longer holds one window
+ * either: it holds a school year per row, and «is this date cached» stopped
+ * being the same question as «is there a class row».
  */
 @Database(
     entities = [
@@ -24,8 +28,9 @@ import androidx.room.TypeConverters
         LessonEntity::class,
         EventEntity::class,
         HomeworkEntity::class,
+        SyncedWindowEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(LessonsTypeConverters::class)

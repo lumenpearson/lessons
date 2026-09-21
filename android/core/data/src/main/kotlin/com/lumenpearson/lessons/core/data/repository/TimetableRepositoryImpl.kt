@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.core.data.repository
 
+import com.lumenpearson.lessons.core.data.database.SyncedWindowEntity
 import com.lumenpearson.lessons.core.data.database.TimetableDao
 import com.lumenpearson.lessons.core.data.database.buildTimetable
 import com.lumenpearson.lessons.core.data.database.toEntity
@@ -11,11 +12,9 @@ import com.lumenpearson.lessons.core.model.SchoolYear
 import com.lumenpearson.lessons.core.model.Timetable
 import java.io.IOException
 import java.time.Clock
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
-import java.time.temporal.TemporalAdjusters
+import kotlin.math.abs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +25,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 
@@ -130,6 +130,25 @@ internal class TimetableRepositoryImpl(
         }
     }.distinctUntilChanged()
 
+    /**
+     * Which school years this class has actually fetched, live.
+     *
+     * The calendar's answer to «is this month empty, or merely not here yet».
+     * Before the cache held more than one year the two were the same question —
+     * there was one window and everything outside it was «Нет данных», which on
+     * screen is indistinguishable from a week with no lessons in it.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override val syncedYears: Flow<Set<Int>> = activeClassId.flatMapLatest { classId ->
+        if (classId == null) {
+            flowOf(emptySet())
+        } else {
+            dao.observeWindows(classId).map { windows ->
+                windows.map { it.openingYear }.toSet()
+            }
+        }
+    }.distinctUntilChanged()
+
     override suspend fun snapshot(): Timetable? = withContext(ioDispatcher) {
         val classId = activeClassId.first() ?: return@withContext null
         // One transaction for all three reads: `replaceAll` swaps the class row
@@ -159,70 +178,72 @@ internal class TimetableRepositoryImpl(
      * Whether this device is actually holding the window the tag is about.
      *
      * Asked only on a `304`, so it costs one indexed read on the path that was
-     * already the cheap one.
+     * already the cheap one. It asks about *that* window rather than about the
+     * class: with a year per row, a phone holding 2026 and sending a tag for
+     * 2027 would otherwise be told «nothing changed» about a year it has never
+     * fetched, and the calendar would sit on an empty grid reporting a
+     * successful sync — which is the same failure the class-wide check was
+     * written for, one level down.
      */
-    private suspend fun hasCachedWindow(): Boolean {
-        val classId = activeClassId.first() ?: return false
-        return dao.schoolClass(classId) != null
+    private suspend fun holdsWindow(classId: Long, openingYear: Int): Boolean =
+        dao.windows(classId).any { it.openingYear == openingYear }
+
+    override suspend fun refresh(): SyncResult = withContext(ioDispatcher) {
+        syncYear(SchoolYear.openingYearOf(todayAtSchool()))
     }
 
-    override suspend fun refresh(days: Int): SyncResult = withContext(ioDispatcher) {
-        try {
-            val today = todayAtSchool()
-            // The school year, not a window measured from today.
-            //
-            // It used to be a rolling month anchored to Monday of the current
-            // week — the anchor because `replaceAll` wipes the table each sync,
-            // so days already past this week were being destroyed rather than
-            // merely not fetched. The month was the part that was wrong: the
-            // calendar draws a whole year, and every date past the window came
-            // out «Нет данных», which on screen is indistinguishable from "no
-            // lessons that day" and reads as a timetable that stops a month
-            // after the class was made.
-            //
-            // Resolving the year costs the server the same handful of queries
-            // as resolving a month: the weekly template is loaded once and the
-            // rest is arithmetic. What it costs is payload, once per sync.
-            val year = SchoolYear.boundsAt(today)
-            // The Monday anchor applies only inside the year. It exists so a
-            // sync mid-week does not destroy the days already past — `replaceAll`
-            // wipes the table — and inside the year it can only reach back as
-            // far as the Monday before 1 September, six days at most. Applied
-            // in the summer it would reach back to July and ask for some 320
-            // days, which is past what the server accepts, and the window would
-            // silently come back clipped in April.
-            val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-            val start = if (today >= year.start) minOf(year.start, monday) else year.start
-            val span = (ChronoUnit.DAYS.between(start, year.endInclusive).toInt() + 1)
-                .coerceIn(MIN_DAYS, MAX_DAYS)
-            // `days` is honoured as a floor: a caller asking for more than the
-            // year has left still gets the year, and one asking for less still
-            // gets it, because a partial cache is what this is fixing.
-            val window = maxOf(span, days.coerceIn(MIN_DAYS, MAX_DAYS))
-            // The tag belongs to one class and one window, so the signature
-            // carries both: on 1 September, and on a switch between classes,
-            // the stored tag simply stops matching and the next sync asks for
-            // everything, which is the direction that heals itself.
-            val signature = "${activeClassId.first() ?: 0L}|$start|$window"
+    override suspend fun refreshYear(openingYear: Int): SyncResult = withContext(ioDispatcher) {
+        syncYear(openingYear)
+    }
+
+    /**
+     * Fetches one school year and writes it over whatever that year held.
+     *
+     * The window is the year exactly — `SchoolYear.boundsOf(openingYear)` — and
+     * nothing anchors it to today any more. The Monday anchor that used to be
+     * here existed for one reason: `replaceAll` wiped the whole class, so a
+     * sync mid-week destroyed the days already past unless the request reached
+     * back to cover them. Replacing a window instead of a class takes that away
+     * with it, and takes the summer bug with it too — the anchor applied in
+     * July reached back far enough to ask for some 320 days, past what the
+     * server accepts, and the window came back silently clipped in April.
+     *
+     * Resolving a year costs the server the same handful of queries as
+     * resolving a month: the weekly template is loaded once and the rest is
+     * arithmetic. What it costs is payload, once per year visited — which is
+     * what the `ETag` is for.
+     */
+    private suspend fun syncYear(openingYear: Int): SyncResult {
+        return try {
+            val bounds = SchoolYear.boundsOf(openingYear)
+            val start = bounds.start
+            val span = SchoolYear.daysOf(openingYear).coerceIn(MIN_DAYS, MAX_DAYS)
+            val classId = activeClassId.first()
+            // The tag belongs to one class and one year, and those two numbers
+            // are the whole signature now. It used to carry the start date and
+            // the span as well, because the window could be any length; a year
+            // names itself, and a signature that cannot disagree with the
+            // request is one fewer thing to keep in step.
+            val signature = "${classId ?: 0L}|$openingYear"
             var response = api.bundle(
                 start = start.toString(),
-                days = window,
+                days = span,
                 ifNoneMatch = bundleTags.tagFor(signature),
             )
-            if (response.code() == HTTP_NOT_MODIFIED && !hasCachedWindow()) {
+            if (
+                response.code() == HTTP_NOT_MODIFIED &&
+                !(classId != null && holdsWindow(classId, openingYear))
+            ) {
                 // «Nothing changed» is only an answer when there is something
                 // for it to be about. The tag lives in the preferences and
                 // outlives every wipe of the cache — `clearSession`,
                 // `removeSession`, `clearMemberships` and a destructive Room
-                // migration all leave it standing — and the signature is
-                // `classId|start|window`, none of which moves across a leave
-                // and a re-join of the same class. So the phone could send a
-                // tag the server still matched while holding nothing at all,
-                // and go on reporting a successful sync over «Расписание ещё
-                // не загружено» for ever: the home screen, the widget and the
-                // notifications all read the same empty cache, and every pull
-                // to refresh repeated the 304.
-                response = api.bundle(start = start.toString(), days = window, ifNoneMatch = null)
+                // migration all leave it standing — and none of `classId` or
+                // `openingYear` moves across a leave and a re-join of the same
+                // class. So the phone could send a tag the server still matched
+                // while holding nothing at all, and go on reporting a
+                // successful sync over «Расписание ещё не загружено» for ever.
+                response = api.bundle(start = start.toString(), days = span, ifNoneMatch = null)
             }
             // Retrofit throws `HttpException` for a *body-typed* suspend
             // method and hands a `Response<T>`-typed one the error response
@@ -233,7 +254,7 @@ internal class TimetableRepositoryImpl(
             // the screen said «Server returned HTTP 401» in English.
             if (response.code() == HTTP_UNAUTHORISED) {
                 runCatching { onTokenRejected() }
-                return@withContext SyncResult.Unauthorised
+                return SyncResult.Unauthorised
             }
             if (response.code() == HTTP_NOT_MODIFIED) {
                 // Nothing to write: the window is byte-for-byte what is already
@@ -242,7 +263,7 @@ internal class TimetableRepositoryImpl(
                 // growing on a phone that is syncing perfectly. The widget is
                 // deliberately not poked: nothing it draws has changed, and a
                 // redraw per poll is the cost this whole request was avoiding.
-                activeClassId.first()?.let { dao.touchSyncedAt(it, clock.millis()) }
+                classId?.let { dao.touchSyncedAt(it, clock.millis()) }
                 // The alarm chain is told anyway, and that is not a
                 // contradiction of the line above. The widget draws the data,
                 // so unchanged data means nothing to redraw; the chain is a
@@ -252,10 +273,10 @@ internal class TimetableRepositoryImpl(
                 // the server changes and therefore every poll is this branch.
                 // Left silent, this is the path that watches the chain die.
                 onNothingChanged()
-                return@withContext SyncResult.Success
+                return SyncResult.Success
             }
             val body = response.body()
-                ?: return@withContext SyncResult.Failed("Server returned HTTP ${response.code()}")
+                ?: return SyncResult.Failed("Server returned HTTP ${response.code()}")
             val timetable = body.toDomain(fallbackSyncedAtEpochMillis = clock.millis())
             // The class the *server* resolved the token to, not the one this
             // device thinks is active. They are the same except in the seconds
@@ -263,13 +284,24 @@ internal class TimetableRepositoryImpl(
             // class's window under the other's id — which is the one mistake
             // this cache cannot survive, because both windows look plausible.
             val syncedClassId = timetable.schoolClass.id
-            dao.replaceAll(
+            val now = clock.millis()
+            dao.replaceWindow(
                 schoolClass = timetable.schoolClass.toEntity(timetable.syncedAtEpochMillis),
-                days = timetable.days.map { it.toRecord(syncedClassId, isNextSchoolDay = false) },
-                nextSchoolDay = timetable.nextSchoolDay?.toRecord(
-                    syncedClassId,
-                    isNextSchoolDay = true,
+                window = SyncedWindowEntity(
+                    classId = syncedClassId,
+                    openingYear = openingYear,
+                    startsOn = bounds.start,
+                    endsOn = bounds.endInclusive,
+                    syncedAtEpochMillis = now,
                 ),
+                days = timetable.days.map { it.toRecord(syncedClassId, isNextSchoolDay = false) },
+                // Only the year that holds today. The lookahead row answers
+                // «what is the next school day» from *now*, and a fetch of 2031
+                // rewriting it would point the widget and the notifications at
+                // a Monday five years out.
+                nextSchoolDay = timetable.nextSchoolDay
+                    ?.takeIf { openingYear == SchoolYear.openingYearOf(todayAtSchool()) }
+                    ?.toRecord(syncedClassId, isNextSchoolDay = true),
             )
             // After the write, not before: a tag remembered for a window that
             // failed to land would make the next sync ask «changed since?» about
@@ -277,6 +309,10 @@ internal class TimetableRepositoryImpl(
             response.headers()["ETag"]?.takeIf { it.isNotBlank() }?.let { etag ->
                 bundleTags.remember(signature, etag)
             }
+            // Guarded: the sync succeeded, and a failure to tidy up afterwards
+            // is not a failure to sync. The worst an unpruned cache costs is
+            // rows nobody reads until the next successful prune.
+            runCatching { prune(syncedClassId) }
             onDataChanged()
             SyncResult.Success
         } catch (cancellation: CancellationException) {
@@ -304,9 +340,57 @@ internal class TimetableRepositoryImpl(
             SyncResult.Failed(io.message ?: "Network unavailable")
         } catch (unexpected: Exception) {
             // Malformed payloads and database constraint violations end up here.
-            // The cache is untouched, because replaceAll is one transaction.
+            // The cache is untouched, because replaceWindow is one transaction.
             SyncResult.Failed(unexpected.message ?: unexpected::class.java.simpleName)
         }
+    }
+
+    /**
+     * Keeps the cache to [MAX_YEARS] school years for this class.
+     *
+     * A cap rather than nothing, because the years a reader scrolls past are
+     * unbounded and each one is some 274 days of lessons, events and homework
+     * that every observer of this class re-reads on every write. Three is the
+     * number because the question a calendar is actually asked reaches one year
+     * either side of the one it is in; a fourth is somebody who scrolled a long
+     * way once.
+     *
+     * **The year that holds today is never dropped**, whatever else is here: it
+     * is what the home screen, the widget and every notification read, and
+     * evicting it to make room for 2031 would empty the app to fill a screen
+     * nobody is looking at any more.
+     *
+     * What goes is the year *furthest* from it, rather than the one fetched
+     * longest ago. Fetch time was the first rule written here and it was wrong
+     * twice over. It is not «least recently used» at all — a year visited again
+     * and unchanged answers `304`, which touches the class row and not the
+     * window's — and it ties: four years fetched inside one millisecond, which
+     * is what a fast device does, left the order to whatever the query
+     * happened to return, and the query returns the newest year first, so the
+     * one just asked for was the one thrown away. Distance is clock-independent
+     * and is also the better rule: a reader scrolls away from today and back.
+     *
+     * A tie in distance — 2025 and 2027 seen from 2026 — keeps the later year,
+     * because a school calendar is asked forward far more than back. The past
+     * is a record; the future is a plan.
+     *
+     * The tag goes with the rows. One kept for a dropped year is a `304` over
+     * data this phone no longer holds.
+     */
+    private suspend fun prune(classId: Long) {
+        val current = SchoolYear.openingYearOf(todayAtSchool())
+        val held = dao.windows(classId)
+        if (held.size <= MAX_YEARS) return
+        held.filter { it.openingYear != current }
+            .sortedWith(
+                compareByDescending<SyncedWindowEntity> { abs(it.openingYear - current) }
+                    .thenBy { it.openingYear },
+            )
+            .take(held.size - MAX_YEARS)
+            .forEach { window ->
+                dao.dropWindow(classId, window)
+                bundleTags.forget("$classId|${window.openingYear}")
+            }
     }
 
     override suspend fun forgetClassesOtherThan(keep: Set<Long>) {
@@ -340,6 +424,11 @@ internal class TimetableRepositoryImpl(
     }
 
     private companion object {
+        /**
+         * How many school years one class keeps. See [prune].
+         */
+        const val MAX_YEARS = 3
+
         const val MIN_DAYS = 1
 
         /** The server rejects anything larger (`MAX_BUNDLE_DAYS`). */

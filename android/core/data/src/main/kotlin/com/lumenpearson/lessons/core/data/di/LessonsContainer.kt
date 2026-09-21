@@ -193,6 +193,13 @@ class DefaultLessonsContainer(
                     // sync its shortcut, not the sync that just succeeded.
                     runCatching { preferences.writeBundleTag(signature, etag) }
                 }
+
+                override suspend fun forget(signature: String) {
+                    // Guarded for the same reason, and the cost is smaller
+                    // still: a tag left behind for an evicted year is one
+                    // request that answers 304 and then asks again.
+                    runCatching { preferences.forgetBundleTag(signature) }
+                }
             },
         )
     }

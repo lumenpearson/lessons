@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.database.HomeworkEntity
 import com.lumenpearson.lessons.core.data.database.InMemoryTimetableDao
+import com.lumenpearson.lessons.core.data.database.replaceYear
 import com.lumenpearson.lessons.core.data.database.LessonEntity
 import com.lumenpearson.lessons.core.data.database.SchoolClassEntity
 import com.lumenpearson.lessons.core.data.database.SchoolDayEntity
@@ -167,7 +168,7 @@ class CachedWindowTest {
         val struckOut = bound.endInclusive.plusDays(1)
         val real = bound.endInclusive.plusDays(2)
         val dao = InMemoryTimetableDao()
-        dao.replaceAll(
+        dao.replaceYear(
             classRow(),
             listOf(
                 schoolDay(struckOut, cancelled = true),
@@ -199,7 +200,7 @@ class CachedWindowTest {
         val lastDay = LocalDate.of(2027, 5, 28)
         val september = LocalDate.of(2027, 9, 1)
         val dao = InMemoryTimetableDao()
-        dao.replaceAll(classRow(), listOf(schoolDay(lastDay)), schoolDay(september))
+        dao.replaceYear(classRow(), listOf(schoolDay(lastDay)), schoolDay(september))
         val repository = repository(dao, today)
 
         val bounded = repository.snapshotAroundToday()!!
@@ -311,7 +312,7 @@ class CachedWindowTest {
             .filterNot { it in holidayFrom..holidayTo }
             .map { schoolDay(it) }
             .toList()
-        dao.replaceAll(classRow(), days, null)
+        dao.replaceYear(classRow(), days, null)
         return dao
     }
 
