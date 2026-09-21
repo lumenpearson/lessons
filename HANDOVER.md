@@ -4,13 +4,13 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **21 September 2026**. **PRs #63 through #77 are merged**; `main` is at
-`ddfd305`. **The only thing open is PR #78**, which carries this batch and the paragraph you
+Last updated: **21 September 2026**. **PRs #63 through #78 are merged**; `main` is at
+`559b306`. **The only thing open is PR #79**, which carries this batch and the paragraph you
 are reading. Once it merges, `dev` is level with `main` again and the next batch starts from
 a clean one, and the SHA of that merge is for the next close-out to write.
-**The database is at head `0014`** and did not move in this batch: the windowed cache is
-entirely on the Android side, and `/api/v1/bundle` already took an arbitrary `start` and up
-to `MAX_BUNDLE_DAYS = 280`. `0014` was applied to Neon before #77 merged, as an additive
+**The database is at head `0014`** and has not moved for two batches: both were entirely on
+the Android side, and `/api/v1/bundle` already took an arbitrary `start` and up to
+`MAX_BUNDLE_DAYS = 280`. `0014` was applied to Neon before #77 merged, as an additive
 revision should be — it widened `day_overrides.kind` from `VARCHAR(9)` to `VARCHAR(10)`,
 because `DayKind` gained `SELF_STUDY` and a `SAEnum` column stores the member *name*.
 
@@ -24,10 +24,112 @@ that moved server code and the schema together, so `/api/v1/warmup` should now a
 `"schema":"0014"` — the cheapest single check of whether that migration and that code met,
 and nobody has made it.
 
-## What the last session added: a cache that holds more than one school year
+## What the last session added: the three defects the first real build had in it
 
-Open as PR #78, in the milestone `v0.7.0 — Оптимизация`. One item, and it is the one #77
-wrote down as a decision the owner had to make: **scrolling the calendar by years**. They
+Open as PR #79, in the milestone `v0.7.0 — Оптимизация`. Not a feature. #77 shipped a screen
+that crashed on opening, and this is the batch that reads the report and closes it — all
+three defects are mine, all in `DayRibbonView.kt`, all introduced in #77. **None of them
+would have fixed itself**: #78 changed the cache and the calendar and never touched that
+view, which is what the report assumed it would.
+
+### A key that was never interpolated
+
+`RibbonEntry.identity()` read `"lesson/${'$'}startsAt/${'$'}{lesson.index}"` — Kotlin's
+escape for a *literal* dollar — so every lesson row carried the same constant string, every
+event row another, every break row a third. `LazyColumn` throws the moment it measures the
+second row of a kind, which is every school day there has ever been. The line was written
+through a shell heredoc that escaped the dollars, and nothing ever read the result back.
+
+### The rows were unreadable because the fade was sized for a screen
+
+The ribbon is handed the height left under the header and the picker, and it put a fixed
+48 dp `progressiveBlur` fade at each end of it — on a phone held sideways, 96 dp of about
+150. Worse, `progressiveBlur` paints a 65 % wash of the surface colour under each fade and
+**the shell already does exactly that to the whole page**, so the ribbon stacked a second
+one inside the first. The fade is a share of *this* view now (`ribbonEdgeHeight`, 12 %,
+capped at 48 dp) and carries no tint of its own. «Ничего не было видно, из-за соотношения»
+is precisely the shape of that bug: the shorter the view, the more of it was curtain.
+
+### And the camera distance was multiplied by the density
+
+Which is the trap `SchoolBell.kt` already carries a paragraph about: the unit goes straight
+to `RenderNode` and is density-independent, so scaling it put the camera several times
+further away than the default and flattened the tilt by a different amount on every phone.
+A second use written without reading the first — the one thing `CLAUDE.md` asks for by name.
+
+### What the logs settled
+
+The owner installed the APK of #77 (`versionCode` 24, Room at v4) and sent back a full
+Android bugreport — **the first time any of this code has been looked at running on a phone
+rather than on a runner**. It is worth knowing what it did and did not contain.
+
+Six fatal exceptions are in it. Three are SwiftKey's; the other three are ours, and all
+three are the same `IllegalArgumentException: Key "lesson/$startsAt/${lesson.index}" was
+already used` — the platform quoting the defect back with the dollars still in it. Two on
+opening the day, and **the third is the rotation**: `WindowManager` logs
+`changed={CONFIG_ORIENTATION}, not-handles={}`, so `MainActivity` handled the change
+without being recreated, and what rotation did was re-measure at the new height — the same
+duplicate key, at the same place. That closes the question #79's body left open: rotation
+is not a fourth defect, it is the third occurrence of the first one.
+
+Nothing else of ours is in it. No ANR, no exception out of `:core:data`, no SQLite or network
+error, and no crash dialog of our own — «снова предлагало сбросить кэш» is the platform's
+prompt after a crash, not a screen this app has. The `SQLiteOpenHelper: DB version upgrading
+from 3 to 4` line is the cache being dropped and refilled, which is what
+`fallbackToDestructiveMigration(dropAllTables = true)` is there for.
+
+**One thing in it is unexplained and is written down rather than guessed at.** Eighteen
+times over seven minutes the app logged `AdrenoVK-0: Shader compilation failed for
+shaderType: 4` followed by `Pipeline create failed`, on the render thread, spread across
+screens rather than clustered on the ribbon — and **no other app on that device logs it**.
+At Android's `I` level, with no shader source and no reason attached, and with nothing the
+owner reported that maps to it, there is no fix to write from here; it is a real signal and
+it is unclosed. Whoever looks next should start by asking whether the AGSL sheen is the
+source at all, since a failure in `RuntimeShader` would normally throw in-process instead.
+
+### The test that was missing, and the two screens nobody had drawn
+
+`DayRibbonLayoutTest` composes the ribbon for real, inside the `Column` with a `weight(1f)`
+that `RibbonPage` puts it in, at a portrait height, at a landscape one, and at one shorter
+than the fades themselves — and asserts the rows are **displayed**, not merely that nothing
+threw. It fails on the first run against the shipped code, which is the only reason to
+believe it.
+
+That distinction is the lesson of this batch. The day ribbon shipped with three test suites,
+all passing, and **not one of them ever drew it**: `DayRibbonTest` covers its arithmetic,
+`RibbonFocusTest` where the focus button lands, `RibbonDepthLevelTest` which devices get the
+shader. A screen that is built and shows nothing passes every test that only asks whether it
+was built. So the other two screens of that batch are drawn here too, before somebody else
+has to find them — the **year picker** and the ribbon's **settings sheet**. Both turn out to
+be fine, which is worth writing down rather than assuming.
+
+**Deliberately left alone.** The 12 % share is a judgement and not a measurement: it keeps
+both fades under a quarter of the view at every height, which is the rule that was missing,
+but nobody has looked at whether 48 dp is still the right maximum on a tall screen.
+
+**Verified, and not.** `./gradlew test` **863 tests**, both assembles; two of the three
+fixes proved red first — restoring the constant key fails `DayRibbonLayoutTest`, restoring
+the fixed 48 dp fade fails two of `RibbonEdgeHeightTest`. **The camera distance has no
+test**, and that is not an oversight to close later: what it changes is how deep the tilt
+looks, `cameraDistance` is written straight onto a `RenderNode`, and nothing on this side
+can read it back. It is held by the comment in both places that set it, which is a weaker
+guard than a test and is the honest description of it. The server half was not touched and its gates were
+last green at #77: `ruff` clean, `pytest -q -n auto` 1610, `python -m mypy` clean across 84
+modules. **What the fixes look like is still unseen** — the log proves the crash was what
+this batch says it was, and proves nothing about the tilt, the blur or the shader. The next
+APK is also the first to carry a Room schema of 5, so its first run on that phone drops the
+cache and re-syncs a year.
+
+One note for whoever writes the next Robolectric test against a screen in a `weight(1f)`:
+compose it **inside the box the real page gives it**, not at `fillMaxSize()`. Every defect
+in this batch is a measurement, and a test that hands the view the whole window reproduces
+none of them.
+
+## What the batch before added: a cache that holds more than one school year
+
+Merged as PR #78 (`559b306`), in the milestone `v0.7.0 — Оптимизация`. One item, and it is
+the one #77 wrote down as a decision the owner had to make: **scrolling the calendar by
+years**. They
 chose the honest option — a sync windowed on demand — over binding a picker to the year
 already synced, which would have scrolled to a year with no days in it.
 
@@ -1047,7 +1149,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
-| 8 | `v0.7.0 — Оптимизация` | #75, #76, #77 — the one Russian title |
+| 8 | `v0.7.0 — Оптимизация` | #75–#79 — the one Russian title |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -1474,7 +1576,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 1610 tests, ~2 min (CI runs this)
 cd server  && python -m mypy                             # clean, 84 modules
-cd android && ./gradlew test                             # 849 tests
+cd android && ./gradlew test                             # 863 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
@@ -1801,6 +1903,14 @@ our address — precisely what spending the ticket in advance is for. The hand-b
 to "the diary did not answer at all"; the message stopped blaming the password in both cases,
 and that was the defect.
 
+**The three the first real build found** (#79) are closed too, and are worth knowing about
+because none of them is the kind an audit finds by reading: a `LazyColumn` key that was
+never interpolated, a fixed-height fade inside a view whose height is whatever is left, and
+`cameraDistance` multiplied by the density. All three are measurements. All three passed
+every test that asked whether the screen was *built*, and all three fail the one that asks
+whether its rows are **displayed**. If an agent proposes any of them again, check
+`DayRibbonView.kt` first.
+
 ---
 
 ## 5. What nobody has verified
@@ -1821,6 +1931,17 @@ else.**
   wobble, and whether the AGSL band reads as light rather than as a smear. **What it costs
   is unmeasured too** — one shader layer and a per-frame clock on a mid-range phone is a
   frame budget nobody has looked at.
+  **One qualification, earned in #79:** the ribbon *has* now been run on a real phone, and
+  it crashed on opening. What that proves is that the three defects #79 fixes were the ones
+  reported, and the bugreport says so in the platform's own words. It proves nothing about
+  how any of it looks, because nobody got far enough to see it.
+- **Eighteen `AdrenoVK-0: Shader compilation failed` lines in that bugreport are
+  unexplained**, and no other app on that device logs them. They are `I`-level, carry no
+  shader source and no reason, and are spread across screens rather than clustered on the
+  ribbon, so nothing in the report ties them to a defect anybody saw. The honest status is
+  «замечено, не объяснено»: it is a real signal, it is nobody's confirmed bug yet, and the
+  first question is whether the AGSL sheen is even the source, since a `RuntimeShader` that
+  would not compile normally throws in-process instead of logging from the render thread.
 - **The reported term defect is fixed against tests, not against the class that reported
   it.** The server fix needs no new APK, so the first real check is that class's next sync
   after the deploy, and `/api/v1/warmup` answering `"schema":"0014"` is the cheapest sign
@@ -2526,6 +2647,15 @@ has a Cyrillic identifier: Kotlin has none at all.
 ## 7. Left to the owner
 
 All of this is beyond an agent's reach: it needs a phone, a key or a live service.
+
+**One of these stopped being theoretical in #79, and it is the most useful thing that has
+happened to this project.** The owner installed an APK, used it, and sent back both the
+symptom and the full Android bugreport. That found three defects in a screen with three
+passing test suites over it, and settled in one line a question the branch could only
+speculate about — whether the crash on rotation was a fourth defect. It was not.
+**Every batch that changes a screen is worth an APK and five minutes of the owner's
+thumb**, and the bugreport is worth more than the description, because the description
+cannot contain `not-handles={}`.
 
 **The calendar year-scroll was a decision and it has been made.** The owner chose (b), the
 windowed sync, on 21 September 2026, over (a), a picker bound to the year already synced —
