@@ -379,7 +379,7 @@ alternative is every family's password in the database.
 
 ## Testing
 
-1630 tests on the server, 964 on Android; `pytest -q -n auto` and `./gradlew test`, both
+1630 tests on the server, 968 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 286,
 `:core:designsystem` 95, `:widget` 90, `:app` 368.
 

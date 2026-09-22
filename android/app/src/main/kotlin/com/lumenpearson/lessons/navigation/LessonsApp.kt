@@ -287,21 +287,16 @@ private fun HomeShell(
     // whenever they are not. One state rather than two, because «in the mode»
     // and «the list the mode started from» are never separately true.
     //
-    // It is latched because the bar reports a permutation of the items it was
-    // *handed* and goes on drawing from those same items until the mode closes.
-    // Feeding the committed order back in mid-gesture would therefore apply the
-    // reader's drag a second time, and the bar would appear to undo it — and a
-    // second drag in the same session would report a permutation of a list
-    // neither side still had.
+    // It is latched so that both drags of one session describe permutations of
+    // the same list: the bar reports a permutation of the items it was *handed*,
+    // and a list that changed under it between two drags would leave the second
+    // one describing something neither side still had.
     //
-    // What that leaves is one frame: the tap that closes the mode swaps the
-    // bar's list and the bar's own permutation back in two steps rather than
-    // one, so the previous order can be drawn once on the way. Holding the
-    // latch a frame longer would close it, and would rest on the order two
-    // `LaunchedEffect`s in two modules happen to run in — which is the kind of
-    // dependency that has gone quietly wrong here under a version bump before
-    // (see `OverlayLayerTest`). A flicker that can be named beats one that
-    // cannot.
+    // It is not latched to keep the bar from applying a drag twice. The bar
+    // holds its permutation against the list it belongs to and drops it when
+    // that list changes, so a caller that hands the committed order straight
+    // back is drawn correctly — which is also what makes the frame this mode
+    // closes on correct, rather than one frame of the previous order.
     var arranging by remember { mutableStateOf<List<HomeTab>?>(null) }
     val reordering = arranging != null
     val barTabs = arranging ?: tabs

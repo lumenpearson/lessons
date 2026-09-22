@@ -5,14 +5,9 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.Snapshot
-import androidx.compose.ui.test.down
-import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.up
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -34,11 +29,11 @@ import org.robolectric.RobolectricTestRunner
  * can be checked without a screen, which is that it starts no animation at all
  * when the mode is closed.
  *
- * The drag itself is deliberately not driven from here. Robolectric lays text
- * out at roughly a pixel a glyph and reports its own densities, so a synthetic
- * swipe of «half a slot» would be measuring this environment rather than the
- * gesture; `ToolbarReorderTest` asks the arithmetic directly instead, in
- * pixels, with no composition at all.
+ * The drag itself is not driven from here. A swipe of «half a slot» would be
+ * measuring Robolectric's densities rather than the gesture, so the two halves
+ * of it are asked elsewhere: `ToolbarReorderTest` puts the arithmetic in pixels
+ * with no composition at all, and `ToolbarDragTest` drags clean off the end of
+ * the bar, where the answer is the same under any density.
  */
 @RunWith(RobolectricTestRunner::class)
 class ToolbarReorderModeTest {
@@ -172,39 +167,3 @@ class ToolbarReorderModeTest {
         compose.settle()
     }
 }
-
-/**
- * Frames by hand, because the clock is held.
- *
- * `sendApplyNotifications` first: a value written from the test thread lands in
- * the global snapshot and nothing wakes the recomposer on its own, so advancing
- * frames alone reads the value that was there before the gesture. See
- * `CLAUDE.md`, which records what that cost to find.
- */
-private fun ComposeContentTestRule.settle(frames: Int = 6) {
-    Snapshot.sendApplyNotifications()
-    repeat(frames) { mainClock.advanceTimeByFrame() }
-}
-
-/**
- * A press held long enough to be a long press, with the clock stopped.
- *
- * Not `performTouchInput { longClick() }`, which is what this was first: that
- * helper puts the wait inside the *gesture's* timeline, and the timeout it has
- * to outlast is a `withTimeout` running on the composition's clock — which is
- * held here, so the press was released before the coroutine had aged a
- * millisecond and the long press simply never happened. The two clocks have to
- * be advanced separately, and this is the down, the wait and the up spelled out
- * so that the wait lands on the right one.
- */
-private fun ComposeContentTestRule.longPress(label: String) {
-    onNodeWithContentDescription(label).performTouchInput { down(center) }
-    settle()
-    mainClock.advanceTimeBy(LongPressMillis)
-    settle()
-    onNodeWithContentDescription(label).performTouchInput { up() }
-    settle()
-}
-
-/** Comfortably past any platform's long-press timeout, which is 400–500 ms. */
-private const val LongPressMillis = 1_000L

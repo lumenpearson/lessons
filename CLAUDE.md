@@ -394,6 +394,22 @@ points Hilt does not inject cleanly.
   `Timetable.nowAtSchool()`. `LocalDateTime.now()` and `ZoneId.systemDefault()` on the
   Android side are almost always a bug — that pair was two of the fourteen defects the audit
   confirmed.
+- **`Modifier.pointerInput(Unit)` keeps the lambdas it started with, for ever.** The
+  element compares equal on its keys alone, so a recomposition never even hands the node the
+  newer block, and the coroutine reading the finger goes on calling whatever it closed over
+  on the composition that created it. A state read through a delegate survives that; a plain
+  `val` computed in the caller's composition does not. The toolbar's reorder drag computed
+  its landing slot as such a `val`, so every drop asked where the tab had been *before* the
+  finger moved — `moveItem` refused the out-of-range index and the order came back unchanged.
+  It looked right the whole way, because the icons slide from a value recomputed every frame;
+  only the drop was stale, and the drop is the part that is remembered. Wrap every callback a
+  gesture detector will call in `rememberUpdatedState` — `text/Corrections.kt` already did,
+  which is what makes it a rule rather than a discovery. Do **not** key the `pointerInput` on
+  something that changes instead: that cancels the gesture under the finger. And a test that
+  only asks which callback fires, or only asks the arithmetic, will not see it — the question
+  is whether the number the gesture computes is the number it reports, and the way to ask it
+  without measuring Robolectric's densities is a drag so long it parks at the end under any
+  of them (`ToolbarDragTest`).
 - **A Compose test that holds the clock must also send the snapshot notification.**
   `MarqueeText` runs `Int.MAX_VALUE` iterations, so Compose's clock is never idle and
   `waitForIdle` — which every assertion calls into — **hangs rather than fails**. The

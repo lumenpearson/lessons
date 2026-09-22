@@ -4,17 +4,15 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **22 September 2026**. **PRs #63 through #83 are merged**; `main` is at
-`3a4a924`, the merge of #83. **The only thing open is PR #84** — the home screen's tabs,
-arranged by whoever is using them, in the milestone `v0.7.0 — Оптимизация` — and it carries
-the paragraph you are reading. Its head is `14f5374`, two commits, and **CI is green on that
-exact head**: the Android job succeeded and the server job is correctly `skipped`, this batch
-being entirely Android. Once it merges, `dev` is level with `main` again and the next batch
-starts from a clean one, and the SHA of that merge is for the next close-out to write.
-**The database is at head `0014`** and has not moved for four batches. **No server code
-changed at all in this batch** — not a model, not an endpoint, not a test — so `ruff`,
-`pytest` and `mypy` stand exactly where #83 left them (clean, **1630 passed**, clean across
-84 modules) and there was no migration to write, let alone to apply. That is a fact about
+Last updated: **22 September 2026**. **PRs #63 through #84 are merged**; `main` is at
+`1b32623`, the merge of #84. **The only thing open is PR #85** — the arranging gesture,
+which reported nothing, in the milestone `v0.7.0 — Оптимизация` — and it carries the
+paragraph you are reading. Once it merges, `dev` is level with `main` again and the next
+batch starts from a clean one, and the SHA of that merge is for the next close-out to write.
+**The database is at head `0014`** and has not moved for five batches. **No server code
+changed at all in this batch or the one before** — not a model, not an endpoint, not a test —
+so `ruff`, `pytest` and `mypy` stand exactly where #83 left them (clean, **1630 passed**,
+clean across 84 modules) and there was no migration to write, let alone to apply. That is a fact about
 the batch rather than a thing left undone. `EXPECTED_REVISION` in `app/db.py` is `0014`,
 pinned to the real head by `tests/test_schema_version.py`. `0014` was applied to Neon
 before #77 merged, as an additive revision should be — it widened `day_overrides.kind`
@@ -35,10 +33,89 @@ the owner's browser or with a bypass token: #77 moved server code and the schema
 so the answer should now be `"schema":"0014"`, and that single line is the cheapest check
 that the migration and the code actually met. It is outstanding since #61.
 
-## What the last session added: the home screen's tabs, arranged by the person using them
+## What the last session added: the gesture #84 shipped did nothing
 
-Open as PR #84, in the milestone `v0.7.0 — Оптимизация`, two commits — `bf80a9d` the two
-halves, `14f5374` the shell wiring — and it carries the close-out you are reading. Asked for
+Open as PR #85, in the milestone `v0.7.0 — Оптимизация`. It is one defect, and it is the
+defect that the feature merged an hour earlier did not work: **a tab dragged to another slot
+went back where it came from and the order was never stored.** On the screen it looked
+right the whole way — the icons slid, the row opened a gap, the neighbours moved — because
+all of that is recomputed every frame. Only the drop was wrong, and the drop is the part
+that is remembered.
+
+### Why it survived #84's tests
+
+`Modifier.pointerInput` keyed on `Unit` starts its coroutine once and never restarts it, and
+its element compares equal on the key alone — so the node is never even handed a newer
+lambda. Whatever `detectHorizontalDragGestures` closed over on the composition that opened
+the mode is what it still calls minutes later. `held` and `dragPx` survived that, being
+state reads through a delegate; **the landing slot did not**, being a plain `val` computed
+in the caller's composition. Every drop therefore asked where the tab had been *before* the
+finger moved, which is no slot at all: `moveItem` refused the out-of-range index, the order
+came back unchanged, and the preferences were written with the order they already held.
+
+Nothing in #84 could see it. `ToolbarReorderTest` asks the arithmetic in pixels with no
+composition, and it was right; `ToolbarReorderModeTest` asks which callback a press raises,
+and those were right too. **Between the two sat the one question neither asked — whether
+the number the gesture computes is the number the gesture reports.** #84 wrote down that the
+drag was driven from no test, and gave a good reason (a synthetic swipe of «half a slot»
+measures Robolectric's densities rather than the gesture). The reason was sound and the
+conclusion was not: a drag of ten thousand pixels lands on the last slot under *any*
+density, because `dropIndex` parks a finger that has left the bar at the end. That is what
+`ToolbarDragTest` does. Two of its first three went red on the shipped code straight away;
+the third passed, and passed for the wrong reason — see the trap below — which is worth more
+than the two that failed, because a test that is right by accident is how a defect survives
+a batch in the first place.
+
+The fix is `rememberUpdatedState` on the four gesture callbacks — the same pattern
+`Corrections.kt` in this module already uses for exactly this reason, which is the part that
+stings. Restarting the coroutine instead, by keying `pointerInput` on something that
+changes, would cancel the gesture under the finger every time the drag moved a pixel.
+
+### And the frame #84 left deliberately is closed
+
+That close-out recorded a one-frame flicker at the end of the gesture and said the proper
+fix — the component dropping its permutation by the identity of what it is handed rather
+than by the mode closing — risked silently double-applying a drag. It does the opposite:
+`working` is now keyed on the order of the labels it permutes, so a list swapped under a
+live permutation replaces both in one step instead of two. A caller that hands the committed
+order straight back is now drawn correctly, which is the case that would have double-applied
+before, and the shell's latch is no longer load-bearing for that — it stays because it keeps
+two drags of one session describing permutations of the same list.
+
+The test for it hands the bar its own reported order mid-mode. On the code without the fix it
+drew «Задания, Сегодня, Календарь» for a drag that asked for «Календарь, Задания, Сегодня» —
+the permutation applied twice, which is what the comment in #84 predicted and priced as too
+risky to close.
+
+One trap in the test itself is worth carrying: `translationX` here is a `graphicsLayer`, and
+`positionInRoot` — which every bounds assertion goes through — counts that layer in. Read six
+frames after the finger lifts, a tab that had not moved at all sorts into the place the drag
+had merely carried it, and the assertion passes against the very defect it was written for.
+The springs are given 120 frames now.
+
+### Gates, measured on this branch
+
+`./gradlew test` **968** (was 964) and both assembles. The four new tests are
+`ToolbarDragTest`, which is the whole of the new coverage: what a drag reports, where the row
+is drawn afterwards, what a second drag reports, and what happens when the list is swapped
+under a live permutation. The server half was not touched: `ruff` clean, `pytest -q -n auto`
+**1630**, `python -m mypy` clean across 84 modules, database at `0014`.
+
+### What nobody has verified in this batch
+
+**Still nothing on a phone.** The drag now reports the right slot in a JVM test with
+Robolectric's densities and the clock held by hand; whether half a slot is the right
+threshold under a real thumb, and whether the wobble is plausible, are the same two
+questions #84 left open and neither has been asked of a device. The APK for #84 was built
+against the code that did not work, so it is worth nobody's time — the first useful install
+is the one built after this merges.
+
+## What the batch before added: the home screen's tabs, arranged by the person using them
+
+Merged as PR #84 (`1b32623`), in the milestone `v0.7.0 — Оптимизация`, three commits —
+`bf80a9d` the two halves, `14f5374` the shell wiring, `05e0c47` the close-out. **Read the
+batch above before trusting anything here**: the drag it describes did not report what it
+computed, and the section that follows was written believing it did. Asked for
 in one sentence: «сделай так, чтобы при зажатии кнопки вкладки на главной, можно было
 переставить, включался режим перестановки и кнопки потрясывало как иконки на ios».
 Long-press a tab on the home screen; it and its neighbours wobble; any of them can be dragged
@@ -60,10 +137,11 @@ The shell's four back handlers became one rule in one function (`navigation/Shel
 which is what makes «a back press leaves the arranging mode» a thing a test can ask at all;
 without it the press would have been taken by the predictive gesture and left the app.
 
-The bar is handed a **latched** copy of the order for the life of the mode, and that is
-load-bearing rather than incidental: the component keeps its own permutation and reports
-indices into the list it was handed, so feeding the committed order back mid-gesture would
-apply the drag a second time and visibly undo it.
+The bar is handed a **latched** copy of the order for the life of the mode. It was thought
+load-bearing — that feeding the committed order back mid-gesture would apply the drag a
+second time — and #85 made that false: the component now drops its permutation when the list
+it permutes changes. The latch stays for the other reason, which is that both drags of one
+session then describe permutations of the same list.
 
 ### Two deliberate departures from iOS, each a decision rather than a shortfall
 
@@ -118,7 +196,9 @@ right.
 
 ### Gates, measured on this branch
 
-`./gradlew test` **964** (was 929) and both assembles. The thirty-five new tests are 10 on
+`./gradlew test` **964** (was 929) and both assembles — and see #85, which found that four
+of those tests covered every part of the gesture except the one that was broken. The
+thirty-five new tests are 10 on
 the drag arithmetic, 5 on the reorder mode's contract, 8 on the stored order's repair, 11 on
 the shell's index arithmetic and its back rule, and one pinning the default order — the bar
 somebody who has never opened the setting sees, which is also what every screen gets while
@@ -126,9 +206,8 @@ the preferences file is still being read. The server half was not touched at all
 its gates stand at #83: `ruff` clean, `pytest -q -n auto` **1630**, `python -m mypy` clean
 across 84 modules. The database stays at `0014`.
 
-**The count is corrected in this file's cheat-sheet and in neither of the other two places
-it lives** — the README's «Honest status» table and `docs/architecture.md` both still say
-929. That is the remaining half of a chore rather than a decision.
+The count is corrected in all three places it lives — this file's cheat-sheet, the README's
+«Honest status» table and `docs/architecture.md`.
 
 ### What nobody has verified in this batch
 
@@ -138,13 +217,15 @@ deliberate are all unmeasured — and none of the three is a question a JVM test
 **The drag is driven from no test at all**: Robolectric reports its own densities, so a
 synthetic swipe of «half a slot» would measure the environment rather than the gesture, which
 is exactly why `ToolbarReorderTest` asks the arithmetic directly, in pixels, with no
-composition in it.
+composition in it. — That paragraph is the one #85 came out of. The reason is still true and
+the conclusion was wrong: a drag does not have to be «half a slot» to be worth driving, and
+the one that goes clean off the end of the bar answers the same under any density.
 
-**One frame at the end of the gesture can draw the pre-drag order.** Closing the mode swaps
-the shell's latched list and the component's own permutation back in two steps rather than
-one. It is left deliberately: fixing it properly means the component resetting off the
-identity of what it is handed rather than off the mode closing, and getting *that* wrong
-silently double-applies a drag, which is a worse defect than a frame.
+~~**One frame at the end of the gesture can draw the pre-drag order.**~~ Closed by #85, and
+by exactly the fix this paragraph priced as too risky: the component now keys its permutation
+to the order it permutes, which replaces both in one step. The risk named here — silently
+double-applying a drag — is the thing the key *prevents*, and there is a test that showed the
+old code doing it.
 
 There is a second window of a frame or two, and it is inherent rather than a defect: the new
 order goes out through the preferences and comes back later, so between the drag ending and
@@ -152,7 +233,7 @@ the preferences answering the pager's index still names the old order. A `Launch
 the arrived order closes it by putting the pager back — without an animation, which here
 would be a page visibly sliding to a place it never left.
 
-## What the batch before added: an audit of nine areas, and the twenty-four defects it found
+## And before that: an audit of nine areas, and the twenty-four defects it found
 
 Merged as PR #83 (`3a4a924`), in the milestone `v0.7.0 — Оптимизация`, eight commits.
 Eleven read-only passes first — the nine areas of `.claude/skills/audit/SKILL.md` plus
@@ -1734,7 +1815,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
-| 8 | `v0.7.0 — Оптимизация` | #75–#84 — the one Russian title |
+| 8 | `v0.7.0 — Оптимизация` | #75–#85 — the one Russian title |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -2161,7 +2242,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 1630 tests, ~4 min (CI runs this)
 cd server  && python -m mypy                             # clean, 84 modules
-cd android && ./gradlew test                             # 964 tests across the five modules
+cd android && ./gradlew test                             # 968 tests across the five modules
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
@@ -2529,24 +2610,26 @@ This is the main thing worth knowing: **all of this work is proved by tests and 
 else.**
 
 - **Nothing of the tab arranging has been seen on a phone, and it is a gesture.** #84 is a
-  long press, a wobble and a drag, and what the 35 tests prove is arithmetic and contracts:
-  where a drag of so many pixels lands, that a move is a permutation, that the stored order
-  repairs itself, that the shell's one back rule leaves the mode before it leaves the app.
-  What nobody has felt: whether the wobble is plausible, whether half a slot is the right
-  threshold under a real thumb, whether the two-step gesture — press, then pick up — reads as
-  deliberate rather than as a gesture that failed the first time, and whether the haptic
-  lands where the mode opens. **The drag is driven from no test at all**, on purpose:
-  Robolectric reports its own densities, so a synthetic swipe would measure the environment
-  rather than the gesture, which is why `ToolbarReorderTest` asks the arithmetic directly, in
-  pixels, with no composition in it.
-- **One frame at the end of that gesture can draw the pre-drag order**, and it is written
-  down rather than fixed. Closing the mode swaps the shell's latched list and the component's
-  own permutation back in two steps rather than one. The proper fix is the component
-  resetting off the identity of what it is handed rather than off the mode closing, and
-  getting that wrong silently double-applies a drag — a worse defect than a frame, so it was
-  left. There is a second window of a frame or two which is inherent rather than a defect:
-  between the drag ending and the preferences answering, the pager's index still names the
-  old order, and a `LaunchedEffect` on the arrived order is what closes it.
+  long press, a wobble and a drag; #85 is the drag actually reporting where it landed. What
+  the 39 tests prove is arithmetic and contracts: where a drag of so many pixels lands, that
+  the gesture reports the slot it computed, that a move is a permutation, that the stored
+  order repairs itself, that the shell's one back rule leaves the mode before it leaves the
+  app. What nobody has felt: whether the wobble is plausible, whether half a slot is the
+  right threshold under a real thumb, whether the two-step gesture — press, then pick up —
+  reads as deliberate rather than as a gesture that failed the first time, and whether the
+  haptic lands where the mode opens. **The APK built for #84 predates the fix and does not
+  rearrange anything**; the first install worth an evening is one built after #85 merges.
+- **The drag is driven from a test now, and how far it goes is the whole reason it can be.**
+  #84 left it undriven on the ground that Robolectric reports its own densities, so a
+  synthetic swipe of «half a slot» measures the environment. True, and it hid a defect for a
+  batch: a drag of ten thousand pixels parks at the end under any density, which is what
+  `ToolbarDragTest` does and what caught it. Anything *between* two slots is still not asked
+  of a composition, and `ToolbarReorderTest` asks it in pixels instead.
+- **There is a window of a frame or two after the drag, and it is inherent rather than a
+  defect:** between the drag ending and the preferences answering, the pager's index still
+  names the old order, and a `LaunchedEffect` on the arrived order is what closes it. The
+  other one — a frame of the pre-drag order at the moment the mode closes — was written down
+  here as deliberate and is closed by #85.
 - **Nothing of the year scrolling has been looked at either.** What the tests prove is
   which year is asked for and when, which one is dropped, and that a request made while
   another was in flight comes back. What nobody has seen: the year chip, the picker, how
@@ -3327,8 +3410,10 @@ has a Cyrillic identifier: Kotlin has none at all.
 
 All of this is beyond an agent's reach: it needs a phone, a key or a live service.
 
-**Install this one and long-press a tab on the home screen.** #84 is the whole of a gesture
-and nothing in a session here could see any of it: whether the wobble reads as «иконки на
+**Install one built after #85 and long-press a tab on the home screen.** The APK on #84's
+merge cannot rearrange anything — the drag reported the order unchanged — so it is the wrong
+build to judge the feature by. #84 and #85 together are the whole of a gesture and nothing in
+a session here could see any of it: whether the wobble reads as «иконки на
 iOS» or as a fault, whether a tab can actually be dragged where the finger means it to go,
 whether the haptic lands at the moment the mode opens, and — the one that matters most —
 whether the reader really does stay on the tab they were looking at rather than on the slot

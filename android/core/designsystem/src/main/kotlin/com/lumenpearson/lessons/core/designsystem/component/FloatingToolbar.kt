@@ -57,6 +57,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -383,7 +384,21 @@ private fun ToolbarItems(
     //
     // `held` is an index into the *working* order rather than into `items`,
     // because the row is redrawn from `working` the moment the finger moves.
-    var working by remember(items.size) { mutableStateOf(items.indices.toList()) }
+    //
+    // It is keyed on the order itself rather than on the number of items,
+    // because a permutation only means anything beside the list it permutes.
+    // Hand the bar a list in a different order and the indices it is holding
+    // describe nothing — applied anyway, they reorder an order, and what the
+    // reader sees is their drag jumping somewhere nobody asked for.
+    //
+    // The caller in `:app` latches the list for the length of the mode, so it
+    // never swaps one mid-gesture; what no caller can avoid is the frame the
+    // mode closes on. There the committed list and the reset of this
+    // permutation arrive one after the other — the list in the composition, the
+    // reset in a `LaunchedEffect` afterwards — and the frame between them drew
+    // the old order. Keying them together makes it one step, and leaves the
+    // rest of this function true of any caller rather than of that one.
+    var working by remember(items.map { it.label }) { mutableStateOf(items.indices.toList()) }
     var held by remember { mutableStateOf(-1) }
     var dragPx by remember { mutableFloatStateOf(0f) }
 
@@ -556,6 +571,30 @@ private fun ToolbarTab(
     val view = rememberHapticView()
     val visible = expanded || selected
 
+    // The gesture callbacks, read through a state rather than captured.
+    //
+    // This is not ceremony. `Modifier.pointerInput` keyed on `Unit` starts its
+    // coroutine once and never restarts it, and — because the element compares
+    // equal on the key alone — the node is never even handed the newer lambda.
+    // Whatever `detectHorizontalDragGestures` closed over on the composition
+    // that opened the mode is what it still calls minutes later. `held` and
+    // `dragPx` survived that, being state reads; the landing slot did not, and
+    // it is a plain `val` computed in the caller's composition. So every drop
+    // reported the slot the tab had *before* the finger moved, which is no
+    // slot at all: the order came back unchanged and the drag did nothing.
+    //
+    // On the screen it looked like it worked the whole time, because the icons
+    // slide from a value recomputed every frame. Only the drop was stale.
+    // `ToolbarDragTest` drags off the end of the bar and reads what is
+    // reported, which is the only place the two can be told apart.
+    //
+    // Restarting the coroutine instead — a changing `pointerInput` key — would
+    // cancel the gesture under the finger every time the drag moved a pixel.
+    val currentLongPress by rememberUpdatedState(onLongPress)
+    val currentDragStart by rememberUpdatedState(onDragStart)
+    val currentDrag by rememberUpdatedState(onDrag)
+    val currentDragEnd by rememberUpdatedState(onDragEnd)
+
     val itemWidth by animateDpAsState(
         targetValue = if (visible) ItemSize else 0.dp,
         animationSpec = toolbarSpring(),
@@ -615,7 +654,7 @@ private fun ToolbarTab(
             .then(
                 if (onLongPress != null) {
                     Modifier.pointerInput(Unit) {
-                        detectTapGestures(onLongPress = { onLongPress() })
+                        detectTapGestures(onLongPress = { currentLongPress?.invoke() })
                     }
                 } else {
                     Modifier
@@ -625,12 +664,12 @@ private fun ToolbarTab(
                 if (reordering) {
                     Modifier.pointerInput(Unit) {
                         detectHorizontalDragGestures(
-                            onDragStart = { onDragStart() },
-                            onDragEnd = { onDragEnd() },
-                            onDragCancel = { onDragEnd() },
+                            onDragStart = { currentDragStart() },
+                            onDragEnd = { currentDragEnd() },
+                            onDragCancel = { currentDragEnd() },
                             onHorizontalDrag = { change, delta ->
                                 change.consume()
-                                onDrag(delta)
+                                currentDrag(delta)
                             },
                         )
                     }
