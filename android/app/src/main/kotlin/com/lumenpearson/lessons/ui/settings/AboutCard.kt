@@ -25,7 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,8 +68,22 @@ import com.lumenpearson.lessons.core.data.repository.ServerStatus
  * call returns one, which it is typed to do; `BuildConfig` is the same fact
  * without the round trip.
  */
+// `internal`, like [BuildProvenance] which it now takes: the only caller is the
+// settings page one file away, and a card about this app is not a component
+// another module could reuse.
 @Composable
-fun AboutCard(serverStatus: ServerStatus, modifier: Modifier = Modifier) {
+internal fun AboutCard(
+    serverStatus: ServerStatus,
+    modifier: Modifier = Modifier,
+    // Handed in rather than read inside, and that is not only for testing.
+    // `BuildProvenance.current()` answers with whatever *this* build was told,
+    // so a test that asserts what the badges say is really asserting how its
+    // own build was configured: the same assertion passed under `ci.yml`, which
+    // sets none of the properties, and failed under `apk.yml`, which sets them
+    // all — so the workflow whose whole job is to produce an APK could not
+    // build one. A parameter makes the badges a function of their input again.
+    build: BuildProvenance = BuildProvenance.current(),
+) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(CardCorner),
@@ -102,7 +115,7 @@ fun AboutCard(serverStatus: ServerStatus, modifier: Modifier = Modifier) {
                 textAlign = TextAlign.Center,
             )
 
-            Badges(serverStatus = serverStatus)
+            Badges(serverStatus = serverStatus, build = build)
 
             LinkPills()
 
@@ -237,8 +250,7 @@ private fun LinkPills() {
  * a server that was never configured contributes one chip instead of three.
  */
 @Composable
-private fun Badges(serverStatus: ServerStatus) {
-    val build = remember { BuildProvenance.current() }
+private fun Badges(serverStatus: ServerStatus, build: BuildProvenance) {
     val context = LocalContext.current
     val view = rememberHapticView()
 

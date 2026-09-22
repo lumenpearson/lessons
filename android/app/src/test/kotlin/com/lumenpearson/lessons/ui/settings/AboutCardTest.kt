@@ -1,6 +1,8 @@
 package com.lumenpearson.lessons.ui.settings
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.lumenpearson.lessons.core.data.repository.ServerStatus
@@ -55,6 +57,24 @@ class AboutCardTest {
         compose.mainClock.autoAdvance = false
     }
 
+    /** A build that was told nothing about its own checkout — a local one. */
+    private val local = BuildProvenance(
+        repository = "",
+        ref = "",
+        commit = "",
+        number = "",
+        builtAt = "",
+    )
+
+    /** And one the workflow told everything. */
+    private val fromCi = BuildProvenance(
+        repository = "lumenpearson/lessons",
+        ref = "main",
+        commit = "9b8eba790ffdd6ab7b5e4acf7f6c4e30538d2477",
+        number = "26",
+        builtAt = "2026-09-21T23:59Z",
+    )
+
     /**
      * The card at the width the settings list gives it, and nothing else.
      *
@@ -62,11 +82,20 @@ class AboutCardTest {
      * `ScreenPadding`, and the defect this was written after was the card
      * adding a second one and coming out 32 dp narrower on each side than every
      * group above it.
+     *
+     * **The provenance is passed in, never left to `BuildConfig`.** The first
+     * version of this file read it from the build and asserted «Собрано
+     * вручную», which is not a fact about the card at all — it is a fact about
+     * how the build that compiled the test was configured. It passed under
+     * `ci.yml`, which sets none of the five properties, and failed under
+     * `apk.yml`, which sets them all: the one workflow whose entire job is to
+     * produce an APK could no longer produce one, and the failure named a
+     * string on a settings page.
      */
-    private fun show(status: ServerStatus) {
+    private fun show(status: ServerStatus, build: BuildProvenance = local) {
         compose.setContent {
             LessonsTheme {
-                AboutCard(serverStatus = status)
+                AboutCard(serverStatus = status, build = build)
             }
         }
         repeat(4) { compose.mainClock.advanceTimeByFrame() }
@@ -128,13 +157,33 @@ class AboutCardTest {
 
     @Test
     fun `a build that was told nothing about itself says that rather than nothing`() {
-        // `BuildConfig` is empty in a unit test, which is exactly what a build
-        // from a fresh clone with no configuration produces. A page with no
+        // What a fresh clone with no configuration produces. A page with no
         // build chips at all reads as one that forgot to draw them.
-        show(ServerStatus.Checking)
+        show(ServerStatus.Checking, build = local)
 
         assertShows("Собрано вручную")
         assertShows("Проверяю сервер…")
+    }
+
+    @Test
+    fun `a build the workflow told everything names where it came from`() {
+        show(ServerStatus.Checking, build = fromCi)
+
+        assertShows("lumenpearson/lessons")
+        assertShows("Ветка main")
+        // Seven characters, not forty: the form a person compares against a
+        // pull request. The full sha is what the link uses.
+        assertShows("Коммит 9b8eba7")
+        assertShows("Сборка №26")
+    }
+
+    @Test
+    fun `a build that knows where it came from does not also claim to be local`() {
+        // The two are opposites and both are chips, so drawing both would be a
+        // page contradicting itself in one row.
+        show(ServerStatus.Checking, build = fromCi)
+
+        compose.onAllNodesWithText("Собрано вручную").assertCountEquals(0)
     }
 
     @Test
