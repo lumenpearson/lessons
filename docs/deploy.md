@@ -71,9 +71,36 @@ read back in the interface.
 | `DIARY_SECRET` | a random string, see "The electronic diary" below |
 | `DADATA_TOKEN` | a DaData key, see "The schools registry" below — without it the school search is simply off |
 
-The variables are needed for Production and for Preview too, if you want a staging
-environment. Vercel applies them **at deploy time**: changing a value without rebuilding
-changes nothing, and the running deployment goes on holding the old one.
+Vercel applies them **at deploy time**: changing a value without rebuilding changes
+nothing, and the running deployment goes on holding the old one.
+
+**Every variable is scoped to an environment, and today every one of them is Production
+only.** That is a deliberate state rather than an oversight, and it has one visible
+consequence worth knowing before you go looking for a fault: **every Preview deployment
+answers `500` to every request.** A push to `dev` builds fine, Vercel comments on the pull
+request with a «Ready» link, and following it gets a function that died while importing
+`app.db` with the `DeploymentNotConfigured` above — `DATABASE_URL` unset, `BOT_TOKEN`
+empty, `RUN_BOT` not `false`. The build is green because the refusal happens at *runtime*;
+the check is doing exactly what the next section describes, and the preview is refusing
+rather than quietly standing up on a SQLite file it has no disk for.
+
+It does not affect anything: the process dies before it opens a connection or registers a
+route, so an unconfigured preview touches neither the database nor the Telegram webhook,
+and it turns no GitHub check red. If you want it to stop, there are two honest ways and
+copying Production's values into Preview is **neither** — that would point every branch at
+the real database and hand a throwaway deployment the real bot token, and Telegram gives
+its updates to whichever consumer registered the webhook last.
+
+- **Give Preview its own set**: a Neon branch for `DATABASE_URL`, a second bot from
+  BotFather for `BOT_TOKEN` and `BOT_USERNAME`, its own `WEBHOOK_SECRET`, `DIARY_SECRET`
+  and `PUBLIC_BASE_URL`. That is a staging environment, and it is worth it the day
+  something has to be tried against a real database before it merges.
+- **Turn Preview deployments off** in the project's Git settings. Nothing in this
+  repository is a web page — the one server-rendered form is `/diary/signin`, which without
+  a database and a diary account shows nothing — so a preview of it has nobody to serve.
+
+Until one of those is done, the «Ready» link on a pull request is noise, and this paragraph
+exists so that nobody exports the logs a second time to find that out.
 
 ### What is missing is said at the door
 

@@ -1,5 +1,136 @@
 # Building the APK
 
+This page is about the APK, and one section before it is about everything else: how to get
+from a clone to a server answering, a bot replying and that APK talking to both. If you
+only want the file, skip to "Through GitHub Actions".
+
+## From a clone to a working pair
+
+The project is three things — a Python server that is also the Telegram bot, an Android app,
+and a widget inside it — and the only one of them that needs configuring is the server.
+Everything it reads is one file, `server/.env`, and `server/.env.example` is that file with
+every variable in it, each one commented with what it does and what leaving it empty means.
+Copy it; how much of it you then fill in is the next section, and for the first step the
+answer is one line.
+
+```bash
+git clone https://github.com/lumenpearson/lessons && cd lessons/server
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+cp .env.example .env
+```
+
+### Four steps, and you can stop after any of them
+
+Each is worth doing before the next: everything in a later one depends on the earlier ones
+working.
+
+**1. The API alone, with no bot and no Telegram account.** Set `RUN_BOT=false` and change
+nothing else. SQLite is the default and is a real database here: `python -m scripts.seed_demo`
+makes a class with the join code `DEMO24`, and `uvicorn app.main:app --reload` serves it.
+This is what the tests run against, and it is enough to develop every screen in the app.
+
+**2. The bot, which is the admin panel.** `BOT_TOKEN` from
+[@BotFather](https://t.me/BotFather), and `OWNER_IDS` — your own numeric id, from
+[@userinfobot](https://t.me/userinfobot). Leave `RUN_BOT=true`: locally the bot **polls**,
+so there is no webhook, no public address and no `WEBHOOK_SECRET` to think about. `/start`
+then offers to create the first class. Two things go wrong here and both are quiet:
+`OWNER_IDS` separates on a comma and on nothing else — a newline between two ids reads as
+one unparsable value and leaves you with no rights at all — and a second copy of the server
+running against the same token takes the updates away from the first, because Telegram
+gives its updates to one consumer.
+
+**3. The electronic diary, if you want that half.** `DIARY_SECRET`, any long random string —
+`python -c "import secrets; print(secrets.token_urlsafe(48))"`. Empty is not a degraded
+diary, it is no diary: the feature refuses at the door rather than storing the upstream's
+session token in plaintext. With it set you also want `PUBLIC_BASE_URL`, because the
+sign-in page is a link the bot has to be able to build, and from inside a Telegram update
+there is no request to read a host from.
+
+**4. The school search.** `DADATA_TOKEN`, the API key from
+[dadata.ru](https://dadata.ru/profile/#info) — the API one, not the secret one. Empty
+leaves typing the school's name by hand, which works. There is no bundled list to fall back
+to on purpose: a snapshot would answer confidently with last year's schools and nothing on
+the screen would say which of the two you were looking at.
+
+The three that are **not** on this list — `WEBHOOK_SECRET`, `CRON_SECRET` and
+`BOT_USERNAME` — are the ones a hosted deployment needs and a local run does not: the
+webhook replaces polling, the tick replaces a scheduler nothing serverless has, and the
+deep link needs to know the bot's @name. They are in the example file with the rest, and
+what a deployment does about them is [deploy.md](deploy.md), "Secrets".
+
+### Then check it, before the phone is anywhere near it
+
+```bash
+.venv/bin/python -m uvicorn app.main:app --reload
+curl -s localhost:8000/api/v1/health     # {"status":"ok","api_version":1}
+curl -s localhost:8000/api/v1/warmup     # the same, plus the schema revision
+```
+
+`health` opens no database connection, which is exactly why it is not the interesting one:
+`warmup` does, and it is what tells you the schema and the code agree. A `degraded` answer
+naming two revisions means the migrations have not been run — `alembic upgrade head`, from
+a working copy and never from inside a request.
+
+### And the app
+
+```bash
+cd ../android
+./gradlew test               # every JVM test across the five modules
+./gradlew assembleDebug
+```
+
+The Android SDK has to be real — its path in `android/local.properties` or in
+`ANDROID_HOME` — and Gradle does not, because the wrapper is in the repository. Nothing
+about the app is configured in a file: the address of the server is typed into the app on
+the connection screen, and how to make it reachable from a phone is "Pointing the app at a
+server" at the end of this page. The class code is the one the bot hands out with `/code`,
+or `DEMO24` from the seeding script.
+
+### The other place variables live, and it is not `.env`
+
+**GitHub Actions holds eight repository secrets of its own** (Settings → Secrets and
+variables → Actions), and they overlap with `server/.env` by exactly one name. They are
+nothing to do with running the project — none of them is read by the server, and a fresh
+clone needs none of them to develop against. They exist because two workflows do things a
+local build does not: sign an APK, and call a deployed server.
+
+| Secret | Read by | Without it |
+| --- | --- | --- |
+| `KEYSTORE_BASE64` | `apk.yml` | the release APK is signed with the **debug** key; the workflow says so as a warning and carries on. It installs and must not be published — see "Signing" below |
+| `KEYSTORE_PASSWORD` | `apk.yml` | as above: all four are needed together, and Gradle treats three of four as no key at all |
+| `KEY_ALIAS` | `apk.yml` | as above |
+| `KEY_PASSWORD` | `apk.yml` | as above |
+| `LESSONS_GITHUB_CLIENT_ID` | `apk.yml` | «Войти через GitHub» is hidden, and with it the only way to file a bug report from inside the app |
+| `LESSONS_CONTACT_EMAIL` | `apk.yml` | «Отправить письмом» is hidden |
+| `SERVER_URL` | `reminders.yml` | the fallback tick skips with a notice rather than failing — see [deploy.md](deploy.md), "The clock" |
+| `CRON_SECRET` | `reminders.yml` | the same skip |
+
+Four things about that table are worth more than the table.
+
+**`ci.yml` reads no secret at all.** The gate — ruff, pytest, `./gradlew test` and both
+assembles — needs nothing configured, which is why a pull request from a fork runs the
+whole of it.
+
+**`CRON_SECRET` is one value living in two places, and nothing checks that they match.**
+The server takes it from its own environment and compares it with the `X-Cron-Secret`
+header; Actions sends it. Set them separately, mistype one, and the tick returns `403` on
+a schedule while both halves look perfectly configured. The same is true of any external
+cron service, which is what actually keeps the promise the bot makes — the workflow is
+only a fallback.
+
+**`SERVER_URL` is `PUBLIC_BASE_URL` under a different name**, or rather the address of the
+same deployment: one is what the server tells the world about itself, the other is where
+Actions goes looking. They can differ legitimately — a custom domain, say — so they are
+two variables rather than one.
+
+**`DIARY_SECRET` is deliberately not in that list**, though it looks like it belongs.
+Nothing in Actions imports the server's code: the tests set their own key in
+`tests/conftest.py`, and `reminders.yml` only calls an already-deployed endpoint over
+HTTP. It belongs to whatever *runs* the app, which is Vercel's environment variables.
+
+The signing four are set up in "Configuring your own key" further down, and the two build
+properties in "What the build is told about itself".
+
 ## Through GitHub Actions
 
 ### Build one right now

@@ -37,7 +37,7 @@ cp .env.example .env          # BOT_TOKEN and OWNER_IDS are your own
 | --- | --- |
 | `ruff check app tests scripts migrations` | lints the server — exactly what CI runs |
 | `python -m mypy` | one question of all 84 modules: does anything reach for an attribute its type does not have? |
-| `python -m pytest -q` | the server tests; 1630 of them, about five minutes, or a third of that with `-n auto` |
+| `python -m pytest -q` | the server tests; 1634 of them, about five minutes, or a third of that with `-n auto` |
 | `python -m pytest -q tests/test_schedule.py -k parity` | one file, one test |
 | `python -m uvicorn app.main:app --reload` | run the server |
 | `alembic upgrade head` | apply the migrations (with a working `DATABASE_URL`) |
