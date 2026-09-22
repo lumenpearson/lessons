@@ -1917,12 +1917,17 @@ released, so `versionName` is still the `0.1.0` default.
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
-| 8 | `v0.7.0 — Оптимизация` | #75–#85 — the one Russian title |
+| 8 | `v0.7.0 — Оптимизация` | #75–#85, #128 — the one Russian title |
+| 9 | `v0.8.0 — On a device` | issues #109–#117 — **the current one** |
 
-**Nothing in a session here can create a milestone**, only attach one. The next one wants
-creating by the owner: the natural shape is **`v0.8.0 — On a device`**, for the work in
-#109's children, and the issues for it are already open and unmilestoned so that they can be
-swept into it in one go.
+**Nothing in a session here can create a milestone**, only attach one — the owner created
+the ninth on 22 September 2026 and issues #109–#117 are on it. **It is the first milestone
+that groups issues rather than pull requests**, and the first whose work cannot be done
+without an emulator or a phone.
+
+From here the rule is in `CLAUDE.md` and in the `audit`, `github-pr` and `release` skills:
+a found defect becomes an issue before it becomes a fix, the pull request ties itself to it
+with `Closes #NN`, and a release explains every change with both numbers beside it.
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a

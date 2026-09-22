@@ -205,10 +205,32 @@ points Hilt does not inject cleanly.
   names what is left uncovered. Unlike the owner's other repositories, this history does
   carry a `Co-Authored-By: Claude …` trailer; keep doing what the history does.
 - **Every pull request carries a milestone**, set when it is opened. Nothing in a session
-  here can create a milestone or even list one — when none of the eight fits, ask the owner
+  here can create a milestone or even list one — when none of the nine fits, ask the owner
   to create it and hand over the title and description already written, rather than
   inventing a version or leaving the pull request bare. The `github-pr` skill has the
-  numbers, the one tool that sets them, and the two ways this was got wrong first.
+  numbers, the one tool that sets them, and the two ways this was got wrong first. **The
+  ninth is `v0.8.0 — On a device` and it is the current one**; issues #109–#117 are on it,
+  and it is the first milestone whose work needs an emulator or a phone.
+- **A defect that is found gets an issue, always, and before it gets a fix.** The rule is
+  new and it is not optional: the moment an audit, a review, a CI failure or a reader finds
+  something wrong, it becomes an issue of its own — title saying what is broken rather than
+  what to do about it, body carrying the failure scenario, `type:bug`, the `area:` it lives
+  in, a `status:`, and the milestone the fix will land in. **Then** the fix. A defect fixed
+  inside a batch and described only in a commit body is invisible the day somebody asks
+  «has this happened before», and eight bug sweeps' worth of that had to be back-filled by
+  hand in #128 to make this repository answerable at all.
+  - **The issue and the pull request are tied together**, and the tie goes in the pull
+    request: `Closes #NN` (or `Fixes #NN`) in its body. GitHub then links them both ways and
+    closes the issue when the pull request merges, so neither side can be left behind. One
+    pull request may close several; say each on its own line.
+  - **Labels are created by using them** — `issue_write` with `method="create"` makes a
+    label that does not exist yet. It does **not** when `parent_issue_number` is passed:
+    that path validates the labels first and fails on an unknown one. Create the issue
+    plainly, then link it.
+  - **Adding it to the Project board cannot be done from a session here** — Projects v2 is
+    GraphQL-only and this toolset is REST. What a session controls is the labels, and the
+    board's auto-add workflow filters on them; a board without one is the owner's click.
+    Never report an issue as «added to the project» on the strength of having labelled it.
 - **There are issues now, and until #85 there were none.** Forty-two were opened in one go
   to give the history and the backlog a shape the milestones alone could not: twenty-three
   closed, describing what was built and what each bug sweep found, and nineteen open, which
@@ -220,6 +242,13 @@ points Hilt does not inject cleanly.
   here cannot create a GitHub Project board** — Projects v2 is GraphQL-only and this
   toolset is REST — so the board, if there is one, is the owner's, and these labels are
   what a saved view filters on.
+- **A release explains itself, fix by fix.** When a version is tagged, the notes name every
+  change in it with **its issue and its pull request** — «what was wrong, what it does now,
+  #NN / #MM» — rather than a list of commit subjects. The milestone is what says which
+  changes belong to the release, so it is set before the tag rather than after, and the tag
+  is the version the milestone is named for. The `release` skill has the order and what the
+  notes may not claim. Nothing in this repository has ever been tagged or released, so the
+  first one sets the pattern for every one after it.
 - **Say what is not covered.** The README has an "Honest status" section and it is honest on
   purpose. "Written, never run" is a legitimate status; a claim that something was
   verified when it was not is not.
