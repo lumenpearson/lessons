@@ -30,17 +30,6 @@ import com.lumenpearson.lessons.widget.format.ellipsize
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-/**
- * Corner radius of the widget surface.
- *
- * 24 dp, the same radius `RoundedCardContainer` gives a group of rows in the
- * app, so the widget reads as one more block of the same design system. It also
- * sits close to the launcher's own widget rounding on API 31+; below that
- * `cornerRadius` is a no-op and the launcher supplies square edges, which is
- * what pre-Material-You launchers draw anyway.
- */
-private val SURFACE_CORNER = 24.dp
-
 /** Width of the MEDIUM layout's right-hand "Дальше" column. */
 private val NEXT_UP_COLUMN = 118.dp
 
@@ -119,7 +108,7 @@ internal fun LessonsWidgetBody(
             // and the drop animation looks wrong.
             .appWidgetBackground()
             .background(GlanceTheme.colors.widgetBackground)
-            .cornerRadius(SURFACE_CORNER)
+            .cornerRadius(WidgetSurfaceCorner)
             .clickable(onClick)
             .padding(size.paddingDp.dp),
     ) {
@@ -625,7 +614,7 @@ private fun AheadBlock(
     val context = LocalContext.current
     val plan = if (withPlan) dayPlanOf(context, nextDay) else null
 
-    WidgetCard {
+    WidgetCard(size = size) {
         Column(modifier = GlanceModifier.fillMaxWidth()) {
             if (plan != null) {
                 CaptionText(

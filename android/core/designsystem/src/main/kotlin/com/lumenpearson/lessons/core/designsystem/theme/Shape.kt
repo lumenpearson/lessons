@@ -75,6 +75,30 @@ val GroupSpacing: Dp = 16.dp
 val GroupRowSpacing: Dp = 2.dp
 
 /**
+ * The radius a block should have to sit concentrically inside [outer].
+ *
+ * Two nested rounded rectangles only look right when the gap between their
+ * curves is the same all the way round, and that happens for exactly one pair:
+ * the inner radius plus the padding equals the outer one. Any other pair leaves
+ * the gap wider at the corner than along the edge — which reads as a wonky
+ * corner rather than as a wrong radius, so it is easy to see and hard to name.
+ *
+ * The arithmetic rather than the [Shape], for the two places that cannot use a
+ * shape: a Glance widget, whose `cornerRadius` takes a [Dp] and nothing else,
+ * and any radius that has to be *declared* rather than measured. [ConcentricShape]
+ * is the same rule applied at draw time, for the case where the inner radius is
+ * a percentage and so is not known until the box has a size.
+ *
+ * @param minimum a floor, because a block inset by more than the outer radius
+ *   would otherwise come out square. Square is a legitimate answer — it is what
+ *   a rectangle inset past the curve really should be — but a *slightly* square
+ *   block beside rounded siblings reads as a mistake, so callers that have
+ *   siblings pass a floor and the ones that do not leave it at zero.
+ */
+fun concentricCorner(outer: Dp, inset: Dp, minimum: Dp = 0.dp): Dp =
+    (outer - inset).coerceAtLeast(minimum)
+
+/**
  * A tray whose corner is concentric with the corners of what it holds.
  *
  * Two nested rounded rectangles only look right when the gap between their
@@ -85,8 +109,8 @@ val GroupRowSpacing: Dp = 2.dp
  * name. The segmented picker had it: a 24 dp tray token around Material's
  * connected buttons with 4 dp of padding, three numbers chosen in three places.
  *
- * It is a [Shape] rather than a computed `RoundedCornerShape` because the inner
- * radius is not always a length. Material's connected button shapes are
+ * It is a [Shape] rather than [concentricCorner] because the inner radius is not
+ * always a length. Material's connected button shapes are
  * expressed as a percentage of the button's own height, so the answer is only
  * known once the tray has been measured, and [createOutline] is where that
  * happens. The same reason makes it testable: it is a function of a size and a
