@@ -4,10 +4,11 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **21 September 2026**. **PRs #63 through #79 are merged**; `main` is at
-`a1f2392`. **The only thing open is PR #80**, which carries this batch and the paragraph you
-are reading. Once it merges, `dev` is level with `main` again and the next batch starts from
-a clean one, and the SHA of that merge is for the next close-out to write.
+Last updated: **22 September 2026**. **PRs #63 through #80 are merged**; `main` is at
+`9b8eba7`. **The only thing open is PR #81**, which is one defect long and carries the
+paragraph you are reading. Once it merges, `dev` is level with `main` again and the next
+batch starts from a clean one, and the SHA of that merge is for the next close-out to
+write.
 **The database is at head `0014`** and has not moved for two batches: both were entirely on
 the Android side, and `/api/v1/bundle` already took an arbitrary `start` and up to
 `MAX_BUNDLE_DAYS = 280`. `0014` was applied to Neon before #77 merged, as an additive
@@ -24,9 +25,47 @@ that moved server code and the schema together, so `/api/v1/warmup` should now a
 `"schema":"0014"` — the cheapest single check of whether that migration and that code met,
 and nobody has made it.
 
-## What the last session added: six things that drifted on a real screen
+## What the last session added: a test that asserted its own build's configuration
 
-Open as PR #80, in the milestone `v0.7.0 — Оптимизация`. Six reports from one build on a
+Open as PR #81, in the milestone `v0.7.0 — Оптимизация`. One defect, found the way this
+kind is always found — by the thing it broke rather than by anything reading the diff.
+
+**The APK workflow could not build an APK.** The first `apk.yml` run after #80 merged died
+at `:app:testDebugUnitTest`, on a test #80 had added: `AboutCardTest > a build that was
+told nothing about itself says that rather than nothing`. It read
+`BuildProvenance.current()`, which answers with whatever *this* build was told — so it
+asserted a property of the build configuration rather than of the card.
+
+It passed everywhere it was run and failed exactly where it mattered. `ci.yml` sets none of
+the five `LESSONS_BUILD_*` properties, so `current()` came back empty, the card drew
+«Собрано вручную» and the assertion held — on every pull request, including the one that
+introduced it. `apk.yml` sets all five, because naming the commit an APK came from is what
+they are *for*, so the badge the test demanded was correctly absent.
+
+**The workflow whose entire job is to produce an APK was the only thing that could see it,
+and it saw it as a failing string on a settings page.**
+
+The provenance is a parameter now, defaulted to `current()` at the single call site, and
+`AboutCard` is `internal` with it. The ordinary fix — and it buys what the old shape could
+not: the badges are testable at all. Three tests replace one, including the contradiction
+that was previously unreachable (a card claiming both a commit and «собрано вручную»).
+
+**Deliberately left alone, and it is the part worth carrying forward.** Nothing enforces
+this shape. Another composable reading `BuildConfig` directly would reintroduce exactly
+this, would again be green on every pull request, and would again be red only in the
+workflow nobody runs on a pull request. A rule forbidding `BuildConfig` outside a
+provenance type would be the real guard; it is not written, and writing it was not worth
+widening a one-defect batch. The gap in the gate is structural: **`ci.yml` cannot catch
+this class and should not try** — it does not build an APK anybody installs, so the
+difference only exists in a workflow run by hand.
+
+**Verified, and not.** `./gradlew test` **891 tests** in *both* environments — with the
+five properties exported and without them, because only running both tells them apart —
+and both assembles. The red case was reproduced before the fix and shown green after.
+
+## What the batch before added: six things that drifted on a real screen
+
+Merged as PR #80 (`9b8eba7`), in the milestone `v0.7.0 — Оптимизация`. Six reports from one build on a
 phone, plus a lie the previous batch's own CI log had been printing all along and nobody
 had read.
 
@@ -1262,7 +1301,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
-| 8 | `v0.7.0 — Оптимизация` | #75–#80 — the one Russian title |
+| 8 | `v0.7.0 — Оптимизация` | #75–#81 — the one Russian title |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -1689,7 +1728,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 1610 tests, ~2 min (CI runs this)
 cd server  && python -m mypy                             # clean, 84 modules
-cd android && ./gradlew test                             # 889 tests
+cd android && ./gradlew test                             # 891 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
@@ -2041,6 +2080,14 @@ The last one is not an Android defect and is listed with them on purpose: it is 
 shape. **A number written next to the thing that overrides it is a wish, not a setting**,
 and three documents had been quoting the wish for months.
 
+**And one from #81, which is the family's sharpest member**: a test that asserted how its
+own build was configured. `AboutCardTest` read `BuildProvenance.current()` and asserted the
+badge that a build told nothing about itself draws — so it passed under `ci.yml`, which
+sets no build properties, and failed under `apk.yml`, which sets them all. Green on every
+pull request; red only in the workflow whose job is to produce an APK. **A test that reads
+a global is a test of the environment**, and the environment a test runs in is not the one
+the code ships in.
+
 ---
 
 ## 5. What nobody has verified
@@ -2065,6 +2112,10 @@ else.**
   it crashed on opening. What that proves is that the three defects #79 fixes were the ones
   reported, and the bugreport says so in the platform's own words. It proves nothing about
   how any of it looks, because nobody got far enough to see it.
+- **No rule stops another composable reading `BuildConfig` directly**, which is how #81
+  happened. Three tests hold `AboutCard`; nothing holds the next one. Such a defect is
+  invisible on a pull request by construction — `ci.yml` does not set the build properties
+  and should not, because it does not produce an APK anybody installs.
 - **The server badge has never been drawn against a real server.** `ServerStatus` has four
   states and a test for each, all of them from a fake; nothing in the suite opens a socket.
   What that leaves unchecked is the shape of a real answer — whether `/api/v1/warmup` from
