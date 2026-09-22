@@ -213,7 +213,20 @@ internal fun WidgetCard(
  * Glance cannot take a `Shape`, only a [Dp] — which is why this is the
  * arithmetic form of the rule and not `ConcentricShape`.
  */
-internal fun WidgetSizeClass.innerCorner(): Dp =
+internal fun WidgetSizeClass.innerCorner(): Dp = innerCornerFor(paddingDp)
+
+/**
+ * [innerCorner] with the padding as a parameter, which is the only way to test it.
+ *
+ * Every rung on the ladder pads 16 dp or less, so none of the twelve can reach
+ * the floor — and a test that walks the rungs therefore cannot tell this
+ * expression from the same one with `minimum =` deleted. A first attempt at
+ * that test kept its own copy of the arithmetic and stayed green against a
+ * build with the argument dropped, which is a test of the test rather than of
+ * the code. Splitting the function is what lets one be called with a padding
+ * the enum does not have.
+ */
+internal fun innerCornerFor(paddingDp: Float): Dp =
     concentricCorner(WidgetSurfaceCorner, paddingDp.dp, minimum = InnerCornerFloor)
 
 /**
@@ -231,8 +244,14 @@ internal fun WidgetSizeClass.innerCorner(): Dp =
  */
 internal val WidgetSurfaceCorner = 24.dp
 
-/** See [innerCorner]; 6 dp is the tightest corner this design language uses. */
-private val InnerCornerFloor = 6.dp
+/**
+ * See [innerCorner]; 6 dp is the tightest corner this design language uses.
+ *
+ * `internal` rather than private so a test can assert the floor is reached at a
+ * padding no rung has: every rung pads 16 dp or less, so walking the ladder
+ * cannot tell a floored expression from an unfloored one.
+ */
+internal val InnerCornerFloor = 6.dp
 
 /**
  * The colour mark at the head of a timeline row.
@@ -381,7 +400,28 @@ internal fun TimelineRow(
         }
         if (trailing != null) {
             HSpace(6)
-            CaptionText(text = trailing.ellipsize(14), size = size)
+            // Weighted, and right-aligned inside its own share, rather than
+            // sitting at whatever width the string happens to want.
+            //
+            // A `LinearLayout` measures its unweighted children first and hands
+            // the *remainder* to the weighted ones — so a trailing detail with
+            // no weight took the width it asked for and the subject, which has
+            // the weight, got what was left. At the system's largest font that
+            // remainder reached zero: «10:50 Надежда Петро.» drew a teacher and
+            // no lesson, and the last row of the list came out as a bare colour
+            // mark with nothing beside it at all. The subject is the half the
+            // row exists for; it cannot be the half that loses.
+            //
+            // Two weights split the remainder instead, and because the box is
+            // end-aligned the ordinary case is drawn exactly as before: the
+            // detail still ends at the right edge, it simply can no longer
+            // start further left than the middle.
+            Box(
+                modifier = GlanceModifier.defaultWeight(),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                CaptionText(text = trailing.ellipsize(14), size = size)
+            }
         }
     }
 }
@@ -461,51 +501,77 @@ internal fun WeekStrip(
 ) {
     val context = LocalContext.current
     Row(modifier = modifier.fillMaxWidth()) {
-        week.forEach { day ->
+        // `take` although `snapshotOf` always builds exactly seven: this is the
+        // one variable-length list in the widget that was not clamped, and
+        // Glance keeps the first ten children of a container and drops the rest
+        // in silence — so the failure mode of an eighth day is Sunday going
+        // missing with nothing logged.
+        week.take(CHILD_LIMIT).forEach { day ->
             val isToday = day.date == today
-            Column(
+            // Two boxes rather than one, and the outer one is the whole point.
+            //
+            // Compose reads a modifier chain in order, so `padding` before
+            // `background` is margin and after it is inset. **Glance does not.**
+            // `applyModifiers` folds every `PaddingModifier` in the chain into a
+            // single `setViewPadding` on the same view the background and the
+            // corner radius are applied to, so position in the chain is thrown
+            // away — and the 1 dp written here as a gap between the chips was
+            // being drawn *inside* their own colour. The seven chips met edge to
+            // edge and the week read as one grey bar with a coloured segment in
+            // it rather than as seven days.
+            //
+            // A `Spacer` between them would be the Compose answer and is the
+            // wrong one here: seven chips and six spacers is thirteen children
+            // of a container that keeps ten.
+            Box(
                 modifier = GlanceModifier
                     .defaultWeight()
-                    .padding(horizontal = 1.dp)
-                    .cornerRadius(DayChipCorner)
-                    .background(
-                        if (isToday) {
-                            GlanceTheme.colors.primaryContainer
-                        } else {
-                            GlanceTheme.colors.surfaceVariant
-                        },
-                    )
-                    .clickable(openDay(day.date))
-                    .padding(vertical = 4.dp),
-                horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
+                    .padding(horizontal = DayChipGap),
+                contentAlignment = Alignment.Center,
             ) {
-                val content = if (isToday) {
-                    GlanceTheme.colors.onPrimaryContainer
-                } else {
-                    GlanceTheme.colors.onSurfaceVariant
+                Column(
+                    modifier = GlanceModifier
+                        .fillMaxWidth()
+                        .cornerRadius(DayChipCorner)
+                        .background(
+                            if (isToday) {
+                                GlanceTheme.colors.primaryContainer
+                            } else {
+                                GlanceTheme.colors.surfaceVariant
+                            },
+                        )
+                        .clickable(openDay(day.date))
+                        .padding(vertical = 4.dp),
+                    horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
+                ) {
+                    val content = if (isToday) {
+                        GlanceTheme.colors.onPrimaryContainer
+                    } else {
+                        GlanceTheme.colors.onSurfaceVariant
+                    }
+                    Text(
+                        text = WidgetStrings.shortWeekday(context, day.date),
+                        maxLines = 1,
+                        style = TextStyle(color = content, fontSize = (size.captionSp - 1f).sp),
+                    )
+                    Text(
+                        text = day.date.dayOfMonth.toString(),
+                        maxLines = 1,
+                        style = TextStyle(
+                            color = content,
+                            fontSize = size.bodySp.sp,
+                            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium,
+                        ),
+                    )
+                    Text(
+                        // Dots rather than a number: how busy a day is only has three
+                        // useful answers at this size, and a digit would be read while
+                        // a row of dots is seen.
+                        text = LoadDot.repeat(day.lessons.coerceAtMost(MaxLoadDots)),
+                        maxLines = 1,
+                        style = TextStyle(color = content, fontSize = (size.captionSp - 2f).sp),
+                    )
                 }
-                Text(
-                    text = WidgetStrings.shortWeekday(context, day.date),
-                    maxLines = 1,
-                    style = TextStyle(color = content, fontSize = (size.captionSp - 1f).sp),
-                )
-                Text(
-                    text = day.date.dayOfMonth.toString(),
-                    maxLines = 1,
-                    style = TextStyle(
-                        color = content,
-                        fontSize = size.bodySp.sp,
-                        fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium,
-                    ),
-                )
-                Text(
-                    // Dots rather than a number: how busy a day is only has three
-                    // useful answers at this size, and a digit would be read while
-                    // a row of dots is seen.
-                    text = LoadDot.repeat(day.lessons.coerceAtMost(MaxLoadDots)),
-                    maxLines = 1,
-                    style = TextStyle(color = content, fontSize = (size.captionSp - 2f).sp),
-                )
             }
         }
     }
@@ -524,6 +590,16 @@ data class DayLoad(val date: LocalDate, val lessons: Int)
  * would hand it — which is a pill, not a chip.
  */
 private val DayChipCorner = 10.dp
+
+/**
+ * The gap between two weekday chips, carried by a box of its own.
+ *
+ * 1 dp each side, so 2 dp between neighbours — enough to read as seven chips
+ * rather than one bar, and little enough that seven of them still divide a
+ * 110 dp column evenly. It cannot live on the chip's own modifier: see
+ * [WeekStrip] for what Glance does with a padding written there.
+ */
+private val DayChipGap = 1.dp
 private const val LoadDot = "·"
 private const val MaxLoadDots = 3
 

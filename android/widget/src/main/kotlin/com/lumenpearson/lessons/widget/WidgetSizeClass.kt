@@ -421,10 +421,44 @@ enum class WidgetSizeClass(
          *
          * Ordered widest-and-tallest first, so a size that satisfies several
          * classes gets the most generous one it actually fits.
+         *
+         * ### Why the font scale divides the height, and only the height
+         *
+         * The breakpoints are in `dp` and every type size on the ladder is in
+         * `sp`, so the two move apart the moment a reader enlarges their system
+         * font — and on the largest setting they are about twice apart. The box
+         * still measured its full size, so the largest rung was still chosen,
+         * so the widget drew eight timeline rows, a week strip and two homework
+         * blocks in the room for about half of that: the chips took a third of
+         * the surface and the last rows ran off the bottom edge.
+         *
+         * Height is what a larger font spends, and it spends it about in
+         * proportion: every row, every chip and every heading grows together,
+         * so a widget at 1.5× the font holds about two thirds of the rows. That
+         * is the whole of the arithmetic, and the rung built for two thirds of
+         * the height is the rung that fits.
+         *
+         * **The width is deliberately left alone**, although a wider row at a
+         * larger font does hold fewer characters. Two reasons. The ladder uses
+         * width for *structure* rather than for capacity — it is what decides a
+         * second column, a week strip, whether a row can carry a room number at
+         * all — and 348 dp of width is still 348 dp of width whatever the type
+         * is doing. And the horizontal half is already answered twice over: a
+         * subject is truncated to the rung's own character budget, and the
+         * trailing detail is weighted so that it cannot take the subject's
+         * room. Dividing the width as well was tried first, and it was worse
+         * than the defect: a four-cell widget at the largest font fell past the
+         * narrow column onto a rung with **no timeline at all**, so a reader
+         * who had asked for bigger type lost the rest of their school day.
+         *
+         * @param fontScale `Configuration.fontScale`, clamped: below
+         *   [MIN_FONT_SCALE] there is nothing to gain from promoting a widget
+         *   into a denser rung than its box, and above [MAX_FONT_SCALE] the
+         *   division takes away more than the overflow it prevents.
          */
-        fun of(size: DpSize): WidgetSizeClass {
+        fun of(size: DpSize, fontScale: Float = 1f): WidgetSizeClass {
             val w = size.width
-            val h = size.height
+            val h = size.height / fontScale.coerceIn(MIN_FONT_SCALE, MAX_FONT_SCALE)
             return when {
                 w >= HUGE.breakpoint.width && h >= HUGE.breakpoint.height -> HUGE
                 w >= TALL.breakpoint.width && h >= TALL.breakpoint.height -> TALL
@@ -444,5 +478,30 @@ enum class WidgetSizeClass(
                 else -> TINY
             }
         }
+
+        /**
+         * The floor of the clamp.
+         *
+         * A reader who has made their font *smaller* has not bought the widget
+         * a denser layout: the ladder's rungs differ in what they say, not only
+         * in how much, and a two-cell widget promoted a rung would be asked to
+         * draw a list in the room for a headline. So a scale below 1 is treated
+         * as 1 and the box decides alone.
+         */
+        private const val MIN_FONT_SCALE = 1f
+
+        /**
+         * The ceiling of the clamp.
+         *
+         * Android's own accessibility settings stop at 2.0, and `fontScale` is
+         * a number out of the configuration rather than a promise — a launcher
+         * or an OEM skin can report more. The clamp is not really about those,
+         * though: it is the point past which stepping down the ladder costs the
+         * reader more than the overflow does. Past 2 even [HUGE] falls below
+         * the height of a rung that can list a single lesson, and a widget that
+         * says nothing at all is a worse answer than one whose last row is
+         * clipped.
+         */
+        private const val MAX_FONT_SCALE = 2f
     }
 }
