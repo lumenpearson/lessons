@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -12,6 +14,9 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +24,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
@@ -44,17 +50,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
@@ -64,7 +75,9 @@ import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import androidx.compose.ui.zIndex
 import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
+import com.lumenpearson.lessons.core.designsystem.modifier.jiggling
 import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
@@ -169,6 +182,25 @@ private val TitleWidthRange = 100.dp..250.dp
  *   thing that page can do.
  * @param floatingActionButton the same slot, for a caller that needs to draw the
  *   button itself. [action] is the shorthand and wins if both are given.
+ * @param reorderable whether a long press on a tab puts the bar into the mode
+ *   where its tabs can be dragged into another order. Off by default: on the
+ *   documentation the bar's order is the document's, not the reader's.
+ * @param reordering whether it is in that mode now. Hoisted rather than kept
+ *   inside, because leaving the mode is the caller's business as much as the
+ *   bar's — a back press has to take you out of it, and a caller that navigates
+ *   away has to be able to close it behind itself.
+ * @param onReorderingChange raised when a long press opens the mode, and when a
+ *   tap inside it closes it.
+ * @param onReorder the tabs' **original** indices in the order the reader left
+ *   them, raised once, when the finger lifts. Indices rather than items so that
+ *   this component stays ignorant of what a tab is; the caller owns the list and
+ *   maps the permutation onto it.
+ *
+ *   Once, and on the lift, on purpose. The icons move under the finger, but the
+ *   order the rest of the app reads changes only when the gesture is finished —
+ *   otherwise the page behind the bar would slide about mid-drag, and a reader
+ *   who changed their mind and dragged back would have travelled through two
+ *   other screens on the way.
  */
 @Composable
 fun LessonsFloatingToolbar(
@@ -182,6 +214,10 @@ fun LessonsFloatingToolbar(
     action: ToolbarAction? = null,
     floatingActionButton: (@Composable () -> Unit)? = null,
     scrollableItems: Boolean = false,
+    reorderable: Boolean = false,
+    reordering: Boolean = false,
+    onReorderingChange: (Boolean) -> Unit = {},
+    onReorder: (order: List<Int>) -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     val fontScale = LocalDensity.current.fontScale
@@ -260,9 +296,20 @@ fun LessonsFloatingToolbar(
                         items = items,
                         selectedIndex = selectedIndex,
                         expanded = expanded,
-                        hideLabel = hideLabel,
+                        // Every tab the same width while they are being
+                        // arranged: the drag arithmetic in `ToolbarReorder`
+                        // counts slots of one pitch, and one wide item among
+                        // narrow ones would make «how many slots has this
+                        // travelled» depend on the direction of travel. It also
+                        // looks right — in this mode you are arranging icons,
+                        // not reading where you are.
+                        hideLabel = hideLabel || reordering,
                         scrollable = scrollableItems,
                         hasAction = actionButton != null,
+                        reorderable = reorderable,
+                        reordering = reordering,
+                        onReorderingChange = onReorderingChange,
+                        onReorder = onReorder,
                     )
                 }
             }
@@ -320,8 +367,40 @@ private fun ToolbarItems(
     hideLabel: Boolean,
     scrollable: Boolean,
     hasAction: Boolean,
+    reorderable: Boolean = false,
+    reordering: Boolean = false,
+    onReorderingChange: (Boolean) -> Unit = {},
+    onReorder: (order: List<Int>) -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
+    val view = rememberHapticView()
+    val density = LocalDensity.current
+
+    // The gesture's own state, and it is deliberately not hoisted: a half-
+    // finished drag is not something any caller can do anything useful with,
+    // and the one fact that outlives the gesture — the new order — is raised
+    // when it ends.
+    //
+    // `held` is an index into the *working* order rather than into `items`,
+    // because the row is redrawn from `working` the moment the finger moves.
+    var working by remember(items.size) { mutableStateOf(items.indices.toList()) }
+    var held by remember { mutableStateOf(-1) }
+    var dragPx by remember { mutableFloatStateOf(0f) }
+
+    // Leaving the mode forgets an interrupted drag. Without this a caller that
+    // closes the mode mid-gesture — a back press, a navigation — would leave
+    // `held` pointing at a tab nothing is dragging, and the next long press
+    // would resume a drag the reader had abandoned.
+    LaunchedEffect(reordering) {
+        if (!reordering) {
+            held = -1
+            dragPx = 0f
+            working = items.indices.toList()
+        }
+    }
+
+    val slotPx = with(density) { (ItemSize + ItemGap).toPx() }
+    val landing = if (held >= 0) dropIndex(held, dragPx, slotPx, items.size) else -1
 
     // Put the current destination in view before the bar is first drawn.
     //
@@ -354,13 +433,53 @@ private fun ToolbarItems(
         },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        items.forEachIndexed { index, item ->
+        working.forEachIndexed { slot, original ->
+            val item = items[original]
+            // Drawn where the drag has put it rather than where the list says:
+            // the held tab follows the finger, and everything between it and
+            // where it is going slides one slot the other way to open the gap.
+            val shift = if (held >= 0) shiftSlots(slot, held, landing) else 0
             ToolbarTab(
                 item = item,
-                selected = index == selectedIndex,
-                isLast = index == items.lastIndex,
+                selected = original == selectedIndex,
+                isLast = slot == working.lastIndex,
                 expanded = expanded,
                 hideLabel = hideLabel,
+                jigglePhase = slot,
+                reordering = reordering,
+                held = slot == held,
+                offsetPx = if (slot == held) dragPx else shift * slotPx,
+                onLongPress = if (reorderable && !reordering) {
+                    {
+                        // The press that opens the mode, and the only haptic in
+                        // it: `tap` rather than `press`, because this is a state
+                        // change and not a button, and the two should not feel
+                        // the same.
+                        LessonsHaptics.tap(view)
+                        onReorderingChange(true)
+                    }
+                } else {
+                    null
+                },
+                onExitReorder = { onReorderingChange(false) },
+                onDragStart = {
+                    held = slot
+                    dragPx = 0f
+                },
+                onDrag = { delta -> dragPx += delta },
+                onDragEnd = {
+                    val from = held
+                    val to = landing
+                    held = -1
+                    dragPx = 0f
+                    if (from >= 0 && to != from) {
+                        // A notch as it lands, so a drop that changed the order
+                        // feels different from one that did not.
+                        LessonsHaptics.tick(view)
+                        working = moveItem(working, from, to)
+                        onReorder(working)
+                    }
+                },
             )
         }
     }
@@ -392,7 +511,30 @@ private val ToolbarSideMargin: Dp = 16.dp
 /** A generous estimate of Material's own padding inside the pill. */
 private val PillContentPadding: Dp = 16.dp
 
-/** One tab: an icon that grows into an inverted pill with a label when selected. */
+/**
+ * One tab: an icon that grows into an inverted pill with a label when selected.
+ *
+ * ### The two gestures, and why they are two
+ *
+ * On an iOS home screen one long press both opens the arranging mode and picks
+ * the icon up, so the finger never lifts. Here it is two: the long press opens
+ * the mode, and the drag that follows is a second touch.
+ *
+ * That is a real difference and it is deliberate. Making it one gesture means a
+ * tap detector and a long-press-drag detector on the same node, and which of
+ * them sees an event depends on which consumes the initial press — behaviour
+ * that cannot be settled by reading and that no test in this project can
+ * exercise, because it needs a real pointer and this module has no
+ * instrumentation. Two detectors that never overlap can be reasoned about, and
+ * the cost is one touch in a gesture nobody performs twice a day.
+ *
+ * @param held whether this is the tab under the finger right now. It is drawn
+ *   above its neighbours and does not jiggle: an object you are holding is
+ *   steady, and everything else is what is loose.
+ * @param offsetPx where to draw it, along the row, relative to its slot.
+ * @param onLongPress non-null only while the mode can be *opened*; inside the
+ *   mode the long press has nothing left to do.
+ */
 @Composable
 private fun ToolbarTab(
     item: ToolbarItem,
@@ -400,6 +542,15 @@ private fun ToolbarTab(
     isLast: Boolean,
     expanded: Boolean,
     hideLabel: Boolean,
+    jigglePhase: Int = 0,
+    reordering: Boolean = false,
+    held: Boolean = false,
+    offsetPx: Float = 0f,
+    onLongPress: (() -> Unit)? = null,
+    onExitReorder: () -> Unit = {},
+    onDragStart: () -> Unit = {},
+    onDrag: (Float) -> Unit = {},
+    onDragEnd: () -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     val view = rememberHapticView()
@@ -424,28 +575,89 @@ private fun ToolbarTab(
 
     if (itemWidth <= 0.dp && !selected) return
 
-    IconButton(
-        onClick = {
-            LessonsHaptics.press(view)
-            item.onClick()
-        },
+    // Slides to its new slot on the same spring the widths use, so the row
+    // rearranging looks like the row rearranging rather than like icons
+    // teleporting. Not animated for the held tab: that one is following a
+    // finger, and a spring between the finger and the icon is lag.
+    val slide by animateFloatAsState(
+        targetValue = offsetPx,
+        animationSpec = if (held) snap() else toolbarOffsetSpring(),
+        label = "toolbar_item_offset",
+    )
+    val placement = if (held) offsetPx else slide
+
+    // `Surface` and `combinedClickable` rather than `IconButton`, and the reason
+    // is the long press. Material's `IconButton` has no `onLongClick`, and
+    // adding a detector of one's own to the modifier handed to it does not work:
+    // it applies its own `clickable` *after* that modifier, so the press is
+    // claimed before anything passed in can see it. This was written with an
+    // `IconButton` first and the long press simply never arrived.
+    //
+    // What `IconButton` was giving is reproduced rather than approximated: a
+    // circular shape, which on a box wider than it is tall is the pill the
+    // selected tab wears, and the same two colour pairs.
+    Surface(
+        shape = CircleShape,
+        color = if (selected) scheme.background else scheme.primary,
+        contentColor = if (selected) scheme.primary else scheme.background,
         modifier = Modifier
+            .graphicsLayer {
+                translationX = placement
+                // Above its neighbours while it is being carried, so the row
+                // closing behind it passes underneath rather than through it.
+                if (held) {
+                    scaleX = HeldScale
+                    scaleY = HeldScale
+                }
+            }
+            .zIndex(if (held) 1f else 0f)
+            .jiggling(active = reordering && !held, phase = jigglePhase)
+            .then(
+                if (onLongPress != null) {
+                    Modifier.pointerInput(Unit) {
+                        detectTapGestures(onLongPress = { onLongPress() })
+                    }
+                } else {
+                    Modifier
+                },
+            )
+            .then(
+                if (reordering) {
+                    Modifier.pointerInput(Unit) {
+                        detectHorizontalDragGestures(
+                            onDragStart = { onDragStart() },
+                            onDragEnd = { onDragEnd() },
+                            onDragCancel = { onDragEnd() },
+                            onHorizontalDrag = { change, delta ->
+                                change.consume()
+                                onDrag(delta)
+                            },
+                        )
+                    }
+                } else {
+                    Modifier
+                },
+            )
             .width(itemWidth + labelWidth)
-            .height(ItemSize),
-        colors = if (selected) {
-            IconButtonDefaults.filledIconButtonColors(
-                contentColor = scheme.primary,
-                containerColor = scheme.background,
-            )
-        } else {
-            IconButtonDefaults.iconButtonColors(
-                contentColor = scheme.background,
-                containerColor = scheme.primary,
-            )
-        },
+            .height(ItemSize)
+            .combinedClickable(
+                onClick = {
+                    LessonsHaptics.press(view)
+                    // A tap inside the mode is «done», not «go there» — the
+                    // same thing tapping the wallpaper does on iOS, moved onto
+                    // the one surface a thumb is already near. Navigating
+                    // instead would leave the reader on a page they did not ask
+                    // for, with the bar still wobbling behind them.
+                    if (reordering) onExitReorder() else item.onClick()
+                },
+                onLongClick = onLongPress,
+                role = Role.Tab,
+            ),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
@@ -595,6 +807,28 @@ private fun toolbarSizeSpring() = spring<IntSize>(
     dampingRatio = Spring.DampingRatioNoBouncy,
     stiffness = Spring.StiffnessMediumLow,
 )
+
+/**
+ * The spring a tab slides on while its neighbour is dragged past it.
+ *
+ * Stiffer and flatter than [toolbarSpring]: this one is chasing a finger that
+ * is still moving, so an overshoot is a tab that goes past the gap it is
+ * supposed to be opening and comes back — which reads as the row arguing with
+ * the drag.
+ */
+private fun toolbarOffsetSpring() = spring<Float>(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMedium,
+)
+
+/**
+ * How much bigger the tab under the finger is drawn.
+ *
+ * Small, because the tab is 48 dp and a tenth of that is five pixels of growth
+ * at the edges — enough for «this is the one I am holding» and not enough to
+ * make it collide with the neighbour it is passing.
+ */
+private const val HeldScale = 1.1f
 
 /** Cross-fade and slide of the two toolbar modes. */
 private const val ModeFadeMillis = 180

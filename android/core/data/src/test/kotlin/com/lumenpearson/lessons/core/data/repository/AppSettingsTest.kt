@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.core.data.repository
 
+import com.lumenpearson.lessons.core.model.HomeTab
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -44,5 +45,22 @@ class AppSettingsTest {
         assertTrue(
             AppSettings.DEFAULT_HOMEWORK_PREVIEW in AppSettings.HOMEWORK_PREVIEW_OPTIONS,
         )
+    }
+
+    /**
+     * The bar somebody who has never opened the setting sees, which is also what
+     * every screen gets while the preferences file is still being read. Pinned
+     * here because a default that quietly dropped a tab would look like a
+     * rendering bug rather than like a default.
+     *
+     * The mapping that writes this field into the preferences file and reads it
+     * back is `LessonsPreferences.toSettings`, which is private to a class that
+     * needs a `Context`; this module has no Robolectric, so there is no seam to
+     * pin the round trip through. What can be checked without one is checked in
+     * `:core:model`, where `HomeTab.order` is the whole of the repair.
+     */
+    @Test
+    fun `the default tab order is every tab, as declared`() {
+        assertEquals(HomeTab.entries, AppSettings().tabOrder)
     }
 }

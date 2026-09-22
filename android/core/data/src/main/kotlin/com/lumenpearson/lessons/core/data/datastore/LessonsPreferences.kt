@@ -227,6 +227,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
             prefs[KEY_MOTION_SPEED] = updated.motionSpeed.coerceIn(AppSettings.MOTION_SPEED_RANGE)
             prefs[KEY_SWIPE_TABS] = updated.swipeTabs
             prefs[KEY_DEFAULT_TAB] = updated.defaultTab.name
+            prefs[KEY_TAB_ORDER] = HomeTab.storedOrder(updated.tabOrder)
             prefs[KEY_MOTION_BLUR] = updated.motionBlur
             prefs[KEY_MOTION_BLUR_SCALE] = updated.motionBlurScale
                 .coerceIn(AppSettings.MOTION_BLUR_SCALE_RANGE)
@@ -460,6 +461,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
             .coerceIn(AppSettings.MOTION_SPEED_RANGE),
         swipeTabs = this[KEY_SWIPE_TABS] ?: true,
         defaultTab = HomeTab.fromName(this[KEY_DEFAULT_TAB]),
+        tabOrder = HomeTab.order(this[KEY_TAB_ORDER]),
         motionBlur = this[KEY_MOTION_BLUR] ?: false,
         motionBlurScale = (this[KEY_MOTION_BLUR_SCALE] ?: AppSettings.DEFAULT_MOTION_BLUR_SCALE)
             .coerceIn(AppSettings.MOTION_BLUR_SCALE_RANGE),
@@ -608,6 +610,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         val KEY_MOTION_SPEED = floatPreferencesKey("settings_motion_speed")
         val KEY_SWIPE_TABS = booleanPreferencesKey("settings_swipe_tabs")
         val KEY_DEFAULT_TAB = stringPreferencesKey("settings_default_tab")
+        val KEY_TAB_ORDER = stringPreferencesKey("settings_tab_order")
         val KEY_MOTION_BLUR = booleanPreferencesKey("settings_motion_blur")
         val KEY_MOTION_BLUR_SCALE = floatPreferencesKey("settings_motion_blur_scale")
         val KEY_EDGE_BLUR = booleanPreferencesKey("settings_edge_blur")

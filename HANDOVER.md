@@ -4,22 +4,25 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **22 September 2026**. **PRs #63 through #82 are merged**; `main` is at
-`c7767c8`, the merge of #82. **The only thing open is PR #83** — the nine-area audit and the
-twenty-four defects it closed, in the milestone `v0.7.0 — Оптимизация` — and it carries the
-paragraph you are reading. Its head is `30daa4e`; CI was green on `3c7a2f5`, and the two
-commits since are the documents and this close-out. Once it merges, `dev` is level with
-`main` again and the next batch starts from a clean one, and the SHA of that merge is for
-the next close-out to write.
-**The database is at head `0014`** and has not moved for three batches. **This batch needed
-no migration and applied none**, which is a fact about the batch rather than a thing left
-undone: no model changed. `EXPECTED_REVISION` in `app/db.py` is `0014`, pinned to the real
-head by `tests/test_schema_version.py`. `0014` was applied to Neon before #77 merged, as an
-additive revision should be — it widened `day_overrides.kind` from `VARCHAR(9)` to
-`VARCHAR(10)`, because `DayKind` gained `SELF_STUDY` and a `SAEnum` column stores the member
-*name*. #83 also closes the class that revision belonged to: a pinned table of the ten enum
-column widths now fails when a member's **name** outgrows its column, which SQLite cannot
-see and production Postgres finds at the moment somebody marks a day.
+Last updated: **22 September 2026**. **PRs #63 through #83 are merged**; `main` is at
+`3a4a924`, the merge of #83. **The only thing open is PR #84** — the home screen's tabs,
+arranged by whoever is using them, in the milestone `v0.7.0 — Оптимизация` — and it carries
+the paragraph you are reading. Its head is `14f5374`, two commits, and **CI is green on that
+exact head**: the Android job succeeded and the server job is correctly `skipped`, this batch
+being entirely Android. Once it merges, `dev` is level with `main` again and the next batch
+starts from a clean one, and the SHA of that merge is for the next close-out to write.
+**The database is at head `0014`** and has not moved for four batches. **No server code
+changed at all in this batch** — not a model, not an endpoint, not a test — so `ruff`,
+`pytest` and `mypy` stand exactly where #83 left them (clean, **1630 passed**, clean across
+84 modules) and there was no migration to write, let alone to apply. That is a fact about
+the batch rather than a thing left undone. `EXPECTED_REVISION` in `app/db.py` is `0014`,
+pinned to the real head by `tests/test_schema_version.py`. `0014` was applied to Neon
+before #77 merged, as an additive revision should be — it widened `day_overrides.kind`
+from `VARCHAR(9)` to `VARCHAR(10)`, because `DayKind` gained `SELF_STUDY` and a `SAEnum`
+column stores the member *name*. #83 also closes the class that revision belonged to: a
+pinned table of the ten enum column widths now fails when a member's **name** outgrows
+its column, which SQLite cannot see and production Postgres finds at the moment somebody
+marks a day.
 
 Production was read after #60 and again after #61, rather than assumed: `/api/v1/health`
 answered `{"status":"ok","api_version":1}` and `/api/v1/warmup` — which opens a real
@@ -32,14 +35,131 @@ the owner's browser or with a bypass token: #77 moved server code and the schema
 so the answer should now be `"schema":"0014"`, and that single line is the cheapest check
 that the migration and the code actually met. It is outstanding since #61.
 
-## What the last session added: an audit of nine areas, and the twenty-four defects it found
+## What the last session added: the home screen's tabs, arranged by the person using them
 
-Open as PR #83, in the milestone `v0.7.0 — Оптимизация`, eight commits. Eleven read-only
-passes first — the nine areas of `.claude/skills/audit/SKILL.md` plus strings, documentation
-and a security sweep — and then the fixes. **Every one of the twenty-four was re-verified by
-hand here before it was fixed, and every one is closed by a test that was watched going
-red** on the code without the fix. Nothing in it is a model change, so there is no revision
-and the database stays at `0014`.
+Open as PR #84, in the milestone `v0.7.0 — Оптимизация`, two commits — `bf80a9d` the two
+halves, `14f5374` the shell wiring — and it carries the close-out you are reading. Asked for
+in one sentence: «сделай так, чтобы при зажатии кнопки вкладки на главной, можно было
+переставить, включался режим перестановки и кнопки потрясывало как иконки на ios».
+Long-press a tab on the home screen; it and its neighbours wobble; any of them can be dragged
+somewhere else; the order is the reader's from then on and it is remembered. **Nothing
+outside `android/` was touched**, which is why CI's server job is skipped rather than green.
+
+### The risky half was not the gesture
+
+**Everything downstream stopped holding a position and started holding a tab.** The pager's
+index used to mean one destination for the life of an install; it now means whichever tab is
+in that slot today, and every place that had quietly relied on the old meaning had to be
+found. The scroll-offset holders are keyed by tab rather than by index — an index-keyed one
+hands an arriving screen the fade depth of the one that left. The pager carries a key per
+tab, so each keeps its own saved scroll instead of inheriting whatever had been filed under
+«page 1». And the default tab is latched as a **tab** rather than as an index, which after a
+reorder would have sent predictive-back home to a screen nobody chose.
+
+The shell's four back handlers became one rule in one function (`navigation/ShellBack.kt`),
+which is what makes «a back press leaves the arranging mode» a thing a test can ask at all;
+without it the press would have been taken by the predictive gesture and left the app.
+
+The bar is handed a **latched** copy of the order for the life of the mode, and that is
+load-bearing rather than incidental: the component keeps its own permutation and reports
+indices into the list it was handed, so feeding the committed order back mid-gesture would
+apply the drag a second time and visibly undo it.
+
+### Two deliberate departures from iOS, each a decision rather than a shortfall
+
+- **The long press does not flow into the drag.** One gesture would mean a tap detector and
+  a long-press-drag detector on one node, and which of them sees an event turns on which
+  claims the press — behaviour that cannot be settled by reading, and that nothing in this
+  module can exercise, there being no instrumentation here.
+- **A tap inside the mode closes it** rather than navigating. There is no wallpaper under a
+  floating bar to tap instead.
+
+### Three things the tests found and the code did not
+
+- **`IconButton` cannot carry a long press.** Material's has no `onLongClick`, and a
+  detector added to the modifier handed to it never fires, because it applies its own
+  `clickable` *after* that modifier and the press is claimed before anything passed in can
+  see it. It was written with an `IconButton` first, the long press simply never arrived, and
+  a test said so. The tab is a `Surface` with one `combinedClickable` now.
+- **The drag threshold was asymmetric by a pixel.** `roundToInt` breaks a tie towards
+  positive infinity, so exactly half a slot rightwards rounded to one slot and exactly half a
+  slot leftwards to none. `dropIndex` rounds away from zero.
+- **The lesson of #83's floor test decided the shape of this one.** That replacement test
+  kept its own copy of the arithmetic and stayed green against the very mutation it was
+  written for, so the drag's arithmetic is a file of its own here —
+  `component/ToolbarReorder.kt`, pure, pixel-facing, knowing nothing about a pointer — and
+  the tests call the production expression rather than a second copy of it.
+
+### The jiggle runs only when it is allowed to
+
+It runs **only while the mode is open** and **only when the reader has animation on**. The
+first is not a nicety: an infinite animation means Compose's clock is never idle, so every
+test that composed the bar would hang rather than fail — the trap this project has now paid
+for twice. The second is that somebody who turned animation off said that about their phone,
+not about this bar. Each icon is out of phase with its neighbours, because a row rotating in
+lockstep reads as the bar itself flexing rather than as several things each loose in its own
+right.
+
+### Also, and deliberately
+
+- **The settings default-tab picker lists the tabs in the reader's own order.** It is a
+  picture of the bar it is about, and two orders on one screen is a mapping exercise to
+  answer one question.
+- **A stored order repairs itself rather than being trusted.** It is a list of member names,
+  and every way it can be wrong has an answer: an unknown name is dropped, a member the
+  string does not mention is appended in declaration order, a duplicate collapses, whitespace
+  is ignored, and nothing stored at all is the declared order. The appending is the clause
+  that matters — the day a fourth tab is added, every installed phone holds a three-name
+  string, and the new tab has to appear rather than the bar quietly losing it.
+- **`SELF_STUDY` keeping its lessons, and the other non-decisions from #83, still stand** —
+  the lookahead row, `DayKindName`'s four kinds against `/bundle`'s six, the missing rule
+  against a composable reading `BuildConfig`, and `CONTRIBUTING.md`'s `python -m pytest`.
+  None of them was touched here and none of them has moved.
+
+### Gates, measured on this branch
+
+`./gradlew test` **964** (was 929) and both assembles. The thirty-five new tests are 10 on
+the drag arithmetic, 5 on the reorder mode's contract, 8 on the stored order's repair, 11 on
+the shell's index arithmetic and its back rule, and one pinning the default order — the bar
+somebody who has never opened the setting sees, which is also what every screen gets while
+the preferences file is still being read. The server half was not touched at all and
+its gates stand at #83: `ruff` clean, `pytest -q -n auto` **1630**, `python -m mypy` clean
+across 84 modules. The database stays at `0014`.
+
+**The count is corrected in this file's cheat-sheet and in neither of the other two places
+it lives** — the README's «Honest status» table and `docs/architecture.md` both still say
+929. That is the remaining half of a chore rather than a decision.
+
+### What nobody has verified in this batch
+
+**Nothing here has been seen on a phone.** Whether the wobble is plausible, whether half a
+slot is the right threshold under a real thumb, and whether the two-step gesture reads as
+deliberate are all unmeasured — and none of the three is a question a JVM test can be asked.
+**The drag is driven from no test at all**: Robolectric reports its own densities, so a
+synthetic swipe of «half a slot» would measure the environment rather than the gesture, which
+is exactly why `ToolbarReorderTest` asks the arithmetic directly, in pixels, with no
+composition in it.
+
+**One frame at the end of the gesture can draw the pre-drag order.** Closing the mode swaps
+the shell's latched list and the component's own permutation back in two steps rather than
+one. It is left deliberately: fixing it properly means the component resetting off the
+identity of what it is handed rather than off the mode closing, and getting *that* wrong
+silently double-applies a drag, which is a worse defect than a frame.
+
+There is a second window of a frame or two, and it is inherent rather than a defect: the new
+order goes out through the preferences and comes back later, so between the drag ending and
+the preferences answering the pager's index still names the old order. A `LaunchedEffect` on
+the arrived order closes it by putting the pager back — without an animation, which here
+would be a page visibly sliding to a place it never left.
+
+## What the batch before added: an audit of nine areas, and the twenty-four defects it found
+
+Merged as PR #83 (`3a4a924`), in the milestone `v0.7.0 — Оптимизация`, eight commits.
+Eleven read-only passes first — the nine areas of `.claude/skills/audit/SKILL.md` plus
+strings, documentation and a security sweep — and then the fixes. **Every one of the
+twenty-four was re-verified by hand here before it was fixed, and every one is closed by
+a test that was watched going red** on the code without the fix. Nothing in it is a model
+change, so there is no revision and the database stays at `0014`.
 
 ### Three a user would have hit
 
@@ -1614,7 +1734,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
-| 8 | `v0.7.0 — Оптимизация` | #75–#83 — the one Russian title |
+| 8 | `v0.7.0 — Оптимизация` | #75–#84 — the one Russian title |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -2041,7 +2161,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 1630 tests, ~4 min (CI runs this)
 cd server  && python -m mypy                             # clean, 84 modules
-cd android && ./gradlew test                             # 929 tests across the five modules
+cd android && ./gradlew test                             # 964 tests across the five modules
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
@@ -2408,6 +2528,25 @@ the code ships in.
 This is the main thing worth knowing: **all of this work is proved by tests and by nothing
 else.**
 
+- **Nothing of the tab arranging has been seen on a phone, and it is a gesture.** #84 is a
+  long press, a wobble and a drag, and what the 35 tests prove is arithmetic and contracts:
+  where a drag of so many pixels lands, that a move is a permutation, that the stored order
+  repairs itself, that the shell's one back rule leaves the mode before it leaves the app.
+  What nobody has felt: whether the wobble is plausible, whether half a slot is the right
+  threshold under a real thumb, whether the two-step gesture — press, then pick up — reads as
+  deliberate rather than as a gesture that failed the first time, and whether the haptic
+  lands where the mode opens. **The drag is driven from no test at all**, on purpose:
+  Robolectric reports its own densities, so a synthetic swipe would measure the environment
+  rather than the gesture, which is why `ToolbarReorderTest` asks the arithmetic directly, in
+  pixels, with no composition in it.
+- **One frame at the end of that gesture can draw the pre-drag order**, and it is written
+  down rather than fixed. Closing the mode swaps the shell's latched list and the component's
+  own permutation back in two steps rather than one. The proper fix is the component
+  resetting off the identity of what it is handed rather than off the mode closing, and
+  getting that wrong silently double-applies a drag — a worse defect than a frame, so it was
+  left. There is a second window of a frame or two which is inherent rather than a defect:
+  between the drag ending and the preferences answering, the pager's index still names the
+  old order, and a `LaunchedEffect` on the arrived order is what closes it.
 - **Nothing of the year scrolling has been looked at either.** What the tests prove is
   which year is asked for and when, which one is dropped, and that a request made while
   another was in flight comes back. What nobody has seen: the year chip, the picker, how
@@ -3188,6 +3327,14 @@ has a Cyrillic identifier: Kotlin has none at all.
 
 All of this is beyond an agent's reach: it needs a phone, a key or a live service.
 
+**Install this one and long-press a tab on the home screen.** #84 is the whole of a gesture
+and nothing in a session here could see any of it: whether the wobble reads as «иконки на
+iOS» or as a fault, whether a tab can actually be dragged where the finger means it to go,
+whether the haptic lands at the moment the mode opens, and — the one that matters most —
+whether the reader really does stay on the tab they were looking at rather than on the slot
+it used to occupy. Then leave the app, come back, and check the order survived. A back press
+should leave the arranging mode rather than the app.
+
 **The widget wants resizing twice *and* the system font turned up, and that is the whole
 check.** #82 makes every block inside it round itself to the padding of its size class, and
 the twelve rungs differ by a factor of two, so that defect is invisible at one size and
@@ -3238,7 +3385,7 @@ in the history at `f5a8172^`.
 versions that are finished and the owner has closed all five. Three stay open on purpose:
 `v0.6.0`, which is finished but not yet closed; **`v0.7.0 — Оптимизация`, number 8**, which
 the owner created when none of the earlier ones fitted and which every batch from #75 to
-#83 has gone in; and `Dependencies`, which takes every future bump. There is no
+#84 has gone in; and `Dependencies`, which takes every future bump. There is no
 number 7 — the numbering is GitHub's and it skips. The reason a new one has to be asked for
 stands for next time: no tool in a session here changes a milestone's state or creates one —
 `issue_write` only assigns an existing one by number — and there is no `gh` CLI.
