@@ -107,6 +107,9 @@ enum class HapticStrength {
  *
  * [fromName] falls back to [TODAY], so a device that stored `SETTINGS` as its
  * default tab before this change reads back a destination that exists.
+ *
+ * Declaration order is the order the bar is drawn in until somebody chooses
+ * another one; [order] is where a chosen one is read back from storage.
  */
 enum class HomeTab {
     TODAY,
@@ -116,6 +119,40 @@ enum class HomeTab {
 
     companion object {
         fun fromName(name: String?): HomeTab = entries.firstOrNull { it.name == name } ?: TODAY
+
+        /** What one stored name is separated from the next by. */
+        private const val SEPARATOR: String = ","
+
+        /**
+         * The bar's order as this device has it, repaired rather than trusted.
+         *
+         * [fromName] answers the same question for one member, and for the same
+         * reason: a stored name is whatever some other version of this app wrote
+         * down. A list has one more way to be wrong than a single value has, and
+         * it is the one that decides this lives here instead of at the call
+         * site. A name that no longer exists — `SETTINGS`, which was a tab — is
+         * dropped, exactly as it is there. A name that does not exist *yet* is
+         * the other half: the day a fourth tab is added, every install on earth
+         * holds a string of three names, and a bar drawn from that string alone
+         * would simply not have the new tab in it, with nothing to say so. So
+         * what is missing is appended in declaration order, and the result is
+         * always [entries] as a set — whatever the string was.
+         *
+         * Blank entries and duplicates are swallowed on the way for the same
+         * reason a corrupt preferences file degrades to defaults: the tab bar is
+         * the only way back out of the screen it is drawn on.
+         */
+        fun order(stored: String?): List<HomeTab> {
+            val chosen = stored.orEmpty()
+                .split(SEPARATOR)
+                .mapNotNull { part -> entries.firstOrNull { it.name == part.trim() } }
+                .distinct()
+            return chosen + entries.filterNot { it in chosen }
+        }
+
+        /** The inverse of [order]: `order(storedOrder(x)) == x` for any permutation. */
+        fun storedOrder(order: List<HomeTab>): String =
+            order.joinToString(SEPARATOR) { it.name }
     }
 }
 

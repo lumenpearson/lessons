@@ -139,6 +139,20 @@ data class AppSettings(
     val motionSpeed: Float = DEFAULT_MOTION_SPEED,
     val swipeTabs: Boolean = true,
     val defaultTab: HomeTab = HomeTab.TODAY,
+    /**
+     * The bottom bar's tabs, in the order this device draws them.
+     *
+     * Stored as a list rather than as an index per tab: the bar is a
+     * permutation, and a permutation held as three separate numbers can
+     * disagree with itself. What comes back out of storage is repaired by
+     * [HomeTab.order], so this field is always every tab exactly once however
+     * old the string behind it was.
+     *
+     * A `List` field costs nothing here: `compose-stability.conf` deliberately
+     * leaves `:core:data` off the promise — it names this class among the four
+     * that would qualify — so `AppSettings` is compared by identity either way.
+     */
+    val tabOrder: List<HomeTab> = HomeTab.entries,
     val motionBlur: Boolean = false,
     val motionBlurScale: Float = DEFAULT_MOTION_BLUR_SCALE,
     val edgeBlur: Boolean = true,
