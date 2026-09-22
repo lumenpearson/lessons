@@ -3431,6 +3431,22 @@ the corners and at the seven day chips; drag it to four cells wide and tall and 
 then turn the font up and repeat both. Nothing in the suite can do any of it, and the corner
 half needs Android 31 or later to exist at all.
 
+**Decide what the Preview environment is for, because today it is a red herring.** All
+eleven of the project's variables on Vercel are scoped to **Production only**, so every
+preview deployment — one per push to `dev`, which is one per pull request — dies while
+importing `app.db` and answers `500` to every request. The build is green, Vercel comments
+«Ready» on the pull request, and the link leads to a function that refused to start. That
+refusal is `DeploymentNotConfigured` doing precisely its job: nothing is touched, no
+connection is opened, no webhook is registered, and no GitHub check turns red. It cost an
+export of the runtime logs to establish, which is why `docs/deploy.md` now says it in the
+variables section. Two honest ways out, and **copying Production's values across is not one
+of them** — that points every branch at the real database and hands a throwaway deployment
+the real bot token, and Telegram gives its updates to whoever registered the webhook last.
+Either give Preview its own set (a Neon branch, a second BotFather bot, its own secrets) or
+turn Preview deployments off in the project's Git settings; nothing here is a web page, so
+there is nothing for a preview to show. Only the owner can do either — this session can read
+which keys exist per environment but must not create them.
+
 **Open `/api/v1/warmup` in a browser — it is the one thing that settles whether `0014` and
 the code that needs it actually met**, and it is outstanding since #61. It cannot be closed
 from a session here at any effort: the deployments are behind Vercel's Deployment Protection
