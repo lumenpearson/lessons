@@ -394,6 +394,22 @@ points Hilt does not inject cleanly.
   `Timetable.nowAtSchool()`. `LocalDateTime.now()` and `ZoneId.systemDefault()` on the
   Android side are almost always a bug — that pair was two of the fourteen defects the audit
   confirmed.
+- **A Compose test that holds the clock must also send the snapshot notification.**
+  `MarqueeText` runs `Int.MAX_VALUE` iterations, so Compose's clock is never idle and
+  `waitForIdle` — which every assertion calls into — **hangs rather than fails**. The
+  answer is `mainClock.autoAdvance = false` and advancing frames by hand, and that buys a
+  second trap: a write made from the test thread (`ScrollState.dispatchRawDelta`, or a
+  `mutableStateOf` the composition reads) lands in the global snapshot and **nothing sends
+  the apply notification**, so neither the recomposer nor `snapshotFlow` ever wakes and the
+  value arrives after the last assertion has read it. Advancing frames does not help at any
+  count — twenty still read zero. Every `settle()` here calls
+  `Snapshot.sendApplyNotifications()` first. `LazyListState.scrollToItem` happens to escape
+  it, because `forceRemeasure` runs a measure pass inside a snapshot of its own, which is
+  exactly why the ribbon half of one test looked right while the list half did not.
+  The third trap in the same family: `performScrollTo` drives the scrollable's animation, so
+  with the clock held it moves nothing and every node below the fold reports «not
+  displayed», which is indistinguishable from the element being absent. Give the test a tall
+  window instead.
 - **`compose-stability.conf` is a promise, and a `var` in `:core:model` breaks it.** The file
   tells the Compose compiler that `java.time.*` and the whole domain package are stable,
   because neither is compiled by the Compose plugin and one unknown field makes every class

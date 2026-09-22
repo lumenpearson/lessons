@@ -154,6 +154,12 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="week_previous">Previous week</string>
     <string name="week_next">Next week</string>
     <string name="week_current">Current week</string>
+    <string name="month_previous">Previous month</string>
+    <string name="month_next">Next month</string>
+    <string name="month_current">Current month</string>
+    <string name="day_previous">Previous day</string>
+    <string name="day_next">Next day</string>
+    <string name="day_current">Today</string>
     <string name="week_no_data_title">No data</string>
     <string name="week_no_data_description">The timetable for this day has not been loaded yet.</string>
     <string name="week_day_off_title">No lessons</string>
@@ -385,6 +391,7 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="about_badge_server_degraded">Server: database and code disagree</string>
     <string name="about_badge_server_none">No server address set</string>
     <string name="about_badge_schema">Schema %1$s</string>
+    <string name="about_badge_schema_expected">Expected %1$s</string>
     <string name="about_badge_api">API v%1$d</string>
     <string name="about_badge_repository">%1$s</string>
     <string name="about_badge_ref">Branch %1$s</string>
@@ -483,6 +490,8 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="calendar_order_busiest">By load</string>
     <string name="calendar_agenda_empty_title">Nothing matches</string>
     <string name="calendar_agenda_empty_description">No day this month fits the chosen filters.</string>
+    <string name="calendar_agenda_blank_title">Nothing here</string>
+    <string name="calendar_agenda_blank_description">No day this month has a timetable.</string>
 
     <!-- The day ribbon: calendar → «День» -->
     <string name="ribbon_break">Break</string>

@@ -145,9 +145,19 @@
     -->
     <string name="term_quarter">%1$d четверть</string>
     <string name="term_semester">%1$d полугодие</string>
+    <!--
+      The period arrows, one set per unit the arrows actually step. The header
+      text beside them already named the day or the month; only these lagged.
+    -->
     <string name="week_previous">Предыдущая неделя</string>
     <string name="week_next">Следующая неделя</string>
     <string name="week_current">Текущая неделя</string>
+    <string name="month_previous">Предыдущий месяц</string>
+    <string name="month_next">Следующий месяц</string>
+    <string name="month_current">Текущий месяц</string>
+    <string name="day_previous">Предыдущий день</string>
+    <string name="day_next">Следующий день</string>
+    <string name="day_current">Сегодня</string>
     <string name="week_no_data_title">Нет данных</string>
     <string name="week_no_data_description">Расписание на этот день ещё не загружено.</string>
     <string name="week_day_off_title">Уроков нет</string>
@@ -381,6 +391,7 @@
     <string name="about_badge_server_degraded">Сервер: база и код разошлись</string>
     <string name="about_badge_server_none">Адрес сервера не задан</string>
     <string name="about_badge_schema">Схема %1$s</string>
+    <string name="about_badge_schema_expected">Ожидается %1$s</string>
     <string name="about_badge_api">API v%1$d</string>
     <string name="about_badge_repository">%1$s</string>
     <string name="about_badge_ref">Ветка %1$s</string>
@@ -482,6 +493,8 @@
     <string name="calendar_order_busiest">По загруженности</string>
     <string name="calendar_agenda_empty_title">Ничего не подходит</string>
     <string name="calendar_agenda_empty_description">В этом месяце нет дней под выбранные фильтры.</string>
+    <string name="calendar_agenda_blank_title">Здесь пусто</string>
+    <string name="calendar_agenda_blank_description">В этом месяце нет ни одного дня с расписанием.</string>
 
     <!-- The day ribbon: calendar → «День» -->
     <string name="ribbon_break">Перемена</string>
