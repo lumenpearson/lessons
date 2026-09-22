@@ -28,6 +28,13 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+# The values are lower case and the ORM writes the member NAME — «VIEWER» —
+# and that is not the mismatch it looks like: `native_enum=False` emits no
+# CHECK on SQLAlchemy 2.0, so this list reaches the database as nothing at all.
+# What does reach it is `length`, spelled out here because these four values
+# are not the four names and would otherwise have sized the column at 6 by
+# accident rather than on purpose. It is the only thing the column enforces,
+# and it is why a fifth role would be a revision of its own — see `0014`.
 _ROLE = sa.Enum("viewer", "editor", "admin", "owner", name="role", native_enum=False, length=6)
 
 

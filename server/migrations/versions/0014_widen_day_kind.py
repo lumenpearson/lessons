@@ -16,6 +16,12 @@ requires: ``CreateTable(DayOverride.__table__)`` prints ``VARCHAR(10)`` today,
 and if a third kind is added later this revision is not the thing that has to
 be remembered — the next one is written the same way from the same source.
 
+What *has* to be remembered is that the next kind needs a revision at all, and
+nothing said so: the local database is SQLite, which ignores ``VARCHAR``
+lengths entirely, so the member that does not fit is green everywhere until
+production. ``tests/test_enum_column_widths.py`` is that guard now — this
+revision closed the instance, and that file closes the class.
+
 **Destroys nothing.** Widening a ``VARCHAR`` rewrites no row on Postgres and
 cannot fail on existing data: every value already in the column is at most nine
 characters, and all of them stay exactly what they were. No row is deleted and

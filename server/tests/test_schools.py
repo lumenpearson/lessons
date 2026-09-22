@@ -155,6 +155,48 @@ def test_one_unreadable_row_does_not_take_the_search_with_it():
     assert len(schools) == 1
 
 
+def test_a_whole_answer_that_read_as_nothing_is_said_out_loud(caplog):
+    """Twenty well-formed suggestions mapping to nothing is the register's
+    shape having moved, not a school that is not in ЕГРЮЛ — and the bot answers
+    «По запросу «…» ничего не нашлось» to both.
+
+    The line that was here said it at `debug`, and `app/main.py` sets the level
+    to `INFO`: in every deployment there has ever been, it was never emitted.
+    """
+    with caplog.at_level(logging.WARNING, logger="app.providers.dadata.mapper"):
+        schools = m.to_schools([{"value": "МБОУ", "payload": {"ogrn": "102"}} for _ in range(20)])
+
+    assert schools == []
+    spoken = [record.getMessage() for record in caplog.records]
+    assert len(spoken) == 1
+    assert "20" in spoken[0]
+    # The keys are the point of the line: they are what the next spelling read
+    # in the mapper has to be.
+    assert "payload" in spoken[0]
+
+
+def test_an_answer_read_in_part_is_not_reported_as_a_shape_change(caplog):
+    """One unreadable row out of three is the case the mapper is forgiving
+    about on purpose, and a warning on it would teach the reader to skip the
+    one that matters."""
+    with caplog.at_level(logging.WARNING, logger="app.providers.dadata.mapper"):
+        m.to_schools([suggestion(), {"value": "", "data": {}}])
+
+    assert caplog.records == []
+
+
+def test_an_answer_of_nothing_but_duplicates_is_not_a_shape_change(caplog):
+    """Every row read fine; deduplication shortened the list. Reading «nothing
+    came out» off the result rather than counting what could not be read would
+    report this as the register moving."""
+    other = suggestion()
+    other["data"]["name"] = {"short_with_opf": 'МБОУ "ГИМНАЗИЯ №3"'}
+    with caplog.at_level(logging.WARNING, logger="app.providers.dadata.mapper"):
+        assert len(m.to_schools([suggestion(), other])) == 1
+
+    assert caplog.records == []
+
+
 def test_the_same_school_twice_under_two_spellings_is_shown_once():
     other = suggestion()
     other["data"]["name"] = {"short_with_opf": 'МБОУ "ГИМНАЗИЯ №3"'}

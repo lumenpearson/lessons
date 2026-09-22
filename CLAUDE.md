@@ -165,8 +165,14 @@ table exists because those two cannot be told apart by counting rows — a class
 March has none before it either way. Three years are kept per class; what goes is the one
 furthest from the year holding today, never that year, and its `ETag` goes with its rows.
 Only the sync of the current year writes the lookahead row, and the ranged deletes spare
-it: the server resolves it past the window's end, so for a year ending in May it lands in
-the September inside the *next* window.
+it — but **nothing writes it today**, and the claim that used to stand here is what sent an
+audit looking. The server resolves `next_school_day` at most 21 days past the last lesson
+*inside the window that was asked for*, and a window running to the school year's end
+leaves only June, which is out of season for every class — `services/terms.py` refuses a
+term past 31 May, so there is no class it could be in season for. What answers «what is
+next» across a gap is `TimetableDao.firstTeachingDayAfter` over the cached year, which is
+now a whole year rather than a fortnight; the row's residue is the last days of May.
+`docs/architecture.md` says what a server change would have to be, and why it was not made.
 
 There is no Hilt. `Graph` is a small hand-written container a test can swap wholesale,
 because the Glance widget and the WorkManager worker both need repositories from entry
@@ -346,7 +352,7 @@ points Hilt does not inject cleanly.
   drew lessons on the 29th, the 30th and the 31st, because the dates an admin
   typed decided the term's *name* and nothing else, and 31 May is what
   `SCHOOL_YEAR_END_MONTH` will always mean. `_resolve_day` now asks
-  `ScheduleResolver._is_teaching_day`, which reads the class's own terms for
+  `schedule.off_reason_for`, which reads the class's own terms for
   that year and falls back to `school_year_bounds` only when the year has none.
   The gaps **between** terms are out of season by the same rule, which is how
   the autumn holidays get marked by moving two dates rather than nine days: the

@@ -12,7 +12,6 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 
 import pytest
-from test_bot_calendar import FakeCallback
 
 from app.bot import diary_render
 from app.bot.handlers import diary as handlers
@@ -103,8 +102,8 @@ async def test_a_session_whose_key_no_longer_opens_it_is_dead(session, school_cl
 # --------------------------------------------------------------------------
 
 
-async def test_an_unbound_class_has_no_diary_to_offer(session, school_class):
-    callback = FakeCallback(user_id=MINE)
+async def test_an_unbound_class_has_no_diary_to_offer(session, school_class, CardCallback):
+    callback = CardCallback(user_id=MINE)
     await handlers.diary_root(callback, session, school_class, Role.OWNER)
 
     assert callback.alerted
@@ -112,10 +111,10 @@ async def test_an_unbound_class_has_no_diary_to_offer(session, school_class):
 
 
 async def test_a_bound_class_with_no_session_offers_the_door_not_an_error(
-    session, school_class
+    session, school_class, CardCallback
 ):
     await _bind(session, school_class)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_root(callback, session, school_class, Role.VIEWER)
 
@@ -123,12 +122,12 @@ async def test_a_bound_class_with_no_session_offers_the_door_not_an_error(
     assert "Пароль не вводится в чат" in callback.message.last
 
 
-async def test_a_viewer_gets_the_diary_like_everybody_else(session, school_class):
+async def test_a_viewer_gets_the_diary_like_everybody_else(session, school_class, CardCallback):
     """No role in the class grants any of it: the button opens *your* diary,
     and an observer has as much right to their own child's marks as an owner
     has to theirs."""
     await _bind(session, school_class)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_root(callback, session, school_class, Role.VIEWER)
 
@@ -136,7 +135,7 @@ async def test_a_viewer_gets_the_diary_like_everybody_else(session, school_class
 
 
 async def test_the_sign_in_link_is_refused_when_there_is_nowhere_to_point_it(
-    session, school_class, monkeypatch
+    session, school_class, monkeypatch, CardCallback
 ):
     """A link built from an unset PUBLIC_BASE_URL would 404, and telling
     somebody to open a page that does not exist is worse than saying so."""
@@ -144,7 +143,7 @@ async def test_the_sign_in_link_is_refused_when_there_is_nowhere_to_point_it(
 
     await _bind(session, school_class)
     monkeypatch.setattr(get_settings(), "public_base_url", "", raising=False)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
     try:
         await handlers.diary_sign_in(callback, session, school_class, Role.VIEWER)
     finally:
@@ -155,13 +154,13 @@ async def test_the_sign_in_link_is_refused_when_there_is_nowhere_to_point_it(
 
 
 async def test_the_sign_in_link_is_one_ticket_pointed_at_the_form(
-    session, school_class, monkeypatch
+    session, school_class, monkeypatch, CardCallback
 ):
     from app.config import get_settings
 
     await _bind(session, school_class)
     monkeypatch.setattr(get_settings(), "public_base_url", "https://lessons.example.com/")
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
     try:
         await handlers.diary_sign_in(callback, session, school_class, Role.VIEWER)
     finally:
@@ -181,10 +180,12 @@ async def test_the_sign_in_link_is_one_ticket_pointed_at_the_form(
     assert "Не пересылайте" in callback.message.last
 
 
-async def test_signing_out_drops_the_session_and_returns_the_door(session, school_class):
+async def test_signing_out_drops_the_session_and_returns_the_door(
+    session, school_class, CardCallback
+):
     await _bind(session, school_class)
     await _open_session(session, telegram_id=MINE, class_id=school_class.id)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_sign_out(callback, session, school_class)
 
@@ -193,7 +194,7 @@ async def test_signing_out_drops_the_session_and_returns_the_door(session, schoo
 
 
 async def test_signing_out_leaves_no_session_behind_to_walk_back_in_on(
-    session, school_class
+    session, school_class, CardCallback
 ):
     """Nothing expires a previous sign-in, so two are ordinary rather than rare.
 
@@ -218,13 +219,13 @@ async def test_signing_out_leaves_no_session_behind_to_walk_back_in_on(
     session.add(newer)
     await session.commit()
 
-    await handlers.diary_sign_out(FakeCallback(user_id=MINE), session, school_class)
+    await handlers.diary_sign_out(CardCallback(user_id=MINE), session, school_class)
 
     assert await handlers._session_for(session, MINE, school_class.id) is None
 
 
 async def test_signing_out_of_one_class_leaves_the_other_class_alone(
-    session, school_class
+    session, school_class, CardCallback
 ):
     """The bot addresses a session by (telegram_id, class_id) and nothing else,
     so «Выйти» in one class must not sign a parent out of the other child."""
@@ -235,7 +236,7 @@ async def test_signing_out_of_one_class_leaves_the_other_class_alone(
     await _open_session(session, telegram_id=MINE, class_id=school_class.id)
     elsewhere = await _open_session(session, telegram_id=MINE, class_id=other.id)
 
-    await handlers.diary_sign_out(FakeCallback(user_id=MINE), session, school_class)
+    await handlers.diary_sign_out(CardCallback(user_id=MINE), session, school_class)
 
     still = await handlers._session_for(session, MINE, other.id)
     assert still is not None
@@ -420,7 +421,9 @@ async def _ready(session, school_class):
     return await _open_session(session, telegram_id=MINE, class_id=school_class.id)
 
 
-async def test_the_diary_opens_on_today_and_wears_the_frame(session, school_class, upstream):
+async def test_the_diary_opens_on_today_and_wears_the_frame(
+    session, school_class, upstream, CardCallback
+):
     await _ready(session, school_class)
     upstream.lessons_answer = [
         DiaryLesson(
@@ -431,7 +434,7 @@ async def test_the_diary_opens_on_today_and_wears_the_frame(session, school_clas
             homework="№ 12",
         )
     ]
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_root(callback, session, school_class, Role.VIEWER)
 
@@ -445,10 +448,10 @@ async def test_the_diary_opens_on_today_and_wears_the_frame(session, school_clas
 
 
 async def test_the_day_view_asks_for_the_day_the_arrow_points_at(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     await _ready(session, school_class)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback, handlers.DiaryAction(view="day", offset=-3), session, school_class
@@ -461,7 +464,7 @@ async def test_the_day_view_asks_for_the_day_the_arrow_points_at(
 
 
 async def test_the_week_view_asks_monday_to_saturday_of_that_week(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     """Six days, and the lesson goes on the Monday the card actually opens on.
 
@@ -473,7 +476,7 @@ async def test_the_week_view_asks_monday_to_saturday_of_that_week(
     happened to land on a Sunday evening in the class's timezone.
     """
     await _ready(session, school_class)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     # What the handler asks for, before there is anything to answer with.
     await handlers.diary_view(
@@ -493,7 +496,7 @@ async def test_the_week_view_asks_monday_to_saturday_of_that_week(
 
 
 async def test_on_a_sunday_the_week_is_the_one_that_starts_tomorrow(
-    session, school_class, upstream, monkeypatch
+    session, school_class, upstream, monkeypatch, CardCallback
 ):
     """The week that ended yesterday is not the week anybody is asking about.
 
@@ -516,7 +519,7 @@ async def test_on_a_sunday_the_week_is_the_one_that_starts_tomorrow(
             return datetime(2026, 9, 20, 19, 0, tzinfo=tz)
 
     monkeypatch.setattr(handlers, "datetime", FrozenSunday)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback, handlers.DiaryAction(view="week", offset=0), session, school_class
@@ -532,14 +535,16 @@ async def test_on_a_sunday_the_week_is_the_one_that_starts_tomorrow(
     assert before == start - timedelta(days=7), "‹ still reaches the week that ended"
 
 
-async def test_the_homework_view_looks_a_fortnight_ahead(session, school_class, upstream):
+async def test_the_homework_view_looks_a_fortnight_ahead(
+    session, school_class, upstream, CardCallback
+):
     await _ready(session, school_class)
     upstream.homework_answer = [
         HomeworkItem(
             due_date=today_of(school_class) + timedelta(days=1), subject="Физика", text="§ 4"
         )
     ]
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback, handlers.DiaryAction(view="homework"), session, school_class
@@ -552,14 +557,14 @@ async def test_the_homework_view_looks_a_fortnight_ahead(session, school_class, 
 
 
 async def test_the_marks_view_looks_a_month_back_and_averages_what_it_finds(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     await _ready(session, school_class)
     upstream.marks_answer = [
         Mark(subject_name="Алгебра", value="5", date=today_of(school_class)),
         Mark(subject_name="Алгебра", value="4", date=today_of(school_class)),
     ]
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback, handlers.DiaryAction(view="marks"), session, school_class
@@ -575,10 +580,10 @@ async def test_the_marks_view_looks_a_month_back_and_averages_what_it_finds(
 
 
 async def test_an_empty_marks_range_names_the_range_rather_than_showing_a_blank(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     await _ready(session, school_class)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback, handlers.DiaryAction(view="marks"), session, school_class
@@ -589,10 +594,10 @@ async def test_an_empty_marks_range_names_the_range_rather_than_showing_a_blank(
 
 
 async def test_an_empty_homework_range_names_the_two_dates_it_asked_about(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     await _ready(session, school_class)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback, handlers.DiaryAction(view="homework"), session, school_class
@@ -606,12 +611,12 @@ async def test_an_empty_homework_range_names_the_two_dates_it_asked_about(
 
 
 async def test_the_arrows_cannot_walk_past_the_year_they_are_bounded_to(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     """Every press is a call to somebody else's service; an arrow held down is
     how an address gets blocked."""
     await _ready(session, school_class)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback, handlers.DiaryAction(view="day", offset=10_000), session, school_class
@@ -626,20 +631,22 @@ async def test_the_arrows_cannot_walk_past_the_year_they_are_bounded_to(
 # --------------------------------------------------------------------------
 
 
-async def test_a_second_child_puts_the_picker_on_the_frame(session, school_class, upstream):
+async def test_a_second_child_puts_the_picker_on_the_frame(
+    session, school_class, upstream, CardCallback
+):
     await _ready(session, school_class)
     upstream.students_answer = [PUPIL, SIBLING]
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_root(callback, session, school_class, Role.VIEWER)
 
     assert "👥 Ребёнок" in labels(callback.message.keyboard)
 
 
-async def test_the_picker_ticks_the_child_being_read(session, school_class, upstream):
+async def test_the_picker_ticks_the_child_being_read(session, school_class, upstream, CardCallback):
     await _ready(session, school_class)
     upstream.students_answer = [PUPIL, SIBLING]
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_students(callback, session, school_class)
 
@@ -649,12 +656,12 @@ async def test_the_picker_ticks_the_child_being_read(session, school_class, upst
 
 
 async def test_a_payload_naming_a_child_this_account_cannot_see_falls_back(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     """The list came from the upstream for *this* session, so it is the
     authority on what may be read — not the number in the button."""
     row = await _ready(session, school_class)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback,
@@ -670,11 +677,11 @@ async def test_a_payload_naming_a_child_this_account_cannot_see_falls_back(
 
 
 async def test_choosing_a_child_is_remembered_on_the_session(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     row = await _ready(session, school_class)
     upstream.students_answer = [PUPIL, SIBLING]
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback,
@@ -688,11 +695,11 @@ async def test_choosing_a_child_is_remembered_on_the_session(
 
 
 async def test_an_account_with_no_children_says_so_instead_of_an_empty_day(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     await _ready(session, school_class)
     upstream.students_answer = []
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_root(callback, session, school_class, Role.VIEWER)
 
@@ -705,11 +712,11 @@ async def test_an_account_with_no_children_says_so_instead_of_an_empty_day(
 
 
 async def test_an_expired_session_shows_the_door_again_and_says_why(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     await _ready(session, school_class)
     upstream.raises = SessionExpired("gone")
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback, handlers.DiaryAction(view="day"), session, school_class
@@ -721,11 +728,11 @@ async def test_an_expired_session_shows_the_door_again_and_says_why(
 
 
 async def test_an_upstream_that_is_down_is_named_as_theirs_not_ours(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     await _ready(session, school_class)
     upstream.raises = UpstreamUnavailable("502")
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback, handlers.DiaryAction(view="day"), session, school_class
@@ -737,11 +744,11 @@ async def test_an_upstream_that_is_down_is_named_as_theirs_not_ours(
 
 
 async def test_any_other_refusal_sends_the_person_to_sign_in_again(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     await _ready(session, school_class)
     upstream.raises = UnexpectedResponse("нечто")
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback, handlers.DiaryAction(view="day"), session, school_class
@@ -752,13 +759,13 @@ async def test_any_other_refusal_sends_the_person_to_sign_in_again(
 
 
 async def test_a_shape_the_mapper_did_not_expect_never_reaches_the_chat(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     """The bare ``except`` in ``_show`` is the whole point: the upstream is
     undocumented, and a traceback in a parent's chat is not a diary."""
     await _ready(session, school_class)
     upstream.raises = TypeError("'NoneType' object is not subscriptable")
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback, handlers.DiaryAction(view="day"), session, school_class
@@ -770,10 +777,10 @@ async def test_a_shape_the_mapper_did_not_expect_never_reaches_the_chat(
 
 
 async def test_a_view_pressed_without_a_session_offers_the_door(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     await _bind(session, school_class)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_view(
         callback, handlers.DiaryAction(view="marks"), session, school_class
@@ -783,13 +790,13 @@ async def test_a_view_pressed_without_a_session_offers_the_door(
 
 
 async def test_a_deployment_without_a_key_refuses_at_the_door(
-    session, school_class, monkeypatch
+    session, school_class, monkeypatch, CardCallback
 ):
     """No ``DIARY_SECRET`` means the feature is off, and says so — the silent
     fallback is the thing ``app/crypto.py`` exists to prevent."""
     await _bind(session, school_class)
     monkeypatch.setattr(handlers, "diary_enabled", lambda: False)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_root(callback, session, school_class, Role.OWNER)
 
@@ -895,34 +902,34 @@ def test_marks_with_nothing_numeric_in_them_show_no_average():
 # --------------------------------------------------------------------------
 
 
-async def test_every_diary_door_is_shut_to_somebody_with_no_class(session):
-    root = FakeCallback(user_id=MINE)
+async def test_every_diary_door_is_shut_to_somebody_with_no_class(session, CardCallback):
+    root = CardCallback(user_id=MINE)
     await handlers.diary_root(root, session, None, None)
     assert "Сначала присоединитесь к классу" in alert(root)
 
-    signin = FakeCallback(user_id=MINE)
+    signin = CardCallback(user_id=MINE)
     await handlers.diary_sign_in(signin, session, None, None)
     assert "Дневник недоступен" in alert(signin)
 
-    signout = FakeCallback(user_id=MINE)
+    signout = CardCallback(user_id=MINE)
     await handlers.diary_sign_out(signout, session, None)
     assert "Нет доступа" in alert(signout)
 
-    students = FakeCallback(user_id=MINE)
+    students = CardCallback(user_id=MINE)
     await handlers.diary_students(students, session, None)
     assert "Нет доступа" in alert(students)
 
-    view = FakeCallback(user_id=MINE)
+    view = CardCallback(user_id=MINE)
     await handlers.diary_view(view, handlers.DiaryAction(view="day"), session, None)
     assert "Нет доступа" in alert(view)
 
 
 async def test_the_sign_in_link_is_not_minted_while_the_feature_is_off(
-    session, school_class, monkeypatch
+    session, school_class, monkeypatch, CardCallback
 ):
     await _bind(session, school_class)
     monkeypatch.setattr(handlers, "diary_enabled", lambda: False)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_sign_in(callback, session, school_class, Role.VIEWER)
 
@@ -930,9 +937,11 @@ async def test_the_sign_in_link_is_not_minted_while_the_feature_is_off(
     assert callback.message.texts == []
 
 
-async def test_the_picker_offered_without_a_session_shows_the_door(session, school_class):
+async def test_the_picker_offered_without_a_session_shows_the_door(
+    session, school_class, CardCallback
+):
     await _bind(session, school_class)
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_students(callback, session, school_class)
 
@@ -940,11 +949,11 @@ async def test_the_picker_offered_without_a_session_shows_the_door(session, scho
 
 
 async def test_the_picker_says_so_when_the_upstream_will_not_list_the_children(
-    session, school_class, upstream
+    session, school_class, upstream, CardCallback
 ):
     await _ready(session, school_class)
     upstream.raises = UpstreamUnavailable("502")
-    callback = FakeCallback(user_id=MINE)
+    callback = CardCallback(user_id=MINE)
 
     await handlers.diary_students(callback, session, school_class)
 

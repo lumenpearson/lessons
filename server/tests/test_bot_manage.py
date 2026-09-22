@@ -253,6 +253,45 @@ def _command(args: str | None):
 # --------------------------------------------------------------------------
 
 
+def test_every_button_on_the_class_menu_is_one_its_payload_class_packed():
+    """«⚙️ Класс» → «🕒 Часовой пояс» carried a hand-written
+    ``"cls:timezone:"``. It was the right string, and nothing said so: a
+    prefix renamed on ``ClassAction`` or a field added to it would have left
+    a button whose press matches no filter, which is a spinner and then
+    silence.
+    """
+    from aiogram.filters.callback_data import CallbackData
+
+    from app.bot import calendar_keyboard, keyboards, manage_keyboards
+    from app.bot.manage_keyboards import class_menu
+
+    payloads = [
+        value
+        for module in (keyboards, manage_keyboards, calendar_keyboard)
+        for value in vars(module).values()
+        if isinstance(value, type)
+        and issubclass(value, CallbackData)
+        and value is not CallbackData
+    ]
+    menu = class_menu(is_owner=True, many_classes=True, pending=2, diary_bound=True)
+
+    for row in menu.inline_keyboard:
+        for button in row:
+            if button.callback_data is None:
+                continue
+            assert any(
+                _unpacks(payload, button.callback_data) for payload in payloads
+            ), button.callback_data
+
+
+def _unpacks(payload: type, data: str) -> bool:
+    try:
+        payload.unpack(data)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
 def test_management_callbacks_do_not_collide_with_the_everyday_ones():
     """A duplicate prefix would not fail a build - it would route one
     feature's button into another feature's handler."""

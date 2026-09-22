@@ -34,6 +34,17 @@ PAGE_SIZE = 5
 #: is six.
 MIN_QUERY = 3
 
+#: What is sent upstream, and what the bot echoes back when nothing was found.
+#: Their query field is a search box rather than an identifier, so a longer
+#: query is a paste of a whole address and ranks worse than the name alone.
+#: Named rather than written into ``normalise_query`` because the echo has to
+#: quote the query that was actually searched with: while the truncation was a
+#: literal there, the bot's «По запросу … ничего не нашлось» quoted the
+#: untruncated one, and an inbound message at Telegram's own ceiling made that
+#: reply 4191 characters — refused whole, from a ``Message`` handler with
+#: nothing to apologise on.
+MAX_QUERY = 150
+
 #: What the class card keeps. The column is ``String(200)``; a full ЕГРЮЛ name
 #: with the legal form spelled out can exceed it, and a silently truncated name
 #: is worse than a short one.
@@ -53,9 +64,7 @@ def normalise_query(raw: str | None) -> str:
     query = " ".join((raw or "").split())
     if len(query) < MIN_QUERY:
         raise SearchError(f"Введите хотя бы {MIN_QUERY} символа названия школы")
-    # Their query field is a search box, not an identifier; a very long one is
-    # a paste of a whole address and ranks worse than the name alone.
-    return query[:150]
+    return query[:MAX_QUERY]
 
 
 def available() -> bool:

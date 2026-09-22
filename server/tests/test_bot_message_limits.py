@@ -29,10 +29,11 @@ from typing import Any
 import pytest
 from sqlalchemy import select
 
-from app.bot import diary_render, editor_render, render
+from app.bot import diary_render, editor_render, manage_render, render
 from app.bot.handlers.access import JOIN_MODE_TEXT, access_root
 from app.bot.handlers.content import event_title, override_subject
 from app.bot.handlers.manage import bells_new_rows, cmd_export
+from app.bot.handlers.start import create_class_school_search
 from app.bot.handlers.timetable import TIMETABLE_HELP, timetable_pick_day
 from app.bot.keyboards import TimetableAction
 from app.models import (
@@ -52,6 +53,7 @@ from app.models import (
 from app.providers.petersburg.models import DiaryLesson, HomeworkItem, Mark
 from app.schedule import ResolvedDay, ResolvedHomework, ResolvedLesson
 from app.services import notify
+from app.services import schools as schools_service
 from app.services.reminders import render_evening
 
 #: Telegram's own ceiling. Every assertion here is against this and not against
@@ -739,3 +741,70 @@ async def test_the_export_sends_every_part_it_promises(session, school_class):
         assert len(parsed) <= TELEGRAM_LIMIT, len(parsed)
     # Nothing is lost on the way: the parts still reassemble into the export.
     assert sum(part.count("Алгебра &lt;7&gt;") for part in message.replies) == 6 * 17
+
+
+def test_a_search_for_something_long_answers_something():
+    """`/find` bounds its query from below and nothing bounded it from above.
+
+    The needle is echoed back as the page's heading, and `schemas` accepts
+    4000 characters for an assignment — so pasting one back into `/find` to
+    find it again, which is the obvious way to use the command, made the
+    «ничего не нашлось» page 4165 characters. That branch joined its lines
+    with no budget at all, and `cmd_find` is a `Message` handler with no
+    callback for the error middleware to apologise on: the answer was nothing.
+    """
+    text = manage_render.render_search("я" * 4090, [], TODAY)
+
+    assert len(text) <= render.MESSAGE_LIMIT
+    assert "Ничего не нашлось" in text
+
+
+def test_a_long_search_still_shows_what_it_found():
+    """The heading is line 0 and `clamp` cuts from the end.
+
+    So an over-long needle did not lose itself, it lost every hit under it: a
+    3900-character query rendered as literally «… и ещё 7 строк», with the
+    found assignments nowhere and nothing on the page saying why. 800
+    quotation marks did the same on their own, because `clamp` measures the
+    escaped string and each of them is six characters there.
+    """
+    rows = [
+        SimpleNamespace(
+            subject_name=f"Предмет {n}",
+            text="Параграф 12, упр. 4–9",
+            due_date=TODAY + dt.timedelta(days=n),
+        )
+        for n in range(5)
+    ]
+
+    for needle in ("я" * 3900, '"' * 800):
+        text = manage_render.render_search(needle, rows, TODAY)
+        assert len(text) <= render.MESSAGE_LIMIT
+        for row in rows:
+            assert row.subject_name in text, needle
+
+
+async def test_a_school_search_that_found_nothing_says_so(monkeypatch):
+    """The prompt quotes the query back, and quoted the whole of it.
+
+    `normalise_query` cuts at 150 characters, but only for the request sent
+    upstream; the echo used the untruncated value, so a query at Telegram's
+    own inbound ceiling made a 4191-character reply out of a `Message`
+    handler with nothing to apologise on — and the owner creating a class saw
+    no answer to the school step at all.
+    """
+
+    async def _nothing(raw: str, region: str | None = None):
+        return schools_service.SearchResult(schools=[], truncated=False)
+
+    monkeypatch.setattr(schools_service, "search", _nothing)
+
+    # What a person can actually send is what a person can actually paste
+    # back: Telegram's inbound ceiling is the same 4096, and the sentence
+    # around the echo is 95 characters more.
+    message = _Reply(text="щ" * TELEGRAM_LIMIT)
+    await create_class_school_search(message, _State())
+
+    assert len(message.last) <= TELEGRAM_LIMIT
+    # The way forward survives the cut; it is the quotation that gives way.
+    assert message.last.endswith("введите название вручную.")

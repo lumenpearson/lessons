@@ -65,6 +65,17 @@ DEVICES_MAX = 15
 #: paste that got more than ten wrong is a paste to rewrite, not to fix.
 REJECTED_MAX = 10
 
+#: The query echoed back in «🔎 Поиск: …». `/find` bounds its argument from
+#: below (two characters) and not from above, and the heading is line 0 of a
+#: page `clamp` cuts from the end — so an unbounded needle was the one line
+#: that could never give way. Pasting an assignment back into `/find` to find
+#: it again is the obvious way to use the command, and `schemas` accepts 4000
+#: characters for one: that refused the empty page whole, and collapsed the
+#: page with hits into «… и ещё N строк» with not one of the found assignments
+#: on it. Long enough to recognise the query, short enough that even a needle
+#: of quotation marks — six characters each after escaping — stays a heading.
+SEARCH_NEEDLE_MAX = 120
+
 #: Every list here is already capped by row count, but a row carries free
 #: text — a note, an assignment, an audit summary — and thirty long ones would
 #: overrun a limit that no row count can express. The budget itself and the
@@ -423,12 +434,16 @@ def render_class_card(
 
 
 def render_search(needle: str, rows: list, today: Date) -> str:
-    """Search hits, newest due first. The needle is echoed back escaped too -
-    it is the one string on this page that certainly came from a keyboard."""
-    lines = [f"<b>🔎 Поиск: {escape(needle)}</b>", ""]
+    """Search hits, newest due first. The needle is echoed back cut and then
+    escaped too - it is the one string on this page that certainly came from a
+    keyboard, and it was the only free text here without a budget."""
+    lines = [f"<b>🔎 Поиск: {escape(cut(needle, SEARCH_NEEDLE_MAX))}</b>", ""]
     if not rows:
         lines.append("<i>Ничего не нашлось. Ищу по заданиям за последний месяц и впереди.</i>")
-        return "\n".join(lines)
+        # Clamped like the branch below, though the two lines above it are now
+        # bounded: this page is one message either way, and a branch that
+        # joins without a budget is how the unbounded needle got out.
+        return clamp(lines)
 
     for item in rows:
         day = item.due_date

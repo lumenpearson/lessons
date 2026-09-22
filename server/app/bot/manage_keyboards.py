@@ -13,7 +13,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.bot.button_style import DANGER, PRIMARY, SUCCESS
-from app.bot.keyboards import Menu, back_to_menu
+from app.bot.keyboards import ClassAction, Menu, back_to_menu
 from app.bot.manage_render import AUDIT_PAGE, BELLS_MAX, DEVICES_MAX, LIST_MAX, SUBJECTS_MAX
 from app.models import DayKind
 
@@ -110,7 +110,13 @@ def class_menu(
             InlineKeyboardButton(
                 text="🏙 Город", callback_data=ManageAction(action="city").pack()
             ),
-            InlineKeyboardButton(text="🕒 Часовой пояс", callback_data="cls:timezone:"),
+            # Packed rather than hand-written: the string it produces is the
+            # same today, and a prefix rename or a new field on ``ClassAction``
+            # would turn a literal into a button that answers nothing.
+            InlineKeyboardButton(
+                text="🕒 Часовой пояс",
+                callback_data=ClassAction(action="timezone").pack(),
+            ),
         ],
         [
             InlineKeyboardButton(

@@ -12,7 +12,6 @@ from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import select
-from test_bot_handlers import FakeCallback, FakeEditable, FakeMessage, FakeState
 
 from app.bot.handlers import start as start_handlers
 from app.bot.handlers import week as week_handlers
@@ -342,7 +341,7 @@ def test_next_ignores_events_when_deciding_the_state():
     assert render_next(resolved, None, at("11:18")).startswith("Перемена до 11:25")
 
 
-def test_refresh_never_produces_an_identical_message():
+def test_refresh_never_produces_an_identical_message(FakeEditable):
     message = FakeEditable(text="Уроки закончились.\nЗавтра: 4 урока")
     same = "Уроки закончились.\nЗавтра: <b>4 урока</b>"
     assert distinct_from(same, message) == same + INVISIBLE
@@ -356,7 +355,9 @@ def test_refresh_never_produces_an_identical_message():
 # --------------------------------------------------------------------------
 
 
-async def test_week_command_renders_the_fixture_monday(session, school_class, monkeypatch):
+async def test_week_command_renders_the_fixture_monday(
+    session, school_class, monkeypatch, FakeMessage
+):
     """Pinned inside the school year, because the template stops at the end of it.
 
     This read the real clock and asserted the fixture's Monday was drawn, which
@@ -381,14 +382,16 @@ async def test_week_command_renders_the_fixture_monday(session, school_class, mo
     assert "Неделя: " in message.last
 
 
-async def test_week_navigation_is_clamped(session, school_class):
+async def test_week_navigation_is_clamped(session, school_class, FakeCallback, FakeEditable):
     callback = FakeCallback(message=FakeEditable())
     await show_week(callback, SimpleNamespace(offset=10_000), session, school_class, Role.VIEWER)
     assert "Неделя" in callback.message.last
     assert not callback.alerted
 
 
-async def test_week_and_next_refuse_strangers(session, school_class):
+async def test_week_and_next_refuse_strangers(
+    session, school_class, FakeMessage, FakeCallback, FakeEditable
+):
     message = FakeMessage(text="/week")
     await cmd_week(message, session, None, None)
     assert "Нет доступа" in message.last
@@ -397,7 +400,7 @@ async def test_week_and_next_refuse_strangers(session, school_class):
     assert callback.alerted
 
 
-async def test_next_command_answers_something_sensible(session, school_class):
+async def test_next_command_answers_something_sensible(session, school_class, FakeMessage):
     message = FakeMessage(text="/next")
     await cmd_next(message, session, school_class, Role.VIEWER)
     assert message.last
@@ -501,7 +504,7 @@ def test_empty_task_list_explains_the_grammar():
     assert "Удалить" not in " ".join(buttons(task_list_keyboard([], False)))
 
 
-async def test_task_command_parses_one_shot_text(session, school_class):
+async def test_task_command_parses_one_shot_text(session, school_class, FakeState, FakeMessage):
     message = FakeMessage(text="/task Купить тетрадь до 15.09 в 18:00 !")
     await cmd_task(
         message,
@@ -522,7 +525,9 @@ async def test_task_command_parses_one_shot_text(session, school_class):
     assert "Напомнить?" in message.last
 
 
-async def test_task_command_without_text_starts_the_form(session, school_class):
+async def test_task_command_without_text_starts_the_form(
+    session, school_class, FakeState, FakeMessage
+):
     message = FakeMessage(text="/task")
     state = FakeState()
     await cmd_task(message, SimpleNamespace(args=None), state, session, school_class, Role.VIEWER)
@@ -538,7 +543,9 @@ async def test_task_command_without_text_starts_the_form(session, school_class):
     assert "Срок: не задан" in typed.last
 
 
-async def test_task_form_refuses_a_caller_without_a_class(session, school_class):
+async def test_task_form_refuses_a_caller_without_a_class(
+    session, school_class, FakeState, FakeMessage
+):
     state = FakeState(state=AddTask.text)
     message = FakeMessage(text="взлом")
     await task_add_text(message, state, session, None, None)
@@ -547,7 +554,7 @@ async def test_task_form_refuses_a_caller_without_a_class(session, school_class)
     assert await session.scalar(select(PersonalTask)) is None
 
 
-async def test_task_with_only_a_date_is_rejected(session, school_class):
+async def test_task_with_only_a_date_is_rejected(session, school_class, FakeState, FakeMessage):
     message = FakeMessage(text="/task завтра")
     await cmd_task(
         message, SimpleNamespace(args="завтра"), FakeState(), session, school_class, Role.VIEWER
@@ -556,7 +563,9 @@ async def test_task_with_only_a_date_is_rejected(session, school_class):
     assert "что нужно сделать" in message.last
 
 
-async def test_ticking_a_task_is_scoped_to_its_owner(session, school_class):
+async def test_ticking_a_task_is_scoped_to_its_owner(
+    session, school_class, FakeCallback, FakeEditable
+):
     session.add(PersonalTask(class_id=school_class.id, telegram_id=42, title="Моя"))
     session.add(PersonalTask(class_id=school_class.id, telegram_id=99, title="Чужая"))
     await session.commit()
@@ -600,7 +609,7 @@ async def test_ticking_a_task_is_scoped_to_its_owner(session, school_class):
     assert callback.alerted
 
 
-async def test_deleting_a_task(session, school_class):
+async def test_deleting_a_task(session, school_class, FakeCallback, FakeEditable):
     session.add(PersonalTask(class_id=school_class.id, telegram_id=42, title="Удалить меня"))
     await session.commit()
     task = await session.scalar(select(PersonalTask))
@@ -627,7 +636,7 @@ def test_remind_at_options():
     assert remind_at_for(make_task("Без даты"), "morning") is None
 
 
-async def test_setting_a_task_reminder(session, school_class):
+async def test_setting_a_task_reminder(session, school_class, FakeCallback, FakeEditable):
     far = date.today() + timedelta(days=30)
     session.add(
         PersonalTask(class_id=school_class.id, telegram_id=42, title="Реферат", due_date=far)
@@ -735,21 +744,8 @@ def a_fortnight_of_homework() -> list[ResolvedDay]:
     ]
 
 
-class FakeContactMessage(FakeMessage):
-    """A shared contact, and the keyboard each reply was sent with."""
-
-    def __init__(self, phone: str, user_id: int = 555) -> None:
-        super().__init__(text=None, user_id=user_id)
-        self.contact = SimpleNamespace(user_id=user_id, phone_number=phone)
-        self.markups: list[object] = []
-
-    async def answer(self, text: str, reply_markup=None, **_) -> None:
-        self.replies.append(text)
-        self.markups.append(reply_markup)
-
-
 async def test_sharing_a_contact_draws_the_menu_of_the_role_you_actually_have(
-    session, school_class
+    session, school_class, FakeContactMessage
 ):
     """An unused invite may name a role below the one the person already holds.
 
@@ -830,7 +826,9 @@ def test_tick_keyboard_labels_and_cap():
     assert keyboard.inline_keyboard[0][0].callback_data == "hwt:toggle:100"
 
 
-async def test_homework_command_and_toggle(session, school_class):
+async def test_homework_command_and_toggle(
+    session, school_class, FakeMessage, FakeCallback, FakeEditable
+):
     due = date.today() + timedelta(days=2)
     session.add(
         Homework(class_id=school_class.id, due_date=due, subject_name="Алгебра", text="№ 12")
@@ -878,7 +876,9 @@ async def test_homework_command_and_toggle(session, school_class):
     assert await session.scalar(select(HomeworkDone)) is None
 
 
-async def test_toggling_a_deleted_or_foreign_homework_is_harmless(session, school_class):
+async def test_toggling_a_deleted_or_foreign_homework_is_harmless(
+    session, school_class, FakeCallback, FakeEditable
+):
     callback = FakeCallback(message=FakeEditable())
     await homework_toggle(
         callback,
@@ -901,7 +901,9 @@ async def test_toggling_a_deleted_or_foreign_homework_is_harmless(session, schoo
 # --------------------------------------------------------------------------
 
 
-async def test_remind_card_is_created_with_the_defaults(session, school_class):
+async def test_remind_card_is_created_with_the_defaults(
+    session, school_class, FakeState, FakeMessage
+):
     message = FakeMessage(text="/remind")
     await cmd_remind(
         message, SimpleNamespace(args=None), FakeState(), session, school_class, Role.VIEWER
@@ -914,7 +916,9 @@ async def test_remind_card_is_created_with_the_defaults(session, school_class):
     assert settings.telegram_id == 42 and settings.class_id == school_class.id
 
 
-async def test_setting_a_digest_time(session, school_class):
+async def test_setting_a_digest_time(
+    session, school_class, FakeState, FakeMessage, FakeCallback, FakeEditable
+):
     callback = FakeCallback(message=FakeEditable())
     state = FakeState()
     await reminder_time_prompt(
@@ -951,7 +955,9 @@ async def test_setting_a_digest_time(session, school_class):
     assert settings.morning_at is None
 
 
-async def test_a_digest_time_already_past_today_starts_tomorrow(session, school_class):
+async def test_a_digest_time_already_past_today_starts_tomorrow(
+    session, school_class, FakeState, FakeMessage
+):
     """The tick asks only whether the class clock is past the time and whether
     it was sent today, so a morning digest set in the evening used to arrive
     five minutes later — «☀️ Доброе утро!» over a day that was already over."""
@@ -969,7 +975,9 @@ async def test_a_digest_time_already_past_today_starts_tomorrow(session, school_
     assert await reminders.due_digests(session, datetime.now(UTC)) == []
 
 
-async def test_time_step_refuses_a_forged_kind_and_a_stranger(session, school_class):
+async def test_time_step_refuses_a_forged_kind_and_a_stranger(
+    session, school_class, FakeState, FakeMessage, FakeCallback, FakeEditable
+):
     callback = FakeCallback(message=FakeEditable())
     await reminder_time_prompt(
         callback,
@@ -994,7 +1002,9 @@ async def test_time_step_refuses_a_forged_kind_and_a_stranger(session, school_cl
     assert state.cleared
 
 
-async def test_toggles_and_remind_off(session, school_class):
+async def test_toggles_and_remind_off(
+    session, school_class, FakeState, FakeMessage, FakeCallback, FakeEditable
+):
     callback = FakeCallback(message=FakeEditable())
     await reminder_toggle(
         callback,
@@ -1053,7 +1063,9 @@ async def _device(session, school_class, code="ABC234") -> DeviceToken:
     return device
 
 
-async def test_deep_link_binds_the_device_and_names_the_role(session, school_class):
+async def test_deep_link_binds_the_device_and_names_the_role(
+    session, school_class, FakeState, FakeMessage
+):
     device = await _device(session, school_class)
     session.add(BotUser(telegram_id=42, class_id=school_class.id, role=Role.EDITOR))
     await session.commit()
@@ -1071,7 +1083,9 @@ async def test_deep_link_binds_the_device_and_names_the_role(session, school_cla
     assert "9А" in message.last
 
 
-async def test_deep_link_without_a_role_says_the_phone_stays_read_only(session, school_class):
+async def test_deep_link_without_a_role_says_the_phone_stays_read_only(
+    session, school_class, FakeState, FakeMessage
+):
     await _device(session, school_class)
     message = FakeMessage(text="/start link_ABC234")
     await cmd_start_link(message, SimpleNamespace(args="link_ABC234"), FakeState(), session)
@@ -1079,7 +1093,9 @@ async def test_deep_link_without_a_role_says_the_phone_stays_read_only(session, 
     assert "только читает" in message.last
 
 
-async def test_deep_link_rejects_unknown_used_and_oversized_codes(session, school_class):
+async def test_deep_link_rejects_unknown_used_and_oversized_codes(
+    session, school_class, FakeState, FakeMessage
+):
     device = await _device(session, school_class)
     message = FakeMessage(text="/start link_ZZZZZZ")
     await cmd_start_link(message, SimpleNamespace(args="link_ZZZZZZ"), FakeState(), session)
@@ -1096,13 +1112,13 @@ async def test_deep_link_rejects_unknown_used_and_oversized_codes(session, schoo
     assert device.telegram_id == 42  # the second claim did not re-home the phone
 
 
-async def test_tomorrow_shows_the_next_day(session, school_class):
+async def test_tomorrow_shows_the_next_day(session, school_class, FakeMessage):
     message = FakeMessage(text="/tomorrow")
     await cmd_tomorrow(message, session, school_class)
     assert message.last.startswith("<b>Завтра, ")
 
 
-async def test_help_is_grouped_by_role():
+async def test_help_is_grouped_by_role(FakeMessage):
     viewer = FakeMessage(text="/help")
     await cmd_help(viewer, Role.VIEWER)
     assert "/week" in viewer.last and "/tasks" in viewer.last
@@ -1426,7 +1442,9 @@ def test_the_reminder_card_prints_the_times_that_are_set():
 # --------------------------------------------------------------------------
 
 
-async def test_a_saved_task_is_read_back_as_it_was_understood(session, school_class):
+async def test_a_saved_task_is_read_back_as_it_was_understood(
+    session, school_class, FakeState, FakeMessage
+):
     """The point of the card: it is the only chance to notice that «до 15.09»
     was read as a date and «!» as a priority."""
     message = FakeMessage(text="/task Реферат по истории до 15.09 в 18:00 !")
@@ -1467,7 +1485,7 @@ def test_a_task_due_on_a_date_with_no_time_names_only_the_date():
 
 
 async def test_today_draws_the_class_day_with_the_day_pager_under_it(
-    session, school_class
+    session, school_class, FakeMessage
 ):
     message = FakeMessage(text="/today")
     await cmd_today(message, session, school_class)
@@ -1479,7 +1497,7 @@ async def test_today_draws_the_class_day_with_the_day_pager_under_it(
 
 
 async def test_today_lists_the_template_of_whatever_weekday_today_is(
-    session, school_class, monkeypatch
+    session, school_class, monkeypatch, FakeMessage
 ):
     """The fixture's three lessons, moved onto today in the class's own zone —
     which is the zone «сегодня» is decided in, not the server's.
@@ -1515,7 +1533,7 @@ async def test_today_lists_the_template_of_whatever_weekday_today_is(
     assert "<code>08:30–09:15</code>" in message.last
 
 
-async def test_today_offers_a_stranger_the_contact_button_not_a_timetable(session):
+async def test_today_offers_a_stranger_the_contact_button_not_a_timetable(session, FakeMessage):
     message = FakeMessage(text="/today")
     await cmd_today(message, session, None)
 
@@ -1523,7 +1541,7 @@ async def test_today_offers_a_stranger_the_contact_button_not_a_timetable(sessio
 
 
 async def test_tasks_lists_only_the_callers_own_and_refuses_a_stranger(
-    session, school_class
+    session, school_class, FakeMessage
 ):
     session.add_all(
         [
@@ -1547,7 +1565,7 @@ async def test_tasks_lists_only_the_callers_own_and_refuses_a_stranger(
     assert stranger.last == "Нет доступа. Откройте /start, чтобы получить его."
 
 
-async def test_tasks_of_somebody_with_none_explains_the_grammar(session, school_class):
+async def test_tasks_of_somebody_with_none_explains_the_grammar(session, school_class, FakeMessage):
     message = FakeMessage(text="/tasks")
     await cmd_tasks(message, session, school_class, Role.VIEWER)
 
@@ -1556,7 +1574,7 @@ async def test_tasks_of_somebody_with_none_explains_the_grammar(session, school_
 
 
 async def test_link_attaches_the_phone_and_names_the_role_it_now_has(
-    session, school_class
+    session, school_class, FakeMessage
 ):
     device = await _device(session, school_class, code="LNK234")
     session.add(BotUser(telegram_id=42, class_id=school_class.id, role=Role.EDITOR))
@@ -1576,7 +1594,7 @@ async def test_link_attaches_the_phone_and_names_the_role_it_now_has(
 
 
 async def test_link_without_a_code_explains_where_the_code_comes_from(
-    session, school_class
+    session, school_class, FakeMessage
 ):
     message = FakeMessage(text="/link")
     await cmd_link(message, SimpleNamespace(args=None), session, school_class, Role.VIEWER)
@@ -1586,7 +1604,7 @@ async def test_link_without_a_code_explains_where_the_code_comes_from(
 
 
 async def test_link_says_the_same_thing_to_a_wrong_code_as_to_a_used_one(
-    session, school_class
+    session, school_class, FakeMessage
 ):
     """The three refusals are one sentence on purpose: a different answer for
     «never existed» would say whether a code was ever real."""
@@ -1612,7 +1630,7 @@ async def test_link_says_the_same_thing_to_a_wrong_code_as_to_a_used_one(
     assert device.telegram_id == 42
 
 
-async def test_a_linked_phone_of_a_viewer_is_told_it_only_reads(session, school_class):
+async def test_a_linked_phone_of_a_viewer_is_told_it_only_reads(session, school_class, FakeMessage):
     await _device(session, school_class, code="LNK236")
     session.add(BotUser(telegram_id=42, class_id=school_class.id, role=Role.VIEWER))
     await session.commit()
@@ -1627,7 +1645,7 @@ async def test_a_linked_phone_of_a_viewer_is_told_it_only_reads(session, school_
     assert "/request" in message.last
 
 
-async def test_link_refuses_somebody_with_no_class(session):
+async def test_link_refuses_somebody_with_no_class(session, FakeMessage):
     message = FakeMessage(text="/link ABC123")
     await cmd_link(message, SimpleNamespace(args="ABC123"), session, None, None)
 

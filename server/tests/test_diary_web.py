@@ -14,7 +14,6 @@ import httpx
 import pytest
 from httpx import ASGITransport
 from sqlalchemy import select
-from test_diary_api import LOGIN_PATH, FakeUpstream, with_token  # noqa: F401
 
 from app.api import diary_web as from_app
 from app.config import get_settings
@@ -25,7 +24,7 @@ from app.services import diary_link
 
 
 @pytest.fixture
-async def upstream(monkeypatch):
+async def upstream(monkeypatch, FakeUpstream, LOGIN_PATH, with_token):
     fake = FakeUpstream({LOGIN_PATH: with_token})
 
     async def shared():
@@ -131,7 +130,7 @@ async def test_signing_in_opens_a_session_bound_to_the_telegram_account(
 
 
 async def test_the_password_reaches_the_upstream_and_nothing_else(
-    web, upstream, ticket, session
+    web, upstream, ticket, session, LOGIN_PATH
 ):
     """The whole argument for the page. It goes to dnevnik2 and is written
     down nowhere — not in our row, not in a log, not in a chat."""
@@ -267,7 +266,7 @@ def _refuses(request: httpx.Request) -> httpx.Response:
 
 
 async def test_a_diary_in_maintenance_is_not_reported_as_a_wrong_password(
-    web, upstream, ticket
+    web, upstream, ticket, LOGIN_PATH
 ):
     """The password was right. The diary was serving HTML.
 
@@ -287,7 +286,9 @@ async def test_a_diary_in_maintenance_is_not_reported_as_a_wrong_password(
     assert response.status_code == 502
 
 
-async def test_an_unreadable_answer_still_costs_the_ticket(web, upstream, ticket, session):
+async def test_an_unreadable_answer_still_costs_the_ticket(
+    web, upstream, ticket, session, LOGIN_PATH, with_token
+):
     """The message changes; the economics do not, and that is deliberate.
 
     A 200 of HTML is what this upstream sends for a captcha — and it is also
@@ -321,7 +322,7 @@ async def test_an_unreadable_answer_still_costs_the_ticket(web, upstream, ticket
 
 
 async def test_a_diary_that_does_not_answer_says_so_and_keeps_the_ticket(
-    web, upstream, ticket, session
+    web, upstream, ticket, session, LOGIN_PATH
 ):
     upstream.routes[LOGIN_PATH] = _refuses
 

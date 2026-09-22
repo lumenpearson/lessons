@@ -15,7 +15,7 @@ from datetime import date
 import pytest
 from sqlalchemy import select
 
-from app.models import TimetableEntry, WeekParity
+from app.models import Term, TermKind, TimetableEntry, WeekParity
 from app.services import timetable_edit as edit
 
 
@@ -568,3 +568,106 @@ async def test_bells_that_still_ring_every_lesson_report_nothing(session, school
     await session.commit()
 
     assert orphaned == []
+
+
+# --------------------------------------------------------------------------
+# What the write check refuses
+# --------------------------------------------------------------------------
+
+
+def _terms(class_id: int, year: int, kind: TermKind, *bounds: tuple[date, date]) -> list[Term]:
+    return [
+        Term(
+            class_id=class_id,
+            year=year,
+            kind=kind,
+            index=index,
+            starts_on=starts,
+            ends_on=ends,
+        )
+        for index, (starts, ends) in enumerate(bounds, start=1)
+    ]
+
+
+async def test_the_write_check_stops_at_the_date_the_class_stops_teaching_on(
+    session, school_class
+):
+    """31 May under a half-year that ended on the 25th.
+
+    The resolver has read the class's own terms since the day «🗓 Четверти»
+    stopped deciding only a name — `_off_reason` answers `out_of_year` here and
+    `_resolve_day` returns before the overrides. The check in front of the
+    write asked `school_year_bounds`, which is 31 May and always will be, so a
+    «🔁 Замена» for this date was stored, audited and pushed to every
+    subscriber with `notify_changes`, and then drawn on no phone.
+    """
+    session.add_all(
+        _terms(
+            school_class.id,
+            2026,
+            TermKind.SEMESTER,
+            (date(2026, 9, 1), date(2026, 12, 31)),
+            (date(2027, 1, 1), date(2027, 5, 25)),
+        )
+    )
+    await session.commit()
+
+    refusal = await edit.why_no_lesson_can_be_drawn(session, school_class.id, date(2027, 5, 31))
+
+    assert refusal is not None
+    assert "25.05" in refusal, refusal
+    # The day before the half-year closes is still a day a lesson can be put on.
+    assert await edit.why_no_lesson_can_be_drawn(
+        session, school_class.id, date(2027, 5, 24)
+    ) is None
+
+
+async def test_the_write_check_refuses_the_holidays_between_two_terms(session, school_class):
+    """2 November, with the first quarter closed on 26 October.
+
+    The gap between two terms is out of season by the same rule as the summer,
+    which is how an admin marks the autumn holidays by moving two dates instead
+    of nine days. The check knew nothing about terms at all, so the fortnight
+    every class has in it took substitutions that resolve to nothing.
+    """
+    session.add_all(
+        _terms(
+            school_class.id,
+            2026,
+            TermKind.QUARTER,
+            (date(2026, 9, 1), date(2026, 10, 26)),
+            (date(2026, 11, 5), date(2026, 12, 31)),
+            (date(2027, 1, 1), date(2027, 3, 22)),
+            (date(2027, 3, 23), date(2027, 5, 31)),
+        )
+    )
+    await session.commit()
+
+    refusal = await edit.why_no_lesson_can_be_drawn(session, school_class.id, date(2026, 11, 2))
+
+    assert refusal is not None
+    assert "каникулы" in refusal, refusal
+    assert await edit.why_no_lesson_can_be_drawn(
+        session, school_class.id, date(2026, 11, 5)
+    ) is None
+
+
+async def test_the_write_check_refuses_a_public_holiday(session, school_class):
+    """8 March 2027 is a Monday, and the resolver draws nothing on it.
+
+    `holidays.stops_lessons` has always been part of the read path's answer and
+    was never part of this one — so on a class's busiest weekday of the year a
+    substitution passed every check and was drawn nowhere. The sentence names
+    the day, because unlike the other two refusals there is nothing to fix:
+    nobody is at school.
+    """
+    day = date(2027, 3, 8)
+    assert day.isoweekday() == 1, "this test is about a holiday landing on a teaching day"
+
+    refusal = await edit.why_no_lesson_can_be_drawn(session, school_class.id, day)
+
+    assert refusal is not None
+    assert "Международный женский день" in refusal, refusal
+    assert await edit.why_no_lesson_can_be_drawn(
+        session, school_class.id, date(2027, 3, 15)
+    ) is None
