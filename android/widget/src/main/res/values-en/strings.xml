@@ -80,7 +80,10 @@
     <string name="widget_break_length">%1$d min break</string>
     <string name="widget_meta_separator">·</string>
 
-    <string name="widget_homework_today_title">Homework today</string>
+    <!-- «HW» rather than «Homework», to the same twelve-character budget as
+         the Russian, and the same abbreviation the widget_homework_short_*
+         family above already uses. -->
+    <string name="widget_homework_today_title">HW today</string>
 
     <string name="widget_next_day_title">Next school day</string>
     <plurals name="widget_lesson_count">

@@ -26,6 +26,9 @@ import org.robolectric.annotation.Config
  * the argument for the sheet existing at all — so what has to be true here is
  * that a press reports the value the row was showing, and not its opposite.
  */
+// marquee clock: the longest line `RibbonSettingsSheet` is given here is
+// «Магнитная прокрутка», nineteen characters across the whole 411 dp sheet.
+// A settings row's label owns the row; there is nothing beside it to squeeze it.
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "ru-rRU-w411dp")
 class RibbonSettingsScreenTest {

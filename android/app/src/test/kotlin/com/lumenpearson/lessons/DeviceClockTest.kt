@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons
 
 import java.io.File
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -39,6 +40,48 @@ class DeviceClockTest {
                 "or put `$MARKER` on the line above with the reason:\n" +
                 unexplained.joinToString("\n"),
             unexplained.isEmpty(),
+        )
+    }
+
+    /**
+     * The scan covers the build, and it is `settings.gradle.kts` that says so.
+     *
+     * The test above is a search for something that is not there, which is the
+     * one shape that passes by looking in the wrong place. While the modules
+     * were listed here by hand and then filtered by `isDirectory`, a rename of
+     * any source root deleted that module from the sweep and reported green —
+     * and the list had already been a module short once, for
+     * `:core:designsystem`, which is where the last defect of this kind landed.
+     *
+     * So the two lists are held against each other: every module Gradle builds
+     * is either scanned or the one named exemption, and nothing else. A module
+     * added to the build is covered the day it is added; one whose sources move
+     * fails here rather than quietly leaving.
+     */
+    @Test
+    fun `every module in the build is either swept or the one exemption`() {
+        val included = Regex("""include\("(:[a-zA-Z0-9:_-]+)"\)""")
+            .findAll(File(androidRoot, "settings.gradle.kts").readText())
+            .map { it.groupValues[1].removePrefix(":").replace(':', '/') }
+            .toSortedSet()
+
+        assertTrue("settings.gradle.kts names no modules", included.isNotEmpty())
+        assertEquals(
+            "Gradle builds these modules; `modules` finds these. A module whose " +
+                "`src/main/kotlin` moved drops out of the sweep without failing " +
+                "anything, which is how `:core:designsystem` went unswept before.",
+            included.toList(),
+            modules.sorted(),
+        )
+        assertTrue(
+            "$EXEMPT_MODULE is not a module of this build any more, so the " +
+                "exemption names nothing and the file it excused is unswept",
+            EXEMPT_MODULE in included,
+        )
+        assertEquals(
+            "one exemption, and it is the module that implements the rule",
+            (included - EXEMPT_MODULE).toList(),
+            sweptModules,
         )
     }
 
@@ -126,26 +169,55 @@ class DeviceClockTest {
         }
 
         /**
-         * Every Kotlin file the app and the widget draw a date with.
+         * The one module whose job is to hold the exception.
          *
-         * `:core:model` is left out on purpose: it is where `atSchool` and the
-         * zone fallback live, which is to say it is the one module whose job is
-         * to hold the exception.
-         *
-         * `:core:designsystem` was left out by accident, and it is the module
-         * where the last clock-shaped defect actually landed: it draws the
-         * hero card's countdown, `LessonGroup(now: LocalTime?)` and
-         * `state/ClockTime`. All three take «now» as a parameter today, so the
-         * tree was clean — but a default of `LocalDateTime.now()` on any of
-         * them would have compiled, passed every gate, and computed the
-         * biggest number on the home screen in the phone's zone instead of the
-         * class's. `ResourceTranslationTest` had this exact hole once, for
-         * this exact module.
+         * `:core:model` is where `atSchool` and the zone fallback live, so a
+         * device-clock read there is the implementation of the rule rather
+         * than a breach of it.
          */
+        const val EXEMPT_MODULE = "core/model"
+
+        /**
+         * Every module of this build that carries Kotlin source, found rather
+         * than listed.
+         *
+         * It used to be listed — `app`, `widget`, `core/data`,
+         * `core/designsystem` — with a `.filter { it.isDirectory }` after it,
+         * and that pair is a scan that shrinks in silence: rename a module's
+         * source root and it simply drops out, leaving the remaining three
+         * green. The list had already been wrong once in exactly that
+         * direction. `:core:designsystem` was missing from it by accident, and
+         * it is the module where the last clock-shaped defect actually landed:
+         * it draws the hero card's countdown, `LessonGroup(now: LocalTime?)`
+         * and `state/ClockTime`. All three take «now» as a parameter today, so
+         * the tree happened to be clean — but a default of
+         * `LocalDateTime.now()` on any of them would have compiled, passed
+         * every gate, and computed the biggest number on the home screen in
+         * the phone's zone instead of the class's. `ResourceTranslationTest`
+         * had this exact hole once, for this exact module, and answered it the
+         * same way: discover, do not list.
+         *
+         * One level deep and then one more, because `:core:*` is nested; the
+         * marker is `src/main/kotlin`, which is what makes a directory a
+         * module of this build rather than a build folder beside one.
+         */
+        val modules: List<String> by lazy {
+            val candidates = androidRoot.listFiles().orEmpty().flatMap { child ->
+                listOf(child) + child.listFiles().orEmpty().toList()
+            }
+            candidates
+                .filter { File(it, "src/main/kotlin").isDirectory }
+                .map { it.relativeTo(androidRoot).invariantSeparatorsPath }
+                .sorted()
+        }
+
+        /** The modules actually walked: everything found, less the exemption. */
+        val sweptModules: List<String> by lazy { modules.filter { it != EXEMPT_MODULE }.sorted() }
+
+        /** Every Kotlin file whose «now» has a school to take a zone from. */
         val sources: List<File> by lazy {
-            listOf("app", "widget", "core/data", "core/designsystem")
+            sweptModules
                 .map { File(androidRoot, "$it/src/main/kotlin") }
-                .filter { it.isDirectory }
                 .flatMap { it.walkTopDown().filter { file -> file.extension == "kt" } }
                 .also { check(it.isNotEmpty()) { "No sources found under $androidRoot" } }
         }

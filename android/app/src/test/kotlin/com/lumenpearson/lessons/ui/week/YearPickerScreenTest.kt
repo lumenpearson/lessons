@@ -25,6 +25,9 @@ import org.robolectric.annotation.Config
  * one this phone is in, each saying whether it is downloaded, and a press that
  * names the year it was on rather than the one next to it.
  */
+// marquee clock: `YearPickerSheet` is given years and term names here —
+// «2026/27» and the like, the shortest labels in the app, in a full-width
+// sheet at 411 dp.
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "ru-rRU-w411dp")
 class YearPickerScreenTest {

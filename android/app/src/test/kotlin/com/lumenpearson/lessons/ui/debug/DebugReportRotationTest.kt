@@ -33,6 +33,10 @@ import org.robolectric.annotation.Config
  * the file is looked up again in the list, which is re-read from disk — the
  * same shape as the calendar's lesson sheet.
  */
+// marquee clock: a rotation test — it recreates the activity and needs the
+// clock running for the recomposition that follows. The longest string it puts
+// in `DebugSheet` is «МАРКЕР СТАРОГО ОТЧЁТА», a report body in a scrolling
+// column, not a single-line label.
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "ru-rRU-w411dp")
 class DebugReportRotationTest {

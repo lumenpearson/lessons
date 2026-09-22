@@ -28,6 +28,10 @@ import org.robolectric.RobolectricTestRunner
  * The assertions are about the shape rather than the pixels: everything stays
  * inside the window, and the button beside the pill is still there to press.
  */
+// marquee clock: the labels are «Раздел 0» … «Раздел 7», eight characters,
+// and a toolbar tab's label is drawn at the fixed `LabelWidth` of 80 dp rather
+// than at the string's width — which is why this file can assert the pill's
+// geometry in the first place. The long strings here are assertion messages.
 @RunWith(RobolectricTestRunner::class)
 class ToolbarOverflowTest {
 

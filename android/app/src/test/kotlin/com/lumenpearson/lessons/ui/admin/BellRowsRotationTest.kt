@@ -44,6 +44,9 @@ import org.robolectric.annotation.Config
  * One row is two lines on screen — «начало» and «конец» — which is why the
  * counts here are two per lesson.
  */
+// marquee clock: same as `ClassJoinModeScreenTest`: it presses rows through
+// `performScrollTo` and cannot hold the clock without losing them. What it
+// hands `PeriodsForm` is times and «Убрать последний», sixteen characters.
 @RunWith(RobolectricTestRunner::class)
 // Russian and a phone-sized screen, for the reason `ClassRowsScreenTest` gives.
 @Config(qualifiers = "ru-rRU-w411dp")

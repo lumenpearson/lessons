@@ -28,6 +28,10 @@ import org.robolectric.annotation.Config
  * linked to Telegram, which is both the moment the manager's routes appear and
  * the moment the app stops staying open long enough to use them.
  */
+// marquee clock: this asks whether a `DebugRow` is reachable at all, with
+// the labels the product ships — every one of them a settings row that owns
+// the full 411 dp width. The long strings in this file are its own assertion
+// messages and never reach a composable.
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "ru-rRU-w411dp")
 class DebugReachTest {

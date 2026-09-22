@@ -41,6 +41,9 @@ import org.robolectric.annotation.Config
  * after the status bar, the header, the picker and the bottom bar, and every
  * measurement in this view has to survive that.
  */
+// marquee clock: what this measures is heights, and the only text it hands
+// `DayRibbonView` is a date («2026-09-14») and one-word subjects. Nothing here
+// is a label that could outgrow a landscape ribbon's width.
 @RunWith(RobolectricTestRunner::class)
 class DayRibbonLayoutTest {
 

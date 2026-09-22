@@ -31,6 +31,9 @@ import org.robolectric.annotation.Config
  * The sdk here is the whole test: at 34 both assertions pass against the broken
  * code, because there the switch really is live.
  */
+// marquee clock: one row, one label: «Размытие под шторкой», twenty
+// characters across 411 dp. The subject here is the fade at the row's edges,
+// which is a modifier and not a marquee.
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [30], qualifiers = "ru-rRU-w411dp")
 class EdgeFadeRowTest {

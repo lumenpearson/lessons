@@ -45,6 +45,9 @@ import org.robolectric.annotation.Config
  * `BellRowsRotationTest` composes `PeriodsForm`: the state that has to survive
  * lives there, and the screen around it needs a view model and a clock.
  */
+// marquee clock: a rotation test, and the clock has to run for the state to
+// be restored after `recreate`. The widest thing it gives `ScheduleSheets` is
+// «Четверг, 12 марта» — a day header on its own line in a full-width sheet.
 @RunWith(RobolectricTestRunner::class)
 // Russian and a phone-sized screen, for the reason `ClassRowsScreenTest` gives.
 @Config(qualifiers = "ru-rRU-w411dp")

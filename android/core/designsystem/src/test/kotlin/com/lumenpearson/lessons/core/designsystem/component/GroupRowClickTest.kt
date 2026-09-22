@@ -26,6 +26,10 @@ import org.robolectric.RobolectricTestRunner
  * report its click is a screen with no way into it — and the only way anyone
  * found out was by installing the APK and pressing one.
  */
+// marquee clock: what is asserted is which row a press lands on, and the
+// labels are the ones the settings screens ship — «Расписание обновлений и
+// адрес сервера» at thirty-seven characters is the longest, and it is a
+// supporting line that wraps rather than the single-line title a marquee is.
 @RunWith(RobolectricTestRunner::class)
 class GroupRowClickTest {
 
