@@ -10,9 +10,10 @@ which reported nothing, in the milestone `v0.7.0 — Оптимизация` —
 paragraph you are reading. Once it merges, `dev` is level with `main` again and the next
 batch starts from a clean one, and the SHA of that merge is for the next close-out to write.
 **The database is at head `0014`** and has not moved for five batches. **No server code
-changed at all in this batch or the one before** — not a model, not an endpoint, not a test —
-so `ruff`, `pytest` and `mypy` stand exactly where #83 left them (clean, **1630 passed**,
-clean across 84 modules) and there was no migration to write, let alone to apply. That is a fact about
+changed in this batch** — not a model, not an endpoint — but four tests did join it, so the
+server gates were run here rather than quoted: `ruff` clean, `pytest -q -n auto` **1634
+passed**, `python -m mypy` clean across 84 modules. There was no migration to write, let
+alone to apply. That is a fact about
 the batch rather than a thing left undone. `EXPECTED_REVISION` in `app/db.py` is `0014`,
 pinned to the real head by `tests/test_schema_version.py`. `0014` was applied to Neon
 before #77 merged, as an additive revision should be — it widened `day_overrides.kind`
@@ -33,7 +34,7 @@ the owner's browser or with a bypass token: #77 moved server code and the schema
 so the answer should now be `"schema":"0014"`, and that single line is the cheapest check
 that the migration and the code actually met. It is outstanding since #61.
 
-## What the last session added: the gesture #84 shipped did nothing
+## What the last session added: the gesture #84 shipped did nothing, and the variables nobody could find
 
 Open as PR #85, in the milestone `v0.7.0 — Оптимизация`. It is one defect, and it is the
 defect that the feature merged an hour earlier did not work: **a tab dragged to another slot
@@ -93,15 +94,52 @@ frames after the finger lifts, a tab that had not moved at all sorts into the pl
 had merely carried it, and the assertion passes against the very defect it was written for.
 The springs are given 120 frames now.
 
+### The configuration nobody could find in one place
+
+Two questions came out of a screenshot of the Vercel variables, and the answer to the first
+was «yes, in `docs/deploy.md`», which is only two thirds of an answer. **`server/.env.example`
+— the file every set of instructions says to copy — was missing three of the eleven**:
+`WEBHOOK_SECRET`, `CRON_SECRET` and `BOT_USERNAME`. Two of those three are ones a deployment
+refuses to start without, so the cost of each was a deploy to find out. It was also missing
+`TRUSTED_PROXY_HOPS` and `WEBHOOK_PATH`, which are real knobs nothing outside `config.py`
+mentioned. It now carries all fifteen settings the code reads, each with what empty means,
+and says in prose why the sixteenth — `VERCEL` — is deliberately not a line in it.
+
+Nothing could have caught that. **A missing variable is not a missing field:** every setting
+has a default, which is the whole reason the refusal-to-start check exists, so the server
+runs perfectly well against an example file half a year behind. `tests/test_env_example.py`
+is the guard — four tests, pinning the file to `Settings` in both directions, pinning the
+prose about `VERCEL`, and pinning that every secret a workflow reads is named in
+`docs/build.md`. Each was watched going red: the first against the file as it was this
+morning, the last against a ninth secret added to a workflow.
+
+Two documents grew rather than one, because the configuration lives in three places and no
+page said so. `docs/build.md` opens with **«From a clone to a working pair»** — four steps,
+each one saying how much of `.env` it needs, from «the API alone, no Telegram account at
+all» to the school search — and then **«The other place variables live»**, a table of the
+eight secrets GitHub Actions holds with what reads each and what happens without it. The
+three facts worth more than that table: `ci.yml` reads no secret at all, which is why a
+fork's pull request runs the whole gate; `CRON_SECRET` is one value in two places and
+**nothing checks that they match**, so a mistype is a `403` on a schedule with both halves
+looking configured; and `DIARY_SECRET` is deliberately *not* an Actions secret, because
+nothing there imports the server's code. `docs/README.md` gained the row that sends a reader
+to the right one of the three.
+
 ### Gates, measured on this branch
 
-`./gradlew test` **968** (was 964) and both assembles. The four new tests are
-`ToolbarDragTest`, which is the whole of the new coverage: what a drag reports, where the row
-is drawn afterwards, what a second drag reports, and what happens when the list is swapped
-under a live permutation. The server half was not touched: `ruff` clean, `pytest -q -n auto`
-**1630**, `python -m mypy` clean across 84 modules, database at `0014`.
+`./gradlew test` **968** (was 964) and both assembles. The four new Android tests are
+`ToolbarDragTest`: what a drag reports, where the row is drawn afterwards, what a second drag
+reports, and what happens when the list is swapped under a live permutation. On the server,
+`ruff` clean, `python -m mypy` clean across 84 modules, `pytest -q -n auto` **1634** (was
+1630) — the four are `test_env_example.py`. Database at `0014`.
 
 ### What nobody has verified in this batch
+
+**Nothing of the configuration work is proved against a real deployment.** The example file
+and the two document sections are checked against `config.py` and against the workflows by
+tests, which is the half that can be checked; that the eleven on Vercel are the eleven that
+should be there, and that `CRON_SECRET` matches what the external cron sends, is the half
+nothing here can see.
 
 **Still nothing on a phone.** The drag now reports the right slot in a JVM test with
 Robolectric's densities and the clock held by hand; whether half a slot is the right
@@ -2240,7 +2278,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 1630 tests, ~4 min (CI runs this)
+cd server  && pytest -q -n auto                          # 1634 tests, ~4 min (CI runs this)
 cd server  && python -m mypy                             # clean, 84 modules
 cd android && ./gradlew test                             # 968 tests across the five modules
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles

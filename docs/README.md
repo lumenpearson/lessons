@@ -10,6 +10,7 @@ usually a link to it.
 | --- | --- |
 | use the app | [guide.md](guide.md) |
 | keep a class's timetable | [guide.md](guide.md), then [bot.md](bot.md) |
+| want to run the whole thing locally | [build.md](build.md), "From a clone to a working pair" |
 | want to build the APK | [build.md](build.md) |
 | are deploying the server | [deploy.md](deploy.md) |
 | are writing code | [architecture.md](architecture.md), then [CLAUDE.md](../CLAUDE.md) and [CONTRIBUTING.md](../CONTRIBUTING.md) |
@@ -22,7 +23,7 @@ usually a link to it.
 | [guide.md](guide.md) | first run, the class code, the widget, notifications, the bot, the diary, the translation-correction mode — for whoever uses the app |
 | [bot.md](bot.md) | roles, invitation by phone number, editing the timetable, every command, what a card may say before Telegram refuses it |
 | [widget.md](widget.md) | twelve sizes, seven states, the update schedule, why not a tick once a minute |
-| [build.md](build.md) | building the APK in Actions and locally, signing with your own key, a release from a tag, Actions minutes and where they go, the bundled typeface, pointing the app at a server |
+| [build.md](build.md) | standing the project up from a clone and how much of `server/.env` each step needs, the eight secrets Actions holds and what reads them, building the APK in Actions and locally, signing with your own key, a release from a tag, Actions minutes and where they go, the bundled typeface, pointing the app at a server |
 | [deploy.md](deploy.md) | Vercel plus Neon or your own server, the webhook, migrations, why the server has no clock of its own |
 | [api.md](api.md) | the whole `/api/v1` contract: reads, writes, class management, the Petersburg diary |
 | [architecture.md](architecture.md) | why the bot is the backend, the timetable resolution model, the five Android modules, the service layer, the tests |
@@ -46,6 +47,12 @@ the user will actually see, it quotes it in Russian, because that is what is on 
   GitHub's schedules delivered 6.7 ticks a day out of the 288 asked for.
 - **What a CI run costs, and what a public repository changes** — [build.md](build.md),
   "Actions minutes" and the sections after it.
+- **Which variable goes where** — three places, and they are not the same list.
+  `server/.env.example` carries every setting the server reads, each with what empty means;
+  [deploy.md](deploy.md), "Secrets", is the eleven a hosted deployment needs;
+  [build.md](build.md), "The other place variables live", is the eight GitHub Actions holds
+  for signing and for the fallback tick. `CRON_SECRET` is the one name in two of the three,
+  and nothing checks that the two values match.
 - **The two different tokens** — [api.md](api.md): the device token comes from
   `POST /api/v1/join`, the diary token from `POST /api/v1/diary/login`, and neither implies
   the other.
