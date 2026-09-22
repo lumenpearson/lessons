@@ -5,6 +5,7 @@ import android.util.TypedValue
 import android.widget.RemoteViews
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
@@ -31,6 +32,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.lumenpearson.lessons.core.designsystem.theme.AccentMath
+import com.lumenpearson.lessons.core.designsystem.theme.concentricCorner
 import com.lumenpearson.lessons.core.designsystem.theme.parseSubjectColor
 import com.lumenpearson.lessons.core.model.Lesson
 import com.lumenpearson.lessons.core.model.SchoolEvent
@@ -177,13 +179,14 @@ internal fun StateProgress(
  */
 @Composable
 internal fun WidgetCard(
+    size: WidgetSizeClass,
     modifier: GlanceModifier = GlanceModifier,
     content: @Composable () -> Unit,
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .cornerRadius(WidgetCardCorner)
+            .cornerRadius(size.innerCorner())
             .background(GlanceTheme.colors.surfaceVariant)
             .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
@@ -191,11 +194,45 @@ internal fun WidgetCard(
     }
 }
 
-/** Corner of an inner block; one step tighter than the widget's own surface. */
-private val WidgetCardCorner = 18.dp
+/**
+ * The corner of anything drawn directly inside the widget's own surface.
+ *
+ * Derived rather than declared, and the reason is the twelve size classes. This
+ * was a flat 18 dp — «one step tighter than the surface» — against a surface of
+ * [WidgetSurfaceCorner] and a padding that is **not** one number: it runs from
+ * 8 dp on the smallest widget to 16 dp on the largest. So the gap between the
+ * two curves was right nowhere and worst where the widget is biggest: at 16 dp
+ * of padding a concentric block wants 8 dp and it was drawing 18, more than
+ * twice as round as the surface around it can carry.
+ *
+ * The floor keeps a block from going square on the widest sizes. A square block
+ * inside a rounded surface is defensible on its own and wrong here, because the
+ * rows beside it are rounded: one square corner among them reads as a rendering
+ * fault rather than as a decision.
+ *
+ * Glance cannot take a `Shape`, only a [Dp] — which is why this is the
+ * arithmetic form of the rule and not `ConcentricShape`.
+ */
+internal fun WidgetSizeClass.innerCorner(): Dp =
+    concentricCorner(WidgetSurfaceCorner, paddingDp.dp, minimum = InnerCornerFloor)
 
-/** Corner of the pill drawn behind the lesson that is running right now. */
-private val CurrentRowCorner = 12.dp
+/**
+ * The widget's own corner.
+ *
+ * 24 dp, the same radius `RoundedCardContainer` gives a group of rows in the
+ * app, so the widget reads as one more block of the same design system. On API
+ * 31+ it also sits close to the launcher's own widget rounding; below that
+ * `cornerRadius` is a no-op on the surface and the launcher supplies square
+ * edges, which is what pre-Material-You launchers draw anyway.
+ *
+ * Here rather than in `LessonsWidgetBody`, because it is now half of an
+ * arithmetic the blocks inside depend on: two numbers that have to agree belong
+ * in one place.
+ */
+internal val WidgetSurfaceCorner = 24.dp
+
+/** See [innerCorner]; 6 dp is the tightest corner this design language uses. */
+private val InnerCornerFloor = 6.dp
 
 /**
  * The colour mark at the head of a timeline row.
@@ -282,7 +319,9 @@ internal fun TimelineRow(
     val rowModifier = if (isCurrent) {
         modifier
             .fillMaxWidth()
-            .cornerRadius(CurrentRowCorner)
+            // The same derivation as every other block on the surface: this pill
+            // is inset by the widget's own padding and by nothing else.
+            .cornerRadius(size.innerCorner())
             .background(GlanceTheme.colors.primaryContainer)
             .padding(horizontal = 6.dp, vertical = 4.dp)
     } else {
@@ -475,6 +514,15 @@ internal fun WeekStrip(
 /** How busy one day of [WeekStrip] is. */
 data class DayLoad(val date: LocalDate, val lessons: Int)
 
+/**
+ * Deliberately a constant, and deliberately not [innerCorner].
+ *
+ * The concentric rule applies to a block whose corner nests inside the
+ * surface's corner, and none of the seven chips has one: the strip sits in the
+ * middle of the layout, so its corners are next to other rows rather than to
+ * the surface's rounding, and a chip is about as tall as the radius the rule
+ * would hand it — which is a pill, not a chip.
+ */
 private val DayChipCorner = 10.dp
 private const val LoadDot = "·"
 private const val MaxLoadDots = 3
@@ -497,7 +545,7 @@ internal fun EventRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .cornerRadius(CurrentRowCorner)
+            .cornerRadius(size.innerCorner())
             .background(GlanceTheme.colors.secondaryContainer)
             .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalAlignment = Alignment.Vertical.CenterVertically,
