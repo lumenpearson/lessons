@@ -290,6 +290,17 @@ class SettingsViewModel(
     /** Which tab the app opens on, and which one Back returns to. */
     fun setDefaultTab(tab: HomeTab) = update { it.copy(defaultTab = tab) }
 
+    /**
+     * The order the bar draws its tabs in, as the reader last arranged it.
+     *
+     * Written whole rather than as a move, because that is what it is: the one
+     * thing stored is a permutation, and `HomeTab.order` repairs whatever comes
+     * back out — so a list that is missing a tab is not refused here, it is
+     * quietly completed on the next read, somewhere the reader did not put it.
+     * The shell refuses it instead; see `reorderTabs`.
+     */
+    fun setTabOrder(order: List<HomeTab>) = update { it.copy(tabOrder = order) }
+
     /** Blur lists along their scroll axis while they are moving. */
     fun setMotionBlur(enabled: Boolean) = update { it.copy(motionBlur = enabled) }
 

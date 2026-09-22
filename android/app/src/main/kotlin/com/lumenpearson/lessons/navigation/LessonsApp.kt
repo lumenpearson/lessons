@@ -257,7 +257,12 @@ private fun HomeShell(
     onDateOpened: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val tabs = HomeTab.entries
+    // The reader's own order, repaired on the way out of storage — see
+    // `HomeTab.order`, which guarantees this is every tab exactly once however
+    // old the string behind it was. Every index below is an index into *this*
+    // list, and the whole of the arranging gesture is written in terms of tabs
+    // rather than positions for that reason.
+    val tabs = settings.tabOrder
     val view = rememberHapticView()
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -269,8 +274,37 @@ private fun HomeShell(
     // Only read on the first composition — a pager cannot be re-seeded without
     // yanking the page out from under the user, so changing the default tab
     // takes effect the next time the app is opened. Essentials behaves the same.
-    val homePage = remember { tabs.indexOf(settings.defaultTab).coerceAtLeast(0) }
+    //
+    // What is latched is the tab, and its index is looked up every time.
+    // Latching the index instead would survive a reorder as a number that has
+    // since come to mean another tab, and back would then return to a screen
+    // nobody chose — the same defect as the pager's, one level up.
+    val homeTab = remember { settings.defaultTab }
+    val homePage = tabs.indexOf(homeTab).coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = homePage) { tabs.size }
+
+    // The order the bar is drawing while its tabs are being arranged, and null
+    // whenever they are not. One state rather than two, because «in the mode»
+    // and «the list the mode started from» are never separately true.
+    //
+    // It is latched because the bar reports a permutation of the items it was
+    // *handed* and goes on drawing from those same items until the mode closes.
+    // Feeding the committed order back in mid-gesture would therefore apply the
+    // reader's drag a second time, and the bar would appear to undo it — and a
+    // second drag in the same session would report a permutation of a list
+    // neither side still had.
+    //
+    // What that leaves is one frame: the tap that closes the mode swaps the
+    // bar's list and the bar's own permutation back in two steps rather than
+    // one, so the previous order can be drawn once on the way. Holding the
+    // latch a frame longer would close it, and would rest on the order two
+    // `LaunchedEffect`s in two modules happen to run in — which is the kind of
+    // dependency that has gone quietly wrong here under a version bump before
+    // (see `OverlayLayerTest`). A flicker that can be named beats one that
+    // cannot.
+    var arranging by remember { mutableStateOf<List<HomeTab>?>(null) }
+    val reordering = arranging != null
+    val barTabs = arranging ?: tabs
 
     // Hoisted rather than left to the settings screen: the toolbar is drawn here
     // and its action button acts on this view model, so the shell needs it. Both
@@ -356,7 +390,17 @@ private fun HomeShell(
     // One holder per page plus one per settings layer. The pager keeps its
     // neighbours composed, so a single shared holder would have an off-screen
     // page reporting its own scroll over the visible one's.
-    val pageOffsets = remember(tabs.size) { List(tabs.size) { ScrollOffsetHolder() } }
+    //
+    // Per tab rather than per page index, because the bar can be rearranged:
+    // a holder that stayed with the index would hand the screen arriving there
+    // the scroll depth of the one that left, and the top fade would start
+    // halfway down a list that is at the top.
+    val pageOffsets = remember { HomeTab.entries.associateWith { ScrollOffsetHolder() } }
+
+    /** The holder belonging to whatever tab sits at [page] of the pager. */
+    fun offsetOf(page: Int): ScrollOffsetHolder =
+        pageOffsets.getValue(tabs.getOrElse(page) { tabs.first() })
+
     val settingsOffset = remember { ScrollOffsetHolder() }
     val sectionOffset = remember { ScrollOffsetHolder() }
     // One per section, for the reason the tabs have one per tab: the pager keeps
@@ -367,6 +411,26 @@ private fun HomeShell(
         List(docsPages.size.coerceAtLeast(1)) { ScrollOffsetHolder() }
     }
 
+    // The tab the reader was looking at when the bar was last rearranged, held
+    // until the new order has actually come back out of storage.
+    //
+    // Which is the whole difficulty of this gesture: `pagerState.currentPage` is
+    // an index, and the reorder changes what that index means, so a reader who
+    // drags «Задания» to the front would silently be moved to another screen.
+    // The tab is captured before the write and the pager is put back on it
+    // after — and the write is a round trip through DataStore, so «after» is a
+    // frame or two later and cannot be done in the same breath.
+    var keepOnTab by remember { mutableStateOf<HomeTab?>(null) }
+    LaunchedEffect(tabs) {
+        val tab = keepOnTab ?: return@LaunchedEffect
+        keepOnTab = null
+        val target = tabs.indexOf(tab)
+        // `scrollToPage`, never the animated one: the page did not go
+        // anywhere, the index under it did, and an animation here is a screen
+        // visibly sliding to a place it never left.
+        if (target >= 0 && target != pagerState.currentPage) pagerState.scrollToPage(target)
+    }
+
     // A widget tap lands here. Closing the settings layers first, because the
     // request is "show me this day" and a page that slides in over the calendar
     // would answer it with a screen the user did not ask for.
@@ -375,6 +439,9 @@ private fun HomeShell(
         docsOpen = false
         openSectionName = null
         settingsOpen = false
+        // A deep link is somebody arriving with a question, and a bar that is
+        // still being arranged is in the way of answering it.
+        arranging = null
         calendarViewModel.select(date)
         calendarViewModel.setView(ScheduleView.DAY)
         pagerState.goToPage(motion, tabs.indexOf(HomeTab.WEEK).coerceAtLeast(0))
@@ -428,9 +495,37 @@ private fun HomeShell(
         settingsOpen = false
     }
 
+    /**
+     * Leaving the mode where the tabs are arranged.
+     *
+     * Called by everything that takes the reader off the tabs as well as by the
+     * back press: the mode is a property of a bar that is about to be replaced
+     * by another page's, and one left armed behind a settings page would be
+     * waiting, jiggling, when that page was closed.
+     */
+    fun stopArranging() {
+        arranging = null
+    }
+
+    /**
+     * A drag on the tab bar has finished. See [reorderTabs] for the arithmetic,
+     * which is separate because it is the half of this that can be wrong
+     * quietly.
+     *
+     * [moved] is relative to the list the bar was handed, which is [barTabs] and
+     * deliberately not the stored one — see where that is latched.
+     */
+    fun commitTabOrder(moved: List<Int>) {
+        // Captured before the write, because after it the index means another
+        // tab; the effect above puts the pager back on this one.
+        keepOnTab = tabs.getOrNull(pagerState.currentPage)
+        settingsViewModel.setTabOrder(reorderTabs(barTabs, moved))
+    }
+
     /** Opening the guide from the «О приложении» page. */
     fun openDocs() {
         docsOpen = true
+        stopArranging()
     }
 
     /** A tap on a section in the toolbar: a scroll, not a screen. */
@@ -457,22 +552,31 @@ private fun HomeShell(
         closeSettings()
     }
 
-    // One layer per press, innermost first. Registered before the predictive
-    // handler below so that it wins while anything is open: a back gesture in
-    // settings has to leave settings, not scroll the pager underneath it.
+    // One layer per press, innermost first, and exactly one handler enabled at
+    // a time: a back gesture in settings has to leave settings, not scroll the
+    // pager underneath it, and a back press while the tabs are being arranged
+    // has to leave that mode rather than do either.
     //
-    // The guards are mutually exclusive rather than merely ordered. The
-    // documentation is opened from inside a settings section, so while it is up
-    // both of the conditions below are also true, and only one handler may act
-    // on one press.
-    BackHandler(enabled = docsOpen) { docsBack() }
-    BackHandler(enabled = !docsOpen && openSection != null) { closeSection() }
-    BackHandler(enabled = !docsOpen && settingsOpen && openSection == null) { closeSettings() }
+    // The guards are mutually exclusive rather than merely ordered, and they
+    // are now one function rather than four conditions that have to be read
+    // together to see that — the documentation is opened from inside a settings
+    // section, so while it is up two of the others are also true. Which of them
+    // acts is a rule, so [shellBack] states it once and `ShellBackTest` holds
+    // it; the handlers below only carry it out.
+    val back = shellBack(
+        arranging = reordering,
+        docsOpen = docsOpen,
+        sectionOpen = openSection != null,
+        settingsOpen = settingsOpen,
+        onHomePage = pagerState.currentPage == homePage,
+    )
+    BackHandler(enabled = back == ShellBack.LEAVE_ARRANGING) { stopArranging() }
+    BackHandler(enabled = back == ShellBack.CLOSE_DOCS) { docsBack() }
+    BackHandler(enabled = back == ShellBack.CLOSE_SECTION) { closeSection() }
+    BackHandler(enabled = back == ShellBack.CLOSE_SETTINGS) { closeSettings() }
 
     val backProgress = remember { Animatable(0f) }
-    PredictiveBackHandler(
-        enabled = !docsOpen && !settingsOpen && pagerState.currentPage != homePage,
-    ) { events ->
+    PredictiveBackHandler(enabled = back == ShellBack.HOME) { events ->
         try {
             events.collect { event -> backProgress.snapTo(event.progress) }
             scope.launch { pagerState.goToPage(motion, homePage) }
@@ -519,7 +623,7 @@ private fun HomeShell(
                 edgeBlur = settings.edgeBlur,
                 statusBarHeightPx = statusBarHeightPx,
                 offset = when (page) {
-                    ShellPage.Tabs -> pageOffsets[pagerState.currentPage]
+                    ShellPage.Tabs -> offsetOf(pagerState.currentPage)
                     ShellPage.SettingsRoot -> settingsOffset
                     is ShellPage.Section -> sectionOffset
                     ShellPage.Docs -> docsOffsets.getOrElse(docsPagerState.currentPage) { docsOffset }
@@ -534,7 +638,14 @@ private fun HomeShell(
                     LessonsFloatingToolbar(
                         modifier = barModifier,
                         selectedIndex = when (page) {
-                            ShellPage.Tabs -> pagerState.currentPage
+                            // Which *tab* is in front, expressed as a position
+                            // in the list this bar is drawing. The two lists
+                            // are the same one outside the arranging mode, and
+                            // inside it the bar's is a frame behind the stored
+                            // one on purpose.
+                            ShellPage.Tabs -> tabs.getOrNull(pagerState.currentPage)
+                                ?.let(barTabs::indexOf) ?: -1
+
                             ShellPage.Docs -> docsToolbarSelection(
                                 docsPagerState.currentPage,
                                 docsPages.size,
@@ -542,12 +653,19 @@ private fun HomeShell(
                             else -> -1
                         },
                         items = when (page) {
-                            ShellPage.Tabs -> tabs.mapIndexed { index, tab ->
+                            // Each item carries its tab rather than its
+                            // position: where a tab is drawn and where its page
+                            // is differ for the frames between a drag and the
+                            // order coming back out of storage, and a tap in
+                            // that window has to reach the screen the icon is
+                            // of.
+                            ShellPage.Tabs -> barTabs.map { tab ->
                                 ToolbarItem(
                                     icon = tab.icon,
                                     label = correctedString(tab.labelRes),
                                     onClick = {
-                                        scope.launch { pagerState.goToPage(motion, index) }
+                                        val target = tabs.indexOf(tab).coerceAtLeast(0)
+                                        scope.launch { pagerState.goToPage(motion, target) }
                                     },
                                 )
                             }
@@ -565,6 +683,21 @@ private fun HomeShell(
                         // Only the destinations that are peers of each other
                         // overflow a phone; the three tabs never will.
                         scrollableItems = page == ShellPage.Docs,
+                        // The tabs only. The documentation's bar is the same
+                        // component, and its order is the document's rather
+                        // than the reader's: a mode that opened there would let
+                        // somebody rearrange a table of contents into one the
+                        // text no longer matches.
+                        reorderable = page == ShellPage.Tabs,
+                        // Read against the page for the same reason everything
+                        // else here is: both bars are composed at once while a
+                        // slide runs, and the one leaving must not start
+                        // jiggling on its way out.
+                        reordering = reordering && page == ShellPage.Tabs,
+                        onReorderingChange = { on ->
+                            arranging = if (on) tabs else null
+                        },
+                        onReorder = ::commitTabOrder,
                         title = when (page) {
                             ShellPage.Tabs, ShellPage.Docs -> null
                             ShellPage.SettingsRoot -> correctedString(R.string.settings_title)
@@ -584,7 +717,10 @@ private fun HomeShell(
                             // The shortcut exists for the people who have the
                             // page it shortcuts to.
                             manager = isClassManager(settingsState.deviceLink.role),
-                            onOpenSettings = { settingsOpen = true },
+                            onOpenSettings = {
+                                settingsOpen = true
+                                stopArranging()
+                            },
                             onOpenDebug = { at ->
                                 ripple.fire(at)
                                 showDebugSheet = true
@@ -599,6 +735,12 @@ private fun HomeShell(
                         HorizontalPager(
                             state = pagerState,
                             userScrollEnabled = settings.swipeTabs,
+                            // Keyed by the tab, not by the position it is in.
+                            // The default key is the index, and an index is
+                            // exactly what a reorder changes: the saved scroll
+                            // position filed under «page 1» would be restored
+                            // into whichever screen had moved there.
+                            key = { index -> tabs[index] },
                             // Off-screen pages stay composed so a swipe back to a
                             // tab shows the list where it was left rather than
                             // re-running its loader.
@@ -617,7 +759,7 @@ private fun HomeShell(
                                 },
                         ) { tabIndex ->
                             CompositionLocalProvider(
-                                LocalScrollOffset provides pageOffsets[tabIndex],
+                                LocalScrollOffset provides offsetOf(tabIndex),
                             ) {
                                 when (tabs[tabIndex]) {
                                     HomeTab.TODAY -> TodayScreen(

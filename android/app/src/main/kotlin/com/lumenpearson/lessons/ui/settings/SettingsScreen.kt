@@ -106,7 +106,6 @@ import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.core.model.AppFont
 import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.HapticStrength
-import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.core.model.TodayLayout
 import com.lumenpearson.lessons.core.model.WeekStart
@@ -780,7 +779,12 @@ private fun LazyListScope.feelRows(
                 subtitle = correctedString(R.string.settings_default_tab_description),
                 icon = Icons.Rounded.Widgets,
                 tone = accentTone(4),
-                items = HomeTab.entries,
+                // The reader's own order, not the declaration order. This row is
+                // a picture of the bar it is about — its own comment below says
+                // the glyphs would only repeat it — and a picture that lists the
+                // three tabs in an order the bar no longer uses makes the reader
+                // map between two of them to answer one question.
+                items = state.settings.tabOrder,
                 selectedItem = state.settings.defaultTab,
                 onItemSelected = viewModel::setDefaultTab,
                 // No icons here: even at three segments a 360 dp screen leaves
