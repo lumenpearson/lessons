@@ -204,12 +204,22 @@ points Hilt does not inject cleanly.
   Commits prefix (none of the 288 commits has one), and the body explains the reasoning and
   names what is left uncovered. Unlike the owner's other repositories, this history does
   carry a `Co-Authored-By: Claude …` trailer; keep doing what the history does.
-- **Every pull request carries a milestone**, set when it is opened. There are no issues in
-  this repository at all, so the milestones are the only grouping its history has. Nothing
-  in a session here can create one or even list one — when none of the seven fits, ask the
-  owner to create it and hand over the title and description already written, rather than
+- **Every pull request carries a milestone**, set when it is opened. Nothing in a session
+  here can create a milestone or even list one — when none of the eight fits, ask the owner
+  to create it and hand over the title and description already written, rather than
   inventing a version or leaving the pull request bare. The `github-pr` skill has the
   numbers, the one tool that sets them, and the two ways this was got wrong first.
+- **There are issues now, and until #85 there were none.** Forty-two were opened in one go
+  to give the history and the backlog a shape the milestones alone could not: twenty-three
+  closed, describing what was built and what each bug sweep found, and nineteen open, which
+  are the whole of what is left. Read the open ones before planning a batch — several say
+  what was *deliberately* left and why, so that a later session does not re-discover a
+  decision as if it were an oversight. The labels are `type:` (feature, bug, chore,
+  research, decision, epic), `area:` (android, widget, server, bot, db, ci, docs, design,
+  data), `status:` (now, next, someday, done) and `needs:` (device, owner). **A session
+  here cannot create a GitHub Project board** — Projects v2 is GraphQL-only and this
+  toolset is REST — so the board, if there is one, is the owner's, and these labels are
+  what a saved view filters on.
 - **Say what is not covered.** The README has an "Honest status" section and it is honest on
   purpose. "Written, never run" is a legitimate status; a claim that something was
   verified when it was not is not.

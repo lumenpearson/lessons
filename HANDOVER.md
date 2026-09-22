@@ -4,24 +4,37 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **22 September 2026**. **PRs #63 through #84 are merged**; `main` is at
-`1b32623`, the merge of #84. **The only thing open is PR #85** — the arranging gesture,
-which reported nothing, in the milestone `v0.7.0 — Оптимизация` — and it carries the
-paragraph you are reading. Once it merges, `dev` is level with `main` again and the next
-batch starts from a clean one, and the SHA of that merge is for the next close-out to write.
+Last updated: **22 September 2026**. **PRs #63 through #85 are merged**; `main` is at
+`ef07739`, the merge of #85. **The only thing open is the pull request carrying this
+paragraph**, which opens the repository's issue tracker and moves the work to a local
+machine. Once it merges, `dev` is level with `main` again, and the SHA of that merge is for
+the next close-out to write.
+
+**Two things changed about how this project is tracked, and they are the reason to read on
+before planning anything.**
+
+**The work moves to a local machine.** Everything up to #85 was built in a cloud session
+with no emulator, no `adb` and no device. The section «Where the work happens from here»
+below says what that unlocks and what it still cannot do; **#109** is the epic.
+
+**The repository has issues now, and until this batch it had none at all** — the milestones
+were the only grouping the history had. Forty-two were opened in one go: **#86–#108 closed**
+for what was built and what each bug sweep found, **#109–#127 open** for the whole of what
+is left. The open ones are the backlog; several of them record a decision *not* to do
+something, so that a later session does not re-discover it as an oversight.
+
 **The database is at head `0014`** and has not moved for five batches. **No server code
-changed in this batch** — not a model, not an endpoint — but four tests did join it, so the
-server gates were run here rather than quoted: `ruff` clean, `pytest -q -n auto` **1634
+changed in the last batch** — not a model, not an endpoint — but four tests joined it, so
+the server gates were run rather than quoted: `ruff` clean, `pytest -q -n auto` **1634
 passed**, `python -m mypy` clean across 84 modules. There was no migration to write, let
-alone to apply. That is a fact about
-the batch rather than a thing left undone. `EXPECTED_REVISION` in `app/db.py` is `0014`,
-pinned to the real head by `tests/test_schema_version.py`. `0014` was applied to Neon
-before #77 merged, as an additive revision should be — it widened `day_overrides.kind`
-from `VARCHAR(9)` to `VARCHAR(10)`, because `DayKind` gained `SELF_STUDY` and a `SAEnum`
-column stores the member *name*. #83 also closes the class that revision belonged to: a
-pinned table of the ten enum column widths now fails when a member's **name** outgrows
-its column, which SQLite cannot see and production Postgres finds at the moment somebody
-marks a day.
+alone to apply; that is a fact about the batch rather than a thing left undone.
+`EXPECTED_REVISION` in `app/db.py` is `0014`, pinned to the real head by
+`tests/test_schema_version.py`. `0014` was applied to Neon before #77 merged, as an additive
+revision should be — it widened `day_overrides.kind` from `VARCHAR(9)` to `VARCHAR(10)`,
+because `DayKind` gained `SELF_STUDY` and a `SAEnum` column stores the member *name*. #83
+closed the class that revision belonged to: a pinned table of the ten enum column widths now
+fails when a member's **name** outgrows its column, which SQLite cannot see and production
+Postgres finds at the moment somebody marks a day.
 
 Production was read after #60 and again after #61, rather than assumed: `/api/v1/health`
 answered `{"status":"ok","api_version":1}` and `/api/v1/warmup` — which opens a real
@@ -33,6 +46,57 @@ this is not an omission anybody can close with one more `curl`. It still wants r
 the owner's browser or with a bypass token: #77 moved server code and the schema together,
 so the answer should now be `"schema":"0014"`, and that single line is the cheapest check
 that the migration and the code actually met. It is outstanding since #61.
+
+## Where the work happens from here: a local machine
+
+**This is the last batch built in a cloud session, and the change is one of venue rather
+than of direction.** Everything up to and including #85 was made with no emulator, no `adb`
+and no device. That is what produced a project with 968 Android tests, 1634 server tests —
+and a section 5 of this document that has only ever grown, because the things in it are not
+things a JVM test can be asked.
+
+From here: Android Studio, an emulator and a real phone, with Claude Code in the terminal
+beside them. What that unlocks, in the order it is worth:
+
+1. **Seeing the screen.** `adb exec-out screencap -p` makes a PNG and a local agent reads
+   PNGs. Every «nobody has looked at this» item in section 5 becomes answerable.
+2. **Instrumented tests.** There is **no `androidTest` source set anywhere in this
+   project** — not in any of the five modules, and no `espresso`, `uiautomator` or
+   `androidx.test` in the version catalog. That is why the reorder gesture is two touches
+   rather than one, and why its threshold is asserted in arithmetic rather than under a
+   finger.
+3. **Frame timing.** `dumpsys gfxinfo … framestats` costs nothing and works today; Perfetto
+   plus `trace_processor` answers «which composable recomposed» in SQL; Macrobenchmark's
+   `FrameTimingMetric` gives P50/P90/P99 and `frameOverrunMs`.
+
+**What a local session still cannot do**, so that an evening is not spent finding out: an
+emulator's GPU is emulated, so absolute frame numbers are not a phone's; a Glance widget is
+drawn by the **launcher's** process, so the app's `gfxinfo` says nothing about it; haptics
+cannot be felt; a release build under a trace needs `-dontobfuscate` or `retrace`; and
+Macrobenchmark against a debuggable build measures the debugger.
+
+**The handover is this repository and nothing else.** A local session shares no state with a
+cloud one. It reads `CLAUDE.md`, this file, the agents in `.claude/agents/` and the
+procedures in `.claude/skills/`, and so arrives knowing the traps that have cost a deploy
+and a release each. `.claude/README.md` says why there is no `.mcp.json`; locally, Neon and
+Vercel can go in one.
+
+### And the work has a tracker now
+
+**Until this batch there were no issues in this repository at all** — the milestones were
+the only grouping the history had, and everything else lived in this document's prose.
+Forty-two issues were opened in one go: **#86–#108 closed**, describing what was built and
+what each bug sweep found, and **#109–#127 open**, which are the whole of what is left.
+
+The forward half is worth reading before planning anything: **#109** is the epic this
+section describes, **#118–#122** are the owner's alone, and **#126** collects the four small
+things carried deliberately, so that a later session does not re-discover a decision as if
+it were an oversight.
+
+Labels are `type:` (feature, bug, chore, research, decision, epic), `area:`, `status:` (now,
+next, someday, done) and `needs:` (device, owner). **A session cannot create a GitHub
+Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
+the owner's to make, and these labels are what its views filter on.
 
 ## What the last session added: the gesture #84 shipped did nothing, and the variables nobody could find
 
@@ -1854,6 +1918,11 @@ released, so `versionName` is still the `0.1.0` default.
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
 | 8 | `v0.7.0 — Оптимизация` | #75–#85 — the one Russian title |
+
+**Nothing in a session here can create a milestone**, only attach one. The next one wants
+creating by the owner: the natural shape is **`v0.8.0 — On a device`**, for the work in
+#109's children, and the issues for it are already open and unmilestoned so that they can be
+swept into it in one go.
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -2646,6 +2715,13 @@ the code ships in.
 
 This is the main thing worth knowing: **all of this work is proved by tests and by nothing
 else.**
+
+**Most of this section is now also an issue**, which is where it should be worked from:
+#113 the widget's sizes, #114 the arranging gesture, #115 the correction mode, #116 two
+classes on one phone, #117 the upgrade path, #111 what the ribbon's shader costs, #121 the
+real diary. They are children of **#109**, the epic for moving this work to a machine with a
+device on it. The prose here is kept because it says *why* each one is unverifiable, which
+an issue title cannot.
 
 - **Nothing of the tab arranging has been seen on a phone, and it is a gesture.** #84 is a
   long press, a wobble and a drag; #85 is the drag actually reporting where it landed. What
@@ -3447,6 +3523,11 @@ has a Cyrillic identifier: Kotlin has none at all.
 ## 7. Left to the owner
 
 All of this is beyond an agent's reach: it needs a phone, a key or a live service.
+
+**These are issues now**, so that they can be closed rather than re-read: #118 the Preview
+environment, #119 `/api/v1/warmup` and the bot's `/start`, #120 the external cron and
+`DADATA_TOKEN`, #121 the real diary, #122 the widget's tick cadence and the diary
+credential's bound. Each carries the label `needs:owner`.
 
 **Install one built after #85 and long-press a tab on the home screen.** The APK on #84's
 merge cannot rearrange anything — the drag reported the order unchanged — so it is the wrong
