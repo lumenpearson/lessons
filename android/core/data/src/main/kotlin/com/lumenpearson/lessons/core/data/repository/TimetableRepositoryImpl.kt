@@ -106,7 +106,7 @@ internal class TimetableRepositoryImpl(
      * requests reads exactly as it did before.
      */
     private val bundleTags: BundleTagStore = BundleTagStore.None,
-) : TimetableRepository {
+) : TimetableRepository, TimetableCache {
 
     /**
      * The class row is the gate: it only exists after a sync, so `null` before
@@ -299,6 +299,17 @@ internal class TimetableRepositoryImpl(
                 // «what is the next school day» from *now*, and a fetch of 2031
                 // rewriting it would point the widget and the notifications at
                 // a Monday five years out.
+                //
+                // It writes nothing today, and that is not a defect here: the
+                // server resolves `next_school_day` at most three weeks past
+                // the last lesson *in the window asked for*, and this window is
+                // the school year, so those three weeks are in June and out of
+                // season for every class. What answers across a gap instead is
+                // `firstTeachingDayAfter` over the cached year — see
+                // `TimetableDao`'s ranged deletes. The guard is kept rather
+                // than the branch removed: the field is in every bundle, a
+                // narrower window fills it, and the row it would write is one
+                // no screen could question.
                 nextSchoolDay = timetable.nextSchoolDay
                     ?.takeIf { openingYear == SchoolYear.openingYearOf(todayAtSchool()) }
                     ?.toRecord(syncedClassId, isNextSchoolDay = true),
@@ -393,8 +404,39 @@ internal class TimetableRepositoryImpl(
             }
     }
 
+    /**
+     * Rows, claims and tags go together, in all three of these.
+     *
+     * The tag is the half that used to be left behind. It lives in the
+     * preferences, so none of the wipes below could reach it from where they
+     * were written — `dao.retainOnly` here, `dao.clear` and `dao.clearAll` over
+     * in the session repository — and the store grew by one entry per
+     * class-year for the life of the install. Nothing showed: a re-join sends
+     * the stale tag, the server matches it, and the `304` is caught by
+     * [holdsWindow], which costs one wasted round trip and then heals.
+     */
     override suspend fun forgetClassesOtherThan(keep: Set<Long>) {
-        withContext(ioDispatcher) { dao.retainOnly(keep) }
+        withContext(ioDispatcher) {
+            dao.retainOnly(keep)
+            bundleTags.forgetClassesOtherThan(keep)
+        }
+    }
+
+    override suspend fun forgetClass(classId: Long) {
+        withContext(ioDispatcher) {
+            dao.clear(classId)
+            bundleTags.forgetClass(classId)
+        }
+    }
+
+    override suspend fun forgetEverything() {
+        withContext(ioDispatcher) {
+            dao.clearAll()
+            // The sweep with nothing kept, spelled the way the DAO spells it:
+            // `retainOnly(emptySet())` is `clearAll` there, and one rule for
+            // «everything» is one fewer thing to keep in step.
+            bundleTags.forgetClassesOtherThan(emptySet())
+        }
     }
 
     /**

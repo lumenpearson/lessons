@@ -190,9 +190,15 @@ class CachedWindowTest {
     /**
      * The stored lookahead day is still the fallback.
      *
-     * It is what the server resolves past the end of the synced window, so it
-     * is the only answer there is once the cache itself has run out — and the
-     * bounded read must not lose it by looking only for a day of its own.
+     * Once the cache itself has run out there is nothing left to search, so a
+     * bounded read must not lose the row by looking only for a day of its own.
+     * The row is written here by hand because nothing writes one on a real
+     * phone any more: the server resolves the lookahead at most three weeks
+     * past the last lesson in the window it was asked for, and this client asks
+     * for the whole school year, so those three weeks are in June and out of
+     * season. What this pins is the fallback, for the day a narrower window
+     * fills it again; the far side of a holiday *inside* the cached year is the
+     * two tests above, and that is the case a reader actually meets.
      */
     @Test
     fun `past the end of the cache the lookahead day is what answers`() = runTest {

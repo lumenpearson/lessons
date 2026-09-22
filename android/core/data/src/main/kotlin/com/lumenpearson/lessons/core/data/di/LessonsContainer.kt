@@ -140,7 +140,49 @@ class DefaultLessonsContainer(
 
     private val api: LessonsApi by lazy { apis.lessons }
 
-    override val timetableRepository: TimetableRepository by lazy {
+    /**
+     * The ETag of the window this phone already holds, so a poll that changes
+     * nothing costs a hash comparison instead of a school year of JSON.
+     *
+     * In the preferences rather than in Room: it describes a *request*, not a
+     * row, and it has to outlive the table a sync replaces. Hoisted out of the
+     * timetable repository because it is not only that repository's to drop —
+     * leaving a class has to take its tags with it, and that starts in the
+     * session repository, through [TimetableCache].
+     */
+    private val bundleTags: BundleTagStore = object : BundleTagStore {
+        override suspend fun tagFor(signature: String): String? =
+            runCatching { preferences.bundleTag(signature) }.getOrNull()
+
+        override suspend fun remember(signature: String, etag: String) {
+            // Guarded because it writes: a full disk must cost the next sync
+            // its shortcut, not the sync that just succeeded.
+            runCatching { preferences.writeBundleTag(signature, etag) }
+        }
+
+        override suspend fun forget(signature: String) {
+            // Guarded for the same reason, and the cost is smaller still: a tag
+            // left behind for an evicted year is one request that answers 304
+            // and then asks again.
+            runCatching { preferences.forgetBundleTag(signature) }
+        }
+
+        override suspend fun forgetClass(classId: Long) {
+            runCatching { preferences.forgetBundleTagsOf(classId) }
+        }
+
+        override suspend fun forgetClassesOtherThan(keep: Collection<Long>) {
+            runCatching { preferences.forgetBundleTagsOutside(keep) }
+        }
+    }
+
+    /**
+     * The concrete type, because two interfaces are drawn from it: the
+     * repository the screens read, and the [TimetableCache] the session
+     * repository empties. One object either way — a second would be a second
+     * ETag store and a second `prune`.
+     */
+    private val timetable: TimetableRepositoryImpl by lazy {
         TimetableRepositoryImpl(
             dao = database.timetableDao(),
             api = api,
@@ -179,36 +221,23 @@ class DefaultLessonsContainer(
             // tokens too, in the background, with the app closed and nothing on
             // screen to say where they went.
             onTokenRejected = { sessionRepository.leaveActive() },
-            // The ETag of the window this phone already holds, so a poll that
-            // changes nothing costs a hash comparison instead of a school year
-            // of JSON. In the preferences rather than in Room: it describes a
-            // *request*, not a row, and it has to outlive the table that
-            // `replaceAll` wipes on every sync.
-            bundleTags = object : BundleTagStore {
-                override suspend fun tagFor(signature: String): String? =
-                    runCatching { preferences.bundleTag(signature) }.getOrNull()
-
-                override suspend fun remember(signature: String, etag: String) {
-                    // Guarded because it writes: a full disk must cost the next
-                    // sync its shortcut, not the sync that just succeeded.
-                    runCatching { preferences.writeBundleTag(signature, etag) }
-                }
-
-                override suspend fun forget(signature: String) {
-                    // Guarded for the same reason, and the cost is smaller
-                    // still: a tag left behind for an evicted year is one
-                    // request that answers 304 and then asks again.
-                    runCatching { preferences.forgetBundleTag(signature) }
-                }
-            },
+            bundleTags = bundleTags,
         )
     }
+
+    override val timetableRepository: TimetableRepository get() = timetable
 
     override val sessionRepository: SessionRepository by lazy {
         SessionRepositoryImpl(
             preferences = preferences,
             api = api,
-            dao = database.timetableDao(),
+            // The repository rather than the DAO, so that emptying a class's
+            // cache is one call that knows about all of it — rows, window
+            // claims and ETags. Building it here is free of the cold-start
+            // worry the note above describes: that one is about the widget
+            // reaching the timetable first, and this direction opens the same
+            // database this constructor already opened.
+            cache = timetable,
             // Both answers live in [SessionEffects], which is where the
             // reasoning for each of them is written down and where the
             // difference between them is held by a test. The widget redraws on

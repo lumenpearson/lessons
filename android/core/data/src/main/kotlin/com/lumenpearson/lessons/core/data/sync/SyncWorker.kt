@@ -78,7 +78,7 @@ class SyncWorker(
 
         /** Value of [KEY_ERROR] that means "join again"; the app matches on it. */
         const val REASON_UNAUTHORISED: String = "unauthorised"
-        
+
         /** @see SyncResult.NotConfigured */
         const val REASON_NOT_CONFIGURED: String = "not_configured"
 

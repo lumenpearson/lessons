@@ -40,18 +40,6 @@ class ConditionalSyncTest {
     private val clock: Clock =
         Clock.fixed(LocalDate.parse("2026-10-15").atStartOfDay(zone).toInstant(), zone)
 
-    private class Store : BundleTagStore {
-        val written = mutableMapOf<String, String>()
-        override suspend fun tagFor(signature: String): String? = written[signature]
-        override suspend fun forget(signature: String) {
-            written.remove(signature)
-        }
-
-        override suspend fun remember(signature: String, etag: String) {
-            written[signature] = etag
-        }
-    }
-
     private class FakeApi(private val etag: String?) : LessonsApi {
         var seenTag: String? = null
         var calls = 0
@@ -138,7 +126,7 @@ class ConditionalSyncTest {
     @Test
     fun `the first sync sends no tag and remembers the one it is given`() = runTest {
         val api = FakeApi(etag = "\"abc\"")
-        val tags = Store()
+        val tags = RecordingTagStore()
 
         repository(api, tags, InMemoryTimetableDao(), onData = {}).refresh()
 
@@ -150,7 +138,7 @@ class ConditionalSyncTest {
     @Test
     fun `the next sync sends it back and a 304 costs no write and no widget redraw`() = runTest {
         val api = FakeApi(etag = "\"abc\"")
-        val tags = Store()
+        val tags = RecordingTagStore()
         val dao = InMemoryTimetableDao()
         var redraws = 0
 
@@ -188,7 +176,7 @@ class ConditionalSyncTest {
     @Test
     fun `a 304 re-arms the alarm chain even though it redraws nothing`() = runTest {
         val api = FakeApi(etag = "\"abc\"")
-        val tags = Store()
+        val tags = RecordingTagStore()
         val dao = InMemoryTimetableDao()
         var redraws = 0
         var replans = 0
@@ -219,7 +207,7 @@ class ConditionalSyncTest {
 
         repository(
             FakeApi(etag = "\"abc\""),
-            Store(),
+            RecordingTagStore(),
             InMemoryTimetableDao(),
             onData = { redraws += 1 },
             onUnchanged = { replans += 1 },
@@ -232,7 +220,7 @@ class ConditionalSyncTest {
     @Test
     fun `a tag is not reused for a different window`() = runTest {
         val api = FakeApi(etag = "\"abc\"")
-        val tags = Store()
+        val tags = RecordingTagStore()
         repository(api, tags, InMemoryTimetableDao(), onData = {}).refresh()
 
         // 1 September moves the window; the stored signature stops matching and
@@ -267,7 +255,7 @@ class ConditionalSyncTest {
         // and the notifications all went on reading an empty cache. Every pull
         // to refresh repeated the 304.
         val api = FakeApi(etag = "\"abc\"")
-        val tags = Store()
+        val tags = RecordingTagStore()
         val populated = InMemoryTimetableDao()
         repository(api, tags, populated, onData = {}).refresh()
 
@@ -299,7 +287,7 @@ class ConditionalSyncTest {
 
         val result = repository(
             api,
-            Store(),
+            RecordingTagStore(),
             InMemoryTimetableDao(),
             onData = {},
             onRejected = { rejected += 1 },

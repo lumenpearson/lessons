@@ -65,10 +65,16 @@ internal data class SchoolClassEntity(
  * because one integer cannot disagree with itself the way a pair of dates can,
  * and the same number keys the row, the `ETag` signature and the request.
  *
- * @property syncedAtEpochMillis when this window was last filled. What decides
- *   which year is dropped when the cap is reached, so it is the *fetch* time
- *   rather than the server's `generated_at`: the question being asked is «which
- *   of these has this phone not looked at for longest».
+ * @property syncedAtEpochMillis when this window was last filled, as the phone
+ *   reckoned it. **Nothing reads it.** It decided eviction once, and that rule
+ *   was wrong twice over — see `TimetableRepositoryImpl.prune`, which sorts by
+ *   distance from the year holding today and says why at length. The sentence
+ *   that used to be here named this column as the rule, which left two
+ *   documents in one repository giving opposite answers to one question; the
+ *   column outlived the rule because dropping it is a schema version bump, and
+ *   this database is built with `fallbackToDestructiveMigration`, so it would
+ *   empty every installed phone's cache to save eight bytes in at most three
+ *   rows per class.
  */
 @Entity(
     tableName = "synced_window",

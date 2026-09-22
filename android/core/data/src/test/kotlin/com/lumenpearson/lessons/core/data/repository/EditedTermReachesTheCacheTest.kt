@@ -39,18 +39,6 @@ class EditedTermReachesTheCacheTest {
     private val clock: Clock =
         Clock.fixed(LocalDate.parse("2026-10-15").atStartOfDay(zone).toInstant(), zone)
 
-    private class Store : BundleTagStore {
-        val written = mutableMapOf<String, String>()
-        override suspend fun tagFor(signature: String): String? = written[signature]
-        override suspend fun forget(signature: String) {
-            written.remove(signature)
-        }
-
-        override suspend fun remember(signature: String, etag: String) {
-            written[signature] = etag
-        }
-    }
-
     /** Answers whatever terms it is currently holding, with a tag of its own. */
     private class FakeApi(var terms: List<TermDto>, var etag: String) : LessonsApi {
         override suspend fun join(body: JoinRequestDto) = error("unused")
@@ -105,7 +93,7 @@ class EditedTermReachesTheCacheTest {
             onDataChanged = {},
             onNothingChanged = {},
             onTokenRejected = {},
-            bundleTags = Store(),
+            bundleTags = RecordingTagStore(),
         )
 
         repository.refresh()
@@ -141,7 +129,7 @@ class EditedTermReachesTheCacheTest {
             onDataChanged = {},
             onNothingChanged = {},
             onTokenRejected = {},
-            bundleTags = Store(),
+            bundleTags = RecordingTagStore(),
         )
         repository.refresh()
         api.terms = semesters("2027-05-28")

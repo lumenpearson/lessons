@@ -190,6 +190,14 @@ days, and the client caches the result. The client never sees the template.
 three weeks ahead. That is what makes "homework for Monday" work when you ask on
 a Friday for a single day, and what makes it survive the winter holidays.
 
+Those three weeks are counted from the last lesson *inside* the window, so a
+window that already runs to the end of the school year gets `null`: everything
+within three weeks of the last day of May is June, and June is out of season for
+every class — a term cannot be typed past the year's end. The Android client
+asks for exactly that window, so it never receives one; it answers the same
+question from its own cache instead. A client that asks for a fortnight is the
+one this field is for.
+
 ### Conditional requests
 
 The response carries an `ETag`. Send it back as `If-None-Match` and an
