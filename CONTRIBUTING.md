@@ -36,8 +36,8 @@ cp .env.example .env          # BOT_TOKEN and OWNER_IDS are your own
 | Command | What it does |
 | --- | --- |
 | `ruff check app tests scripts migrations` | lints the server — exactly what CI runs |
-| `python -m mypy` | one question of all 83 modules: does anything reach for an attribute its type does not have? |
-| `python -m pytest -q` | the server tests; 1559 of them, about five minutes, or a third of that with `-n auto` |
+| `python -m mypy` | one question of all 84 modules: does anything reach for an attribute its type does not have? |
+| `python -m pytest -q` | the server tests; 1630 of them, about five minutes, or a third of that with `-n auto` |
 | `python -m pytest -q tests/test_schedule.py -k parity` | one file, one test |
 | `python -m uvicorn app.main:app --reload` | run the server |
 | `alembic upgrade head` | apply the migrations (with a working `DATABASE_URL`) |
@@ -70,7 +70,7 @@ so read them as conditions rather than as wishes.
    endpoint are two thin shells over it. Two implementations of "rename a subject" would
    disagree within a month, and the one that disagrees quietly is the one that wins.
 3. **The schema changes through an Alembic revision.** No `create_all` after `0001`.
-   Production is already at `0013`, and a column will not appear there on its own. Mind the
+   Production is already at `0014`, and a column will not appear there on its own. Mind the
    direction: an additive revision goes on **before** the merge that deploys the code, a
    `UNIQUE` or a `NOT NULL` **after** it.
 4. **Nothing on the server happens by itself.** On Vercel nothing runs between requests:
@@ -147,7 +147,7 @@ or `fix:`. Something else is the convention, and it is just as consistent:
   suite.
 - A negative test has to provably catch the regression: revert the fix and make sure it
   fails. Otherwise it proves nothing.
-- Eleven of the app's screens, sheets and rows are composed in JVM tests under Robolectric,
+- Twenty of the app's screens, sheets and rows are composed in JVM tests under Robolectric,
   a rotation included where one costs something, and the widget's size ladder is walked at
   real sizes. What no test reaches is a device: there is no `androidTest` directory, so the
   drawing, the alarms under Doze and the dark theme are checked by hand, and it is worth

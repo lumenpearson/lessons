@@ -39,7 +39,7 @@ To change class or leave it: Settings → Class. After leaving, the app shows th
 Three tabs under one floating toolbar; swipe between them or tap an icon in the bar. Settings is not a fourth tab but the button beside it: you go in, change one thing and come back.
 
 - “Today” — what is on now and how long is left, then the rest of the day and the homework.
-- “Calendar” — the timetable as a week, a month, a single day or a list, with rooms, replacements and cancellations.
+- “Calendar” — the timetable as a week, a month or a single day, with rooms, replacements and cancellations; the day has two readings, “Ribbon” and “List”.
 - “Homework” — assignments grouped by the day they are due on.
 
 “Homework” shows only what is still ahead. The “All” button opens the past ones too, and says how many were hidden.
@@ -52,7 +52,9 @@ Beside the period's name is the school year — “2026/27”. Tapping it opens 
 
 In the month view the days with no lessons are shaded differently, and it is not decoration: a weekend, the holidays between two terms, the summer and a public holiday are four different answers to “why is this empty”. Consecutive days with the same answer are drawn as one band, and a month with no teaching in it at all is labelled across the grid. The day card names the date where it has a name — both “День Победы” and “День учителя”; the second one still has lessons, the first does not.
 
-The day view is a ribbon: every entry of the day as a row of its own, in the order it happens, with the breaks as rows too rather than as emptiness between two lessons. Beside each row is its time — when it starts and ends, how long it runs for, and, for whatever is running now, how much has gone and how much is left. A button at the bottom returns to what is current; once the day is over there is nothing to return to, and the button is not there.
+The day view has two readings, and a second picker under the view switcher chooses between them: “Ribbon” is one day, “List” is the days of the month as rows. The arrows step whatever is on screen — a day in the ribbon, a month in the list.
+
+The ribbon: every entry of the day as a row of its own, in the order it happens, with the breaks as rows too rather than as emptiness between two lessons. Beside each row is its time — when it starts and ends, how long it runs for, and, for whatever is running now, how much has gone and how much is left. A button at the bottom returns to what is current; once the day is over there is nothing to return to, and the button is not there.
 
 The ribbon's own settings are under the button beside it, and there are three: which way the progress travels (down the page, as a timetable is printed, or up it, as a countdown feels), whether the scroll settles on a whole row, and whether the cards have depth — the tilt, the gradients and the highlight on what is running. On Android 13 and above that highlight is a shader and runs along the row with the clock; below it the tilt and the gradients remain.
 
@@ -63,7 +65,7 @@ The ribbon's own settings are under the button beside it, and there are three: w
 
 The widget answers one question — “what is on now?” — and once the lessons are over it switches itself to “what is set”.
 
-Added like any other: long-press an empty spot on the home screen, “Widgets”, “Lessons — timetable”. It resizes both ways with no upper limit, and what it shows changes with its size — from a single line with a countdown to the whole day beside the homework.
+Added like any other: long-press an empty spot on the home screen, “Widgets”, “Lessons — timetable”. It resizes both ways as far as the launcher allows, and what it shows changes with its size — from a single line with a countdown to the whole day beside the homework. A larger system font counts too: the widget steps down to the layout that fits the type rather than clipping its last rows.
 
 - It works with no internet. Everything it draws is already on the phone; the network is only needed to refresh it.
 - It does not wake the phone every minute. One alarm is set for the exact moment the text will change, and updates only get more frequent when a bell is minutes away.

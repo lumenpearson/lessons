@@ -69,20 +69,27 @@ step. What stayed in CI for good:
 
 - **`pytest -n auto`.** The suite spread across the runner's cores: 289 s → 101 s on four
   cores locally, 12:18 → 3:23 on the runner, the same 1340 green — 1340 was the count when
-  this was measured; it is 1559 today. That is safe by
+  this was measured; it is 1630 today. That is safe by
   construction rather than by luck: `tests/conftest.py` takes the SQLite path from an
   `mkdtemp` computed at import time, and every xdist worker is a separate process with its
   own import, so they never share a database. It started as a saving and stayed for the
   speed of the answer.
-- **Artifacts live a week, not ninety days.** Storage on the free plan is 500 MB, and one
-  run put a 27 MB debug APK and a 5 MB release APK there for ninety days (the default).
-  After about fifteen runs, any upload fails with `Artifact storage quota has been hit` — a
-  red job on a build that passed. That is exactly what happened, and it could not be cured
-  from inside the workflow: only by deleting old artifacts or waiting for them to expire.
-  Going public removed the problem — a public repository's storage is not billed — but the
-  week instead of ninety days stayed, because privacy can come back and nobody needs the
-  APK from a two-month-old pull request. For the same reason, uploading the test reports is
-  marked `continue-on-error`: the gate is `./gradlew test`, not where the report landed.
+- **A short artifact life — but asked for in the repository's settings, not in a
+  workflow.** Storage on the free plan is 500 MB, and one run put a 27 MB debug APK and a
+  5 MB release APK there for ninety days (the default). After about fifteen runs, any
+  upload fails with `Artifact storage quota has been hit` — a red job on a build that
+  passed. That is exactly what happened, and it could not be cured from inside the
+  workflow: only by deleting old artifacts or waiting for them to expire. Going public
+  removed the problem — a public repository's storage is not billed — but the short life
+  stayed, because privacy can come back and nobody needs the APK from a two-month-old pull
+  request. What did **not** stay is the `retention-days:` that used to ask for it: this
+  repository's own retention is lower than the week those lines requested, so every upload
+  was silently reduced under a warning and the seven was a wish rather than a setting.
+  `grep -rn retention .github/workflows/` now finds only the comments explaining that.
+  Raising the setting is the only thing that lengthens an artifact, and it lengthens all of
+  them at once — which is the storage problem this section is about. For the same reason as
+  the short life, uploading the test reports is marked `continue-on-error`: the gate is
+  `./gradlew test`, not where the report landed.
 - **Path filters.** The "What changed" job decides in eight seconds which halves could
   possibly have broken; a change confined to `docs/` runs neither. If the commit range
   cannot be worked out (a force push, a branch's first push), both run — a skipped build

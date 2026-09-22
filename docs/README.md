@@ -52,6 +52,9 @@ the user will actually see, it quotes it in Russian, because that is what is on 
 - **Who lets a phone into a class** — [api.md](api.md), "Who lets a phone in: the class
   code or the bot", and [bot.md](bot.md), "Who lets a phone in": a class has two join
   modes, and in one of them the class code opens nothing.
+- **Why one corner is rounder than another** — [design.md](design.md), "A corner inside a
+  corner": the inner radius plus the padding equals the outer one, in the two forms the
+  answer is known in, and the four places that deliberately do not follow it.
 - **What is not verified** — the "Honest status" section of the [README](../README.md). It
   is kept on purpose and updated together with the code.
 - **What the app's own documentation is written in** — [app/guide.ru.md](app/guide.ru.md),

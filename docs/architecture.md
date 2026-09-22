@@ -122,8 +122,8 @@ Five Gradle modules, split along the lines that actually pay for themselves:
 
 `:core:model` being a plain JVM library is the load-bearing decision: the state
 engine is the most logic-dense part of the product, and this makes its test suite
-run in milliseconds with no emulator and no Android SDK. Its ninety-four tests,
-in eight classes, walk a full school day minute by minute.
+run in milliseconds with no emulator and no Android SDK. Its 117 tests, in ten
+classes, walk a full school day minute by minute.
 
 The widget module exists so the home-screen widget can reach the cached timetable
 without dragging the app's entire UI graph into its process.
@@ -379,9 +379,9 @@ alternative is every family's password in the database.
 
 ## Testing
 
-1610 tests on the server, 849 on Android; `pytest -q -n auto` and `./gradlew test`, both
-offline, both in CI. On Android that is `:core:model` 117, `:core:data` 279,
-`:core:designsystem` 74, `:widget` 74, `:app` 305.
+1630 tests on the server, 929 on Android; `pytest -q -n auto` and `./gradlew test`, both
+offline, both in CI. On Android that is `:core:model` 117, `:core:data` 285,
+`:core:designsystem` 80, `:widget` 90, `:app` 357.
 
 The table below is the load-bearing part of that rather than the whole of it:
 
@@ -408,10 +408,10 @@ The table below is the load-bearing part of that rather than the whole of it:
 | `android/core/model/.../StabilityPromiseTest.kt` | that nothing in the domain module is a `var`, which is what `compose-stability.conf` promises the Compose compiler | JVM JUnit |
 
 What nothing covers is a device: there is no `androidTest` directory, so not one test has
-run on hardware or an emulator. Eleven of the app's screens, sheets and rows are composed
+run on hardware or an emulator. Twenty of the app's screens, sheets and rows are composed
 under Robolectric with a Russian locale and a phone's width — among them the class list, the
-join mode, the connection errors, the first-run reveal, the crash-report sheet and the two
-sheets the calendar reopens after a rotation — and the design system's components are
-exercised the same way; for the rest of the interface, compilation proves the types line up
-and says nothing about the screen. The "Honest status" section of the README keeps the full
+join mode, the connection errors, the first-run reveal, the crash-report sheet, the two
+sheets the calendar reopens after a rotation, its header and its day list — and the design
+system's components are exercised the same way; for the rest of the interface, compilation
+proves the types line up and says nothing about the screen. The "Honest status" section of the README keeps the full
 list — that is the honest status, not an oversight.

@@ -80,7 +80,7 @@ Three tabs and a gear at the side.
 | Tab | What it shows |
 | --- | --- |
 | **Сегодня** | what is running now and how long is left, then the rest of the day and the assignments |
-| **Календарь** | four readings of the same timetable — the day as a ribbon, the week, the month as a grid and the month as a list — with rooms, substitutions and cancellations |
+| **Календарь** | three scales of the same timetable — «Неделя», «Месяц» and «День» — with rooms, substitutions and cancellations; «День» has a second picker under it, «Лента» or «Список» |
 | **Задания** | homework grouped by the day it is **set for** |
 
 The «Задания» tab shows only future assignments by default — the «Все» button opens the
@@ -96,9 +96,12 @@ The point of the whole thing. The widget answers one question — "what now?" �
 lessons end it switches by itself to "what is set".
 
 It is added like any other: a long press on an empty spot of the home screen → «Виджеты» →
-«Lessons — расписание». It stretches both ways with no upper bound, and what it draws
-changes with its size — from one line with a countdown at 2×1 to the timetable together
-with the homework at 5×5 and larger. The full table of sizes is in [widget.md](widget.md).
+«Lessons — расписание». It stretches both ways as far as the launcher allows — 640 dp
+each way, past the width of any phone — and what it draws changes with its size, from one
+line with a countdown at 2×1 to the timetable together with the homework at 5×5 and
+larger. A larger system font counts too: the widget then steps down to the layout that
+fits the type rather than clipping its last rows. The full table of sizes is in
+[widget.md](widget.md).
 
 Worth knowing:
 

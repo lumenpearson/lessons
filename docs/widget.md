@@ -32,13 +32,44 @@ itself as one column over half a screen. The intermediate rungs — `SMALL_TALL`
 closer than a rung of the other orientation. `WidgetSizeClassTest` holds this: it
 reproduces the launcher's rule rather than trusting `of()`.
 
-`resizeMode="horizontal|vertical"` with no upper bound: the widget stretches to any size,
-and `WidgetSizeClass.of()` maps the actual size to the nearest rung that fits.
+`resizeMode="horizontal|vertical"`, and the manifest bounds it at 640 dp in both
+directions (`maxResizeWidth`/`maxResizeHeight`, API 31+) — past the width of any phone and
+most tablets, so in practice the widget stretches as far as a launcher will let it, and
+`WidgetSizeClass.of()` maps the actual size to the nearest rung that fits.
+
+**The reported height is divided by the font scale before a rung is chosen.** The
+breakpoints are in `dp` and every type size on the ladder is in `sp`, so the two move apart
+the moment a reader enlarges the system font, and on the largest setting they are about
+twice apart. The box still measured its full size, so the largest rung was still chosen, and
+the widget drew eight timeline rows, a week strip and two homework blocks in the room for
+about half of that: the chips took a third of the surface and the last rows ran off the
+bottom edge. `of()` therefore takes `Configuration.fontScale`, clamped to 1.0–2.0, and
+divides the height by it — a larger font spends height about in proportion, so a widget at
+1.5× holds about two thirds of the rows and the rung built for two thirds of the height is
+the rung that fits.
+
+The width is deliberately left alone, although a wider row at a larger font does hold fewer
+characters. Width on this ladder decides *structure* — a second column, a week strip,
+whether a row can carry a room number at all — and 348 dp is still 348 dp whatever the type
+is doing; the horizontal half is already answered twice, by the rung's own character budget
+and by weighting the trailing detail so it cannot take the subject's room. Dividing the
+width as well was tried first and was worse than the defect: a four-cell widget at the
+largest font fell past the narrow column onto a rung with no timeline at all, so a reader
+who had asked for bigger type lost the rest of their school day. The floor of the clamp is
+1.0 because a *smaller* font has not bought the widget a denser layout, and the ceiling is
+2.0 because past it even `HUGE` falls below the height of a rung that can list one lesson —
+a widget that says nothing is a worse answer than one whose last row is clipped.
+`WidgetFontScaleTest` walks it.
+
+Every block drawn inside the widget takes its corner from the rung's own padding rather than
+from a constant — `WidgetSizeClass.innerCorner()`, the surface's 24 dp less that padding.
+The rule and the four places that deliberately do not follow it are in
+[design.md](design.md#a-corner-inside-a-corner).
 
 ## States
 
 Computed by `ScheduleEngine.stateAt(timetable, now)` — a pure function covered by the
-thirty-five tests of `ScheduleEngineTest` and `ScheduleEngineEdgeCasesTest` in
+thirty-one tests of `ScheduleEngineTest` and `ScheduleEngineEdgeCasesTest` in
 `:core:model`. The time inside it is the school's, not the phone's: a class in
 Vladivostok and a class in Kaliningrad can hang off one server, and the widget takes "now"
 from `timetable.nowAtSchool()`.

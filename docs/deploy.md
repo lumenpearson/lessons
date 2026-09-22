@@ -309,7 +309,7 @@ into the database by hand:
 curl -s https://<your-project>.vercel.app/api/v1/warmup
 ```
 
-`{"status":"ok","schema":"0013"}` means it all lines up. `"status":"degraded"` together with
+`{"status":"ok","schema":"0014"}` means it all lines up. `"status":"degraded"` together with
 `expected_schema` names both revisions and says which way they diverged: «База отстала от
 кода» — the database is behind the code — is an incident, while «База впереди кода» — the
 database is ahead — is the normal window between steps 1 and 2, which the deploy closes.
@@ -443,9 +443,28 @@ cp server/.env.example server/.env    # fill in BOT_TOKEN and OWNER_IDS
 docker compose up -d --build
 ```
 
-`docker-compose.yml` brings up Postgres and the app. The bot works through polling, so no
-external address and no webhook are needed at all — the server can sit behind NAT with no
-public IP.
+`docker-compose.yml` brings up Postgres, migrates it, and then starts the app. The bot works
+through polling, so no external address and no webhook are needed at all — the server can sit
+behind NAT with no public IP.
+
+**The migration is a service of its own, and the server waits for it.** `migrate` runs
+`alembic upgrade head` once against the same image and the same database and must finish
+successfully (`condition: service_completed_successfully`) before `server` starts. On a
+database already at the head it is a no-op that costs a second on every `up`; what it buys
+is that the schema exists at all. Until this batch it did not: `app.main` calls `create_all`
+only for SQLite, the image shipped neither `alembic.ini` nor `migrations/`, and so
+`docker compose up` gave an empty schema, a green `/api/v1/health` — which opens no
+connection and therefore cannot see this — and a failure on the first ORM read, which for
+the bot is the middleware, i.e. every update at once. `server/Dockerfile` now copies both,
+and `alembic` was already a runtime dependency.
+
+A service rather than a line in the server's command, so that a failed migration stops the
+stack instead of being buried in the API's log, and so that a migration can be run by hand
+with `docker compose run --rm migrate`. It needs only `DATABASE_URL`: `get_settings()` is
+never called there, so `BOT_TOKEN` and `OWNER_IDS` are not its business.
+`GET /api/v1/warmup` is what confirms the result, and it is the endpoint that can: it says
+`{"status": "ok", "schema": "0014"}` when the two agree and names both revisions when they
+do not.
 
 The app on the phone needs to reach the API. The options are a public IP with a forwarded
 port, a tunnel such as Cloudflare Tunnel, or — if every pupil is on the same school
