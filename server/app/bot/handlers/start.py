@@ -34,7 +34,7 @@ from app.bot.keyboards import (
     shift_days,
     timezone_picker,
 )
-from app.bot.render import plural, render_day, render_role_help
+from app.bot.render import cut, plural, render_day, render_role_help
 from app.bot.roles import claim_phone_invites, get_role, is_env_owner
 from app.bot.states import CreateClass
 from app.config import get_settings
@@ -301,7 +301,10 @@ async def create_class_school_search(message: Message, state: FSMContext) -> Non
     if not result.schools:
         await state.update_data(school_results=[])
         await message.answer(
-            f"По запросу «{escape(raw)}» ничего не нашлось.\n\n"
+            # Cut to what was actually searched with, and cut before escaping:
+            # `raw` is a whole inbound message, which Telegram allows up to its
+            # own ceiling, and the sentence around it is 95 characters more.
+            f"По запросу «{escape(cut(raw, schools_service.MAX_QUERY))}» ничего не нашлось.\n\n"
             "Попробуйте номер школы и город, или введите название вручную.",
             reply_markup=school_fallback(),
         )

@@ -345,26 +345,44 @@ internal object WidgetStrings {
 }
 
 /**
- * Clips to [maxChars] with a real ellipsis character.
+ * Clips to [maxChars] with a real ellipsis character, on one line.
  *
  * Glance's `Text` cannot ellipsize on its own — `maxLines` hard-clips at a line
  * break with no visual hint that anything was cut — so the truncation has to
  * happen in the string. Top-level rather than a member of [WidgetStrings] so the
  * layout code can clip a subject name without importing the whole object.
+ *
+ * ### Why it collapses first
+ *
+ * Every one of its call sites feeds a Glance `Text` at `maxLines = 1`, and that
+ * hard-clips at the **first newline** — so a string carrying one shows its first
+ * line and nothing else, with the «…» this function appended sitting after a
+ * break the widget never draws. An event title is typed into Telegram and stored
+ * as `(message.text or "").strip()`, which trims the ends and keeps the middle,
+ * so «Собрание\nв актовом зале» reached the home screen as «Собрание» with
+ * nothing to say there had been more — while the same event in the app showed
+ * «Собрание…», because Compose ellipsises what it truncates. `homeworkLine`
+ * already collapsed for exactly this reason; the other nine call sites did not.
  */
 internal fun String.ellipsize(maxChars: Int): String {
-    if (maxChars <= 1 || length <= maxChars) return this
+    val flat = collapseWhitespace()
+    if (maxChars <= 1 || flat.length <= maxChars) return flat
     // One back if the cut landed between the halves of a surrogate pair. A
     // `Char` is a UTF-16 code unit, not a character, so an emoji straddling the
     // boundary otherwise leaves its leading half behind \u2014 which `trimEnd` does
     // not consider whitespace and the widget draws as a tofu box.
-    val end = (maxChars - 1).let { if (this[it - 1].isHighSurrogate()) it - 1 else it }
-    return take(end).trimEnd().trimEnd(',', ';', '.', '\u2013', '-') + "\u2026"
+    val end = (maxChars - 1).let { if (flat[it - 1].isHighSurrogate()) it - 1 else it }
+    return flat.take(end).trimEnd().trimEnd(',', ';', '.', '\u2013', '-') + "\u2026"
 }
 
 /**
  * Homework text arrives as free-form teacher input and regularly contains
  * newlines and double spaces; both would blow up a one-line row.
+ *
+ * Still called by name in `homeworkLine`, although [ellipsize] now does it too:
+ * there the collapse has to happen **before** the subject and the text are
+ * joined into one string, so that the budget is spent on words rather than on a
+ * run of spaces in the middle.
  */
 internal fun String.collapseWhitespace(): String = trim().replace(WHITESPACE_RUN, " ")
 

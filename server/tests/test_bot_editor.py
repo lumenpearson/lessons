@@ -13,8 +13,6 @@ from datetime import time
 
 import pytest
 from sqlalchemy import func, select
-from test_bot_calendar import FakeCallback, FakeEditable
-from test_bot_handlers import FakeState
 
 from app.bot import editor_render
 from app.bot.editor_keyboard import BREAKS, EditorAction, EditorSubject
@@ -45,8 +43,10 @@ def cursors(keyboard) -> list[EditorAction]:
     return out
 
 
-async def open_day(session, school_class, day: int = 1, flags: int = 0, role=Role.ADMIN):
-    callback = FakeCallback()
+async def open_day(
+    session, school_class, CardCallback, day: int = 1, flags: int = 0, role=Role.ADMIN
+):
+    callback = CardCallback()
     await editor.editor_day(
         callback,
         EditorAction(action="day", day=day, flags=flags),
@@ -62,8 +62,10 @@ async def open_day(session, school_class, day: int = 1, flags: int = 0, role=Rol
 # --------------------------------------------------------------------------
 
 
-async def test_the_day_lists_its_lessons_and_names_the_week_beside_it(session, school_class):
-    callback = await open_day(session, school_class)
+async def test_the_day_lists_its_lessons_and_names_the_week_beside_it(
+    session, school_class, CardCallback
+):
+    callback = await open_day(session, school_class, CardCallback)
 
     assert "Понедельник" in callback.message.last
     assert "Алгебра" in callback.message.last
@@ -75,13 +77,15 @@ async def test_the_day_lists_its_lessons_and_names_the_week_beside_it(session, s
     ]
 
 
-async def test_the_arrows_step_a_day_and_carry_the_view_with_them(session, school_class):
+async def test_the_arrows_step_a_day_and_carry_the_view_with_them(
+    session, school_class, CardCallback
+):
     """The breaks switch is part of the cursor, not of the day.
 
     Turn it on, page to «Вторник», and it is still on — otherwise checking the
     breaks on three days means three presses of the same switch.
     """
-    callback = await open_day(session, school_class, day=1, flags=BREAKS)
+    callback = await open_day(session, school_class, CardCallback, day=1, flags=BREAKS)
 
     pager = [cursor for cursor in cursors(callback.message.keyboard) if cursor.action == "day"]
     previous, current, following = pager[0], pager[1], pager[2]
@@ -90,18 +94,22 @@ async def test_the_arrows_step_a_day_and_carry_the_view_with_them(session, schoo
     assert all(cursor.flags == BREAKS for cursor in pager)
 
 
-async def test_the_week_wraps_at_saturday_rather_than_dead_ending(session, school_class):
-    saturday = await open_day(session, school_class, day=6)
+async def test_the_week_wraps_at_saturday_rather_than_dead_ending(
+    session, school_class, CardCallback
+):
+    saturday = await open_day(session, school_class, CardCallback, day=6)
     pager = [cursor for cursor in cursors(saturday.message.keyboard) if cursor.action == "day"]
 
     assert pager[2].day == 1  # › from «Суббота» wraps to «Понедельник», not «Воскресенье»
 
 
-async def test_the_breaks_switch_shows_the_gap_and_only_when_it_is_on(session, school_class):
-    plain = await open_day(session, school_class, flags=0)
+async def test_the_breaks_switch_shows_the_gap_and_only_when_it_is_on(
+    session, school_class, CardCallback
+):
+    plain = await open_day(session, school_class, CardCallback, flags=0)
     assert "перемена" not in plain.message.last
 
-    with_breaks = await open_day(session, school_class, flags=BREAKS)
+    with_breaks = await open_day(session, school_class, CardCallback, flags=BREAKS)
     # DEFAULT_BELLS: first lesson ends 09:15, second starts 09:25. Asserted
     # with the whole line, not just «10 минут» — the loose form was true of
     # «перемена · 10 10 минут» too, and that is what it was hiding.
@@ -109,11 +117,11 @@ async def test_the_breaks_switch_shows_the_gap_and_only_when_it_is_on(session, s
 
 
 async def test_a_viewer_reads_the_template_but_is_offered_nothing_that_would_refuse(
-    session, school_class
+    session, school_class, CardCallback
 ):
     """A button nobody in the room may press teaches people to ignore the
     refusals — the same rule «Предметы» already follows."""
-    callback = await open_day(session, school_class, role=Role.VIEWER)
+    callback = await open_day(session, school_class, CardCallback, role=Role.VIEWER)
     shown = labels(callback.message.keyboard)
 
     assert "Алгебра" in callback.message.last
@@ -124,9 +132,9 @@ async def test_a_viewer_reads_the_template_but_is_offered_nothing_that_would_ref
 
 
 async def test_a_viewer_taps_a_lesson_and_gets_it_as_an_alert_not_an_editor(
-    session, school_class
+    session, school_class, CardCallback
 ):
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_slot(
         callback,
         EditorAction(action="slot", day=1, index=2),
@@ -149,9 +157,9 @@ async def test_a_viewer_taps_a_lesson_and_gets_it_as_an_alert_not_an_editor(
     [(0, ["Физика", "Алгебра", "История"]), (1, ["Алгебра", "История", "Физика"])],
 )
 async def test_moving_a_lesson_redraws_the_day_in_its_new_order(
-    session, school_class, arg, expected
+    session, school_class, arg, expected, CardCallback
 ):
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_move(
         callback,
         EditorAction(action="move", day=1, index=2, arg=arg),
@@ -167,9 +175,11 @@ async def test_moving_a_lesson_redraws_the_day_in_its_new_order(
     assert not callback.alerted
 
 
-async def test_moving_off_the_end_says_so_instead_of_redrawing_nothing(session, school_class):
+async def test_moving_off_the_end_says_so_instead_of_redrawing_nothing(
+    session, school_class, CardCallback
+):
     """A button that visibly does nothing is read as a broken button."""
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_move(
         callback,
         EditorAction(action="move", day=1, index=1, arg=0),
@@ -182,8 +192,8 @@ async def test_moving_off_the_end_says_so_instead_of_redrawing_nothing(session, 
     assert callback.message.texts == []  # nothing was redrawn
 
 
-async def test_deleting_closes_the_gap_on_screen_too(session, school_class):
-    callback = FakeCallback()
+async def test_deleting_closes_the_gap_on_screen_too(session, school_class, CardCallback):
+    callback = CardCallback()
     await editor.editor_drop(
         callback,
         EditorAction(action="drop", day=1, index=1),
@@ -198,9 +208,9 @@ async def test_deleting_closes_the_gap_on_screen_too(session, school_class):
     assert "<b>2.</b> История" in body
 
 
-async def test_an_editor_may_not_reorder_the_template(session, school_class):
+async def test_an_editor_may_not_reorder_the_template(session, school_class, CardCallback):
     """Substitutions are an editor's business; the weekly template is an admin's."""
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_move(
         callback,
         EditorAction(action="move", day=1, index=2, arg=0),
@@ -213,11 +223,13 @@ async def test_an_editor_may_not_reorder_the_template(session, school_class):
     assert callback.message.texts == []
 
 
-async def test_a_typed_lesson_lands_on_the_day_it_was_asked_from(session, school_class):
+async def test_a_typed_lesson_lands_on_the_day_it_was_asked_from(
+    session, school_class, FakeState, CardEditable, CardCallback
+):
     """The cursor rides in the FSM data, so the answer comes back to «Среда»
     rather than to whatever day the editor happens to open on."""
     state = FakeState()
-    ask = FakeCallback()
+    ask = CardCallback()
     await editor.editor_ask_lesson(
         ask,
         EditorAction(action="add", day=3, flags=BREAKS),
@@ -228,7 +240,7 @@ async def test_a_typed_lesson_lands_on_the_day_it_was_asked_from(session, school
     )
     assert state.data["day"] == 3 and state.data["flags"] == BREAKS
 
-    message = FakeEditable()
+    message = CardEditable()
     message.text = "Геометрия"
     message.from_user = type("U", (), {"id": 42})()
     await editor.editor_take_lesson(message, state, session, school_class, Role.ADMIN)
@@ -238,11 +250,13 @@ async def test_a_typed_lesson_lands_on_the_day_it_was_asked_from(session, school
     assert state.cleared
 
 
-async def test_a_lesson_typed_with_a_room_and_a_teacher_keeps_both(session, school_class):
+async def test_a_lesson_typed_with_a_room_and_a_teacher_keeps_both(
+    session, school_class, FakeState, CardEditable
+):
     state = FakeState()
     state.data.update(day=2, index=0, flags=0, parity=0, mode="add")
 
-    message = FakeEditable()
+    message = CardEditable()
     message.text = "Физика, 305, Петров П.П."
     message.from_user = type("U", (), {"id": 42})()
     await editor.editor_take_lesson(message, state, session, school_class, Role.ADMIN)
@@ -251,7 +265,7 @@ async def test_a_lesson_typed_with_a_room_and_a_teacher_keeps_both(session, scho
 
 
 async def test_a_parity_suffix_typed_by_hand_does_not_become_the_subject_name(
-    session, school_class
+    session, school_class, FakeState, CardEditable
 ):
     """The bug that made the day editor and the week import disagree once.
 
@@ -262,7 +276,7 @@ async def test_a_parity_suffix_typed_by_hand_does_not_become_the_subject_name(
     state = FakeState()
     state.data.update(day=2, index=0, flags=0, parity=0, mode="add")
 
-    message = FakeEditable()
+    message = CardEditable()
     message.text = "Физика [чис]"
     message.from_user = type("U", (), {"id": 42})()
     await editor.editor_take_lesson(message, state, session, school_class, Role.ADMIN)
@@ -277,12 +291,12 @@ async def test_a_parity_suffix_typed_by_hand_does_not_become_the_subject_name(
 
 
 async def test_the_canteen_is_refused_while_there_are_no_bells_to_stand_on(
-    session, school_class
+    session, school_class, CardCallback
 ):
     school_class.bell_schedule_id = None
     await session.commit()
 
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_canteen(
         callback, EditorAction(action="canteen", day=1), session, school_class, Role.ADMIN
     )
@@ -291,8 +305,10 @@ async def test_the_canteen_is_refused_while_there_are_no_bells_to_stand_on(
     assert "звонки" in callback.answers[-1][0].lower()
 
 
-async def test_marking_the_canteen_names_it_on_the_break_it_falls_on(session, school_class):
-    callback = FakeCallback()
+async def test_marking_the_canteen_names_it_on_the_break_it_falls_on(
+    session, school_class, CardCallback
+):
+    callback = CardCallback()
     await editor.editor_set_canteen(
         callback,
         EditorAction(action="eat", day=1, index=2, flags=BREAKS),
@@ -309,7 +325,7 @@ async def test_marking_the_canteen_names_it_on_the_break_it_falls_on(session, sc
 
 
 async def test_the_canteen_cannot_be_put_on_a_break_the_bells_no_longer_ring(
-    session, school_class
+    session, school_class, CardCallback
 ):
     """«🍽 Столовая» offers the breaks it can see, and a keyboard outlives them.
 
@@ -324,7 +340,7 @@ async def test_the_canteen_cannot_be_put_on_a_break_the_bells_no_longer_ring(
     schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
     rung = max(period.index for period in schedule.periods)
 
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_set_canteen(
         callback,
         EditorAction(action="eat", day=1, index=rung + 1, flags=BREAKS),
@@ -339,13 +355,13 @@ async def test_the_canteen_cannot_be_put_on_a_break_the_bells_no_longer_ring(
     assert callback.message.texts == []
 
 
-async def test_the_canteen_cannot_be_put_after_the_last_lesson(session, school_class):
+async def test_the_canteen_cannot_be_put_after_the_last_lesson(session, school_class, CardCallback):
     """The break after the last bell is a gap of nothing, and the day view
     declines to draw it — so the card must decline to claim it."""
     schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
     last = max(period.index for period in schedule.periods)
 
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_set_canteen(
         callback,
         EditorAction(action="eat", day=1, index=last, flags=BREAKS),
@@ -359,12 +375,14 @@ async def test_the_canteen_cannot_be_put_after_the_last_lesson(session, school_c
     assert schedule.canteen_after_index is None
 
 
-async def test_clearing_the_canteen_sends_it_back_to_being_a_break(session, school_class):
+async def test_clearing_the_canteen_sends_it_back_to_being_a_break(
+    session, school_class, CardCallback
+):
     schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
     schedule.canteen_after_index = 2
     await session.commit()
 
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_set_canteen(
         callback,
         EditorAction(action="eat", day=1, index=0, flags=BREAKS),
@@ -560,9 +578,9 @@ def test_a_slot_button_fits_a_thumb(rows, expected):
 
 
 async def test_an_admin_taps_a_lesson_and_gets_the_card_with_its_buttons(
-    session, school_class
+    session, school_class, CardCallback
 ):
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_slot(
         callback,
         EditorAction(action="slot", day=1, index=2),
@@ -579,10 +597,12 @@ async def test_an_admin_taps_a_lesson_and_gets_the_card_with_its_buttons(
     assert "🗑 Удалить урок" in shown
 
 
-async def test_a_viewers_alert_is_the_card_with_its_tags_taken_off(session, school_class):
+async def test_a_viewers_alert_is_the_card_with_its_tags_taken_off(
+    session, school_class, CardCallback
+):
     """A callback answer has no parse mode: Telegram shows the string exactly
     as given, so the HTML card arrived reading «<b>Урок 2</b>»."""
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_slot(
         callback,
         EditorAction(action="slot", day=1, index=2),
@@ -599,11 +619,11 @@ async def test_a_viewers_alert_is_the_card_with_its_tags_taken_off(session, scho
 
 
 async def test_tapping_a_lesson_somebody_else_just_deleted_redraws_the_day(
-    session, school_class
+    session, school_class, CardCallback
 ):
     """The day changed under a message left open. Saying «ошибка» about a
     lesson that is genuinely gone teaches people to distrust the screen."""
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_slot(
         callback,
         EditorAction(action="slot", day=1, index=9),
@@ -617,12 +637,14 @@ async def test_tapping_a_lesson_somebody_else_just_deleted_redraws_the_day(
     assert "🧩 <b>Расписание · Понедельник</b>" in callback.message.last
 
 
-async def test_the_editor_opens_on_monday_and_refuses_a_stranger(session, school_class):
-    callback = FakeCallback()
+async def test_the_editor_opens_on_monday_and_refuses_a_stranger(
+    session, school_class, CardCallback
+):
+    callback = CardCallback()
     await editor.editor_open(callback, session, school_class, Role.VIEWER)
     assert "🧩 <b>Расписание · Понедельник</b>" in callback.message.last
 
-    stranger = FakeCallback()
+    stranger = CardCallback()
     await editor.editor_open(stranger, session, None, None)
     assert stranger.alerted
     assert "присоединитесь к классу" in stranger.answers[-1][0]
@@ -634,10 +656,10 @@ async def test_the_editor_opens_on_monday_and_refuses_a_stranger(session, school
 # --------------------------------------------------------------------------
 
 
-async def test_splitting_a_slot_copies_it_into_both_weeks(session, school_class):
+async def test_splitting_a_slot_copies_it_into_both_weeks(session, school_class, CardCallback):
     """An empty denominator half would be a hole the day view draws every second
     week; a copy is also what the next edit almost always starts from."""
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_parity(
         callback,
         EditorAction(action="split", day=1, index=2),
@@ -661,9 +683,9 @@ async def test_splitting_a_slot_copies_it_into_both_weeks(session, school_class)
     assert "<i>знам</i> Физика" in callback.message.last
 
 
-async def test_merging_keeps_the_week_the_button_named(session, school_class):
+async def test_merging_keeps_the_week_the_button_named(session, school_class, CardCallback):
     await editor.editor_parity(
-        FakeCallback(),
+        CardCallback(),
         EditorAction(action="split", day=1, index=2),
         session,
         school_class,
@@ -675,7 +697,7 @@ async def test_merging_keeps_the_week_the_button_named(session, school_class):
     )
     await session.commit()
 
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_parity(
         callback,
         EditorAction(action="merge", day=1, index=2, arg=1),  # keep the denominator half
@@ -699,16 +721,16 @@ async def test_merging_keeps_the_week_the_button_named(session, school_class):
 
 
 async def test_splitting_something_already_split_changes_nothing_and_still_redraws(
-    session, school_class
+    session, school_class, CardCallback
 ):
     await editor.editor_parity(
-        FakeCallback(),
+        CardCallback(),
         EditorAction(action="split", day=1, index=2),
         session,
         school_class,
         Role.ADMIN,
     )
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_parity(
         callback,
         EditorAction(action="split", day=1, index=2),
@@ -728,8 +750,8 @@ async def test_splitting_something_already_split_changes_nothing_and_still_redra
     assert "<i>чис</i> Физика" in callback.message.last
 
 
-async def test_an_editor_may_not_split_the_template_either(session, school_class):
-    callback = FakeCallback()
+async def test_an_editor_may_not_split_the_template_either(session, school_class, CardCallback):
+    callback = CardCallback()
     await editor.editor_parity(
         callback,
         EditorAction(action="split", day=1, index=2),
@@ -749,13 +771,13 @@ async def test_an_editor_may_not_split_the_template_either(session, school_class
 
 
 async def test_the_prompt_offers_the_subjects_the_timetable_already_uses(
-    session, school_class
+    session, school_class, FakeState, CardCallback
 ):
     """«расписание не зависит от списка предметов» was the complaint: the
     dictionary adopts whatever the template teaches before the list is drawn,
     so it is never empty for a class that visibly teaches something."""
     state = FakeState()
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_ask_lesson(
         callback,
         EditorAction(action="add", day=3),
@@ -773,11 +795,11 @@ async def test_the_prompt_offers_the_subjects_the_timetable_already_uses(
 
 
 async def test_a_tapped_subject_lands_on_the_day_and_redraws_it_in_place(
-    session, school_class
+    session, school_class, FakeState, CardCallback
 ):
     state = FakeState()
     await editor.editor_ask_lesson(
-        FakeCallback(), EditorAction(action="add", day=4), state, session, school_class, Role.ADMIN
+        CardCallback(), EditorAction(action="add", day=4), state, session, school_class, Role.ADMIN
     )
     subject = await session.scalar(
         select(Subject).where(
@@ -785,7 +807,7 @@ async def test_a_tapped_subject_lands_on_the_day_and_redraws_it_in_place(
         )
     )
 
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_pick_subject(
         callback,
         EditorSubject(subject=subject.id),
@@ -800,7 +822,9 @@ async def test_a_tapped_subject_lands_on_the_day_and_redraws_it_in_place(
     assert state.cleared
 
 
-async def test_a_subject_id_belonging_to_another_class_finds_nothing(session, school_class):
+async def test_a_subject_id_belonging_to_another_class_finds_nothing(
+    session, school_class, FakeState, CardCallback
+):
     """The payload is the user's to forge; a subject is re-scoped by the query
     like every other id on this surface."""
     other = SchoolClass(name="9Б", school="Школа № 1", join_code="OTHER42")
@@ -812,7 +836,7 @@ async def test_a_subject_id_belonging_to_another_class_finds_nothing(session, sc
 
     state = FakeState()
     state.data.update(day=1, index=0, flags=0, parity=0, mode="add")
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_pick_subject(
         callback,
         EditorSubject(subject=theirs.id),
@@ -833,11 +857,11 @@ async def test_a_subject_id_belonging_to_another_class_finds_nothing(session, sc
 
 
 async def test_text_that_is_not_a_subject_asks_again_rather_than_saving_it(
-    session, school_class
+    session, school_class, FakeState, CardEditable
 ):
     state = FakeState()
     state.data.update(day=1, index=0, flags=0, parity=0, mode="add")
-    message = FakeEditable()
+    message = CardEditable()
     message.text = "   "
     message.from_user = type("U", (), {"id": 42})()
 
@@ -848,7 +872,7 @@ async def test_text_that_is_not_a_subject_asks_again_rather_than_saving_it(
 
 
 async def test_a_day_with_no_bell_left_for_the_lesson_says_which_ceiling_it_hit(
-    session, school_class
+    session, school_class, FakeState, CardEditable
 ):
     """«Слишком много уроков» sent an admin looking for a limit on the
     timetable when what they needed was one more row in «🔔 Звонки»."""
@@ -860,7 +884,7 @@ async def test_a_day_with_no_bell_left_for_the_lesson_says_which_ceiling_it_hit(
 
     state = FakeState()
     state.data.update(day=1, index=0, flags=0, parity=0, mode="add")
-    message = FakeEditable()
+    message = CardEditable()
     message.text = "Химия"
     message.from_user = type("U", (), {"id": 42})()
 
@@ -872,10 +896,10 @@ async def test_a_day_with_no_bell_left_for_the_lesson_says_which_ceiling_it_hit(
 
 
 async def test_editing_a_split_slot_changes_only_the_week_the_button_carried(
-    session, school_class
+    session, school_class, FakeState, CardEditable, CardCallback
 ):
     await editor.editor_parity(
-        FakeCallback(),
+        CardCallback(),
         EditorAction(action="split", day=1, index=2),
         session,
         school_class,
@@ -884,7 +908,7 @@ async def test_editing_a_split_slot_changes_only_the_week_the_button_carried(
 
     state = FakeState()
     state.data.update(day=1, index=2, flags=0, parity=1, mode="edit")  # the denominator half
-    message = FakeEditable()
+    message = CardEditable()
     message.text = "Химия, 402"
     message.from_user = type("U", (), {"id": 42})()
 
@@ -895,7 +919,7 @@ async def test_editing_a_split_slot_changes_only_the_week_the_button_carried(
 
 
 async def test_a_lesson_deleted_while_the_prompt_was_open_says_so_and_logs_nothing(
-    session, school_class
+    session, school_class, FakeState, CardEditable, CardCallback
 ):
     """«✏️ Изменить» on a slot somebody has since deleted.
 
@@ -907,7 +931,7 @@ async def test_a_lesson_deleted_while_the_prompt_was_open_says_so_and_logs_nothi
     left open in the chat is the commoner one.
     """
     state = FakeState()
-    ask = FakeCallback()
+    ask = CardCallback()
     await editor.editor_ask_lesson(
         ask,
         EditorAction(action="edit", day=1, index=3),
@@ -919,14 +943,14 @@ async def test_a_lesson_deleted_while_the_prompt_was_open_says_so_and_logs_nothi
 
     # The last lesson, so closing the gap cannot slide another one onto 3.
     await editor.editor_drop(
-        FakeCallback(),
+        CardCallback(),
         EditorAction(action="drop", day=1, index=3),
         session,
         school_class,
         Role.ADMIN,
     )
 
-    message = FakeEditable()
+    message = CardEditable()
     message.text = "Химия"
     message.from_user = type("U", (), {"id": 42})()
     await editor.editor_take_lesson(message, state, session, school_class, Role.ADMIN)
@@ -948,11 +972,11 @@ async def test_a_lesson_deleted_while_the_prompt_was_open_says_so_and_logs_nothi
 
 
 async def test_a_viewer_who_somehow_reaches_the_prompt_is_dropped_out_of_it(
-    session, school_class
+    session, school_class, FakeState, CardEditable
 ):
     state = FakeState()
     state.data.update(day=1, index=0, flags=0, parity=0, mode="add")
-    message = FakeEditable()
+    message = CardEditable()
     message.text = "Химия"
     message.from_user = type("U", (), {"id": 42})()
 
@@ -996,8 +1020,8 @@ def test_a_marked_canteen_with_no_bell_after_it_still_says_where_it_is():
     assert "<code>" not in text
 
 
-async def test_the_canteen_screen_offers_one_button_per_break(session, school_class):
-    callback = FakeCallback()
+async def test_the_canteen_screen_offers_one_button_per_break(session, school_class, CardCallback):
+    callback = CardCallback()
     await editor.editor_canteen(
         callback, EditorAction(action="canteen", day=1), session, school_class, Role.ADMIN
     )
@@ -1025,11 +1049,11 @@ async def test_the_canteen_screen_offers_one_button_per_break(session, school_cl
     ],
 )
 async def test_a_write_button_refuses_an_editor_and_leaves_the_screen_alone(
-    session, school_class, handler, payload
+    session, school_class, handler, payload, CardCallback
 ):
     """Every one of them re-checks rather than trusting the keyboard it came
     from: the payload arrived from the presser's own client."""
-    callback = FakeCallback()
+    callback = CardCallback()
     await getattr(editor, handler)(callback, payload, session, school_class, Role.EDITOR)
 
     assert callback.alerted
@@ -1045,8 +1069,8 @@ async def test_a_write_button_refuses_an_editor_and_leaves_the_screen_alone(
         ("editor_move", EditorAction(action="move", day=1, index=2, arg=0)),
     ],
 )
-async def test_the_editor_shows_a_stranger_nothing_at_all(session, handler, payload):
-    callback = FakeCallback()
+async def test_the_editor_shows_a_stranger_nothing_at_all(session, handler, payload, CardCallback):
+    callback = CardCallback()
     await getattr(editor, handler)(callback, payload, session, None, None)
 
     assert callback.alerted
@@ -1054,9 +1078,11 @@ async def test_the_editor_shows_a_stranger_nothing_at_all(session, handler, payl
     assert callback.message.texts == []
 
 
-async def test_the_prompts_refuse_before_they_set_any_state(session, school_class):
+async def test_the_prompts_refuse_before_they_set_any_state(
+    session, school_class, FakeState, CardCallback
+):
     state = FakeState()
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_ask_lesson(
         callback,
         EditorAction(action="add", day=1),
@@ -1068,7 +1094,7 @@ async def test_the_prompts_refuse_before_they_set_any_state(session, school_clas
     assert callback.alerted
     assert state.state is None and state.data == {}
 
-    picked = FakeCallback()
+    picked = CardCallback()
     await editor.editor_pick_subject(
         picked, EditorSubject(subject=1), state, session, school_class, Role.EDITOR
     )
@@ -1077,7 +1103,7 @@ async def test_the_prompts_refuse_before_they_set_any_state(session, school_clas
 
 
 async def test_a_class_pointed_at_a_bell_schedule_that_is_gone_still_draws(
-    session, school_class
+    session, school_class, CardCallback
 ):
     """``bell_schedule_id`` outlives the row it names if the schedule is
     deleted; the day view drops its times rather than refusing to open."""
@@ -1085,14 +1111,16 @@ async def test_a_class_pointed_at_a_bell_schedule_that_is_gone_still_draws(
     await session.delete(schedule)
     await session.commit()
 
-    callback = await open_day(session, school_class, flags=BREAKS)
+    callback = await open_day(session, school_class, CardCallback, flags=BREAKS)
 
     assert "<b>1.</b> Алгебра · 214" in callback.message.last
     assert "Звонков ещё нет" in callback.message.last
     assert "<code>" not in callback.message.last
 
 
-async def test_the_canteen_is_refused_while_there_is_only_one_bell(session, school_class):
+async def test_the_canteen_is_refused_while_there_is_only_one_bell(
+    session, school_class, CardCallback
+):
     """Lunch stands on a break, and one bell has no break after it."""
     lonely = BellSchedule(
         class_id=school_class.id,
@@ -1104,7 +1132,7 @@ async def test_the_canteen_is_refused_while_there_is_only_one_bell(session, scho
     school_class.bell_schedule_id = lonely.id
     await session.commit()
 
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_canteen(
         callback, EditorAction(action="canteen", day=1), session, school_class, Role.ADMIN
     )
@@ -1113,11 +1141,13 @@ async def test_the_canteen_is_refused_while_there_is_only_one_bell(session, scho
     assert "перемен пока нет" in callback.answers[-1][0]
 
 
-async def test_marking_the_canteen_with_no_bells_at_all_says_so(session, school_class):
+async def test_marking_the_canteen_with_no_bells_at_all_says_so(
+    session, school_class, CardCallback
+):
     school_class.bell_schedule_id = None
     await session.commit()
 
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_set_canteen(
         callback,
         EditorAction(action="eat", day=1, index=2),
@@ -1131,13 +1161,13 @@ async def test_marking_the_canteen_with_no_bells_at_all_says_so(session, school_
 
 
 async def test_a_long_split_slot_still_fits_the_alert_telegram_will_take(
-    session, school_class
+    session, school_class, CardCallback
 ):
     """200 characters is Telegram's ceiling on a callback answer, and going
     over it is a 400 — which on this surface is a press that answers nothing.
     Two halves with a long subject, a room and a teacher reach 284."""
     await editor.editor_parity(
-        FakeCallback(),
+        CardCallback(),
         EditorAction(action="split", day=1, index=2),
         session,
         school_class,
@@ -1156,7 +1186,7 @@ async def test_a_long_split_slot_still_fits_the_alert_telegram_will_take(
         )
     await session.commit()
 
-    callback = FakeCallback()
+    callback = CardCallback()
     await editor.editor_slot(
         callback,
         EditorAction(action="slot", day=1, index=2),

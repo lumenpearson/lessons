@@ -49,7 +49,7 @@ private val NEXT_UP_COLUMN = 118.dp
  * from four blocks rather than from a dozen loose lines: spacers are children
  * too, and a spacer between every line is what pushes a long layout over.
  */
-private const val CHILD_LIMIT = 10
+internal const val CHILD_LIMIT = 10
 
 /**
  * Below this many rows left today, the widget starts showing tomorrow.

@@ -37,6 +37,12 @@ import org.robolectric.annotation.Config
  * who finds out is a pupil somewhere else typing a code that worked yesterday.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+// marquee clock: this one *cannot* hold it. It reaches its rows with
+// `performScrollTo`, which drives the scrollable's own animation — with the
+// clock held nothing moves and every row below the fold reports «not
+// displayed», which is indistinguishable from the row being absent. The
+// longest line `ClassCardSheet` gets is «Перестанет работать только код
+// класса», a full-width sentence in a card that wraps rather than clips.
 @RunWith(RobolectricTestRunner::class)
 // Russian and a phone-sized screen — see `ClassRowsScreenTest` for why the
 // locale is not left at Robolectric's default.

@@ -215,8 +215,10 @@ def _note_rows_that_were_not_objects(
     """Say what was dropped for not being an object, and what it was instead.
 
     The same guard the diary provider carries, for the same reason: `mapper`
-    logs the suggestion it could not read, but it never sees the one that was
-    not an object at all, because this function has already taken it out. A
+    says so when a whole answer read as nothing, but it never sees the row that
+    was not an object at all, because this function has already taken it out —
+    twenty strings are twenty rows the mapper is never handed, so to it the
+    answer was simply empty and there was nothing to remark on. A
     whole answer of the wrong shape therefore reached the bot as «ничего не
     найдено» - which is also what a school that is genuinely not in the
     register looks like - and said nothing about which of the two it was.

@@ -351,6 +351,15 @@ private fun FlowRowScope.ServerBadges(status: ServerStatus) {
             status.schema?.let { schema ->
                 PillChip(text = correctedString(R.string.about_badge_schema, schema))
             }
+            // Both numbers, because one of them is not an answer. «Схема 0013»
+            // alone makes «база отстала» and «база впереди кода» the same card,
+            // and they are opposite mistakes with opposite fixes: one waits for
+            // a migration, the other for a deploy. `status.detail` is the
+            // server's own Russian sentence and this card is read in two
+            // languages, so the pair of revisions says it instead.
+            status.expected?.let { expected ->
+                PillChip(text = correctedString(R.string.about_badge_schema_expected, expected))
+            }
         }
     }
 }

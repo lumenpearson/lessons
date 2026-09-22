@@ -136,6 +136,13 @@ class AboutCardTest {
 
         assertShows("Сервер: база и код разошлись")
         assertShows("Схема 0013")
+        // Both numbers, because one of them is not an answer. «Схема 0013»
+        // alone draws «база отстала» and «база впереди кода» identically, and
+        // they are opposite mistakes: one waits for a migration to be applied,
+        // the other for a deploy to catch up. `detail` says which in the
+        // server's own Russian, which is no use on a card read in two
+        // languages — the pair of revisions is.
+        assertShows("Ожидается 0014")
     }
 
     // Two tests rather than one call each way: `ComposeTestRule` refuses a

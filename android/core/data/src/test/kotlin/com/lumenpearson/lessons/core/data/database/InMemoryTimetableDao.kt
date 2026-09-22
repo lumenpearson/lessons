@@ -9,12 +9,17 @@ import kotlinx.coroutines.flow.map
  * The cache, in memory, for tests that need one that actually remembers.
  *
  * Only the abstract members are implemented, which is the point: `replaceWindow`,
- * `dropWindow`, `clear`, `clearAll` and `snapshot` are concrete on
- * [TimetableDao], so a test written against this exercises the **real**
- * orchestration — the wipe order, the per-class subqueries, the ranged deletes
- * that spare the lookahead row, the day ids stamped onto children — rather than
- * a second implementation of it that could agree with the first while both are
- * wrong.
+ * `dropWindow`, `clear`, `clearAll`, `deleteLookaheadOf` and `snapshot` are
+ * concrete on [TimetableDao], so a test written against this exercises the
+ * **real** orchestration — the wipe order, the per-class subqueries, the ranged
+ * deletes that spare the lookahead row, the day ids stamped onto children —
+ * rather than a second implementation of it that could agree with the first
+ * while both are wrong.
+ *
+ * The claim in that first sentence was untrue once, and quietly: this fake
+ * overrode `deleteLookaheadOf` and deleted the day's children, which the one
+ * shipped statement did not. Anything it does more thoroughly than the real
+ * query is a defect no test in this module can see.
  *
  * Nothing here is thread-safe, and it does not need to be: the tests drive it
  * from one coroutine at a time.
@@ -205,15 +210,40 @@ internal class InMemoryTimetableDao : TimetableDao() {
         touch()
     }
 
-    override suspend fun deleteLookaheadOf(classId: Long) {
-        val owned = days
-            .filter { it.classId == classId && it.isNextSchoolDay }
-            .map { it.id }
-            .toSet()
+    /**
+     * The Kotlin twins of the lookahead deletes, one statement each.
+     *
+     * `deleteLookaheadOf` is concrete on [TimetableDao] and is therefore
+     * inherited rather than written again here. While it was one abstract
+     * query, this fake answered it by deleting the children too — which is
+     * more than the shipped SQL did, and it is the divergence that hid the
+     * real query's reliance on `PRAGMA foreign_keys` from every unit test.
+     */
+    private fun lookaheadDayIdsOf(classId: Long): Set<Long> = days
+        .filter { it.classId == classId && it.isNextSchoolDay }
+        .map { it.id }
+        .toSet()
+
+    override suspend fun deleteLookaheadHomeworkOf(classId: Long) {
+        val owned = lookaheadDayIdsOf(classId)
         homework.removeAll { it.dayId in owned }
+        touch()
+    }
+
+    override suspend fun deleteLookaheadEventsOf(classId: Long) {
+        val owned = lookaheadDayIdsOf(classId)
         events.removeAll { it.dayId in owned }
+        touch()
+    }
+
+    override suspend fun deleteLookaheadLessonsOf(classId: Long) {
+        val owned = lookaheadDayIdsOf(classId)
         lessons.removeAll { it.dayId in owned }
-        days.removeAll { it.id in owned }
+        touch()
+    }
+
+    override suspend fun deleteLookaheadDaysOf(classId: Long) {
+        days.removeAll { it.classId == classId && it.isNextSchoolDay }
         touch()
     }
 

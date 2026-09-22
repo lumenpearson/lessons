@@ -441,9 +441,15 @@ object SchoolAlerts {
             // and a day ahead of a moment that may be half an hour in the past,
             // and `snapshotAroundToday` covers more than that on both sides —
             // including the far side of a holiday, which it carries as the
-            // timetable's `nextSchoolDay`. What it does not cover it reports as
-            // «no data», so nothing here may ask about a date further out than
-            // the planner's horizon.
+            // timetable's `nextSchoolDay`. That answer is searched for in the
+            // cached year (`TimetableDao.firstTeachingDayAfter`) rather than
+            // taken from the stored lookahead row, which is the fallback and
+            // which, for the year-wide window this app fetches, the server
+            // never sends. So the first morning back is reachable from inside
+            // any holiday the cached year contains, and not from the last days
+            // of May, where the year runs out and the next one has not been
+            // fetched. What is not covered is reported as «no data», so nothing
+            // here may ask about a date further out than the planner's horizon.
             val timetable = Graph.container.timetableRepository.snapshotAroundToday()
                 ?: return@runBlocking null
             timetable to LessonsPreferences(context).currentSettings().alerts

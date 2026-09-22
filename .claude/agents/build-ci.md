@@ -1,6 +1,6 @@
 ---
 name: build-ci
-description: GitHub Actions workflows, the repository's own tooling and the cost of a run. Use before touching .github/workflows. Knows what CI actually gates, what reminders.yml is and is not, and why the artifact retention is seven days.
+description: GitHub Actions workflows, the repository's own tooling and the cost of a run. Use before touching .github/workflows. Knows what CI actually gates, what reminders.yml is and is not, and why no workflow asks for an artifact retention at all.
 tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 
@@ -27,9 +27,14 @@ is kept by the external cron in `docs/deploy.md`, not by this file.
 ## Before you undo anything
 
 `docs/build.md`, "Actions minutes", says what the workflows carry from the months this
-repository was private. `-n auto` and a seven-day artifact retention are there because a
-full run was twenty-one billed minutes and a full artifact store reported a passing build as
-red. Read it before you tidy.
+repository was private. `-n auto` is there because a full run was twenty-one billed minutes,
+and a full artifact store once reported a passing build as red. Read it before you tidy.
+
+**No workflow asks for a `retention-days:` any more, and none should.** This repository's own
+setting is lower than anything they requested, so every request was silently reduced under a
+warning — in a green job nobody opens — while four places went on quoting the number that had
+been asked for. This file was the fourth. Settings → Actions → General is the one thing that
+decides.
 
 ## Also here
 

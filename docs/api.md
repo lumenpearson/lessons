@@ -190,6 +190,14 @@ days, and the client caches the result. The client never sees the template.
 three weeks ahead. That is what makes "homework for Monday" work when you ask on
 a Friday for a single day, and what makes it survive the winter holidays.
 
+Those three weeks are counted from the last lesson *inside* the window, so a
+window that already runs to the end of the school year gets `null`: everything
+within three weeks of the last day of May is June, and June is out of season for
+every class — a term cannot be typed past the year's end. The Android client
+asks for exactly that window, so it never receives one; it answers the same
+question from its own cache instead. A client that asks for a fortnight is the
+one this field is for.
+
 ### Conditional requests
 
 The response carries an `ETag`. Send it back as `If-None-Match` and an
@@ -216,7 +224,18 @@ mark, because that is a claim about the check rather than about the payload.
   spans eleven zones, so one server routinely hosts classes ten hours apart, and
   `start` defaulting to "today" is resolved in the class's zone. Clients must
   derive "now" from this field rather than from the device clock.
-* `kind` on a day is one of `normal`, `holiday`, `shortened`, `remote`.
+* `kind` on a day is one of `normal`, `holiday`, `shortened`, `remote`, `self_study`
+  or `day_off`. **Two of them empty the day** (`schedule.KINDS_WITHOUT_LESSONS`):
+  `holiday` is «nobody is at school» and `day_off` is «we are not» — a difference in
+  what the label means to a reader, not in what happens, and only the first of them
+  ever behaved. A class given «🌿 Отгул» for a Monday got the label printed and then
+  all six lessons listed underneath it, on the day card, on the phone, in the widget,
+  in the calendar feed and in a morning digest that was therefore not silent either.
+  `remote` and `self_study` keep their lessons on purpose: remote teaching is the
+  same lessons at the same times somewhere else, and set work is plausibly «these
+  lessons, but at home» — dropping them would answer a question nobody asked.
+  `PUT /api/v1/days` still accepts only the first four; the other two are marked in
+  the bot.
 * **Out of season a day carries no lessons.** The weekly template is not repeated
   outside the class's own terms — over June, July and August, over the days before
   a year's first teaching day, and over the gaps an admin left between two terms —
@@ -518,7 +537,11 @@ the way the bot does - `true` for `event` and `trip`, `false` otherwise.
 
 Marks a whole date. `kind: "normal"` deletes the mark, so a day never carries a
 row that says nothing. `bell_schedule_id` (for `shortened` days) must be one
-of this class's bell schedules - `422` otherwise. Answers the stored row.
+of this class's bell schedules - `422` otherwise, and it must have rows: a day
+pointed at an empty schedule draws nothing at all under a card saying
+«⏱ Сокращённые уроки». Answers the stored row. Four kinds are accepted here
+— `normal`, `holiday`, `shortened`, `remote` — while a day in the bundle can come
+back as any of six; `self_study` and `day_off` are marked from the bot only.
 
 ## Managing the class
 
@@ -921,11 +944,38 @@ runs between requests:
 has to work in September. A device in use is marked no less than once every 15 minutes, on
 any read.
 
-## `GET /api/v1/health`
+## `GET /api/v1/health` and `GET /api/v1/warmup`
 
-Unauthenticated. Returns `{"status": "ok", "api_version": 1}`. Use it for
-container health checks. `GET /api/v1/warmup` is the same plus one database
-round trip, for keeping a scaled-to-zero database awake (see `deploy.md`).
+Both unauthenticated. `/health` returns `{"status": "ok", "api_version": 1}` and
+deliberately opens no database connection at all — a ping meant to keep the function
+warm would otherwise keep waking a Neon compute that has scaled to zero. Use it for
+container health checks.
+
+`/api/v1/warmup` is the same plus one round trip, which is what actually wakes the
+database (see `deploy.md`), and since the connection is open anyway it also reports
+whether the schema is the one this code was written against. Three answers:
+
+| | Body | Meaning |
+| --- | --- | --- |
+| `200` | `{"status": "ok", "api_version": 1, "schema": "0014"}` | the database is reachable and at the revision the code expects |
+| `200` | `{"status": "degraded", …, "schema": …, "expected_schema": …, "detail": …}` | both revisions named, and `detail` says **which way** they diverge |
+| `503` | `{"status": "down", "api_version": 1, "detail": "База недоступна."}` | the database could not be reached |
+
+The two directions of `degraded` are opposites and the text says so: «База отстала от
+кода…» is the outage — a deploy landed before its migration, and the first ORM read of
+a column that is not there kills the bot's middleware, i.e. every update at once — while
+«База впереди кода…» is the documented procedure caught between its two steps, and it
+closes on its own. A third wording covers a database with no `alembic_version` table.
+
+`503` rather than a `500` with a traceback: the service cannot serve and it is not the
+caller's fault, which is the thing a monitor already knows how to page on. The driver's
+own message is logged rather than answered, because a connection error prints the host,
+the user and sometimes the password out of the URL, and this endpoint is unauthenticated.
+
+The app draws all of this as a badge on **Настройки → О приложении** — «Сервер на связи»,
+«Сервер: база и код разошлись», «Сервер не отвечает», «Адрес сервера не задан» — which is
+the one place in the interface that tells those four apart. See
+[design.md](design.md#the-about-footer).
 
 ## The Petersburg electronic diary
 

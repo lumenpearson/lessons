@@ -16,6 +16,27 @@ services:
       timeout: 3s
       retries: 10
 
+  # One shot, before the server, every time: `alembic upgrade head` is a no-op
+  # on a database that is already at the head, so this costs a second on every
+  # `up` and is the difference between a working deployment and one that answers
+  # `/api/v1/health` green over an empty schema.
+  #
+  # A service of its own rather than a line in the server's command, so that a
+  # failed migration stops the stack instead of being buried in the API's log —
+  # and so `docker compose run --rm migrate` is a thing you can do by hand.
+  #
+  # It is the same image, and it needs only the database URL: `get_settings()`
+  # is never called here, so `BOT_TOKEN` and `OWNER_IDS` are not its business.
+  migrate:
+    build: ./server
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://lessons:lessons@db:5432/lessons
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
   server:
     build: ./server
     environment:
@@ -26,6 +47,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "8000:8000"
     restart: unless-stopped

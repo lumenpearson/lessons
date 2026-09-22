@@ -21,7 +21,7 @@ import java.time.LocalDate
  * module with no idea that a database exists.
  */
 
-/** Placeholder used until [TimetableDao.replaceAll] knows the day's row id. */
+/** Placeholder used until [TimetableDao.replaceWindow] knows the day's row id. */
 private const val UNSAVED_DAY_ID = 0L
 
 internal fun SchoolClassInfo.toEntity(syncedAtEpochMillis: Long): SchoolClassEntity =

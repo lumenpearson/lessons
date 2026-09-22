@@ -29,6 +29,9 @@ import org.robolectric.annotation.Config
  * Both languages are asserted, because a fix that only moved the words would
  * pass an English-only test while printing "12 min" on a Russian screen.
  */
+// marquee clock: this asks which *language* a caption came out in, so the
+// strings are deliberately the short ones — «less than a minute» is the
+// longest — on a card that gives its title the full 411 dp.
 @RunWith(RobolectricTestRunner::class)
 class StateHeroCardLanguageTest {
 

@@ -122,8 +122,8 @@ Five Gradle modules, split along the lines that actually pay for themselves:
 
 `:core:model` being a plain JVM library is the load-bearing decision: the state
 engine is the most logic-dense part of the product, and this makes its test suite
-run in milliseconds with no emulator and no Android SDK. Its ninety-four tests,
-in eight classes, walk a full school day minute by minute.
+run in milliseconds with no emulator and no Android SDK. Its 117 tests, in ten
+classes, walk a full school day minute by minute.
 
 The widget module exists so the home-screen widget can reach the cached timetable
 without dragging the app's entire UI graph into its process.
@@ -181,10 +181,25 @@ fetched inside one millisecond left the order to the query.
 Two rules are easy to break. Only the sync of the year holding today writes the
 lookahead row — it answers «what is the next school day» from *now*, and a
 fetch of 2029 rewriting it points the widget at a Monday three years out. And
-the ranged deletes exclude that row, which is not defensive: the server
-resolves the lookahead past the window's end, so for a year ending in May it
-lands in the September *inside the next window*, and a delete without the
-exclusion loses it on the first step forward.
+the ranged deletes exclude that row, because its date falls inside some other
+window by construction and replacing that year would sweep it up.
+
+**Nothing writes that row today, and the year-wide window is why.** The server
+resolves `next_school_day` at most `MAX_LOOKAHEAD_DAYS = 21` days past the last
+lesson *inside the window it was asked for*; the phone asks for 1 September to
+31 May, and a term cannot be typed past the year's end, so those three weeks
+are all out of season and the field comes back `null` on every bundle this app
+receives. What answers «what is next» across a gap instead is
+`TimetableDao.firstTeachingDayAfter`, searching the cached year, which a
+fortnight-long holiday sits comfortably inside. The residue is the last days of
+May: there the cache runs out, and «дальше» has no answer until something has
+fetched the next year — the calendar scrolled into it, or 1 June rolling the
+current year over. The search is by class rather than by year, so once that
+year is in the cache September answers from it like any other date. The write path and the
+delete exclusion are kept because `next_school_day` is in every bundle and any
+window narrower than the year fills it — making the row *arrive* again would be
+a server change (resolve past the window's end rather than past its last
+lesson, and look far enough to cross the summer), not a client one.
 
 The server needed nothing for any of this. `/api/v1/bundle` has always taken an
 arbitrary `start` and up to `MAX_BUNDLE_DAYS = 280`, and a school year is 274.
@@ -364,9 +379,9 @@ alternative is every family's password in the database.
 
 ## Testing
 
-1610 tests on the server, 849 on Android; `pytest -q -n auto` and `./gradlew test`, both
-offline, both in CI. On Android that is `:core:model` 117, `:core:data` 279,
-`:core:designsystem` 74, `:widget` 74, `:app` 305.
+1630 tests on the server, 929 on Android; `pytest -q -n auto` and `./gradlew test`, both
+offline, both in CI. On Android that is `:core:model` 117, `:core:data` 285,
+`:core:designsystem` 80, `:widget` 90, `:app` 357.
 
 The table below is the load-bearing part of that rather than the whole of it:
 
@@ -393,10 +408,10 @@ The table below is the load-bearing part of that rather than the whole of it:
 | `android/core/model/.../StabilityPromiseTest.kt` | that nothing in the domain module is a `var`, which is what `compose-stability.conf` promises the Compose compiler | JVM JUnit |
 
 What nothing covers is a device: there is no `androidTest` directory, so not one test has
-run on hardware or an emulator. Eleven of the app's screens, sheets and rows are composed
+run on hardware or an emulator. Twenty of the app's screens, sheets and rows are composed
 under Robolectric with a Russian locale and a phone's width — among them the class list, the
-join mode, the connection errors, the first-run reveal, the crash-report sheet and the two
-sheets the calendar reopens after a rotation — and the design system's components are
-exercised the same way; for the rest of the interface, compilation proves the types line up
-and says nothing about the screen. The "Honest status" section of the README keeps the full
+join mode, the connection errors, the first-run reveal, the crash-report sheet, the two
+sheets the calendar reopens after a rotation, its header and its day list — and the design
+system's components are exercised the same way; for the rest of the interface, compilation
+proves the types line up and says nothing about the screen. The "Honest status" section of the README keeps the full
 list — that is the honest status, not an oversight.

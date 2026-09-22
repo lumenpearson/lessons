@@ -165,8 +165,26 @@ def number(source: dict[str, Any], *names: str) -> int | None:
         return None
     if isinstance(value, int):
         return value
-    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
-        return int(value.strip())
+    if isinstance(value, str):
+        candidate = value.strip()
+        # `isdecimal`, not `isdigit`: they differ on exactly the characters
+        # `int()` refuses, and this project has already paid for that
+        # distinction once — `config.py`'s `owner_id_list` waved «²» through an
+        # `isdigit` filter and the raise took down the very reporter meant to
+        # explain it. The lesson was not applied here. A `ValueError` is not a
+        # `PetersburgError`, so one superscript in one lesson number walks past
+        # `api/diary._guard` as a bare 500 and past `bot/handlers/diary._stumble`
+        # as a button that spins for ever with nothing said — instead of that
+        # one row being dropped, which is what this file promises.
+        if not candidate.lstrip("-").isdecimal():
+            return None
+        try:
+            return int(candidate)
+        except ValueError:
+            # Python refuses to convert more than 4300 digits, and no test of
+            # the characters can see that coming: the string is decimal all the
+            # way along. «--5» arrives here too, for the same reason.
+            return None
     return None
 
 

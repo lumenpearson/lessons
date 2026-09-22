@@ -55,6 +55,9 @@ import org.robolectric.RobolectricTestRunner
  * tests only ever measured the children, and that question is what the shell's
  * design makes moot.
  */
+// marquee clock: this is about what is drawn *over* what — z-order, not
+// text. The rows carry «Тема, цвета, чёрный фон» and shorter, each owning its
+// own full-width row.
 @RunWith(RobolectricTestRunner::class)
 class OverlayLayerTest {
 

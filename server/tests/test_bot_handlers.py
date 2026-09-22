@@ -8,7 +8,6 @@ testing here is the parsing and the permission checks, not Telegram's transport.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time
 from datetime import date as Date
 from types import SimpleNamespace
@@ -83,69 +82,10 @@ from app.services import device_invites, notify, reminders, timetable_edit
 MONDAY = date(2026, 9, 7)
 
 
-@dataclass
-class FakeState:
-    """Stand-in for aiogram's FSMContext."""
-
-    data: dict[str, Any] = field(default_factory=dict)
-    state: Any = None
-    cleared: bool = False
-
-    async def get_data(self) -> dict[str, Any]:
-        return dict(self.data)
-
-    async def update_data(self, **kwargs: Any) -> dict[str, Any]:
-        self.data.update(kwargs)
-        return dict(self.data)
-
-    async def set_state(self, state: Any) -> None:
-        self.state = state
-
-    async def clear(self) -> None:
-        self.cleared = True
-        self.data.clear()
-        self.state = None
-
-
-@dataclass
-class FakeMessage:
-    text: str | None = ""
-    user_id: int = 42
-    replies: list[str] = field(default_factory=list)
-
-    @property
-    def from_user(self):
-        return SimpleNamespace(id=self.user_id, username="tester", full_name="Тестер")
-
-    async def answer(self, text: str, **_: Any) -> None:
-        self.replies.append(text)
-
-    @property
-    def last(self) -> str:
-        return self.replies[-1]
-
-
-@dataclass
-class FakeCallback:
-    user_id: int = 42
-    message: FakeMessage = field(default_factory=FakeMessage)
-    answers: list[tuple[str | None, bool]] = field(default_factory=list)
-
-    @property
-    def from_user(self):
-        return SimpleNamespace(id=self.user_id, username="tester", full_name="Тестер")
-
-    async def answer(self, text: str | None = None, show_alert: bool = False, **_: Any) -> None:
-        self.answers.append((text, show_alert))
-
-    @property
-    def alerted(self) -> bool:
-        return any(alert for _, alert in self.answers)
-
-
-class FakeEditable(FakeMessage):
-    async def edit_text(self, text: str, **_: Any) -> None:
-        self.replies.append(text)
+# `FakeState`, `FakeMessage`, `FakeCallback`, `FakeEditable` and
+# `MarkupEditable` were defined here and imported by four other test modules.
+# They are fixtures in `conftest.py` now — see the note at the top of that
+# file for why a shared helper cannot simply be imported.
 
 
 # --------------------------------------------------------------------------
@@ -153,7 +93,9 @@ class FakeEditable(FakeMessage):
 # --------------------------------------------------------------------------
 
 
-async def test_pasting_a_weekday_replaces_it_wholesale(session, school_class):
+async def test_pasting_a_weekday_replaces_it_wholesale(
+    session, school_class, FakeState, FakeMessage
+):
     message = FakeMessage(
         text="1. Алгебра, 214\n2. Физика, 305, Иванова И.И.\n3. История"
     )
@@ -176,7 +118,7 @@ async def test_pasting_a_weekday_replaces_it_wholesale(session, school_class):
 
 
 async def test_a_paste_of_junk_answers_with_a_message_telegram_will_send(
-    session, school_class
+    session, school_class, FakeState, FakeMessage
 ):
     """A timetable copied out of an HTML table arrives as hundreds of
     one-word lines.
@@ -198,7 +140,7 @@ async def test_a_paste_of_junk_answers_with_a_message_telegram_will_send(
     assert "… и ещё" in message.last
 
 
-async def test_pasting_replaces_rather_than_merges(session, school_class):
+async def test_pasting_replaces_rather_than_merges(session, school_class, FakeState, FakeMessage):
     """Monday already has three lessons from the fixture."""
     message = FakeMessage(text="1. Только один урок")
     state = FakeState(data={"weekday": 1})
@@ -214,7 +156,7 @@ async def test_pasting_replaces_rather_than_merges(session, school_class):
     assert len(entries) == 1
 
 
-async def test_a_dash_clears_the_weekday(session, school_class):
+async def test_a_dash_clears_the_weekday(session, school_class, FakeState, FakeMessage):
     message = FakeMessage(text="-")
     state = FakeState(data={"weekday": 1})
     await timetable_apply(message, state, session, school_class, Role.ADMIN)
@@ -230,7 +172,9 @@ async def test_a_dash_clears_the_weekday(session, school_class):
     assert "очищено" in message.last
 
 
-async def test_unparseable_lines_are_reported_not_swallowed(session, school_class):
+async def test_unparseable_lines_are_reported_not_swallowed(
+    session, school_class, FakeState, FakeMessage
+):
     message = FakeMessage(text="1. Алгебра\nчто-то не то\n2. Физика")
     state = FakeState(data={"weekday": 3})
     await timetable_apply(message, state, session, school_class, Role.ADMIN)
@@ -240,7 +184,9 @@ async def test_unparseable_lines_are_reported_not_swallowed(session, school_clas
     assert "что-то не то" in message.last
 
 
-async def test_an_editor_cannot_rewrite_the_timetable(session, school_class):
+async def test_an_editor_cannot_rewrite_the_timetable(
+    session, school_class, FakeState, FakeMessage
+):
     message = FakeMessage(text="1. Взлом")
     state = FakeState(data={"weekday": 1})
 
@@ -311,7 +257,9 @@ async def test_both_shells_refuse_such_a_day_in_the_same_words(session, school_c
 # --------------------------------------------------------------------------
 
 
-async def test_bells_accept_both_colon_and_dot_and_various_dashes(session, school_class):
+async def test_bells_accept_both_colon_and_dot_and_various_dashes(
+    session, school_class, FakeState, FakeMessage
+):
     message = FakeMessage(text="1. 09:00-09:40\n2. 09.50–10.30\n3. 10:40 — 11:20")
     await bells_apply(message, FakeState(), session, school_class, Role.ADMIN)
 
@@ -328,14 +276,16 @@ async def test_bells_accept_both_colon_and_dot_and_various_dashes(session, schoo
     assert periods[2].starts_at == time(10, 40)
 
 
-async def test_bells_reject_an_inverted_range(session, school_class):
+async def test_bells_reject_an_inverted_range(session, school_class, FakeState, FakeMessage):
     message = FakeMessage(text="1. 10:00-09:00")
     await bells_apply(message, FakeState(), session, school_class, Role.ADMIN)
 
     assert "Не удалось разобрать" in message.last
 
 
-async def test_the_editor_says_which_lessons_its_new_bells_silenced(session, school_class):
+async def test_the_editor_says_which_lessons_its_new_bells_silenced(
+    session, school_class, FakeState, FakeMessage
+):
     """The defect: «✅ Звонки сохранены: 5 уроков» and not a word about the rest.
 
     This editor wrote the bell rows itself instead of going through
@@ -372,7 +322,7 @@ async def test_the_editor_says_which_lessons_its_new_bells_silenced(session, sch
 
 
 async def test_both_bells_editors_say_the_same_thing_about_silenced_lessons(
-    session, school_class
+    session, school_class, FakeState, FakeMessage
 ):
     """One sentence, one place — the invariant the divergence broke.
 
@@ -400,7 +350,7 @@ async def test_both_bells_editors_say_the_same_thing_about_silenced_lessons(
     assert warning == render.silenced_lessons([(1, 2), (1, 3), (1, 7)])
 
 
-async def test_bells_saved_counts_read_as_russian(session, school_class):
+async def test_bells_saved_counts_read_as_russian(session, school_class, FakeState, FakeMessage):
     """«сохранены: 1 уроков» — the number was printed with one hardcoded form."""
     message = FakeMessage(text="1. 09:00-09:40")
     await bells_apply(message, FakeState(), session, school_class, Role.ADMIN)
@@ -409,7 +359,9 @@ async def test_bells_saved_counts_read_as_russian(session, school_class):
     assert "1 уроков" not in message.last
 
 
-async def test_bells_refuse_to_wipe_the_schedule_on_a_bad_paste(session, school_class):
+async def test_bells_refuse_to_wipe_the_schedule_on_a_bad_paste(
+    session, school_class, FakeState, FakeMessage
+):
     before = len(
         list(
             await session.scalars(
@@ -477,7 +429,9 @@ def test_a_notification_is_shortened_without_losing_the_start():
     assert notify.shorten(exact) == exact
 
 
-async def test_typing_a_subject_instead_of_picking_one_moves_the_flow_on(session):
+async def test_typing_a_subject_instead_of_picking_one_moves_the_flow_on(
+    session, FakeState, FakeMessage
+):
     """The picker is buttons, but a class with an empty dictionary has none —
     so the name is typed, and that path had no test at all."""
     state = FakeState()
@@ -489,7 +443,7 @@ async def test_typing_a_subject_instead_of_picking_one_moves_the_flow_on(session
     assert "текст задания" in message.last
 
 
-async def test_an_empty_subject_does_not_move_the_flow_on(session):
+async def test_an_empty_subject_does_not_move_the_flow_on(session, FakeState, FakeMessage):
     state = FakeState()
 
     message = FakeMessage(text="   ")
@@ -509,7 +463,9 @@ async def test_an_empty_subject_does_not_move_the_flow_on(session):
 # --------------------------------------------------------------------------
 
 
-async def test_an_event_is_added_by_walking_the_whole_flow(session, school_class):
+async def test_an_event_is_added_by_walking_the_whole_flow(
+    session, school_class, FakeState, FakeMessage, FakeCallback, FakeEditable
+):
     """Kind, then time, then title — the three steps a person actually takes."""
     state = FakeState(data={"date": MONDAY.isoformat()})
 
@@ -535,7 +491,9 @@ async def test_an_event_is_added_by_walking_the_whole_flow(session, school_class
     assert state.cleared
 
 
-async def test_a_meeting_does_not_replace_the_lessons_it_sits_beside(session, school_class):
+async def test_a_meeting_does_not_replace_the_lessons_it_sits_beside(
+    session, school_class, FakeState, FakeMessage
+):
     """`covers_lesson` is the difference between «вместо уроков» and «после».
 
     A parents' meeting in the evening must not blank the school day, and the
@@ -552,7 +510,9 @@ async def test_a_meeting_does_not_replace_the_lessons_it_sits_beside(session, sc
     assert event.covers_lesson is False
 
 
-async def test_time_that_is_not_a_range_is_refused_and_the_step_holds(session, school_class):
+async def test_time_that_is_not_a_range_is_refused_and_the_step_holds(
+    session, school_class, FakeState, FakeMessage
+):
     """Wrong input must not advance the conversation.
 
     A flow that moves on regardless asks for a title and then saves an event
@@ -568,7 +528,7 @@ async def test_time_that_is_not_a_range_is_refused_and_the_step_holds(session, s
         assert "start" not in state.data, bad
 
 
-async def test_an_event_with_no_title_is_not_saved(session, school_class):
+async def test_an_event_with_no_title_is_not_saved(session, school_class, FakeState, FakeMessage):
     state = FakeState(data={"date": MONDAY.isoformat(), "kind": "event",
                             "start": "10:00:00", "end": "11:00:00"})
 
@@ -581,7 +541,7 @@ async def test_an_event_with_no_title_is_not_saved(session, school_class):
     assert not state.cleared
 
 
-async def test_a_viewer_cannot_add_an_event(session, school_class):
+async def test_a_viewer_cannot_add_an_event(session, school_class, FakeState, FakeMessage):
     state = FakeState(data={"date": MONDAY.isoformat(), "kind": "event",
                             "start": "10:00:00", "end": "11:00:00"})
 
@@ -598,7 +558,9 @@ async def test_a_viewer_cannot_add_an_event(session, school_class):
 # --------------------------------------------------------------------------
 
 
-async def test_cancelling_a_lesson_writes_the_override_and_says_so(session, school_class):
+async def test_cancelling_a_lesson_writes_the_override_and_says_so(
+    session, school_class, FakeState, FakeCallback, FakeEditable
+):
     state = FakeState(data={"date": MONDAY.isoformat(), "index": 2})
     callback = FakeCallback(message=FakeEditable())
 
@@ -611,7 +573,9 @@ async def test_cancelling_a_lesson_writes_the_override_and_says_so(session, scho
     assert state.cleared
 
 
-async def test_putting_a_lesson_back_removes_the_override(session, school_class):
+async def test_putting_a_lesson_back_removes_the_override(
+    session, school_class, FakeState, FakeCallback, FakeEditable
+):
     cancel = FakeState(data={"date": MONDAY.isoformat(), "index": 2})
     await override_cancel(FakeCallback(message=FakeEditable()), cancel, session,
                           school_class, Role.EDITOR)
@@ -625,7 +589,9 @@ async def test_putting_a_lesson_back_removes_the_override(session, school_class)
     assert "по расписанию" in callback.message.last
 
 
-async def test_clearing_a_lesson_that_was_never_changed_is_not_an_error(session, school_class):
+async def test_clearing_a_lesson_that_was_never_changed_is_not_an_error(
+    session, school_class, FakeState, FakeCallback, FakeEditable
+):
     """«Вернуть по расписанию» on an untouched lesson is a no-op, and has to
     read as one: the person pressed it because they were not sure."""
     state = FakeState(data={"date": MONDAY.isoformat(), "index": 5})
@@ -642,7 +608,9 @@ async def test_clearing_a_lesson_that_was_never_changed_is_not_an_error(session,
     assert logged == []
 
 
-async def test_a_viewer_can_neither_cancel_a_lesson_nor_restore_one(session, school_class):
+async def test_a_viewer_can_neither_cancel_a_lesson_nor_restore_one(
+    session, school_class, FakeState, FakeCallback, FakeEditable
+):
     for handler in (override_cancel, override_clear):
         state = FakeState(data={"date": MONDAY.isoformat(), "index": 2})
         callback = FakeCallback(message=FakeEditable())
@@ -658,7 +626,7 @@ async def test_a_viewer_can_neither_cancel_a_lesson_nor_restore_one(session, sch
 # --------------------------------------------------------------------------
 
 
-async def test_homework_is_saved(session, school_class):
+async def test_homework_is_saved(session, school_class, FakeState, FakeMessage):
     message = FakeMessage(text="№ 12–15")
     state = FakeState(data={"due": MONDAY.isoformat(), "subject": "Алгебра"})
 
@@ -672,7 +640,9 @@ async def test_homework_is_saved(session, school_class):
     assert "добавлено" in message.last
 
 
-async def test_resending_the_same_subject_updates_instead_of_duplicating(session, school_class):
+async def test_resending_the_same_subject_updates_instead_of_duplicating(
+    session, school_class, FakeState, FakeMessage
+):
     state = FakeState(data={"due": MONDAY.isoformat(), "subject": "Алгебра"})
     await homework_text(FakeMessage(text="старое"), state, session, school_class, Role.EDITOR)
 
@@ -686,7 +656,7 @@ async def test_resending_the_same_subject_updates_instead_of_duplicating(session
     assert "обновлено" in message.last
 
 
-async def test_a_viewer_cannot_add_homework(session, school_class):
+async def test_a_viewer_cannot_add_homework(session, school_class, FakeState, FakeMessage):
     message = FakeMessage(text="взлом")
     state = FakeState(data={"due": MONDAY.isoformat(), "subject": "Алгебра"})
 
@@ -701,7 +671,7 @@ async def test_a_viewer_cannot_add_homework(session, school_class):
 # --------------------------------------------------------------------------
 
 
-async def test_override_parses_subject_and_room(session, school_class):
+async def test_override_parses_subject_and_room(session, school_class, FakeState, FakeMessage):
     message = FakeMessage(text="Химия, 118")
     state = FakeState(data={"date": MONDAY.isoformat(), "index": "2"})
 
@@ -714,7 +684,9 @@ async def test_override_parses_subject_and_room(session, school_class):
     assert override.index == 2
 
 
-async def test_override_without_a_room_leaves_it_null(session, school_class):
+async def test_override_without_a_room_leaves_it_null(
+    session, school_class, FakeState, FakeMessage
+):
     message = FakeMessage(text="Химия")
     state = FakeState(data={"date": MONDAY.isoformat(), "index": "2"})
 
@@ -745,7 +717,9 @@ def test_time_range_parsing(raw, expected):
 # --------------------------------------------------------------------------
 
 
-async def test_invite_rejects_something_that_is_not_a_number(session, school_class):
+async def test_invite_rejects_something_that_is_not_a_number(
+    session, school_class, FakeState, FakeMessage
+):
     message = FakeMessage(text="привет")
     state = FakeState()
 
@@ -755,7 +729,9 @@ async def test_invite_rejects_something_that_is_not_a_number(session, school_cla
     assert state.state is None
 
 
-async def test_an_admin_cannot_mint_another_admin(session, school_class):
+async def test_an_admin_cannot_mint_another_admin(
+    session, school_class, FakeState, FakeCallback, FakeEditable
+):
     callback = FakeCallback(message=FakeEditable())
     state = FakeState(data={"phone": "79001234567"})
 
@@ -772,7 +748,9 @@ async def test_an_admin_cannot_mint_another_admin(session, school_class):
     assert await session.scalar(select(PhoneInvite)) is None
 
 
-async def test_an_owner_can_mint_an_admin(session, school_class):
+async def test_an_owner_can_mint_an_admin(
+    session, school_class, FakeState, FakeCallback, FakeEditable
+):
     callback = FakeCallback(message=FakeEditable())
     state = FakeState(data={"phone": "79001234567"})
 
@@ -790,7 +768,7 @@ async def test_an_owner_can_mint_an_admin(session, school_class):
     assert not callback.alerted
 
 
-async def test_an_admin_cannot_demote_a_peer(session, school_class):
+async def test_an_admin_cannot_demote_a_peer(session, school_class, FakeCallback, FakeEditable):
     session.add(BotUser(telegram_id=99, class_id=school_class.id, role=Role.ADMIN))
     await session.commit()
 
@@ -808,7 +786,7 @@ async def test_an_admin_cannot_demote_a_peer(session, school_class):
     assert callback.alerted
 
 
-async def test_an_admin_can_change_an_editor(session, school_class):
+async def test_an_admin_can_change_an_editor(session, school_class, FakeCallback, FakeEditable):
     session.add(BotUser(telegram_id=99, class_id=school_class.id, role=Role.EDITOR))
     await session.commit()
 
@@ -889,7 +867,9 @@ async def test_a_failure_with_no_callback_is_still_handled():
 # --------------------------------------------------------------------------
 
 
-async def test_a_long_subject_name_does_not_break_the_day_picker(session, school_class):
+async def test_a_long_subject_name_does_not_break_the_day_picker(
+    session, school_class, FakeState, FakeCallback, FakeEditable
+):
     """Telegram counts callback payloads in bytes; Cyrillic costs two each.
 
     The subject name used to go into the payload cut to 48 *characters*, so a
@@ -927,7 +907,7 @@ async def test_a_long_subject_name_does_not_break_the_day_picker(session, school
 
 
 async def test_the_chosen_subject_comes_from_the_list_it_was_offered_from(
-    session, school_class
+    session, school_class, FakeState, FakeCallback, FakeEditable
 ):
     callback = FakeCallback(message=FakeEditable())
     state = FakeState(data={"subjects": ["Алгебра", "Основы безопасности жизнедеятельности"]})
@@ -938,7 +918,9 @@ async def test_the_chosen_subject_comes_from_the_list_it_was_offered_from(
     assert "Основы безопасности жизнедеятельности" in callback.message.last
 
 
-async def test_a_button_from_a_stale_keyboard_is_refused(session, school_class):
+async def test_a_button_from_a_stale_keyboard_is_refused(
+    session, school_class, FakeState, FakeCallback, FakeEditable
+):
     """The index names a position in a list the flow has since replaced."""
     callback = FakeCallback(message=FakeEditable())
     state = FakeState(data={"subjects": ["Алгебра"]})
@@ -950,7 +932,7 @@ async def test_a_button_from_a_stale_keyboard_is_refused(session, school_class):
 
 
 async def test_a_payload_that_only_looks_like_a_number_is_refused_too(
-    session, school_class
+    session, school_class, FakeState, FakeCallback, FakeEditable
 ):
     """`str.isdigit` and `int` do not ask the same question.
 
@@ -973,21 +955,6 @@ async def test_a_payload_that_only_looks_like_a_number_is_refused_too(
 # --------------------------------------------------------------------------
 
 
-class MarkupEditable(FakeEditable):
-    """Keeps the keyboard as well as the text.
-
-    The access page says which mode the class is in twice — in a sentence and
-    on the button that changes it — and the two disagreeing is exactly the bug
-    worth catching.
-    """
-
-    markup: Any = None
-
-    async def edit_text(self, text: str, **kwargs: Any) -> None:
-        self.markup = kwargs.get("reply_markup")
-        self.replies.append(text)
-
-
 def _shown_code(text: str) -> str:
     """The code out of the <code> block the reply shows it in."""
     found = re.search(r"<code>([^<]+)</code>", text)
@@ -999,7 +966,9 @@ def _labels(markup) -> list[str]:
     return [button.text for row in markup.inline_keyboard for button in row]
 
 
-async def test_a_member_gets_a_personal_code_for_their_own_phone(session, school_class):
+async def test_a_member_gets_a_personal_code_for_their_own_phone(
+    session, school_class, FakeCallback, FakeEditable
+):
     callback = FakeCallback(message=FakeEditable())
 
     await phone_code(callback, session, school_class, Role.VIEWER)
@@ -1017,7 +986,7 @@ async def test_a_member_gets_a_personal_code_for_their_own_phone(session, school
     assert not callback.alerted
 
 
-async def test_asking_twice_leaves_one_live_code(session, school_class):
+async def test_asking_twice_leaves_one_live_code(session, school_class, FakeCallback, FakeEditable):
     """The older code is further up the chat, where somebody else scrolls
     past it — two live ones is two chances for that to matter."""
     first = FakeCallback(message=FakeEditable())
@@ -1030,7 +999,9 @@ async def test_asking_twice_leaves_one_live_code(session, school_class):
     assert await device_invites.find_live(session, _shown_code(second.message.last)) is not None
 
 
-async def test_somebody_outside_the_class_gets_no_code(session, school_class):
+async def test_somebody_outside_the_class_gets_no_code(
+    session, school_class, FakeCallback, FakeEditable
+):
     callback = FakeCallback(message=FakeEditable())
 
     await phone_code(callback, session, school_class, None)
@@ -1039,7 +1010,9 @@ async def test_somebody_outside_the_class_gets_no_code(session, school_class):
     assert await session.scalar(select(DeviceInvite)) is None
 
 
-async def test_the_access_page_says_which_mode_the_class_is_in(session, school_class):
+async def test_the_access_page_says_which_mode_the_class_is_in(
+    session, school_class, FakeCallback, MarkupEditable
+):
     callback = FakeCallback(message=MarkupEditable())
     await access_root(callback, session, school_class, Role.ADMIN)
     assert JOIN_MODE_TEXT[JoinMode.OPEN] in callback.message.last
@@ -1058,7 +1031,9 @@ def _wants(mode: JoinMode) -> AccessAction:
     return AccessAction(action="join_mode", value=mode.value)
 
 
-async def test_an_admin_switches_the_mode_both_ways(session, school_class):
+async def test_an_admin_switches_the_mode_both_ways(
+    session, school_class, FakeCallback, FakeEditable
+):
     callback = FakeCallback(message=FakeEditable())
     await switch_join_mode(callback, _wants(JoinMode.INVITE), session, school_class, Role.ADMIN)
 
@@ -1077,7 +1052,9 @@ async def test_an_admin_switches_the_mode_both_ways(session, school_class):
     assert all(entry.telegram_id == 42 for entry in logged)
 
 
-async def test_a_stale_page_cannot_undo_what_somebody_else_just_did(session, school_class):
+async def test_a_stale_page_cannot_undo_what_somebody_else_just_did(
+    session, school_class, FakeCallback, FakeEditable
+):
     """The press carries the mode it wants, so it cannot mean «the other one».
 
     Two «👥 Доступ» pages open, both rendered while the class was open. One is
@@ -1104,7 +1081,7 @@ async def test_a_stale_page_cannot_undo_what_somebody_else_just_did(session, sch
 
 
 async def test_a_button_from_a_build_that_spelled_the_modes_differently_is_refused(
-    session, school_class
+    session, school_class, FakeCallback, FakeEditable
 ):
     callback = FakeCallback(message=FakeEditable())
 
@@ -1118,7 +1095,7 @@ async def test_a_button_from_a_build_that_spelled_the_modes_differently_is_refus
     assert await session.scalar(select(AuditEntry)) is None
 
 
-async def test_an_editor_cannot_switch_the_mode(session, school_class):
+async def test_an_editor_cannot_switch_the_mode(session, school_class, FakeCallback, FakeEditable):
     callback = FakeCallback(message=FakeEditable())
 
     await switch_join_mode(
@@ -1131,7 +1108,7 @@ async def test_an_editor_cannot_switch_the_mode(session, school_class):
 
 
 async def test_the_class_code_reply_stops_promising_a_join_in_invite_mode(
-    session, school_class
+    session, school_class, FakeMessage
 ):
     message = FakeMessage()
     await cmd_code(message, school_class, Role.ADMIN)
@@ -1149,7 +1126,7 @@ async def test_the_class_code_reply_stops_promising_a_join_in_invite_mode(
     assert "📱 Подключить телефон" in message.last
 
 
-async def test_the_class_code_stays_admin_only(session, school_class):
+async def test_the_class_code_stays_admin_only(session, school_class, FakeMessage):
     message = FakeMessage()
     await cmd_code(message, school_class, Role.EDITOR)
     assert school_class.join_code not in message.last
@@ -1197,7 +1174,9 @@ async def test_the_two_role_pickers_never_match_the_same_press():
         assert not await filter_(_role_press(""))
 
 
-async def test_a_crafted_member_id_is_refused_rather_than_raised(session, school_class):
+async def test_a_crafted_member_id_is_refused_rather_than_raised(
+    session, school_class, FakeCallback, FakeEditable
+):
     """Callback data is whatever the client sent. A bare ``int()`` on it does
     not refuse the press — it raises out of the handler, so nothing answers the
     callback and the button spins until Telegram gives up."""
@@ -1218,7 +1197,9 @@ async def test_a_crafted_member_id_is_refused_rather_than_raised(session, school
     assert untouched.role is Role.EDITOR
 
 
-async def test_a_role_that_is_not_a_role_is_refused_rather_than_raised(session, school_class):
+async def test_a_role_that_is_not_a_role_is_refused_rather_than_raised(
+    session, school_class, FakeCallback, FakeEditable
+):
     """``Role("начальник")`` is a ``ValueError``, and the picker's payload is
     as forgeable as the id beside it."""
     session.add(BotUser(telegram_id=99, class_id=school_class.id, role=Role.EDITOR))
@@ -1238,7 +1219,9 @@ async def test_a_role_that_is_not_a_role_is_refused_rather_than_raised(session, 
     assert untouched.role is Role.EDITOR
 
 
-async def test_revoking_a_crafted_id_finds_nobody_rather_than_raising(session, school_class):
+async def test_revoking_a_crafted_id_finds_nobody_rather_than_raising(
+    session, school_class, FakeCallback, FakeEditable
+):
     session.add(BotUser(telegram_id=99, class_id=school_class.id, role=Role.EDITOR))
     await session.commit()
 
@@ -1255,7 +1238,9 @@ async def test_revoking_a_crafted_id_finds_nobody_rather_than_raising(session, s
     assert await session.scalar(select(BotUser).where(BotUser.telegram_id == 99)) is not None
 
 
-async def test_revoking_access_takes_the_class_messages_with_it(session, school_class):
+async def test_revoking_access_takes_the_class_messages_with_it(
+    session, school_class, FakeCallback, FakeEditable
+):
     """Nothing on the sending side re-reads the membership.
 
     The digest tick joins the class and not the member list, and
@@ -1299,7 +1284,9 @@ async def test_revoking_access_takes_the_class_messages_with_it(session, school_
     assert await session.scalar(select(ReminderSettings)) is None
 
 
-async def test_a_role_press_with_no_number_behind_it_asks_to_start_again(session, school_class):
+async def test_a_role_press_with_no_number_behind_it_asks_to_start_again(
+    session, school_class, FakeState, FakeCallback, FakeEditable
+):
     """FSM state lives in the database and outlives the process that wrote it,
     so the two screens of this flow can be separated by a redeploy. Reaching
     into the data for a key that is not there raised a ``KeyError`` where an
@@ -1361,7 +1348,9 @@ def test_a_day_offset_that_is_not_a_date_comes_back_as_nothing():
     assert shift_weeks(date(2026, 9, 16), 999_999_999) is None
 
 
-async def test_paging_the_day_view_past_every_date_is_refused(session, school_class):
+async def test_paging_the_day_view_past_every_date_is_refused(
+    session, school_class, FakeCallback, FakeEditable
+):
     callback = FakeCallback(message=FakeEditable())
 
     await show_day(
@@ -1381,7 +1370,9 @@ async def test_paging_the_week_view_past_every_date_is_refused(session, school_c
     assert "Такой недели нет" in text
 
 
-async def test_an_event_kind_that_is_not_one_is_refused_at_the_press():
+async def test_an_event_kind_that_is_not_one_is_refused_at_the_press(
+    FakeState, FakeCallback, FakeEditable
+):
     """The date this flow carries is parsed at the press, with a comment above
     it saying why: an unreadable value carried through three questions raises
     out of the handler that finally reads it, and looks to the person like the
@@ -1401,7 +1392,9 @@ async def test_an_event_kind_that_is_not_one_is_refused_at_the_press():
     assert state.state is None
 
 
-async def test_a_lesson_number_that_is_not_a_number_is_refused_at_the_press():
+async def test_a_lesson_number_that_is_not_a_number_is_refused_at_the_press(
+    FakeState, FakeCallback, FakeEditable
+):
     """Three handlers read this back as ``int(data["index"])`` and none of them
     could refuse it."""
     callback = FakeCallback(message=FakeEditable())
@@ -1420,7 +1413,9 @@ async def test_a_lesson_number_that_is_not_a_number_is_refused_at_the_press():
 # --------------------------------------------------------------------------
 
 
-async def test_a_replacement_with_no_bell_behind_it_is_refused(session, school_class):
+async def test_a_replacement_with_no_bell_behind_it_is_refused(
+    session, school_class, FakeState, FakeMessage
+):
     """The resolver takes a lesson's times from the bell row of the same
     number, so a substitution at a number the day does not ring is stored, written to
     the log, announced to everybody with «🔁 Замена … урок №8» — and drawn by
@@ -1436,7 +1431,9 @@ async def test_a_replacement_with_no_bell_behind_it_is_refused(session, school_c
     assert await session.scalar(select(AuditEntry)) is None
 
 
-async def test_a_replacement_on_a_lesson_that_rings_still_lands(session, school_class):
+async def test_a_replacement_on_a_lesson_that_rings_still_lands(
+    session, school_class, FakeState, FakeMessage
+):
     message = FakeMessage(text="Химия, 301")
     state = FakeState(data={"date": MONDAY.isoformat(), "index": "2"})
 
@@ -1447,7 +1444,9 @@ async def test_a_replacement_on_a_lesson_that_rings_still_lands(session, school_
     assert written.subject_name == "Химия"
 
 
-async def test_a_shortened_day_is_measured_by_its_own_bells(session, school_class):
+async def test_a_shortened_day_is_measured_by_its_own_bells(
+    session, school_class, FakeState, FakeMessage
+):
     """A day marked «сокращённый» points at its own schedule, and that one is
     usually shorter than the class's usual. Checking against the default bells
     would pass a substitution the day cannot draw."""
@@ -1475,7 +1474,9 @@ async def test_a_shortened_day_is_measured_by_its_own_bells(session, school_clas
     assert await session.scalar(select(LessonOverride)) is None
 
 
-async def test_a_pasted_day_reports_the_lessons_it_actually_wrote(session, school_class):
+async def test_a_pasted_day_reports_the_lessons_it_actually_wrote(
+    session, school_class, FakeState, FakeMessage
+):
     """This handler used to do its own delete-and-insert, which made it the one
     way into the template with none of the checking `apply_timetable`
     documents: paste eight lessons into a class that rings seven and it said

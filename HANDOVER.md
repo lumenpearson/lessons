@@ -4,32 +4,283 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **22 September 2026**. **PRs #63 through #81 are merged**; `main` is at
-`28f6ea3`. **The only thing open is PR #82**, which is one rule long and carries the
-paragraph you are reading. Once it merges, `dev` is level with `main` again and the next
-batch starts from a clean one, and the SHA of that merge is for the next close-out to
-write.
-**The database is at head `0014`** and has not moved for two batches: both were entirely on
-the Android side, and `/api/v1/bundle` already took an arbitrary `start` and up to
-`MAX_BUNDLE_DAYS = 280`. `0014` was applied to Neon before #77 merged, as an additive
-revision should be — it widened `day_overrides.kind` from `VARCHAR(9)` to `VARCHAR(10)`,
-because `DayKind` gained `SELF_STUDY` and a `SAEnum` column stores the member *name*.
+Last updated: **22 September 2026**. **PRs #63 through #82 are merged**; `main` is at
+`c7767c8`, the merge of #82. **The only thing open is PR #83** — the nine-area audit and the
+twenty-four defects it closed, in the milestone `v0.7.0 — Оптимизация` — and it carries the
+paragraph you are reading. Its head is `30daa4e`; CI was green on `3c7a2f5`, and the two
+commits since are the documents and this close-out. Once it merges, `dev` is level with
+`main` again and the next batch starts from a clean one, and the SHA of that merge is for
+the next close-out to write.
+**The database is at head `0014`** and has not moved for three batches. **This batch needed
+no migration and applied none**, which is a fact about the batch rather than a thing left
+undone: no model changed. `EXPECTED_REVISION` in `app/db.py` is `0014`, pinned to the real
+head by `tests/test_schema_version.py`. `0014` was applied to Neon before #77 merged, as an
+additive revision should be — it widened `day_overrides.kind` from `VARCHAR(9)` to
+`VARCHAR(10)`, because `DayKind` gained `SELF_STUDY` and a `SAEnum` column stores the member
+*name*. #83 also closes the class that revision belonged to: a pinned table of the ten enum
+column widths now fails when a member's **name** outgrows its column, which SQLite cannot
+see and production Postgres finds at the moment somebody marks a day.
 
 Production was read after #60 and again after #61, rather than assumed: `/api/v1/health`
-answers `{"status":"ok","api_version":1}` and `/api/v1/warmup` — which opens a real
-connection, so it answers for the database as well as the code — answers
-`{"status":"ok","api_version":1,"schema":"0013"}`. That is the dishka container serving a
-real request on a real cold start, which is the one thing about it the branch could not
-check before it merged. **It has not been re-read since.** #77 is the first merge since then
-that moved server code and the schema together, so `/api/v1/warmup` should now answer
-`"schema":"0014"` — the cheapest single check of whether that migration and that code met,
-and nobody has made it.
+answered `{"status":"ok","api_version":1}` and `/api/v1/warmup` — which opens a real
+connection, so it answers for the database as well as the code — answered
+`{"status":"ok","api_version":1,"schema":"0013"}`. **It has not been re-read since, and #83
+found out why.** The deployments sit behind Vercel's Deployment Protection and answer a
+redirect to a login page, so `/api/v1/warmup` cannot be read from a session here at all —
+this is not an omission anybody can close with one more `curl`. It still wants reading, by
+the owner's browser or with a bypass token: #77 moved server code and the schema together,
+so the answer should now be `"schema":"0014"`, and that single line is the cheapest check
+that the migration and the code actually met. It is outstanding since #61.
 
-## What the last session added: the rounding rule, applied everywhere it is actually true
+## What the last session added: an audit of nine areas, and the twenty-four defects it found
 
-Open as PR #82, in the milestone `v0.7.0 — Оптимизация`. One sentence of a request —
-«"Подложка вкладок — зазор скруглений одинаковый по периметру." — исправь все подложки по
-приложению» — and most of the work was deciding where it does *not* apply.
+Open as PR #83, in the milestone `v0.7.0 — Оптимизация`, eight commits. Eleven read-only
+passes first — the nine areas of `.claude/skills/audit/SKILL.md` plus strings, documentation
+and a security sweep — and then the fixes. **Every one of the twenty-four was re-verified by
+hand here before it was fixed, and every one is closed by a test that was watched going
+red** on the code without the fix. Nothing in it is a model change, so there is no revision
+and the database stays at `0014`.
+
+### Three a user would have hit
+
+**A substitution could be written onto a date that draws nothing.** The write check asked
+`school_year_bounds` and the resolver asked the class's own terms, its holidays and the gaps
+between them, so three kinds of date passed the check and resolved empty: past the date the
+class's own «🗓 Четверти» ends on, inside the holidays between two terms, and on a public
+holiday. The bot answered «Готово», the audit log recorded it, every subscriber with
+`notify_changes` was told, and the row appeared on no phone, in no widget, in no calendar
+feed and in no digest. **The second copy of the rule *was* the defect**, so the fix is not a
+third: `off_reason_for` is module-level now and the resolver and the write check both ask
+it, and the refusal names which of the three it is, because the way out differs — move a
+date in «🗓 Четверти», or put an event on the day instead.
+
+**«🌿 Отгул» was a label with no behaviour.** It printed the word and then listed all six
+lessons under it, everywhere. `DAY_OFF` clears the day exactly as `HOLIDAY` does now — the
+same early return, so the kind, the note, the events and the homework stay and only the
+lessons go. Three of the auditors found this independently.
+
+**`/find` with a long query answered nothing at all.** The needle was escaped and never cut
+and the «ничего не нашлось» branch had no budget, so about four thousand characters made a
+message Telegram refuses whole — and `cmd_find` is a `Message` handler, with no callback to
+apologise on. With hits it was worse in a quieter way: `clamp` cuts from the end and the
+oversized heading is line 0, so a search that found fifteen assignments rendered as «… и ещё
+17 строк» and showed none of them. The realistic way in is the obvious one — pasting an
+assignment back into `/find` to locate it. The school-search prompt had the same shape.
+
+### The widget, from three photographs
+
+**The ladder measures in dp and its type sizes are in sp**, which at the system's largest
+font are about twice apart. The box still measured its full size, so the largest rung was
+still chosen, and the widget drew eight timeline rows, a week strip, two homework blocks and
+the next school day into the room for about half of that: «ПЕРЕ…» for the state word, chips
+over a third of the surface, the last rows off the bottom edge. `of()` divides by the font
+scale now — **the height, and only the height**, because height is what larger type spends
+and spends in proportion, while the ladder uses width for structure. Dividing the width as
+well was written first and the tests rejected it: a four-cell widget at the largest font
+fell past the narrow column onto a rung with no timeline at all, so a reader who asked for
+bigger type lost the rest of their school day.
+
+**The trailing detail starved the subject to zero width.** A `LinearLayout` measures its
+unweighted children first and hands the remainder to the weighted ones, so a room number or
+a teacher's name took what it wanted and the subject, which carries the weight, got what was
+left. One row drew «10:50 Надежда Петро.» with no lesson on it. Two weights split the
+remainder now, with the detail end-aligned in its own share.
+
+**The week strip's chips had no gaps, and the code said they did.** `padding` before
+`background` is margin in Compose and nothing of the sort in Glance: `applyModifiers` folds
+every padding in a modifier chain into one `setViewPadding` on the view the background lands
+on and throws the order away, so the 1 dp meant to separate the seven days was drawn inside
+their own colour and they read as one grey bar. The gap is an outer box. A `Spacer` between
+them is the Compose answer and the wrong one here — seven chips and six spacers is thirteen
+children of a container that keeps ten, so Saturday and Sunday would have gone missing in
+silence.
+
+Two smaller ones from the same pass: `ellipsize` collapses whitespace before it counts,
+because a Glance `Text` at one line hard-clips at the first newline and an event title typed
+on two lines in Telegram reached the home screen cut with no «…» to show for it; and the
+launcher's placeholder layout rounded at 20 dp against a live surface of 24, a visible step
+on a cold start its own comment says can take most of a minute.
+
+### Three of this project's own guards did not hold what they claimed
+
+This is the half worth carrying forward, and one of the three was written by the batch
+below.
+
+- **`test_test_imports.py` matched one of two spellings.** It refused `from tests.x import
+  …` and not the bare `from x import …`; six live test modules used the bare one and the
+  guard stayed green. They pass today only because pytest's default import mode puts
+  `tests/` on `sys.path` — under the mode pytest now recommends, three of them die at
+  collection with the exact error the guard exists to prevent. The shared fakes have moved
+  into `conftest.py`, which is where the guard's own docstring said they belonged.
+- **`DeviceClockTest` listed module paths and filtered them by `isDirectory`**, so a
+  renamed or moved module drops out of the scan in silence while the test stays green on the
+  rest. Its own KDoc records that `:core:designsystem` was left out by accident once, that
+  it is the module where the last clock-shaped defect landed, and that
+  `ResourceTranslationTest` had the same hole for the same module — and the recurrence was
+  unguarded by the very `filter` that would do the dropping. It discovers modules now.
+- **`NarrowLabelBudgetTest` allowed two characters more than the column holds**, with no
+  derivation, and `+ 2` was exactly the current data: «Homework today» is fourteen against a
+  budget of twelve, on the ceiling with nothing to spare, under a comment saying the title
+  should be *shorter* than the column. Glance cannot ellipsize, which is that file's whole
+  premise. The English string is what moved — a test tightened onto a string that does not
+  fit is a test reporting the defect it was written to prevent.
+- **`test_the_entry_point_exists_where_vercel_json_says_it_does` never read `vercel.json`.**
+  It checked a hardcoded path, so the file going missing was caught and the two drifting
+  apart was not, which would silently drop `maxDuration: 30` under a name promising
+  otherwise.
+- **And my own floor test from #82 was wrong twice over.** The 6 dp floor is unreachable
+  from any rung, so walking the ladder cannot tell the floored expression from the unfloored
+  one — and the first replacement kept its own copy of the arithmetic and stayed green
+  against the very mutation it was written for. `innerCornerFor` exists so a test can call
+  the production expression with a padding the enum does not have.
+
+**Plus the guard that did not exist.** `MarqueeText` runs `Int.MAX_VALUE` iterations, so
+Compose's clock is never idle and a test that composes an overflowing line **hangs rather
+than fails**, taking the whole Gradle run with it. Twenty-two of twenty-five Compose test
+classes compose a component that can draw one, and the rule was held by a KDoc. They pass
+today only because Robolectric lays text out without fonts at about a pixel a glyph, so
+nothing overflows; the day a label grows, CI stops for forty-five minutes and says nothing.
+`MarqueeClockTest` walks every file that calls `createComposeRule`, and each of the thirteen
+that neither holds the clock nor could overflow says in its own words why not — per file,
+because an exemption in bulk is a KDoc again.
+
+### The rest of the server half, and the sync layer's three false promises
+
+Four more on the server. **One superscript digit could take down the whole «Дневник»
+screen**: `mapper.number()` did a bare `int()` on a string it had only checked with
+`isdigit()`, and a `ValueError` is not a `PetersburgError`, so it walked past the guard that
+exists to drop one unreadable row and the phone got a bare 500 while the bot's button spun
+for ever. **The schools registry could not say its own shape had moved** — an unreadable
+suggestion was logged at `debug` against a logger at `info`, so a DaData restructure looks
+exactly like a school that is genuinely not in ЕГРЮЛ. And two comments in applied revisions
+were wrong about the library rather than about this project: `sa.Enum(native_enum=False)`
+emits no CHECK on SQLAlchemy 2.0, so the lower-case value lists in `0003` and `0008` are
+inert and could never have rejected the upper-case names the ORM writes. **No DDL changed.**
+
+In `:core:data`, three of the four findings are a written claim that stopped being true
+rather than a wrong screen — nothing was broken for a user today and a reader of the code
+would have been told the wrong thing four times. **A bundle `ETag` outlived the class it
+described** (`forget` had one caller, eviction, so leaving a class dropped its rows and kept
+its tags for the life of the install), fixed structurally: `SessionRepositoryImpl` no longer
+holds the DAO, it takes a narrow `TimetableCache` implemented by the repository that owns
+the tag store, so joining, leaving, signing out and the worker's sweep all go through the
+one object that can drop rows and tags together. **`syncedAtEpochMillis`'s KDoc named it as
+the eviction rule** while eviction sorts by distance from the current year — two documents
+in one repository giving opposite rules for one decision. And **`deleteLookaheadOf` was the
+one delete in the DAO leaning on `PRAGMA foreign_keys`**, against a file whose `clear` says
+in so many words that the wipe must not, with the in-memory fake *more* thorough than the
+real query so no unit test could see it; a source-reading test now parses every `DELETE FROM
+school_day` out of the DAO and demands the matching child statements.
+
+### The calendar, and the deployment that could not create its own schema
+
+Four findings in `:app`. **«День» → «Список» blamed a filter nobody had set**: on a year this
+phone has not fetched it said «Ничего не подходит», with no chip selected, and said the same
+thing while the year was still arriving — the exact distinction `synced_window` exists for,
+and the other three surfaces of that tab already made it. **The list scrolled something
+nothing reported**, so switching modes left the status-bar blur wearing the ribbon's stale
+value over a list at its top. **The period arrows announced «неделя» in four of the five
+modes** — the header text was right and only the content descriptions were left behind, so
+TalkBack said «Следующая неделя» over a button that steps a day, or a month;
+`ScheduleView.stepOf(dayMode)` is one answer now, and the test pins the moved date and the
+spoken unit *separately*, because a test that only asked whether they agree would stay green
+for ever once they share a function. And **«О приложении» drew the schema and not the
+expectation**, so «база отстала» and «база впереди кода» — opposite mistakes with opposite
+fixes, in the type's own words — looked identical. Both chips now; `detail` stays undrawn on
+purpose, because it is the server's Russian sentence and that card is read in two languages.
+
+**`docker compose up -d --build` brought up a Postgres with nothing in it.** It is three
+commands in `docs/deploy.md`; `app.main` calls `create_all` only for SQLite, the image
+carried neither `migrations/` nor `alembic.ini`, and the one in-image alternative,
+`python -m scripts.init_db`, refuses a non-local URL by design. What the reader saw was
+worse than a failure to start: the container came up, `/api/v1/health` answered green
+because it opens no connection, and the first ORM read failed — which for the bot is the
+middleware, so every update died at once. The revisions ship in the image now and a one-shot
+`migrate` service runs `alembic upgrade head` before the server is allowed to start: a
+service rather than a line in the server's command, so a failed migration stops the stack
+instead of being buried in the API's log and `docker compose run --rm migrate` is something
+a person can do by hand. It takes only `DATABASE_URL`.
+
+One more that cost several thousand untracked files: **`.gitignore` spelled the virtualenv
+`.venv/` exactly**, so an audit pass building `.venv_audit` beside it offered the lot for
+commit. This repository is public and an environment committed by accident is expensive to
+take back out of the history.
+
+### The documents, brought level
+
+Fourteen files, every number re-measured rather than copied. The Android total was 849
+against a real 929, `:core:designsystem` 74 against 80, `:widget` 74 against 90, `:app` 305
+against 357, `:core:model` «ninety-four tests in eight classes» against 117 in ten, and the
+server count was quoted as 1559 in one document and 1610 in two others while it is 1630.
+Two documents disagreed with themselves: `docs/build.md` said at the top that no workflow
+asks for an artifact retention and thirty lines later that «artifacts live a week» — the
+fourth place to quote the wish rather than the setting, in the file already corrected once —
+and `architecture.md` gave `:core:model` two different test counts nine lines apart. The
+descriptions that had gone false: «День» and «Лента» are one tab, and four documents still
+described «Лента» as a separate view, one of them the guide the app itself serves. Two rules
+had been written in code comments and nowhere else, and both span three modules, so
+`docs/design.md` is where they now live: the concentric-rounding rule with the four places
+it deliberately does not apply, and the day's two readings with the arrows stepping a day in
+one and a month in the other.
+
+### What was deliberately left alone, and each is a decision rather than an oversight
+
+- **`SELF_STUDY` keeps its lessons.** «Эти уроки, но дома» is a reading nobody has ruled
+  out, so `DAY_OFF` was brought into line with `HOLIDAY` and self-study was not — and a test
+  records that as a decision, so the next person has to change a test that explains why
+  rather than a line that looks like an omission.
+- **The lookahead row is neither fixed nor removed.** The server resolves `next_school_day`
+  at most 21 days past the last lesson *inside the window asked for*, and since the window
+  became a whole school year that lands in June — out of season for every class, so the
+  field comes back null on every bundle this app asks for. Making it work means resolving
+  from the window's end and about a hundred days of lookahead, paid by every phone on every
+  sync, for a row that matters in the last days of May; removing it means a Room version
+  bump under `fallbackToDestructiveMigration`, which wipes the cache on every installed
+  phone. All five places that described it now say so, and what answers «what is next»
+  across a gap is `firstTeachingDayAfter` over the cached year.
+- **`DayKindName` accepts four day kinds while `/bundle` can return six**, so a phone cannot
+  write back the value the server just sent it. Found, verified and written into
+  `docs/api.md` out loud; not fixed, because widening the accepted set is a contract change
+  and belongs with whoever decides what a phone may set a day to.
+- **Four composables read `BuildConfig` directly and nothing stops a fifth**, which is
+  exactly how #81 happened. The guard is a source-reading test and belongs with the rest of
+  the meta-tests; this batch added the marquee one and stopped there.
+- **`CONTRIBUTING.md` still recommends `python -m pytest -q`**, which `CLAUDE.md` warns
+  against by name — the `-m` form puts the current directory on `sys.path` and is the reason
+  a `from tests.… import` passed locally and failed at collection on CI. Its numbers were
+  corrected in this batch and its command was not, because that line is a contributor-facing
+  choice rather than a stale fact.
+- Also left: the day sheet ignoring `isFetched`, and a widget day-tap landing on a month
+  when the stored mode is «Список».
+
+### Gates, measured on this branch
+
+`ruff check` clean, `python -m mypy` clean across 84 modules, `pytest -q -n auto` **1630
+passed** (was 1610), `./gradlew test` **929** (was 896) — `:core:model` 117,
+`:core:designsystem` 80, `:core:data` 285, `:widget` 90, `:app` 357 — and both assembles.
+CI was green on `3c7a2f5`; the two commits after it are the documents and this close-out.
+The database stays at `0014`: **no migration was needed and none was applied.**
+
+### What nobody has verified in this batch
+
+**Nothing of the widget's fixes has been seen on a launcher**, and that is the surface this
+batch changed most — the tests reproduce the arithmetic and the budgets, not the rendering,
+and the two claims about what Glance does with a modifier chain come from reading its
+translator rather than from pixels. **No Compose test was actually made to hang**, so
+`MarqueeClockTest` is reasoned from the marquee's iteration count and the call-site list.
+**`docker compose up` has never been run** — there is no Docker here — so the compose file
+is parsed and its dependency conditions asserted rather than watched. **`/api/v1/warmup` is
+unreadable from here**, because the deployments answer a redirect to a Vercel login page.
+The diary has still never been opened for real, so the mapper fix is proved against a
+fixture rather than against the upstream that would send such a row; and the tag sweep's
+prefix arithmetic is written and not run, because `LessonsPreferences` needs a `Context` and
+`:core:data` has no Robolectric.
+
+## What the batch before added: the rounding rule, applied everywhere it is actually true
+
+Merged as PR #82 (`c7767c8`), in the milestone `v0.7.0 — Оптимизация`. One sentence of a
+request — «"Подложка вкладок — зазор скруглений одинаковый по периметру." — исправь все
+подложки по приложению» — and most of the work was deciding where it does *not* apply.
 
 **The rule.** Two nested rounded rectangles look right for exactly one pair of radii: the
 inner radius plus the padding equals the outer one. Any other pair leaves the gap wider at
@@ -86,10 +337,11 @@ carries more than one padding is itself a test. **Nothing here has been seen on 
 the tests reproduce the arithmetic, not the rendering, and `cornerRadius` is a no-op below
 API 31 in any case.
 
-## What the last session added: a test that asserted its own build's configuration
+## What the batch before added: a test that asserted its own build's configuration
 
-Open as PR #81, in the milestone `v0.7.0 — Оптимизация`. One defect, found the way this
-kind is always found — by the thing it broke rather than by anything reading the diff.
+Merged as PR #81 (`28f6ea3`), in the milestone `v0.7.0 — Оптимизация`. One defect, found
+the way this kind is always found — by the thing it broke rather than by anything reading
+the diff.
 
 **The APK workflow could not build an APK.** The first `apk.yml` run after #80 merged died
 at `:app:testDebugUnitTest`, on a test #80 had added: `AboutCardTest > a build that was
@@ -1362,7 +1614,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
-| 8 | `v0.7.0 — Оптимизация` | #75–#82 — the one Russian title |
+| 8 | `v0.7.0 — Оптимизация` | #75–#83 — the one Russian title |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -1787,9 +2039,9 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 1610 tests, ~2 min (CI runs this)
+cd server  && pytest -q -n auto                          # 1630 tests, ~4 min (CI runs this)
 cd server  && python -m mypy                             # clean, 84 modules
-cd android && ./gradlew test                             # 896 tests
+cd android && ./gradlew test                             # 929 tests across the five modules
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
@@ -2196,6 +2448,33 @@ else.**
   sits against a launcher's own widget rounding. Below API 31 the question does not arise —
   `cornerRadius` is a no-op there and the launcher supplies square edges — so the check
   needs a phone on 31 or later and a widget resized twice.
+- **Nothing of #83's widget work has been seen on a launcher either, and that is the surface
+  this batch changed most.** The font-scale division, the two weights that stop the trailing
+  detail starving the subject, and the outer box that gives the seven day chips their gaps
+  are all proved by tests that reproduce the arithmetic and the budgets — no test draws a
+  widget. Worse for confidence: **two of the claims are about what Glance does with a
+  modifier chain, and they come from reading its translator rather than from pixels** — that
+  `applyModifiers` folds every padding into one `setViewPadding` on the background's own
+  view, and that a container keeps ten children. What nobody has seen: whether the largest
+  system font now fits the rung it lands on, whether the chips read as seven days, and
+  whether the subject keeps its width beside a long teacher's name. Below API 31 the corner
+  half of this does not arise at all — `cornerRadius` is a no-op there.
+- **`/api/v1/warmup` has still not been read, and it is now known to be unreachable from a
+  session rather than merely not done.** The deployments are behind Vercel's Deployment
+  Protection and answer a redirect to a login page, so no `curl` from here can settle
+  whether `0014` and the code that needs it met. It needs the owner's browser or a bypass
+  token; it has been outstanding since #61 and it is in section 7 for that reason.
+- **`docker compose up` has never been run.** There is no Docker in this environment, so
+  what #83 proves about the new `migrate` service is that the compose file parses and that
+  its dependency conditions are what they claim — `service_completed_successfully` before
+  the API starts. Nobody has watched the stack come up, nobody has seen
+  `alembic upgrade head` run inside the image, and nobody has confirmed that the revisions
+  the Dockerfile now copies are the ones it needs.
+- **No Compose test was actually made to hang**, so `MarqueeClockTest` — the guard #83 added
+  for the trap that costs a whole Gradle run — is reasoned from `MarqueeText`'s
+  `Int.MAX_VALUE` iteration count and from the list of files that call `createComposeRule`.
+  It is the honest status of a meta-test: what it proves is that thirteen files say in their
+  own words why they cannot overflow, not that the fourteenth would have hung.
 - **Eighteen `AdrenoVK-0: Shader compilation failed` lines in that bugreport are
   unexplained**, and no other app on that device logs them. They are `I`-level, carry no
   shader source and no reason, and are spread across screens rather than clustered on the
@@ -2909,12 +3188,24 @@ has a Cyrillic identifier: Kotlin has none at all.
 
 All of this is beyond an agent's reach: it needs a phone, a key or a live service.
 
-**The widget wants resizing twice, and that is the whole check.** #82 makes every block
-inside it round itself to the padding of its size class, and the twelve rungs differ by a
-factor of two — so the defect it fixes is invisible at one size and obvious at another.
-Drop the widget small, look at the corners, drag it to four cells wide and tall, look
-again. Nothing in the suite can do this, and it needs Android 31 or later to be visible at
-all.
+**The widget wants resizing twice *and* the system font turned up, and that is the whole
+check.** #82 makes every block inside it round itself to the padding of its size class, and
+the twelve rungs differ by a factor of two, so that defect is invisible at one size and
+obvious at another. #83 adds the second axis for the same reason: the ladder measures in dp
+and its type sizes are in sp, so at «Настройки → Экран → Размер шрифта» turned to its
+largest the old build chose a rung for about twice the content it could draw — the state
+word came out «ПЕРЕ…» and the bottom rows ran off the edge. Drop the widget small, look at
+the corners and at the seven day chips; drag it to four cells wide and tall and look again;
+then turn the font up and repeat both. Nothing in the suite can do any of it, and the corner
+half needs Android 31 or later to exist at all.
+
+**Open `/api/v1/warmup` in a browser — it is the one thing that settles whether `0014` and
+the code that needs it actually met**, and it is outstanding since #61. It cannot be closed
+from a session here at any effort: the deployments are behind Vercel's Deployment Protection
+and answer a redirect to a login page, so this needs the owner's own browser or a bypass
+token. The answer wanted is `{"status":"ok","api_version":1,"schema":"0014"}`; a
+`"degraded"` naming two revisions is the honest report of a migration and a deploy that have
+not met, and which way round it is, is in the `detail`.
 
 **The APK's own badges are new in #80 and they are worth one press.** The about page now
 names the server's state, the repository, the ref and the commit the build came from. Two
@@ -2946,8 +3237,8 @@ in the history at `f5a8172^`.
 **The milestones were the newest of these, and that one is done.** Milestones 1 to 5 cover
 versions that are finished and the owner has closed all five. Three stay open on purpose:
 `v0.6.0`, which is finished but not yet closed; **`v0.7.0 — Оптимизация`, number 8**, which
-the owner created when none of the earlier ones fitted and which is the one this batch and
-the two before it go in; and `Dependencies`, which takes every future bump. There is no
+the owner created when none of the earlier ones fitted and which every batch from #75 to
+#83 has gone in; and `Dependencies`, which takes every future bump. There is no
 number 7 — the numbering is GitHub's and it skips. The reason a new one has to be asked for
 stands for next time: no tool in a session here changes a milestone's state or creates one —
 `issue_write` only assigns an existing one by number — and there is no `gh` CLI.
@@ -3008,10 +3299,12 @@ and that is the thing to decide rather than the ttl.
    matches the model column for column, three indexes.
 ~~1a. **Apply `0013` after PR #45 is merged.**~~ Applied: head `0013`, the constraint in
    place, zero rows deleted (`homework` had none).
-1b. **Open `/api/v1/warmup` and make sure the deploy arrived** —
-   `{"status":"ok","schema":"0013"}` — and then send the bot `/start`: the very first message
+1b. **Open `/api/v1/warmup` and make sure the deploy arrived** — today that is
+   `{"status":"ok","schema":"0014"}` — and then send the bot `/start`: the very first message
    goes through the middleware that reads a class, and that is the fastest check that the
-   schema and the code agree. That is all that is left of item 1 and it needs a live service.
+   schema and the code agree. That is all that is left of item 1; it needs a live service,
+   and since the deployments sit behind Deployment Protection it needs a browser or a bypass
+   token rather than a `curl` from a session.
 2. **Build the APK from `main` and install it on a phone.** See section 5 — it is the only
    way to check what nothing currently checks, and doubly so after three build-chain bumps.
    Three things have been added to this: connect the phone to two classes and walk between

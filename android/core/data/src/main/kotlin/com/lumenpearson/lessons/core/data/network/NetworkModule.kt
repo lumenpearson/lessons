@@ -47,8 +47,14 @@ internal object NetworkModule {
      * [tokenProvider] and never a substitute for it.
      *
      * Timeouts are short enough that the widget's sync worker cannot hang on a
-     * dead school server for minutes, and long enough for a slow mobile network
-     * to deliver two weeks of timetable.
+     * dead school server for minutes. Whether they are long enough is the half
+     * nobody has re-measured: they were chosen for a window of two weeks, and
+     * the window is now a whole school year — some 274 days of lessons, events
+     * and homework against a 60-second `callTimeout`. The `ETag` makes almost
+     * every call a `304`, so what is at stake is the first sync after a join
+     * and the one step into another year, on a school's mobile signal. Measure
+     * before moving any of these: a number raised on a guess is one nobody can
+     * lower again.
      */
     fun okHttpClient(
         tokenProvider: () -> String?,

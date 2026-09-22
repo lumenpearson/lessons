@@ -26,38 +26,13 @@ from app.security import hash_token
 from app.services import diary as service
 from app.services import diary_link
 
-LOGIN_PATH = "/api/user/auth/login"
-
-
-class FakeUpstream:
-    """Answers the upstream's paths, and records what it was asked.
-
-    @param routes path -> either a dict (sent as ``{"data": ...}``) or a
-        callable taking the request and returning a full ``httpx.Response``.
-    """
-
-    def __init__(self, routes: dict[str, object]) -> None:
-        self.routes = routes
-        self.seen: list[httpx.Request] = []
-
-    def handler(self, request: httpx.Request) -> httpx.Response:
-        self.seen.append(request)
-        route = self.routes.get(request.url.path)
-        if route is None:
-            return httpx.Response(404, json={"message": "no such path"})
-        if callable(route):
-            return route(request)
-        return httpx.Response(200, json={"data": route})
-
-    def query(self, path: str) -> dict[str, str]:
-        for request in self.seen:
-            if request.url.path == path:
-                return dict(request.url.params)
-        raise AssertionError(f"{path} was never called")
+# `LOGIN_PATH`, `FakeUpstream` and `with_token` were defined here and imported
+# by `test_diary_web`, which drives the same upstream through the sign-in page
+# instead of the JSON API. All three are fixtures in `conftest.py` now.
 
 
 @pytest.fixture
-async def upstream(monkeypatch):
+async def upstream(monkeypatch, FakeUpstream):
     """Installs a fake upstream and hands back the recorder."""
     fake = FakeUpstream({})
 
@@ -94,18 +69,13 @@ CHILD = {
 }
 
 
-def with_token(request: httpx.Request) -> httpx.Response:
-    """The login answer, with the session in a cookie as the upstream sends it."""
-    body = json.loads(request.content)
-    if body.get("password") != "correct":
-        return httpx.Response(401, json={"message": "Неверный логин или пароль"})
-    response = httpx.Response(200, json={"data": {"token": "body-token"}})
-    response.headers["set-cookie"] = "X-JWT-Token=cookie-token; Path=/"
-    return response
-
-
 async def sign_in(
-    client, upstream, password: str = "correct", login: str = "parent@example.com"
+    client,
+    upstream,
+    LOGIN_PATH,
+    with_token,
+    password: str = "correct",
+    login: str = "parent@example.com",
 ) -> str:
     upstream.routes[LOGIN_PATH] = with_token
     response = await client.post(
@@ -119,9 +89,9 @@ async def sign_in(
 
 
 async def test_login_returns_a_token_of_ours_and_never_the_upstream_one(
-    client, upstream, session
+    client, upstream, session, LOGIN_PATH, with_token
 ):
-    token = await sign_in(client, upstream)
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     assert token != "cookie-token"
 
     row = await session.scalar(select(DiarySession))
@@ -134,7 +104,7 @@ async def test_login_returns_a_token_of_ours_and_never_the_upstream_one(
 
 
 async def test_guessing_passwords_against_the_upstream_is_rate_limited(
-    client, upstream, session
+    client, upstream, session, LOGIN_PATH, with_token
 ):
     """The other door onto this service spends a one-time ticket *before* the
     sign-in, and says in its own comment why: «it is what stops whoever holds
@@ -173,7 +143,7 @@ async def test_guessing_passwords_against_the_upstream_is_rate_limited(
 
 
 async def test_an_unreadable_answer_from_the_upstream_is_counted_too(
-    client, upstream, session
+    client, upstream, session, LOGIN_PATH
 ):
     """The 502 that used to be free, and it is the one that matters.
 
@@ -206,7 +176,7 @@ async def test_an_unreadable_answer_from_the_upstream_is_counted_too(
 
 
 async def test_a_diary_that_is_switched_off_costs_a_parent_nothing(
-    client, upstream, session, monkeypatch
+    client, upstream, session, monkeypatch, LOGIN_PATH, with_token
 ):
     """The 503 stays free, and for the reason `diary_web` names.
 
@@ -236,7 +206,7 @@ async def test_a_diary_that_is_switched_off_costs_a_parent_nothing(
 
 
 async def test_a_counted_sign_in_failure_fits_the_column_that_counts_it(
-    client, upstream, session
+    client, upstream, session, LOGIN_PATH, with_token
 ):
     """The limit above only worked because SQLite ignores a column's width.
 
@@ -308,7 +278,7 @@ def no_diary_secret(monkeypatch):
 
 
 async def test_signing_in_without_a_key_is_refused_rather_than_crashing(
-    client, upstream, no_diary_secret
+    client, upstream, no_diary_secret, LOGIN_PATH, with_token
 ):
     """No key means the diary is off, and «off» has to be an answer.
 
@@ -333,8 +303,10 @@ async def test_signing_in_without_a_key_is_refused_rather_than_crashing(
     assert upstream.seen == []
 
 
-async def test_the_password_is_never_written_anywhere(client, upstream, session):
-    await sign_in(client, upstream)
+async def test_the_password_is_never_written_anywhere(
+    client, upstream, session, LOGIN_PATH, with_token
+):
+    await sign_in(client, upstream, LOGIN_PATH, with_token)
     row = await session.scalar(select(DiarySession))
     stored = json.dumps(
         {
@@ -346,15 +318,19 @@ async def test_the_password_is_never_written_anywhere(client, upstream, session)
     assert "correct" not in stored
 
 
-async def test_the_cookie_wins_over_the_body_when_they_disagree(client, upstream, session):
+async def test_the_cookie_wins_over_the_body_when_they_disagree(
+    client, upstream, session, LOGIN_PATH, with_token
+):
     """Both carry a token and they have been seen to differ; the cookie is the
     one later calls accept."""
-    await sign_in(client, upstream)
+    await sign_in(client, upstream, LOGIN_PATH, with_token)
     row = await session.scalar(select(DiarySession))
     assert service.upstream_of(row) == "cookie-token"
 
 
-async def test_a_wrong_password_is_401_and_opens_no_session(client, upstream, session):
+async def test_a_wrong_password_is_401_and_opens_no_session(
+    client, upstream, session, LOGIN_PATH, with_token
+):
     upstream.routes[LOGIN_PATH] = with_token
     response = await client.post(
         "/api/v1/diary/login", json={"login": "parent@example.com", "password": "wrong"}
@@ -386,8 +362,8 @@ async def test_every_endpoint_needs_a_bearer(client):
 # ---- reading --------------------------------------------------------------
 
 
-async def test_students_never_expose_the_upstream_handles(client, upstream):
-    token = await sign_in(client, upstream)
+async def test_students_never_expose_the_upstream_handles(client, upstream, LOGIN_PATH, with_token):
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
 
     response = await client.get(
@@ -403,8 +379,8 @@ async def test_students_never_expose_the_upstream_handles(client, upstream):
     assert "group_id" not in student
 
 
-async def test_a_student_id_that_is_not_yours_is_a_404(client, upstream):
-    token = await sign_in(client, upstream)
+async def test_a_student_id_that_is_not_yours_is_a_404(client, upstream, LOGIN_PATH, with_token):
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
 
     response = await client.get(
@@ -413,8 +389,10 @@ async def test_a_student_id_that_is_not_yours_is_a_404(client, upstream):
     assert response.status_code == 404
 
 
-async def test_grades_arrive_normalised_and_the_range_reaches_the_upstream(client, upstream):
-    token = await sign_in(client, upstream)
+async def test_grades_arrive_normalised_and_the_range_reaches_the_upstream(
+    client, upstream, LOGIN_PATH, with_token
+):
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
     upstream.routes["/api/journal/estimate/table"] = {
         "items": [
@@ -452,9 +430,9 @@ async def test_grades_arrive_normalised_and_the_range_reaches_the_upstream(clien
 
 
 async def test_homework_comes_from_the_lesson_list_and_says_nothing_about_it(
-    client, upstream
+    client, upstream, LOGIN_PATH, with_token
 ):
-    token = await sign_in(client, upstream)
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
     upstream.routes["/api/journal/lesson/list-by-education"] = {
         "items": [
@@ -495,8 +473,10 @@ async def test_homework_comes_from_the_lesson_list_and_says_nothing_about_it(
     "window",
     ["from=2026-09-20&to=2026-09-01", "from=2026-01-01&to=2026-12-31"],
 )
-async def test_an_impossible_or_enormous_range_is_refused(client, upstream, window):
-    token = await sign_in(client, upstream)
+async def test_an_impossible_or_enormous_range_is_refused(
+    client, upstream, window, LOGIN_PATH, with_token
+):
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
     response = await client.get(
         f"/api/v1/diary/students/4021/schedule?{window}",
@@ -507,13 +487,13 @@ async def test_an_impossible_or_enormous_range_is_refused(client, upstream, wind
 
 @pytest.mark.parametrize("window", ["from=9999-12-31", "from=9999-12-25&to=9999-12-31"])
 async def test_a_date_at_the_end_of_the_calendar_is_refused_not_crashed(
-    client, upstream, window
+    client, upstream, window, LOGIN_PATH, with_token
 ):
     """`from` with no `to` is `start + 14 days`, and near `date.max` that
     arithmetic raises OverflowError instead of returning a date. It reached the
     app as a 500 on a query string, where every other unusable range on this
     surface is a 422 that says what was wrong."""
-    token = await sign_in(client, upstream)
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
     response = await client.get(
         f"/api/v1/diary/students/4021/schedule?{window}",
@@ -522,10 +502,12 @@ async def test_a_date_at_the_end_of_the_calendar_is_refused_not_crashed(
     assert response.status_code == 422, response.text
 
 
-async def test_an_ordinary_range_still_opens_its_default_window(client, upstream):
+async def test_an_ordinary_range_still_opens_its_default_window(
+    client, upstream, LOGIN_PATH, with_token
+):
     """The bound is a bound, not a narrowing: a real school date still works
     with no `to` at all."""
-    token = await sign_in(client, upstream)
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
     upstream.routes[SCHEDULE_PATH] = {"items": []}
     response = await client.get(
@@ -539,11 +521,11 @@ async def test_an_ordinary_range_still_opens_its_default_window(client, upstream
 
 
 async def test_a_dead_upstream_session_answers_with_a_flag_the_app_can_act_on(
-    client, upstream, session
+    client, upstream, session, LOGIN_PATH, with_token
 ):
     """401 alone says "your token is wrong"; this one means "ask for the
     password again", and the two need different screens."""
-    token = await sign_in(client, upstream)
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     upstream.routes["/api/journal/person/related-child-list"] = lambda request: httpx.Response(
         401, json={"message": "Unauthorized"}
     )
@@ -565,10 +547,12 @@ async def test_a_dead_upstream_session_answers_with_a_flag_the_app_can_act_on(
     assert again.status_code == 401
 
 
-async def test_html_instead_of_json_is_read_as_the_session_ending(client, upstream):
+async def test_html_instead_of_json_is_read_as_the_session_ending(
+    client, upstream, LOGIN_PATH, with_token
+):
     """Logged out, the upstream answers 200 with a login page. For the person
     holding the phone that is a dead session, not a parse failure."""
-    token = await sign_in(client, upstream)
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     upstream.routes["/api/journal/person/related-child-list"] = lambda request: httpx.Response(
         200, text="<html><body>Вход</body></html>"
     )
@@ -579,8 +563,10 @@ async def test_html_instead_of_json_is_read_as_the_session_ending(client, upstre
     assert response.headers.get("X-Diary-Reauth") == "required"
 
 
-async def test_the_upstream_being_down_is_503_rather_than_our_fault(client, upstream):
-    token = await sign_in(client, upstream)
+async def test_the_upstream_being_down_is_503_rather_than_our_fault(
+    client, upstream, LOGIN_PATH, with_token
+):
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     upstream.routes["/api/journal/person/related-child-list"] = lambda request: httpx.Response(
         502, text="Bad Gateway"
     )
@@ -590,10 +576,12 @@ async def test_the_upstream_being_down_is_503_rather_than_our_fault(client, upst
     assert response.status_code == 503
 
 
-async def test_a_refreshed_upstream_token_is_kept(client, upstream, session):
+async def test_a_refreshed_upstream_token_is_kept(
+    client, upstream, session, LOGIN_PATH, with_token
+):
     """They hand back a newer session on most calls; dropping it is how a
     session that should live for weeks dies in a day."""
-    token = await sign_in(client, upstream)
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
 
     def refreshing(request: httpx.Request) -> httpx.Response:
         response = httpx.Response(200, json={"data": {"items": [CHILD]}})
@@ -609,8 +597,8 @@ async def test_a_refreshed_upstream_token_is_kept(client, upstream, session):
     assert row.upstream_token != "second-token"
 
 
-async def test_signing_out_forgets_the_session(client, upstream, session):
-    token = await sign_in(client, upstream)
+async def test_signing_out_forgets_the_session(client, upstream, session, LOGIN_PATH, with_token):
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     response = await client.post(
         "/api/v1/diary/logout", headers={"Authorization": f"Bearer {token}"}
     )
@@ -618,8 +606,10 @@ async def test_signing_out_forgets_the_session(client, upstream, session):
     assert await session.scalar(select(DiarySession)) is None
 
 
-async def test_the_session_cookie_is_sent_upstream_on_every_call(client, upstream):
-    token = await sign_in(client, upstream)
+async def test_the_session_cookie_is_sent_upstream_on_every_call(
+    client, upstream, LOGIN_PATH, with_token
+):
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
     await client.get("/api/v1/diary/students", headers={"Authorization": f"Bearer {token}"})
 
@@ -749,15 +739,15 @@ async def read_schedule(client, token: str) -> list[dict]:
     return response.json()
 
 
-async def signed_in_with_a_lesson(client, upstream) -> str:
-    token = await sign_in(client, upstream)
+async def signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token) -> str:
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
     upstream.routes[SCHEDULE_PATH] = {"items": [a_lesson()]}
     return token
 
 
-async def test_a_correction_shows_up_in_the_next_read(client, upstream):
-    token = await signed_in_with_a_lesson(client, upstream)
+async def test_a_correction_shows_up_in_the_next_read(client, upstream, LOGIN_PATH, with_token):
+    token = await signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token)
     target = (await read_schedule(client, token))[0]["target"]
 
     written = await client.put(
@@ -779,8 +769,8 @@ async def test_a_correction_shows_up_in_the_next_read(client, upstream):
     ]
 
 
-async def test_resetting_gives_the_diary_its_answer_back(client, upstream):
-    token = await signed_in_with_a_lesson(client, upstream)
+async def test_resetting_gives_the_diary_its_answer_back(client, upstream, LOGIN_PATH, with_token):
+    token = await signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token)
     target = (await read_schedule(client, token))[0]["target"]
     await client.put(
         "/api/v1/diary/students/4021/overrides",
@@ -801,11 +791,11 @@ async def test_resetting_gives_the_diary_its_answer_back(client, upstream):
 
 
 async def test_resetting_something_that_was_never_corrected_is_not_an_error(
-    client, upstream
+    client, upstream, LOGIN_PATH, with_token
 ):
     """The caller asked for "no correction here" and that is the state; a 404
     would make the client show a failure for having got what it wanted."""
-    token = await signed_in_with_a_lesson(client, upstream)
+    token = await signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token)
     target = (await read_schedule(client, token))[0]["target"]
 
     response = await client.post(
@@ -816,8 +806,8 @@ async def test_resetting_something_that_was_never_corrected_is_not_an_error(
     assert response.status_code == 204
 
 
-async def test_resetting_everything_clears_the_lot(client, upstream):
-    token = await signed_in_with_a_lesson(client, upstream)
+async def test_resetting_everything_clears_the_lot(client, upstream, LOGIN_PATH, with_token):
+    token = await signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token)
     target = (await read_schedule(client, token))[0]["target"]
     for field, value in (("room", "204"), ("teacher", "Иванова И. И.")):
         await client.put(
@@ -843,14 +833,16 @@ async def test_resetting_everything_clears_the_lot(client, upstream):
     assert lesson["edits"] == []
 
 
-async def test_corrections_survive_signing_out_and_back_in(client, upstream, session):
+async def test_corrections_survive_signing_out_and_back_in(
+    client, upstream, session, LOGIN_PATH, with_token
+):
     """The whole point of keying them on the account rather than the session.
 
     The upstream token dies every few days and the row goes with it; a
     correction that went too would already be gone by the time anybody pressed
     «сбросить», silently, and the button would look broken.
     """
-    token = await signed_in_with_a_lesson(client, upstream)
+    token = await signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token)
     target = (await read_schedule(client, token))[0]["target"]
     await client.put(
         "/api/v1/diary/students/4021/overrides",
@@ -861,15 +853,17 @@ async def test_corrections_survive_signing_out_and_back_in(client, upstream, ses
     await client.post(
         "/api/v1/diary/logout", headers={"Authorization": f"Bearer {token}"}
     )
-    again = await sign_in(client, upstream)
+    again = await sign_in(client, upstream, LOGIN_PATH, with_token)
     assert again != token
 
     lesson = (await read_schedule(client, again))[0]
     assert lesson["room"] == "204"
 
 
-async def test_correcting_a_second_time_replaces_rather_than_piles_up(client, upstream):
-    token = await signed_in_with_a_lesson(client, upstream)
+async def test_correcting_a_second_time_replaces_rather_than_piles_up(
+    client, upstream, LOGIN_PATH, with_token
+):
+    token = await signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token)
     target = (await read_schedule(client, token))[0]["target"]
     for value in ("204", "301"):
         await client.put(
@@ -894,12 +888,12 @@ async def test_correcting_a_second_time_replaces_rather_than_piles_up(client, up
     ],
 )
 async def test_a_correction_the_read_path_could_never_apply_is_refused(
-    client, upstream, target, field
+    client, upstream, target, field, LOGIN_PATH, with_token
 ):
     """A stored row no read path can match would look like a correction
     somebody made, with no way to reset it: the button that resets one only
     appears next to the value it changed."""
-    token = await signed_in_with_a_lesson(client, upstream)
+    token = await signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token)
     response = await client.put(
         "/api/v1/diary/students/4021/overrides",
         headers={"Authorization": f"Bearer {token}"},
@@ -908,8 +902,10 @@ async def test_a_correction_the_read_path_could_never_apply_is_refused(
     assert response.status_code == 422, response.text
 
 
-async def test_corrections_for_another_family_child_are_not_reachable(client, upstream):
-    token = await signed_in_with_a_lesson(client, upstream)
+async def test_corrections_for_another_family_child_are_not_reachable(
+    client, upstream, LOGIN_PATH, with_token
+):
+    token = await signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token)
     response = await client.put(
         "/api/v1/diary/students/999/overrides",
         headers={"Authorization": f"Bearer {token}"},
@@ -933,12 +929,14 @@ async def test_the_correction_endpoints_need_a_bearer(client):
         assert response.status_code == 401, path
 
 
-async def test_corrections_are_private_to_the_account_that_wrote_them(client, upstream):
+async def test_corrections_are_private_to_the_account_that_wrote_them(
+    client, upstream, LOGIN_PATH, with_token
+):
     """Two parents of one child sign in with their own upstream accounts. The
     key is (login, student), so each set of corrections is theirs — and the
     fixture gives both accounts the same child, which is the only way this
     property can actually be observed."""
-    mine = await signed_in_with_a_lesson(client, upstream)
+    mine = await signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token)
     target = (await read_schedule(client, mine))[0]["target"]
     await client.put(
         "/api/v1/diary/students/4021/overrides",
@@ -946,7 +944,7 @@ async def test_corrections_are_private_to_the_account_that_wrote_them(client, up
         json={"target": target, "field": "room", "value": "204"},
     )
 
-    theirs = await sign_in(client, upstream, login="other@example.com")
+    theirs = await sign_in(client, upstream, LOGIN_PATH, with_token, login="other@example.com")
 
     listed = await client.get(
         "/api/v1/diary/students/4021/overrides",
@@ -959,12 +957,12 @@ async def test_corrections_are_private_to_the_account_that_wrote_them(client, up
 
 
 async def test_a_login_typed_with_different_capitals_finds_its_corrections(
-    client, upstream
+    client, upstream, LOGIN_PATH, with_token
 ):
     """The upstream does not care about the case, so neither may we: a family
     whose keyboard capitalises the first letter must not find every correction
     gone, with no reset button because there is nothing left to reset."""
-    first = await signed_in_with_a_lesson(client, upstream)
+    first = await signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token)
     target = (await read_schedule(client, first))[0]["target"]
     await client.put(
         "/api/v1/diary/students/4021/overrides",
@@ -972,13 +970,15 @@ async def test_a_login_typed_with_different_capitals_finds_its_corrections(
         json={"target": target, "field": "room", "value": "204"},
     )
 
-    again = await sign_in(client, upstream, login="Parent@Example.com")
+    again = await sign_in(client, upstream, LOGIN_PATH, with_token, login="Parent@Example.com")
 
     assert (await read_schedule(client, again))[0]["room"] == "204"
 
 
-async def test_the_diary_moving_underneath_a_correction_is_reported(client, upstream):
-    token = await sign_in(client, upstream)
+async def test_the_diary_moving_underneath_a_correction_is_reported(
+    client, upstream, LOGIN_PATH, with_token
+):
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
     upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
     upstream.routes[SCHEDULE_PATH] = {"items": [a_lesson(office="12")]}
     target = (await read_schedule(client, token))[0]["target"]
@@ -998,9 +998,9 @@ async def test_the_diary_moving_underneath_a_correction_is_reported(client, upst
     assert lesson["edits"][0]["original"] == "301"
 
 
-async def test_a_homework_text_cannot_be_emptied(client, upstream):
+async def test_a_homework_text_cannot_be_emptied(client, upstream, LOGIN_PATH, with_token):
     """It would take the row off the list, and the correction with it."""
-    token = await signed_in_with_a_lesson(client, upstream)
+    token = await signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token)
     response = await client.put(
         "/api/v1/diary/students/4021/overrides",
         headers={"Authorization": f"Bearer {token}"},
@@ -1009,10 +1009,12 @@ async def test_a_homework_text_cannot_be_emptied(client, upstream):
     assert response.status_code == 422
 
 
-async def test_a_well_prefixed_but_malformed_target_is_refused(client, upstream):
+async def test_a_well_prefixed_but_malformed_target_is_refused(
+    client, upstream, LOGIN_PATH, with_token
+):
     """The prefix is not the check: a key is matched by string equality, so
     `lesson:x` could only ever be a row nothing applies."""
-    token = await signed_in_with_a_lesson(client, upstream)
+    token = await signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token)
     response = await client.put(
         "/api/v1/diary/students/4021/overrides",
         headers={"Authorization": f"Bearer {token}"},

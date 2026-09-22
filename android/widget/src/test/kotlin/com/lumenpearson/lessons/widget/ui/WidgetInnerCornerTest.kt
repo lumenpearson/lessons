@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons.widget.ui
 
 import androidx.compose.ui.unit.dp
+import com.lumenpearson.lessons.core.designsystem.theme.concentricCorner
 import com.lumenpearson.lessons.widget.WidgetSizeClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -78,12 +79,34 @@ class WidgetInnerCornerTest {
         // A square corner is the honest answer for a block inset past the
         // surface's curve, and the wrong one here: the rows beside it stay
         // rounded, so one square block among them reads as a rendering fault.
-        // Nothing in the ladder reaches the floor today; this is what fails
-        // first if a size class is ever given a padding of 18 dp or more.
-        for (size in WidgetSizeClass.entries) {
+        //
+        // Asserted on the arithmetic rather than on the twelve rungs, and that
+        // is the whole of this test. Written as a loop over the ladder it read
+        // «no size class draws a square», which is true of the ladder whether
+        // or not the floor is passed in at all — every rung pads 16 dp or less,
+        // so all twelve come out at 8 dp or more either way. It restated the
+        // floor's existence instead of checking that it is wired in, and an
+        // audit found it green against a build with `minimum =` deleted.
+        assertEquals(
+            "the floor is not reached where it has to be",
+            InnerCornerFloor,
+            concentricCorner(WidgetSurfaceCorner, WidgetSurfaceCorner, InnerCornerFloor),
+        )
+        assertEquals(
+            "and without it the same inset really would go square, " +
+                "so the floor is doing something rather than agreeing with the default",
+            0.dp,
+            concentricCorner(WidgetSurfaceCorner, WidgetSurfaceCorner),
+        )
+        // `innerCornerFor` and not a copy of its body: this is the assertion
+        // that catches the floor being dropped from the production expression,
+        // and a test holding its own arithmetic cannot — the first version of
+        // this test did exactly that and stayed green against the mutation it
+        // was written for.
+        for (padding in listOf(24f, 30f, 100f)) {
             assertTrue(
-                "${size.name} would draw a square block",
-                size.innerCorner().value > 0f,
+                "a block behind $padding dp of padding would be drawn square",
+                innerCornerFor(padding) >= InnerCornerFloor,
             )
         }
     }

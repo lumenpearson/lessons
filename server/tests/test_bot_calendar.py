@@ -8,11 +8,8 @@ handlers with the same stubs the rest of the bot tests use.
 from __future__ import annotations
 
 from datetime import date
-from types import SimpleNamespace
-from typing import Any
 
 import pytest
-from test_bot_handlers import FakeState
 
 from app.bot.button_style import DANGER, SUCCESS
 from app.bot.calendar_keyboard import (
@@ -36,48 +33,11 @@ from app.models import DayKind, DayOverride, Role
 TODAY = date(2026, 9, 13)
 
 
-class FakeEditable:
-    """A message that remembers the last text and keyboard it was given."""
-
-    def __init__(self) -> None:
-        self.texts: list[str] = []
-        self.markups: list[Any] = []
-
-    async def answer(self, text: str, reply_markup: Any = None, **_: Any) -> None:
-        self.texts.append(text)
-        self.markups.append(reply_markup)
-
-    edit_text = answer
-
-    async def edit_reply_markup(self, reply_markup: Any = None, **_: Any) -> None:
-        self.texts.append(self.texts[-1] if self.texts else "")
-        self.markups.append(reply_markup)
-
-    @property
-    def last(self) -> str:
-        return self.texts[-1]
-
-    @property
-    def keyboard(self) -> Any:
-        return self.markups[-1]
-
-
-class FakeCallback:
-    def __init__(self, message: FakeEditable | None = None, user_id: int = 42) -> None:
-        self.message = message or FakeEditable()
-        self.user_id = user_id
-        self.answers: list[tuple[str | None, bool]] = []
-
-    @property
-    def from_user(self):
-        return SimpleNamespace(id=self.user_id, username="tester", full_name="Тестер")
-
-    async def answer(self, text: str | None = None, show_alert: bool = False, **_: Any) -> None:
-        self.answers.append((text, show_alert))
-
-    @property
-    def alerted(self) -> bool:
-        return any(alert for _, alert in self.answers)
+# The card family — a handler that redraws one message in place, so the
+# keyboard matters as much as the text. It was defined here and imported by
+# `test_bot_editor` and `test_bot_diary`; it is the `CardEditable` /
+# `CardCallback` pair in `conftest.py` now, named apart from the reply family
+# it used to share a name with.
 
 
 def labels(keyboard) -> list[str]:
@@ -227,8 +187,10 @@ def test_every_payload_the_calendar_builds_stays_well_inside_64_bytes():
 # --------------------------------------------------------------------------
 
 
-async def test_the_day_card_shows_an_ordinary_day_with_its_lessons(session, school_class):
-    callback = FakeCallback()
+async def test_the_day_card_shows_an_ordinary_day_with_its_lessons(
+    session, school_class, CardCallback
+):
+    callback = CardCallback()
 
     await calendar_card(
         callback,
@@ -244,7 +206,7 @@ async def test_the_day_card_shows_an_ordinary_day_with_its_lessons(session, scho
     assert not callback.alerted
 
 
-async def test_the_day_card_says_a_holiday_is_one(session, school_class):
+async def test_the_day_card_says_a_holiday_is_one(session, school_class, CardCallback):
     session.add(
         DayOverride(
             class_id=school_class.id,
@@ -254,7 +216,7 @@ async def test_the_day_card_says_a_holiday_is_one(session, school_class):
         )
     )
     await session.commit()
-    callback = FakeCallback()
+    callback = CardCallback()
 
     await calendar_card(
         callback,
@@ -269,7 +231,9 @@ async def test_the_day_card_says_a_holiday_is_one(session, school_class):
     assert "Алгебра" not in callback.message.last
 
 
-async def test_the_cards_homework_button_lands_in_the_homework_flow(session, school_class):
+async def test_the_cards_homework_button_lands_in_the_homework_flow(
+    session, school_class, FakeState, CardCallback
+):
     """Not a copy of «добавить ДЗ» with the date filled in: the card's button
     is the payload ``homework_pick_day`` is registered for, unpacked and fed
     to that same handler here."""
@@ -280,7 +244,7 @@ async def test_the_cards_homework_button_lands_in_the_homework_flow(session, sch
         if button.text == "📝 Задать ДЗ"
     )
     state = FakeState()
-    callback = FakeCallback()
+    callback = CardCallback()
 
     await homework_pick_day(
         callback,
@@ -313,13 +277,13 @@ def test_the_day_card_offers_a_viewer_nothing_they_would_be_refused():
 
 
 async def test_a_viewer_may_browse_the_calendar_but_not_the_homework_grid(
-    session, school_class, monkeypatch
+    session, school_class, monkeypatch, CardCallback
 ):
     # The clock is pinned so the bounds under test are the ones TODAY names,
     # rather than whichever school year the suite happens to run in.
     monkeypatch.setattr(handlers, "_today", lambda *_: TODAY)
 
-    browsing = FakeCallback()
+    browsing = CardCallback()
     await calendar_nav(
         browsing,
         CalendarAction(action="nav", flow="day", value="202610"),
@@ -329,7 +293,7 @@ async def test_a_viewer_may_browse_the_calendar_but_not_the_homework_grid(
     assert not browsing.alerted
     assert "Октябрь 2026" in labels(browsing.message.keyboard)
 
-    planning = FakeCallback()
+    planning = CardCallback()
     await calendar_nav(
         planning,
         CalendarAction(action="nav", flow="hw", value="202610"),
@@ -341,10 +305,10 @@ async def test_a_viewer_may_browse_the_calendar_but_not_the_homework_grid(
 
 
 async def test_the_day_command_opens_the_calendar_at_the_current_month(
-    school_class, monkeypatch
+    school_class, monkeypatch, FakeState, CardEditable
 ):
     monkeypatch.setattr(handlers, "_today", lambda *_: TODAY)
-    message = FakeEditable()
+    message = CardEditable()
 
     await cmd_day(message, FakeState(), school_class, Role.VIEWER)
 
@@ -355,7 +319,7 @@ async def test_the_day_command_opens_the_calendar_at_the_current_month(
 
 @pytest.mark.parametrize("payload", ["000001", "000000", "999913", "00ab12"])
 async def test_a_month_nobody_could_have_pressed_is_refused_not_raised(
-    payload, session, school_class, monkeypatch
+    payload, session, school_class, monkeypatch, CardCallback
 ):
     """Callback data is whatever the client sends, not only what we put on a button.
 
@@ -368,7 +332,7 @@ async def test_a_month_nobody_could_have_pressed_is_refused_not_raised(
     not build.
     """
     monkeypatch.setattr(handlers, "_today", lambda *_: TODAY)
-    callback = FakeCallback()
+    callback = CardCallback()
 
     await calendar_nav(
         callback,
@@ -384,12 +348,12 @@ async def test_a_month_nobody_could_have_pressed_is_refused_not_raised(
 
 
 async def test_the_same_payload_on_the_way_back_falls_through_to_this_month(
-    session, school_class, monkeypatch
+    session, school_class, monkeypatch, CardCallback
 ):
     """`open` has no refusal to give - it is the «‹ Календарь» button on a day
     card, and there is always a right answer for it: the month today is in."""
     monkeypatch.setattr(handlers, "_today", lambda *_: TODAY)
-    callback = FakeCallback()
+    callback = CardCallback()
 
     await calendar_open(
         callback,
@@ -410,7 +374,7 @@ async def test_the_same_payload_on_the_way_back_falls_through_to_this_month(
     ],
 )
 async def test_a_day_payload_that_is_not_a_date_is_refused_not_raised(
-    flow, factory, action, session, school_class, monkeypatch
+    flow, factory, action, session, school_class, monkeypatch, FakeState, CardCallback
 ):
     """The three flows the calendar hands a date to, at their boundary.
 
@@ -422,7 +386,7 @@ async def test_a_day_payload_that_is_not_a_date_is_refused_not_raised(
     belonged to whatever the user had just typed.
     """
     monkeypatch.setattr(content, "_today", lambda *_: TODAY)
-    callback = FakeCallback()
+    callback = CardCallback()
     handler = {
         "hw": content.homework_pick_day,
         "ovr": content.override_pick_day,

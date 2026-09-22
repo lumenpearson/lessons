@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -174,6 +176,7 @@ fun WeekScreen(
             periodLabel = state.periodLabel(),
             termLabel = state.termLabel(),
             yearLabel = yearLabel(state.anchorYear),
+            step = state.periodStep,
             showTodayAction = state.canReturnToToday,
             onToday = viewModel::showToday,
             onPrevious = viewModel::showPrevious,
@@ -260,18 +263,35 @@ fun WeekScreen(
  * picker are the calendar's, and a reader who stepped to Thursday and then
  * pressed «День» expects both to still be there — a full-screen day would
  * answer a change of scale with a change of place.
+ *
+ * `internal` so the tests can compose it: what this page gets wrong is which
+ * of its two scrollables the shell is told about and what its list says when
+ * it is empty, and neither is visible from the screen above.
  */
 @Composable
-private fun RibbonPage(
+internal fun RibbonPage(
     state: ScheduleUiState,
     viewModel: WeekViewModel,
     day: SchoolDay?,
     onLessonClick: (Lesson) -> Unit,
     onOpenDay: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
+    // Hoisted for the same reason `DayRibbonView` hoists its own: the shell's
+    // top fade reads whichever of these is being scrolled, and a test of that
+    // has to be able to scroll one without a gesture.
+    ribbonState: LazyListState = rememberLazyListState(),
+    agendaState: ScrollState = rememberScrollState(),
 ) {
-    val listState = rememberLazyListState()
-    ReportScrollOffset(listState)
+    // Whichever scrollable this mode actually owns — not always the ribbon's.
+    // The shell fades the status bar on the offset reported here, and while
+    // only the ribbon reported, pressing «Список» after scrolling the ribbon
+    // left the blur fully applied over a list sitting at its top, with nothing
+    // the list did afterwards able to change it: `ribbonState` survives the
+    // switch, so the stale maximum was what the list wore.
+    when (state.dayMode) {
+        DayMode.RIBBON -> ReportScrollOffset(ribbonState)
+        DayMode.LIST -> ReportScrollOffset(agendaState)
+    }
 
     var yearPickerOpen by rememberSaveable { mutableStateOf(false) }
     if (yearPickerOpen) {
@@ -311,6 +331,7 @@ private fun RibbonPage(
             periodLabel = state.periodLabel(),
             termLabel = state.termLabel(),
             yearLabel = yearLabel(state.anchorYear),
+            step = state.periodStep,
             showTodayAction = state.canReturnToToday,
             onToday = viewModel::showToday,
             onPrevious = viewModel::showPrevious,
@@ -358,7 +379,7 @@ private fun RibbonPage(
                 isFetched = state.selectedDay?.isFetched != false,
                 loadingYear = state.loadingYear == SchoolYear.openingYearOf(state.selected),
                 yearName = yearLabel(SchoolYear.openingYearOf(state.selected)),
-                listState = listState,
+                listState = ribbonState,
                 onLessonClick = onLessonClick,
                 onSettings = { settingsOpen = true },
                 modifier = Modifier.weight(1f),
@@ -372,7 +393,7 @@ private fun RibbonPage(
             DayMode.LIST -> Column(
                 modifier = Modifier
                     .weight(1f)
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(agendaState),
                 verticalArrangement = Arrangement.spacedBy(GroupSpacing),
             ) {
                 FilterChips(
@@ -385,6 +406,13 @@ private fun RibbonPage(
                     today = state.today,
                     selected = state.selected,
                     order = state.order,
+                    filters = state.filters,
+                    // The anchor's year, not the selection's: this list is the
+                    // anchor's month, and a calendar month never straddles the
+                    // 1 September or 1 June a school year turns on.
+                    isFetched = state.anchorYearFetched,
+                    loadingYear = state.anchorYearLoading,
+                    yearName = yearLabel(state.anchorYear),
                     onOrder = viewModel::setOrder,
                     onOpen = onOpenDay,
                 )
@@ -392,6 +420,30 @@ private fun RibbonPage(
         }
     }
 }
+
+/** What «назад» announces, for the unit this press actually moves. */
+private val PeriodStep.previousRes: Int
+    get() = when (this) {
+        PeriodStep.DAY -> R.string.day_previous
+        PeriodStep.WEEK -> R.string.week_previous
+        PeriodStep.MONTH -> R.string.month_previous
+    }
+
+/** What «вперёд» announces. @see previousRes */
+private val PeriodStep.nextRes: Int
+    get() = when (this) {
+        PeriodStep.DAY -> R.string.day_next
+        PeriodStep.WEEK -> R.string.week_next
+        PeriodStep.MONTH -> R.string.month_next
+    }
+
+/** What «вернуться к сегодня» announces. @see previousRes */
+private val PeriodStep.currentRes: Int
+    get() = when (this) {
+        PeriodStep.DAY -> R.string.day_current
+        PeriodStep.WEEK -> R.string.week_current
+        PeriodStep.MONTH -> R.string.month_current
+    }
 
 /** Label of a day mode in the picker inside «День». */
 private val DayMode.labelRes: Int
@@ -481,6 +533,8 @@ internal fun ScheduleHeader(
     periodLabel: String,
     termLabel: String?,
     yearLabel: String,
+    /** What one press of an arrow moves — and so what it announces. */
+    step: PeriodStep,
     showTodayAction: Boolean,
     onToday: () -> Unit,
     onPrevious: () -> Unit,
@@ -545,21 +599,25 @@ internal fun ScheduleHeader(
                     IconButton(onClick = onToday) {
                         Icon(
                             imageVector = Icons.Rounded.Today,
-                            contentDescription = correctedString(R.string.week_current),
+                            contentDescription = correctedString(step.currentRes),
                         )
                     }
                 }
             }
+            // From [step], not from `R.string.week_*`. These three are the only
+            // part of the header a sighted reader never sees, which is how they
+            // went on saying «неделя» in four of the five modes long after the
+            // text above them learned to name the day or the month.
             IconButton(onClick = onPrevious) {
                 Icon(
                     imageVector = Icons.Rounded.ChevronLeft,
-                    contentDescription = correctedString(R.string.week_previous),
+                    contentDescription = correctedString(step.previousRes),
                 )
             }
             IconButton(onClick = onNext) {
                 Icon(
                     imageVector = Icons.Rounded.ChevronRight,
-                    contentDescription = correctedString(R.string.week_next),
+                    contentDescription = correctedString(step.nextRes),
                 )
             }
         }
@@ -820,6 +878,14 @@ private fun MonthGrid(
  * it at all reads differently from one where the filter is hiding everything,
  * and telling somebody «ничего не найдено» when they have narrowed to «с ДЗ»
  * in July would be blaming the month for the chip.
+ *
+ * Four kinds, not two, and for a long time it drew one. The same distinction
+ * the month grid and the ribbon already make: an empty list here is a year
+ * nobody has asked for, a year on its way, a month the filters have emptied,
+ * or a month that is genuinely blank — and the one sentence it had blamed the
+ * chips for all four, including a fresh install with no filter set at all.
+ * `days` cannot tell them apart on its own, which is why the other three
+ * arrive beside it.
  */
 @Composable
 private fun AgendaList(
@@ -827,6 +893,14 @@ private fun AgendaList(
     today: LocalDate,
     selected: LocalDate,
     order: DayOrder,
+    /** The chips currently narrowing the month; empty is nobody's fault. */
+    filters: Set<DayFilter>,
+    /** Whether the month's school year is in the cache at all. */
+    isFetched: Boolean,
+    /** Whether a fetch of it is in flight right now. */
+    loadingYear: Boolean,
+    /** «2026/27», for the sentence that names the year being waited on. */
+    yearName: String,
     onOrder: (DayOrder) -> Unit,
     onOpen: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
@@ -854,8 +928,32 @@ private fun AgendaList(
 
         if (days.isEmpty()) {
             EmptyState(
-                title = correctedString(R.string.calendar_agenda_empty_title),
-                description = correctedString(R.string.calendar_agenda_empty_description),
+                title = correctedString(
+                    when {
+                        !isFetched && loadingYear -> R.string.week_year_loading_title
+                        !isFetched -> R.string.week_year_missing_title
+                        filters.isEmpty() -> R.string.calendar_agenda_blank_title
+                        else -> R.string.calendar_agenda_empty_title
+                    },
+                ),
+                description = if (!isFetched) {
+                    correctedString(
+                        if (loadingYear) {
+                            R.string.week_year_loading_description
+                        } else {
+                            R.string.week_year_missing_description
+                        },
+                        yearName,
+                    )
+                } else {
+                    correctedString(
+                        if (filters.isEmpty()) {
+                            R.string.calendar_agenda_blank_description
+                        } else {
+                            R.string.calendar_agenda_empty_description
+                        },
+                    )
+                },
             )
             return@Column
         }

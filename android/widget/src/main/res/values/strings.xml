@@ -95,8 +95,11 @@
     <string name="widget_break_length">перемена %1$d мин</string>
     <string name="widget_meta_separator">·</string>
 
-    <!-- Today's own homework, shown while lessons are still running. -->
-    <string name="widget_homework_today_title">ДЗ на сегодня</string>
+    <!-- Today's own homework, shown while lessons are still running.
+         Drawn on the 110 dp rungs, where the whole column holds about twelve
+         characters and this one shares it with the count beside it, so «на»
+         is the word that goes: NarrowLabelBudgetTest holds the length. -->
+    <string name="widget_homework_today_title">ДЗ сегодня</string>
 
     <!-- The next school day, under the timeline on the tall sizes. -->
     <string name="widget_next_day_title">Следующий учебный день</string>

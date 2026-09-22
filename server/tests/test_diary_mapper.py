@@ -451,3 +451,51 @@ def test_a_boolean_is_not_read_as_a_number():
         [{"date": "15.09.2026", "number": 1, "subject": "Алгебра", "homework": False}]
     )
     assert lesson.homework is None
+
+
+def test_a_number_python_cannot_convert_drops_the_field_rather_than_the_screen():
+    """«²» is a digit by `isdigit` and not a decimal, and `int('²')` raises.
+
+    The raise is a `ValueError`, which is not a `PetersburgError` — so it walks
+    straight past `api/diary._guard` (a bare 500 on the phone) and past
+    `bot/handlers/diary._stumble`, whose `except PetersburgError` never fires,
+    leaving the button spinning for ever with nothing said. One superscript in
+    one lesson row therefore took the whole «Дневник» screen, instead of that
+    one field being dropped.
+
+    `config.py`'s `owner_id_list` is the same bug, found first and fixed with
+    `isdecimal`; this line is where the lesson had not been applied.
+    """
+    (lesson,) = m.to_lessons([{"date": "15.09.2026", "subject_name": "Алгебра", "number": "²"}])
+    assert lesson.number is None
+    assert lesson.subject == "Алгебра"
+
+
+def test_a_child_survives_an_education_id_no_conversion_can_read():
+    """The same line, reached from the other side: an unreadable `education_id`
+    must read as «this row has no handle» — the case `to_students` already
+    walks past — and not as an exception out of the children list, which is the
+    first screen the diary draws."""
+    students = m.to_students(
+        [
+            child(
+                educations=[
+                    {"education_id": "²"},
+                    {"education_id": 90210, "group_name": "9А"},
+                ]
+            )
+        ]
+    )
+    assert [student.education_id for student in students] == [90210]
+
+
+def test_a_number_too_long_for_python_to_convert_is_dropped_too():
+    """Above 4300 digits `int()` raises `ValueError` on a string that is
+    decimal all the way along, so no test of the characters can see it coming —
+    only the conversion itself can, and it has to be the one that answers."""
+    enormous = "9" * 4301
+    (lesson,) = m.to_lessons(
+        [{"date": "15.09.2026", "subject_name": "Алгебра", "number": enormous}]
+    )
+    assert lesson.number is None
+    assert m.number({"id": enormous}, "id") is None

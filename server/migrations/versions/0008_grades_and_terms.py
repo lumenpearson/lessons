@@ -64,9 +64,17 @@ def upgrade() -> None:
     if not _has_column("classes", "letter"):
         op.add_column("classes", sa.Column("letter", sa.String(8), nullable=True))
     if not _has_column("classes", "term_kind"):
-        # Non-native enum: a VARCHAR with a CHECK, like every other enum in this
-        # schema. A real Postgres ENUM would need its own type created and
-        # dropped, and altering one later is a migration of its own.
+        # Non-native enum: a bare VARCHAR, like every enum in this schema. A
+        # real Postgres ENUM would need its own type created and dropped, and
+        # altering one later is a migration of its own.
+        #
+        # This used to say «a VARCHAR with a CHECK», and it is worth being
+        # exact, because two things follow from there being no CHECK. The
+        # values below are inert — SQLAlchemy 2.0 emits no constraint for
+        # `native_enum=False`, so nothing would have rejected them even though
+        # a `SAEnum` stores the member NAME and the ORM writes «QUARTER», not
+        # «quarter». And the only thing the column really enforces is its
+        # width, which is why adding a member is a revision: see `0014`.
         op.add_column(
             "classes",
             sa.Column(

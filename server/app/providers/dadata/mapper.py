@@ -94,17 +94,44 @@ def to_schools(items: list[dict[str, Any]]) -> list[School]:
     """
     schools: list[School] = []
     seen: set[str] = set()
+    unreadable = 0
     for item in items:
         school = to_school(item)
         if school is None:
-            log.debug("dadata: unreadable suggestion dropped")
+            unreadable += 1
             continue
         key = school.ogrn or school.full_name
         if key in seen:
             continue
         seen.add(key)
         schools.append(school)
+    _note_if_nothing_read(items, unreadable)
     return schools
+
+
+def _note_if_nothing_read(items: list[dict[str, Any]], unreadable: int) -> None:
+    """Say so when a whole answer read as nothing.
+
+    Dropping the one suggestion that cannot be read is right; twenty out of
+    twenty is not a bad row, it is `suggestions[].data` having been
+    restructured — and the bot's answer for that is «По запросу «…» ничего не
+    нашлось», the same sentence a school genuinely absent from ЕГРЮЛ gets. The
+    two were indistinguishable because this was written at `debug` and
+    `main.py` sets the level to `INFO`, so in every deployment the line was
+    never emitted at all. The keys are logged because they are what the next
+    spelling read in this file has to be.
+
+    Counted rather than read off an empty result: the deduplication above can
+    also shorten the list, and «all twenty were duplicates» is not this.
+    """
+    if not items or unreadable < len(items):
+        return
+    keys = sorted({key for item in items if isinstance(item, dict) for key in item})
+    log.warning(
+        "dadata: %d suggestion(s) in, none readable; keys seen: %s",
+        len(items),
+        ", ".join(keys[:20]) or "(no dict rows at all)",
+    )
 
 
 def humanise(name: str) -> str:

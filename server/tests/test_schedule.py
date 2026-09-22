@@ -422,3 +422,63 @@ async def test_a_summer_day_keeps_what_was_put_on_it_by_hand(session, school_cla
     assert day.lessons == []
     assert [event.title for event in day.events] == ["Экскурсия"]
     assert [item.subject for item in day.homework] == ["Алгебра"]
+
+
+async def test_a_day_off_clears_the_lessons_like_a_holiday_does(session, school_class):
+    """«🌿 Отгул» was a label with no behaviour.
+
+    `_resolve_day` returned early for `HOLIDAY` alone, so a Monday marked as a
+    day off — one date, or a fortnight through «📆 Период» — printed the label
+    and then listed all three lessons underneath it, on the day card, on the
+    phone, in the widget, in the calendar feed and in the morning digest. The
+    two kinds differ in what they say about who is not at school and not in
+    whether anybody is taught.
+
+    The kind and the note are kept, as they are on a day out of season, and so
+    are the events and the homework: it is the lessons that are not happening.
+    """
+    session.add(
+        DayOverride(
+            class_id=school_class.id, date=MONDAY, kind=DayKind.DAY_OFF, note="После олимпиады"
+        )
+    )
+    session.add(
+        DayEvent(
+            class_id=school_class.id,
+            date=MONDAY,
+            title="Награждение",
+            kind=EventKind.EVENT,
+            starts_at=time(12, 0),
+            ends_at=time(13, 0),
+        )
+    )
+    session.add(
+        Homework(class_id=school_class.id, due_date=MONDAY, subject_name="Алгебра", text="§5")
+    )
+    await session.commit()
+
+    day = (await ScheduleResolver(session, school_class).resolve_range(MONDAY, 1))[0]
+
+    assert day.lessons == []
+    assert not day.has_lessons
+    assert day.kind is DayKind.DAY_OFF
+    assert day.note == "После олимпиады"
+    assert [event.title for event in day.events] == ["Награждение"]
+    assert [item.text for item in day.homework] == ["§5"]
+
+
+async def test_self_study_still_lists_its_lessons(session, school_class):
+    """Deliberately not the same rule, and this test is what says so.
+
+    «📖 Самоподготовка» plausibly means «these lessons, but at home», which is
+    a different statement from «we are not at school». Whether it should clear
+    the day is a product question nobody has answered, so the answer stays what
+    it has always been until somebody does.
+    """
+    session.add(DayOverride(class_id=school_class.id, date=MONDAY, kind=DayKind.SELF_STUDY))
+    await session.commit()
+
+    day = (await ScheduleResolver(session, school_class).resolve_range(MONDAY, 1))[0]
+
+    assert [lesson.subject for lesson in day.lessons] == ["Алгебра", "Физика", "История"]
+    assert day.kind is DayKind.SELF_STUDY

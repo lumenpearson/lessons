@@ -1,6 +1,5 @@
 package com.lumenpearson.lessons.core.data.repository
 
-import com.lumenpearson.lessons.core.data.database.TimetableDao
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.network.dto.JoinRequestDto
@@ -13,16 +12,29 @@ import kotlinx.coroutines.withContext
 /**
  * DataStore-backed memberships, plus the one call that creates them.
  *
- * It owns the cache wipe on join, on leaving a class and on sign-out: a
+ * It orders the cache wipe on join, on leaving a class and on sign-out — a
  * timetable that belongs to a class this device is no longer in is worse than no
- * timetable at all. Every wipe is now as narrow as the thing that caused it —
- * leaving 7«А» must not empty 9«Б», which the user would discover by switching
- * to it and finding nothing there.
+ * timetable at all — but it no longer performs one. What «empty the cache»
+ * means belongs to [TimetableCache], in one place, because it has grown twice
+ * and both times this class was left describing the version before.
+ *
+ * Every wipe is as narrow as the thing that caused it: leaving 7«А» must not
+ * empty 9«Б», which the user would discover by switching to it and finding
+ * nothing there.
  */
 internal class SessionRepositoryImpl(
     private val preferences: LessonsPreferences,
     private val api: LessonsApi,
-    private val dao: TimetableDao,
+    /**
+     * The cached timetable, as the thing that drops it — see [TimetableCache].
+     *
+     * The DAO used to be here instead, and the three wipes below were three
+     * calls on it. That made this class the second place that had to know what
+     * «empty the cache» means, and it knew an older answer: the rows and the
+     * window claims went, the `ETag` of every year they held stayed in the
+     * preferences for the life of the install.
+     */
+    private val cache: TimetableCache,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     /**
      * Called once the last membership and the whole cache are gone.
@@ -109,7 +121,7 @@ internal class SessionRepositoryImpl(
                 // Before the membership is stored, so the new token can never
                 // show rows that predate it. Only this class's rows: the other
                 // classes on the phone have nothing to do with this join.
-                dao.clear(joined.classId)
+                cache.forgetClass(joined.classId)
                 preferences.addSession(joined)
                 onActiveClassChanged()
                 Result.success(joined)
@@ -145,7 +157,7 @@ internal class SessionRepositoryImpl(
             // class is left before its predecessor's rows go, rather than
             // drawing an empty week under a name that is about to change.
             preferences.removeSession(classId)
-            dao.clear(classId)
+            cache.forgetClass(classId)
             when {
                 preferences.currentSession() == null -> onSignedOut()
                 wasShowing -> onActiveClassChanged()
@@ -166,7 +178,7 @@ internal class SessionRepositoryImpl(
     override suspend fun signOut() {
         withContext(ioDispatcher) {
             preferences.clearSession()
-            dao.clearAll()
+            cache.forgetEverything()
             onSignedOut()
         }
     }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
@@ -64,6 +65,15 @@ class CalendarHeaderTest {
      */
     private var showToday by mutableStateOf(false)
 
+    /**
+     * What one press of an arrow moves, as state for the same reason.
+     *
+     * The mode is switched under one composition here because that is what the
+     * phone does — «Лента» and «Список» are a picker two rows below this
+     * header, not two screens.
+     */
+    private var step by mutableStateOf(PeriodStep.WEEK)
+
     private fun show(width: androidx.compose.ui.unit.Dp = 411.dp) {
         compose.setContent {
             LessonsTheme {
@@ -72,6 +82,7 @@ class CalendarHeaderTest {
                         periodLabel = "Вторник, 22 сентября",
                         termLabel = "1 полугодие",
                         yearLabel = "2026/27",
+                        step = step,
                         showTodayAction = showToday,
                         onToday = {},
                         onPrevious = {},
@@ -85,6 +96,10 @@ class CalendarHeaderTest {
     }
 
     private fun settle() {
+        // The state above is written from the test thread, so it lands in the
+        // global snapshot; with the clock held nothing else sends the apply
+        // notification the recomposer wakes on.
+        Snapshot.sendApplyNotifications()
         repeat(4) { compose.mainClock.advanceTimeByFrame() }
     }
 
@@ -139,5 +154,36 @@ class CalendarHeaderTest {
         compose.onNodeWithContentDescription("Предыдущая неделя").assertIsDisplayed()
         compose.onNodeWithContentDescription("Следующая неделя").assertIsDisplayed()
         compose.onNodeWithContentDescription("Текущая неделя").assertIsDisplayed()
+    }
+
+    /**
+     * The three descriptions, in the three units the arrows actually move.
+     *
+     * The only part of this header nobody sees, and so the part that went on
+     * saying «неделя» in four of the five modes while the line above it named
+     * the day or the month correctly. With TalkBack on, «Следующая неделя»
+     * stepped one day in «День»/«Лента» and one month in «Месяц» and in
+     * «День»/«Список». One composition, three modes — see [step].
+     */
+    @Test
+    fun `the arrows announce the unit they step`() {
+        showToday = true
+        show()
+
+        compose.onNodeWithContentDescription("Предыдущая неделя").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Следующая неделя").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Текущая неделя").assertIsDisplayed()
+
+        step = PeriodStep.MONTH
+        settle()
+        compose.onNodeWithContentDescription("Предыдущий месяц").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Следующий месяц").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Текущий месяц").assertIsDisplayed()
+
+        step = PeriodStep.DAY
+        settle()
+        compose.onNodeWithContentDescription("Предыдущий день").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Следующий день").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Сегодня").assertIsDisplayed()
     }
 }

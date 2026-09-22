@@ -305,6 +305,14 @@ schedule to ring), **дистанционно** (remote, taught at the usual tim
 class alone was given), or **обычный день** (an ordinary day), which deletes
 the mark — "normal" is the absence of a row, not a kind of row.
 
+Two of them empty the day and two do not. «Каникулы / выходной» and «отгул» drop
+the lessons whatever the template says — everywhere at once: the day card, the
+phone, the widget, the calendar feed and the morning digest, whose own rule about
+staying silent on an empty day could not fire while the day was never empty.
+«Дистанционно» and «самоподготовка» keep them on purpose: the first is the
+same lessons at the same times somewhere else, and the second is plausibly «эти
+уроки, но дома».
+
 The list above the buttons narrows to one kind, and the row of filters carries
 «Все» to take the narrowing off. Which kind is showing lives in the button's
 own payload rather than in the form state, so a card left open for an hour

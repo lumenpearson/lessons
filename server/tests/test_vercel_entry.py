@@ -20,6 +20,7 @@ that object at all from where Vercel starts it: the repository root, with no
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -29,6 +30,7 @@ from app.main import app as the_real_app
 
 ROOT = Path(__file__).resolve().parents[2]
 ENTRY = ROOT / "api" / "index.py"
+VERCEL_JSON = ROOT / "vercel.json"
 
 
 def _load() -> ModuleType:
@@ -51,7 +53,41 @@ def _load() -> ModuleType:
 
 
 def test_the_entry_point_exists_where_vercel_json_says_it_does():
+    """The name of this test used to be the only thing that read ``vercel.json``.
+
+    It asserted ``ENTRY.is_file()`` on a hardcoded path, which catches the entry
+    point being deleted and nothing about the file it is named after. The two
+    can drift, and the drift is silent in the direction that matters: Vercel
+    discovers ``api/*.py`` by convention, so a `functions` key that stops
+    matching does not break routing — it stops applying the settings under it,
+    and the only one here is ``maxDuration``. The function then runs at the
+    platform default instead of thirty seconds, which shows up as a timeout on
+    the slowest real request and as nothing at all in a review.
+
+    So the path is read out of the file rather than written twice.
+    """
+    assert VERCEL_JSON.is_file(), VERCEL_JSON
+
+    configured = json.loads(VERCEL_JSON.read_text(encoding="utf-8")).get("functions", {})
+    assert configured, "vercel.json configures no function; `maxDuration` is not being set"
+
+    for pattern, settings in configured.items():
+        named = ROOT / pattern
+        assert named.is_file(), (
+            f"vercel.json configures «{pattern}», which is not a file. Vercel finds "
+            f"the handler by convention either way, so nothing 404s — the settings "
+            f"under the key simply stop applying: {settings}"
+        )
+
     assert ENTRY.is_file(), f"vercel.json routes every request to {ENTRY}"
+    assert ENTRY.relative_to(ROOT).as_posix() in configured, (
+        f"{ENTRY.relative_to(ROOT).as_posix()} is the app's entry point and "
+        f"vercel.json configures {sorted(configured)} instead"
+    )
+    assert configured[ENTRY.relative_to(ROOT).as_posix()].get("maxDuration") == 30, (
+        "the entry point's maxDuration is what keeps a cold start plus a slow "
+        "upstream inside one request; losing it is a timeout, not an error"
+    )
 
 
 def test_the_entry_point_exposes_the_very_app_the_server_runs():

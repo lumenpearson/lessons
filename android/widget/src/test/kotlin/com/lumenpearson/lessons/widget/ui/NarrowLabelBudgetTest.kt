@@ -94,15 +94,30 @@ class NarrowLabelBudgetTest {
 
     @Test
     fun `the today-homework line fits beside its count in both languages`() {
-        // The line is a Row: the title takes the weight and the count sits
-        // beside it, so the title has less than the column, not all of it.
-        // Russian abbreviates to «ДЗ»; English has no such word, and the
-        // translation used to spell it out at eighteen characters.
+        // The bare constant, exactly like the test above, and the `+ 2` that
+        // used to be here is the reason to say so out loud. There was no
+        // derivation behind it: «Homework today» is fourteen characters, the
+        // budget is twelve, and `+ 2` was the difference — a bound fitted to
+        // the data it was supposed to judge, sitting on its own ceiling with
+        // no headroom, under a comment saying the title gets *less* than the
+        // column while the assertion let it have more.
+        //
+        // Less than the column is right, and it is why the constant is the
+        // ceiling rather than the answer: this title is drawn with
+        // `defaultWeight()` in a `Row` with a 6 dp gap and a count beside it
+        // («3 предмета», «Ничего не задано»), and the count is unweighted, so
+        // it takes its width first and the title lives on what is left.
+        // Fitting the whole column is therefore *necessary* and not
+        // sufficient — which is the strongest thing a string length can say
+        // here, and strictly more than the old bound said.
         for (folder in folders) {
             val title = strings(folder).getValue("widget_homework_today_title")
             assertTrue(
-                "«$title» is longer than the narrow column holds beside a count",
-                title.length <= WidgetStrings.NARROW_LABEL_CHARS + 2,
+                "«$title» is ${title.length} characters and the narrow column holds " +
+                    "${WidgetStrings.NARROW_LABEL_CHARS} — and it has to share that " +
+                    "column with the count beside it. Glance cannot ellipsize, so the " +
+                    "overflow is a hard clip mid-word.",
+                title.length <= WidgetStrings.NARROW_LABEL_CHARS,
             )
         }
     }

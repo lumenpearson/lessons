@@ -1,7 +1,10 @@
 # ---- Python / server ----
 __pycache__/
 *.py[cod]
-.venv/
+# Any virtualenv, not only the one name the setup line happens to use: a second
+# environment built beside it — to try a dependency, to reproduce CI — is a few
+# thousand untracked files, and this repository is public.
+.venv*/
 venv/
 .env
 *.db

@@ -83,7 +83,13 @@ class LessonsWidget : GlanceAppWidget() {
                         today = snapshot.today,
                         homeworkDay = snapshot.homeworkDay,
                         now = snapshot.now,
-                        size = WidgetSizeClass.of(LocalSize.current),
+                        // The localized context, not the one handed in: the
+                        // font scale is a property of the configuration the
+                        // widget is actually drawn against.
+                        size = WidgetSizeClass.of(
+                            size = LocalSize.current,
+                            fontScale = localized.resources.configuration.fontScale,
+                        ),
                         week = snapshot.week,
                         options = snapshot.options,
                         onClick = openApp(context),

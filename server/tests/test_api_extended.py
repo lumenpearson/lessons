@@ -1339,6 +1339,39 @@ async def test_a_substitution_on_a_hand_marked_holiday_is_refused(
     assert recording_bot.sent == []
 
 
+async def test_a_substitution_on_the_eighth_of_march_is_refused(
+    client, session, school_class, recording_bot
+):
+    """The resolver's third reason for an empty day, which the check never had.
+
+    `_off_reason` reads `holidays.stops_lessons` as well as the class's terms;
+    the guard in front of the write asked `school_year_bounds` alone. So a
+    statutory non-working day that lands on a teaching weekday — 8 March 2027
+    is a Monday, and this class teaches three lessons on a Monday — took a
+    «🔁 Замена», answered 200, wrote the audit line and notified everybody
+    subscribed to changes, for a lesson drawn on no phone, in no widget, in no
+    calendar feed and in no digest.
+    """
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    day = date(2027, 3, 8)
+
+    refused = await client.put(
+        "/api/v1/overrides",
+        json={
+            "date": day.isoformat(),
+            "index": 1,
+            "action": "replace",
+            "subject": "Консультация",
+        },
+        headers=_auth(token),
+    )
+
+    assert refused.status_code == 422, refused.text
+    assert "Международный женский день" in refused.json()["detail"]
+    assert await session.scalar(select(LessonOverride)) is None
+    assert recording_bot.sent == []
+
+
 async def test_an_existing_substitution_out_of_season_cannot_be_re_announced(
     client, session, school_class, recording_bot
 ):

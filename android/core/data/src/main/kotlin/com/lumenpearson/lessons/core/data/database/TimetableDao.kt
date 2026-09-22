@@ -271,10 +271,20 @@ internal abstract class TimetableDao {
      *
      * The lookahead row is excluded from every one of them. It is the day
      * *past* the window it was resolved for, so a date inside it belongs to
-     * whichever window it falls in as well — and deleting it while replacing a
-     * neighbouring year would take away the one thing that answers
-     * `schoolDayAfter` across a gap. [replaceWindow] rewrites it explicitly,
-     * and only the year that holds today does.
+     * whichever window it falls in as well, and a delete that swept it up while
+     * replacing a neighbouring year would take away a row that year has nothing
+     * to do with. [replaceWindow] rewrites it explicitly.
+     *
+     * It is **not** what answers `schoolDayAfter` across a gap any more, and
+     * this is where that used to be written down. [firstTeachingDayAfter] is,
+     * over a cache that is now a whole school year: the server resolves the
+     * lookahead at most three weeks past the last lesson *inside the window it
+     * was asked for*, and this client asks for 1 September to 31 May, so those
+     * three weeks land in June, which is out of season for every class — a term
+     * cannot be typed past the year's end. `next_school_day` therefore comes
+     * back `null` on every bundle this app asks for, and the exclusion below
+     * guards a row nothing writes today. See the note on [replaceWindow]'s
+     * `nextSchoolDay` for why the path is kept standing all the same.
      */
     @Query(
         "DELETE FROM homework WHERE day_id IN (SELECT id FROM school_day " +
@@ -303,9 +313,44 @@ internal abstract class TimetableDao {
     )
     abstract suspend fun deleteDaysBetween(classId: Long, from: LocalDate, to: LocalDate)
 
-    /** The stored lookahead row, which belongs to no window in particular. */
+    /**
+     * The stored lookahead row, which belongs to no window in particular.
+     *
+     * Its children go explicitly, like everywhere else in this file: no delete
+     * here may depend on `PRAGMA foreign_keys` being on, and this was the one
+     * that did. The row it removes is also the one row no ranged delete
+     * reaches, so lessons orphaned here would be unreachable by every read and
+     * by every later wipe — a leak with no query that could ever find it.
+     */
+    @Transaction
+    open suspend fun deleteLookaheadOf(classId: Long) {
+        deleteLookaheadHomeworkOf(classId)
+        deleteLookaheadEventsOf(classId)
+        deleteLookaheadLessonsOf(classId)
+        deleteLookaheadDaysOf(classId)
+    }
+
+    /** Building blocks of [deleteLookaheadOf]; call that instead. */
+    @Query(
+        "DELETE FROM homework WHERE day_id IN (SELECT id FROM school_day " +
+            "WHERE class_id = :classId AND is_next_school_day = 1)",
+    )
+    abstract suspend fun deleteLookaheadHomeworkOf(classId: Long)
+
+    @Query(
+        "DELETE FROM event WHERE day_id IN (SELECT id FROM school_day " +
+            "WHERE class_id = :classId AND is_next_school_day = 1)",
+    )
+    abstract suspend fun deleteLookaheadEventsOf(classId: Long)
+
+    @Query(
+        "DELETE FROM lesson WHERE day_id IN (SELECT id FROM school_day " +
+            "WHERE class_id = :classId AND is_next_school_day = 1)",
+    )
+    abstract suspend fun deleteLookaheadLessonsOf(classId: Long)
+
     @Query("DELETE FROM school_day WHERE class_id = :classId AND is_next_school_day = 1")
-    abstract suspend fun deleteLookaheadOf(classId: Long)
+    abstract suspend fun deleteLookaheadDaysOf(classId: Long)
 
     /**
      * Swaps one school year of one class atomically, leaving its other years be.
@@ -328,7 +373,13 @@ internal abstract class TimetableDao {
      * @param nextSchoolDay the lookahead day, already flagged; pass `null` to
      *   leave the stored one alone. Only the sync of the year that holds today
      *   passes one, because that row answers «what is the next school day» from
-     *   *now*, and a fetch of 2031 has no business rewriting it.
+     *   *now*, and a fetch of 2031 has no business rewriting it. In practice
+     *   nothing passes one at all: a window that runs to the end of the school
+     *   year leaves the server nothing to resolve past it (see the ranged
+     *   deletes above). The guard stays because `next_school_day` is in every
+     *   bundle and any window narrower than the year fills it, which is one
+     *   `days=` away — and because the wrong year writing it is the mistake
+     *   that would be invisible on screen.
      */
     @Transaction
     open suspend fun replaceWindow(

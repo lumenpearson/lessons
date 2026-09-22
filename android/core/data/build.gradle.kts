@@ -19,9 +19,15 @@ android {
         }
     }
 
-    // The module holds no resources and no Compose code, so nothing else needs
-    // enabling here. BuildConfig stays off: the base URL is a runtime setting,
-    // not a build-time constant.
+    // No Compose code here, so nothing else needs enabling. There *are*
+    // resources — `values/strings.xml`, its `values-en/` twin and one drawable,
+    // for the notifications this module posts — which is why
+    // `ResourceTranslationTest` covers this module too: a string added here
+    // without its English twin is one Russian line in an English app, and
+    // nothing logs it.
+    //
+    // BuildConfig stays off: the base URL is a runtime setting, not a
+    // build-time constant.
     buildFeatures {
         buildConfig = false
     }
@@ -82,8 +88,14 @@ dependencies {
 
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.kotlinx.serialization)
+    // No `logging-interceptor`, deliberately. It was on this list and
+    // `HttpLoggingInterceptor` appears nowhere in the tree — a dependency
+    // carried for a reason nobody wrote down — so the APK shipped it for
+    // nothing. The reason not to put it back here is that its job is to print
+    // request and response bodies, `Authorization: Bearer …` with them, and a
+    // line added to this file applies to the release build as much as to the
+    // debug one. A debug-only `debugImplementation` is the way to ask for it.
     implementation(libs.okhttp.core)
-    implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)

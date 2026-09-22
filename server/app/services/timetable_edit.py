@@ -33,14 +33,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import rows_affected
 from app.models import (
     BellPeriod,
-    DayKind,
     DayOverride,
     SchoolClass,
+    Term,
     TimetableEntry,
     WeekParity,
 )
-from app.schedule import SCHOOL_YEAR_START_MONTH, school_year_bounds, week_parity
-from app.services import subjects
+from app.schedule import (
+    KINDS_WITHOUT_LESSONS,
+    SCHOOL_YEAR_START_MONTH,
+    DayOffReason,
+    off_reason_for,
+    school_year_bounds,
+    week_parity,
+)
+from app.services import holidays, subjects
 
 #: Where a row waits while another takes its number.
 #:
@@ -179,8 +186,8 @@ async def why_no_lesson_can_be_drawn(
     `_resolve_day` has two early returns above the override loop, and a lesson
     written for a day that takes either of them is stored, written to the audit
     log and announced to every subscriber — and drawn on no phone, in no
-    widget, in no calendar feed. The two are: out of the school year, and a day
-    somebody marked «выходной» by hand.
+    widget, in no calendar feed. The two are: out of season, and a day
+    somebody marked «выходной» or «отгул» by hand.
 
     This lived in `api/edit.py` alone, and the bot was said to be safe by
     construction because its own picker offers no lessons on such a day. That
@@ -189,26 +196,70 @@ async def why_no_lesson_can_be_drawn(
     1 August), so in June it offers June, July and August — and an override at
     a number the day *does* ring then passes every check the bot had.
 
+    **Out of season is `schedule.off_reason_for`, not a second rule.** This
+    asked `school_year_bounds` and nothing else while the resolver had learned
+    to read the class's own terms and the public holidays, so three kinds of
+    date passed here and resolved to nothing: a 31 May the class had already
+    stopped teaching on, a Monday in the autumn holidays the terms describe,
+    and the 8th of March. That is precisely the drift `services/` exists to
+    prevent, and the fix is to ask the same function rather than to copy it
+    again. The sentence differs per reason because the way out does: move a
+    term's dates, pick another day, or accept that nobody is at school.
+
     The sentence comes back rather than a flag, because both shells say it to
-    somebody and two spellings of one refusal is how they drift. What is
-    deliberately *not* asked: whether the day has a lesson at this number. It
-    need not — a substitution at an empty number is how a lesson is added — and
-    `can_ring` is what keeps that honest.
+    somebody and two spellings of one refusal is how they drift. It is plain
+    text on purpose: the bot shows it in an alert, which takes no parse mode.
+    What is deliberately *not* asked: whether the day has a lesson at this
+    number. It need not — a substitution at an empty number is how a lesson is
+    added — and `can_ring` is what keeps that honest.
     """
-    year_start, year_end = school_year_bounds(day)
-    if not year_start <= day <= year_end:
-        # Two dates land here and they are not the same refusal. Note which
-        # comparison they fail: ``day > year_end`` is unreachable, because
-        # `school_year_bounds` files a date past the end of May under the year
-        # that is *about to open*. So June, July and August arrive already
-        # before ``year_start`` — and so do the first days of September in a
-        # year whose 1st is a weekend, since `school_year_start` moves the
-        # first teaching day off one. The month is what tells them apart, and
-        # one sentence for both would answer «1 сентября» with a complaint
-        # about the summer.
+    year_start, _ = school_year_bounds(day)
+    # Only the year `day` falls in: `off_reason_for` filters by year anyway,
+    # and a check about one date has no use for the neighbouring years.
+    terms = list(
+        await session.scalars(
+            select(Term).where(Term.class_id == class_id, Term.year == year_start.year)
+        )
+    )
+    reason = off_reason_for(day, terms)
+
+    if reason is DayOffReason.PUBLIC_HOLIDAY:
+        holiday = holidays.holiday_on(day)
+        named = holiday.title if holiday is not None else "нерабочий день"
+        return f"{named} — нерабочий день, уроков на нём нет; поставьте событие"
+
+    if reason is DayOffReason.BETWEEN_TERMS:
+        return (
+            "по датам периодов это каникулы — уроков на нём нет; "
+            "поправьте даты в «🗓 Четверти» или поставьте событие"
+        )
+
+    if reason is DayOffReason.OUT_OF_YEAR:
+        # With terms, the year closes when the last of them does, and a date
+        # past that is the one the conventional horizon used to wave through:
+        # 31 May under a half-year that ended on the 25th. Without them
+        # ``day > closes`` cannot happen at all, because `school_year_bounds`
+        # files a date past the end of May under the year that is *about to
+        # open* — which is why the two branches below exist in the first
+        # place.
+        if terms:
+            closes = max(term.ends_on for term in terms)
+            if day > closes:
+                return (
+                    f"учебный год закончился {closes.day}.{closes.month:02d} — "
+                    "замену ставить не на что; поставьте событие"
+                )
+            opens = min(term.starts_on for term in terms)
+        else:
+            opens = year_start
+        # June, July and August arrive already before ``opens`` — and so do
+        # the first days of September in a year whose 1st is a weekend, since
+        # `school_year_start` moves the first teaching day off one. The month
+        # is what tells them apart, and one sentence for both would answer
+        # «1 сентября» with a complaint about the summer.
         if day.month >= SCHOOL_YEAR_START_MONTH:
             return (
-                f"учебный год начинается {year_start.day}.{year_start.month:02d} — "
+                f"учебный год начинается {opens.day}.{opens.month:02d} — "
                 "до него уроков ещё нет; поставьте событие"
             )
         return (
@@ -221,7 +272,10 @@ async def why_no_lesson_can_be_drawn(
             DayOverride.class_id == class_id, DayOverride.date == day
         )
     )
-    if marked is DayKind.HOLIDAY:
+    # Both kinds that clear the day, not only «🏖 Каникулы»: «🌿 Отгул» says
+    # something different about who is at school and nothing different about
+    # whether a substitution can be drawn on it.
+    if marked in KINDS_WITHOUT_LESSONS:
         return (
             "этот день отмечен как выходной — уроков на нём нет; "
             "снимите отметку или поставьте событие"

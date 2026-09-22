@@ -184,6 +184,14 @@ data class ScheduleUiState(
 
     /** Whether the period on screen is the one currently being fetched. */
     val anchorYearLoading: Boolean get() = loadingYear == anchorYear
+
+    /**
+     * What one press of a period arrow moves, and therefore announces.
+     *
+     * `internal`, like [PeriodStep] itself: nothing outside this screen steps
+     * its period, and the header that reads it is `internal` for the test.
+     */
+    internal val periodStep: PeriodStep get() = view.stepOf(dayMode)
 }
 
 /**
@@ -519,19 +527,16 @@ class WeekViewModel(
         // drawing. Only ever reached from the UI, which is collecting, so the
         // state has the answer the grid was built from.
         val from = anchor.value ?: uiState.value.today
-        val moved = when (view.value) {
-            ScheduleView.WEEK -> from.plusWeeks(direction)
-            ScheduleView.MONTH -> from.plusMonths(direction)
-            // A day at a time for the ribbon, which draws one; a month at a
-            // time for the list, which is a list of one. The arrow steps
-            // whatever is on screen, which is the only rule that needs no
-            // explaining to the person pressing it.
-            // `uiState.value`, for the same reason `today` above is read from
-            // it: this is only ever reached from a UI that is collecting.
-            ScheduleView.DAY -> when (uiState.value.dayMode) {
-                DayMode.RIBBON -> from.plusDays(direction)
-                DayMode.LIST -> from.plusMonths(direction)
-            }
+        // `uiState.value`, for the same reason `today` above is read from it:
+        // this is only ever reached from a UI that is collecting.
+        //
+        // Through [stepOf] rather than a `when` of its own, so that the unit
+        // this moves and the unit the arrow *announces* are one answer. While
+        // they were two, the ribbon stepped a day under «Следующая неделя».
+        val moved = when (view.value.stepOf(uiState.value.dayMode)) {
+            PeriodStep.DAY -> from.plusDays(direction)
+            PeriodStep.WEEK -> from.plusWeeks(direction)
+            PeriodStep.MONTH -> from.plusMonths(direction)
         }
         anchor.value = moved
         // In the day view the anchor *is* the selection; in the other two the

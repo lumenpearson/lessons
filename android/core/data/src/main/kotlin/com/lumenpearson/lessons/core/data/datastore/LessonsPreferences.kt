@@ -357,10 +357,11 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
      * another year is simply a different key and answers `null` — which asks
      * for the whole window, the direction that heals itself.
      *
-     * Nothing here bounds the number of them; [forgetBundleTag] does, called
-     * when that year is evicted from the cache. The alternative is a
-     * preferences file that only ever grows, one entry per year anybody ever
-     * scrolled past.
+     * Nothing here bounds the number of them; the three `forget…` calls below
+     * do, one per shape of wipe the cache has — a year evicted, a class left,
+     * a sign-out. The alternative is a preferences file that only ever grows,
+     * one entry per class-year anybody ever synced, which is what this was
+     * until leaving a class started reaching it.
      */
     suspend fun bundleTag(signature: String): String? =
         preferences.first()[bundleTagKey(signature)]
@@ -373,6 +374,49 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
     /** @see bundleTag */
     suspend fun forgetBundleTag(signature: String) {
         dataStore.edit { prefs -> prefs.remove(bundleTagKey(signature)) }
+    }
+
+    /**
+     * Every year's tag for one class, for a class being left or re-joined.
+     *
+     * By key prefix rather than by asking which years are cached, because the
+     * two can disagree in exactly the state this has to clean up: the tags
+     * outlive a destructive Room migration and a `dao.clear`, and a tag whose
+     * window row is already gone is precisely the one nothing else would find.
+     *
+     * @see bundleTag
+     */
+    suspend fun forgetBundleTagsOf(classId: Long) {
+        val prefix = bundleTagPrefix(classId)
+        dataStore.edit { prefs -> prefs.removeKeysStartingWith { it.startsWith(prefix) } }
+    }
+
+    /**
+     * The tags of every class outside [keep]; an empty [keep] is all of them.
+     *
+     * @see bundleTag
+     */
+    suspend fun forgetBundleTagsOutside(keep: Collection<Long>) {
+        val kept = keep.map { bundleTagPrefix(it) }
+        dataStore.edit { prefs ->
+            prefs.removeKeysStartingWith { name ->
+                name.startsWith(BUNDLE_TAG_PREFIX) && kept.none { name.startsWith(it) }
+            }
+        }
+    }
+
+    /**
+     * The one place that deletes preference keys it does not name.
+     *
+     * The copy is required rather than cautious: `remove` writes to the very
+     * map being iterated, and a `ConcurrentModificationException` inside `edit`
+     * abandons the whole transaction — which for a sweep whose failure mode is
+     * unbounded growth means it never happens at all.
+     */
+    private fun MutablePreferences.removeKeysStartingWith(matches: (String) -> Boolean) {
+        asMap().keys.toList()
+            .filter { key -> matches(key.name) }
+            .forEach { key -> minusAssign(key) }
     }
 
     /**
@@ -537,6 +581,19 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
          * are left where they are, which costs two strings.
          */
         fun bundleTagKey(signature: String) = stringPreferencesKey("bundle_etag|$signature")
+
+        /**
+         * What every one of this class's tags starts with.
+         *
+         * The trailing separator is the whole of it: without it, forgetting
+         * class 1 would take class 12 and class 100 with it, and the symptom
+         * would be one avoided download turning into a full one — invisible
+         * until somebody read the bill.
+         */
+        fun bundleTagPrefix(classId: Long) = "bundle_etag|$classId|"
+
+        /** What every tag starts with, whatever class and year it is about. */
+        const val BUNDLE_TAG_PREFIX = "bundle_etag|"
 
         val KEY_BASE_URL = stringPreferencesKey("settings_base_url")
         val KEY_THEME_MODE = stringPreferencesKey("settings_theme_mode")

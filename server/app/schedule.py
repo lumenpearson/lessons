@@ -8,6 +8,7 @@ unit-tested without a running app.
 from __future__ import annotations
 
 import enum
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date as Date
 from datetime import time as Time
@@ -202,6 +203,84 @@ class DayOffReason(enum.StrEnum):
     PUBLIC_HOLIDAY = "public_holiday"
 
 
+def off_reason_for(day: Date, terms: Sequence[Term]) -> DayOffReason | None:
+    """Why the weekly template does not apply to ``day``, or ``None``.
+
+    Module-level and stateless so that both the read path and the write check
+    can ask it: `ScheduleResolver._off_reason` hands it every term it loaded,
+    and `services/timetable_edit.why_no_lesson_can_be_drawn` loads the year's
+    terms to ask the same thing before a substitution is stored. It had a
+    looser copy of the rule — `school_year_bounds` and nothing else — so a
+    31 May a class had already stopped teaching on, a Monday in the autumn
+    holidays and the 8th of March all passed the write check and then resolved
+    to no lessons at all: stored, logged, announced, drawn nowhere.
+
+    **The class's own terms decide it when the class has any**, and that is
+    the whole point: the dates in «🗓 Четверти» are the school's answer to
+    «when do we teach», typed by an admin, and until now nothing but the
+    term *name* read them. A half-year moved to end on 28 May left 29, 30
+    and 31 May drawing a full day of lessons — on the phone, in the widget
+    and in the calendar feed — because the horizon was
+    `SCHOOL_YEAR_END_MONTH`, which is 31 May and always will be. That is
+    the shape the defect was reported in: the calendar scrolled to May 2027
+    still showed the dots under days the class had already stopped
+    teaching on.
+
+    The gaps *between* terms are out of season for the same reason, and
+    this is where the conventional dates earn their keep: they are
+    contiguous — each term opens the day after the last one closed — so a
+    class that has never touched them sees no change at all. A class whose
+    admin set «1 четверть по 26.10» and «2 четверть с 05.11» gets the
+    autumn holidays it just described, without having to mark nine days by
+    hand.
+
+    Falls back to `school_year_bounds` when the year has no terms, which is
+    every class created before terms existed and any year nobody has opened
+    yet. That is the rule this replaced, so nothing regresses to worse than
+    it was.
+
+    ``terms`` may hold other years' rows: the year `day` belongs to is picked
+    out here, so a caller can pass whatever it happens to have loaded.
+    """
+    year_start, year_end = school_year_bounds(day)
+    this_year = [term for term in terms if term.year == year_start.year]
+    if this_year:
+        if not any(term.starts_on <= day <= term.ends_on for term in this_year):
+            # Inside the stretch the terms cover but in none of them is the
+            # holidays between two of them; outside it is the summer. The
+            # two want different accents and a different sentence, and the
+            # client cannot tell them apart from the dates alone without
+            # holding every term it was sent.
+            opens = min(term.starts_on for term in this_year)
+            closes = max(term.ends_on for term in this_year)
+            if opens <= day <= closes:
+                return DayOffReason.BETWEEN_TERMS
+            return DayOffReason.OUT_OF_YEAR
+    elif not year_start <= day <= year_end:
+        return DayOffReason.OUT_OF_YEAR
+
+    # Checked last, so that 12 June in the summer reads as the summer
+    # rather than as «День России» — both are true and the bigger one is
+    # what somebody scrolling past a whole empty month needs told.
+    if holidays.stops_lessons(day):
+        return DayOffReason.PUBLIC_HOLIDAY
+    return None
+
+
+#: The kinds that mean «no lessons happen», whatever the template says.
+#:
+#: ``HOLIDAY`` is «nobody is at school» and ``DAY_OFF`` is «we are not» — a
+#: difference in what the label means to a reader, not in what happens, and
+#: only the first of them ever behaved. A class given «🌿 Отгул» for a
+#: Monday, or for a fortnight through «📆 Период», got the label printed and
+#: then all six lessons listed underneath it: on the day card, on the phone,
+#: in the widget, in the calendar feed and in the morning digest, which was
+#: therefore not silent either. ``SELF_STUDY`` is deliberately not here: set
+#: work is plausibly «these lessons, but at home», and dropping them would be
+#: answering a question nobody has asked.
+KINDS_WITHOUT_LESSONS: frozenset[DayKind] = frozenset({DayKind.HOLIDAY, DayKind.DAY_OFF})
+
+
 @dataclass(slots=True)
 class ResolvedDay:
     date: Date
@@ -282,53 +361,11 @@ class ScheduleResolver:
     def _off_reason(self, day: Date) -> DayOffReason | None:
         """Why the weekly template does not apply to ``day``, or ``None``.
 
-        **The class's own terms decide it when the class has any**, and that is
-        the whole point: the dates in «🗓 Четверти» are the school's answer to
-        «when do we teach», typed by an admin, and until now nothing but the
-        term *name* read them. A half-year moved to end on 28 May left 29, 30
-        and 31 May drawing a full day of lessons — on the phone, in the widget
-        and in the calendar feed — because the horizon was
-        `SCHOOL_YEAR_END_MONTH`, which is 31 May and always will be. That is
-        the shape the defect was reported in: the calendar scrolled to May 2027
-        still showed the dots under days the class had already stopped
-        teaching on.
-
-        The gaps *between* terms are out of season for the same reason, and
-        this is where the conventional dates earn their keep: they are
-        contiguous — each term opens the day after the last one closed — so a
-        class that has never touched them sees no change at all. A class whose
-        admin set «1 четверть по 26.10» and «2 четверть с 05.11» gets the
-        autumn holidays it just described, without having to mark nine days by
-        hand.
-
-        Falls back to `school_year_bounds` when the year has no terms, which is
-        every class created before terms existed and any year nobody has opened
-        yet. That is the rule this replaced, so nothing regresses to worse than
-        it was.
+        The rule is :func:`off_reason_for`, which the write check asks too —
+        one implementation, because the second one drifted the moment terms
+        and public holidays were added to this one and not to it.
         """
-        year_start, year_end = school_year_bounds(day)
-        this_year = [term for term in self._terms if term.year == year_start.year]
-        if this_year:
-            if not any(term.starts_on <= day <= term.ends_on for term in this_year):
-                # Inside the stretch the terms cover but in none of them is the
-                # holidays between two of them; outside it is the summer. The
-                # two want different accents and a different sentence, and the
-                # client cannot tell them apart from the dates alone without
-                # holding every term it was sent.
-                opens = min(term.starts_on for term in this_year)
-                closes = max(term.ends_on for term in this_year)
-                if opens <= day <= closes:
-                    return DayOffReason.BETWEEN_TERMS
-                return DayOffReason.OUT_OF_YEAR
-        elif not year_start <= day <= year_end:
-            return DayOffReason.OUT_OF_YEAR
-
-        # Checked last, so that 12 June in the summer reads as the summer
-        # rather than as «День России» — both are true and the bigger one is
-        # what somebody scrolling past a whole empty month needs told.
-        if holidays.stops_lessons(day):
-            return DayOffReason.PUBLIC_HOLIDAY
-        return None
+        return off_reason_for(day, self._terms)
 
     # ---- loading -------------------------------------------------------
 
@@ -416,8 +453,8 @@ class ScheduleResolver:
         for item in homework:
             self._homework.setdefault(item.due_date, []).append(item)
 
-        # Sorted, because `_in_term` walks them and the answer is «is this day
-        # inside any of them» rather than «which one».
+        # Sorted, because `off_reason_for` walks them and the answer is «is
+        # this day inside any of them» rather than «which one».
         self._terms: list[Term] = sorted(terms, key=lambda t: (t.year, t.index))
 
         self._bells: dict[int, dict[int, BellPeriod]] = {
@@ -489,7 +526,7 @@ class ScheduleResolver:
                 resolved.kind = DayKind.HOLIDAY
             return resolved
 
-        if kind is DayKind.HOLIDAY:
+        if kind in KINDS_WITHOUT_LESSONS:
             return resolved
 
         bells = self._bells_for(day_override)

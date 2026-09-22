@@ -196,8 +196,8 @@ Read this before planning a release.
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 84 modules — asks whether anything reaches for an attribute that does not exist |
-| `pytest -q -n auto` | 1610 tests, green, about two minutes — the command CI runs |
-| `./gradlew test` | 849 tests, green, all five modules |
+| `pytest -q -n auto` | 1630 tests, green, about four minutes — the command CI runs |
+| `./gradlew test` | 929 tests, green, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
 
@@ -210,11 +210,12 @@ handing back substitutions, events, homework and `next_school_day`. The state en
 walked through all 1440 minutes of a school day and through all eleven Russian time zones.
 
 **What nothing checks.** There is no `androidTest` directory in this project: not one test
-has run on a device or an emulator. Eleven of the app's screens, sheets and rows — the class
+has run on a device or an emulator. Twenty of the app's screens, sheets and rows — the class
 list, the join mode, the connection errors, the first-run reveal, the crash-report sheet,
-the calendar's two sheets and the rest — are composed in JVM tests under Robolectric, with a
-Russian locale and a phone's width, and those are real presses and real rotations on real
-strings; the design system's components are exercised the same way. Nobody has pressed the
+the calendar's header, its two sheets, its year picker and its day list, and the rest — are
+composed in JVM tests under Robolectric, with a Russian locale and a phone's width, and
+those are real presses and real rotations on real strings; the design system's components
+are exercised the same way. Nobody has pressed the
 rest of the interface or the widget: compilation proves that the types line up and says
 nothing about what happens on the screen. Covered by nothing:
 
@@ -376,6 +377,30 @@ an unset property is an empty string. The same for the contact address behind «
 письмом». The wire is held by a test now, and each build reports on its summary whether the
 two are on; nothing proves a secret is actually set, so until one is registered the honest
 answer there is «off».
+
+**What the nine-area audit leaves uncovered.** Six commits closed defects across the
+server, the sync layer, the calendar, the widget and the self-hosted deployment, and every
+one of them is proved by a test rather than by a screen.
+
+* **None of the widget's fixes has been seen on a launcher.** The three defects behind them
+  were read off one build on a phone, which is the only pixel evidence in this section; the
+  fixes themselves — the height divided by the font scale, the two weights that stop a room
+  number starving the subject, the week strip's gaps — are held by tests that reproduce the
+  arithmetic, not the rendering. The two claims about what Glance does with a modifier chain
+  come from reading its translator.
+* **The server badge on Настройки → О приложении has never been drawn against a real
+  server.** It reads `GET /api/v1/warmup` and tells «Сервер на связи», «Сервер: база
+  и код разошлись», «Сервер не отвечает» and «Адрес сервера не задан» apart in
+  Robolectric, against a fake. Which of the four a phone shows when pointed at production,
+  nobody has watched.
+* **`/api/v1/warmup` itself has not been read since #61**, when it answered
+  `{"status":"ok","api_version":1,"schema":"0013"}`. Production is at `0014` now, so it
+  should say so, and that one request is the cheapest check of whether the migration and
+  the code that needs it actually met — but the deployment previews sit behind Vercel's
+  protection, and nobody has made the check against production either.
+* **`docker compose up` has not been run.** There is no Docker in this environment: the
+  compose file was parsed and its dependency conditions asserted. The `migrate` service and
+  the revisions now in the image are written and never watched coming up.
 
 **What does not exist at all.**
 

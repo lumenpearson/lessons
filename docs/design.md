@@ -19,6 +19,71 @@ The whole interface is three things:
 There are no dividers anywhere. Two blocks are separated by one of them becoming a group,
 not by a line between them. `ThinDivider` was deleted from the widget for the same reason.
 
+## A corner inside a corner
+
+Two nested rounded rectangles look right for exactly one pair of radii — **the inner radius
+plus the padding between them equals the outer one** — and wrong for every other pair, with
+the gap between the two curves wider at the corner than along the edge. That is the kind of
+defect this rule exists for: it reads as a wonky corner rather than as a wrong number, so it
+is easy to see and hard to name, and three numbers chosen in three places have no reason to
+agree.
+
+It lives in `:core:designsystem`'s `theme/Shape.kt` in two forms, because the answer is
+known at two different moments.
+
+`concentricCorner(outer, inset, minimum)` is the arithmetic, for a radius that has to be
+**declared**. That is what a Glance widget needs: `cornerRadius` takes a `Dp` and nothing
+else, so there is no shape to hand it. The `minimum` is a floor, because a block inset by
+more than the outer radius would otherwise come out square — which is the honest answer for
+a rectangle inset past the curve, and still wrong when the block has rounded siblings, where
+one slightly square corner reads as a rendering fault. Callers with siblings pass a floor;
+callers without one leave it at zero.
+
+`ConcentricShape(inner, inset, fallback)` is the same rule applied at draw time, for when
+the inner radius is not a length. The segmented picker is the case: Material's connected
+button shapes are a percentage of the button's own height, so the tray's radius is not
+knowable until the tray has been measured, and `createOutline` is where that happens. It
+measures the inner shape against the box the buttons actually get — this one less the
+padding on both sides — because asking a percentage corner about the tray's own height
+rounds it by more than the button is rounded by, in the exact direction the class exists to
+fix. It also caps the radius at half the shorter side: larger than that is not a rounder
+rectangle but a malformed outline, with two corners of one edge overlapping, so a very short
+tray simply becomes a capsule. The picker used to be clipped at the call site with
+`LessonsShapeTokens.Group` — 24 dp, the radius of a *group of rows* — around buttons with
+4 dp of padding. Both `ConcentricShapeTest` and `WidgetInnerCornerTest` check this as
+arithmetic rather than on a screen, which is the only way either could be checked at all:
+Glance builds `RemoteViews` and there is no frame loop to draw them into.
+
+**The widget derives every inner corner from the rung it is on.** Its `innerCorner()` is
+the 24 dp surface less that rung's own padding, floored at 6 dp. It was a
+flat 18 dp — "one step tighter than the surface" — which would have been right for exactly
+one padding, and the ladder has twelve rungs carrying five paddings from 8 dp to 16 dp. So
+the gap was right nowhere and worst where the widget is biggest: at 16 dp of padding a
+concentric block wants 8 dp and it was drawing 18, more than twice as round as the surface
+around it can carry. The floor is reachable only at a padding no rung has, which is why the
+arithmetic is split out as `innerCornerFor(paddingDp)`: a test that walks the twelve rungs
+cannot tell the floored expression from the unfloored one, and the first attempt at that
+test kept its own copy of the sum and stayed green against a build with the argument
+deleted.
+
+**Four places deliberately do not follow the rule**, and each is a different reason why it
+does not apply.
+
+* **A row inside a group.** There is no inset to work from: `RoundedCardContainer` clips
+  its rows rather than padding them, so the group's own mask is what rounds them and
+  `GroupRow` is a rectangle, which its KDoc says outright. That is the grammar above
+  working as intended — the group's 24 dp is meant to be the only large radius the eye
+  picks up, and a row that rounded itself concentrically would put a second one where the
+  design wants none.
+* **The widget's week strip.** `DayChipCorner` is a constant and deliberately not
+  `innerCorner()`. The strip sits in the middle of the layout, so a chip's corners are next
+  to other rows rather than to the surface's rounding, and the radius the rule would hand it
+  is about as large as the chip is tall — which is a pill, not a chip.
+* **The progress bar**, 3 dp on a bar 6 dp high, and **the colour mark at the head of a
+  timeline row**, 2 dp on a bar 4 dp wide. Both are rounded by their own smaller dimension.
+  A shape whose radius is half its height is a capsule, and a capsule has no corner to nest
+  inside anything.
+
 ## What came from where
 
 | Essentials | Here |
@@ -434,7 +499,43 @@ press more.
 ## The "About" footer
 
 The last thing on the last page. The name with the version, a description, the app's mark, a
-line about the author, links as pills two to a row, and a closing line.
+line about the author, a row of badges, the links, a block of facts, the design credit and a
+closing line.
+
+**The links are one to a row, the full width of the card.** Two to a row is what they were,
+and on a 411 dp phone that left each pill about 130 dp: «Исходный код» came out as three
+stacked lines and «Essentials» was broken into «Essent / ials» — a word split in half inside
+a button. Half of that was the card being padded twice by the settings list around it, and
+half was two pills sharing a row that was already narrow. Full width costs one row of height
+per link and removes the thing the old shape needed a spacer to fake: with one pill per row
+every pill is the same width by construction rather than by an empty `Box` standing in for a
+missing one.
+
+**The badges answer two questions that are asked together and answered nowhere else.**
+«Какая это сборка» cannot be answered by the version alone — every CI build of a branch
+carries the same `versionName` — so the repository, the ref and the commit are what identify
+an APK on a phone against a pull request; a build made by hand says «Собрано вручную»
+instead. And «сервер жив?» had no answer here at all: every other screen reports an
+unreachable server, a mistyped address and a half-applied migration as the same «не удалось
+обновить». These read `GET /api/v1/warmup` and draw what it distinguishes — «Сервер на
+связи» with the API version and the schema, «Сервер: база и код разошлись» with both
+revisions, «Сервер не отвечает», «Адрес сервера не задан». A `FlowRow` rather than a fixed
+grid, because the set is variable: a local build has no commit, an older build has none of
+them, and an unconfigured server contributes one chip instead of three.
+
+The provenance is handed in as a parameter rather than read inside the composable, and that
+is not only for testing. `BuildProvenance.current()` answers with whatever *this* build was
+told, so a test asserting what the badges say was really asserting how its own build was
+configured: the same assertion passed under `ci.yml`, which sets none of those properties,
+and failed under `apk.yml`, which sets them all — so the workflow whose whole job is to
+produce an APK could not build one.
+
+**The facts block** is six lines under «Любопытное» about the decisions a reader can
+actually feel: the timetable living on the phone, the bot being the only way to write it,
+three school years in the cache, the school's clock rather than the phone's, two typefaces
+because one has no Cyrillic, and twelve widget sizes because the launcher picks the nearest
+rung. It is the one place in the interface where this documentation is quoted back at the
+user, so it moves when the decision does.
 
 The mark is drawn the way a launcher draws it: an adaptive icon is a 108 dp canvas of which
 only the central 72 dp is visible, so drawing the mipmap directly would give a small mark
@@ -495,6 +596,19 @@ first, and the outer one got only what was left at the edge. A day is now chosen
 a period is paged with arrows, and the tab is called «Календарь» and shows three scales: the
 week, the month, and the day by the hour. It is switched off in the settings, under "swipe
 between tabs".
+
+**The day has two readings, and the picker under the view is where they are chosen.**
+«Лента» is one date and «Список» is the days of the month as rows. They used to be two
+tabs beside the week and the month — «День» and «Лента» — and they are not two scales:
+both answer «что идёт», one for the day in front of you and one for the month around it.
+What the list brought with it is kept, because a grid cannot be sorted and stay a calendar
+— the 14th before the 3rd is not a month any more — so «по загруженности» and a filter
+that genuinely drops days both need somewhere that is really a list. The span follows the
+reading and so does the arrow: the ribbon covers one date and steps a day, the list covers
+the month and steps a month. That last pair is asked of one function rather than of each
+caller, because the arrows were allowed to disagree once — the arithmetic stepped a day
+while the content description under it said «неделя», and TalkBack announced a unit the
+press did not move.
 
 The hourly ribbon is the only one of the three where blocks stand by time rather than
 following one another. A forty-minute gap between lessons looks like two consecutive rows in

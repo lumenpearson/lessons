@@ -67,6 +67,31 @@ internal fun ScheduleView.periodOf(
 }
 
 /**
+ * How far one press of a period arrow moves the calendar.
+ *
+ * Here rather than inside the view model's `step`, because the arrows have two
+ * readers and they were allowed to disagree: the arithmetic stepped a day in
+ * the ribbon and a month in the list, while the content description under both
+ * said «неделя» in four of the five modes. TalkBack announced a unit the press
+ * did not move. One answer, asked by both, is the only thing that keeps them
+ * together — the header text beside them already asks the same question of
+ * [ScheduleView] and [DayMode] and has always got it right.
+ */
+internal enum class PeriodStep { DAY, WEEK, MONTH }
+
+/** @see PeriodStep */
+internal fun ScheduleView.stepOf(dayMode: DayMode): PeriodStep = when (this) {
+    ScheduleView.WEEK -> PeriodStep.WEEK
+    ScheduleView.MONTH -> PeriodStep.MONTH
+    // The ribbon draws one date and the list draws the month around it, so the
+    // arrow steps whatever is on screen. See [periodOf].
+    ScheduleView.DAY -> when (dayMode) {
+        DayMode.RIBBON -> PeriodStep.DAY
+        DayMode.LIST -> PeriodStep.MONTH
+    }
+}
+
+/**
  * Every date from [start] to [end] inclusive that this view actually draws.
  *
  * Weekends are dropped from the strip only. The month keeps them whatever the

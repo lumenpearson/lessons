@@ -46,18 +46,6 @@ class WindowedYearsTest {
     private val clock: Clock =
         Clock.fixed(LocalDate.parse("2026-10-15").atStartOfDay(zone).toInstant(), zone)
 
-    private class Store : BundleTagStore {
-        val written = mutableMapOf<String, String>()
-        override suspend fun tagFor(signature: String): String? = written[signature]
-        override suspend fun remember(signature: String, etag: String) {
-            written[signature] = etag
-        }
-
-        override suspend fun forget(signature: String) {
-            written.remove(signature)
-        }
-    }
-
     /**
      * Answers with one teaching day inside whatever year was asked for.
      *
@@ -122,13 +110,20 @@ class WindowedYearsTest {
                     nextSchoolDay = if (!nextSchoolDay) {
                         null
                     } else {
-                        // Where the server actually puts it: the first teaching
-                        // day *after* the requested window, which for a window
-                        // that ends in May is the September of the year after —
-                        // that is, squarely inside the next window. Placing it
-                        // anywhere inside the window being fetched, as the first
-                        // draft of this fake did, makes it unreachable by the
-                        // ranged delete and the test proves nothing.
+                        // Where the lookahead lands *when there is one*: the
+                        // first teaching day after the requested window, which
+                        // for a window ending in May is the September of the
+                        // year after — squarely inside the next window, which
+                        // is what makes it reachable by a ranged delete and
+                        // therefore worth a test at all.
+                        //
+                        // A real server sends none of this for the window this
+                        // app asks for: it looks three weeks past the last
+                        // lesson *inside* the year, which is June, and June is
+                        // out of season for every class. So what the two tests
+                        // below pin is the client's guard — which year may
+                        // write the row, and which deletes must spare it — on
+                        // a response only a narrower `days=` produces today.
                         val after = SchoolYear.start(SchoolYear.openingYearOf(first) + 1)
                         DayDto(
                             date = after.toString(),
@@ -152,7 +147,7 @@ class WindowedYearsTest {
     private fun repository(
         api: LessonsApi,
         dao: InMemoryTimetableDao,
-        tags: BundleTagStore = Store(),
+        tags: BundleTagStore = RecordingTagStore(),
     ) = TimetableRepositoryImpl(
         dao = dao,
         api = api,
@@ -280,7 +275,7 @@ class WindowedYearsTest {
     @Test
     fun `each year carries its own tag, and an evicted year loses it`() = runTest {
         val dao = InMemoryTimetableDao()
-        val tags = Store()
+        val tags = RecordingTagStore()
         val repository = repository(YearApi(etag = "\"y\""), dao, tags)
 
         repository.refreshYear(2023)
@@ -301,9 +296,82 @@ class WindowedYearsTest {
     }
 
     @Test
+    fun `leaving a class takes every year's tag with it`() = runTest {
+        val dao = InMemoryTimetableDao()
+        val tags = RecordingTagStore()
+        val repository = repository(YearApi(etag = "\"y\""), dao, tags)
+
+        repository.refresh()
+        repository.refreshYear(2027)
+        assertEquals(setOf("1|2026", "1|2027"), tags.written.keys)
+
+        repository.forgetClass(1)
+
+        // `forget` used to have exactly one caller — the eviction inside
+        // `prune` — so a phone kept one entry per class-year it had ever
+        // synced and then left, for the life of the install. Nothing showed
+        // it, which is why it took an audit to find: a re-join sends the
+        // stale tag, the server matches it, and `holdsWindow` catches the
+        // `304` at the cost of one wasted round trip.
+        assertEquals(emptySet<String>(), tags.written.keys)
+        assertEquals(emptyList<Long>(), dao.cachedClassIds())
+    }
+
+    @Test
+    fun `the sweep of classes the phone has left drops their tags too`() = runTest {
+        val dao = InMemoryTimetableDao()
+        val tags = RecordingTagStore()
+        val repository = repository(YearApi(etag = "\"y\""), dao, tags)
+
+        repository.refresh()
+        repository.refreshYear(2027)
+
+        // What `SyncWorker` calls before every sync, with the classes this
+        // phone is still in. The rows went; the tags did not.
+        repository.forgetClassesOtherThan(setOf(2L))
+
+        assertEquals(emptySet<String>(), tags.written.keys)
+        assertEquals(0, dao.dayCountOf(1))
+    }
+
+    @Test
+    fun `a class the phone is still in keeps its tags through the sweep`() = runTest {
+        val dao = InMemoryTimetableDao()
+        val tags = RecordingTagStore()
+        val repository = repository(YearApi(etag = "\"y\""), dao, tags)
+
+        repository.refresh()
+        // Another class, whose id starts with the same digit. The tags are
+        // keyed `classId|openingYear` and dropped by that prefix, so the
+        // separator is what stops class 1 taking class 12 with it — a mistake
+        // that would show up as one unexplained full download, never as an
+        // error.
+        tags.written["12|2026"] = "\"other\""
+
+        repository.forgetClassesOtherThan(setOf(1L, 12L))
+
+        assertEquals(setOf("1|2026", "12|2026"), tags.written.keys)
+    }
+
+    @Test
+    fun `signing out leaves no tag standing`() = runTest {
+        val dao = InMemoryTimetableDao()
+        val tags = RecordingTagStore()
+        val repository = repository(YearApi(etag = "\"y\""), dao, tags)
+
+        repository.refresh()
+        tags.written["12|2026"] = "\"other\""
+
+        repository.forgetEverything()
+
+        assertEquals(emptySet<String>(), tags.written.keys)
+        assertEquals(emptyList<Long>(), dao.cachedClassIds())
+    }
+
+    @Test
     fun `a 304 about a year this phone does not hold is asked again without the tag`() = runTest {
         val dao = InMemoryTimetableDao()
-        val tags = Store()
+        val tags = RecordingTagStore()
         // The tag outlives the cache — it is in the preferences, which
         // `clearSession` and a destructive Room migration both leave standing.
         tags.written["1|2027"] = "\"stale\""
