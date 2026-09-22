@@ -4,8 +4,8 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **22 September 2026**. **PRs #63 through #80 are merged**; `main` is at
-`9b8eba7`. **The only thing open is PR #81**, which is one defect long and carries the
+Last updated: **22 September 2026**. **PRs #63 through #81 are merged**; `main` is at
+`28f6ea3`. **The only thing open is PR #82**, which is one rule long and carries the
 paragraph you are reading. Once it merges, `dev` is level with `main` again and the next
 batch starts from a clean one, and the SHA of that merge is for the next close-out to
 write.
@@ -24,6 +24,67 @@ check before it merged. **It has not been re-read since.** #77 is the first merg
 that moved server code and the schema together, so `/api/v1/warmup` should now answer
 `"schema":"0014"` — the cheapest single check of whether that migration and that code met,
 and nobody has made it.
+
+## What the last session added: the rounding rule, applied everywhere it is actually true
+
+Open as PR #82, in the milestone `v0.7.0 — Оптимизация`. One sentence of a request —
+«"Подложка вкладок — зазор скруглений одинаковый по периметру." — исправь все подложки по
+приложению» — and most of the work was deciding where it does *not* apply.
+
+**The rule.** Two nested rounded rectangles look right for exactly one pair of radii: the
+inner radius plus the padding equals the outer one. Any other pair leaves the gap wider at
+the corner than along the edge, which reads as a wonky corner rather than as a wrong
+radius — easy to see, hard to name. #80 applied it to the segmented picker and stopped
+there.
+
+**Where it applies is narrower than «все подложки».** It needs two rounded rectangles
+nesting *with a gap*. Every shape in `:app` and `:core:designsystem` was read against that
+test and exactly one more place in the product qualifies — and it is the one where the rule
+matters most, because there the gap is not one number.
+
+### The widget was wrong by a different amount on every phone
+
+`WidgetCard` was a flat `18.dp` and the pill behind the current lesson a flat `12.dp`, both
+drawn straight onto a surface of `24.dp`. What separates them is `WidgetSizeClass.paddingDp`,
+which runs from 8 dp on the smallest rung of the twelve-rung ladder to 16 dp on the largest.
+So the gap was even at **no size at all**, and worst where the widget is biggest: at 16 dp of
+padding a concentric block wants 8 dp and it drew 18, more than twice as round as the
+surface around it can carry.
+
+`WidgetSizeClass.innerCorner()` derives it per size class now, with a 6 dp floor. The floor
+is the interesting half: square is the *honest* answer for a rectangle inset past the curve,
+and wrong here, because the rows beside it are rounded and one square corner among them
+reads as a rendering fault rather than as a decision. `WidgetSurfaceCorner` moved in beside
+it — two numbers that have to agree belong in one place. Glance takes a `Dp` and nothing
+else, so this is `concentricCorner`, the arithmetic form, next to `ConcentricShape`, which is
+the same rule deferred to draw time when the inner radius is a percentage of a height nobody
+has measured yet.
+
+### What was deliberately left alone, and it is most of the survey
+
+Each carries its reason in the file, because the next reader will ask exactly this.
+
+- **The seven weekday chips.** The strip sits in the middle of the layout, so its corners
+  are next to other rows rather than in the surface's rounding: no corner nested in a
+  corner. A chip is also about as tall as the radius the rule would hand it, which is a
+  pill, not a chip.
+- **`RoundedCardContainer` and its rows.** The rows are *clipped* by the container rather
+  than padded inside it. No gap, no rule — and that flush clip is exactly what makes a group
+  read as one slab instead of a pile of cards.
+- **The hero card's tile and every `Pill`.** `RoundedCornerShape(percent = 50)` is a circle,
+  not a nested rectangle.
+- **«О приложении».** It opens and closes with centred text, so nothing it holds has a
+  corner in a corner — and its horizontal and vertical paddings differ on purpose, while a
+  concentric corner is only defined for one gap.
+
+**Verified, and not.** `./gradlew test` **896 tests**, up from 891, and both assembles.
+`WidgetInnerCornerTest` is five, and two were shown red against the old flat 18 dp before
+being trusted. One of those two was written `<=` at first and passed against the very
+constant it was meant to catch; it asserts a **strict** inequality now, between every
+adjacent pair of size classes whose paddings actually differ — and that the ladder really
+carries more than one padding is itself a test. **Nothing here has been seen on a launcher**:
+the tests reproduce the arithmetic, not the rendering, and `cornerRadius` is a no-op below
+API 31 in any case.
 
 ## What the last session added: a test that asserted its own build's configuration
 
@@ -1301,7 +1362,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
-| 8 | `v0.7.0 — Оптимизация` | #75–#81 — the one Russian title |
+| 8 | `v0.7.0 — Оптимизация` | #75–#82 — the one Russian title |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
@@ -1728,7 +1789,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 1610 tests, ~2 min (CI runs this)
 cd server  && python -m mypy                             # clean, 84 modules
-cd android && ./gradlew test                             # 891 tests
+cd android && ./gradlew test                             # 896 tests
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
@@ -2127,6 +2188,14 @@ else.**
   has seen: whether the concentric corner reads as concentric, whether a marquee that never
   stops is pleasant rather than merely readable, and whether stepping a month with the
   arrows surprises somebody who has just switched «День» into its list mode.
+- **The widget's new corners have never been on a launcher**, which is the only place they
+  exist. #82 derives every inner radius from the size class's own padding, and the five
+  tests reproduce that arithmetic and nothing else — no test draws a widget. What nobody has
+  seen: whether the gap now reads as even at 8 dp of padding *and* at 16, whether the 6 dp
+  floor is tight enough to still look like a corner on the widest rungs, and how any of it
+  sits against a launcher's own widget rounding. Below API 31 the question does not arise —
+  `cornerRadius` is a no-op there and the launcher supplies square edges — so the check
+  needs a phone on 31 or later and a widget resized twice.
 - **Eighteen `AdrenoVK-0: Shader compilation failed` lines in that bugreport are
   unexplained**, and no other app on that device logs them. They are `I`-level, carry no
   shader source and no reason, and are spread across screens rather than clustered on the
@@ -2839,6 +2908,13 @@ has a Cyrillic identifier: Kotlin has none at all.
 ## 7. Left to the owner
 
 All of this is beyond an agent's reach: it needs a phone, a key or a live service.
+
+**The widget wants resizing twice, and that is the whole check.** #82 makes every block
+inside it round itself to the padding of its size class, and the twelve rungs differ by a
+factor of two — so the defect it fixes is invisible at one size and obvious at another.
+Drop the widget small, look at the corners, drag it to four cells wide and tall, look
+again. Nothing in the suite can do this, and it needs Android 31 or later to be visible at
+all.
 
 **The APK's own badges are new in #80 and they are worth one press.** The about page now
 names the server's state, the repository, the ref and the commit the build came from. Two
