@@ -39,17 +39,34 @@ produced.
 - A list page whose cap differs from the keyboard's.
 - A "view" dataclass that nothing constructs.
 
-## The two rules
+## The three rules
 
-1. **Re-verify every finding by hand before fixing it.** Read the code and re-measure.
+1. **File every confirmed finding as an issue before fixing it.** `type:bug`, the `area:`
+   it lives in, a `status:`, the milestone the fix lands in — and a body carrying the
+   failure scenario rather than the remedy. The pull request then says `Closes #NN` and the
+   two are tied for good. A defect fixed inside a batch and described only in a commit body
+   is invisible the day somebody asks «has this happened before»: eight sweeps' worth of
+   exactly that had to be back-filled by hand in #128. The `github-pr` skill has the call
+   and the three mechanics that cost a wasted attempt each.
+
+   **One issue per finding, not one per sweep.** The back-filled ones are grouped by pass
+   because they were reconstructed years after the fact; anything found from now on is its
+   own, because a grouped issue cannot be closed by the pull request that fixes half of it.
+
+2. **Re-verify every finding by hand before fixing it.** Read the code and re-measure.
    Findings drawn from call sites without reading the callee have been wrong in this project
    before, and `docs/design.md` records that.
-2. **Close every finding with a test that fails on the code without the fix.** Revert,
+3. **Close every finding with a test that fails on the code without the fix.** Revert,
    watch it go red, put it back. Three of this project's own tests turned out to assert the
    defect as correct behaviour; when a fix makes a test fail, decide which of the two is
    wrong before touching either.
 
 ## Reporting
 
-One sentence per finding, saying what the user would have seen. Counts before and after.
-Say what you did **not** cover.
+One sentence per finding, saying what the user would have seen, **with its issue number**.
+Counts before and after. Say what you did **not** cover.
+
+A finding you decide **not** to fix is still an issue — open, with `status:someday` or
+`status:next` and a body saying why it was left. That is what keeps the next audit from
+reporting it again as if it were new, and #126 exists because four of them had no other
+home.

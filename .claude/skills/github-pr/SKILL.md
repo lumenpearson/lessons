@@ -21,10 +21,13 @@ GitHub MCP tools (`mcp__github__*`): `create_pull_request`, `pull_request_read`,
 
 ## Milestones
 
-**Every pull request here carries one, set when it is opened.** This repository has no
-issues at all — not one, ever — so the milestones are the only grouping its history has.
-They are what says which version a change belongs to, and a pull request left without one
-is invisible to that.
+**Every pull request here carries one, set when it is opened**, and so does every issue.
+They are what says which version a change belongs to, and anything left without one is
+invisible to that.
+
+Until #128 this repository had no issues at all, and this page said so. It has them now —
+#86–#108 closed for what was built, #109 onwards open — so a milestone groups issues and
+pull requests together rather than pull requests alone.
 
 Set it with `issue_write`, never `update_pull_request`: the latter has no milestone field,
 and to the API a pull request *is* an issue.
@@ -73,6 +76,8 @@ matched pull request's body in full.
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#62 — the version being worked on |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
+| 8 | `v0.7.0 — Оптимизация` | #75–#85, #128 — the one Russian title |
+| 9 | `v0.8.0 — On a device` | issues #109–#117 — **the current one**, and the first whose work needs an emulator or a phone |
 
 New work goes in the newest version milestone unless it plainly opens the next one; a
 dependabot bump goes in `Dependencies` whatever else is in flight.
@@ -82,6 +87,50 @@ rather than declared at the time, and **nothing in this repository has ever been
 released** — no `v*` tag, no GitHub release, so `versionName` is still the `0.1.0` default
 in `android/app/build.gradle.kts`. A milestone here names a stage the work went through,
 not a build anybody can install.
+
+## Issues, and tying them to the pull request
+
+**A defect gets an issue before it gets a fix.** Not after, and not instead. The title says
+what is broken rather than what to do about it; the body carries the failure scenario —
+inputs or state, and the wrong output — because that is what makes it findable the day
+somebody asks whether this has happened before.
+
+```
+mcp__github__issue_write(method="create", owner=…, repo=…,
+                         title=…, body=…,
+                         labels=["type:bug", "area:android", "status:now"],
+                         milestone=9)
+```
+
+Three mechanics, each of which costs a wasted call to rediscover:
+
+- **`state` is ignored on `create`.** An issue is always born open; closing it is a second
+  call with `method="update"`, `state="closed"`, `state_reason="completed"`.
+- **Labels are created by being used** — an unknown name in `labels` is made. But **not**
+  when `parent_issue_number` is passed: that path validates them first and fails with
+  `failed to resolve label`. Create the issue plainly and link it afterwards.
+- **The Project board is out of reach.** Projects v2 is GraphQL-only and these sessions are
+  REST. Label it correctly and the board's auto-add workflow takes it; without one it is
+  the owner's click. Never report an issue as added to a project.
+
+**The tie to the pull request goes in the pull request body:** `Closes #NN`, on its own
+line, one line per issue. GitHub links them both ways and closes the issue when the pull
+request merges — so a fix cannot ship with its issue left open, and an issue cannot be
+closed with no diff to point at. Use `Closes` for a defect the pull request fixes and a
+plain `#NN` reference for one it merely touches.
+
+### The label families
+
+| Family | Values |
+| --- | --- |
+| `type:` | `feature`, `bug`, `chore`, `research`, `decision`, `epic` |
+| `area:` | `android`, `widget`, `server`, `bot`, `db`, `ci`, `docs`, `design`, `data` |
+| `status:` | `now`, `next`, `someday`, `done` |
+| `needs:` | `device`, `owner` |
+| `severity:` | `production` — only for something that broke, or would have broken, a running deployment |
+
+`needs:owner` means no session can close it: it wants a browser, a key or a live service.
+`needs:device` means it wants an emulator or a phone, which is what milestone 9 is about.
 
 ## Writing the body
 
