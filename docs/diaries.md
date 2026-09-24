@@ -222,14 +222,14 @@ systems counts twice.
 | [БАРС](diaries/bars.md) | 4 | — | 31 (20 / 1 / 10) | cookie `sessionid`, in practice copied after a Госуслуги sign-in | iamlostshe/bars-api, mironovmeow/barsdiary |
 | [«one.» platform](diaries/one-x1.md) | 6 | — | 54 (13 / 0 / 41) | `passport.` login or СНИЛС, cookie `X1_SSO`; Госуслуги and QR as alternatives | zlexdev/pskovedu-sdk, Mihail-Galkin/Two.Diary |
 | [КИАСУО](diaries/kiasuo.md) | 1 | — | 12 (6 / 0 / 6) | Госуслуги in a browser once, then a refresh token | oddyamill/kiasuo |
-| [ЭПОС.Школа](diaries/epos.md) | 1 | — | 232 (214 / 13 / 5) | Госуслуги through Keycloak at `auth-epos.permkrai.ru`, then `Auth-Token` and `Profile-Id` | string literals of a 2026 app; nkrapivin/epos.py for 2022 |
+| [ЭПОС.Школа](diaries/epos.md) | 1 | — | 232 (214 / 13 / 5) | Госуслуги in a WebView, cookie `auth_token`, then `Auth-Token` and `Profile-Id` | the page itself, read from the official app «ЭПОС» 1.53; nkrapivin/epos.py for 2022 |
 | [«Электронная школа 2.0»](diaries/ruobr.md) | 1 | — | 41 (19 / 16 / 6) | base64 login and password in headers on every call of the mobile API | raitonoberu/ruobr_api |
 | [ELSCHOOL](diaries/elschool.md) | — | — | 62 (11 / 2 / 49) | form login, cookie `JWToken` (outgoing system) | Ilya-Repin/elschool-api, Ramin2009Mc/Elschool-Parser |
 | [eSchool](diaries/eschool-center.md) | — | — | 47 (40 / 4 / 3) | login and password, cookie `JSESSIONID` | reSchool-org/reSchool-flutter |
 | [ГИС СО «ЕЦП»](diaries/egov66.md) | — | — | 20 (0 / 15 / 5) | switched off on 31 August 2026 | history only |
 | [edu.tatar.ru](diaries/edu-tatar.md) | — | — | 82 (15 / 49 / 18) | retired in January 2024 | history only |
 | [«Дневник76»](diaries/dnevnik76.md) | — | — | 47 (0 / 34 / 13) | closed on 2 September 2024 | history only |
-| [`vip.edu35.ru`](diaries/vip-edu35.md) | — | — | 22 (18 / 1 / 3) | teacher side of a БАРС college register | SkifssA/LauncherSPO |
+| [`vip.edu35.ru`](diaries/vip-edu35.md) | — | — | 22 (17 / 4 / 1) | cookie pasted from a browser; the school register retired on 1 September 2026 | SkifssA/LauncherSPO |
 
 **Three families share code, and a client for one reads most of the others.** МЭШ in Москва,
 the regional «Моя школа» nodes and Пермский край's ЭПОС.Школа are one code base at different
@@ -293,6 +293,8 @@ made ЕСИА the only way a family signs in: Дневник.ру per region, «
   the Вологодская college register; nothing shows how a mark is set anywhere else.
 - **A parent with several children is thinly covered.** Most clients sign in as a pupil or
   assume one child; where a platform page says nothing about choosing a child, nothing was seen.
-- **Some checks were still running when this was written.** The region rows marked
-  «first pass only» and the platform pages whose header says «not yet dated» are the ones; a
-  later commit on the same pull request replaces them.
+- **A second round was still running when this was written.** Every region has had its
+  independent check and every platform page its dating pass; what was still open are the
+  completeness critique's own items — the official list of ТОР's first wave, the 2026/27 plans
+  of seventeen regions, Калмыкия, Тыва and Чечня, and any route at all for ТОР. A later commit on
+  the same pull request settles what it can and lists the rest here.

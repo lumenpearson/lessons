@@ -3,17 +3,23 @@
 *Part of [the electronic diaries of Russia’s regions](../diaries.md). Verification: extracted, checked against the code, and dated. Confidence of the whole: high. Nothing here has been tried against the live service.*
 
 **The regional system of Пермский край**, «Электронная Пермская образовательная система», which
-replaced Web2edu in 2019–2020. It is an older fork of the МЭШ code base: the same `core/api`,
-`acl/api`, `jersey/api` and `reports/api` families, the same `Auth-Token` and `Profile-Id`
-headers, so a reader of the [МЭШ](mesh-moscow.md) page will recognise almost every row.
+replaced Web2edu in 2019–2020 and is still live in September 2026: nothing shows a move to ТОР
+«Моя школа», and the official app was updated on 4 September. It is an older fork of the МЭШ
+code base — the same `core/api`, `acl/api`, `jersey/api` and `reports/api` families, the same
+`Auth-Token` and `Profile-Id` headers — so a reader of the [МЭШ](mesh-moscow.md) page will
+recognise almost every row.
 
-**Two generations, four years apart.** In 2022 a password form on `cabinet.permkrai.ru` handed a
-session over to `school.permkrai.ru`, and the one Python client of that time used both; those
-rows are legacy. In 2026 sign-in is Госуслуги through a Keycloak realm at
-`auth-epos.permkrai.ru`, and the diary is at `edu-epos.permkrai.ru`. The 2026 rows come from the
-string literals of a compiled mobile app: the paths and hosts are exact, but which method each
-takes and which query belongs to which path are inferred from the МЭШ conventions, and several
-are marked uncertain for that reason.
+**The best-sourced page after МЭШ's.** 214 of its 232 rows are current, and most come from the
+official app «ЭПОС» 1.53 itself: its request declarations give each call's exact method, path,
+query and headers. An unofficial 2026 client, «Lyric», and a 2022 Python client, `epos.py`, fill
+in the sign-in and the older generation.
+
+**Signing in.** Families sign in through Госуслуги in a WebView on `edu-epos.permkrai.ru` (the
+Keycloak realm at `auth-epos.permkrai.ru` is what sits behind it); the session is the
+`auth_token` cookie with `profile_id`, sent on as `Auth-Token` and `Profile-Id`. In 2022 a
+password form on `cabinet.permkrai.ru` handed a session to `school.permkrai.ru`; those rows are
+legacy. The library side of the app lives on `uchebnik-epos.permkrai.ru` and is teachers' content
+management rather than the diary, so it is summarised in the caveats instead of listed row by row.
 
 **Hosts.**
 
