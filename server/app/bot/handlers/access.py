@@ -40,7 +40,8 @@ from app.bot.roles import can_grant
 from app.bot.states import AddInvite
 from app.models import AccessRequest, BotUser, JoinMode, PhoneInvite, Role, SchoolClass
 from app.security import normalise_phone
-from app.services import audit, device_invites, reminders
+from app.services import audit, device_invites, diary_link, reminders
+from app.services import diary as diary_service
 
 router = Router(name="access")
 
@@ -625,6 +626,16 @@ async def revoke(
     # keeps the digests and every substitution arriving in the chat of somebody who
     # is no longer in the class.
     await reminders.drop_for(session, telegram_id=member.telegram_id, class_id=school_class.id)
+    # Their diary sessions and any unspent sign-in ticket go too (#136). A
+    # session is reached only by (telegram_id, class_id), so after revocation
+    # nobody could sign it out — and with the keep-alive it would otherwise be
+    # kept live upstream for the family for the thirty days until the purge. The
+    # sign-out tells «Сетевой город» goodbye where it can be told. An unspent
+    # ticket is a sign-in an ex-member must not still be able to make.
+    await diary_service.sign_out_here(
+        session, telegram_id=member.telegram_id, class_id=school_class.id
+    )
+    await diary_link.drop_for(session, telegram_id=member.telegram_id, class_id=school_class.id)
     await session.delete(member)
     await session.commit()
     await callback.message.edit_text("🚫 Доступ убран.", reply_markup=back_to_menu())

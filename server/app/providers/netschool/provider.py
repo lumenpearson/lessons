@@ -152,6 +152,7 @@ class NetSchoolProvider:
     key = "netschool"
     title = "Сетевой город"
     genitive = "«Сетевого города»"
+    site = ""
 
     async def sign_in(self, request) -> str:  # noqa: ANN001 - the SignInRequest protocol
         region = region_for(request.region)

@@ -114,6 +114,22 @@ async def claim(session: AsyncSession, code: str) -> DiaryLinkCode | None:
     return row
 
 
+async def drop_for(session: AsyncSession, *, telegram_id: int, class_id: int) -> int:
+    """Drop every outstanding sign-in ticket this account holds in this class.
+
+    Used when a member is removed: an unspent ticket is worth a sign-in for
+    fifteen minutes, and an ex-member must not be able to open a session in a
+    class they have just been taken out of. Committed by the caller.
+    """
+    result = await session.execute(
+        sa_delete(DiaryLinkCode).where(
+            DiaryLinkCode.telegram_id == telegram_id,
+            DiaryLinkCode.class_id == class_id,
+        )
+    )
+    return rows_affected(result)
+
+
 async def purge(session: AsyncSession) -> int:
     """Drop tickets nobody can use any more. Returns how many went.
 

@@ -90,6 +90,7 @@ class DiaryProvider(Protocol):
     key: str
     title: str
     genitive: str
+    site: str
 
     async def sign_in(self, request: SignInRequest) -> str:
         """Sign in and return the serialised credential, which the caller seals."""

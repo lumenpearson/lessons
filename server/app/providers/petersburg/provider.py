@@ -89,6 +89,7 @@ class PetersburgProvider:
     key = "petersburg"
     title = "Санкт-Петербург"
     genitive = "Санкт-Петербурга"
+    site = "dnevnik2.petersburgedu.ru"
 
     async def sign_in(self, request) -> str:  # noqa: ANN001 - the SignInRequest protocol
         client = PetersburgClient()

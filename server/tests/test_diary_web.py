@@ -46,6 +46,10 @@ async def web():
 
 @pytest.fixture
 async def ticket(session, school_class) -> str:
+    # The form and the submit read the class's diary binding now (#137), so the
+    # ticket's class has to be bound. Petersburg, the diary these tests exercise.
+    school_class.diary_provider = "petersburg"
+    await session.commit()
     return await diary_link.mint(session, telegram_id=42, class_id=school_class.id)
 
 
