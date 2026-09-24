@@ -8,8 +8,9 @@ is written down nowhere.
 The alternative — typing it to the bot — puts it in the chat history, on
 Telegram's servers, in the notification that lands on a locked screen and in
 whatever backs that phone up. Deleting the message afterwards undoes exactly
-none of those. The bot keeps that path as a fallback for a deployment with no
-public URL, and says plainly that it is the worse one.
+none of those, so there is no such path: a deployment with no ``PUBLIC_BASE_URL``
+has nowhere to serve the form, and `bot/handlers/diary.py` says the page cannot
+be opened and stops there rather than falling back to a password in the chat.
 
 What Telegram ever carries is the code in this module: worth one sign-in, for
 fifteen minutes, for one Telegram account, in one class. Stored as a hash like

@@ -91,9 +91,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             with contextlib.suppress(asyncio.CancelledError):
                 await bot_task
         # Each provider holds a process-wide pooled HTTP client; closing them
-        # is what returns their sockets rather than leaving them to a
-        # finaliser. Imported here rather than at module scope so none of them
-        # lands on the cold-start path of a request that uses none.
+        # is what returns their sockets rather than leaving them to a finaliser.
+        # Imported in this ``finally`` because that is the only place they are
+        # used. It is not a cold-start saving for Petersburg or DaData — the API
+        # surface (`api/diary.py`, the schools directory) already loads their
+        # clients at module scope — but «Сетевой город»'s client is loaded
+        # lazily through the registry and nothing else imports it, so keeping
+        # this import local does keep it off the path of a process that never
+        # binds a class to it.
         from app.providers.dadata import close_client as close_directory
         from app.providers.netschool.client import close_client as close_netschool
         from app.providers.petersburg import close_client

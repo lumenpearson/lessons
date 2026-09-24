@@ -756,7 +756,8 @@ class AuditEntry(Base):
 
 
 class DiarySession(Base):
-    """A signed-in session with the Petersburg electronic diary.
+    """A signed-in session with an electronic diary — Petersburg or another;
+    which one is in ``provider``.
 
     What is stored here is the upstream's own session token and nothing else.
     Not the password: the reference implementations this integration was
@@ -784,10 +785,13 @@ class DiarySession(Base):
     # Refreshed in place (and re-sealed) whenever the upstream hands back a new
     # one, which it does on most calls.
     upstream_token: Mapped[str] = mapped_column(Text, nullable=False)
-    # Who signed in, for the "you are signed in as" line and nothing else.
+    # Who signed in. Shown on the "you are signed in as" line, and also the key
+    # a family's corrections hang on (`services/diary.py:owner_key`), so the
+    # same login re-used later lays its overrides over the same lessons.
     login: Mapped[str] = mapped_column(String(200), nullable=False)
-    # The Telegram account this session belongs to, when it was created from a
-    # linked device. Null for a session created by login alone.
+    # The Telegram account this session belongs to. Set when the session was
+    # opened from the bot's sign-in ticket (`api/diary_web.py`); NULL for the
+    # phone's `POST /api/v1/diary/login`, which has no Telegram account.
     telegram_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
     # The class the session was opened from, when it was opened in the bot.
     # Carried so that leaving a class can take its diary session with it, and
