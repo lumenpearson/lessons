@@ -4,11 +4,23 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **22 September 2026**. **PRs #63 through #85 are merged**; `main` is at
-`ef07739`, the merge of #85. **The only thing open is the pull request carrying this
-paragraph**, which opens the repository's issue tracker and moves the work to a local
-machine. Once it merges, `dev` is level with `main` again, and the SHA of that merge is for
-the next close-out to write.
+Last updated: **24 September 2026**. **PRs #63 through #85, #128 and #129 are merged**;
+`main` is at `a43c6e8`, the merge of #129, and `dev` is level with it. **The only thing
+open is the pull request carrying this paragraph**: it closes out #128 and #129, and it fixes
+the two documentation defects found while writing it (#131, #132). The SHA of its own merge
+is for the next close-out to write.
+
+**Nothing in the code has moved since #85.** #128 and #129 changed only documentation and
+agent configuration: the tracker, the move to a local machine and the rule that a found
+defect becomes an issue before it becomes a fix. So the gates are where #85 left them, and
+this close-out quotes them rather than running them again.
+
+**What is left is the twenty-two open issues, and the next step is on a device.** **#109**
+is the epic and **#110–#117** are its children on `v0.8.0 — On a device`. **#118–#122** are
+the owner's alone. **#130** is the one item a cloud session can do end to end: a reference
+document mapping every region's diary platform and its API, from the source code of open
+clients. #123–#127 are `status:someday`. **#131** and **#132** are closed by this pull
+request.
 
 **Two things changed about how this project is tracked, and they are the reason to read on
 before planning anything.**
@@ -17,15 +29,17 @@ before planning anything.**
 with no emulator, no `adb` and no device. The section «Where the work happens from here»
 below says what that unlocks and what it still cannot do; **#109** is the epic.
 
-**The repository has issues now, and until this batch it had none at all** — the milestones
-were the only grouping the history had. Forty-two were opened in one go: **#86–#108 closed**
-for what was built and what each bug sweep found, **#109–#127 open** for the whole of what
-is left. The open ones are the backlog; several of them record a decision *not* to do
-something, so that a later session does not re-discover it as an oversight.
+**The repository has issues now, and until #128 it had none at all.** Before that, the
+milestones were the only grouping the history had. Forty-two issues were opened in one go:
+**#86–#108**, closed, for what was built and what each bug sweep found, and **#109–#127**,
+open, for the whole of what was left. Several of the open ones record a decision *not* to do
+something, so that a later session does not re-discover it as an oversight. From #129 on, a
+found defect becomes an issue before it becomes a fix. #131 and #132 are the first two filed
+under that rule.
 
-**The database is at head `0014`** and has not moved for five batches. **No server code
-changed in the last batch** — not a model, not an endpoint — but four tests joined it, so
-the server gates were run rather than quoted: `ruff` clean, `pytest -q -n auto` **1634
+**The database is at head `0014`** and has not moved since #77. **No server code
+changed in #85** — not a model, not an endpoint — but four tests joined it, so the server
+gates were run rather than quoted: `ruff` clean, `pytest -q -n auto` **1634
 passed**, `python -m mypy` clean across 84 modules. There was no migration to write, let
 alone to apply; that is a fact about the batch rather than a thing left undone.
 `EXPECTED_REVISION` in `app/db.py` is `0014`, pinned to the real head by
@@ -49,8 +63,9 @@ that the migration and the code actually met. It is outstanding since #61.
 
 ## Where the work happens from here: a local machine
 
-**This is the last batch built in a cloud session, and the change is one of venue rather
-than of direction.** Everything up to and including #85 was made with no emulator, no `adb`
+**#128 was meant to be the last batch built in a cloud session, and the change is one of
+venue rather than of direction.** This close-out was still written from one, since it needs
+no device, and so can #130 be. Everything up to and including #85 was made with no emulator, no `adb`
 and no device. That is what produced a project with 968 Android tests, 1634 server tests —
 and a section 5 of this document that has only ever grown, because the things in it are not
 things a JVM test can be asked.
@@ -83,7 +98,7 @@ Vercel can go in one.
 
 ### And the work has a tracker now
 
-**Until this batch there were no issues in this repository at all** — the milestones were
+**Until #128 there were no issues in this repository at all** — the milestones were
 the only grouping the history had, and everything else lived in this document's prose.
 Forty-two issues were opened in one go: **#86–#108 closed**, describing what was built and
 what each bug sweep found, and **#109–#127 open**, which are the whole of what is left.
@@ -98,7 +113,35 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: the gesture #84 shipped did nothing, and the variables nobody could find
+## What the last session added: the tracker (#128), its rule (#129), and this close-out
+
+Documentation and agent configuration only. No model, endpoint, screen or test changed, so
+the gates stand exactly where #85 measured them.
+
+- **#128** opened the issue tracker: forty-two issues, #86–#108 closed and #109–#127 open,
+  labelled `type:`, `area:`, `status:` and `needs:`. It also moved the work to a local
+  machine with an emulator and a phone, and wrote down what that unlocks and what it still
+  cannot do. That is the section «Where the work happens from here» above.
+- **#129** made it a standing rule that a found defect becomes an issue before it becomes a
+  fix, with one issue per finding, `Closes #NN` in the pull request and both numbers in the
+  release notes. The rule is in `CLAUDE.md` and in the `audit`, `github-pr` and `release`
+  skills. The owner created the ninth milestone, `v0.8.0 — On a device`, and #129 put its
+  number into the tables.
+- **#130** was opened by the owner on 23 September: map every region's diary platform and
+  the API its open clients use, as a document in `docs/`, with no code. It is `status:now`
+  and needs no device, so it is the natural first task for a session that has none.
+- **This close-out** fixes two defects that were found while writing it, and each got its
+  issue first. **#131**: #129 left the milestone table's `Dependencies` row stranded below
+  two paragraphs, so GitHub drew a table without it. **#132**: `CLAUDE.md` still quoted 1610
+  server tests, while the other three places say 1634. `CLAUDE.md` is not on the `handover`
+  skill's list of places where the count lives, which is how it drifted. The list is left as
+  it is: the `Commands` line is the only count in `CLAUDE.md`, and one more place to remember
+  is what this issue now records.
+
+**Nothing new has been verified.** Everything in sections 5 and 7 still stands, and both
+already point at their issues. `/api/v1/warmup` has still not been read since #61 (#119).
+
+## What the session before it added: the gesture #84 shipped did nothing, and the variables nobody could find
 
 Open as PR #85, in the milestone `v0.7.0 — Оптимизация`. It is one defect, and it is the
 defect that the feature merged an hour earlier did not work: **a tab dragged to another slot
@@ -1918,7 +1961,8 @@ released, so `versionName` is still the `0.1.0` default.
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
 | 8 | `v0.7.0 — Оптимизация` | #75–#85, #128 — the one Russian title |
-| 9 | `v0.8.0 — On a device` | issues #109–#117 — **the current one** |
+| 9 | `v0.8.0 — On a device` | issues #109–#117, #130–#132; #129 and the close-out after it — **the current one** |
+| 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **Nothing in a session here can create a milestone**, only attach one — the owner created
 the ninth on 22 September 2026 and issues #109–#117 are on it. **It is the first milestone
@@ -1928,7 +1972,6 @@ without an emulator or a phone.
 From here the rule is in `CLAUDE.md` and in the `audit`, `github-pr` and `release` skills:
 a found defect becomes an issue before it becomes a fix, the pull request ties itself to it
 with `Closes #NN`, and a release explains every change with both numbers beside it.
-| 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **What that rule had to record is what a session cannot do.** Nothing here creates a
 milestone or even lists one — no tool, no `gh` CLI, and `issue_write` accepts only a number
