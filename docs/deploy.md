@@ -299,11 +299,16 @@ from `create_all` — on ours it does not, because the DDL for `0009` came from 
 no-op: all eight really were nullable, and all eight held no nulls, so it tightened them and
 rewrote nothing. `0013` adds `uq_homework_per_subject_per_day`. `0014` widens
 `day_overrides.kind` to `VARCHAR(10)`: `DayKind` gained `SELF_STUDY`, and a `SAEnum`
-stores the member name, so the column is as wide as the longest of them.
+stores the member name, so the column is as wide as the longest of them. `0015` adds the
+columns a second diary provider needs: `diary_sessions.provider` and `region` and the three
+keep-alive clocks, and `classes.diary_region`, `diary_school_id` and `diary_school_name` —
+eight nullable columns, additive, applied before the merge. Its downgrade expires every
+non-Petersburg session first, so code rolled back past this revision cannot read a «Сетевой
+город» credential as Petersburg's and replay it at the wrong upstream.
 
 Everything up to `0012` checks with an inspector what is not in the database yet and does
 not rewrite existing tables, so those can be applied to a live class in the middle of a
-school day. The head is `0014`.
+school day. The head is `0015`.
 
 ### A migration goes BEFORE the deploy, not after
 
@@ -336,7 +341,7 @@ into the database by hand:
 curl -s https://<your-project>.vercel.app/api/v1/warmup
 ```
 
-`{"status":"ok","schema":"0014"}` means it all lines up. `"status":"degraded"` together with
+`{"status":"ok","schema":"0015"}` means it all lines up. `"status":"degraded"` together with
 `expected_schema` names both revisions and says which way they diverged: «База отстала от
 кода» — the database is behind the code — is an incident, while «База впереди кода» — the
 database is ahead — is the normal window between steps 1 and 2, which the deploy closes.
@@ -346,7 +351,7 @@ a ping meant to warm things up would keep waking a sleeping Neon.
 ### What to apply them with
 
 In practice this project's migrations are applied **through the Neon connector** rather than
-with the `alembic` command — that is how `0005`–`0014` were applied. The Neon project is
+with the `alembic` command — that is how `0005`–`0015` were applied. The Neon project is
 called `lessons`; its identifier is not kept in the repository — anybody with access sees it
 in the Neon console anyway, and in a public repository it is just the address of somebody
 else's database.
@@ -490,7 +495,7 @@ stack instead of being buried in the API's log, and so that a migration can be r
 with `docker compose run --rm migrate`. It needs only `DATABASE_URL`: `get_settings()` is
 never called there, so `BOT_TOKEN` and `OWNER_IDS` are not its business.
 `GET /api/v1/warmup` is what confirms the result, and it is the endpoint that can: it says
-`{"status": "ok", "schema": "0014"}` when the two agree and names both revisions when they
+`{"status": "ok", "schema": "0015"}` when the two agree and names both revisions when they
 do not.
 
 The app on the phone needs to reach the API. The options are a public IP with a forwarded
@@ -577,6 +582,11 @@ Without those secrets the workflow does not fail: it writes a notice and exits z
 Actions tab would go red for everybody who cloned the repository.
 
 The same tick also sweeps up abandoned bot dialogues and expired records of failed code
-attempts — on serverless that is the only moment anything can be swept up at all. For the
-sweeping, whatever GitHub deigns to run is enough; for the digests it is not, which is why
-the external cron is not a nice-to-have but the condition of what the bot says.
+attempts — on serverless that is the only moment anything can be swept up at all — and it
+holds **«Сетевой город» sessions open**, pinging each live one before its 15-to-60-minute
+idle window runs out, because this project stores no password to sign back in with. For the
+sweeping, whatever GitHub deigns to run is enough; for the digests and the keep-alive it is
+not — a session dies in the gaps GitHub leaves — which is why the external cron is not a
+nice-to-have but the condition of both what the bot promises and whether a «Сетевой город»
+family stays signed in. The keep-alive runs last in the tick and inside its own guard, so a
+diary that is slow or down never fails the tick and reddens the clock.

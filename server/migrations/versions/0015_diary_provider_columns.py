@@ -30,7 +30,7 @@ On ``classes``:
   because it is a foreign system's id, so ``BigInteger``.
 - ``diary_school_name`` — what the class card and the sign-in form show.
 
-**Destroys nothing.** Seven nullable columns with no default and no constraint.
+**Destroys nothing.** Eight nullable columns with no default and no constraint.
 The running code neither writes nor reads them, so every row inserted in the
 window before the deploy lands has a ``NULL`` provider, which is Petersburg —
 exactly what that code already assumes.

@@ -53,7 +53,7 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 84 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 97 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. Not in CI — the
   owner has not been asked — but run it before you push server code
@@ -366,7 +366,7 @@ points Hilt does not inject cleanly.
   class's binding and grouped per origin for the keep-alive without unsealing
   the credential), three keep-alive clocks (`kept_alive_at`,
   `keepalive_attempted_at`, `upstream_ok_at`), and on `classes` the binding
-  `diary_region`, `diary_school_id` and `diary_school_name`. All seven are
+  `diary_region`, `diary_school_id` and `diary_school_name`. All eight are
   nullable and additive — the ordinary shape, on **before** the merge — and
   rewrite no row; a NULL `provider` on an existing session means Petersburg, the
   only diary before the column. Its downgrade expires every non-Petersburg

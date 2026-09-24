@@ -62,8 +62,8 @@ on serving every webhook.
 
 What it deliberately does *not* hold is written out at the top of the module:
 the engine, which is built at import so that an unusable `DATABASE_URL` fails
-at the door rather than on the first query, and the two providers' HTTP
-clients, which are already process-wide singletons closed in the lifespan.
+at the door rather than on the first query, and the provider HTTP clients,
+which are already process-wide singletons closed in the lifespan.
 
 Two things to know before adding to it. The container is built with
 `STRICT_VALIDATION`, so declaring a second provider for a type that already has
@@ -299,7 +299,7 @@ can swap wholesale.
 
 ## The service layer, and why the phone does not log in
 
-`server/app/services/` is nineteen modules of pure async functions over a session, and
+`server/app/services/` is twenty-one modules of pure async functions over a session, and
 they exist for exactly one reason: every feature of the product now has two entrances, the
 bot and the app. Homework is added by a command in a chat and by a button on a phone; so
 are a substitution, an event and a special day. Two implementations of one rule would have
@@ -339,26 +339,59 @@ lifetimes and the reasoning behind them are in `api.md`, in the section about
 
 ## Somebody else's service behind one door
 
-`server/app/providers/petersburg/` is the integration with St Petersburg's electronic
-diary. The service is undocumented: its addresses, its parameter names and the shapes of
-its answers were established from the open clients that talk to it, and used as a map
-rather than copied. Everything else about how this directory is arranged follows from that.
-What every other region runs, and the routes of each of those platforms as their open clients
-call them, is surveyed in [diaries.md](diaries.md) — the map a second provider would be
-written from.
+An electronic diary is a family's account in a service this project does not run, does not
+document and cannot change. There are two of them now, and the shape they meet is the point
+of the whole integration. `server/app/providers/diary/` holds what every provider shares:
+the models the rest of the application reads, the error family a route turns into a status
+code, the `DiaryProvider` / `DiaryConnection` contract a provider implements, an HTTP client
+whose cookie jar keeps nothing (so two families' sessions can never meet), and a `registry`.
+`services/diary.py` opens whichever provider a session row names and calls it through that
+contract; it never learns which upstream is behind it.
 
-The boundary is drawn in three files and held by them:
+- **`app/providers/petersburg/`** — «Петербургское образование» (`dnevnik2.petersburgedu.ru`),
+  the first provider and still the only one that signs in with an email and a password alone.
+- **`app/providers/netschool/`** — «Сетевой город. Образование», the diary of about twenty
+  regions on one route set (`/webapi`) served from a different regional host in each. It is
+  server-side only, and **it has never met a live server**: every upstream shape is read from
+  open-source clients and hand-written payloads, exactly as Petersburg's was (#121, #135).
+
+What every region of the country runs, and the routes of each platform as its open clients
+call them, is surveyed in [diaries.md](diaries.md); [diaries/netschool.md](diaries/netschool.md)
+is the reference page «Сетевой город» was written from.
+
+Petersburg pre-dates the seam and went behind it **byte-for-byte**. Every public name it had
+— `PetersburgError`, the mapper functions, `today` — is now a re-export of the object defined
+in `diary/`, so `PetersburgError` *is* `DiaryError` and nothing that imported the old names
+broke; a thin `petersburg/provider.py` wraps the existing client and mapper behind the
+contract. Rewriting the one provider a real account has been promised against, for behaviour
+no reader would see, was the change deliberately not made.
+
+`registry.py` answers two questions in one place. `provider_for(key)` maps a stored key to an
+implementation, importing the provider module lazily so neither upstream's HTTP client lands
+on the cold-start path of a request that does not use it. `binding(school_class)` resolves
+what a class is bound to; the bot menu, the class card and the web form all call it, so "is
+this class bound, and to what" has a single answer, and a class bound to a «Сетевой город»
+region since dropped from the allow-list reads as unbound rather than as a dead name.
+
+The boundary each provider draws is three files, and it holds them:
 
 | File | Knows |
 | --- | --- |
-| `client.py` | the addresses, the parameters, the session cookie, the date formats |
+| `client.py` | the addresses, the parameters, the session token, the date formats |
 | `mapper.py` | what the fields in the answers are called, and what code 30000 means |
-| `models.py` | none of the above — these are our own application's models |
+| the shared `diary/models.py` | none of the above — these are our own application's models |
 
-Above `models.py`, nobody knows the words `p_educations[]`, `estimate_value_name` or
-`X-JWT-Token`. When a field is renamed upstream, `mapper.py` is what gets fixed; when an
-endpoint moves, `client.py` is. The public API and the Android app do not change, and that
-is what the whole arrangement was for.
+Above the models, nobody knows the words `p_educations[]`, `X-JWT-Token`, `weekDays` or the
+`at` bearer. When a field is renamed upstream, that provider's `mapper.py` is what gets
+fixed; when an endpoint moves, its `client.py` is. The public API and the Android app do not
+change, and that is what the whole arrangement was for.
+
+**Nothing turns free text into a host.** «Сетевой город» is one route set proxied to a server
+chosen by region, so its `regions.py` is an allow-list first and a directory second: a region
+key that reaches sign-in — from a client body, a class row or a sealed credential — is looked
+up there, and one not in the table is refused before any network call. That is the whole SSRF
+guard. The shared client follows no redirect and never turns TLS verification off, so the
+session bearer cannot ride a cross-origin 30x to another host.
 
 The mapper is deliberately lenient: a field is looked for under every name it has ever
 appeared under, and a row that could not be read is dropped rather than failing the
@@ -374,15 +407,19 @@ that is not a bad row any more, it is a changed response shape, and a `WARNING` 
 with the list of keys that arrived: an empty week caused by a renamed field and an empty
 week caused by the holidays look identical from above otherwise.
 
-The password is not stored. A login is needed for one request, after which the service's own
-session is what lives on, refreshed from its own answers. When it dies, the request answers
-`401` with `X-Diary-Reauth: required`, and the app asks for the password again. The price is
-that a background sync of the diary does not outlive the session; the price of the
-alternative is every family's password in the database.
+The password is not stored, for either diary. A login is needed for one request, after which
+the upstream's own session is what lives on. Petersburg refreshes it from its own answers and
+we simply keep the newest; «Сетевой город» idles a session out in 15–60 minutes, so the cron
+tick keeps each live one alive with `GET /webapi/context` (the mechanism is in
+[deploy.md](deploy.md#the-clock-the-server-has-none-and-githubs-will-not-do), the counters in
+[api.md](api.md)). When a session dies either way, the request answers `401` with
+`X-Diary-Reauth: required` and the app asks for the password again. The price is that a
+background sync of the diary does not outlive the session; the price of the alternative is
+every family's password in the database.
 
 ## Testing
 
-1634 tests on the server, 968 on Android; `pytest -q -n auto` and `./gradlew test`, both
+1668 tests on the server, 968 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 286,
 `:core:designsystem` 95, `:widget` 90, `:app` 368.
 

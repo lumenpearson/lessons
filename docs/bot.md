@@ -472,10 +472,15 @@ replaces SQLite's ASCII-only version with Python's on every connection, so
 
 ## The electronic diary — «📒 Мой дневник»
 
-An admin binds the class in **⚙️ Класс → 📒 Привязать дневник**. Binding gives
-the class *nothing*: it puts one button on every member's menu, and behind that
-button is each member's own dnevnik2 account. Nobody in the class sees anybody
-else's child.
+An admin binds the class in **⚙️ Класс → 📒 Привязать дневник**. That is no longer a
+single toggle: with a second diary it opens a chooser. «Петербургское образование»
+binds in one press; «Сетевой город» asks for the **region**, then the **school**. The
+region step probes that region's sign-in options first, so an admin learns once that a
+Госуслуги-only region cannot be bound, rather than every family finding out at sign-in;
+the school step searches the region's own server by name and offers what it found. Binding
+gives the class *nothing*: it puts one button on every member's menu, and behind that button
+is each member's own account with the bound diary. Nobody in the class sees anybody else's
+child.
 
 That is enforced rather than asserted. Every lookup in `handlers/diary.py`
 starts from `callback.from_user.id`, and a session is found by
@@ -484,11 +489,17 @@ presser's own diary or nothing at all. The class half matters too: a parent in
 two classes must not read one child's diary from the other class's screen.
 
 **The password never enters Telegram.** «🔐 Войти в дневник» hands out a link to
-`/diary/signin/<ticket>`, a page this app serves itself. The password goes from
-that browser straight to dnevnik2 and is written down nowhere — not in the chat
+`/diary/signin/<ticket>`, a page this app serves itself. Its subtitle names the bound
+diary — and, for «Сетевой город», its region and school (the school name escaped, because
+it came from the upstream's search) — so the family can see where the password is going.
+The password goes from that browser straight to the bound diary (dnevnik2 for Петербург,
+the region's own server for «Сетевой город») and is written down nowhere — not in the chat
 history, not on Telegram's servers, not in the notification on a locked screen,
-not in the phone's backup. A ticket is worth **one** sign-in for fifteen
-minutes for one Telegram account in one class; a GET checks it without spending
+not in the phone's backup. The form re-reads the class's binding at both the GET and the
+submit, so a class unbound or rebound since the link was made refuses before the password
+is sent, rather than sending it to a diary the family is no longer looking at. A ticket is
+worth **one** sign-in for fifteen minutes for one Telegram account in one class; a GET
+checks it without spending
 it (Telegram fetches link previews by itself), a POST spends it before
 attempting the sign-in, and a malformed form does not spend it at all. The one
 failure that hands the ticket back is a diary that did not answer — a transport
@@ -511,8 +522,8 @@ with several children is asked once, in **👥 Ребёнок**, and the answer 
 the session. **Выйти** drops every session this account holds in this class —
 one row is one sign-in and nothing expires an earlier one, so «вышли» that
 dropped only the newest left the next press walking straight back in; the other
-class of a parent with two children is untouched. The upstream is not told,
-because it has no logout that can be called without a browser.
+class of a parent with two children is untouched. The upstream is told goodbye where it
+can be: «Сетевой город» has a logout that works without a browser, Петербург does not.
 
 An empty answer is always said, never drawn as a blank: the upstream returns
 nothing for the holidays, for a day it has no data for, and for a register a teacher
@@ -659,9 +670,10 @@ renderer.
   a row is only a number.
 * **Cut before escaping, never after.** Cutting an escaped string can leave
   «&am», which is a refused message of its own.
-* **Everything from outside is escaped.** Anything the Petersburg diary sends,
-  anything typed into the bot or pasted into the timetable grammar (a subject
-  really can be «Алгебра <7>»), and anything out of the schools registry.
+* **Everything from outside is escaped.** Anything a diary sends — Петербург's or
+  «Сетевого города»'s, down to a school name from its search — anything typed into the bot
+  or pasted into the timetable grammar (a subject really can be «Алгебра <7>»), and
+  anything out of the schools registry.
 * **An alert is not a card.** `answerCallbackQuery` takes no parse mode, so a
   card built for a message shows its own tags in the popup, and Telegram answers
   400 past 200 characters — which means the press answers nothing at all.

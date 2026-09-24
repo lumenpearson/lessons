@@ -26,7 +26,7 @@ time zones from Kaliningrad to Kamchatka.
 | **Notifications** — the bell, the morning digest, tomorrow's homework, substitutions | local alarms, no push | [docs/design.md](docs/design.md#notifications) |
 | **Bot** — and the admin panel: roles, timetable, bells, subjects, the log, who may connect a phone | aiogram 3 | [docs/bot.md](docs/bot.md) |
 | **Server** — reads and writes over `/api/v1`, the reminder tick, the calendar | FastAPI, SQLAlchemy 2, Alembic | [docs/api.md](docs/api.md) |
-| **Petersburg electronic diary** — the family's timetable, assignments and marks, with corrections laid over them | a separate account, behind one boundary | [docs/api.md](docs/api.md#the-petersburg-electronic-diary) |
+| **Electronic diary** — the family's timetable, assignments and marks, with corrections laid over them; «Петербургское образование» and «Сетевой город» behind one boundary | a separate account | [docs/api.md](docs/api.md#the-electronic-diary) |
 
 One process and one database: the bot and the client-facing API live together, and the
 rule by which something changes lives in one place for both —
@@ -175,7 +175,7 @@ The index is [docs/README.md](docs/README.md). In short:
 
 * [docs/guide.md](docs/guide.md) — how to use it: first run, widget, notifications, bot, diary
 * [docs/architecture.md](docs/architecture.md) — how it is all put together and why exactly so
-* [docs/api.md](docs/api.md) — the `/api/v1` contract, including the Petersburg diary
+* [docs/api.md](docs/api.md) — the `/api/v1` contract, including the electronic diary
 * [docs/bot.md](docs/bot.md) — roles, invitations by phone number, editing the timetable
 * [docs/widget.md](docs/widget.md) — sizes, states, the update schedule
 * [docs/build.md](docs/build.md) — building the APK, signing, releases, pointing it at a server
@@ -197,8 +197,8 @@ Read this before planning a release.
 | Check | Result |
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
-| `python -m mypy` | clean, 84 modules — asks whether anything reaches for an attribute that does not exist |
-| `pytest -q -n auto` | 1634 tests, green, about four minutes — the command CI runs |
+| `python -m mypy` | clean, 97 modules — asks whether anything reaches for an attribute that does not exist |
+| `pytest -q -n auto` | 1668 tests, green, about four minutes — the command CI runs |
 | `./gradlew test` | 968 tests, green, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
@@ -230,11 +230,16 @@ nothing about what happens on the screen. Covered by nothing:
 Material 3 Expressive and Glance 1.3.0-alpha02 are alphas. They compile, but nobody has
 measured how they behave across Android versions.
 
-The electronic diary in the bot has never once been opened against the real
-dnevnik2.petersburgedu.ru — neither the sign-in page nor any of the four screens. The
-tests run a hand-written stub in place of the diary: that is the only honest way to check
-an integration with an undocumented service, but it says nothing about what that service
-actually answers. No browser has ever opened the sign-in page.
+The electronic diary has never once been opened against a real server. Not Petersburg's
+dnevnik2.petersburgedu.ru — neither the sign-in page nor any of the four screens — and not
+«Сетевой город. Образование», the second provider, which is **written server-side only and
+has never met a live regional server**: its password sign-in, its keep-alive, its region
+allow-list and its weekly-diary mapping are read from open-source clients and exercised on
+hand-written payloads, exactly as Petersburg's were. The tests run a hand-written stub in
+place of each: that is the only honest way to check an integration with an undocumented
+service, but it says nothing about what that service actually answers. No browser has ever
+opened the sign-in page for either, and the first live session, for both, is the owner's
+(#121, #135).
 
 **Week parity was computed from the ISO week number, and that broke once every five or six
 years.** In an ISO year with 53 weeks, week 53 and week 1 stand next to each other and are
@@ -396,7 +401,7 @@ one of them is proved by a test rather than by a screen.
   Robolectric, against a fake. Which of the four a phone shows when pointed at production,
   nobody has watched.
 * **`/api/v1/warmup` itself has not been read since #61**, when it answered
-  `{"status":"ok","api_version":1,"schema":"0013"}`. Production is at `0014` now, so it
+  `{"status":"ok","api_version":1,"schema":"0013"}`. Production is at `0015` now, so it
   should say so, and that one request is the cheapest check of whether the migration and
   the code that needs it actually met — but the deployment previews sit behind Vercel's
   protection, and nobody has made the check against production either.

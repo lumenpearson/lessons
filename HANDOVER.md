@@ -4,26 +4,34 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **24 September 2026**. **PRs #63 through #85, #128, #129 and #133 are
-merged**; `main` is at `5a77d14`, the merge of #133. `dev` is still at `a43c6e8`, the merge
-of #129, because #133 went in from a branch of its own. It is behind `main` and has
-nothing `main` lacks, so bringing it level is a fast-forward. **The only thing open is the
-pull request carrying this paragraph, #134**, from `claude/school-diary-api-routes-cc4o1n`.
-It closes #130 with a map of every region's electronic diary and the routes its platform
-exposes. The SHA of its own merge is for the next close-out to write.
+Last updated: **24 September 2026**. **PRs #63 through #85, #128, #129, #133 and #134 are
+merged**; `main` is at `fa4fe0c`, the merge of #134. `dev` is still at `a43c6e8`, the merge
+of #129, because #133 and #134 each went in from a branch of their own. It is behind `main`
+and has nothing `main` lacks, so bringing it level is a fast-forward. **The only thing open
+is the pull request carrying this paragraph, #140**, a **draft** from
+`claude/school-diary-api-routes-cc4o1n`. It closes #136, #137, #138 and the feature epic
+#139. It **cannot merge yet**: the owner chose a new — tenth — milestone for it, e.g.
+«v0.9.0 — A second diary», and nothing in a session here can create a milestone, so it stays
+a draft with **no milestone** until the owner makes it. The SHA of its own merge is for the
+next close-out to write.
 
-**Nothing in the code has moved since #85.** #128, #129 and #133 changed documentation and
-agent configuration. #134 changes documentation only: `docs/diaries.md`, `docs/diaries/`,
-and the lines that count or link them in `CLAUDE.md`, `README.md`, `docs/README.md`,
-`docs/architecture.md` and the `docs-keeper` agent. So the gates are where #85 left them,
-and this close-out quotes them rather than running them again.
+**Code moves again, after four documentation-only batches.** #128, #129, #133 and #134
+changed documentation and agent configuration only, so «nothing in the code has moved since
+#85» stood through all of them. #140 ends that: it adds a second electronic diary, «Сетевой
+город» (ИРТех NetSchool), behind a provider-neutral seam under `server/app/providers/diary/`,
+and Петербург goes behind the same seam byte-for-byte unchanged. Two new provider packages
+joined and server files across the api, bot, services and models changed, so the server gates
+were **run**, not quoted (below), and a migration was written (`0015`) that is **not yet
+applied**. The Android app was **not** touched — it stays Petersburg-only until batch 2, the
+owner's «server first» decision.
 
-**Once #134 merges, twenty issues are open, and the next step is on a device.**
-**#109** is the epic and **#110–#117** are its children on `v0.8.0 — On a device`.
-**#118–#122** are the owner's alone, and #123–#127 are `status:someday`. **#130** was the
-one item a cloud session could do end to end, and #134 closes it. What it found is
-**#135**, the owner's too: three decisions that come before any second diary provider is
-written.
+**Once #140 merges, four issues close (#136–#139) and twenty stay open.** **#109** is the
+epic and **#110–#117** are its children on `v0.8.0 — On a device`. **#118–#122** are the
+owner's alone, and #123–#127 are `status:someday`. **#135** — the owner's decision about
+which diary comes second, how a family signs in, and whether ТОР may be used — **stays
+open**: this batch answers its first part (it is «Сетевой город», and it takes a password)
+but leaves the Госуслуги and ТОР questions to the owner. #136, #137 and #138 are the three
+diary defects this batch fixed, and #139 is the feature epic it delivers.
 
 **Two things changed about how this project is tracked, and they are the reason to read on
 before planning anything.**
@@ -40,18 +48,21 @@ something, so that a later session does not re-discover it as an oversight. From
 found defect becomes an issue before it becomes a fix. #131 and #132 are the first two filed
 under that rule.
 
-**The database is at head `0014`** and has not moved since #77. **No server code
-changed in #85** — not a model, not an endpoint — but four tests joined it, so the server
-gates were run rather than quoted: `ruff` clean, `pytest -q -n auto` **1634
-passed**, `python -m mypy` clean across 84 modules. There was no migration to write, let
-alone to apply; that is a fact about the batch rather than a thing left undone.
-`EXPECTED_REVISION` in `app/db.py` is `0014`, pinned to the real head by
-`tests/test_schema_version.py`. `0014` was applied to Neon before #77 merged, as an additive
-revision should be — it widened `day_overrides.kind` from `VARCHAR(9)` to `VARCHAR(10)`,
-because `DayKind` gained `SELF_STUDY` and a `SAEnum` column stores the member *name*. #83
-closed the class that revision belonged to: a pinned table of the ten enum column widths now
-fails when a member's **name** outgrows its column, which SQLite cannot see and production
-Postgres finds at the moment somebody marks a day.
+**The code now expects head `0015`; the production database is still at `0014`, and `0015`
+has not been applied.** `EXPECTED_REVISION` in `app/db.py` moved to `0015` (revision
+`0015_diary_provider_columns`, pinned to the real head by `tests/test_schema_version.py`).
+It is **additive** — five nullable columns on `diary_sessions` (`provider`, `region`,
+`kept_alive_at`, `keepalive_attempted_at`, `upstream_ok_at`) and three on `classes`
+(`diary_region`, `diary_school_id`, `diary_school_name`), a `NULL` provider meaning
+Петербург — so like every additive revision in this chain it is applied to Neon **before**
+the merge. **This is the outstanding pre-merge action:** apply `0015` through the Neon
+connector (the project named `lessons`, read the name rather than guessing an id) before
+#140 merges; it destroys nothing. The server gates were run rather than quoted: `ruff`
+clean, `pytest -q -n auto` **1668 passed** (was 1634), `python -m mypy` clean across 97
+modules (`files = ["app"]`, 84 before the two new provider packages). The `0014` chapter
+still holds: #83's pinned table of the ten enum column widths fails when a `SAEnum` member's
+**name** outgrows its `VARCHAR`, which SQLite cannot see and production Postgres finds at the
+moment somebody marks a day.
 
 Production was read after #60 and again after #61, rather than assumed: `/api/v1/health`
 answered `{"status":"ok","api_version":1}` and `/api/v1/warmup` — which opens a real
@@ -61,8 +72,9 @@ found out why.** The deployments sit behind Vercel's Deployment Protection and a
 redirect to a login page, so `/api/v1/warmup` cannot be read from a session here at all —
 this is not an omission anybody can close with one more `curl`. It still wants reading, by
 the owner's browser or with a bypass token: #77 moved server code and the schema together,
-so the answer should now be `"schema":"0014"`, and that single line is the cheapest check
-that the migration and the code actually met. It is outstanding since #61.
+so the answer should read `"schema":"0014"` today — and `"schema":"0015"` once #140's
+migration is applied and its code deployed — and that single line is the cheapest check that
+the migration and the code actually met. It is outstanding since #61.
 
 ## Where the work happens from here: a local machine
 
@@ -116,7 +128,79 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: the electronic diary of every Russian region, and the routes each platform exposes
+## What the last session added: a second electronic diary, «Сетевой город», behind a provider-neutral seam
+
+Open as the **draft** PR #140, from `claude/school-diary-api-routes-cc4o1n`, closing #136,
+#137, #138 and #139. It **has no milestone yet** and cannot merge until the owner creates one
+(e.g. «v0.9.0 — A second diary»). Seven commits on `fa4fe0c`, `4c34cb5` through `9ceef0c`;
+the server gates were run, not quoted. **The Android app was not touched.**
+
+The project read one diary, Петербург's, wired straight into `services/diary.py` and
+`/diary/signin`. This batch puts a seam between the service and the provider, adds a second
+provider behind it, and reads either from the same bot and API.
+
+- **A provider-neutral diary seam** lives under `server/app/providers/diary/`: the shared
+  models, a `DiaryError` family (`PetersburgError` re-exported as an alias so nothing that
+  caught it breaks), a `DiaryProvider` / `DiaryConnection` `Protocol` contract, and a
+  `registry.py` whose `binding()` is the single resolver of a class's diary binding.
+  Петербург goes behind it **byte-for-byte unchanged**.
+- **«Сетевой город»** (`server/app/providers/netschool/`) — ИРТех NetSchool, the main diary
+  of about twenty regions, one route set for all. It carries a region **allow-list** (the
+  only origins ever contacted — the SSRF guard), windows-1251 salted-MD5 password sign-in,
+  the weekly diary mapped onto the existing models (homework is assignment type 3),
+  keep-alive, and school search for binding.
+- **The service dispatches by provider.** `POST /api/v1/diary/login` now accepts optional
+  `provider` / `region` / `school_id` (for the phone's future batch), and
+  `services/diary_keepalive.py` keeps every live session alive from `GET /api/v1/cron/tick`
+  with `GET /webapi/context`, within a batch cap and a time budget, never touching
+  `last_used_at`. `TickOut` gained `diary_sessions_kept_alive`, `diary_sessions_lost` and
+  `diary_keepalive_failed`.
+- **The bot binds and reads either diary.** An admin binds a class to «Сетевой город» through
+  a provider chooser → region → school-name search; the read path (`bot/handlers/diary.py`)
+  is provider-neutral — the sign-in card names the bound diary in the genitive, and a session
+  is keyed on the class's current provider.
+- **Three diary defects fixed (#136, #137, #138).** #136: revoking a member now drops their
+  diary sessions and links, not just invites and subscriptions, so a revoked member no longer
+  holds a live credential for thirty days. #137: `/diary/signin` re-checks the class binding
+  at submit and refuses **before** spending the ticket if the diary was unbound or rebound
+  after the ticket was issued. #138: four false diary comments corrected and two dead type
+  names removed.
+
+### Schema
+
+`EXPECTED_REVISION` is now `0015` (revision `0015_diary_provider_columns`), which adds the
+eight nullable columns named in the opening — five on `diary_sessions`, three on `classes`. It
+is **additive** and **must be applied to Neon before the merge**; it has **not** been applied
+yet, and the production database is still at `0014`. A `NULL` provider means Петербург, so the
+running code is happy without the columns and the code that needs them is #140's.
+
+### What was deliberately left alone
+
+- **Госуслуги (ЕСИА) sign-in.** Some regions have switched passwords off and answer with a
+  clear refusal, which the client surfaces as `SignInUnsupported`. Driving ЕСИА ourselves is
+  #135's decision, not this batch's.
+- **The refresh-token grant (LoginType 9).** It exists in the client but is unverified live.
+- **SignalR reports** — final marks, attendance letters — are not read.
+- **Everything on the phone.** The Android app stays Petersburg-only until batch 2 (region and
+  school at sign-in, the zone from the server, neutral strings). That «server first» order was
+  the owner's decision.
+
+### Gates
+
+Run on the final head, not quoted: `ruff check app tests scripts migrations` clean;
+`pytest -q -n auto` **1668 passed** (was 1634); `python -m mypy` **Success** across 97 modules
+(`files = ["app"]`, 84 before the two provider packages joined). Android was not touched, so
+`./gradlew test` was not re-run and stands at **968**.
+
+### What nobody has verified in this batch
+
+**No code here has met a live «Сетевой город» server with a real account.** Every upstream
+shape — the salted-MD5 sign-in dance, `/webapi/context`, the weekly diary, the school search —
+is from open-source clients and hand-written test payloads, never from a server seen
+answering. The first live sign-in is the owner's (#121, #135), the same caveat that stands
+for Петербург.
+
+## What the session before it added: the electronic diary of every Russian region, and the routes each platform exposes
 
 Open as PR #134, from `claude/school-diary-api-routes-cc4o1n`, in the milestone
 `v0.8.0 — On a device`; it closes #130. **Documentation only.** No file under `server/`,
@@ -200,7 +284,7 @@ passed. What was checked instead, on the final head:
 - every table row has its header's column count;
 - the redaction scan finds no credential.
 
-## What the session before it added: the tracker (#128), its rule (#129), and their close-out (#133)
+## What the batch before added: the tracker (#128), its rule (#129), and their close-out (#133)
 
 Documentation and agent configuration only. No model, endpoint, screen or test changed, so
 the gates stand exactly where #85 measured them.
@@ -2049,8 +2133,13 @@ released, so `versionName` is still the `0.1.0` default.
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
 | 8 | `v0.7.0 — Оптимизация` | #75–#85, #128 — the one Russian title |
-| 9 | `v0.8.0 — On a device` | issues #109–#117, #130–#132; #129, #133 and #134 — **the current one** |
+| 9 | `v0.8.0 — On a device` | issues #109–#117, #130–#132; #129, #133 and #134 — the latest that **exists** |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
+
+**A tenth milestone does not exist yet, and #140 waits on it.** The second-diary work
+belongs to none of the nine — it is neither «On a device» nor a dependency bump — so the
+owner was asked to create a tenth, e.g. «v0.9.0 — A second diary», with the title and
+description already written. Until they do, #140 is a draft with no milestone.
 
 **Nothing in a session here can create a milestone**, only attach one — the owner created
 the ninth on 22 September 2026 and issues #109–#117 are on it. **It is the first milestone
@@ -2483,8 +2572,8 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 1634 tests, ~4 min (CI runs this)
-cd server  && python -m mypy                             # clean, 84 modules
+cd server  && pytest -q -n auto                          # 1668 tests, ~4 min (CI runs this)
+cd server  && python -m mypy                             # clean, 97 modules
 cd android && ./gradlew test                             # 968 tests across the five modules
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
@@ -2866,6 +2955,14 @@ an issue title cannot.
   ТОР «Моя школа» rests on one app build, 5.0.0.454, and its first-wave list rests on one
   official post. The first live session on any platform will correct its page. Whoever has
   it should edit the page by hand, because the generator is not in the repository.
+- **The «Сетевой город» provider has never met a live server.** #140 wrote the client, the
+  mapper, the keep-alive and the school search from open-source clients and hand-written test
+  payloads; no ИРТех server answers a cloud session, so none was called. Every upstream shape
+  — the salted-MD5 sign-in, `/webapi/context`, the weekly diary, the school search — is what a
+  client sends, not what a server was seen to accept. The refresh-token grant (LoginType 9)
+  and the Госуслуги refusal path (`SignInUnsupported`) are the least exercised of all. The
+  first live sign-in on it is the owner's, #121's caveat a second time; #135 is the decision
+  that precedes it.
 - **Nothing of the tab arranging has been seen on a phone, and it is a gesture.** #84 is a
   long press, a wobble and a drag; #85 is the drag actually reporting where it landed. What
   the 39 tests prove is arithmetic and contracts: where a drag of so many pixels lands, that
@@ -3672,12 +3769,21 @@ environment, #119 `/api/v1/warmup` and the bot's `/start`, #120 the external cro
 `DADATA_TOKEN`, #121 the real diary, #122 the widget's tick cadence and the diary
 credential's bound, #135 the second diary. Each carries the label `needs:owner`.
 
-**Decide what the second diary is before anybody writes it (#135).** `docs/diaries.md` is
-the map, and three things on it are decisions rather than research:
+**Create the tenth milestone so #140 can leave draft.** #140 adds the second diary and closes
+#136–#139, but it belongs to no existing milestone; nothing in a session here can create one,
+so it stays a draft until the owner makes a tenth (e.g. «v0.9.0 — A second diary») and
+attaches it, with the title and description already handed over.
 
-- **Which platform.** The survey's order is «Сетевой город» first: one route set, the
+**The keep-alive is only as alive as the cron (#120).** «Сетевой город» sessions are held
+open from `GET /api/v1/cron/tick`, so they lapse if the external cron does not tick;
+`.github/workflows/reminders.yml` is the fallback, not the clock, exactly as for the digests.
+
+**#140 answered the first of #135's three questions; the other two remain.** `docs/diaries.md`
+is the map:
+
+- **Which platform — settled.** #140 built «Сетевой город» server-side: one route set, the
   largest group of regions, and a password still accepted outside the regions that allow
-  Госуслуги only. The МЭШ family comes after it.
+  Госуслуги only. The МЭШ family comes after it. Against a live server it has not been read.
 - **How a family signs in**, now that Госуслуги is the only door in most regions. Either
   the server accepts a token a person brought from a browser, which is what every durable
   client does, or it drives ЕСИА itself and breaks whenever Госуслуги changes its login.

@@ -922,7 +922,7 @@ minutes but is only the fallback, for the measured reason in
 | `404` | `CRON_SECRET` is unset: the endpoint does not exist, like the webhook without its secret |
 | `403` | Wrong or missing header (constant-time comparison) |
 | `503` | `BOT_TOKEN` is unset: nothing to send with |
-| `200` | `{"morning": 1, "evening": 0, "tasks": 2, "failed": 0, "fsm_purged": 0, "join_attempts_purged": 3, "diary_sessions_purged": 0, "device_tokens_purged": 0, "diary_links_purged": 0, "device_invites_purged": 0}` |
+| `200` | `{"morning": 1, "evening": 0, "tasks": 2, "failed": 0, "fsm_purged": 0, "join_attempts_purged": 3, "diary_sessions_purged": 0, "device_tokens_purged": 0, "diary_links_purged": 0, "device_invites_purged": 0, "diary_sessions_kept_alive": 4, "diary_sessions_lost": 1, "diary_keepalive_failed": false}` |
 
 What is due is decided from each class's own clock and from what was already
 sent today, never from when the last tick ran - so a tick that runs twice in
@@ -944,6 +944,18 @@ runs between requests:
 has to work in September. A device in use is marked no less than once every 15 minutes, on
 any read.
 
+The same tick also **keeps «Сетевой город» sessions alive**. That diary idles a session out
+in 15–60 minutes and this project stores no password to sign back in with, so the tick pings
+each live one with `GET /webapi/context`, within a batch cap and a time budget, and never
+touches `last_used_at` — a ping must not look like the family using the session, or the
+30-day purge above would never fire. `diary_sessions_kept_alive` is how many were pinged
+alive, `diary_sessions_lost` how many the upstream had already dropped (they are expired, and
+the app is told to sign in again), and `diary_keepalive_failed` is `true` when the keep-alive
+itself raised — isolated so a diary fault never fails the whole tick and reddens the fallback
+clock. Petersburg sessions are not pinged; they refresh from their own answers. This depends
+on the external cron, not GitHub's fallback clock, which is too sparse to keep a session
+alive; [deploy.md](deploy.md#the-clock-the-server-has-none-and-githubs-will-not-do) says why.
+
 ## `GET /api/v1/health` and `GET /api/v1/warmup`
 
 Both unauthenticated. `/health` returns `{"status": "ok", "api_version": 1}` and
@@ -957,7 +969,7 @@ whether the schema is the one this code was written against. Three answers:
 
 | | Body | Meaning |
 | --- | --- | --- |
-| `200` | `{"status": "ok", "api_version": 1, "schema": "0014"}` | the database is reachable and at the revision the code expects |
+| `200` | `{"status": "ok", "api_version": 1, "schema": "0015"}` | the database is reachable and at the revision the code expects |
 | `200` | `{"status": "degraded", …, "schema": …, "expected_schema": …, "detail": …}` | both revisions named, and `detail` says **which way** they diverge |
 | `503` | `{"status": "down", "api_version": 1, "detail": "База недоступна."}` | the database could not be reached |
 
@@ -977,18 +989,25 @@ The app draws all of this as a badge on **Настройки → О прилож
 the one place in the interface that tells those four apart. See
 [design.md](design.md#the-about-footer).
 
-## The Petersburg electronic diary
+## The electronic diary
 
 A separate surface under `/api/v1/diary`. Separate because it is a different thing:
 `/api/v1` hands out the class's timetable, which the bot fills in, while this is one
-family's account in somebody else's service, `dnevnik2.petersburgedu.ru`. They have nothing
-in common but the server.
+family's account in a service this project does not run. They have nothing in common but the
+server.
 
-**The app never talks to dnevnik2.petersburgedu.ru directly.** Not one of that service's
-parameters — `p_educations[]`, `p_datetime_from`, `X-JWT-Token`, `estimate_type_code`,
-`hash_uid` — crosses the boundary of our API. If a field is renamed up there tomorrow, one
-directory is what gets fixed, `app/providers/petersburg/`, and neither the app nor this
-document changes.
+There are two such services behind this one surface — «Петербургское образование»
+(`dnevnik2.petersburgedu.ru`) and «Сетевой город. Образование», the diary of about twenty
+regions — and **the API does not change between them.** Which one a session is with is
+decided at sign-in and stored on the session; every endpoint below is provider-neutral, and
+the client reads the same shapes whichever diary answered. «Сетевой город» is server-side
+only and has never been tried against a live server (see the README's honest status).
+
+**The app never talks to either service directly.** None of an upstream's parameters —
+Petersburg's `p_educations[]`, `X-JWT-Token`, `estimate_type_code`, or «Сетевой город»'s `at`
+bearer and `scid` — crosses the boundary of our API. If a field is renamed up there tomorrow,
+one directory is what gets fixed (`app/providers/petersburg/` or `app/providers/netschool/`),
+and neither the app nor this document changes.
 
 ### Signing in
 
@@ -1000,6 +1019,16 @@ POST /api/v1/diary/login
 ```json
 { "token": "…", "login": "parent@example.com" }
 ```
+
+`provider`, `region` and `school_id` are optional. Absent `provider` means Petersburg, so a
+phone that sends only a login and a password signs in there exactly as before. For «Сетевой
+город», `provider` is `"netschool"`, `region` is a key into the server's own allow-list and
+`school_id` the upstream's school id; both are validated in the route before any upstream
+call, so an unknown region or a missing school is a `422`, and a region that takes only
+Госуслуги — or one whose server refuses this deployment's address — answers `503`, which the
+sign-in limiter does not count because nothing there looked at the password. The bot already
+binds a class to a region and a school for its own web sign-in form; these fields are for a
+phone that will one day sign in to «Сетевой город» directly.
 
 **The password is not stored.** It is needed for exactly one request — the login to
 somebody else's service — after which it is forgotten. Only the diary's own session is

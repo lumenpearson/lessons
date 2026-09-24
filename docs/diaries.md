@@ -310,10 +310,13 @@ made ЕСИА the only way a family signs in: Дневник.ру per region, «
   WebView. Until that is judged acceptable — technically and under the service's terms — the
   manual half of this product, the class kept by hand in the bot, is the only half for those
   regions, which is what #127 already says about every region that is not Петербург.
-- **Three decisions come before any of it, and they are the owner's: #135.** Which platform
-  comes second, how a family signs in to it, and whether ТОР may be used at all. Whichever
-  platform it is, the first step is one real session against it. Not one route in these
-  pages has been seen answering.
+- **The platform that came second is «Сетевой город» (#135, #139), and its server side is now
+  written.** The owner chose it, and `server/app/providers/netschool/` reads it behind the
+  shared diary contract, from [its reference page](diaries/netschool.md). What #135 still
+  leaves to the owner is how a family signs in where a region offers only Госуслуги, and
+  whether ТОР «Моя школа» may be used at all. And the first step nothing has taken for any
+  platform is one real session against it: not one route in these pages has been seen
+  answering, «Сетевой город» included.
 
 ## What is not covered
 
