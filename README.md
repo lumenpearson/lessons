@@ -181,6 +181,8 @@ The index is [docs/README.md](docs/README.md). In short:
 * [docs/build.md](docs/build.md) — building the APK, signing, releases, pointing it at a server
 * [docs/deploy.md](docs/deploy.md) — Vercel plus Neon, or your own server
 * [docs/design.md](docs/design.md) — the design system and the reasoning behind the interface
+* [docs/diaries.md](docs/diaries.md) — which electronic diary every region runs, and the routes
+  of each platform as the open-source clients call them
 
 For anybody about to write code: [CONTRIBUTING.md](CONTRIBUTING.md) and
 [CLAUDE.md](CLAUDE.md) — the commands, the boundaries, and what will bite anybody who does

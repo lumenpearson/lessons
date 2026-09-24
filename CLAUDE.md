@@ -21,7 +21,8 @@ Three deliverables in one repository:
 android/     Kotlin / Compose / Glance, five Gradle modules
 server/      FastAPI + aiogram in one process, one database, Alembic migrations
 api/         thin Vercel entry point that re-exports server/app/main.py
-docs/        eight documents plus an index (docs/README.md), all current, all English
+docs/        nine documents plus an index (docs/README.md), all current, all English;
+             docs/diaries/ holds the per-platform reference pages of diaries.md
 ```
 
 There is no npm, no Node and no web frontend — with **one** deliberate exception:

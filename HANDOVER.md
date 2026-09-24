@@ -4,23 +4,26 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **24 September 2026**. **PRs #63 through #85, #128 and #129 are merged**;
-`main` is at `a43c6e8`, the merge of #129, and `dev` is level with it. **The only thing
-open is the pull request carrying this paragraph**: it closes out #128 and #129, and it fixes
-the two documentation defects found while writing it (#131, #132). The SHA of its own merge
-is for the next close-out to write.
+Last updated: **24 September 2026**. **PRs #63 through #85, #128, #129 and #133 are
+merged**; `main` is at `5a77d14`, the merge of #133. `dev` is still at `a43c6e8`, the merge
+of #129, because #133 went in from a branch of its own. It is behind `main` and has
+nothing `main` lacks, so bringing it level is a fast-forward. **The only thing open is the
+pull request carrying this paragraph, #134**, from `claude/school-diary-api-routes-cc4o1n`.
+It closes #130 with a map of every region's electronic diary and the routes its platform
+exposes. The SHA of its own merge is for the next close-out to write.
 
-**Nothing in the code has moved since #85.** #128 and #129 changed only documentation and
-agent configuration: the tracker, the move to a local machine and the rule that a found
-defect becomes an issue before it becomes a fix. So the gates are where #85 left them, and
-this close-out quotes them rather than running them again.
+**Nothing in the code has moved since #85.** #128, #129 and #133 changed documentation and
+agent configuration. #134 changes documentation only: `docs/diaries.md`, `docs/diaries/`,
+and the lines that count or link them in `CLAUDE.md`, `README.md`, `docs/README.md`,
+`docs/architecture.md` and the `docs-keeper` agent. So the gates are where #85 left them,
+and this close-out quotes them rather than running them again.
 
-**What is left is the twenty-two open issues, and the next step is on a device.** **#109**
-is the epic and **#110–#117** are its children on `v0.8.0 — On a device`. **#118–#122** are
-the owner's alone. **#130** is the one item a cloud session can do end to end: a reference
-document mapping every region's diary platform and its API, from the source code of open
-clients. #123–#127 are `status:someday`. **#131** and **#132** are closed by this pull
-request.
+**Once #134 merges, twenty issues are open, and the next step is on a device.**
+**#109** is the epic and **#110–#117** are its children on `v0.8.0 — On a device`.
+**#118–#122** are the owner's alone, and #123–#127 are `status:someday`. **#130** was the
+one item a cloud session could do end to end, and #134 closes it. What it found is
+**#135**, the owner's too: three decisions that come before any second diary provider is
+written.
 
 **Two things changed about how this project is tracked, and they are the reason to read on
 before planning anything.**
@@ -64,8 +67,8 @@ that the migration and the code actually met. It is outstanding since #61.
 ## Where the work happens from here: a local machine
 
 **#128 was meant to be the last batch built in a cloud session, and the change is one of
-venue rather than of direction.** This close-out was still written from one, since it needs
-no device, and so can #130 be. Everything up to and including #85 was made with no emulator, no `adb`
+venue rather than of direction.** #133 and #134 were still written from one, because neither
+needs a device. Everything up to and including #85 was made with no emulator, no `adb`
 and no device. That is what produced a project with 968 Android tests, 1634 server tests —
 and a section 5 of this document that has only ever grown, because the things in it are not
 things a JVM test can be asked.
@@ -113,7 +116,91 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: the tracker (#128), its rule (#129), and this close-out
+## What the last session added: the electronic diary of every Russian region, and the routes each platform exposes
+
+Open as PR #134, from `claude/school-diary-api-routes-cc4o1n`, in the milestone
+`v0.8.0 — On a device`; it closes #130. **Documentation only.** No file under `server/`,
+`android/` or `.github/` changed, and there is no migration.
+
+The project reads one diary, Петербург's. Until this batch nothing in it said what a school
+anywhere else keeps its marks in, how a client signs in there, or which routes it exposes.
+So the question #127 names, «что делать, если у нас не Петербург», could not even be scoped.
+
+- **`docs/diaries.md`** maps all 89 federal subjects to the platform their schools use in
+  September 2026. It gives what each region left behind and where it is moving, and a table
+  of the platforms: how a client signs in today and which open client to read first. It
+  describes the sign-in pattern across the country, what the survey means for this project,
+  and what it does not cover. The mandatory regions are marked and had a deep check of their
+  own: Санкт-Петербург, Москва and the eleven of the «Моя Школа» region picker.
+- **`docs/diaries/`** holds one page per platform, nineteen in all, with 1916 routes
+  between them. Each row gives the method, path, authentication, parameters and response,
+  the client it was read from, and whether it is *current*, *legacy* or *uncertain*.
+  `regions.md` beside them carries the quoted, dated evidence for every region.
+- **The index, `CLAUDE.md`, `README.md`, `docs/architecture.md` and the `docs-keeper`
+  agent** now count nine documents and link the survey.
+
+### How it was made, and how far it can be trusted
+
+It is the method `providers/petersburg/` was written by, at the scale of the country:
+
+- **Routes.** Every open client found on GitHub, GitLab, Codeberg, PyPI and npm was cloned
+  and read. A second reader grepped each route back to its source, and a third dated it.
+- **Regions.** Every region was researched, then re-checked by an independent pass told to
+  refute the first. A completeness critique listed what both passes had missed, and a second
+  round went after that list.
+- **Official apps.** Two platforms were read from their official apps: ТОР «Моя школа» from
+  «Госуслуги Моя школа» 5.0.0.454, and ЭПОС.Школа from «ЭПОС» 1.53. ТОР has no open client;
+  ЭПОС.Школа's only one dates from 2022.
+
+**Nothing was tried against a live diary.** Every diary host refuses a connection from a
+cloud session. So a route in these pages is what a client's code sends, never what a
+server was seen to answer. #121 records the same caveat for the one provider that exists,
+and each page dates its clients for this reason.
+
+**The generator is not in the repository.** The pages were rendered from the research data
+by scripts that stayed in the session's scratch space, because they read agent transcripts
+that exist nowhere else. A later correction is an edit to the Markdown.
+
+**Other people's credentials were redacted.** Several public clients hard-code the OAuth
+`client_id` / `client_secret` pairs of Дневник.ру and «Сетевой город». Every one is
+`<redacted>` in the pages, and the assembly refused to write a page that still held one.
+
+### What it found that decides the next provider
+
+- **A password is now the exception.** `/diary/signin` is built around Петербург's email
+  and password, and that is unusual. In most regions Госуслуги is the only door, and the
+  clients that last keep a token a person brought from a browser. A second provider cannot
+  reuse `/diary/signin` as it stands.
+- **Twenty regions moved to ТОР «Моя школа» on 1 September 2026**, by the official list of
+  its first wave. They share one API, and one batched call carries the whole diary. But
+  the sign-in is Госуслуги's own and its `client_secret` is signed on Госуслуги's side.
+  Nobody outside has got in except through a person signing in inside a WebView. Whether
+  that is acceptable under Госуслуги's terms was not reviewed.
+- **«Сетевой город» is the largest group that still takes a password.** It is one route set
+  on each region's own server, and it is the main diary of 20 regions, though
+  some of them allow Госуслуги only. It is the obvious first candidate, and the МЭШ family
+  comes after it.
+
+### What was deliberately left alone
+
+- **Provider code.** #130 asked for the map and nothing else. Which provider comes second,
+  and how it signs in, is the owner's decision. It is filed as #135 and set out in
+  section 7.
+- **The teacher's side, and a parent with several children.** The open clients barely touch
+  either, and the overview says so rather than guessing.
+- **The generator**, for the reason above.
+
+### Gates
+
+No file the gates read changed, so `ruff`, `pytest` and `./gradlew test` were not re-run.
+CI's path filter skipped the Server and Android jobs on every head, and «What changed»
+passed. What was checked instead, on the final head:
+
+- every relative link and anchor in the new and touched documents resolves;
+- every table row has its header's column count;
+- the redaction scan finds no credential.
+
+## What the session before it added: the tracker (#128), its rule (#129), and their close-out (#133)
 
 Documentation and agent configuration only. No model, endpoint, screen or test changed, so
 the gates stand exactly where #85 measured them.
@@ -129,9 +216,10 @@ the gates stand exactly where #85 measured them.
   number into the tables.
 - **#130** was opened by the owner on 23 September: map every region's diary platform and
   the API its open clients use, as a document in `docs/`, with no code. It is `status:now`
-  and needs no device, so it is the natural first task for a session that has none.
-- **This close-out** fixes two defects that were found while writing it, and each got its
-  issue first. **#131**: #129 left the milestone table's `Dependencies` row stranded below
+  and needs no device, so it is the natural first task for a session that has none; #134
+  is that task.
+- **#133**, the close-out, fixes two defects that were found while writing it, and each got
+  its issue first. **#131**: #129 left the milestone table's `Dependencies` row stranded below
   two paragraphs, so GitHub drew a table without it. **#132**: `CLAUDE.md` still quoted 1610
   server tests, while the other three places say 1634. `CLAUDE.md` is not on the `handover`
   skill's list of places where the count lives, which is how it drifted. The list is left as
@@ -141,7 +229,7 @@ the gates stand exactly where #85 measured them.
 **Nothing new has been verified.** Everything in sections 5 and 7 still stands, and both
 already point at their issues. `/api/v1/warmup` has still not been read since #61 (#119).
 
-## What the session before it added: the gesture #84 shipped did nothing, and the variables nobody could find
+## What the batch before added: the gesture #84 shipped did nothing, and the variables nobody could find
 
 Open as PR #85, in the milestone `v0.7.0 — Оптимизация`. It is one defect, and it is the
 defect that the feature merged an hour earlier did not work: **a tab dragged to another slot
@@ -1961,7 +2049,7 @@ released, so `versionName` is still the `0.1.0` default.
 | 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
 | 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
 | 8 | `v0.7.0 — Оптимизация` | #75–#85, #128 — the one Russian title |
-| 9 | `v0.8.0 — On a device` | issues #109–#117, #130–#132; #129 and the close-out after it — **the current one** |
+| 9 | `v0.8.0 — On a device` | issues #109–#117, #130–#132; #129, #133 and #134 — **the current one** |
 | 7 | `Dependencies` | every dependabot bump; deliberately not a version |
 
 **Nothing in a session here can create a milestone**, only attach one — the owner created
@@ -2771,6 +2859,13 @@ real diary. They are children of **#109**, the epic for moving this work to a ma
 device on it. The prose here is kept because it says *why* each one is unverifiable, which
 an issue title cannot.
 
+- **Not one route in `docs/diaries/` has been seen answering.** #134's 1916 routes
+  were read from client code and two official apps, and cross-checked against each other.
+  No diary host answers a cloud session, so none was ever called. A route marked *current*
+  means that a client active in 2025 or 2026 sends it, not that a server accepts it today.
+  ТОР «Моя школа» rests on one app build, 5.0.0.454, and its first-wave list rests on one
+  official post. The first live session on any platform will correct its page. Whoever has
+  it should edit the page by hand, because the generator is not in the repository.
 - **Nothing of the tab arranging has been seen on a phone, and it is a gesture.** #84 is a
   long press, a wobble and a drag; #85 is the drag actually reporting where it landed. What
   the 39 tests prove is arithmetic and contracts: where a drag of so many pixels lands, that
@@ -3575,7 +3670,25 @@ All of this is beyond an agent's reach: it needs a phone, a key or a live servic
 **These are issues now**, so that they can be closed rather than re-read: #118 the Preview
 environment, #119 `/api/v1/warmup` and the bot's `/start`, #120 the external cron and
 `DADATA_TOKEN`, #121 the real diary, #122 the widget's tick cadence and the diary
-credential's bound. Each carries the label `needs:owner`.
+credential's bound, #135 the second diary. Each carries the label `needs:owner`.
+
+**Decide what the second diary is before anybody writes it (#135).** `docs/diaries.md` is
+the map, and three things on it are decisions rather than research:
+
+- **Which platform.** The survey's order is «Сетевой город» first: one route set, the
+  largest group of regions, and a password still accepted outside the regions that allow
+  Госуслуги only. The МЭШ family comes after it.
+- **How a family signs in**, now that Госуслуги is the only door in most regions. Either
+  the server accepts a token a person brought from a browser, which is what every durable
+  client does, or it drives ЕСИА itself and breaks whenever Госуслуги changes its login.
+  The first makes `/diary/signin` a page with a second job, and `CLAUDE.md` guards that page
+  closely.
+- **Whether ТОР «Моя школа» may be used at all.** It is the diary of twenty regions since
+  1 September 2026. Its only known way in is a person signing in to Госуслуги inside a
+  WebView, and nobody has read Госуслуги's terms.
+
+Whichever platform it is, the first step is one real session against it, as #121 is for
+Петербург. Not one route in `docs/diaries/` has been seen answering.
 
 **Install one built after #85 and long-press a tab on the home screen.** The APK on #84's
 merge cannot rearrange anything — the drag reported the order unchanged — so it is the wrong

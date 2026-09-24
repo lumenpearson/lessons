@@ -1,8 +1,8 @@
 # Documentation
 
-Eight documents and one folder the app itself reads. Each answers its own question, and
-none retells a neighbour — if the answer is not here it is in the code, and there is
-usually a link to it.
+Nine documents, the reference pages one of them keeps in a folder of its own, and one folder
+the app itself reads. Each answers its own question, and none retells a neighbour — if the
+answer is not here it is in the code, and there is usually a link to it.
 
 ## Where to start
 
@@ -15,6 +15,7 @@ usually a link to it.
 | are deploying the server | [deploy.md](deploy.md) |
 | are writing code | [architecture.md](architecture.md), then [CLAUDE.md](../CLAUDE.md) and [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | are writing a client for the API | [api.md](api.md) |
+| want to connect a diary other than Петербург's | [diaries.md](diaries.md) |
 
 ## Every document
 
@@ -28,6 +29,8 @@ usually a link to it.
 | [api.md](api.md) | the whole `/api/v1` contract: reads, writes, class management, the Petersburg diary |
 | [architecture.md](architecture.md) | why the bot is the backend, the timetable resolution model, the five Android modules, the service layer, the tests |
 | [design.md](design.md) | the design system: what was taken from Essentials, what was fixed, and the reasoning behind every visible decision in the interface |
+| [diaries.md](diaries.md) | which electronic diary every region of Russia runs in September 2026, how a client signs in to each platform, and what that means for a second provider; **not about this project's own code** — the survey a future provider is written from |
+| [diaries/](diaries/) | **the reference pages of [diaries.md](diaries.md)**: one page per platform with its hosts, sign-in flows, headers and the full route table read out of the open-source clients, and one page with the evidence for every region. Nothing in them has been tried against a live diary |
 | [app/](app/) | **not a document — the guide the app draws.** `guide.ru.md` is the source, `guide.en.md` the translation, `manifest.json` says which version they are and which app version they describe. The app fetches these files from this repository and falls back to the copy built into the APK |
 
 Everything written about this project is English — these documents, the code comments, the
