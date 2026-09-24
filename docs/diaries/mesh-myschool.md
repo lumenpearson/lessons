@@ -230,6 +230,7 @@ As of 2025–2026 sign-in is browser-only: /v3/auth/kauth/login (password) or /v
 | Тюменская область (72) | `education.72to.ru` | Bare host in the official ru.mes.dnevnik strings. It is the official app's apiBaseUrl (web front end) for Тюменская область. |
 | Республика Татарстан (16) | `school-edu.tatar.ru` | Bare host in the official ru.mes.dnevnik strings next to the ms-edu.tatar.ru pair. It is the official app's apiBaseUrl (web front end) for Татарстан. |
 | Чеченская Республика (95) | `(host not established)` | The official app has ERegionIds.Chechnya = 195, support config fgismobile_95 and ЕСИА client id fgismobile_95 in the FGIS flavour, and OctoDiary v4 has RegionCode 95, but no host string was found; fgis-dnevnik-desktop's myschool.chechnya.gov.ru is unconfirmed. |
+| Чеченская Республика (95) | `school.mon95.ru` | Role unknown, low confidence: the МЭШ app carries the client id fgismobile_95 and the support link aupd_95, and the region survey found this host; no source says whether schools keep the journal here or in Дневник.ру. |
 
 **Sources read.**
 

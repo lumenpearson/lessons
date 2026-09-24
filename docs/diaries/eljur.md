@@ -10,9 +10,13 @@ what the clients actually call.
 
 **It is both a school-by-school product and a regional one.** A school has its own host,
 `<vendor>.eljur.ru`; a region that bought it as its system has its own brand in front of the
-same API — Нижегородская (`edu.gounn.ru`), Калининградская (`keo.gov39.ru`), Курганская
-(`eschool.gov45.ru`), Курская, Смоленская, Ярославская (`school.yarcloud.ru`), Севастополь
-and Крым among them. Липецкая used it from December 2024 to August 2026 and moved on.
+same API. In September 2026 that is Нижегородская (`edu.gounn.ru`), Курганская
+(`eschool.gov45.ru`), Крым (`edu.rk.gov.ru`), Севастополь and Югра. The first wave of ТОР «Моя
+школа» took more ЭлЖур regions than any other platform's: Калининградская (`keo.gov39.ru`),
+Курская, Липецкая, Смоленская, Ярославская (`school.yarcloud.ru`), Астраханская
+(`one.astrobl.ru`, which looks like the «one.» platform and is not) and the ЛНР all moved their
+families' diary to «Госуслуги Моя школа» on 1 September 2026. Whether their teachers still mark
+in ЭлЖур behind it is, region by region, not known.
 
 **Signing in.** On a school host, a login and password against the API still give a token. On
 the regional hosts that went ЕСИА-only, a client starts the Госуслуги flow, receives a

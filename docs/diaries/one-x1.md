@@ -3,23 +3,32 @@
 *Part of [the electronic diaries of Russia’s regions](../diaries.md). Verification: extracted, checked against the code, and dated. Confidence of the whole: medium. Nothing here has been tried against the live service.*
 
 **One code base under different regional names, with no name of its own in any source.** Each
-region runs a portal at `one.<region-domain>` behind a sign-in at `passport.<region-domain>`:
-Кировская область (`one.43edu.ru`, since 2022, replacing «Аверс»), Псковская (`one.pskovedu.ru`),
-Запорожская (`one.umnik-zo.ru`), Оренбургская (`de.edu.orb.ru` behind `edu.orb.ru`). The same
-naming appears in Ставропольский край (`one.stavminobr.ru`), Астраханская (`one.astrobl.ru`)
-and Чукотский АО (`one.edu87.ru`), but no client has been seen there, so those are listed as
-likely rather than known. Inside, it is a PHP application on Yii with a Sencha Ext.Direct
-front end; the wire names — the `X1_SSO` cookie, the `X1API` action, the `SYS_GUID` of every
-record — are why this page calls it «X1» where it needs a word.
+region runs a portal at `one.<region-domain>` behind a sign-in at `passport.<region-domain>`.
+Four regions are confirmed by client code or an official manual: Кировская область
+(`one.43edu.ru`, since 2022, replacing «Аверс»), Псковская (`one.pskovedu.ru`), Запорожская
+(`one.umnik-zo.ru`) and Оренбургская (`de.edu.orb.ru`, signed in through `edu.orb.ru`). Three
+more carry the same pair of hosts and the same login page, but no client has been seen there, so
+they are *likely* rather than known: Ставропольский край (`one.stavminobr.ru`, since January
+2025), Чукотский АО (`one.edu87.ru`) and Орловская область (`one.obr57.ru`, found by the region
+survey). Астраханская's `one.astrobl.ru` looked like one of them and is not: it runs ЭлЖур.
+Inside, it is a PHP application on Yii with a Sencha Ext.Direct front end; the wire names — the
+`X1_SSO` cookie, the `X1API` action, the `SYS_GUID` of every record — are why this page calls
+it «X1» where it needs a word.
 
 **Signing in.** `passport.` takes a login and a password, or a СНИЛС and a password, and sets
 `X1_SSO`; Госуслуги is the alternative on every region, and the newest client also signs in by
-a QR code the Госуслуги app scans. The diary itself is plain REST: `/edv/index/diary/{GUID}` for
-a week, `/edv/index/report/*` for marks, both proven on three regions' servers.
+a QR code the Госуслуги app scans. The Оренбургская bot gets by with a plain `PHPSESSID` on
+`de.edu.orb.ru`, the Псковская client says that is not enough there, so which cookie a region
+wants has to be checked per region. The diary itself is plain REST — `/edv/index/diary/{GUID}`
+for a week, `/edv/index/report/*` for marks — proven identical on the Кировская, Псковская and
+Оренбургская servers and assumed elsewhere.
 
-**What is thin.** The richest client, `pskovedu-sdk`, calls itself «vibe-coded» and marks most
-of its own Ext.Direct and ORM calls unverified; those rows are uncertain here. Оренбургская
-moves to ТОР «Моя школа» in 2026/27.
+**What is thin.** Thirteen of the fifty-four rows are current; the rest are uncertain, because
+the richest client, `pskovedu-sdk`, was written in one day, calls itself «vibe-coded» and marks
+its own Ext.Direct, ORM and ЕСИА calls unverified. From September 2026 families in these regions
+are pointed at «Госуслуги Моя школа», and Оренбургская's diary moved there outright; the portals
+stay the regions' journals behind it, so a client of `/edv` may keep its server and lose its
+users.
 
 **Hosts.**
 
@@ -55,7 +64,7 @@ moves to ТОР «Моя школа» in 2026/27.
 1. obtain X1_SSO from a logged-in browser (DevTools -> Application -> Cookies)
 2. send Cookie: X1_SSO=<value> on every request to one.<region>.ru
 
-   pskovedu-sdk Client.from_cookie (sessions/base.py _inject_cookies); tdrkDev parser copies raw Cookie header. PHPSESSID alone insufficient on pskovedu (redirects to /auth/login, confirmed by live testing per SDK docs).
+   pskovedu-sdk Client.from_cookie (sessions/base.py _inject_cookies); tdrkDev parser copies raw Cookie header. PHPSESSID alone insufficient on pskovedu (redirects to /auth/login, confirmed by live testing per SDK docs). This is the SDK's recommended method in its June 2026 docs/authentication.md.
 
 *ESIA headless OAuth2 replay (pskovedu-sdk, experimental, undocumented)* — token carried as cookie X1_SSO (+ Bearer JWT in SDK code only). Lifetime: JWT exp/iat; refresh skew 300s. Refresh: none that works: re-run the replay or re-inject a fresh X1_SSO.
 
@@ -76,7 +85,7 @@ moves to ТОР «Моя школа» in 2026/27.
 4. on qr-auth-confirmed take one-time code
 5. POST esia.gosuslugi.ru/qr-delegate/qr/confirm {code} -> {x1_sso}
 
-   Modeled, not end-to-end verified; /qr-delegate/qr/confirm is flagged '# unverified' in constants.py. docs/known-issues.md (June 2026): SFD session-token exchange confirmed, full handshake not end-to-end verified.
+   Modeled, not end-to-end verified; /qr-delegate/qr/confirm is flagged '# unverified' in constants.py. docs/known-issues.md (June 2026): SFD session-token exchange confirmed, full handshake not end-to-end verified. login_with_qr now returns the GET / shell (ShellConfig), not a /session profile.
 
 *Selenium / WebView Gosuslugi login (Оренбургская)* — token carried as cookie — PHPSESSID on de.edu.orb.ru (edu-orb bot) OR X1_SSO on edu.orb.ru (Android tool). Lifetime: static session cookie.
 
@@ -85,7 +94,7 @@ moves to ТОР «Моя школа» in 2026/27.
 3. fill Gosuslugi login (id=login) + password (id=password), solve photo/text captcha (esia-captcha), enter 2FA code (input[type=tel])
 4. keep the diary session cookie
 
-   edu-orb.ru bot sends ONLY PHPSESSID to de.edu.orb.ru; DmitryKolyadin app reads X1_SSO from edu.orb.ru WebView and forwards it to its own Yandex Cloud bot endpoint (not part of the platform).
+   edu-orb.ru bot sends ONLY PHPSESSID to de.edu.orb.ru; DmitryKolyadin app reads X1_SSO from edu.orb.ru WebView and forwards it to its own Yandex Cloud bot endpoint (not part of the platform). The 2026 search index lists de.edu.orb.ru/auth/login as the Orenburg login page.
 
 **Headers the clients send.**
 
@@ -174,23 +183,26 @@ Two regional cookie conventions coexist: X1_SSO (Pskov, Kirov, Orenburg-via-edu.
 | Кировская область | `passport.43edu.ru` | SSO/ESIA gateway; POST /auth/login. |
 | Псковская область | `one.pskovedu.ru` | CONFIRMED. Reference host for pskovedu-sdk + tdrkDev parser. |
 | Псковская область | `passport.pskovedu.ru` | SSO/ESIA gateway. |
+| Псковская область | `archive2016.pskovedu.ru` | Legacy archive instance of the same portal («Электронные услуги в сфере образования» /auth/login). |
 | Запорожская область | `one.umnik-zo.ru` | CONFIRMED via official parent manual: identical X1 desktop UI («Дневник учащегося», «Выписка оценок», «Дневник в xls»). |
 | Запорожская область | `passport.umnik-zo.ru` | SSO: «Войти через passport.umnik-zo.ru» + «Вход через портал госуслуг». |
 | Оренбургская область | `de.edu.orb.ru` | CONFIRMED. Same /edv/index/diary + /edv/index/report REST. edu-orb.ru bot uses PHPSESSID. 2026: /auth/login «Электронные услуги Оренбургской области в сфере образования»; parents also directed to edu.orb.ru and the app «Цифровая школа Оренбуржья», and from 1 Sep 2026 to «Госуслуги Моя школа». |
 | Оренбургская область | `edu.orb.ru` | SSO host («Цифровое образование Оренбуржья»); /auth/rsaag/redirect/ ESIA -> X1_SSO. Edu-orb-tool-app. |
 | Ставропольский край | `one.stavminobr.ru` | LIKELY, strengthened: login page title and parent flow («Вход через портал госуслуг», «Госуслуги Моя школа» for mobile) match; /app/eservice/manuals/instruction_rod.pdf follows X1's /app/eservice* static-asset prefix. In use since 1 Jan 2025 («модернизация РИС»). No /edv capture. |
 | Ставропольский край | `passport.stavminobr.ru` | Indexed as «Электронный паспорт»; the passport.<domain> half of the pair. Not in client code. |
-| Чукотский АО | `one.edu87.ru` | LIKELY. /auth/login offers «вход через edu87.ru» (a local passport account, host not captured) or Госуслуги; help text repeats the umnik-zo X1 manual wording. No /edv capture. |
+| Чукотский АО | `one.edu87.ru` | LIKELY. /auth/login offers «вход через edu87.ru» (a local passport account, host not captured) or Госуслуги; help text repeats the umnik-zo X1 manual wording. No /edv capture. Vendor named by the operator: the Чукотка education department announced the completed integration of «Сферум» with the regional system by ООО «Интегрикс»; the app is ru.integrics.chaoschool. |
 | ESIA (federal) | `esia.gosuslugi.ru` | Shared OAuth2/QR auth server. |
 | ESIA (federal) | `sfd.gosuslugi.ru` | QR/ESIA session-token JWT (documented only). |
-| Псковская область | `archive2016.pskovedu.ru` | Legacy archive instance of the same portal («Электронные услуги в сфере образования» /auth/login). |
+| Орловская область | `one.obr57.ru` | Орловская область, РГИС «Образование-57» (operator ГКУ «РЦОКО»; app ru.integrics.orelschool). CONFIRMED by client code: vodolazny/burmalda57 (2026) signs in through passport.obr57.ru and reads mp2.obr57.ru. |
+| Орловская область | `passport.obr57.ru` | Орловская область SSO: /auth/esia/redirect/?returnTo=https://one.obr57.ru, cookie X1_SSO. |
+| Орловская область | `mp2.obr57.ru` | Орловская область mobile API (/journals/*, /session/initsession) used by burmalda57. |
 
 **Sources read.**
 
 | Source | Activity | What it gave |
 | --- | --- | --- |
 | https://github.com/zlexdev/pskovedu-sdk | ec7d152, 2026-06-20 | Every portal/passport/ESIA path in pskovedu/constants.py and methods/*.py; Ext.Direct action catalogue; X1Protocol posting to /x1db/service/call; AuthManager GET {portal}/session; QR display URL; docs/known-issues.md + architecture.md giving the real X1API.direct envelope (utility.getusernotifications) and the verified/unverified map. |
-| https://github.com/Mihail-Galkin/Two.Diary | b36d4c3, 2025-12-11 | one.43edu.ru + passport.43edu.ru: POST /auth/login form, /edv/index/diary JSON (lessonTimeBegin/End, periodMark, marksRaw), /edv/index/report/marks & /report/period XLS, /edv/index/participant/ HTML, X1_SSO cookie, fake_useragent header. |
+| https://github.com/Mihail-Galkin/Two.Diary | b36d4c3, 2025-12-11 | one.43edu.ru + passport.43edu.ru: POST /auth/login form, /edv/index/diary JSON (lessonTimeBegin/End, periodMark, marksRaw), /edv/index/report/marks & /report/period XLS, /edv/index/participant/ HTML, X1_SSO cookie, fake_useragent header. Full history: last code change 98e8ca6 2024-05-13 ('wrong session and password fix'); 2025-12-11 commit only adds a Habr link to README. |
 | https://github.com/stupidcabbage/edu-orb.ru | bec7e59, 2024-04-08 | de.edu.orb.ru: /edv/index/diary JSON (marksRaw/absenceRaw, lessonTime), /edv/index/report/marks?format=html, /edv/index/participant, /login, Selenium ESIA login, PHPSESSID cookie. |
 | https://github.com/DmitryKolyadin/Edu-orb-tool-app | 0e3a5ad, 2023-03-31 | edu.orb.ru/auth/rsaag/redirect/?returnTo= ESIA WebView flow reading X1_SSO cookie for Orenburg. |
 | https://github.com/tdrkDev/pskovedu_homework_parser | 1af0b5f, 2022-03-13 | one.pskovedu.ru/edv/index/diary/{DIARY_ID}?date= with raw browser Cookie header. |
@@ -198,7 +210,7 @@ Two regional cookie conventions coexist: X1_SSO (Pskov, Kirov, Orenburg-via-edu.
 | https://habr.com/ru/articles/733392/ |  | Confirms one.43edu.ru /edv/index/diary, /edv/index/report/period, /edv/index/report/marks, passport.43edu.ru/auth/login, python-requests UA blocking. |
 | https://habr.com/ru/articles/806737/ |  | A different Kirov-region app using a native apikey; not this platform. |
 | one.umnik-zo.ru parent manual (Rukovodstvo_pol_zovatelya_Roditel_.pdf) |  | Re-read by verifier: https://one.umnik-zo.ru, «Войти через passport.umnik-zo.ru» (СНИЛС + password), «Вход через портал госуслуг», «Выписка оценок», «Выписка оценок по датам», «Дневник в xls», «Заметки». |
-| WebSearch + WebFetch: one.stavminobr.ru, passport.stavminobr.ru, one.edu87.ru, one.astrobl.ru (promodoc.ru, vtemah.livejournal.com/852125, yugrf.ru, poisktenderov.ru 0825500000722003613), journal-help-action |  | passport.stavminobr.ru exists; one.edu87.ru help text matches the X1 manual; one.astrobl.ru menu matches X1 but /journal-help-action is an ЭлЖур path (seen on eljur.ru, school.yarcloud.ru, edu.gounn.ru); /authorize belongs to edu.rk.gov.ru; Astrakhan contract 2022 to ООО ПКФ «Стартлайн-АСТ». |
+| WebSearch + WebFetch: one.stavminobr.ru, passport.stavminobr.ru, one.edu87.ru, one.astrobl.ru (promodoc.ru, vtemah.livejournal.com/852125, yugrf.ru, poisktenderov.ru 0825500000722003613), journal-help-action |  | passport.stavminobr.ru exists; one.edu87.ru help text matches the X1 manual; one.astrobl.ru menu matches X1 but /journal-help-action is an ЭлЖур path (seen on eljur.ru, school.yarcloud.ru, edu.gounn.ru); /authorize was then attributed to edu.rk.gov.ru (corrected by the currency check: one.astrobl.ru/authorize exists too); Astrakhan contract 2022 to ООО ПКФ «Стартлайн-АСТ». |
 | https://github.com/infoculture/govdomains |  | astrobl.ru, stavminobr.ru, edu87.ru, edu.orb.ru, 43edu.ru, pskovedu.ru are government domains for the named regions (by extractor). |
 | https://github.com/zlexdev/pskovedu-sdk/commits (local full history) | ec7d152, 2026-06-20 | Six commits, all 2026-06-20; 73d4ae6 removes the fictional portal /session after live testing; docs/authentication.md lists only cookie and QR auth. |
 | https://github.com/zlexdev/pskovedu-sdk/issues |  | No issues, open or closed. |
@@ -231,3 +243,4 @@ Two regional cookie conventions coexist: X1_SSO (Pskov, Kirov, Orenburg-via-edu.
 - The newest client, pskovedu-sdk, was written in a single day (all six commits 2026-06-20) and has no issues or users on record; its live-tested set is small (diary, diary XLS, marks-report, schedule, schedule/current).
 - The QR confirm step as modeled (POST esia.gosuslugi.ru/qr-delegate/qr/confirm returning x1_sso) is implausible for ESIA to return a regional cookie; the real exchange presumably passes through passport.<domain>. Marked unverified by the SDK itself.
 - All regional hosts (one.*, passport.*, de.edu.orb.ru) answered WebFetch with 403 or 503 in September 2026; everything about them comes from search-index titles, school pages and client code.
+- No vendor API documentation exists: the portals name no vendor, and no public API document was found, so section 5 (documented routes) added nothing.
