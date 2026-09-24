@@ -11,12 +11,14 @@ what the clients actually call.
 **It is both a school-by-school product and a regional one.** A school has its own host,
 `<vendor>.eljur.ru`; a region that bought it as its system has its own brand in front of the
 same API. In September 2026 that is Нижегородская (`edu.gounn.ru`), Курганская
-(`eschool.gov45.ru`), Крым (`edu.rk.gov.ru`), Севастополь and Югра. The first wave of ТОР «Моя
-школа» took more ЭлЖур regions than any other platform's: Калининградская (`keo.gov39.ru`),
-Курская, Липецкая, Смоленская, Ярославская (`school.yarcloud.ru`), Астраханская
-(`one.astrobl.ru`, which looks like the «one.» platform and is not) and the ЛНР all moved their
-families' diary to «Госуслуги Моя школа» on 1 September 2026. Whether their teachers still mark
-in ЭлЖур behind it is, region by region, not known.
+(`eschool.gov45.ru`), Крым (`edu.rk.gov.ru`), Севастополь, Югра, Липецкая (`edu.schools48.ru`,
+with «Госуслуги Моя школа» only in front of it) and Новосибирская, whose ГИС НСО «Электронная
+школа» at `school.nso.ru` turned out to be the ЭлЖур web application under the region's name. The
+first wave of ТОР «Моя школа» took six ЭлЖур regions: Калининградская (`keo.gov39.ru`), Курская,
+Смоленская, Ярославская (`school.yarcloud.ru`), Астраханская (`one.astrobl.ru`, which looks like
+the «one.» platform and is not) and the ЛНР all moved their families' diary to «Госуслуги Моя
+школа» on 1 September 2026. Whether their teachers still mark in ЭлЖур behind it is, region by
+region, not known.
 
 **Signing in.** On a school host, a login and password against the API still give a token. On
 the regional hosts that went ЕСИА-only, a client starts the Госуслуги flow, receives a
@@ -38,6 +40,7 @@ is the client that does this.
 | auth | `https://esia.gosuslugi.ru` | Госуслуги sign-in |
 | other | `https://edu-storage-1.gounn.ru` | file storage, from uploadFileUrl |
 | other | `https://eljur.ru/archive` | where an archived per-school instance redirects: /authorize -> https://eljur.ru/archive?domain=<vendor> |
+| web | `https://school.nso.ru` | ЭлЖур web application for all НСО schools on one host; school chosen by the schdomain/school_domain cookie (nso1613660760 in yguskov/schoolbot). Wayback also holds 209 captures of shkola.nso.ru, a separate host not used by any client read here |
 
 **Signing in.**
 
@@ -93,6 +96,24 @@ is the client that does this.
 
    all disabled on keo.gov39.ru (2024) and school.yanao.ru (2022); per-host feature switches, no client uses them
 
+*Login and password (ЭлЖур /ajaxauthorize), disabled on this host since 1 July 2024* — token carried as cookie session_id (plus schdomain / school_domain cookies).
+
+1. POST https://school.nso.ru/ajaxauthorize, form fields username and password (schoolbot sends only these two; the ЭлЖур scraper matytsyn/EljurAPI also sends return_uri=/)
+2. The JSON answer carries result (bool); on success the server sets the session_id cookie
+3. Every later page request sends Cookie: session_id=<value>; schdomain=nso1613660760; school_domain=nso1613660760 (schoolbot read_page)
+4. GET / and read the href of a[href*="journal-student-grades-action"]; its last path segment is the pupil id used in /journal-app/{pupil_id}/week.{n} and /journal-student-grades-action/{pupil_id}
+5. Since 1 July 2024 the Министерство образования НСО restricted sign-in to ЕСИА (Госуслуги) only (minobr.nso.ru/news/19011), so this flow no longer yields a session
+
+   Source: yguskov/schoolbot school.py auth() and read_page(), last commit 2022-05-13.
+
+*ЕСИА (Госуслуги) sign-in, the only sign-in since 1 July 2024* — token carried as cookie session_id.
+
+1. Unauthenticated requests are redirected to /authorize?return_uri=<path> (Wayback, 2020–2022)
+2. The ЭлЖур ЕСИА entry point /journal-esia-action/ exists on this host (Wayback capture 2021-11-12, 302)
+3. No client for school.nso.ru implements it; on other ЭлЖур hosts BetterJournal/EljurAuthUtil (2026) drives /journal-esia-region-action?flow=v2, esia.gosuslugi.ru /aas/oauth2/api/login, then /journal-esia-action/action.validate and /journal-esia-action/action.check?taskId=, ending in the same session_id cookie. That it works unchanged on school.nso.ru is an inference
+
+   Interactive: needs a Госуслуги account, password and usually a one-time code.
+
 **Headers the clients send.**
 
 | Header | Value | Why |
@@ -100,12 +121,13 @@ is the client that does this.
 | `Content-Type` | application/x-www-form-urlencoded | POST sendmessage, sendreplymessage, auth |
 | `User-Agent` | browser string | web and ESIA flows; iOS app string on edu.schools48.ru |
 | `Referer` | messages page | journal-api-messages-action |
+| `Cookie` | session_id=<from sign-in>; schdomain=nso1613660760; school_domain=nso1613660760 | schoolbot sends all three on every page GET; schdomain selects the school inside the shared host |
 
 **Captcha and second factor.** ESIA SMS or TOTP, survey step (MAX_QUIZ); ЕСИА is the only family sign-in on regional hosts that switched to it (edu.gounn.ru, keo.gov39.ru, eschool.gov45.ru, school.yarcloud.ru); no captcha seen on ЭлЖур's own /ajaxauthorize
 
 devkey comes from Eljur support; several public clients hard-code one, values not reproduced here. As of 2025–2026 there are two ways to a token: login+password on /api(v3)/auth for per-school instances, and the Госуслуги chain ending in /apiv3/getusersvendors (v_token → one token per school) on ЕСИА-only regional hosts. Tokens are per vendor: a regional token is sent to that regional host, not to api.eljur.ru.
 
-**Routes** — 86 rows. Status: *current* is what a maintained client calls today; *legacy* is a generation the code or its author has marked as old; *uncertain* was seen in one place and nowhere else.
+**Routes** — 96 rows. Status: *current* is what a maintained client calls today; *legacy* is a generation the code or its author has marked as old; *uncertain* was seen in one place and nowhere else.
 
 | Method | Path | Purpose | Auth | Parameters | Answer | Seen in | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -179,6 +201,14 @@ devkey comes from Eljur support; several public clients hard-code one, values no
 | POST | `https://api.eljur.ru/apiv3/auth` | Login under apiv3, form body | none | `devkey`; `out_format`; `vendor`; body (application/x-www-form-urlencoded): `login`, `password` | result.token; host is ELJUR_AUTH_URL from the environment (the config test uses https://a.example/apiv3), so api.eljur.ru is an assumption | OpenEljur/openeljur-backend `internal/adapter/eljur/client.go` `Client.AuthLogin` | uncertain |
 | POST | `https://esia.gosuslugi.ru/aas/oauth2/api/login/sms/verify` | Fallback path tried after a 404 | cookie | `code` |  | BetterJournal/EljurAuthUtil `lib/src/auth/esia_auth_service.dart` `_loginToEsia` | uncertain |
 | POST | `https://esia.gosuslugi.ru/aas/oauth2/api/login/ttp/verify` | Fallback path tried after a 404 | cookie | `code` |  | BetterJournal/EljurAuthUtil `lib/src/auth/esia_auth_service.dart` `_loginToEsia` | uncertain |
+| GET | `https://school.nso.ru/` | Home page; schoolbot uses it to check that the stored session is still valid and to find the pupil id. | cookie |  | HTML; the pupil id is the third segment of href.split('/') of a[href*="journal-student-grades-action"] (href of the form /journal-student-grades-action/<id>; Wayback shows ids as u.<number>, e.g. u.1421). The session counts as expired when that link is missing or the status is not 200. i3sey/API-Eljur-ru uses /?show=home on eljur.ru for the same purpose | yguskov/schoolbot `school.py` `read_first_page` | uncertain |
+| GET | `https://school.nso.ru/authorize` | Sign-in page; unauthenticated requests to journal pages are redirected here with return_uri. | none | `return_uri=/journal-app/u.1421/week.6` (captured as /authorize?return_uri=%2Fjournal-app%2Fu.1421%2Fweek.6 on 2022-03-16) | HTML. A web search index (September 2026) lists it under «ГИС «Электронная школа» — Электронный журнал — ГИС «Электронная школа»» and also under «ГИС НСО "Электронная школа Новосибирской области"». Wayback captures run 2020–2022 only; no dated 2025–2026 client calls it, hence uncertain. DAAMCS/EljurApi GETs the same path on eljur.ru after /ajaxauthorize to read the embedded user data | web.archive.org `https://web.archive.org/web/20201125195516/https://school.nso.ru/authorize` `CDX capture 20201125195516, status 200` | uncertain |
+| GET | `https://school.nso.ru/journal-app/{pupil_id}/week.{n}` | Weekly diary: lessons and homework. | cookie | `{pupil_id}` u.<number>; Wayback holds /journal-app/u.1421/week.6 on school.nso.ru (2022-03-16, 302 to /authorize); `{n}` week offset; schoolbot (homework.py) passes ceil((this Monday − target Monday).days / 7), i.e. positive for past weeks, negative for future, 0 for the current week. matytsyn, DAAMCS and i3sey pass week.{index * -1} without the pupil segment | HTML: .dnevnik .dnevnik-day; .dnevnik-day__header .dnevnik-day__title «<weekday>, DD.MM»; .dnevnik-day__lessons .dnevnik-lesson; .dnevnik-lesson__subject span; .dnevnik-lesson__hometask .dnevnik-lesson__task. DAAMCS/EljurApi and i3sey/API-Eljur-ru request /journal-app/week.{n} with POST on eljur.ru; matytsyn/EljurAPI and schoolbot with GET | yguskov/schoolbot `school.py` `read_homework` | uncertain |
+| GET | `https://school.nso.ru/journal-esia-action/` | ЭлЖур ЕСИА (Госуслуги) sign-in entry, the only sign-in on this host since 1 July 2024. | none |  | 302 in the capture. The ЭлЖур ЕСИА sub-steps /journal-esia-action/action.validate (POST) and /journal-esia-action/action.check?taskId= (GET) come from BetterJournal/EljurAuthUtil on other ЭлЖур hosts, not from a school.nso.ru source | web.archive.org `https://web.archive.org/cdx/search/cdx?url=school.nso.ru/*` `capture 20211112181242, status 302` | uncertain |
+| POST | `https://school.nso.ru/journal-index-rpc-action` | ЭлЖур RPC for user preferences (setPref). | cookie | body (application/x-www-form-urlencoded): `method` setPref, `0` preference name, e.g. msgsignature, `1` value | JSON with result. Written for eljur.ru; the path is in the Wayback listing for school.nso.ru (2021, revisit), the call itself is not | i3sey/API-Eljur-ru `Eljur/profile.py` `changeSign / switcher` | uncertain |
+| GET | `https://school.nso.ru/journal-schedule-action/u.{uid}` | Timetable page of a pupil. | cookie | `{uid}` user id from the page's embedded user data | HTML: div.schedule__day > .schedule__day__content > .schedule__day__content__column; p.schedule__day__content__header__dayweek. Written for {subdomain}.eljur.ru; on school.nso.ru Wayback holds /journal-schedule-action (200) and /journal-schedule-action/class.{class} (200) in 2021, not the u.{uid} form | DAAMCS/EljurApi `JournalApi/timetable.py` `timetable` | uncertain |
+| GET | `https://school.nso.ru/journal-student-grades-action/{pupil_id}` | Marks for the current period. | cookie | `{pupil_id}` last segment of the grades link on the home page (u.<number> form) | HTML; every mark is a div[mark_date] whose name attribute is the subject and id the mark id, text is the mark («5», «4/5», «5✕2», «Н», «Б»). On eljur.ru: matytsyn/EljurAPI GETs /journal-student-grades-action/ with no id; DAAMCS/EljurApi GETs and i3sey/API-Eljur-ru POSTs /journal-student-grades-action/u.{user_id}/sp.{quarter}+четверть (quarter I–IV). Only schoolbot shows it on school.nso.ru, and not in the Wayback listing | yguskov/schoolbot `school.py` `read_grades` | uncertain |
+| GET | `https://school.nso.ru/journal-user-preferences-action` | Profile page (name, СНИЛС, sex) in form#regform. | cookie |  | HTML: form#regform with inputs lastname, firstname, middlename, snils, sex. Written for {sub}.eljur.ru (commit 2026-02-12); also used by i3sey/API-Eljur-ru. Not seen on school.nso.ru | matytsyn/EljurAPI `eljur/profile.py` `profile` | uncertain |
 | GET | `https://{host}/authorize-google-redirect/` | Google sign-in redirect (googleAuthUrl), shown only when isGoogleAuthEnabled | none |  | isGoogleAuthEnabled = false on keo.gov39.ru and school.yanao.ru; no client uses it | web.archive.org/web/20241102110626id_/https://keo.gov39.ru/authorize `authorize (Wayback 2024-11-02, inline script)` `googleAuthUrl` | uncertain |
 | GET | `https://{host}/authorize-hse` | НИУ ВШЭ personal-account sign-in (hseLkUrl '/authorize-hse?redirect'), shown only when isHseAuthEnabled | none | `redirect` (flag without value) | disabled on keo.gov39.ru and school.yanao.ru; relevant only to the HSE lyceum instance | web.archive.org/web/20241102110626id_/https://keo.gov39.ru/authorize `authorize (Wayback 2024-11-02, inline script)` `hseLkUrl` | uncertain |
 | GET | `https://{host}/authorize-ms` | Microsoft / ADFS sign-in callback (redirect_uri of msAuthUrl), shown only when isMSAuthEnabled | none | `code` (response_type=code, response_mode=query) | msAuthUrl on keo.gov39.ru is '/adfs/oauth2/authorize?client_id=&redirect_uri=https://keo.gov39.ru/authorize-ms&response_type=code&response_mode=query' (disabled); on school.yanao.ru (2022) it pointed at a login.microsoftonline.com tenant | web.archive.org/web/20241102110626id_/https://keo.gov39.ru/authorize `authorize (Wayback 2024-11-02, inline script)` `msAuthUrl` | uncertain |
@@ -189,6 +219,8 @@ devkey comes from Eljur support; several public clients hard-code one, values no
 | GET | `https://api.eljur.ru/api/sendreplymessage` | Reply with fields in the query | query_token | `devkey`; `vendor`; `out_format=json`; `auth_token`; `replyto`; `text` |  | samplec0de/eljur-bot `eljur.py` `reply_message` | legacy |
 | GET | `https://edu.schools48.ru/api/getusersvendors` | Same exchange on the Lipetsk instance | query_token | `v_token`; `devkey`; `out_format` | result[0]: vendor_id, vendor, token, expires; the shared client also sends rings=1 and empty auth_token, student, vendor, days; Lipetsk: the region moved to «Госуслуги Моя школа» on 1 September 2026 (regional ministry, see discover_4); the ЭлЖур host still answered fofankochevnik/ElJurDnevnik (commit 2026-09-13) and its app was updated 7 Sept 2026, so it runs on as the old regional diary rather than being switched off | vsosh44/schools48bot `src/api/consts.py` `API_GET_VENDORS` | legacy |
 | GET | `https://edu.schools48.ru/apiv3/getdiary` | Diary on the Lipetsk instance with the token from getusersvendors | query_token | `devkey`; `vendor`; `out_format=json`; `auth_token`; `student`; `days=20250901-20251230` (Ymd, Y.m.d or range Ymd-Ymd); `rings=1` (fofankochevnik/ElJurDnevnik sends true) | envelope {response:{state, error, result}}; result.students{id}.days{YYYYMMDD}: items{num}, items_extday[], alert, holiday_name; also called by fofankochevnik/ElJurDnevnik App.js; Lipetsk: the region moved to «Госуслуги Моя школа» on 1 September 2026 (regional ministry, see discover_4); the ЭлЖур host still answered fofankochevnik/ElJurDnevnik (commit 2026-09-13) and its app was updated 7 Sept 2026, so it runs on as the old regional diary rather than being switched off; fofankochevnik takes auth_token pasted by hand (the region is ЕСИА-only, so no password login) | vsosh44/schools48bot `src/api/consts.py` `API_GET_DIARY` | legacy |
+| POST | `https://school.nso.ru/ajaxauthorize` | Login and password sign-in (the ЭлЖур endpoint). | none | body (application/x-www-form-urlencoded): `username`, `password`, `return_uri` sent by matytsyn/EljurAPI (value "/"), not by schoolbot | JSON with result (bool); schoolbot reads response.json()['result'] and then client.cookies['session_id']; i3sey/API-Eljur-ru reads error on failure. Also in the Wayback listing for this host (2021-11-12). Legacy here because login and password sign-in was switched off on 1 July 2024 in favour of ЕСИА | yguskov/schoolbot `school.py` `auth` | legacy |
+| POST | `https://school.nso.ru/ajaxrecover` | Password recovery by e-mail. | none | body (application/x-www-form-urlencoded): `email` | JSON with result. On eljur.ru in the client; the path is in the Wayback listing for school.nso.ru (2021-11-17). Meaningless since login and password sign-in was switched off on 1 July 2024 | i3sey/API-Eljur-ru `Eljur/auth.py` `recover` | legacy |
 | GET | `https://{vendor}.eljur.ru/apiv3/auth` | Login on the school host under apiv3 | none | `login`; `password`; `vendor`; `devkey`; `out_format=json` | response.result.token; Aefyr/myEljur calls the same URL (Volley GET) | yakuri354/EljurCLI `eljur_login.py` `add_user` | legacy |
 | GET | `https://{vendor}.eljur.ru/apiv3/sendmessage` | Send a message with fields in the query on the school host | query_token | `devkey`; `vendor`; `out_format=json`; `auth_token`; `users_to`; `subject`; `text` | Volley GET; success is judged by the body containing 200 | Aefyr/myEljur `app/src/main/java/com/af/myeljur/Messages.java` `sendMessage` | legacy |
 | GET | `https://{vendor}.eljur.ru/class.{class}/startdate.{date}/journal-schedule-action` | Public class timetable, no sign-in | none | `{class}`; `{date}` example: 2019-01-21 |  | felpsyatina/1543.eljur.bot `examples/schedule_parser.py` `get_current_schedule` | legacy |
@@ -227,6 +259,7 @@ devkey comes from Eljur support; several public clients hard-code one, values no
 | Донецкая Народная Республика | `donschool47.eljur.ru` | per-school instances only, never regional; the republic moves to ТОР from 1.09.2026 |
 | Иркутская область | `fec.eljur.ru` | single non-state school; sh28irk.eljur.ru archived |
 | Красноярский край | `{vendor}.eljur.ru` | krai-wide from 2017, dropped over 2023/24–2024/25 — legacy |
+| Новосибирская область | `school.nso.ru` | ГИС НСО «Электронная школа» runs the ЭлЖур code base (same routes, /ajaxauthorize, schdomain cookie, /journal-esia-action/). Since 1 July 2024 sign-in is by ЕСИА (Госуслуги) only; logins and passwords issued by schools stopped working (minobr.nso.ru/news/19011) |
 
 **Sources read.**
 
@@ -274,6 +307,9 @@ devkey comes from Eljur support; several public clients hard-code one, values no
 | https://web.archive.org/web/20220314193105id_/https://school.yanao.ru/authorize | 2022-03-14 snapshot, local copy research/yanao_eljur_2022.html | same switches on the ЯНАО instance, MS tenant |
 | https://github.com/BetterJournal/EljurAPI/issues | read 2026-09-24 | no issues |
 | research/checkpoints discover_3..8, verify_0..2, verify_6, vendors-and-market | earlier runs of this research, 2026-09-24 | region-host pairs, app ids, dates of ESIA-only and of the moves to «Госуслуги Моя школа» |
+| https://github.com/yguskov/schoolbot | last commit 2022-05-13, before ЕСИА-only sign-in (1 July 2024) | school.py: POST https://school.nso.ru/ajaxauthorize (username, password), GET https://school.nso.ru/, /journal-student-grades-action/{pupil_id}, /journal-app/{pupil_id}/week.{n}; cookies session_id, schdomain=nso1613660760, school_domain=nso1613660760; HTML selectors. homework.py: week offset formula. main.py hard-codes a Telegram bot token, not reproduced. |
+| https://web.archive.org/cdx/search/cdx?url=school.nso.ru/* | 715 captures, 2020–2026 (2024–2026 only 301 redirects of journal-adm-* paths) | Listing saved in an earlier round (the archive was offline during this check): /authorize (2020, 200), /authorize?return_uri=… for journal-app, journal-messages-action, journal-board-action, journal-study-action and others (2021–2022), /ajaxauthorize, /ajaxrecover, /ajaxinvite, /ajaxregister, /journal-esia-action/ (302), /journal-app/u.1421/week.6 (302), /journal-schedule-action (200), /journal-index-rpc-action, /assets/dist/standalone.mobile.*.js; 2026-04-17 http captures of /journal-adm-user-edit-action/view.Students show the ЭлЖур URL grammar still on the host. |
+| https://minobr.nso.ru/news/19011 | 2024 | Title seen in web search: «С 1 июля 2024 года авторизация в ГИС НСО «Электронная школа» будет возможна исключительно с использованием ЕСИА». |
 
 **Refuted during verification** — rows an extractor proposed that no source carries, kept here so that nobody re-proposes them.
 
@@ -297,3 +333,10 @@ devkey comes from Eljur support; several public clients hard-code one, values no
 - Seven regions that ran ЭлЖур as their regional diary moved to «Госуслуги Моя школа» on 1 September 2026 (ЛНР from July 2026); their hosts may still answer as archives, but they are no longer the region's diary. Нижегородская, Курганская, Севастополь, Крым and ХМАО had no announced move.
 - The ESIA entry changed between 2024 (/journal-esia-action/ on the login page) and 2026 (/journal-esia-region-action?flow=v2); the 2026 chain rests on one client (EljurAuthUtil, single commit 2026-08-31).
 - school.nso.ru (Новосибирская «Электронная школа») is built by ООО «Иннотех», a joint venture of Веб-Мост and «Иннопрактика», and appears in ЭлЖур's news, but whether it runs the ЭлЖур codebase and API was not established, so it is not listed as an instance.
+- The only client written for school.nso.ru is yguskov/schoolbot (2022), a login and password scraper that predates ЕСИА-only sign-in; none of its sign-in works today.
+- Routes marked with a DAAMCS, i3sey or matytsyn source were written for {subdomain}.eljur.ru; they are listed under https://school.nso.ru because the host runs the same ЭлЖур web code, which is an inference supported by the Wayback URL grammar, not by any call against this host.
+- Corrected from the input: the «загрузка …» session-expiry marker on GET / is not in schoolbot, which treats a missing grades link or a non-200 status as an expired session; /authorize downgraded from current to uncertain because its captures end in 2022 and no dated 2025–2026 source calls it; i3sey and DAAMCS request /journal-app/week.{n} with POST, not GET; ЭлЖур grades path is /sp.{quarter}+четверть, not a bare /sp.<period>; regional instance host filled in.
+- Wayback was offline during this verification; archive facts come from the CDX listing saved in an earlier round, and the page title of /authorize from a September 2026 web search that shows two different titles.
+- No /apiv3 capture exists for school.nso.ru, so whether ЭлЖур's mobile REST API is exposed here is unknown. The mobile apps are ru.nso.dnevnik («Дневник Новосибирской области»), ru.nso.teacher and iOS id1551121319; no analysis of them was found.
+- Nothing here was run against a live host; the Telegram token in schoolbot main.py is deliberately not reproduced.
+- Second round: school.nso.ru is the ЭлЖур web application: schoolbot's routes (/ajaxauthorize, /, /journal-student-grades-action/{id}, /journal-app/{id}/week.{n}, cookies session_id + schdomain/school_domain) match the ЭлЖур scrapers and the Wayback URL grammar on the host. All route literals in the input re-read correctly at source; statuses were tightened (/authorize to uncertain), one unsupported response claim was corrected, and five ЭлЖур routes with NSO sightings or 2026 clients were added as uncertain or legacy. Since 1 July 2024 sign-in is ЕСИА-only (/journal-esia-action/ exists on the host), so no open-source client can obtain a session unattended, and no route here is current.
