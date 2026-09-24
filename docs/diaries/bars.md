@@ -2,12 +2,21 @@
 
 *Part of [the electronic diaries of Russia’s regions](../diaries.md). Verification: extracted, checked against the code, and dated. Confidence of the whole: medium. Nothing here has been tried against the live service.*
 
-**One product under a regional name, one server per region.** Хакасия (`school.r-19.ru`), Тыва
-(`school.rtyva.ru`), Удмуртия (`es.ciur.ru`), Кабардино-Балкария (`school.07.edu.o7.com`),
-Карелия (`school.karelia.ru`), Тюменская (`school.72to.ru`), Рязанская, Владимирская,
-Магаданская and more run the same code, and БАРС's own directory at
-`aggregator.edu.bars.group` lists the servers the official app «Мой дневник» can pick. Several
-of these regions are moving off it in 2026/27 — see [the regions](regions.md).
+**One product under a regional name, one server per region, and fewer of them every year.**
+In September 2026 three regions still keep their diary in it: Хакасия (`school.r-19.ru`),
+Владимирская (`школа.образование33.рф`) and Магаданская (`eschool.49gov.ru`). Вологодская keeps
+its college register on it (`ssuz.vip.edu35.ru`). The rest of its map is history:
+- **On 1 September 2026** Удмуртия (`es.ciur.ru`), Кабардино-Балкария (`school.07.edu.o7.com`),
+  НАО and Ростовская moved to ТОР «Моя школа». Карелия (`school.karelia.ru`), Вологодская
+  (`school.vip.edu35.ru`) and Мурманская (`s51.edu.o7.com`) moved to «Моя школа» on МЭШ the same
+  day.
+- **Earlier**, Тюменская left in August 2024 (its archive is `old-school.72to.ru`), Рязанская in
+  2025, and Тыва and Алтай about 2022.
+
+БАРС's own directory at `aggregator.edu.bars.group`, which the official app «Мой дневник» picks
+a server from, still lists the servers these regions left, with no archive mark. A listing there
+is therefore not evidence of use, and none of those regions has said whether past marks stay
+readable. The per-region detail is in [the regions](regions.md).
 
 **Two API families.** The web front end talks to `/api/<Service>/<method>` with a `sessionid`
 cookie; the older mobile app talked to `/rest/*` with form-encoded posts. The `/rest/*` data

@@ -3,11 +3,19 @@
 *Part of [the electronic diaries of Russia’s regions](../diaries.md). Verification: extracted, checked against the code, and dated. Confidence of the whole: medium. Nothing here has been tried against the live service.*
 
 **One product, one route set, a different server in every region.** Each regional
-installation — `sgo.edu-74.ru` in Челябинская, `asurso.ru` in Самарская, `giseo.rkomi.ru` in
-Коми and some fifty more listed below — runs the same `/webapi` JSON API, at whatever version
-the region last upgraded to. The table is therefore a union across versions 4.x to 5.32, and
-a row may be missing from an older server; `GET /webapi/logindata` answers with the version.
-A client finds the school with `/webapi/schools/search` and is otherwise the same everywhere.
+installation — `asurso.ru` in Самарская, `giseo.rkomi.ru` in Коми, `sgo.e-mordovia.ru` in
+Мордовия and some fifty more listed below — runs the same `/webapi` JSON API, at whatever
+version the region last upgraded to. The table is therefore a union across versions 4.x to
+5.32, and a row may be missing from an older server; `GET /webapi/logindata` answers with the
+version. A client finds the school with `/webapi/schools/search` and is otherwise the same
+everywhere.
+
+**It is the main diary of twenty regions in September 2026, and was of more.** Чувашия,
+Краснодарский край, Алтай, Костромская and Челябинская left it for ТОР «Моя школа» on
+1 September 2026. Тверская left it for «Моя школа» on МЭШ the same day, Калужская in 2023 and
+ЯНАО in 2025. A server a region has left can stay up: Тверская's `sgo.tvobr.ru` still answered
+on 24 September 2026, version 5.56.4, with every sign-in enabled. So a live server is not
+evidence that families still read it.
 
 **Signing in has three shapes, and the region decides which.** The password flow — fetch a
 salt from `/webapi/auth/getdata`, hash the password as `md5(salt + md5(password))` with the

@@ -94,20 +94,40 @@ use as the diary in September 2026:
 | no electronic diary this year — Севастополь, on paper since 1 September 2026 with its ЭлЖур-based system suspended | 1 |
 
 **The map moved under this survey.** On 1 September 2026 the twenty pilot regions on the
-official list — the Госуслуги parents' channel published it, and the ЛНР's ministry pointed to it
-— made ТОР «Моя школа» their diary, reached only through «Госуслуги Моя школа»; the ДНР runs it
-in test operation, with paper kept beside it for two months. Almost every one of them left a
-platform that has open clients: «Сетевой город» and ЭлЖур lost six regions each, БАРС five,
-Дневник.ру four, and Свердловская's ЕЦП and Ярославская's «Дневник76» chain went with them; only
-Брянская left a system with none, «Виртуальная школа». Two regions that news had counted in did
-not switch: Липецкая keeps ЭлЖур with the app in front of it, and Оренбургская calls September a
-phased transition while its «one.» portal still runs. Everywhere else the app is an option in
-front of the regional system, except in Запорожская and Херсонская, where it is not offered at
-all. Before all this, the МЭШ-based «Моя школа»
-had taken over from Дневник.ру in Московская (2023) and Дагестан (2024), from БАРС in Карелия,
-Вологодская, Мурманская and Тюменская, from edu.tatar.ru in Татарстан (2024) and from ELSCHOOL
-in Башкортостан (2026). БАРС is the platform that has shrunk the most: 14 regions list
-it as a previous system.
+official list made ТОР «Моя школа» their diary, reached only through «Госуслуги Моя школа». The
+list was published by the Госуслуги parents' channel, and the ЛНР's ministry pointed to it. The
+ДНР runs ТОР in test operation, with paper kept beside it for two months. Counting only the
+system each of the others used in 2025/26, almost all of them left a platform that has open
+clients:
+
+| Left for ТОР | Regions |
+| --- | --- |
+| ЭлЖур | 6 |
+| «Сетевой город» | 5 |
+| БАРС | 4 |
+| Дневник.ру | 2 |
+| Свердловская's ЕЦП | 1 |
+
+Only Брянская left a system with no open client, «Виртуальная школа».
+
+Two regions that news had counted in did not switch. Липецкая keeps ЭлЖур with the app in front
+of it. Оренбургская calls September a phased transition, and its «one.» portal still runs.
+Everywhere else the app is an option in front of the regional system, except in Запорожская and
+Херсонская, where it is not offered at all.
+
+The МЭШ-based «Моя школа» runs in eleven regions, and each of them came to it from a platform
+with open clients:
+- from Дневник.ру in Московская (2023) and Дагестан (the contract was dropped in 2023, and all
+  schools had moved by 2024);
+- from «Сетевой город» in Калужская (November 2023), ЯНАО (November 2025) and Тверская
+  (September 2026, phased through the first quarter);
+- from edu.tatar.ru in Татарстан (2024);
+- from БАРС in Тюменская (2024), and in Карелия, Вологодская and Мурманская (September 2026);
+- from ELSCHOOL in Башкортостан (September 2026, with the rest of the schools by the end of the
+  year).
+
+БАРС is the platform that has shrunk the most: 14 regions list it as a previous
+system.
 
 **What that means for a client author** is in [What it means for this project](#what-it-means-for-this-project):
 «Сетевой город», Дневник.ру and the МЭШ family between them cover
@@ -128,15 +148,15 @@ the quoted sentence and its URL — is in [diaries/regions.md](diaries/regions.m
 | --- | --- | --- | --- | --- | --- |
 | Республика Адыгея | [Дневник.ру](diaries/dnevnik-ru.md) `dnevnik.ru`, `login.dnevnik.ru` | — | — | high | confirmed |
 | Республика Алтай | [ТОР «Моя школа»](diaries/myschool-federal.md) `gosuslugi.ru/school` | — | [«Сетевой город»](diaries/netschool.md) `sgo.altaiobr04.ru`, `poo.altaiobr04.ru` (until 31 August 2026); [БАРС](diaries/bars.md) `sosh.mon-ra.ru`, `spo.mon-ra.ru` (until about 2022) | high | corrected in the second round |
-| **Республика Башкортостан** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `dnevnik.edurb.ru` | — | [ELSCHOOL](diaries/elschool.md) `elschool.ru`, `api.elschool.ru` (primary until 2025/26) | high | deep check |
+| **Республика Башкортостан** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `dnevnik.edurb.ru`; [ELSCHOOL](diaries/elschool.md) `elschool.ru`, `api.elschool.ru` | — | — | high | deep check, second round |
 | Республика Бурятия | [«Сетевой город»](diaries/netschool.md) `deti.obr03.ru`; [ЭлЖур](diaries/eljur.md) `maou-37.eljur.ru` | — | — | high | confirmed |
-| **Республика Дагестан** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `myschool.05edu.ru`, `education.05edu.ru` | — | [Дневник.ру](diaries/dnevnik-ru.md) `dnevnik.ru`, `login.dnevnik.ru` (until 2024) | high | deep check |
+| **Республика Дагестан** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `myschool.05edu.ru`, `education.05edu.ru` | — | [Дневник.ру](diaries/dnevnik-ru.md) `dnevnik.ru`, `login.dnevnik.ru` (until 2023/24: the paid contract was dropped…) | high | deep check, second round |
 | Донецкая Народная Республика | [ТОР «Моя школа»](diaries/myschool-federal.md) `gosuslugi.ru/school`; [ЭлЖур](diaries/eljur.md) `donschool47.eljur.ru`, `*.eljur.ru` | — | — | medium | corrected in the second round |
 | Республика Ингушетия | [«Сетевой город»](diaries/netschool.md) `sgo.edu-ri.ru`, `poo.edu-ri.ru`; [ЭлЖур](diaries/eljur.md) `ri-sch2.eljur.ru`, `ri-sch3.eljur.ru` | — | — | medium | corrected in the second round |
 | Кабардино-Балкарская Республика | [ТОР «Моя школа»](diaries/myschool-federal.md) `gosuslugi.ru/school` | — | [БАРС](diaries/bars.md) `school.07.edu.o7.com` (until 31 August 2026 as the families' diary) | medium | corrected in the second round |
 | Республика Калмыкия | [Дневник.ру](diaries/dnevnik-ru.md) `dnevnik.ru`, `08.dnevnik.ru` | — | [«Сетевой город»](diaries/netschool.md) `sgo.monrk.ru` | high | corrected in the second round |
 | Карачаево-Черкесская Республика | [«Сетевой город»](diaries/netschool.md) `sgo.kchgov.ru`, `poo.kchgov.ru` | — | — | medium | confirmed |
-| **Республика Карелия** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `karelia.minedu.ru` | — | [БАРС](diaries/bars.md) `school.karelia.ru`, `college.karelia.ru` («Электронная школа» from 01.01.2018) | high | deep check |
+| **Республика Карелия** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `karelia.minedu.ru` | — | [БАРС](diaries/bars.md) `school.karelia.ru`, `college.karelia.ru` («Электронная школа» from 01.01.2018) | high | deep check, second round |
 | Республика Коми | [«Сетевой город»](diaries/netschool.md) `giseo.rkomi.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | — | high | corrected |
 | Республика Крым | [ЭлЖур](diaries/eljur.md) `edu.rk.gov.ru`, `*.eljur.ru` | — | — | high | confirmed |
 | Луганская Народная Республика | [ТОР «Моя школа»](diaries/myschool-federal.md) `gosuslugi.ru/school` | — | [ЭлЖур](diaries/eljur.md) `lnr0487.eljur.ru`, `lnr0523.eljur.ru` (2024/25 pilots) | high | corrected in the second round |
@@ -166,13 +186,13 @@ the quoted sentence and its URL — is in [diaries/regions.md](diaries/regions.m
 | Брянская область | [ТОР «Моя школа»](diaries/myschool-federal.md) `gosuslugi.ru/school` | — | [«Виртуальная школа»](diaries/virtual-school.md) `bryansk.vsopen.ru`, `obr.b-edu.ru` (until the end of 2025/26) | medium | corrected in the second round |
 | Владимирская область | [БАРС](diaries/bars.md) `школа.образование33.рф`, `xn--80atdl2c.xn--33-6kcadhwnl3cfdx.xn--p1ai`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | — | medium | corrected in the second round |
 | Волгоградская область | [«Сетевой город»](diaries/netschool.md) `sgo.volganet.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | — | medium | confirmed in the second round |
-| **Вологодская область** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `dnevnik.edu35.ru`; [БАРС](diaries/bars.md) `ssuz.vip.edu35.ru` | — | [БАРС](diaries/bars.md) `school.vip.edu35.ru` (2014) | high | deep check |
+| **Вологодская область** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `dnevnik.edu35.ru`; [БАРС](diaries/bars.md) `ssuz.vip.edu35.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | [БАРС](diaries/bars.md) `school.vip.edu35.ru` (2014) | high | deep check, second round |
 | Воронежская область | [ТОР «Моя школа»](diaries/myschool-federal.md) `gosuslugi.ru/school` | — | [Дневник.ру](diaries/dnevnik-ru.md) `dnevnik.ru`, `36.dnevnik.ru` (at least 2017 – 2025/26) | high | confirmed in the second round |
 | Запорожская область | [«one.» platform](diaries/one-x1.md) `one.umnik-zo.ru`, `passport.umnik-zo.ru` | — | — | high | corrected in the second round |
 | Ивановская область | [Дневник.ру](diaries/dnevnik-ru.md) `dnevnik.ru`, `37.dnevnik.ru`; [ЭлЖур](diaries/eljur.md) `iklp.eljur.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | — | high | corrected in the second round |
 | Иркутская область | [Дневник.ру](diaries/dnevnik-ru.md) `login.dnevnik.ru/login/esia/irkutsk`, `38.dnevnik.ru`; [ЭлЖур](diaries/eljur.md) `fec.eljur.ru`, `sh28irk.eljur.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | — | high | corrected in the second round |
 | Калининградская область | [ТОР «Моя школа»](diaries/myschool-federal.md) `gosuslugi.ru/school` | — | [ЭлЖур](diaries/eljur.md) `keo.gov39.ru`, `klgd.eljur.ru` (by December 2023 on keo.gov39.ru) | high | confirmed in the second round |
-| **Калужская область** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `education.admoblkaluga.ru`, `dnevnik.admoblkaluga.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | [«Сетевой город»](diaries/netschool.md) `edu.admoblkaluga.ru:444`, `es.admoblkaluga.ru` (until the move to «Моя школа») | high | deep check |
+| **Калужская область** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `education.admoblkaluga.ru`, `dnevnik.admoblkaluga.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | [«Сетевой город»](diaries/netschool.md) `edu.admoblkaluga.ru:444`, `es.admoblkaluga.ru` (until October 2023) | high | deep check, second round |
 | Кемеровская область — Кузбасс | [«Электронная школа 2.0»](diaries/ruobr.md) `ruobr.ru`, `cabinet.ruobr.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | — | high | corrected in the second round |
 | Кировская область | [«one.» platform](diaries/one-x1.md) `one.43edu.ru`, `passport.43edu.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | «Аверс» (until 2022) | medium | corrected in the second round |
 | Костромская область | [ТОР «Моя школа»](diaries/myschool-federal.md) `gosuslugi.ru/school` | — | [«Сетевой город»](diaries/netschool.md) `netschool.eduportal44.ru` (until 31 August 2026) | medium | corrected in the second round |
@@ -182,7 +202,7 @@ the quoted sentence and its URL — is in [diaries/regions.md](diaries/regions.m
 | Липецкая область | [ЭлЖур](diaries/eljur.md) `edu.schools48.ru`, `schools48.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | [БАРС](diaries/bars.md) `schools48.ru` (before January 2025) | medium | corrected in the second round |
 | Магаданская область | [БАРС](diaries/bars.md) `eschool.49gov.ru`, `openschool.49gov.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | — | high | corrected in the second round |
 | **Московская область** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `authedu.mosreg.ru`, `myschool.mosreg.ru` | — | [Дневник.ру](diaries/dnevnik-ru.md) `school.mosreg.ru`, `login.school.mosreg.ru` (2015 – August 2023) | high | deep check |
-| **Мурманская область** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `edu.mso51.ru` | — | [БАРС](diaries/bars.md) `s51.edu.o7.com` (2012/13 – 2025/26) | high | deep check |
+| **Мурманская область** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `edu.mso51.ru` | — | [БАРС](diaries/bars.md) `s51.edu.o7.com` (2012/13 – 2025/26) | high | deep check, second round |
 | Нижегородская область | [ЭлЖур](diaries/eljur.md) `edu.gounn.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | [Дневник.ру](diaries/dnevnik-ru.md) `dnevnik.ru`, `login.dnevnik.ru` (2011/12 – 2020) | high | corrected in the second round |
 | Новгородская область | [Дневник.ру](diaries/dnevnik-ru.md) `53.dnevnik.ru`, `dnevnik.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | — | high | corrected in the second round |
 | Новосибирская область | [ЭлЖур](diaries/eljur.md) `school.nso.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | [БАРС](diaries/bars.md) `shkola.nso.ru` (before 2021) | high | corrected in the second round |
@@ -199,22 +219,22 @@ the quoted sentence and its URL — is in [diaries/regions.md](diaries/regions.m
 | Свердловская область | [ТОР «Моя школа»](diaries/myschool-federal.md) `gosuslugi.ru/school` | — | [ГИС СО «ЕЦП»](diaries/egov66.md) `dnevnik.egov66.ru`, `jurnal.egov66.ru` (1 September 2023 – 31 August 2026); [«Сетевой город»](diaries/netschool.md) `netcity.eimc.ru`, `sgo.egov66.ru` (until August 2023); [Дневник.ру](diaries/dnevnik-ru.md) `dnevnik.ru` (until August 2023) | high | corrected in the second round |
 | Смоленская область | [ТОР «Моя школа»](diaries/myschool-federal.md) `gosuslugi.ru/school` | — | [ЭлЖур](diaries/eljur.md) `dnevnik.admin-smolensk.ru` (2018 – 31 August 2026) | high | confirmed in the second round |
 | Тамбовская область | [Дневник.ру](diaries/dnevnik-ru.md) `dnevnik.ru`, `login.dnevnik.ru` | — | — | high | confirmed |
-| **Тверская область** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `dnevnik.tvobr.ru` | — | [«Сетевой город»](diaries/netschool.md) `sgo.tvobr.ru` (by 2020 until 2025/26) | high | deep check |
+| **Тверская область** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `dnevnik.tvobr.ru` | — | [«Сетевой город»](diaries/netschool.md) `sgo.tvobr.ru` (by 2020 until 2025/26 for the school diary) | high | deep check, second round |
 | Томская область | [«Сетевой город»](diaries/netschool.md) `sgo.tomedu.ru`, `poo.tomedu.ru` | — | [Дневник.ру](diaries/dnevnik-ru.md) `dnevnik.ru`, `login.dnevnik.ru` (seen 2021–2022) | medium | confirmed |
 | Тульская область | [«Сетевой город»](diaries/netschool.md) `sgo1.edu71.ru`, `sgo.edu71.ru` | — | — | medium | confirmed |
-| **Тюменская область** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `myschool.72to.ru`, `school.72to.ru` | — | [БАРС](diaries/bars.md) `old-school.72to.ru` (≈2013 until 29 August 2024) | high | deep check |
+| **Тюменская область** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `myschool.72to.ru`, `school.72to.ru` | — | [БАРС](diaries/bars.md) `old-school.72to.ru` (≈2013 until 29 August 2024) | high | deep check, second round |
 | Ульяновская область | [«Сетевой город»](diaries/netschool.md) `sgo.cit73.ru`, `spo.cit73.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | — | high | confirmed in the second round |
 | Херсонская область | [«one.» platform](diaries/one-x1.md) `one.edu.khogov.ru`, `passport.edu.khogov.ru` | — | — | high | corrected in the second round |
 | Челябинская область | [ТОР «Моя школа»](diaries/myschool-federal.md) `gosuslugi.ru/school` | — | [«Сетевой город»](diaries/netschool.md) `sgo.edu-74.ru`, `es.edu-74.ru` (2013) | high | corrected in the second round |
 | Ярославская область | [ТОР «Моя школа»](diaries/myschool-federal.md) `gosuslugi.ru/school` | — | [ЭлЖур](diaries/eljur.md) `school.yarcloud.ru` (1 September 2024); [dnevnik76](diaries/dnevnik76.md) `my.dnevnik76.ru`, `dnevnik76.ru` (until September 2024) | high | corrected in the second round |
 | **Москва** | [МЭШ](diaries/mesh-moscow.md) `school.mos.ru`, `dnevnik.mos.ru` | — | МРКО — «Электронный дневник школьника» (Московский регистр качества об… `mrko.mos.ru`, `pgu.mos.ru` (until 2017) | high | deep check |
-| **Санкт-Петербург** | [«Петербургское образование»](diaries/petersburg.md) `dnevnik2.petersburgedu.ru`, `petersburgedu.ru`; [eSchool](diaries/eschool-center.md) `app.eschool.center`; [«Сетевой город»](diaries/netschool.md) `netschool.school.ioffe.ru` | — | [«Петербургское образование»](diaries/petersburg.md) `petersburgedu.ru` (until about 2019/20) | high | deep check |
+| **Санкт-Петербург** | [«Петербургское образование»](diaries/petersburg.md) `dnevnik2.petersburgedu.ru`, `petersburgedu.ru`; [eSchool](diaries/eschool-center.md) `app.eschool.center`; [«Сетевой город»](diaries/netschool.md) `netschool.school.ioffe.ru`; [Дневник.ру](diaries/dnevnik-ru.md) `dnevnik.ru` | — | [«Петербургское образование»](diaries/petersburg.md) `petersburgedu.ru` (until about 2019/20) | high | deep check, second round |
 | Севастополь | paper journals and diaries; no electronic diary | — | [ЭлЖур](diaries/eljur.md) `riso.sev.gov.ru` (by September 2022 – August 2026) | medium | corrected in the second round |
 | Еврейская автономная область | [ТОР «Моя школа»](diaries/myschool-federal.md) `gosuslugi.ru/school`, `edu.gosuslugi.ru` | — | [Дневник.ру](diaries/dnevnik-ru.md) `dnevnik.ru`, `login.dnevnik.ru` (until 31 August 2026) | high | confirmed in the second round |
 | Ненецкий автономный округ | [ТОР «Моя школа»](diaries/myschool-federal.md) `gosuslugi.ru/school` | — | [БАРС](diaries/bars.md) `edu.adm-nao.ru` (until 31 August 2026) | high | confirmed in the second round |
 | Ханты-Мансийский автономный округ — Югра | [ЭлЖур](diaries/eljur.md) `cop.admhmao.ru`, `cop-sh.admhmao.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | — | high | corrected in the second round |
 | Чукотский автономный округ | [«one.» platform](diaries/one-x1.md) `one.edu87.ru`, `passport.edu87.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | — | high | corrected in the second round |
-| **Ямало-Ненецкий автономный округ** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `school.yanao.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end | — | [«Сетевой город»](diaries/netschool.md) `sgo.yanao.ru` (until November 2025); [ЭлЖур](diaries/eljur.md) `school.yanao.ru` (2021–2022) | high | deep check |
+| **Ямало-Ненецкий автономный округ** | [«Моя школа» (МЭШ)](diaries/mesh-myschool.md) `school.yanao.ru`; [«Госуслуги Моя школа»](diaries/myschool-federal.md) as a front end `gosuslugi.ru/school` | — | [«Сетевой город»](diaries/netschool.md) `sgo.yanao.ru` (until November 2025); [ЭлЖур](diaries/eljur.md) `school.yanao.ru` (2021–2022) | high | deep check, second round |
 
 ## The platforms
 
@@ -329,13 +349,15 @@ made ЕСИА the only way a family signs in: Дневник.ру per region, «
   - the regional systems that had been filed under no platform;
   - the edges of the mandatory regions.
 
-  What remains is 22 regions whose current system is at medium confidence in the
-  table. For most of them the only source is a single dated one, or an announcement made before
-  1 September. Four secondary rows have a role nobody could fix:
-  - the МЭШ node `school.mon95.ru` in Чечня;
-  - a Дневник.ру trace in Ставропольский край;
-  - «Сетевой город» in Иркутская;
-  - «Госуслуги Моя школа» in Хакасия.
+  What remains:
+  - 22 regions whose current system is at medium confidence in the table. For most
+    of them the only source is a single dated one, or an announcement made before 1 September.
+  - Four secondary rows whose role nobody could fix: the МЭШ node `school.mon95.ru` in Чечня, a
+    Дневник.ру trace in Ставропольский край, «Сетевой город» in Иркутская, and «Госуслуги Моя
+    школа» in Хакасия.
+  - Whether the БАРС servers Вологодская, Мурманская and Карелия left on 1 September 2026 keep
+    past marks readable. All three still resolve and still sit in БАРС's own directory, and
+    none of the regions has said.
 
   In August 2026 several regional ministries moved their channels from Telegram to MAX, which
   made September's notices scarce.
