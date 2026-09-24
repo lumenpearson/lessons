@@ -427,6 +427,26 @@ class NetSchoolClient:
             },
         )
 
+    async def schools_search(self, query: str) -> list[dict[str, Any]]:
+        """Search the region's schools by name, for binding a class.
+
+        No session: the server answers this to the login page. Returns at most
+        what it gives; the caller cuts and indexes. A blocked address or a down
+        server raises, so the admin is told which rather than shown an empty
+        list they cannot tell from «no such school».
+        """
+        response = await self._send(
+            "GET", "/webapi/schools/search", auth=False, params={"name": query[:60]}
+        )
+        data = self._decode(response, step="schools/search")
+        if not isinstance(data, list):
+            raise UnexpectedResponse
+        out: list[dict[str, Any]] = []
+        for row in data:
+            if isinstance(row, dict) and isinstance(row.get("id"), int) and row.get("name"):
+                out.append({"id": row["id"], "name": str(row["name"])})
+        return out
+
     async def terms_search(self, group_id: int | None) -> Any:
         # terms/search takes a JSON body, not a form.
         body = {"classIds": [group_id]} if group_id is not None else {}

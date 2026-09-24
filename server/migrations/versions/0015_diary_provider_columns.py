@@ -95,7 +95,13 @@ def downgrade() -> None:
         "UPDATE diary_sessions SET expired_at = now() "
         "WHERE provider IS NOT NULL AND provider <> 'petersburg' AND expired_at IS NULL"
     )
-    for column in ("upstream_ok_at", "keepalive_attempted_at", "kept_alive_at", "region", "provider"):
+    for column in (
+        "upstream_ok_at",
+        "keepalive_attempted_at",
+        "kept_alive_at",
+        "region",
+        "provider",
+    ):
         op.drop_column("diary_sessions", column)
     for column in ("diary_school_name", "diary_school_id", "diary_region"):
         op.drop_column("classes", column)

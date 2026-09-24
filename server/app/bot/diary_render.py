@@ -159,10 +159,15 @@ def render_week(lessons: list[DiaryLesson], start: Date, today: Date) -> str:
     return clamp(lines)
 
 
-def render_signed_out() -> str:
+def render_signed_out(genitive: str) -> str:
+    """The sign-in offer. ``genitive`` names the bound diary in the genitive
+    case — «Санкт-Петербурга», «„Сетевого города“» — because there is more than
+    one now, and a card that always said Petersburg would be wrong for the
+    other. It is a fixed provider string, never anything a user typed, so it
+    goes in unescaped like the rest of this template."""
     return (
         "📒 <b>Электронный дневник</b>\n\n"
-        "Класс привязан к дневнику Санкт-Петербурга. Вход — ваш личный: "
+        f"Класс привязан к дневнику {genitive}. Вход — ваш личный: "
         "вы видите своего ребёнка, и никто из класса не видит его за вас.\n\n"
         "<b>Пароль не вводится в чат.</b> Бот даст ссылку на страницу входа — "
         "оттуда пароль уходит прямо в дневник и нигде не сохраняется."

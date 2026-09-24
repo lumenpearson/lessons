@@ -1605,6 +1605,9 @@ async def test_cron_tick_delivers_a_morning_digest_once(
         "device_tokens_purged": 0,
         "diary_links_purged": 0,
         "device_invites_purged": 0,
+        "diary_sessions_kept_alive": 0,
+        "diary_sessions_lost": 0,
+        "diary_keepalive_failed": False,
     }
     assert len(tick_bot.sent) == 1
     recipient, text = tick_bot.sent[0]

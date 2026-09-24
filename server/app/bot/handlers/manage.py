@@ -40,16 +40,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot import manage_render as mr
 from app.bot import render
 from app.bot.handlers.calendar import open_month
-from app.bot.handlers.diary import PETERSBURG as DIARY_PROVIDER
 from app.bot.handlers.timetable import REJECTED_MAX
 from app.bot.keyboards import (
     WEEKDAY_FULL,
+    DiarySchoolPick,
     Menu,
     back_to_menu,
     cancel_keyboard,
 )
 from app.bot.manage_keyboards import (
     COLOUR_PRESETS,
+    DIARY_SCHOOLS_MAX,
     PERIOD_KINDS,
     AuditAction,
     BellsAction,
@@ -68,6 +69,9 @@ from app.bot.manage_keyboards import (
     colour_keyboard,
     day_kind_keyboard,
     device_keyboard,
+    diary_provider_menu,
+    diary_region_menu,
+    diary_school_menu,
     holiday_list_keyboard,
     import_keyboard,
     period_kind_keyboard,
@@ -91,6 +95,7 @@ from app.bot.manage_states import (
 from app.bot.middlewares import prefs_key
 from app.bot.render import clamp, more_line, plural
 from app.bot.roles import list_memberships
+from app.bot.states import BindDiary
 from app.config import get_settings
 from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
@@ -109,6 +114,11 @@ from app.models import (
     TermKind,
     TimetableEntry,
 )
+from app.providers.diary.errors import AddressRefused, DiaryError, SignInUnsupported
+from app.providers.diary.registry import NETSCHOOL, PETERSBURG
+from app.providers.diary.registry import binding as diary_binding
+from app.providers.netschool import regions as ns_regions
+from app.providers.netschool.client import NetSchoolClient
 from app.services import access as access_service
 from app.services import audit, linking, structure, timetable_io
 from app.services import calendar as calendar_service
@@ -2016,6 +2026,7 @@ async def _class_card(
         members=members,
         devices=devices,
         pending=pending,
+        diary_label=_diary_label(school_class),
     )
     keyboard = class_menu(
         is_owner=role.at_least(Role.OWNER),
@@ -2026,6 +2037,26 @@ async def _class_card(
         diary_bound=bool(school_class.diary_provider),
     )
     return text, keyboard
+
+
+def _diary_label(school_class: SchoolClass) -> str:
+    """The diary line for the class card: the provider, and for «Сетевой город»
+    the region and school. Reads the binding, so a class bound to a region since
+    dropped from the allow-list reads «не привязан» rather than a dead name."""
+    b = diary_binding(school_class)
+    if b is None:
+        return "не привязан"
+    if b.region:
+        from app.providers.netschool import regions
+
+        region = regions.get(b.region)
+        parts = [b.provider.title]
+        if region is not None:
+            parts.append(region.title)
+        if b.school_name:
+            parts.append(b.school_name)
+        return " · ".join(parts)
+    return b.provider.title
 
 
 @router.message(Command("class"))
@@ -2356,16 +2387,210 @@ async def class_diary_bind(
         return
 
     if school_class.diary_provider:
+        # Bound → unbind. The door goes; the sessions people opened stay theirs
+        # until they sign out or the class is deleted, as three screens promise.
         school_class.diary_provider = None
-        note = "дневник отвязан"
-    else:
-        school_class.diary_provider = DIARY_PROVIDER
-        note = "привязан дневник Санкт-Петербурга"
+        school_class.diary_region = None
+        school_class.diary_school_id = None
+        school_class.diary_school_name = None
+        await audit.record(
+            session, school_class.id, callback.from_user.id, "class.diary", "дневник отвязан"
+        )
+        await session.commit()
+        await _redraw_class(callback, session, school_class, role)
+        await callback.answer("Дневник отвязан")
+        return
 
-    await audit.record(session, school_class.id, callback.from_user.id, "class.diary", note)
-    await session.commit()
+    # Unbound → choose which diary. There is more than one now, so binding is a
+    # small chooser rather than a single toggle.
+    await callback.message.edit_text(
+        "📒 <b>Электронный дневник</b>\n\nВыберите, к какому дневнику привязать класс.",
+        reply_markup=diary_provider_menu(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(ManageAction.filter(F.action == "diary_prov"))
+async def class_diary_provider(
+    callback: CallbackQuery,
+    callback_data: ManageAction,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """Second step of binding: the provider was picked."""
+    if school_class is None or role is None or not role.at_least(Role.ADMIN):
+        await callback.answer("Только для администраторов", show_alert=True)
+        return
+    if callback_data.value == PETERSBURG:
+        school_class.diary_provider = PETERSBURG
+        school_class.diary_region = None
+        school_class.diary_school_id = None
+        school_class.diary_school_name = None
+        await audit.record(
+            session, school_class.id, callback.from_user.id, "class.diary",
+            "привязан дневник Санкт-Петербурга",
+        )
+        await session.commit()
+        await _redraw_class(callback, session, school_class, role)
+        await callback.answer("Привязан дневник Санкт-Петербурга")
+        return
+    if callback_data.value == NETSCHOOL:
+        await callback.message.edit_text(
+            "🌆 <b>Сетевой город</b>\n\nВыберите регион.", reply_markup=diary_region_menu()
+        )
+        await callback.answer()
+        return
+    await callback.answer("Неизвестный дневник", show_alert=True)
+
+
+@router.callback_query(ManageAction.filter(F.action == "diary_reg"))
+async def class_diary_region(
+    callback: CallbackQuery,
+    callback_data: ManageAction,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+    state: FSMContext,
+) -> None:
+    """Third step: the «Сетевой город» region was picked. Check the region
+    accepts a password from us before asking for the school, so the admin
+    learns once rather than every family finding out at sign-in."""
+    if school_class is None or role is None or not role.at_least(Role.ADMIN):
+        await callback.answer("Только для администраторов", show_alert=True)
+        return
+    region = ns_regions.get(callback_data.value)
+    if region is None or not region.password:
+        await callback.answer("Этот регион недоступен", show_alert=True)
+        return
+    ok, why = await _probe_region(region)
+    if not ok:
+        await callback.answer(why, show_alert=True)
+        return
+    await state.set_state(BindDiary.school)
+    await state.update_data(diary_region=region.key, diary_class_id=school_class.id)
+    await callback.message.edit_text(
+        f"🌆 <b>Сетевой город</b> · {escape(region.title)}\n\n"
+        "Напишите часть названия школы — я поищу её на сайте региона.",
+    )
+    await callback.answer()
+
+
+async def _probe_region(region) -> tuple[bool, str]:  # noqa: ANN001
+    """Ask the region's sign-in options, so a class is not bound to a diary no
+    family can reach. @return (ok, message-if-not)."""
+    try:
+        await NetSchoolClient(region).login_allowed()
+    except SignInUnsupported:
+        return False, "Этот регион пускает только через Госуслуги — привязать нельзя."
+    except AddressRefused:
+        return False, "Сайт региона не отвечает нашему серверу. Сообщите владельцу проекта."
+    except DiaryError:
+        return False, "Сайт региона сейчас недоступен. Попробуйте позже."
+    return True, ""
+
+
+@router.message(BindDiary.school)
+async def class_diary_search(
+    message: Message,
+    session: AsyncSession,
+    state: FSMContext,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    """Fourth step: a school-name query. Show what the region's search found.
+
+    FSM state is per-user and attacker-controlled, so the role is re-checked
+    here as at every step — a non-admin who set itself into this state would
+    otherwise turn the class card into an outbound search against a region
+    server.
+    """
+    if not _allowed(school_class, role, Role.ADMIN):
+        await state.clear()
+        return
+    data = await state.get_data()
+    region = ns_regions.get(data.get("diary_region"))
+    class_id = data.get("diary_class_id")
+    if region is None or class_id is None:
+        await state.clear()
+        return
+    query = (message.text or "").strip()
+    if len(query) < 2:
+        await message.answer("Введите хотя бы два символа названия школы.")
+        return
+    try:
+        schools = await NetSchoolClient(region).schools_search(query)
+    except DiaryError:
+        await message.answer("Не удалось найти школы — сайт региона не ответил. Попробуйте позже.")
+        return
+    if not schools:
+        await message.answer("Школа не найдена. Уточните запрос.")
+        return
+    shown = schools[:DIARY_SCHOOLS_MAX]
+    await state.update_data(diary_schools=shown)
+    caption = f"🌆 <b>Сетевой город</b> · {escape(region.title)}\n\nВыберите школу:"
+    more = len(schools) > len(shown)
+    if more:
+        caption += f"\n\nПоказаны первые {len(shown)} — уточните запрос, если нужной нет."
+    await message.answer(caption, reply_markup=diary_school_menu(shown, more=more))
+
+
+@router.callback_query(DiarySchoolPick.filter(F.action == "cancel"))
+async def class_diary_cancel(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+    state: FSMContext,
+) -> None:
+    # A role check like every other step: the callback payload is whatever the
+    # client sent, and this one redraws the (admin-only) class card, so a
+    # наблюдатель who pressed it would otherwise be shown it.
+    if school_class is None or role is None or not role.at_least(Role.ADMIN):
+        await state.clear()
+        await callback.answer("Только для администраторов", show_alert=True)
+        return
+    await state.clear()
     await _redraw_class(callback, session, school_class, role)
-    await callback.answer(note.capitalize())
+    await callback.answer("Отменено")
+
+
+@router.callback_query(DiarySchoolPick.filter(F.action == "pick"))
+async def class_diary_school(
+    callback: CallbackQuery,
+    callback_data: DiarySchoolPick,
+    session: AsyncSession,
+    role: Role | None,
+    state: FSMContext,
+) -> None:
+    """Last step: a school was picked. Bind the class to it."""
+    data = await state.get_data()
+    schools = data.get("diary_schools") or []
+    region = ns_regions.get(data.get("diary_region"))
+    class_id = data.get("diary_class_id")
+    index = callback_data.value
+    if region is None or class_id is None or not (0 <= index < len(schools)):
+        await state.clear()
+        await callback.answer("Список устарел — начните заново.", show_alert=True)
+        return
+    school_class = await session.get(SchoolClass, class_id)
+    if school_class is None or role is None or not role.at_least(Role.ADMIN):
+        await state.clear()
+        await callback.answer("Только для администраторов", show_alert=True)
+        return
+    school = schools[index]
+    school_class.diary_provider = NETSCHOOL
+    school_class.diary_region = region.key
+    school_class.diary_school_id = int(school["id"])
+    school_class.diary_school_name = str(school["name"])[:300]
+    await audit.record(
+        session, school_class.id, callback.from_user.id, "class.diary",
+        f"привязан «Сетевой город»: {region.title}, {str(school['name'])[:200]}",
+    )
+    await session.commit()
+    await state.clear()
+    await _redraw_class(callback, session, school_class, role)
+    await callback.answer("Дневник привязан")
 
 
 async def _redraw_class(
