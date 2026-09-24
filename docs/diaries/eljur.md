@@ -11,9 +11,13 @@ what the clients actually call.
 **It is both a school-by-school product and a regional one.** A school has its own host,
 `<vendor>.eljur.ru`; a region that bought it as its system has its own brand in front of the
 same API. In September 2026 that is Нижегородская (`edu.gounn.ru`), Курганская
-(`eschool.gov45.ru`), Крым (`edu.rk.gov.ru`), Севастополь, Югра, Липецкая (`edu.schools48.ru`,
-with «Госуслуги Моя школа» only in front of it) and Новосибирская, whose ГИС НСО «Электронная
-школа» at `school.nso.ru` turned out to be the ЭлЖур web application under the region's name. The
+(`eschool.gov45.ru`), Крым (`edu.rk.gov.ru`), Югра, Липецкая (`edu.schools48.ru`, with
+«Госуслуги Моя школа» only in front of it) and Новосибирская, whose ГИС НСО «Электронная школа»
+at `school.nso.ru` turned out to be the ЭлЖур web application under the region's name.
+Севастополь's `riso.sev.gov.ru` was one of them until August 2026: from 1 September the city's
+schools went back to paper journals, and the department calls the electronic one suspended for
+now. Крым keeps paper diaries beside its ЭлЖур under the emergency regime, but its marks stay
+electronic. The
 first wave of ТОР «Моя школа» took six ЭлЖур regions: Калининградская (`keo.gov39.ru`), Курская,
 Смоленская, Ярославская (`school.yarcloud.ru`), Астраханская (`one.astrobl.ru`, which looks like
 the «one.» platform and is not) and the ЛНР all moved their families' diary to «Госуслуги Моя

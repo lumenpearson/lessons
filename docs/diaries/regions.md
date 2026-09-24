@@ -3,7 +3,9 @@
 *Part of [the electronic diaries of Russia’s regions](../diaries.md).* Every federal subject,
 in the order the survey used — republics, krais, oblasts, the federal cities, the autonomous oblast and okrugs — with every platform its schools use or used, the
 hosts, the date of the change where there was one, the sentence that says so and the page it
-was read on. «Checked» at the end of each block says how far the answer was verified.
+was read on. «Checked» at the end of each block says how far the answer was verified: by an independent
+pass told to refute the first, by the deep check the mandatory regions had, and — where it
+says so — by the second round that went after the completeness critique's list.
 Nothing here was read from a live diary: the evidence is regional portals, ministries, school
 sites and news, as of September 2026.
 
@@ -37,7 +39,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/daniilok21/Telegram-bot-with-NetSchool-API (regions.py maps «Республика Алтай» to https://sgo.altaiobr04.ru (read from raw.githubusercontent.com).); https://github.com/mironovmeow/MeowSchool (VK bot for the legacy БАРС diary sosh.mon-ra.ru (2022, Python).); https://github.com/nm17/netschoolapi (Generic async Python NetSchool client (archived); not Altai-specific.)
 - **Notes.** Three generations: БАРС sosh.mon-ra.ru (to about 2022), then Сетевой город sgo.altaiobr04.ru (to 31.08.2026), then ТОР «Моя школа» for all schools from 1 September 2026, covering both the teachers' journal and the families' diary («Госуслуги Моя школа» / Сферум / gosuslugi.ru/school).
 - **Corrected during verification.** ТОР row moved from migrating_to to primary (since 1 September 2026, all schools), on two dated sources. The Горно-Алтайск education authority, 19.08.2026 (muko.edusite.ru): «С 1 сентября 2026 г. электронный дневник будет доступен только в приложении «Госуслуги Моя школа»». Гимназия №3 Горно-Алтайска, 12.08.2026 (mougimnazia3.edusite.ru): «переходит на работу в Типовом решении «Моя школа»», so the journal moves, not only the app. The СГО row stays legacy, now dated «until 31 August 2026». БАРС legacy row unchanged. No regional page from after 1 September could be read (503 on every obr04 host); a gogov.ru headline of 17.09.2026 is the only later item.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Республика Башкортостан
 
@@ -100,7 +102,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/BetterJournal/EljurAPI (Unofficial documentation of the ЭлЖур API (per the first pass; not re-opened).); https://github.com/DAAMCS/EljurApi (Unofficial ЭлЖур API wrapper, Python (archived; per the first pass).)
 - **Notes.** No regional electronic diary before 2026; some Donetsk schools ran ЭлЖур on their own. From 1 September 2026 the whole republic (schools, kindergartens, СПО) works in ТОР «Моя школа» in test operation, with paper journals kept for now. Families see it in «Госуслуги Моя школа», at gosuslugi.ru/school or through MAX.
 - **Corrected during verification.** ТОР row moved from migrating_to to primary, since 1 September 2026 in test operation. Dated sources: dan-news.ru 28.08.2026 (Толстыкина: «В сентябре к системе подключат все школы…»; «Педагоги перейдут на электронные журналы»), yugrf.ru 03.09.2026 (test transition under way, paper kept), and two densus.ru headlines of 31.08 and 11.09.2026 read from Google News RSS. Confidence lowered from high to medium: the move happened, but it is a pilot with paper in parallel, and no ministry page from after September was read. ЭлЖур row unchanged.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Республика Ингушетия
 
@@ -117,7 +119,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/daniilok21/Telegram-bot-with-NetSchool-API (regions.py maps «Республика Ингушетия» to https://sgo.edu-ri.ru.); https://github.com/nm17/netschoolapi (Generic async Python NetSchool client (archived).); https://github.com/kmlebedev/netSchoolWebApi (Go client for the NetSchool web API.)
 - **Notes.** Primary: СГО, branded РГИС «Сетевой город» (sgo.edu-ri.ru; sad06.ru:82 is an older entry to the same server). Beside it, an ЭлЖур pilot in part of the schools since December 2025 whose continuation in 2026/27 was not announced.
 - **Corrected during verification.** Added ЭлЖур as secondary (pilot in 10 schools from 01.12.2025, eljur.ru/news/2025_ing), with five republican school instances found in ЭлЖур's directory (global.eljur.ru/api/schools/mobileapp) and live on 24.09.2026. Explained sad06.ru:82: it resolves to the same address as sgo.edu-ri.ru (dns.google), so it is an older entry to the same СГО server. The СГО row gains a live-server reading (sgo.edu-ri.ru/webapi/logindata, version 5.54.2) and stays primary at medium. Дневник.ру stays out: 06.dnevnik.ru redirects to /login/esia/ingushetia, but the same holds for regions nobody claims use it.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Кабардино-Балкарская Республика
 
@@ -134,7 +136,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/krypt0nn/BarsAPI (PHP library for the «Барс.Web-Образование» API (archived; per the first pass).); https://github.com/mironovmeow/MeowSchool (VK bot for «Барс.Web-Образование» (written for sosh.mon-ra.ru; the host is a constant, so it is not KBR-specific).)
 - **Notes.** БАРС at school.07.edu.o7.com was the diary through 2025/26, and the server is still live. From 2026/27 pupils and parents see the diary only in «Госуслуги Моя школа», and the republic is introducing the ТОР typical solution in its schools (district order of 03.07.2026). Whether the teachers' journal has already moved is unverified.
 - **Corrected during verification.** Roles swapped for the family-facing answer: ТОР from migrating_to to primary (since 1 September 2026), БАРС from primary to legacy (medium). Evidence: (1) the district order of 03.07.2026 «О внедрении типового решения в сфере образования», issued under KBR government order № 373-рп of 30.06.2026 (zolskoeuo.ru); (2) a Звёздный school page (zvezdnysosh.ru): «школы переходят на новый цифровой образовательный сервис ТОР «Моя школа»»; (3) a Баксанёнок school, 21.08.2026: «Региональные приложения электронных дневников прекратят работу»; (4) the БАРС login page's own notice. Still open: whether teachers mark in ТОР or in БАРС after 1 September. No KBR source from after September was found; edu.kbr.ru answered 403 and most school hosts 503.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Республика Калмыкия
 
@@ -150,7 +152,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/kesha1225/DnevnikRuAPI (Python wrapper for api.dnevnik.ru; region-agnostic.); https://github.com/SiroXYZ/DnevnikRuAPI_NEW (Python; for Dnevnik.ru regions with ESIA-only login.)
 - **Notes.** 2025/26 and 2026/27: Дневник.ру with ESIA-only sign-in, active in September 2026 in the capital's gymnasiums; «Сетевой город» (sgo.monrk.ru) is a former instance whose name no longer resolves.
 - **Corrected during verification.** Settled the critic's conflict: schools use Дневник.ру. Confidence raised to high on Дневник.ру profiles of Элиста schools read on 24.09.2026 (schools.dnevnik.ru/v2/school?school=1000022644352, 1000022644350, 1000022644353, 1000023787530) with September 2026 activity in the thousands; 08.dnevnik.ru added. The «Сетевой город» host sgo.monrk.ru is added as a legacy row (low): a third-party page gives it as an Элиста gymnasium's login, and dns.google answers NXDOMAIN for it.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Карачаево-Черкесская Республика
 
@@ -200,7 +202,7 @@ sites and news, as of September 2026.
 ## Республика Крым
 
 - **in use now: [ЭлЖур](eljur.md)** — ГИС в сфере образования Республики Крым — подсистема «Электронный журнал, дневник» (ЭлЖур) (ООО «Веб-Мост» (ЭлЖур); operator МОНМ РК). Hosts: `edu.rk.gov.ru`, `*.eljur.ru`. Since: ЭлЖур in schools since 2020; regional ГИС at edu.rk.gov.ru since 1 January 2023. Confidence: high.
-  edu.rk.gov.ru itself answers 503 to fetches from here. Older per-school *.eljur.ru instances predate the 2023 ГИС. The ЭлЖур vendor news list (eljur.ru/news, read 24.09.2026) has no later Crimea item, and no Crimea source for a 2026/27 switch to ТОР «Моя школа» was found (RIA «Новости Крым» searches for «электронный дневник» and «Госуслуги Моя школа» return nothing on it).
+  edu.rk.gov.ru itself answers 503 to fetches from here. Older per-school *.eljur.ru instances predate the 2023 ГИС. The ЭлЖур vendor news list (eljur.ru/news, read 24.09.2026) has no later Crimea item, and no Crimea source for a 2026/27 switch to ТОР «Моя школа» was found (RIA «Новости Крым» searches for «электронный дневник» and «Госуслуги Моя школа» return nothing on it). Paper diaries run beside it: from September 2025 in the primary grades, for homework only, with marks still set only in the electronic journal and entered through Госуслуги since 1 January 2025 (kianews24.ru, 02.09.2025, deputy minister Светлана Беспалова); and on 18.08.2026 the minister said «В условиях чрезвычайной ситуации все школы Крыма обязаны продолжать использование бумажных дневников» (360.ru). Neither source says the electronic journal is suspended, as neighbouring Севастополь's is.
   - https://eljur.ru/news/2023_crimea — «10.01.2023: «с 1 января 2023 года введена в эксплуатацию государственная информационная система» … «воспользоваться страницей входа https://edu.rk.gov.ru самой ГИС» … «Предусмотренные государственным контрактом работы осуществлены компанией «Веб-Мост»» … «Крымские школы, колледжи, лицеи и техникумы с 2020 года используют электронный журнал»»
   - https://plbsh.crimeaschool.ru/gis — «ГИС в сфере образования Крым «создана в целях обеспечения возможности использования цифровой образовательной среды»; https://edu.rk.gov.ru/authorize/journal — «Задачей электронного журнала является информирование обучающихся и их родителей об успеваемости, посещаемости обучающихся, домашних заданиях»; https://edu.rk.gov.ru/journal-portfolio-action»
   - https://saki3.krymschool.ru/?section_id=239 — «"Электронный журнал, дневник" доступен по адресу: https://edu.rk.gov.ru/authorize … «необходимо зарегистрироваться на странице edu.rk.gov.ru/hello»»
@@ -223,7 +225,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/Statuxia-API-Eljur-ru/API-Eljur-ru (Platform-generic ЭлЖур Python client; relevant to the 2025/26 lnrNNNN.eljur.ru instances only.); https://github.com/BetterJournal/EljurAPI (Unofficial ЭлЖур API documentation/wrapper; platform-generic.)
 - **Notes.** РГИС «Террикон» on ЭлЖур (lnrNNNN.eljur.ru) in 2025/26 → ТОР «Моя школа» / «Госуслуги Моя школа» from 1 September 2026, a pilot region on the official list. No LNR-specific client exists for either platform, and none was found for «Госуслуги Моя школа» (its web entry is a JS shell behind ЕСИА).
 - **Corrected during verification.** ТОР confidence raised from medium to high: the republic's ministry itself announced it (t.me/minobrlnr/20396, 11.08.2026; 20623, 31.08.2026), the official Госуслуги list names the ЛНР, and ЛИЦ (08.09.2026, citing Минцифры ЛНР) describes «Моя школа» as the system children must have an account for. Roles, kinds and hosts unchanged; the ministry channel carries no further September post on the diary.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Республика Марий Эл
 
@@ -279,7 +281,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/kesha1225/DnevnikRuAPI (Platform-generic Python client for dnevnik.ru; no North Ossetia specifics.); https://github.com/OctoDiary/dnevnikru-web (Platform-generic web client for Дневник.ру.)
 - **Notes.** 2025/26 and 2026/27: Дневник.ру as the РИС «Цифровая образовательная платформа РСО-А», active in September 2026. No ТОР or МЭШ announcement found.
 - **Corrected during verification.** 2025/26 and 2026/27 were unverified; now settled. Confidence raised from medium to high on Дневник.ру school profiles read on 24.09.2026 (schools.dnevnik.ru/v2/school?school=46227, 21155, 46418, 1000024663938 and seven more) showing September 2026 activity in the thousands; 15.dnevnik.ru (→ /login/esia/rsoa) and a 2022 regional-ministry item added. The earlier worry that the region might have followed Воронежская and Астраханская to ТОР is answered: those regions' schools read in the tens the same day.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Республика Татарстан
 
@@ -317,7 +319,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/kesha1225/DnevnikRuAPI (Platform-generic Python client for dnevnik.ru; no Tyva specifics.); https://github.com/OctoDiary/dnevnikru-web (Platform-generic web client for Дневник.ру.)
 - **Notes.** 2025/26 and 2026/27: Дневник.ру, active in September 2026; БАРС «Электронная школа» (school.rtyva.ru) is the predecessor. No Tyva-specific client exists.
 - **Corrected during verification.** 2025/26 and 2026/27 settled for Дневник.ру: confidence raised from medium to high on Дневник.ру school profiles read on 24.09.2026 (schools.dnevnik.ru/v2/school?school=50895, 1000024586285, 1000025790136, 1000025766737 and two more) with September 2026 activity in the thousands, and on the platform's new-schools rankings showing Tyvan schools connected in 2024 and 2025; 17.dnevnik.ru (→ /login/esia/tuva) added as the regional entry host. БАРС stays legacy (school.rtyva.ru still resolves, to 95.156.113.54, but is absent from БАРС's live list and no school source after 2020 uses it). fgis_myschool row kept, with a note that it is not a diary.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Удмуртская Республика
 
@@ -334,7 +336,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/iamlostshe/PARS-DIARY (Udmurtia-specific: Telegram bot (t.me/pars_diary_bot) over the БАРС diary; its docs analyse es.ciur.ru's login page and internal API and note a feature that «не работает в Удмуртской республике». Last commit 9 September 2026. Same history is published as github.com/pars-diary/bot.); https://github.com/iamlostshe/bars-api (Async Python client for БАРС «Электронная школа»; discovers regional hosts from https://aggregator.edu.bars.group/my_diary (lists es.ciur.ru). Last commit February 2026.); https://github.com/krypt0nn/BarsAPI (Old (2020) generic БАРС client.)
 - **Notes.** No client for «Госуслуги Моя школа» found. The БАРС clients will lose their purpose if es.ciur.ru is switched off as announced.
 - **Corrected during verification.** ТОР confidence raised from medium to high and the БАРС row's from medium to high: Ижлайф (15.09.2026), quoting the republic's ministry of education, says Удмуртия «в числе 20 регионов перешла» to the ТОР and that the previous diary app «прекратило свою работу»; densus.ru (02.09.2026) says the service «заработал» on 1 September; the official Госуслуги list names the republic. Roles, kinds and hosts unchanged.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Республика Хакасия
 
@@ -350,7 +352,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/askiphy/BarsAPI (Python library «для получения информации из школьного дневника bars»; its PyPI release barsapi 1.2 hard-codes https://school.r-19.ru/auth/login and /api/MarkService/GetSummaryMarks, i.e. it was written against the Khakassia instance; the GitHub version now resolves hosts through the БАРС aggregator. Last commit March 2025.); https://github.com/iamlostshe/bars-api (Generic async БАРС client; picks the region from aggregator.edu.bars.group/my_diary, which lists school.r-19.ru.)
 - **Notes.** The first pass's БАРС identification and host hold. Earlier verification added the vendor's live aggregator entry, three Khakassia government news items, a low-confidence note on the federal app, and a Khakassia-specific client the first pass missed (askiphy/BarsAPI).
 - **Corrected during verification.** no change: re-read r-19.ru/news/education/186189/ (the 12.11.2025 meeting, no timeline) and the education news feed r-19.ru/news/education/ (items of 22–24.09.2026, nothing on the diary). Searched for a 2026 connection or ТОР move and found none. The ТОР row stays unknown/low; the app's federal launch date (27.05.2025) is added to it as context.
-- **Checked:** confirmed.
+- **Checked:** confirmed in the second round.
 
 ## Чеченская Республика
 
@@ -371,7 +373,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/kesha1225/DnevnikRuAPI (Generic Python client for api.dnevnik.ru; not region-specific); https://github.com/RedGuyRu/DnevnikApi (Generic Node client for Дневник.ру); https://github.com/AmetistYT/mesh_expressive (Unofficial МЭШ client whose decompiled official app lists Chechnya and fgismobile_95; built for Moscow, not tested against school.mon95.ru)
 - **Notes.** 2025/26 and 2026/27: Дневник.ру (РИС «Цифровая образовательная платформа Чеченской Республики»), active in September 2026. A МЭШ-based regional «Моя школа» at school.mon95.ru exists in DNS and certificate logs from 2024, with no sign of use. Nothing found about ТОР «Госуслуги Моя школа» for Chechnya; gogov.ru's 17.09.2026 page on Грозный answered 429.
 - **Corrected during verification.** Settled which system keeps the journal: Дневник.ру. Its row is renamed to the regional branding «РИС «Цифровая образовательная платформа Чеченской Республики»» and raised from medium to high on the minister's statement (chechnyatoday.com/news/369720, 24.10.2023), the ministry's 2024 ranking release (chechnyatoday.com/news/382482, 05.02.2025, 283 thousand pupils), the 2025 marking reform described as a Дневник.ру function (chechnyatoday.com/news/383835) and Дневник.ру school profiles read on 24.09.2026 (schools.dnevnik.ru/v2/school?school=1000025301151, 1000025260553, 1000025260769 and five more) with September 2026 activity in the thousands. The МЭШ node school.mon95.ru stays unknown/low: nothing shows schools use it. ЭлЖур row unchanged.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Чувашская Республика
 
@@ -390,7 +392,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/nm17/netschoolapi (Generic Python client for any «Сетевой город. Образование» instance; applies to net-school.cap.ru while it was the diary); https://github.com/kmlebedev/netcitybot (README lists https://net-school.cap.ru/ among tested instances); https://github.com/mytypy/NetSchoolApi (Hard-codes https://net-school.cap.ru/webapi/student/diary); https://github.com/mezhendosina/che-zadali-app (NetSchool client whose region list includes net-school.cap.ru)
 - **Notes.** 2025/26: netschool at net-school.cap.ru (ESIA only). 2026/27: ТОР «Госуслуги Моя школа» from 1 September 2026, announced republic-wide by the ministry and reported done for Cheboksary. All three sources re-read on 24.09.2026. On the official list of the 20 pilot regions (max.ru/gosuslugiforparents). Previous regional system: switched off for families (announced), host still answering.
 - **Corrected during verification.** no change: checked the official Госуслуги list of the 20 pilot regions (Чувашская Республика is on it; added as evidence) and the post-switch confirmation already held (mosk.cap.ru, 22.09.2026). Previous system: Сетевой город switched off for families by the ministry's decision, login page still answering without a notice.
-- **Checked:** confirmed.
+- **Checked:** confirmed in the second round.
 
 ## Алтайский край
 
@@ -423,7 +425,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/nm17/netschoolapi (Generic «Сетевой город» client; applies to region.zabedu.ru); https://github.com/daniilok21/Telegram-bot-with-NetSchool-API (Region map has "Забайкальский край": "https://region.zabedu.ru"); https://github.com/fadegor05/asurso-api (Enum carries ZAB = "https://region.zabedu.ru"); https://github.com/mezhendosina/che-zadali-app (Region list includes https://region.zabedu.ru/)
 - **Notes.** 2025/26 and the start of 2026/27: netschool at region.zabedu.ru, in use since 2012, with «Госуслуги Моя школа» as a front end over it. Nothing read announces a ТОР switch, and searches in September 2026 found no regional news on the diary.
 - **Corrected during verification.** tor_myschool role changed from unknown to secondary (front end over СГО), low confidence. Basis: the operator's own page (cit.zabedu.ru/index.php/setevoj-gorod-obrazovanie, re-read 24.09.2026), which carries an app instruction and «Отчет по привязке ЭЖ и СФЕРУМ / УЗ Госуслуг». The only date is the app's federal launch (1tv.ru, 27.05.2025). No ТОР switch for 2026/27 found. СГО and Е-услуги rows unchanged.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Камчатский край
 
@@ -443,7 +445,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/nm17/netschoolapi (Generic «Сетевой город» client; applies to school.sgo41.ru); https://github.com/daniilok21/Telegram-bot-with-NetSchool-API (Region map has "Камчатский край": "https://school.sgo41.ru"); https://github.com/mezhendosina/che-zadali-app (Region list includes https://school.sgo41.ru/)
 - **Notes.** 2025/26 and the start of 2026/27: netschool at school.sgo41.ru, with «Госуслуги Моя школа» as a front end. The regional operator's front page, read 24.09.2026, still leads with «ГИС СГО» and carries no transition news. The Kamchatka education portal edu41.ru (news up to 2024) and the ministry site (403) gave nothing newer.
 - **Corrected during verification.** tor_myschool role changed from unknown to secondary (front end over ГИС СГО), low confidence. The operator kcioko.gosuslugi.ru links the app beside ГИС СГО and, re-read 24.09.2026, has no transition news. A gogov.ru item of 17.09.2026 is titled «"Сетевой город" и "Моя школа"», i.e. both coexist. The only date is the app's federal launch (1tv.ru, 27.05.2025). No ТОР switch for 2026/27 found. Other rows unchanged.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Краснодарский край
 
@@ -460,7 +462,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/nm17/netschoolapi (Generic «Сетевой город» client; applies to sgo.rso23.ru); https://github.com/kmlebedev/netcitybot (README lists https://sgo.rso23.ru/ (5.9.62423.47) - Краснодар); https://github.com/daniilok21/Telegram-bot-with-NetSchool-API (Region map has "Краснодарский край": "https://sgo.rso23.ru"); https://github.com/mezhendosina/che-zadali-app (Region list includes https://sgo.rso23.ru/)
 - **Notes.** 2025/26: netschool at sgo.rso23.ru. 2026/27: ТОР «Моя школа» / «Госуслуги Моя школа» from July 2026 for schools and 1 September 2026 for families. Two sources re-read on 24.09.2026. On the official list of the 20 pilot regions. Post-September confirmation not found.
 - **Corrected during verification.** Confidence of the ТОР row lowered from high to medium: no source dated after 1 September 2026 confirms that the switch happened (searched news, district education offices, the ministry site answered 503); added the regional-ministry announcement (kuban.bfm.ru/news/59507, 30.07.2026) and the official Госуслуги list of the 20 pilot regions, which names Краснодарский край. Previous system: sgo.rso23.ru still answers with no notice (read 24.09.2026); its fate is unknown.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Красноярский край
 
@@ -525,7 +527,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/kesha1225/DnevnikRuAPI (Generic Python client for api.dnevnik.ru, incl. the ESIA authorisation endpoints; not region-specific); https://github.com/RedGuyRu/DnevnikApi (Generic Node client for Дневник.ру)
 - **Notes.** 2025/26 and 2026/27: Дневник.ру (РГИС), ESIA-only since 01.01.2025, active in September 2026 by Дневник.ру's own per-school activity figures. The «Сетевой Город» at 91.235.144.25 on aggregators is not recorded. gogov.ru's 17.09.2026 page on Хабаровск answered 429.
 - **Corrected during verification.** Confidence raised from medium to high and 27.dnevnik.ru added: Дневник.ру public school profiles read on 24.09.2026 (schools.dnevnik.ru/v2/school?school=23118, 21729, 21132, 21537 and six more) show September 2026 activity ratings in the thousands, where schools of regions that left Дневник.ру for ТОР on 1 September 2026 show tens. That settles the critic's point: Хабаровский край did not move in 2026/27. No ТОР announcement for the krai was found (Google News RSS, 2025–2026).
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Амурская область
 
@@ -558,7 +560,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/OctoDiary/dnevnikru-web (generic web wrapper over the Дневник.ру API; not region-specific); https://github.com/kesha1225/DnevnikRuAPI (Python wrapper for api.dnevnik.ru; region-agnostic, and password login does not work in ESIA-only regions such as this one)
 - **Notes.** 2025/26 and 2026/27: Дневник.ру (29.dnevnik.ru, ESIA-only), active in September 2026, with a residue of ЭлЖур in Архангельск city schools. gogov.ru's 17.09.2026 pages («Дневник.ру и "Моя школа"») answered 429; nothing found announcing ТОР for the region.
 - **Corrected during verification.** Дневник.ру row: name given its regional branding «ГИС «Цифровая образовательная платформа Архангельской области»», confidence raised from medium to high on Дневник.ру school profiles read on 24.09.2026 (schools.dnevnik.ru/v2/school?school=22989, 1000023546570, 1000001001367 and five more) that show September 2026 activity in the thousands, and on the ministry's own account (schools.dnevnik.ru/v2/authorities/organization?org=59). No move to ТОР in 2026/27. ЭлЖур row unchanged.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Астраханская область
 
@@ -577,7 +579,7 @@ sites and news, as of September 2026.
   - https://astrakhan.su/breakingnews/vykinuli-ogromnye-dengi-astrahanskie-shkoly-vnezapno-perehodyat-na-novyj-elektronnyj-dnevnik/ — «Для оказания услуг в электронном виде образовательные организации Астраханской области продолжают использовать действующую региональную информационную систему «Цифровое образование Астраханской области»» (ministry reply, 13.11.2025)
 - **Notes.** Дневник.ру → (2024/25) РИС «Цифровое образование Астраханской области» «Электронный журнал/дневник» (one.astrobl.ru; ЭлЖур-based per the vendor's news of 01.10.2025) → (1 September 2026) «Госуслуги Моя школа», on the official list of the 20 pilot regions. No post-September confirmation found. No open-source client for one.astrobl.ru found in 288 cloned diary repositories or on Sourcegraph (only infoculture/govdomains).
 - **Corrected during verification.** The 2024/25–2025/26 regional row is re-tagged from other to eljur on the vendor's own news (eljur.ru/news/2025_astr, 01.10.2025: «Внедрение дополнительных программных решений на базе АИС «ЭлЖур»»), as the critic proposed. The ТОР row's confidence is lowered from high to medium because no source dated after 1 September 2026 confirms the switch; added the ministry announcement via kaspyinfo.ru (11.08.2026) and the official Госуслуги list of the 20 pilot regions, which names Астраханская область.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Белгородская область
 
@@ -592,7 +594,7 @@ sites and news, as of September 2026.
   - https://max.ru/gosuslugiforparents/AaAisMEAHzo — «(official «Госуслуги для родителей» channel; undated post linked on 31.08.2026 by Минобрнауки ЛНР; read 2026-09-24) «С 1 сентября 2026 года школы и колледжи в 20 пилотных регионах переходят на приложение «Госуслуги Моя школа». Оно станет основным…» — Белгородская область is not among the 20 listed (full list in findings); «В остальных регионах, кроме Запорожской и Херсонской областей, с сентября пользоваться приложением «Госуслуги Моя школа» можно наравне с другими решениями для школьников.»»
 - **Notes.** 2025/26 and 2026/27: ИСОУ «Виртуальная школа» (vs.belregion.ru / belgorod.vsopen.ru), the base of the regional ГИС «Образование» since November 2022; «Госуслуги Моя школа» is a pilot viewer beside it. 2026/27 status settled as «kept its system»: not in the official list of 20 ТОР pilot regions; no announcement of a move to ТОР in WebSearch («Белгородская область переход на ТОР «Моя школа» электронный журнал», «Белгородская область ГИС «Образование» «Виртуальная школа» интеграция ФГИС «Моя школа» 2026») or Google News RSS ("Виртуальная школа" Белгород; белгородские школы электронный дневник, last 120 days). obr.belregion.ru and beliro.ru answered 403 to WebFetch.
 - **Corrected during verification.** Row «Виртуальная школа»: added since (regional ГИС «Образование» on its base since November 2022, per bel.ru via ok.ru) and 2026 evidence that it continues in 2026/27 — the regional modernisation project of 06.02.2026 (aucentr.ru), the RuStore app ru.vsopen updated 28.07.2026, and a Belgorod school page naming only «Виртуальная школа»; vendor now names the app publisher ООО «Медиа Сервис». No source found for a move to ТОР «Моя школа» on 1 September 2026 or later. Both rows now also cite the official «Госуслуги для родителей» list of the 20 regions that moved to «Госуслуги Моя школа» on 1 September 2026 (linked 31.08.2026), which leaves Белгородская out.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Брянская область
 
@@ -607,7 +609,7 @@ sites and news, as of September 2026.
   - https://bryansk.vsopen.ru/ — «302 Found → https://obr.b-edu.ru/, whose page title is «Виртуальная школа» (opened 2026-09-24; the host still answers)»
 - **Notes.** «Виртуальная школа» (bryansk.vsopen.ru → obr.b-edu.ru) through 2025/26 → ТОР «Моя школа» / «Госуслуги Моя школа» and the Сферум «Дневник» widget from 1 September 2026; Брянская область is among the 20 first-wave regions named by Минцифры. No open-source client for vsopen.ru or obr.b-edu.ru in 288 cloned diary repositories. On the official list of the 20 pilot regions (max.ru/gosuslugiforparents).
 - **Corrected during verification.** Confidence of the ТОР row lowered from high to medium: no source dated after 1 September 2026 confirms the switch (the latest is guberniya.tv, 31.08.2026); added the Брянский district education office item (14.08.2026) and the official Госуслуги list, which names Брянская область. Kinds, roles and hosts unchanged.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Владимирская область
 
@@ -623,7 +625,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/Sergey20091/hfiehgb (Python app (2026) calling the BARS «Электронная школа» JSON API of школа.образование33.рф (MarkService, HomeworkService, MultiprofileService)); https://github.com/krypt0nn/BarsAPI (PHP library for «Барс.Web-Образование» whose default diary URL is the Владимир host (2020))
 - **Notes.** 2025/26 and 2026/27: BARS «Электронная школа» at школа.образование33.рф, ESIA login, with «Госуслуги Моя школа» tested beside it. 2026/27 settled as «kept its system»: not in the official list of 20 ТОР pilot regions, and no announcement found in WebSearch («Владимирская область «Моя школа» электронный журнал переход 2026 школы», «владимирские школьники «Госуслуги Моя школа» приложение 2026 министерство образования Владимирской области», «"Владимирской области" "Госуслуги. Моя школа" апробация»), Google News RSS for the last 365 days (only a gogov.ru BARS guide of 17.09.2026). DuckDuckGo answered with a captcha.
 - **Corrected during verification.** Added a secondary tor_myschool row (low): the regional portal образование33.рф carries a «Госуслуги Моя школа» page under «РИС "Электронная школа"» announcing testing of the app (search result; page 503). BARS row confirmed and given two more sources: BARS' «Мой дневник» server list (aggregator.edu.bars.group, opened 2026-09-24) and a gogov.ru guide of 17.09.2026 naming «Электронная школа» БАРС. No source found for a move to ТОР «Моя школа» on 1 September 2026 or later. Both rows now also cite the official «Госуслуги для родителей» list of 20 regions that moved on 1 September 2026 (linked 31.08.2026), which leaves Владимирская out.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Волгоградская область
 
@@ -639,7 +641,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/nm17/netschoolapi (generic async Python client for «Сетевой город. Образование»; takes the instance URL (sgo.volganet.ru)); https://github.com/daniilok21/Telegram-bot-with-NetSchool-API (Telegram bot over the SGO web API with a region→URL table including sgo.volganet.ru and a note that it needs a proxy from datacenter IPs); https://github.com/GreenGroat/HWbot (homework bot storing sgo.volganet.ru as its SGO address)
 - **Notes.** 2025/26 and 2026/27: «Сетевой город. Образование» at sgo.volganet.ru, ESIA-only from 1 September 2026, with the «Госуслуги Моя школа» app alongside (over 100 000 users by April 2026). 2026/27 settled as «kept its system»: not in the official list of 20 ТОР pilot regions; every September 2026 item found names «Сетевой город. Образование», and none announces ТОР. Not among the first-wave ТОР regions named in any 2026 source read.
 - **Corrected during verification.** no change to any row's kind, role, hosts, since or confidence: re-read the Блокнот Волжский item of 30.07.2026 (the 1 September 2026 change is ESIA-only login, access continues «как и прежде»); added the official «Госуслуги для родителей» list of 20 regions that moved to «Госуслуги Моя школа» on 1 September 2026 (linked 31.08.2026, Волгоградская not on it) and gogov.ru's 17.09.2026 guide naming «Сетевой город. Образование» as evidence; Google News RSS ("Сетевой город" волгоградские школьники; Волгоградская "Моя школа", last 365 days; Волгоград электронный дневник, last 120 days) shows no announcement of a later move; sgo.volganet.ru still answers 503 to WebFetch.
-- **Checked:** confirmed.
+- **Checked:** confirmed in the second round.
 
 ## Вологодская область
 
@@ -676,19 +678,19 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/OctoDiary/dnevnikru-web (generic web wrapper over the Дневник.ру API; legacy for this region after 1 September 2026); https://github.com/limitedeternity/dnevnik-client (generic unofficial Дневник.ру client; legacy for this region)
 - **Notes.** Дневник.ру (36.dnevnik.ru, ESIA-only) through 2025/26 → «Госуслуги Моя школа» (ТОР «Моя школа») from 1 September 2026. No open-source client for the ТОР diary exists in the cloned repositories; ТОР has no public API.
 - **Corrected during verification.** no change: checked the official Госуслуги list of the 20 pilot regions (Воронежская область is on it; added as evidence) and the post-switch confirmation already held (РИА «Воронеж», 02.09.2026). Previous system Дневник.ру: replaced, its further state not stated.
-- **Checked:** confirmed.
+- **Checked:** confirmed in the second round.
 
 ## Запорожская область
 
-- **in use now: [«one.» platform](one-x1.md)** — РИС «Цифровое образование Запорожской области», подсистема «Электронные журналы и дневники» (operator: Министерство образования и науки Запорожской области; software vendor not named. The one.<domain> portal with a passport.<domain> sign-in and the parent functions «Дневник учащегося», «Выписка оценок», «Дневник в xls» match the regional platform of Псковская (one.pskovedu.ru / passport.pskovedu.ru) and Кировская (one.43edu.ru / passport.43edu.ru) области (X1_SSO cookie, Yii/Ext.Direct), not ЭлЖур). Hosts: `one.umnik-zo.ru`, `passport.umnik-zo.ru`. Since: by 2025 (user manuals dated 2025). Confidence: medium.
-  Primary in 2025/26; the gosweb hosts ending in -r23 are Запорожская область schools (ГБУ ОО ЗО «СОШ №1» г. Бердянск and г. Мелитополь confirmed on their own pages). one.umnik-zo.ru and passport.umnik-zo.ru answered 403 and umnik-zo.ru 503 to WebFetch. The platform attribution rests on matching URL shape and functions with the Pskov/Kirov code base, not on a vendor statement. 2026/27: nothing found either way.
+- **in use now: [«one.» platform](one-x1.md)** — РИС «Цифровое образование Запорожской области», подсистема «Электронные журналы и дневники» (ООО «Интегрикс» «X1» platform (the one.<domain> + passport.<domain> code base of Псковская/Кировская/Чукотка), apparently supplied through the Pskov РЦИТ (Запорожская experts at its April 2025 forum on system integration); operator Министерство образования и науки Запорожской области. No vendor statement names Интегрикс for this instance). Hosts: `one.umnik-zo.ru`, `passport.umnik-zo.ru`. Since: by 2025 (user manuals dated 2025). Confidence: high.
+  Primary in 2025/26 and, as far as found, 2026/27; the gosweb hosts ending in -r23 are Запорожская область schools. one.umnik-zo.ru and passport.umnik-zo.ru answered 403 and umnik-zo.ru 503 to WebFetch. Kind one_x1: the official parent manual shows the X1 sign-in «Войти через passport.umnik-zo.ru» and the X1 parent functions «Дневник учащегося», «Выписка оценок», «Дневник в xls»; the one_x1 route file lists one.umnik-zo.ru as CONFIRMED. DNS on 2026-09-24 (no wildcard: a random name under umnik-zo.ru does not resolve): one.umnik-zo.ru and passport.umnik-zo.ru → 213.145.5.56, wp.umnik-zo.ru → 213.145.5.58 — the MegaFon /24 that also holds Pskov's one.pskovedu.ru (.41) and Kherson's one.edu.khogov.ru / passport.edu.khogov.ru (.57) and wp.edu.khogov.ru (.59), which points to the three instances being hosted together, by the Pskov РЦИТ. 2026/27: the federal statement excludes Запорожская область from using «Госуслуги Моя школа» alongside the regional system, so the regional system remains the only electronic diary; no source found that it was stopped.
   - https://sh3-velikaya-znamenka-r23.gosweb.gosuslugi.ru/ — «Для регистрации в электронном дневнике авторизуйтесь на сайте https://one.umnik-zo.ru и заполните онлайн-форму» (ГБУ ОО ЗО «Великознаменская СОШ № 3» Каменско-Днепровского района; re-opened 2026-09-24)
   - https://sh2-konstantinov-r23.gosweb.gosuslugi.ru/netcat_files/38/128/Rukovodstvo_pol_zovatelya_Roditel_.pdf — «Министерство образования и науки Запорожской области … Региональная информационная система «Цифровое образование Запорожской области» Подсистема «Электронные журналы и дневники» … 2025» … «На странице авторизации нажмите «Войти через passport.umnik-zo.ru».» … «В файл xls можно также скачать и сам дневник, для этого нажмите «Дневник в xls»» (text of the parent manual as saved earlier in this research; read in full here)
   - https://github.com/zlexdev/pskovedu-sdk — «`pskovedu` is a fully typed, async-first Python client for the **one.pskovedu.ru** electronic journal» … «# Marks report (выписка оценок)» … Client.from_cookie(x1_sso="...") — the same one./passport. platform and «выписка оценок» function (last commit 2026-06-20)
 - **Open-source clients** aimed at this region or its platform: https://github.com/zlexdev/pskovedu-sdk (Python client for the same platform family on one.pskovedu.ru (X1_SSO cookie, /edv diary, marks report); not tested against one.umnik-zo.ru); https://github.com/Mihail-Galkin/Two.Diary (client for the Kirov instance (one.43edu.ru / passport.43edu.ru) of the same platform family; not Zaporozhye-specific)
-- **Notes.** 2025/26: РИС «Цифровое образование Запорожской области» at one.umnik-zo.ru (sign-in via passport.umnik-zo.ru with СНИЛС + password, or ЕСИА). The platform before 2025 and the 2026/27 plan are unresolved: Google News RSS queries («Запорожская область электронный дневник», «Цифровое образование Запорожской области», «Запорожская область школы Госуслуги Моя школа», «Мелитополь электронный журнал школ») returned only other regions (ДНР, Кубань, Челябинская) and Ukrainian-side outlets. Sourcegraph: nothing for umnik-zo.
-- **Corrected during verification.** The vendor hypothesis was wrong in direction: the first pass guessed an ЭлЖур-based ГИС by analogy with Астрахань, but the portal's passport.umnik-zo.ru sign-in and its «Выписка оценок» / «Дневник в xls» functions match the one.<domain> / passport.<domain> platform used in Псковская (one.pskovedu.ru) and Кировская (one.43edu.ru) области; ЭлЖур has no passport.* sign-in. The platform, hosts and its 2025/26 primary role are confirmed.
-- **Checked:** corrected.
+- **Notes.** 2025/26 and 2026/27: РИС «Цифровое образование Запорожской области» at one.umnik-zo.ru (sign-in via passport.umnik-zo.ru with СНИЛС + password, or ЕСИА), on the Интегрикс X1 platform. The platform before 2025 is unresolved. Not in ТОР: the official «Госуслуги для родителей» statement (31.08.2026) and densus.ru (10.09.2026) name Запорожская and Херсонская as the two regions where «Госуслуги Моя школа» is not even an option. The ministry's own site and channel were not found (zo.gov.ru has no link; ten guessed Telegram names empty); Google News RSS («umnik-zo», «Запорожская область электронный дневник 2026», «Минобрнауки Запорожской области электронный журнал») returned nothing on the diary. RuStore search (backapi.rustore.ru, «Цифровое образование Запорожской области») shows no regional app.
+- **Corrected during verification.** Primary row: kind other → one_x1 and confidence medium → high. The platform rests on the official parent manual (passport.umnik-zo.ru sign-in, «Выписка оценок», «Дневник в xls») that the one_x1 route file counts as CONFIRMED, and now also on DNS: one./passport./wp.umnik-zo.ru sit at 213.145.5.56/.58, next to Kherson's X1 hosts (.57/.59) that came from the Pskov РЦИТ. Vendor now names the Интегрикс platform, with the vendor attribution still inferred. Added densus.ru of 10.09.2026: «В остальных регионах, кроме Запорожской и Херсонской областей, приложением можно пользоваться наравне с другими решениями» — so no tor_myschool row is added.
+- **Checked:** corrected in the second round.
 
 ## Ивановская область
 
@@ -706,7 +708,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/OctoDiary/dnevnikru-web (generic web wrapper over the Дневник.ру API; not region-specific); https://github.com/kesha1225/DnevnikRuAPI (Python wrapper for api.dnevnik.ru; password login fails in ESIA-only regions such as this one)
 - **Notes.** 2025/26 and, on everything found, 2026/27: Дневник.ру (37.dnevnik.ru → ESIA-only Ivanovo sign-in), ЭлЖур at least in a college, «Госуслуги. Моя Школа» app piloted since March 2025. Google News RSS queries («Ивановская область электронный дневник», «ивановские школьники Госуслуги Моя школа», «Иваново Дневник.ру школы», «Ивановская область «Моя школа» 1 сентября») returned no switch notice.
 - **Corrected during verification.** Confidence of the Дневник.ру row raised from medium to high: Дневник.ру school profiles read on 24.09.2026 (schools.dnevnik.ru/v2/school?school=1000019007749, 1000022687924, 1000019007757 and two more) show September 2026 activity in the thousands, so the region did not leave Дневник.ру on 1 September 2026. ЭлЖур and «Госуслуги. Моя Школа» rows unchanged.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Иркутская область
 
@@ -729,7 +731,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://pypi.org/pypi/dnevnikru-aio/json (dnevnikru-aio 1.0 (2021): gos_regions.IRKUTSK_REGION = https://38.dnevnik.ru for ESIA login)
 - **Notes.** 2025/26 and 2026/27: Дневник.ру region-wide, ESIA-only. 2026/27 settled as «kept its system»: not in the official list of 20 ТОР pilot regions; no announcement of a later move found (Google News RSS: Иркутская область "Моя школа" дневник, last 365 days; Иркутск электронный дневник, last 180 days; Приангарье ТОР "Моя школа"; "Госуслуги Моя школа" иркутские; "Дневник.ру" Иркутск; Иркутская область электронный журнал школы 2026). minobr.irkobl.ru answered 503. The netschool row stays a client-code hint with no host.
 - **Corrected during verification.** Added a secondary tor_myschool row (low, front end) from the official «Госуслуги для родителей» post (linked 31.08.2026) and densus.ru (10.09.2026): Иркутская область is not among the 20 regions that moved to «Госуслуги Моя школа» on 1 September 2026, and in all other regions the app is an option alongside the regional diary. Дневник.ру row confirmed with a dated regional source: the Иркутская ministry and «Дневник.ру» completed a pilot on the regional electronic journal and diary (ogirk.ru, 31.07.2026); login.dnevnik.ru/login/esia/irkutsk re-opened 2026-09-24 (ESIA-only, no notice).
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Калининградская область
 
@@ -746,7 +748,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/BetterJournal/EljurAuthUtil (Dart ESIA→ЭлЖур token utility; README and tests use keo.gov39.ru as the example host (generic, not region-specific))
 - **Notes.** 2025/26: ЭлЖур at keo.gov39.ru (region-wide). 2026/27: ТОР «Моя школа» / «Госуслуги Моя школа» from 1 September 2026, confirmed by an independent source (densus.ru, 23.09.2026). The fgis-dnevnik-desktop table's myschool.gov39.ru was not seen elsewhere.
 - **Corrected during verification.** no change: checked the official Госуслуги list of the 20 pilot regions (Калининградская область is on it; added as evidence); the post-switch confirmation already held (densus.ru, 23.09.2026; a Клопс item of 23.09.2026 also reports failures of the app). Previous system ЭлЖур: replaced, host state unknown.
-- **Checked:** confirmed.
+- **Checked:** confirmed in the second round.
 
 ## Калужская область
 
@@ -784,7 +786,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/raitonoberu/ruobr_api (Python module for cabinet.ruobr.ru / api3d.ruobr.ru (PyPI ruobr-api)); https://github.com/raitonoberu/ruobr_vkbot (VK bot over ruobr_api); https://github.com/sakurka-cmd/ruobr-unified-bot (Telegram + VK bot); https://github.com/FLOERKA/ruobr-api-java (Java port); https://github.com/lllleeenna/ruobr_telegramm_bot (Telegram bot)
 - **Notes.** 2025/26 and 2026/27: АИС «Электронная Школа» / «Электронная Школа 2.0» on ruobr.ru (cabinet.ruobr.ru for families, app «учусьвкузбассе» updated 17.09.2026). 2026/27 settled as «kept its system»: not in the official list of 20 ТОР pilot regions, not a МЭШ region, and no announcement of a later move (Google News RSS: Кузбасс "Моя школа" дневник, last 365 days; Кузбасс электронный дневник, last 180 days; МЭШ Кузбасс). The only Kuzbass diary item on densus.ru around 1 September (30.08.2026) is about paper diaries for first-graders being discontinued, not the electronic one. The ministry portal образование42.рф answered 503.
 - **Corrected during verification.** Added a secondary tor_myschool row (low, front end) from the official «Госуслуги для родителей» post (linked 31.08.2026) and densus.ru (10.09.2026) — the region is not in the list of 20 that moved on 1 September 2026. ruobr row confirmed: ruobr.ru re-opened 2026-09-24 with the title «Электронная Школа 2.0. Вход для сотрудников» and an ESIA login; the official list added as evidence.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Кировская область
 
@@ -802,7 +804,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/Mihail-Galkin/Two.Diary (Flask wrapper over one.43edu.ru (edv/index/diary, report/period, report/marks) with passport.43edu.ru login)
 - **Notes.** 2022–2026/27: ЕРИСО diary at one.43edu.ru on Интегрикс' X1 platform; before 2022 АИАС «АВЕРС». 2026/27 settled as «kept its system»: not in the official list of 20 ТОР pilot regions, no announcement of a later move (Google News RSS «Кировская область электронный дневник», last 120 days: only the gorodkirov.ru complaint of 22.09.2026 about the «Моя школа» app); «Госуслуги Моя школа» is used as a front end. 43edu.ru, one.43edu.ru and integrics.ru did not answer WebFetch (403/503).
 - **Corrected during verification.** Primary row: kind other → one_x1, on the host pair one.43edu.ru / passport.43edu.ru with the X1 /edv/index/diary routes (Habr 733392, Two.Diary) and the official app's package ru.integrics.kirovschool (RuStore, opened 2026-09-24: «Образование Кировской области», КОГАУ ЦОКО, v2.4 of 04.05.2026); vendor now names the Интегрикс platform and the publisher. tor_myschool row: given a dated source for its front-end role (official «Госуслуги для родителей» list of 20 pilot regions, linked 31.08.2026, which leaves Кировская out) and raised to medium alongside the gorodkirov.ru complaint of 22.09.2026.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Костромская область
 
@@ -819,7 +821,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/daniilok21/Telegram-bot-with-NetSchool-API (generic NetSchool bot; region table includes netschool.eduportal44.ru); https://github.com/mezhendosina/che-zadali-app (Android NetSchool client; Regions.kt lists netschool.eduportal44.ru); https://github.com/kmlebedev/netcitybot (NetSchool Telegram bot; README lists netschool.eduportal44.ru (v5.9.62423.47))
 - **Notes.** 2025/26: «Сетевой Город. Образование» at netschool.eduportal44.ru. 2026/27: ТОР «Моя школа» via «Госуслуги Моя школа» from 1 September 2026. On the official list of the 20 pilot regions.
 - **Corrected during verification.** Confidence of the ТОР row lowered from high to medium: only the pre-September departmental announcement (12.08.2026) exists; no post-switch confirmation found. Added the official Госуслуги list of the 20 pilot regions, which names Костромская область.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Курганская область
 
@@ -835,7 +837,7 @@ sites and news, as of September 2026.
   - https://www.1tv.ru/news/2025-05-27/510837-prilozhenie_gosuslugi_moya_shkola_poyavilos_v_80_regionah_rossii — «(Первый канал, 27.05.2025) «Приложение «Госуслуги Моя школа» появилось в 80 регионах России.» (the 80 are not named)»
 - **Notes.** 2024/25–2026/27: ЭлЖур «Образовательная платформа» at eschool.gov45.ru, ESIA-only. 2026/27 settled as «kept its system»: not in the official list of 20 ТОР pilot regions; the regional app got an update on 18 September 2026; no announcement of a later move (Google News RSS «Курган электронный дневник», last 365 days: only a gogov.ru guide of 17.09.2026 and unrelated items). What Kurgan schools used before the regional platform was not established.
 - **Corrected during verification.** Added a secondary tor_myschool row (low, front end) from the official «Госуслуги для родителей» post (linked 31.08.2026) and densus.ru (10.09.2026): Курганская область is not in the list of 20 regions that moved on 1 September 2026, and elsewhere the app is an option beside the regional diary. ЭлЖур row confirmed (eschool.gov45.ru and the Google Play app updated 18.09.2026, both read in the earlier stage), with the official list added as evidence.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Курская область
 
@@ -850,7 +852,7 @@ sites and news, as of September 2026.
   - https://kur-licjuk.gosuslugi.ru/uslugi-i-servisy/elektronnyy-zhurnaldnevnik/ — «(search snippet, 2026-09-24) «Доступ к АИС "ЭлЖур" в Курской области осуществляется через адрес https://edu.kurskobr.ru» … «Войти через ГОСУСЛУГИ»»
 - **Notes.** First pass confirmed on both points with independent sources (kursk-izvestia.ru 09.08.2026 and 17.09.2026, and the regional portal's own notice). The fgis-dnevnik-desktop table's myschool.kurskobr.ru was not seen in any source; the «Моя школа» named on edu.kurskobr.ru is the federal «Госуслуги Моя школа» app, not a МЭШ-based regional node.
 - **Corrected during verification.** no change: checked the official Госуслуги list of the 20 pilot regions (Курская область is on it) and added a second post-switch item (densus.ru, 16.09.2026: the old diaries are off for families). Previous system: off for families, web host still answering.
-- **Checked:** confirmed.
+- **Checked:** confirmed in the second round.
 
 ## Ленинградская область
 
@@ -871,7 +873,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/vkrya/netschoolpy (netschoolpy (PyPI 8.0.2): «Сетевой город» client with ESIA; regions.py maps Ленинградская область to https://e-school.obr.lenreg.ru); https://github.com/mezhendosina/che-zadali-app (Android NetSchool client; Regions.kt lists «Ленинградская область» → https://e-school.obr.lenreg.ru/); https://github.com/daniilok21/Telegram-bot-with-NetSchool-API (netschool_cap/regions.py: «Ленинградская область»: «https://e-school.obr.lenreg.ru»); https://github.com/Mokichan/GisSolo-Opener-GSO- (Windows helper that opens https://e-school.obr.lenreg.ru/authorize/login; not an API client)
 - **Notes.** 2020–2026/27: ГИС СОЛО «Электронная школа» (ИРТех NetSchool engine) at e-school.obr.lenreg.ru, ESIA login; «Госуслуги Моя школа» optional beside it. 2026/27 settled as «kept its system»: not in the official list of 20 ТОР pilot regions, and gogov.ru's regional guide of 17.09.2026 names «ГИС СОЛО и "Моя школа"». The predecessor (probably Дневник.ру) was replaced in 2020; no source read names it. Searches: Google News RSS («ГИС СОЛО», «"Дневник.ру" Ленобласть», «"Дневник.ру" "Ленинградской области" школы», «Ленобласть "Электронная школа" СОЛО 2020»); edu.lenobl.ru site search; TAdviser and netrika.ru pages did not answer (404/502), and the Wayback Machine was unreachable.
 - **Corrected during verification.** Primary row: since sharpened — ГИС СОЛО in the regional register in 2019, put into operation in February 2020, and all schools moved to it in 2020 (CNews interview with Нетрика, 19.01.2023; 47news, 23.10.2024: «ГИС "СОЛО" была запущена в регионе в 2020-м году»); NetSchool engine at e-school.obr.lenreg.ru confirmed; official list of 20 ТОР pilot regions (linked 31.08.2026) leaves Ленинградская out. Legacy Дневник.ру row: the replacement year is set to 2019/20–2020 and a 47news quote added showing a pre-СОЛО journal; its identity as Дневник.ру stays low. tor_myschool row given the official list as a dated source for its front-end role.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Липецкая область
 
@@ -892,7 +894,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/nikita463/Journal48TelegramBot (Python Telegram bot on edu.schools48.ru /apiv3/getdiary (ЭлЖур apiv3)); https://github.com/vsosh44/schools48bot (copy of the same bot)
 - **Notes.** ЭлЖур-based ГИС «Электронная школа» (edu.schools48.ru) in 2024/25–2025/26, and still the system of record in September 2026 as far as sources show; «Госуслуги Моя школа» is at least a front end over it and may have replaced the regional family app (unattributed news, 28–29.08.2026). Not a ТОР pilot region. Previous system: not switched off on any evidence found.
 - **Corrected during verification.** Roles reversed: the official Госуслуги list of the 20 pilot regions (max.ru/gosuslugiforparents) does not name Липецкая область, the claims of a full replacement come from two news items without an attributed source, and ЭлЖур's regional apps were updated on 24.08.2026 (teacher, ru.lipetsk.teacher) and 07.09.2026 (family, ru.eljur.lipetsk). ТОР/«Госуслуги Моя школа» is therefore recorded as secondary (front end) at medium confidence and ГИС «Электронная школа» (ЭлЖур) as primary at medium confidence. The БАРС row is unchanged.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Магаданская область
 
@@ -908,7 +910,7 @@ sites and news, as of September 2026.
   - https://www.1tv.ru/news/2025-05-27/510837-prilozhenie_gosuslugi_moya_shkola_poyavilos_v_80_regionah_rossii — «(Первый канал, 27.05.2025) «Приложение «Госуслуги Моя школа» появилось в 80 регионах России.» (the 80 are not named)»
 - **Notes.** 2025/26 and 2026/27: БАРС «Электронная школа» («Электронные дневники и журналы») at eschool.49gov.ru / openschool.49gov.ru, ESIA login. 2026/27 settled as «kept its system»: not in the official list of 20 ТОР pilot regions, both login pages carry no move notice, and no announcement of a later move was found (Google News RSS: «Магаданская область электронный дневник», «Магадан "Моя школа" дневник», «Колыма электронный журнал школы 2026» — nothing regional). minobr.49gov.ru answered 503.
 - **Corrected during verification.** Added a secondary tor_myschool row (low, front end) from the official «Госуслуги для родителей» post (linked 31.08.2026) and densus.ru (10.09.2026): Магаданская область is not in the list of 20 regions that moved on 1 September 2026, and elsewhere the app is an option beside the regional diary. БАРС row confirmed (eschool.49gov.ru and openschool.49gov.ru read on 2026-09-24 in the earlier stage, no notice), with the official list added as evidence.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Московская область
 
@@ -948,15 +950,20 @@ sites and news, as of September 2026.
 ## Нижегородская область
 
 - **in use now: [ЭлЖур](eljur.md)** — РГИС «Нижегородская образовательная платформа» (модуль «Электронный журнал и электронный дневник», РГИС «НОП») (ООО «Веб-Мост» (ЭлЖур); regional operator ГБОУ ДПО НИРО). Hosts: `edu.gounn.ru`. Since: 2020/21 (ЭлЖур contract, September 2020); РГИС НОП in operation from 1 January 2023. Confidence: high.
-  Regional ЭлЖур instance under its own hostname; the ЭлЖур-built regional app was updated on 7 September 2026, and no school page read mentions «Госуслуги Моя школа», so it remains the diary in 2026/27 as far as found. minobr.nobl.ru was not re-read.
+  Regional ЭлЖур instance under its own hostname. 2026/27: the minister called the diary part of «Нижегородская образовательная платформа» on 20.05.2026; the ЭлЖур-built regional app was updated on 7 September 2026 (RuStore) after the iOS copy on 22 May 2026; Нижегородская область is not among the 20 regions that moved to «Госуслуги Моя школа» as the main diary on 1 September 2026. edu.gounn.ru answered 503 to WebFetch on 2026-09-24; minobr.nobl.ru was not re-read.
   - https://sh63-nizhnij-novgorod-r152.gosweb.gosuslugi.ru/pedagogam-i-sotrudnikam/elektronnyy-zhurnal/ — «Электронный журнал edu.gounn.ru — это региональная государственная информационная система «Нижегородская образовательная платформа», модуль «Электронный журнал и электронный дневник» (РГИС «НОП»). … С 2024 года вход в систему осуществляется только через подтверждённую учётную запись на портале «Госуслуги» (ЕСИА).»
   - https://www.rustore.ru/catalog/app/ru.eljur.nnov — «Электронный дневник Нижегородской области - мобильное приложение региональной информационной системы управления общеобразовательными организациями … (developer ЭлЖур; v1.2.16, updated 7 September 2026)»
-  - https://nn.rbc.ru/nn/freenews/5f5a38fb9a794789a0ee22c4 — «Нижегородская область закупила систему электронных дневников за ₽35 млн … будут внедрены в 917 образовательных организациях региона (10 September 2020; supplier ООО «Веб-Мост»)»
+  - https://apps.apple.com/ru/app/id1531245570 — «Электронный дневник Нижегородской области - мобильное приложение региональной информационной системы управления общеобразовательными организациями, создаваемой в рамках проекта «Цифровая образовательная среда» национального проекта «Образование».» (App Store, seller 'Web-Most' Ltd., bundle ru.eljur.nnov, v1.7.7 of 22.05.2026, per the iTunes lookup API on 2026-09-24)
+- **alongside: [«Госуслуги Моя школа»](myschool-federal.md) as a front end** — «Госуслуги Моя школа» (federal app as a front end) (Минпросвещения России / Минцифры России (ТОР «Моя школа», Госуслуги)). Hosts: `gosuslugi.ru/school`. Since: September 2026 at the latest (federal statement). Confidence: low.
+  Front end only, on the strength of the federal statement that outside the 20 pilot regions (and Запорожская/Херсонская) the app is used «наравне с другими решениями»; no Nizhny Novgorod source read says whether edu.gounn.ru data reaches it.
+  - https://max.ru/gosuslugiforparents/AaAisMEAHzo — «(official «Госуслуги для родителей» channel; post linked on 31.08.2026 by Минобрнауки ЛНР; read 2026-09-24 in this research) «С 1 сентября 2026 года школы и колледжи в 20 пилотных регионах переходят на приложение «Госуслуги Моя школа». Оно станет основным…» — the region is not among the 20; «В остальных регионах, кроме Запорожской и Херсонской областей, с сентября пользоваться приложением «Госуслуги Моя школа» можно наравне с другими решениями для школьников.»»
+  - https://densus.ru/api/articles/gosuslugi-moya-shkola-zamenila-dnevniki-v-2026-09-10 — «(densus.ru, 10.09.2026) «В остальных регионах, кроме Запорожской и Херсонской областей, приложением можно пользоваться наравне с другими решениями — пока это не обязательная замена, а один из вариантов.»»
 - **previous: [Дневник.ру](dnevnik-ru.md)** — Дневник.ру (ООО «Дневник.ру»). Hosts: `dnevnik.ru`, `login.dnevnik.ru`. Since: 2011/12 – 2020. Confidence: medium.
   Superseded by ЭлЖур from 2020/21. old.gu.nnov.ru (regional Госуслуги page «Электронный журнал «Дневник.ру»») answered 503.
   - https://nn.rbc.ru/nn/freenews/5f5a38fb9a794789a0ee22c4 — «Мы... могли предоставить такую лицензию бесплатно, и она бы полностью соответствовала функционалу (Дневник.ру objecting to the 2020 ЭлЖур contract)»
-- **Notes.** 2025/26 and 2026/27: ЭлЖур-based РГИС «НОП» at edu.gounn.ru. No Nizhny Novgorod source for a ТОР «Госуслуги Моя школа» switch; nn.aif.ru's 16 July 2026 item on the new school year says nothing about the diary. No client aimed at edu.gounn.ru found (first pass: Sourcegraph and GitHub); WebSearch was unavailable to this pass.
-- **Checked:** confirmed.
+- **Notes.** 2025/26 and 2026/27: ЭлЖур-based РГИС «НОП» at edu.gounn.ru. 2026/27 settled as «kept its system»: not in the official list of 20 ТОР pilot regions; Google News RSS («Нижегородская электронный дневник», «Нижегородская образовательная платформа», «edu.gounn.ru», last 12 months) shows only load-related access limits in February and May 2026 and the minister's denial, no announcement of a move. No client aimed at edu.gounn.ru found. WebSearch budget was spent before this pass; searches ran through Google News RSS.
+- **Corrected during verification.** ЭлЖур row confirmed for 2026/27 and given two more dated sources: the minister's statement of 20.05.2026 (vremyan.ru/news/602540: the diary is «частью Нижегородской образовательной платформы») and the App Store record of the regional app (id1531245570, v1.7.7 of 22.05.2026), plus the official «Госуслуги для родителей» list of 20 ТОР pilot regions (max.ru/gosuslugiforparents/AaAisMEAHzo), which leaves Нижегородская out. Added a secondary tor_myschool row (low, front end) from that list and densus.ru of 10.09.2026.
+- **Checked:** corrected in the second round.
 
 ## Новгородская область
 
@@ -976,28 +983,31 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://pypi.org/project/dnevnikru-aio/ (dnevnikru-aio 1.0 (uploaded 2021-11-06); gos_regions.py has NOVGOROD_REGION = https://53.dnevnik.ru for ESIA login. Generic Дневник.ру client; its GitHub repository is gone)
 - **Notes.** 2025/26 and 2026/27: Дневник.ру (53.dnevnik.ru, ESIA-only), one of whose schools is among the platform's most active in September 2026; «Госуслуги Моя школа» shows the same marks as a front end, piloted here first in spring 2025.
 - **Corrected during verification.** Дневник.ру row: regional branding added to the name and confidence raised to high on the Дневник.ру September 2026 activity ranking (dnevnik.ru/r/omsk/mostactive; school profile schools.dnevnik.ru/v2/school?school=1000012329056). fgis_myschool row: role changed from secondary to legacy, because its own evidence says myschool.edu.ru was taken out of service on 10.09.2025 and it is not a diary. Added tor_myschool (secondary, front end): the «Госуслуги Моя Школа» app was piloted in the region from 19.03.2025 (sh5-staraya-russa-r49.gosweb.gosuslugi.ru).
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Новосибирская область
 
 - **in use now: [ЭлЖур](eljur.md)** — ГИС НСО «Электронная школа» (ООО «Иннотех» (developer) for the Правительство / Министерство цифрового развития и связи Новосибирской области (operator, app publisher)). Hosts: `school.nso.ru`. Since: 2021 (new version deployed region-wide on 1 September 2021; project started 2020). Confidence: high.
-  Still the journal in September 2026 (a Novosibirsk school's notice of 07.09.2026; the regional app updated 24.07.2026). No regional source found that school.nso.ru is being switched off or that the region is in the first wave of ТОР «Моя школа». school.nso.ru itself was not readable.
+  Still the journal in September 2026: a Novosibirsk school's notice of 07.09.2026 sends parents to it, and the regional iOS app got a release on 12.09.2026 (after the RuStore copy of 24.07.2026); Новосибирская область is not among the 20 regions that moved to «Госуслуги Моя школа» as the main diary on 1 September 2026. A teacher app «Журнал. Электронная школа НСО» (ru.nso.teacher) is listed in RuStore. school.nso.ru itself answered 503.
   - https://innoteh.team/novosibirskay/ — «Государственная информационная система Новосибирской области «Электронная школа» … Интеграция ГИС НСО «Электронная школа» с Единым порталом государственных услуг (project 2020; new version region-wide from 1 September 2021; «990+ образовательных организаций подключено к системе»)»
+  - https://apps.apple.com/ru/app/id1551121319 — «Электронный дневник Новосибирской области — мобильное приложение государственной информационной системы Новосибирской области «Электронная школа».» (App Store «Дневник. Электронная школа НСО», bundle ru.nso.dnevnik, seller CNGT NSO GBU NSO; v1.7.1 released 12.09.2026, «Устранение найденных ошибок и повышение стабильности», per the iTunes lookup API on 2026-09-24)
   - https://www.rustore.ru/catalog/app/ru.nso.dnevnik — «Электронный дневник Новосибирской области — мобильное приложение государственной информационной системы Новосибирской области «Электронная школа». (developer: Министерство цифрового развития и связи Новосибирской области; v1.4.2, 24 июл 2026)»
-  - http://sch20nsk.edusite.ru/ — «Вход в ГИС НСО «Электронная школа» осуществляется только с помощью Госуслуг. (07.09.2026)»
-- **alongside: [ФГИС «Моя школа»](myschool-federal.md)** — ФГИС «Моя школа» (Минпросвещения России / Минцифры России). Hosts: `myschool.edu.ru`. Since: 2023/24. Confidence: medium.
-  The regional diary was integrated with the federal system from 1 September 2023; myschool.edu.ru itself was retired to gosuslugi.ru/myschool on 10 September 2025.
-  - https://4s-info.ru/2023/08/30/obnovlennaya-moya-shkola-roditelej-novosibirskih-shkolnikov-poprosili-srochno-zaregistrirovat-detej-na-gosuslugah/ — «Новосибирская область стала одним из 15 пилотных субъектов Российской Федерации, где внедряется ФГИС «Моя школа». … Теперь с 1 сентября во всех школах будет один электронный дневник, интегрированный в федеральную информационную систему «Моя школа». (30 August 2023)»
 - **alongside: [«Госуслуги Моя школа»](myschool-federal.md) as a front end** — Госуслуги Моя школа (Минцифры России (Госуслуги)). Hosts: `gosuslugi.ru/school`. Since: 2024/25 (app in the region by 2025; among the most-used regions by April 2026). Confidence: medium.
-  A second way into the Novosibirsk diary, not a replacement: the same school notice of 07.09.2026 still sends parents to ГИС НСО «Электронная школа». Search summaries that claimed «Региональный сервис «Электронная школа» прекращает свою работу» for Novosibirsk were quoting a Ростовская область school (sosh8.bkobr.ru), not a Novosibirsk source.
+  A second way into the Novosibirsk diary, not a replacement: the school notice of 07.09.2026 still sends parents to ГИС НСО «Электронная школа», and Новосибирская область is not in the official list of 20 regions where the app became the main diary on 1 September 2026. Search summaries that claimed «Региональный сервис «Электронная школа» прекращает свою работу» for Novosibirsk were quoting a Ростовская область school (sosh8.bkobr.ru), not a Novosibirsk source.
   - https://www.ixbt.com/news/2026/04/28/prilozheniem-gosuslugi-moja-shkola-polzujutsja-bolee-10-mln-chelovek.html — «Чаще всего используют приложение в Белгородской, Самарской, Новосибирской и Свердловской областях, а также в Санкт-Петербурге. (28 апреля 2026)»
   - http://sch20nsk.edusite.ru/ — «Госуслуги Моя школа» — это мобильное приложение и веб-сервис от Госуслуг, предназначенное для родителей и учащихся, в котором удобно отслеживать расписание, домашние задания, успеваемость, с доступом к цифровой библиотеке контента. (07.09.2026)
+  - https://max.ru/gosuslugiforparents/AaAisMEAHzo — «(official «Госуслуги для родителей» channel; post linked on 31.08.2026 by Минобрнауки ЛНР; read 2026-09-24 in this research) «С 1 сентября 2026 года школы и колледжи в 20 пилотных регионах переходят на приложение «Госуслуги Моя школа». Оно станет основным…» — the region is not among the 20; «В остальных регионах, кроме Запорожской и Херсонской областей, с сентября пользоваться приложением «Госуслуги Моя школа» можно наравне с другими решениями для школьников.»»
+- **previous: [ФГИС «Моя школа»](myschool-federal.md)** — ФГИС «Моя школа» (Минпросвещения России / Минцифры России). Hosts: `myschool.edu.ru`. Since: 2023/24 – 10 September 2025 (portal taken out of service). Confidence: medium.
+  The federal portal myschool.edu.ru, not a diary: it relayed the regional diary's data from 1 September 2023, when the region was one of the 15 ФГИС pilots, and was taken out of service on 10 September 2025 with a redirect to the Госуслуги portal. What families use in its place is the «Госуслуги Моя школа» app, the separate tor_myschool front-end row.
+  - https://4s-info.ru/2023/08/30/obnovlennaya-moya-shkola-roditelej-novosibirskih-shkolnikov-poprosili-srochno-zaregistrirovat-detej-na-gosuslugah/ — «Новосибирская область стала одним из 15 пилотных субъектов Российской Федерации, где внедряется ФГИС «Моя школа». … Теперь с 1 сентября во всех школах будет один электронный дневник, интегрированный в федеральную информационную систему «Моя школа». (30 August 2023)»
+  - https://gimn4-velikij-novgorod-r49.gosweb.gosuslugi.ru/roditelyam-i-uchenikam/poleznaya-informatsiya/fgis-moya-shkola/ — «Действующий портал, размещенный по адресу: https://myschool.edu.ru, с 10 сентября 2025 г. будет выведен из эксплуатации, а с его адреса будет включена автоматическая переадресация пользователей на новый портал.»
 - **previous: [БАРС](bars.md)** — «Электронная школа» («БАРС.Образование – Электронная школа») (БАРС Груп). Hosts: `shkola.nso.ru`. Since: before 2021. Confidence: low.
   The /api/MarkService/GetSummaryMarks route is the БАРС «Электронная школа» API (the same route serves sh-open.ris61edu.ru in Ростовская область), so the attribution to БАРС is plausible but no official source was read; consistent with the Иннотех system replacing it region-wide from 1 September 2021.
   - https://github.com/denisov/notifier — «const formURL = "https://shkola.nso.ru/auth/login" … const summaryMarksURL = "https://shkola.nso.ru/api/MarkService/GetSummaryMarks" (shkolanso/parser.go; history 2018-01 to 2021-12)»
 - **Open-source clients** aimed at this region or its platform: https://github.com/denisov/notifier (Go; shkolanso/parser.go scrapes the legacy БАРС host shkola.nso.ru (/auth/login, /api/MarkService/GetSummaryMarks); code 2018–2021, dead host)
-- **Notes.** 2025/26 and 2026/27: ГИС НСО «Электронная школа» (school.nso.ru) as the journal, with «Госуслуги Моя школа» as a parallel way in. WebSearch was unavailable to this pass; evidence re-read with WebFetch and a clone of the client repository.
-- **Checked:** confirmed.
+- **Notes.** 2025/26 and 2026/27: ГИС НСО «Электронная школа» (school.nso.ru, ООО «Иннотех») as the journal, with «Госуслуги Моя школа» as a parallel way in. The 2026/27 continuation now rests on a school notice of 07.09.2026, the app release of 12.09.2026 and the absence of Новосибирская from the ТОР pilot list; no regional announcement of a switch-off was found (Google News RSS «Электронная школа Новосибирская область», «school.nso.ru», «новосибирские школы электронный дневник 2026», last 12 months). No route table or open-source client exists for school.nso.ru; the only client found scrapes the legacy БАРС host.
+- **Corrected during verification.** fgis_myschool row: role secondary → legacy — myschool.edu.ru is a relay portal, not a diary, and was taken out of service on 10.09.2025 (gimn4-velikij-novgorod-r49.gosweb.gosuslugi.ru, quoted); the family-facing app stays in the tor_myschool front-end row. Primary row (ГИС НСО «Электронная школа», school.nso.ru, kind other) confirmed for 2026/27 with a post-1-September source: the regional iOS app v1.7.1 released 12.09.2026 (apps.apple.com/ru/app/id1551121319), plus the official list of 20 ТОР pilot regions, which leaves Новосибирская out.
+- **Checked:** corrected in the second round.
 
 ## Омская область
 
@@ -1012,7 +1022,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://pypi.org/project/dnevnikru-aio/ (dnevnikru-aio 1.0 (2021); gos_regions.py OMSK_REGION = https://55.dnevnik.ru (generic Дневник.ру client; its GitHub repository is gone))
 - **Notes.** 2025/26 and 2026/27: Дневник.ру as the region's РГИС «Образование» (АИС «Дневник-ОО»), confirmed for September 2026; «Моя школа» on Госуслуги used beside it.
 - **Corrected during verification.** Confidence of the Дневник.ру row raised to high on a dated 2026/27 source (omsk.aif.ru, 01.09.2026: «Электронный «Дневник.ру» хранит здесь и оценки…») and the September 2026 activity ranking (dnevnik.ru/r/omsk/mostactive); 55.dnevnik.ru restored to hosts because it redirects to login.dnevnik.ru/login/esia/omsk. Added a low-confidence tor_myschool front-end row from the same article.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Оренбургская область
 
@@ -1029,7 +1039,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/stupidcabbage/edu-orb.ru (Telegram bot «Дневник Оренбурга»; login, then de.edu.orb.ru/edv/index/diary/{id} and /report/marks (repository exists, checked with git ls-remote)); https://github.com/DmitryKolyadin/Edu-orb-tool-app (Android app; ESIA login via edu.orb.ru/auth/rsaag/redirect)
 - **Notes.** 2019–2026: own regional system de.edu.orb.ru on the X1 platform (one_x1). From 1 September 2026 a phased move «в рамках платформы «Моя школа»» with families pointed to gosuslugi.ru/myschool and the «Госуслуги Моя школа» app, both ways in open during the transition; not a ТОР pilot region. App Store reviews of «Цифровая школа Оренбуржья» mention «Дневник.ру» as the app used before it, but no source read dates a Дневник.ру period, so it is not recorded as a platform.
 - **Corrected during verification.** Two changes. (1) Roles: Оренбургская область is not on the official Госуслуги list of the 20 pilot regions (max.ru/gosuslugiforparents), and the regional ministry calls September 2026 a phased transition while still sending users with problems to «Цифровая школа Оренбуржья» and de.edu.orb.ru (vestirama.ru, 02.09.2026; orenburg.media, 01.09.2026), so the regional system is primary (medium) and ТОР/«Госуслуги Моя школа» migrating_to (medium) rather than the reverse. (2) Kind: the regional row is re-tagged from other to one_x1 (ООО «Интегрикс»), as the critic proposed on the one_x1 route file.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Орловская область
 
@@ -1064,18 +1074,23 @@ sites and news, as of September 2026.
   - https://dnvk.ru/ — «Пензенская область: https://uko.edu-penza.ru (РИС ЭСО), http://школа58.рф, http://el-shk.ru/ (unofficial aggregator)»
 - **Notes.** Every *.edu-penza.ru subdomain (school., dnevnik., uko., school sites) and gosuslugi.pnzreg.ru answered 503/403 to WebFetch. The regional portal www.edu-penza.ru and the vendor's site it-soft.pro/school.html were both readable on 24.09.2026. A WebSearch summary of the regional portal page gosuslugi.pnzreg.ru (ID=190035, «Электронная школа») says two things: the «Электронный дневник» section there was deactivated on 2 September 2024, and applications can be viewed there until the end of 2026. That page could not be opened (403), so this is not quoted as evidence. No open-source client for school.edu-penza.ru was found, by the first pass's GitHub/Sourcegraph searches or by this round's web search.
 - **Corrected during verification.** «АйТи Школа» (primary/high) no longer rests on the verification alone. It now rests on (1) the vendor's own page (it-soft.pro/school.html: АИС «АйТи Школа» deployed in Пензенская область, Реестр российского ПО № 27129 от 19.03.2025), (2) the company register (list-org.com: ООО «АйТи Софт», Пенза, ИНН 5835127415, since 15.03.2018), and (3) the regional portal edu-penza.ru, read 24.09.2026 («Электронный дневник» → school.edu-penza.ru). The ТОР row, secondary/medium, now has a date: «by 11 May 2026», as a front end over ЭСО (pravda-news.ru). No sign of a ТОР move on 1 September 2026. БАРС legacy row unchanged. Still no open-source client.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Псковская область
 
-- **in use now: [«one.» platform](one-x1.md)** — Региональная информационная система «Цифровое образование Псковской области» (портал one.pskovedu.ru, «Псковеду»); app «Образование Псковской области» / «Образование Пскова» (Operator ГБУ ПО «Региональный центр информационных технологий» (РЦИТ), app publisher; software is the «one»/X1 platform whose Android apps carry the ru.integrics.* package prefix (same code base as de.edu.orb.ru, one.43edu.ru, one.obr57.ru)). Hosts: `one.pskovedu.ru`, `passport.pskovedu.ru`, `gosuslugi.pskovedu.ru`. Since: by 2021 (client code from December 2021). Confidence: medium.
-  Every pskovedu.ru host answered 403 or 503 to WebFetch, so no official web page was read; the official statements are the two store descriptions. The iOS app was updated on 31 July 2026 and the Python SDK in June 2026, so the system is still in use going into 2026/27. No source found on a move to ТОР «Госуслуги Моя школа». gosuslugi.pskovedu.ru is the regional services portal whose page «Электронный дневник и журнал» appears in search listings (403 here). foedu.ru's mention of «ЭлЖур» and «АИС Сетевой город» for this region is aggregator boilerplate and is not recorded.
+- **in use now: [«one.» platform](one-x1.md)** — Региональная информационная система «Цифровое образование Псковской области» (портал one.pskovedu.ru, «Псковеду»); app «Образование Псковской области» / «Образование Пскова» (ООО «Интегрикс» «X1» platform (one.<domain> + passport.<domain>, Android package family ru.integrics.*); operator and app publisher ГБУ ПО «Региональный центр информационных технологий» (РЦИТ), which developed and handed the same system to Херсонская область in 2025; its hosts share a MegaFon /24 with the Запорожская and Херсонская instances). Hosts: `one.pskovedu.ru`, `passport.pskovedu.ru`, `gosuslugi.pskovedu.ru`. Since: by 2021 (client code from December 2021). Confidence: high.
+  Every pskovedu.ru host answered 403 or 503 to WebFetch, so no official web page was read; the official statements are the two store descriptions and the regional news item of 08.07.2026 on the updated РИС ЦОПО. Kind one_x1: one.pskovedu.ru is the reference host of the X1 route table (pskovedu-sdk: /edv/index/diary, Ext.Direct, X1_SSO cookie) and the official app is ru.integrics.mobileschool. DNS on 2026-09-24: *.pskovedu.ru is a wildcard to 213.145.5.41 (MegaFon), the same /24 as Запорожская's one.umnik-zo.ru (.56) and Херсонская's one.edu.khogov.ru (.57). No source found on a move to ТОР «Госуслуги Моя школа»; Псковская область is not among the 20 pilot regions of 1 September 2026. foedu.ru's mention of «ЭлЖур» and «АИС Сетевой город» for this region is aggregator boilerplate and is not recorded.
+  - https://pln-pskov.ru/society/592458.html — «(Псковская Лента Новостей, 08.07.2026) «прошла демонстрация обновлённой региональной информационной системы «Цифровое образование Псковской области» (РИС ЦОПО)» … «В приложении РИС ЦОПО также доступны электронный дневник, расписание уроков и запись на дополнительные занятия» … «Информация сразу появляется в личном кабинете родителя в приложении «Образование Псковской области»»»
   - https://www.rustore.ru/catalog/app/ru.integrics.mobileschool — «Образование Псковской области — мобильное приложение для родителей, учеников и педагогов Псковской области. Приложение является частью региональной информационной системы "Цифровое образование Псковской области" (developer ГБУ ПО «РЦИТ»; support rcit@pskovedu.ru; v7.8, 5 May 2026)»
   - https://apps.apple.com/ru/app/%D0%BE%D0%B1%D1%80%D0%B0%D0%B7%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5-%D0%BF%D1%81%D0%BA%D0%BE%D0%B2%D0%B0/id6475958013 — «Образование Псковской области — мобильное приложение для родителей и учеников Псковской области. Приложение является частью региональной информационной системы "Цифровое образование Псковской области" (seller RTSIT, GBU; first release 2024-01-18, current 1.5 of 2026-07-31 «Исправлена ошибка авторизации», per the iTunes lookup API)»
-  - https://github.com/zlexdev/pskovedu-sdk — «`pskovedu` is a fully typed, async-first Python client for the **one.pskovedu.ru** electronic journal — the education portal of Pskov Region, Russia. (hosts in code: one.pskovedu.ru, passport.pskovedu.ru; last commit 2026-06-20)»
+- **alongside: [«Госуслуги Моя школа»](myschool-federal.md) as a front end** — «Госуслуги Моя школа» (federal app as a front end) (Минпросвещения России / Минцифры России (ТОР «Моя школа», Госуслуги)). Hosts: `gosuslugi.ru/school`. Since: September 2026 at the latest (federal statement). Confidence: low.
+  Front end only, on the strength of the federal statement; no Pskov source read says whether РИС ЦОПО data reaches the app.
+  - https://max.ru/gosuslugiforparents/AaAisMEAHzo — «(official «Госуслуги для родителей» channel; post linked on 31.08.2026 by Минобрнауки ЛНР; read 2026-09-24 in this research) «С 1 сентября 2026 года школы и колледжи в 20 пилотных регионах переходят на приложение «Госуслуги Моя школа». Оно станет основным…» — the region is not among the 20; «В остальных регионах, кроме Запорожской и Херсонской областей, с сентября пользоваться приложением «Госуслуги Моя школа» можно наравне с другими решениями для школьников.»»
+  - https://densus.ru/api/articles/gosuslugi-moya-shkola-zamenila-dnevniki-v-2026-09-10 — «(densus.ru, 10.09.2026) «В остальных регионах, кроме Запорожской и Херсонской областей, приложением можно пользоваться наравне с другими решениями — пока это не обязательная замена, а один из вариантов.»»
 - **Open-source clients** aimed at this region or its platform: https://github.com/zlexdev/pskovedu-sdk (Python 3.12 async SDK; one.pskovedu.ru REST + Ext.Direct (/extjs/direct), ESIA/QR login via passport.pskovedu.ru, X1_SSO cookie (last commit 2026-06-20)); https://github.com/tdrkDev/pskovedu_homework_parser (shell homework dumper for one.pskovedu.ru/edv/index/diary/ (2021-12 to 2022-03))
-- **Notes.** 2025/26 and 2026/27: regional «Цифровое образование Псковской области» at one.pskovedu.ru. The first pass also listed github.com/SK1raly/_PSKOVEDU_ (CSS restyle, not a client); that repository no longer exists (git ls-remote fails) and is dropped. WebSearch was unavailable to this pass; evidence from RuStore, the iTunes lookup API and cloned repositories.
-- **Checked:** confirmed.
+- **Notes.** 2025/26 and 2026/27: regional «Цифровое образование Псковской области» (РИС ЦОПО) at one.pskovedu.ru on the X1 platform; updated system demonstrated in July 2026, iOS app updated 31.07.2026. 2026/27 settled as «kept its system»: not in the list of 20 ТОР pilot regions, no announcement of a move (Google News RSS «Псковская область электронный дневник», «pskovedu электронный журнал», last 12 months). The first pass also listed github.com/SK1raly/_PSKOVEDU_ (CSS restyle, not a client); that repository no longer exists and is dropped. WebSearch budget was spent before this pass.
+- **Corrected during verification.** Primary row: kind other → one_x1 (one.pskovedu.ru is the X1 reference host; official app ru.integrics.mobileschool), confidence medium → high on a dated regional source: pln-pskov.ru/society/592458.html of 08.07.2026 on the «обновлённой» РИС «Цифровое образование Псковской области», whose app carries the электронный дневник; vendor now names the Интегрикс platform. Added a secondary tor_myschool row (low, front end) from the official list of 20 ТОР pilot regions (max.ru/gosuslugiforparents/AaAisMEAHzo), which leaves Псковская out, and densus.ru of 10.09.2026.
+- **Checked:** corrected in the second round.
 
 ## Ростовская область
 
@@ -1092,7 +1107,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/pars-diary/bars-api (generic БАРС client (mirror github.com/iamlostshe/bars-api); AGGREGATOR_URL = https://aggregator.edu.bars.group/my_diary, which lists sh-open.ris61edu.ru (last commit 2026-02)); https://github.com/daniil-dushenev/school-journal (Python; logs in at sh-open.ris61edu.ru/auth/login and reads /api/MarkService/GetSummaryMarks, /api/ProfileService/GetPersonData (2023-08))
 - **Notes.** 2025/26: БАРС «Электронная школа» (sh-open.ris61edu.ru). 2026/27: ТОР «Госуслуги Моя школа» from 1 September 2026; the regional service stops. WebSearch was unavailable to this pass; school pages and the БАРС list were read with WebFetch, client code by git clone. On the official list of the 20 pilot regions. Post-September confirmation not found.
 - **Corrected during verification.** Confidence of the ТОР row lowered from high to medium: no source dated after 1 September 2026 confirms the switch (school pages 31.07–25.08.2026 only). Added the official Госуслуги list of the 20 pilot regions, which names Ростовская область. Kinds, roles and hosts unchanged.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Рязанская область
 
@@ -1161,7 +1176,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/v228a/Egov66Client (Android client for dnevnik.egov66.ru (ГИС СО «ЕЦП»); target closed from 1 September 2026; first-pass finding); https://github.com/Dreamlord4k/dnevnik.egov66.ru-parser (Telegram bot / grade parser for dnevnik.egov66.ru; first-pass finding); https://github.com/sos-mislom/egov66-extention (browser extension for dnevnik.egov66.ru; first-pass finding); https://github.com/frogfile/jrn (alternative student frontend for dnevnik.egov66.ru; first-pass finding); https://github.com/kmlebedev/netcitybot (Telegram bot for «Сетевой Город. Образование» at netcity.eimc.ru and other Свердловская servers; first-pass finding); https://github.com/kmlebedev/netcityEimcBot (older bot for netcity.eimc.ru; first-pass finding)
 - **Notes.** Chain: per-school «Сетевой город» / Дневник.ру → ГИС СО «ЕЦП» (egov66, 2023–2026) → ТОР «Моя школа» / «Госуслуги Моя школа» (from 1 September 2026, «first wave»). All egov66 clients target a closed service.
 - **Corrected during verification.** Kind only: the ГИС СО «ЕЦП» row is re-tagged from other to egov66, the kind that has its own route table (critic item). The ТОР row is confirmed by the closure notice on jurnal.egov66.ru read on 24.09.2026 and by the official Госуслуги list of the 20 pilot regions (added as evidence).
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Смоленская область
 
@@ -1176,7 +1191,7 @@ sites and news, as of September 2026.
   - https://play.google.com/store/apps/details?id=ru.eljur.smolensk&hl=ru — «Title «Дневник Смоленска», description «Электронный дневник Смоленской области», developer «СОГАУ "ЦИТ"», developer URL https://dnevnik.admin-smolensk.ru/ (read 2026-09-24 via direct download)»
 - **Notes.** ЭлЖур-based regional diary (2018–2026) → ТОР «Моя школа» / «Госуслуги Моя школа» from 1 September 2026. No open-source client aimed at dnevnik.admin-smolensk.ru was found in earlier research.
 - **Corrected during verification.** no change: checked the official Госуслуги list of the 20 pilot regions (Смоленская область is on it; added as evidence); no news item after 1 September 2026 was found, so the confirmation remains the regional host's own notice read on 24.09.2026. Previous system: app withdrawn, host shows only the notice.
-- **Checked:** confirmed.
+- **Checked:** confirmed in the second round.
 
 ## Тамбовская область
 
@@ -1261,17 +1276,19 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/nm17/netschoolapi (generic async Python NetSchool client; sgo.cit73.ru used in its documentation examples (per other agents' NetSchool extract)); https://github.com/lentryd/NetSchoolApi (generic Node.js NetSchool wrapper)
 - **Notes.** 2025/26 and, as far as can be seen, 2026/27: «Сетевой Город. Образование» at sgo.cit73.ru. Earlier checks for a 2026 ТОР switch found nothing. sgo.cit73.ru carries no notice, unlike the regional hosts of first-wave ТОР regions such as jurnal.egov66.ru or edu.adm-nao.ru, which now carry closure notices. The ministry news page mo73.gosuslugi.ru (items to 23.09.2026) has nothing on the diary on page 1; its pagination is JS-only and deeper pages were not read. t.me/s/minpros73 (newest post April 2026) has no diary posts. Ульяновская область is not among the roughly 19 first-wave ТОР regions confirmed elsewhere in this research.
 - **Corrected during verification.** no change: searched September 2026 news for an Ulyanovsk ТОР move or a closure of sgo.cit73.ru and found none. Re-read the ministry's Telegram search; the post is undated. Added the app's federal launch date (1tv.ru, 27.05.2025) to the ТОР row, whose role stays secondary/low.
-- **Checked:** confirmed.
+- **Checked:** confirmed in the second round.
 
 ## Херсонская область
 
-- **in use now: РГИС «Цифровое образование Херсонской области» (электронные журналы и …** — РГИС «Цифровое образование Херсонской области» (электронные журналы и дневники, запись в детские сады) (deployed by ГБУ Псковской области «Региональный центр информационных технологий» with the Kherson ministry; probably the Pskov platform (one.pskovedu.ru / passport.pskovedu.ru, apps ru.integrics.* by ООО «Интегрикс») — unconfirmed; operator Министерство образования и науки Херсонской области; regional centre ГКУ Херсонской области «Региональный центр образования» (rco.edu.khogov.ru)). Since: 2024/25 (deployment by Pskov IT specialists announced to finish by the end of 2024). Confidence: medium.
-  The system's name is the ministry's own; hostname and vendor still not found. Pskov's analogous hosts are one.pskovedu.ru and passport.pskovedu.ru (crt.sh, fetched 2026-09-24); crt.sh for %.khogov.ru (1660 names, mostly wildcard noise) shows no one./passport./edu/journal host, and guessed domains gave nothing.
-  - https://t.me/s/depobrherson?before=16627 — «Сбор персональных данных обучающихся образовательных организаций Херсонской области осуществляется исключительно через Региональную государственную информационную систему "Цифровое образование Херсонской области" или портал "Госуслуги". (post 16625, 09.02.2026)»
-  - https://t.me/s/depobrherson?before=6169 — «псковские ИТ- специалисты завершат до конца года внедрение электронных цифровых сервисов в образовании в новых регионах. Речь идет о Херсонской области … После завершения работ в этом регионе будет доступна электронная запись в дошкольные учреждения … а также использование электронных журналов и дневников. (post 6167, 24.04.2024)»
-  - https://t.me/s/depobrherson?q=%D0%A0%D0%93%D0%98%D0%A1 — «Всероссийский форум «Российские цифровые технологии в образовании—2025» … Их основная тема – интеграция информационных систем в образовании. … принимают участие в том числе и эксперты из Херсонской и Запорожской областей (21–23.04.2025)»
-- **Notes.** 2025/26: РГИС «Цифровое образование Херсонской области», hostname unknown. 2026/27: no transition to ТОР «Госуслуги Моя школа» found (t.me/s/depobrherson searched for «Госуслуги Моя школа», «Цифровое образование», «РГИС»; t.me/s/gkuhorco — ГКУ ХО «Региональный центр образования» — searched for «дневник», «журнал»: nothing on the diary). foedu.ru has no Kherson page (404); gogov.ru/ednevnik/her 429; rco.edu.khogov.ru 503. The ministry's news moved to MAX (max.ru/depobrherson), unreadable here.
-- **Checked:** confirmed.
+- **in use now: [«one.» platform](one-x1.md)** — РГИС «Цифровое образование Херсонской области» (РГИС «ЦОХО»), «Электронные журналы и дневники» (developed by ГБУ ПО «Региональный центр информационных технологий» (Псковская область) on the ООО «Интегрикс» «X1» platform (the same one.<domain> + passport.<domain> code base as one.pskovedu.ru); operator Министерство образования и науки Херсонской области; regional centre ГКУ Херсонской области «Региональный центр образования» (rco.edu.khogov.ru)). Hosts: `one.edu.khogov.ru`, `passport.edu.khogov.ru`, `wp.edu.khogov.ru`. Since: 2025/26 (system handed over free of charge by the Pskov РЦИТ in April 2025; put into operation by ministry order № 904 of 05.08.2025; deployment first announced in April 2024). Confidence: high.
+  Host from the ministry's own page (06.04.2026). passport.edu.khogov.ru and wp.edu.khogov.ru: the first is seen only in DNS, the second is named by the user agreement; both, like one.edu.khogov.ru, are explicit DNS records (a random name under edu.khogov.ru does not resolve, while *.khogov.ru is a wildcard to 185.178.208.132): one./passport.edu.khogov.ru → 213.145.5.57, wp.edu.khogov.ru → 213.145.5.59, next to Zaporozhye's one./passport.umnik-zo.ru (.56) and wp.umnik-zo.ru (.58) and in the same MegaFon /24 as Pskov's one.pskovedu.ru (.41). Kind one_x1 on the official statement that the system was developed and handed over by the Pskov РЦИТ (whose own system is the X1 platform, apps ru.integrics.*), the one./passport./wp. host set shared with the other X1 instances, and the СНИЛС-based registration. one.edu.khogov.ru and passport.edu.khogov.ru answered 503 to WebFetch, so no /edv route was seen. No mobile app found (RuStore search API and App Store search on 2026-09-24).
+  - https://edu.khogov.ru/deyatelnost/otchety/ — «Электронные журналы и дневники https://one.edu.khogov.ru/auth/login» (Министерство образования и науки Херсонской области, page «Отчеты», published 06.04.2026 per the site's WordPress API; read 2026-09-24)
+  - https://edu.khogov.ru/wp-content/uploads/2025/08/prikaz_i_polozhenie_po_rgis.pdf — «Приказ 05.08.2025 № 904 … О введении в эксплуатацию, определении оператора и его функций и утверждении положения РГИС «Цифровое образование Херсонской области»» … «1. Ввести в эксплуатацию региональную информационную систему «Цифровое образование Херсонской области» (далее - Система).» … «3. Оставить функции оператора Системы за Министерством образования и науки Херсонской области» (scanned order, read from its page images)
+  - https://edu.khogov.ru/wp-content/uploads/2025/08/polzovatelskoe_soglashenie_czo.docx — «Действие пользовательского Соглашения распространяется на пользователей с момента прохождения аутентификации на сайтах РГИС «ЦОХО» в домене https://wp.edu.khogov.ru.» … «При регистрации на сайтах РГИС «ЦОХО» пользователь обязан проверить точность своих данных: СНИЛС, Email, фамилия, имя, отчество, дата рождения.» (user agreement posted 29.08.2025)
+- **Open-source clients** aimed at this region or its platform: https://github.com/zlexdev/pskovedu-sdk (Python client for the same X1 platform on one.pskovedu.ru (X1_SSO cookie, /edv diary, marks report); not tested against one.edu.khogov.ru)
+- **Notes.** 2025/26 and 2026/27: РГИС «Цифровое образование Херсонской области» at one.edu.khogov.ru, on the X1 platform from the Pskov РЦИТ, in operation since August 2025; in 2026 the ministry was still ordering schools to fill it (orders № 73 of 18.03.2026 and № 117 of 28.04.2026, titles read via the site search API). Not in ТОР: the official federal statement (31.08.2026) and densus.ru (10.09.2026) name Херсонская and Запорожская as the two regions where «Госуслуги Моя школа» is not an option. Found through the WordPress search API of edu.khogov.ru (/wp-json/wp/v2/search); crt.sh answered 502 and Cert Spotter shows only rco.edu.khogov.ru and edu.khogov.ru certificates (the diary hosts carry no publicly logged certificate). WebSearch budget was spent before this pass.
+- **Corrected during verification.** Hostname found: the ministry's page «Отчеты» (edu.khogov.ru/deyatelnost/otchety/, 06.04.2026) links «Электронные журналы и дневники https://one.edu.khogov.ru/auth/login»; the user agreement (29.08.2025) names wp.edu.khogov.ru; passport.edu.khogov.ru resolves beside them. Kind other → one_x1 on the ministry's statement of 22.04.2025 (t.me/s/depobrherson/12987) that the РГИС was developed and handed over by the Pskov РЦИТ, and on the one./passport./wp. host set on addresses next to Zaporozhye's X1 instance. since changed from «2024/25» to 2025/26 on order № 904 of 05.08.2025 putting the system into operation (edu.khogov.ru PDF). Confidence medium → high. Added densus.ru of 10.09.2026: Херсонская is excluded from using «Госуслуги Моя школа» alongside the regional system.
+- **Checked:** corrected in the second round.
 
 ## Челябинская область
 
@@ -1288,7 +1305,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/mezhendosina/che-zadali-app («Чё задали» Android NetSchool client; region table maps «Челябинская область» to https://sgo.edu-74.ru/); https://github.com/MrConsoleka/Network-City-Helper (Telegram bot for sgo.edu-74.ru (2024-12)); https://github.com/nickname123456/BotNetSchool (VK/Telegram bot, example host sgo.edu-74.ru); https://github.com/nm17/netschoolapi (generic Python NetSchool client)
 - **Notes.** 2025/26: NetSchool-based ГИС «Образование» at sgo.edu-74.ru. 2026/27: ТОР «Госуслуги Моя школа» (all schools by 1 September 2026; data live from 18 September). foedu also links login.dnevnik.ru/login/esia/chelyabinsk — aggregator boilerplate, not evidence that the region ran Дневник.ру.
 - **Corrected during verification.** ТОР confidence raised from medium to high: the АиФ-Челябинск item of 18.09.2026 quotes the regional ministry's press service («По состоянию на 1 сентября 2026 года все общеобразовательные школы региона уже были включены в систему „Моя школа"»), the governor announced it on 14.08.2026, and the official Госуслуги list names the region. The Сетевой город row's confidence is raised from medium to high on the governor's statement naming the module and the host's indexed title.
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Ярославская область
 
@@ -1308,7 +1325,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/bvp/dnevnik76-api (Go parser for the old my.dnevnik76.ru (2023)); https://github.com/maxxig/dnevnik76_telegram_notifier (Selenium Telegram notifier for my.dnevnik76.ru (2023)); https://github.com/BetterJournal/EljurAPI (generic ЭлЖур API library; not specific to school.yarcloud.ru)
 - **Notes.** Before September 2024: my.dnevnik76.ru. 2024/25–2025/26: ЭлЖур-based ГИС «Образование-76» at school.yarcloud.ru. 2026/27: ТОР «Госуслуги Моя школа» from 1 September 2026 (first-wave region).
 - **Corrected during verification.** Kind only: the «Дневник76» row (my.dnevnik76.ru) is re-tagged from other to dnevnik76, the kind that has its own route table (critic item). The ТОР row is kept at high on the regional host's notice read on 24.09.2026 and the official Госуслуги list, which names Ярославская область (added as evidence).
-- **Checked:** corrected.
+- **Checked:** corrected in the second round.
 
 ## Москва
 
@@ -1352,14 +1369,20 @@ sites and news, as of September 2026.
 
 ## Севастополь
 
-- **in use now: [ЭлЖур](eljur.md)** — РИС ЦОСС — «Цифровая образовательная среда Севастополя», подсистема РИСО (Региональной информационной системы города Севастополя в сфере образования) (ООО «Веб-Мост» (АИС «Электронный журнал ЭлЖур»); operator Департамент цифрового развития / Департамент образования и науки города Севастополя; apps «ЦОСС Дневник» (ru.eljur.sevastopol) and «ЦОСС Журнал»). Hosts: `riso.sev.gov.ru`. Since: by September 2022. Confidence: high.
-  The department promoted «Госуслуги Моя школа» as a viewer (forwarded ministry post of 12.12.2024: data «хранятся в региональных системах, а не в приложении»), which is the front-end role, not ТОР. riso.sev.gov.ru not re-opened here (503 to the first pass).
+- **in use now: paper journals and diaries; no electronic diary** — Бумажные журналы и дневники («дневник севастопольского школьника»); электронный журнал и дневник РИСО/ЦОСС временно не используются (Департамент образования и науки города Севастополя (paper journals; the city's own printed «дневник севастопольского школьника» issued to every school)). Since: 2026/27 (from 1 September 2026; announced 30.08.2026). Confidence: medium.
+  Not an electronic platform: recorded so that the survey does not present РИСО/ЦОСС as the working diary in September 2026. Two outlets quote the department (its head on 30.08.2026, the department on 20.09.2026); the department's own channels moved to MAX and were not readable here. Neighbouring Республика Крым announced the same for 2026/27 (densus.ru, 17.08.2026: «в условиях ЧС все школы обязаны вернуться к бумажным дневникам»).
+  - https://vesti92.ru/2026/08/30/v-shkolah-sevastopolja-vernuli-bumazhnye-dnevniki-i-zhurnaly.html — «(30.08.2026) «В новом учебном году школы Севастополя вернутся к бумажным журналам и дневникам.» — Максим Кривонос: «учет посещаемости детей, выставление оценок и фиксация домашнего здания будет, как в старые добрые времена, в бумажном журнале и бумажном дневнике»»
+  - https://densus.ru/api/articles/uchebnyy-god-v-sevastopole-ochnoe-obuchenie-2026-09-20 — «(20.09.2026) «Электронный журнал и дневник временно не используются. Педагогов попросили обратить внимание родителей на этот подход.»»
+  - https://www.pravda.ru/news/districts/2398108-sevastopol-schools-2026/ — «(Правда.Ру, 30.08.2026) related-link headline «В школах Севастополя вернули бумажные дневники и журналы» (vesti92.ru)»
+- **previous: [ЭлЖур](eljur.md)** — РИС ЦОСС — «Цифровая образовательная среда Севастополя», подсистема РИСО (Региональной информационной системы города Севастополя в сфере образования) (ООО «Веб-Мост» (АИС «Электронный журнал ЭлЖур»); operator Департамент цифрового развития / Департамент образования и науки города Севастополя; apps «ЦОСС Дневник» (ru.eljur.sevastopol) and «ЦОСС Журнал»). Hosts: `riso.sev.gov.ru`. Since: by September 2022 – August 2026 (suspended from 1 September 2026 as a temporary measure). Confidence: high.
+  Suspended, not decommissioned: from 1 September 2026 the department moved attendance, marks and homework to paper as a temporary measure, amid the 2026 power and communication outages in Crimea and Sevastopol, and says it plans to return to the electronic format; hence legacy for September 2026 rather than retired. The RuStore app «ЦОСС Дневник» (ru.eljur.sevastopol) was last updated on 24 July 2026 and the App Store copy on 30.06.2022. The department promoted «Госуслуги Моя школа» as a viewer (forwarded ministry post of 12.12.2024: data «хранятся в региональных системах, а не в приложении»). riso.sev.gov.ru not re-opened here (503 to the first pass).
+  - https://vesti92.ru/2026/08/30/v-shkolah-sevastopolja-vernuli-bumazhnye-dnevniki-i-zhurnaly.html — «(Вести Севастополь, 30.08.26 16:50) «В новом учебном году школы Севастополя вернутся к бумажным журналам и дневникам.» … глава департамента образования и науки Севастополя Максим Кривонос: «Из „новшеств" — учет посещаемости детей, выставление оценок и фиксация домашнего здания будет, как в старые добрые времена, в бумажном журнале и бумажном дневнике»»
+  - https://densus.ru/api/articles/uchebnyy-god-v-sevastopole-ochnoe-obuchenie-2026-09-20 — «(densus.ru, 20.09.2026, citing the Департамент образования и науки Севастополя) «В этом году в образовательных учреждениях ввели бумажные журналы и традиционные дневники севастопольского школьника. Все школы их получают. Электронный журнал и дневник временно не используются.» … «В департаменте подчеркнули, что это временная мера, и впоследствии планируют вернуться к прежнему формату.»»
   - https://eljur.ru/news/2022_sevastopolFinal — «Система «Цифровая образовательная среда Севастополя» (ЦОСС) работает на базе ПО, разработанного ООО «Веб-Мост», и использует в качестве основного компонента АИС «Электронный журнал ЭлЖур». А сама ЦОСС является подсистемой Региональной информационной системы города Севастополя в сфере образования (РИСО). (6 октября 2022)»
-  - https://www.rustore.ru/catalog/app/ru.eljur.sevastopol — «ЦОСС Дневник» (developer: Департамент цифрового развития города Севастополя): «Электронный дневник облегчает учащимся процесс обучения, помогает родителям контролировать своего ребенка.» — version 1.3.12, updated 24 July 2026
-  - https://foedu.ru/sevastopol.html — «РИСО Севастополь электронный журнал дневник … «РИСО Севастополь электронный журнал» → https://riso.sev.gov.ru/ (aggregator)»
 - **Open-source clients** aimed at this region or its platform: https://github.com/BetterJournal/EljurAPI (generic ЭлЖур API library; nothing specific to riso.sev.gov.ru)
-- **Notes.** 2025/26: ЭлЖур-based РИС ЦОСС (РИСО) at riso.sev.gov.ru. 2026/27: no move to ТОР found — the regional app was updated on 24 July 2026 and Севастополь is not among the first-wave ТОР regions confirmed in this research; the department's news moved to MAX in February 2026 (unreadable here), so a summer announcement cannot be ruled out. foedu also links login.dnevnik.ru/login/esia/sevastopol, and Дневник.ру keeps an ЕСИА slug for Севастополь; no source read here shows Дневник.ру as the city's system, so it is not listed.
-- **Checked:** confirmed.
+- **Notes.** 2025/26: ЭлЖур-based РИС ЦОСС (РИСО) at riso.sev.gov.ru. 2026/27: no electronic diary in use — paper journals and the printed «дневник севастопольского школьника», announced as temporary; not a move to ТОР (Севастополь is not among the 20 pilot regions of 1 September 2026), and «Госуслуги Моя школа» has no regional marks to show while the journal is suspended, so no tor_myschool row is added. foedu also links login.dnevnik.ru/login/esia/sevastopol; no source shows Дневник.ру as the city's system, so it is not listed.
+- **Corrected during verification.** 2026/27 changed: the city's schools went back to paper journals and diaries from 1 September 2026 and the electronic journal and diary are «временно не используются» — vesti92.ru of 30.08.2026 (department head Максим Кривонос) and densus.ru of 20.09.2026 (department of education). The ЭлЖур РИСО/ЦОСС row therefore moves primary → legacy (suspended, with a stated plan to return), and a primary row «other: paper journals, no electronic diary» is added (medium).
+- **Checked:** corrected in the second round.
 
 ## Еврейская автономная область
 
@@ -1373,7 +1396,7 @@ sites and news, as of September 2026.
 - **Open-source clients** aimed at this region or its platform: https://github.com/kesha1225/DnevnikRuAPI (generic Дневник.ру API wrapper (api.dnevnik.ru/v2)); https://github.com/SiroXYZ/DnevnikRuAPI_NEW (api.dnevnik.ru client for Госуслуги-login regions)
 - **Notes.** 2025/26: Дневник.ру. 2026/27: ТОР «Госуслуги Моя школа» from 1 September 2026; Дневник.ру stops in the region.
 - **Corrected during verification.** no change: checked the official Госуслуги list of the 20 pilot regions (ЕАО is on it; added as evidence); the post-switch source already held is the regional education portal of 09.09.2026. Previous system Дневник.ру: stops in the region.
-- **Checked:** confirmed.
+- **Checked:** confirmed in the second round.
 
 ## Ненецкий автономный округ
 
@@ -1387,29 +1410,39 @@ sites and news, as of September 2026.
   - https://edu.adm-nao.ru/ — «Электронные дневники и журналы (page title, the БАРС login-page title)»
 - **Notes.** 2025/26: БАРС at edu.adm-nao.ru. 2026/27: ТОР «Госуслуги Моя школа» from 1 September 2026.
 - **Corrected during verification.** no change: checked the official Госуслуги list of the 20 pilot regions (НАО is on it; added as evidence); post-September evidence is the former БАРС host edu.adm-nao.ru, which on 24.09.2026 serves only the move notice. Previous system: switched off.
-- **Checked:** confirmed.
+- **Checked:** confirmed in the second round.
 
 ## Ханты-Мансийский автономный округ — Югра
 
 - **in use now: [ЭлЖур](eljur.md)** — ГИС «Цифровая образовательная платформа Ханты-Мансийского автономного округа — Югры» (ЦОП, ГИС «Образование Югры»), сервис ЭЖД (ООО «Веб-Мост» (АИС «Электронный журнал ЭлЖур»); operator Департамент образования и науки ХМАО — Югры; teacher app «АИС ХМАО» (App Store id6474123668)). Hosts: `cop.admhmao.ru`, `cop-sh.admhmao.ru`, `cop-spo.admhmao.ru`. Since: by 2020. Confidence: high.
-  cop.admhmao.ru was not re-opened (403 to the first pass); cop-sh.admhmao.ru/login answered 502 (host exists) and cop-spo.admhmao.ru was not opened, so the exact roles of the two sub-hosts (schools / colleges by their names) are unconfirmed, and this fetch of the aggregator did not show them.
+  cop.admhmao.ru was not re-opened (403 to the first pass); cop-sh.admhmao.ru/login answered 502 and cop-spo.admhmao.ru was not opened, so the exact roles of the two sub-hosts are unconfirmed. 2026/27: on 31.08.2026 the okrug's IT department described the diary as running on ГИС «Образование Югры», to be extended with MAX notifications and Russian neural networks, and the ЭлЖур teacher app «АИС ХМАО» was updated on 2 June 2026.
+  - https://techora.ru/api/articles/v-yugre-roditeli-poluchat-uvedomleniya-o-2026-08-31 — «(Techora.ru, 31.08.2026, «В Югре родители получат уведомления о проходе и оценках детей через МАКС», reporting the head of the okrug's IT department Павел Циполин at the August teachers' conference) «электронный дневник работает на базе единой цифровой платформы округа — ГИС «Образование Югры»» — through it parents learn «об оценках, пропусках, домашних заданиях и записи в кружки»»
   - https://eljur.ru/news/2020_projectFromUgra — «Государственная информационная система «Цифровая образовательная платформа Ханты-Мансийского автономного округа — Югры» … ГИС «Образование Югры» … работает на базе АИС «Электронный журнал ЭлЖур» … ООО «Веб-Мост» (18 сентября 2020)»
   - https://eljur.ru/news/2022_eSchool_yugra — «ЭлЖур обеспечивает работу сервисов ЭЖД (электронного журнала и дневника) Югры и является базовым компонентом цифровой образовательной платформы региона. (1 ноября 2022)»
-  - https://eljur.ru/news/2025_hmao — «В Ханты-Мансийском автономном округе — Югре реализуется пилотный проект по внедрению электронного журнала «ЭлЖур» в организациях среднего профессионального образования (СПО). (20 октября 2025)»
+- **alongside: [«Госуслуги Моя школа»](myschool-federal.md) as a front end** — «Госуслуги Моя школа» (federal app as a front end) (Минпросвещения России / Минцифры России (ТОР «Моя школа», Госуслуги)). Hosts: `gosuslugi.ru/school`. Since: September 2026 at the latest (federal statement). Confidence: low.
+  Front end only, on the strength of the federal statement; the okrug's own plan for 2026/27 (31.08.2026) routes notifications through MAX and the ЦОП, not through ТОР.
+  - https://max.ru/gosuslugiforparents/AaAisMEAHzo — «(official «Госуслуги для родителей» channel; post linked on 31.08.2026 by Минобрнауки ЛНР; read 2026-09-24 in this research) «С 1 сентября 2026 года школы и колледжи в 20 пилотных регионах переходят на приложение «Госуслуги Моя школа». Оно станет основным…» — the region is not among the 20; «В остальных регионах, кроме Запорожской и Херсонской областей, с сентября пользоваться приложением «Госуслуги Моя школа» можно наравне с другими решениями для школьников.»»
+  - https://densus.ru/api/articles/gosuslugi-moya-shkola-zamenila-dnevniki-v-2026-09-10 — «(densus.ru, 10.09.2026) «В остальных регионах, кроме Запорожской и Херсонской областей, приложением можно пользоваться наравне с другими решениями — пока это не обязательная замена, а один из вариантов.»»
 - **Open-source clients** aimed at this region or its platform: https://github.com/BetterJournal/EljurAPI (generic ЭлЖур API library; nothing specific to cop.admhmao.ru)
-- **Notes.** 2025/26: ЭлЖур-based ЦОП at cop.admhmao.ru. 2026/27: no move to ТОР «Госуслуги Моя школа» found — ЭлЖур's news list (read 2026-09-24) has no 2026 item, the teacher app was updated in June 2026, and ХМАО is not among the first-wave ТОР regions confirmed in this research; the okrug's education department site and channels were not readable (t.me/depobrugra exists but shows no posts). foedu's login.dnevnik.ru/login/esia/hmao link is aggregator boilerplate.
-- **Checked:** confirmed.
+- **Notes.** 2025/26 and 2026/27: ЭлЖур-based ЦОП (ГИС «Образование Югры») at cop.admhmao.ru. 2026/27 settled as «kept its system»: the okrug announced MAX notifications on top of the same ГИС on 31.08.2026, and ХМАО is not among the 20 ТОР pilot regions. The ugra-tv.ru item of 23.01.2026 on registering parents in the ЦОП answered 502 and was not read. foedu's login.dnevnik.ru/login/esia/hmao link is aggregator boilerplate.
+- **Corrected during verification.** ЭлЖур ЦОП row confirmed for 2026/27 with a dated source: techora.ru of 31.08.2026 (the okrug's IT department head at the August teachers' conference: «электронный дневник работает на базе единой цифровой платформы округа — ГИС «Образование Югры»»), plus the official list of 20 ТОР pilot regions that leaves ХМАО out. Added a secondary tor_myschool row (low, front end) from that list and densus.ru of 10.09.2026.
+- **Checked:** corrected in the second round.
 
 ## Чукотский автономный округ
 
-- **in use now: [«one.» platform](one-x1.md)** — РИС «Цифровое образование Чукотского автономного округа» (электронный журнал и дневник, ЭЖД) (ООО «Интегрикс»; app «Цифровое образование Чукотского АО» (ru.integrics.chaoschool) published by ДОиН ЧАО. Same one.<domain> + passport.<domain> code base as Кировская (one.43edu.ru), Псковская (one.pskovedu.ru), Запорожская (one.umnik-zo.ru) and Оренбургская (de.edu.orb.ru)). Hosts: `one.edu87.ru`, `passport.edu87.ru`. Since: by May 2024 (Сферум integration completed 03.05.2024). Confidence: high.
-  edu87.ru (bare) was dropped from hosts: nothing read here shows it serving the diary. www.anadyrobr.ru is the Anadyr education portal linked by the aggregator, not the diary.
+- **in use now: [«one.» platform](one-x1.md)** — РИС «Цифровое образование Чукотского автономного округа» (электронный журнал и дневник, ЭЖД) (ООО «Интегрикс» «X1» platform (one.<domain> + passport.<domain>; app «Цифровое образование Чукотского АО», package ru.integrics.chaoschool, published by ДОиН ЧАО) — the same code base as Кировская (one.43edu.ru), Псковская (one.pskovedu.ru), Запорожская (one.umnik-zo.ru), Херсонская (one.edu.khogov.ru) and Оренбургская (de.edu.orb.ru)). Hosts: `one.edu87.ru`, `passport.edu87.ru`. Since: by May 2024 (Сферум integration completed 03.05.2024). Confidence: high.
+  Kind one_x1: the department names Интегрикс as the company behind the РИС (Сферум integration, 2024) and the official app sits in Интегрикс' ru.integrics.* namespace; this upgrades the one_x1 route file's «LIKELY» for one.edu87.ru (whose /auth/login help text repeats the umnik-zo X1 manual). edu87.ru (bare) is not listed: nothing read shows it serving the diary; a random name under edu87.ru does not resolve, while one., passport. and wp.edu87.ru all resolve to 176.208.71.42 (2026-09-24). www.anadyrobr.ru is the Anadyr education portal, not the diary.
   - https://t.me/s/depobr_chukotka?q=%D0%B4%D0%BD%D0%B5%D0%B2%D0%BD%D0%B8%D0%BA — «Учителям и школьникам Чукотки стал доступен электронный журнал и дневник в Сферуме … Сферум и компания «Интегрикс» полностью завершили интеграцию сервиса коммуникаций и региональной информационной системы «Цифровое образование Чукотского автономного округа» (Департамент образования и науки ЧАО; director of Интегрикс Сергей Демкин quoted)»
   - https://www.rustore.ru/catalog/app/ru.integrics.chaoschool — «Цифровое образование Чукотского АО» (developer «ДОиН ЧАО»): «Приложение для доступа к ЭЖД в системе Цифрового образования Чукотского АО» — version 1.2, updated 2 July 2026, «Улучшена безопасность.»
   - https://foedu.ru/chukotskiy-avtonomnyy-okrug.html — «Электронный дневник и журнал Анадырь Чукотский автономный округ … one.edu87.ru «Электронный журнал дневник» … passport.edu87.ru «Вход в Электронный журнал дневник» … passport.edu87.ru/auth/register «Регистрация в электронном журнале» (aggregator)»
-- **Notes.** 2025/26: Интегрикс РИС «Цифровое образование Чукотского АО» at one.edu87.ru (sign-in passport.edu87.ru). 2026/27: no move to ТОР found — the regional app was updated on 2 July 2026, and the department's channel searched for «дневник» and «Госуслуги» shows only the Сферум integration and a promotion of the «Госуслуги. Моя школа» app as a viewer. foedu's login.dnevnik.ru/login/esia/chao link and its sentence about ЭлЖур and «Сетевой город» are aggregator boilerplate; Дневник.ру does keep an ЕСИА slug for Чукотский АО, which may reflect earlier use, unverified.
-- **Corrected during verification.** Minor: the bare edu87.ru was dropped from hosts because no page read shows it serving the diary; platform, vendor and role stand.
-- **Checked:** confirmed.
+- **alongside: [«Госуслуги Моя школа»](myschool-federal.md) as a front end** — «Госуслуги Моя школа» (federal app as a front end) (Минпросвещения России / Минцифры России (ТОР «Моя школа», Госуслуги)). Hosts: `gosuslugi.ru/school`. Since: 2025/26 (promoted by the department in November 2025). Confidence: low.
+  Front end only: the department advertised the app to families in November 2025, and the federal statement makes it an option outside the pilot regions; nothing says Чукотка adopted ТОР as its journal.
+  - https://t.me/depobr_chukotka/9316 — «(Департамент образования и науки ЧАО, 21.11.2025) «С обновлённым приложением «Госуслуги. Моя школа» родители и дети могут контролировать расписание и домашние задания, отслеживать оценки и планировать занятия в кружках и секциях.» … «✅ Скачайте приложение «Госуслуги. Моя школа» и сделайте учёбу проще!»»
+  - https://max.ru/gosuslugiforparents/AaAisMEAHzo — «(official «Госуслуги для родителей» channel; post linked on 31.08.2026 by Минобрнауки ЛНР; read 2026-09-24 in this research) «С 1 сентября 2026 года школы и колледжи в 20 пилотных регионах переходят на приложение «Госуслуги Моя школа». Оно станет основным…» — the region is not among the 20; «В остальных регионах, кроме Запорожской и Херсонской областей, с сентября пользоваться приложением «Госуслуги Моя школа» можно наравне с другими решениями для школьников.»»
+  - https://densus.ru/api/articles/gosuslugi-moya-shkola-zamenila-dnevniki-v-2026-09-10 — «(densus.ru, 10.09.2026) «В остальных регионах, кроме Запорожской и Херсонской областей, приложением можно пользоваться наравне с другими решениями — пока это не обязательная замена, а один из вариантов.»»
+- **Notes.** 2025/26 and 2026/27: Интегрикс X1 РИС «Цифровое образование Чукотского АО» at one.edu87.ru (sign-in passport.edu87.ru). 2026/27 settled as «kept its system», with less evidence than elsewhere: the regional app was updated on 2 July 2026, Чукотка is not among the 20 ТОР pilot regions, and the department's Telegram channel (searched for «Цифровое образование», «ЭЖД», «Моя школа», «электронный журнал», «edu87») has nothing on a change — its last posts are from May 2026, after which it moved to MAX, unreadable here. foedu's login.dnevnik.ru/login/esia/chao link and its sentence about ЭлЖур and «Сетевой город» are aggregator boilerplate.
+- **Corrected during verification.** Primary row: kind other → one_x1 — the department's own statement names ООО «Интегрикс» as the company whose РИС was integrated with Сферум, and the official app is ru.integrics.chaoschool (RuStore), which outweighs the route file's «LIKELY». Added a secondary tor_myschool row (low, front end): the department's post of 21.11.2025 (t.me/depobr_chukotka/9316) promoting «Госуслуги. Моя школа», and the official list of 20 ТОР pilot regions that leaves Чукотка out.
+- **Checked:** corrected in the second round.
 
 ## Ямало-Ненецкий автономный округ
 

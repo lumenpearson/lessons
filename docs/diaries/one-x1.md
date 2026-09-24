@@ -1,16 +1,20 @@
-# The «one.» platform — Кировская, Псковская, Запорожская, Оренбургская and more
+# The «one.» platform — Кировская, Псковская, Запорожская, Оренбургская, Орловская and more
 
 *Part of [the electronic diaries of Russia’s regions](../diaries.md). Verification: extracted, checked against the code, and dated. Confidence of the whole: medium. Nothing here has been tried against the live service.*
 
 **One code base under different regional names, with no name of its own in any source.** Each
-region runs a portal at `one.<region-domain>` behind a sign-in at `passport.<region-domain>`.
-Four regions are confirmed by client code or an official manual: Кировская область
-(`one.43edu.ru`, since 2022, replacing «Аверс»), Псковская (`one.pskovedu.ru`), Запорожская
-(`one.umnik-zo.ru`) and Оренбургская (`de.edu.orb.ru`, signed in through `edu.orb.ru`). Three
-more carry the same pair of hosts and the same login page, but no client has been seen there, so
-they are *likely* rather than known: Ставропольский край (`one.stavminobr.ru`, since January
-2025), Чукотский АО (`one.edu87.ru`) and Орловская область (`one.obr57.ru`, found by the region
-survey). Астраханская's `one.astrobl.ru` looked like one of them and is not: it runs ЭлЖур.
+region runs a portal at `one.<region-domain>` behind a sign-in at `passport.<region-domain>`, and
+every regional app found is published by ООО «Интегрикс». Five regions are confirmed by client code or an
+official manual: Кировская область (`one.43edu.ru`, since 2022, replacing «Аверс»), Псковская
+(`one.pskovedu.ru`), Запорожская (`one.umnik-zo.ru`), Оренбургская (`de.edu.orb.ru`, signed in
+through `edu.orb.ru`) and Орловская (`one.obr57.ru`, whose app a client of 2026 talks to). Three more carry
+the same pair of hosts but no client has been seen there, so they are *likely* rather than known:
+Ставропольский край (`one.stavminobr.ru`, since January 2025), Чукотский АО (`one.edu87.ru`) and
+Херсонская область (`one.edu.khogov.ru`). Херсонская's system was handed over by the Pskov
+regional IT centre and put into operation in August 2025. It sits in the same address block as
+the Псковская and Запорожская instances. Астраханская's `one.astrobl.ru` looked like one of them
+and is not: it runs ЭлЖур.
+
 Inside, it is a PHP application on Yii with a Sencha Ext.Direct front end; the wire names — the
 `X1_SSO` cookie, the `X1API` action, the `SYS_GUID` of every record — are why this page calls
 it «X1» where it needs a word.
@@ -34,8 +38,9 @@ mobile API is unknown.
 
 **What is thin.** Of the portal's fifty-four rows thirteen are current and the rest uncertain, because
 the richest client, `pskovedu-sdk`, was written in one day, calls itself «vibe-coded» and marks
-its own Ext.Direct, ORM and ЕСИА calls unverified. From September 2026 families in these regions
-are pointed at «Госуслуги Моя школа», and Оренбургская's ministry calls September a phased
+its own Ext.Direct, ORM and ЕСИА calls unverified. From September 2026 families in most of these
+regions are pointed at «Госуслуги Моя школа» (not in Запорожская and
+Херсонская, where it is not offered), and Оренбургская's ministry calls September a phased
 transition to it, though the region is not on the official list of the twenty that switched and
 `de.edu.orb.ru` still runs; the portals stay the regions' journals behind the app, so a client of
 `/edv` may keep its server and lose its users.
@@ -227,6 +232,8 @@ Two regional cookie conventions coexist: X1_SSO (Pskov, Kirov, Orenburg-via-edu.
 | Орловская область | `one.obr57.ru` | Орловская область, РГИС «Образование-57» (operator ГКУ «РЦОКО»; app ru.integrics.orelschool). CONFIRMED by client code: vodolazny/burmalda57 (2026) signs in through passport.obr57.ru and reads mp2.obr57.ru. |
 | Орловская область | `passport.obr57.ru` | Орловская область SSO: /auth/esia/redirect/?returnTo=https://one.obr57.ru, cookie X1_SSO. |
 | Орловская область | `mp2.obr57.ru` | Орловская область mobile API (/journals/*, /session/initsession) used by burmalda57. |
+| Орловская область | `one.edu.khogov.ru` | Херсонская область, РГИС «Цифровое образование Херсонской области», put into operation by ministry order № 904 of 05.08.2025 and handed over by the Pskov РЦИТ; the ministry's page of 06.04.2026 links «Электронные журналы и дневники https://one.edu.khogov.ru/auth/login». No client seen. Hosted in the same address block as one.pskovedu.ru and one.umnik-zo.ru. |
+| Орловская область | `passport.edu.khogov.ru` | Херсонская область SSO, beside wp.edu.khogov.ru, where the RGIS user agreement says authentication happens. |
 | unknown | `shkolove.ru` | burmalda57 checks for X1_SSO on redirects to this domain alongside obr57.ru; role not explained in the code |
 
 **Sources read.**
