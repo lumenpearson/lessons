@@ -569,6 +569,13 @@ class DiaryLoginIn(BaseModel):
 
     login: str = Field(min_length=3, max_length=200)
     password: str = Field(min_length=1, max_length=200)
+    #: Which diary. Absent means Petersburg, so an older phone that sends only a
+    #: login and a password still signs in there. For «Сетевой город» the region
+    #: is a key into the allow-list and the school is the upstream's own id;
+    #: both are validated in the route before any upstream call.
+    provider: str | None = Field(default=None, max_length=32)
+    region: str | None = Field(default=None, max_length=32)
+    school_id: int | None = Field(default=None, ge=1, le=2_000_000_000)
 
     @field_validator("login")
     @classmethod

@@ -1452,7 +1452,7 @@ async def test_the_current_period_is_read_off_the_diary_clock_not_the_server(
     await session.commit()
 
     service = diary_service.DiaryService(session, row)
-    service.client = _FakeDiaryClient(
+    service.connection.client = _FakeDiaryClient(
         [
             {
                 "identity": {"id": 1},

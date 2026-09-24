@@ -217,6 +217,16 @@ class SchoolClass(Base):
     # *member* a way to sign in to their own account and read their own diary
     # in the same chat — which is why nothing here holds a credential.
     diary_provider: Mapped[str | None] = mapped_column(String(32))
+    # For a provider that serves many regional servers — «Сетевой город» —
+    # which one this class reads, and which school on it. NULL for Petersburg,
+    # whose one server needs neither. The region is a key into the provider's
+    # own allow-list, never a URL; the id is the upstream's own `scid`; the name
+    # is what the class card and the sign-in form show. Added by 0015.
+    diary_region: Mapped[str | None] = mapped_column(String(32))
+    # No foreign key — it is a foreign system's id — so BigInteger, per the
+    # hardening rule for any *_id column that does not reference a table here.
+    diary_school_id: Mapped[int | None] = mapped_column(BigInteger)
+    diary_school_name: Mapped[str | None] = mapped_column(String(300))
     # `is_public` used to sit here. It was toggled from «⚙️ Класс», printed on
     # the card as «публичный / закрытый», and read by nothing at all: an admin
     # who closed the class closed nothing, and the screen told them otherwise.
@@ -790,8 +800,26 @@ class DiarySession(Base):
     # account can carry several; the bot asks once and remembers, because
     # asking on every screen is a question with the same answer every time.
     student_id: Mapped[int | None] = mapped_column(BigInteger)
+    # Which diary this session is with. NULL means a row written before 0015,
+    # which is Petersburg — a string, not an SAEnum, so a new provider is a
+    # value and not a migration, and never a `.value` server_default (an enum
+    # column stores the member NAME, and that has taken the bot down once).
+    provider: Mapped[str | None] = mapped_column(String(32))
+    # For a many-server provider, which regional server this session is on, so
+    # a session can be matched to its class's binding and grouped per origin
+    # for the keep-alive without unsealing the credential. NULL for Petersburg.
+    region: Mapped[str | None] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # The keep-alive's own clocks, kept apart from last_used_at so pinging a
+    # session never looks like the family using it (which would defeat the
+    # 30-day purge of one nobody opens). `kept_alive_at` / `upstream_ok_at` is
+    # the last successful ping / any successful upstream contact;
+    # `keepalive_attempted_at` is the last attempt whatever its outcome, so the
+    # tick can order by it and a failing origin cannot sit at the head forever.
+    kept_alive_at: Mapped[datetime | None] = mapped_column(DateTime)
+    keepalive_attempted_at: Mapped[datetime | None] = mapped_column(DateTime)
+    upstream_ok_at: Mapped[datetime | None] = mapped_column(DateTime)
     # When the upstream refused us and the person has to sign in again.
     expired_at: Mapped[datetime | None] = mapped_column(DateTime)
 

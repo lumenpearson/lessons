@@ -16,10 +16,10 @@ buys not holding a family's password.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from datetime import UTC, datetime
 from datetime import date as Date
-from typing import Any
 
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
@@ -29,15 +29,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crypto import diary_enabled, seal, unseal
 from app.db import rows_affected
 from app.models import DiaryOverride, DiarySession
-from app.providers.petersburg import (
-    PetersburgClient,
-    SessionExpired,
-)
-from app.providers.petersburg import mapper as m
-from app.providers.petersburg import (
-    today as upstream_today,
-)
-from app.providers.petersburg.models import (
+from app.providers.diary.base import SignInRequest
+from app.providers.diary.errors import DiaryError, SessionExpired
+from app.providers.diary.models import (
     AcademicPeriod,
     AttendanceEvent,
     DiaryLesson,
@@ -47,6 +41,7 @@ from app.providers.petersburg.models import (
     Subject,
     Teacher,
 )
+from app.providers.diary.registry import PETERSBURG, provider_for
 from app.security import hash_token, new_token
 
 log = logging.getLogger(__name__)
@@ -71,9 +66,16 @@ def utcnow() -> datetime:
 
 
 async def sign_in(
-    session: AsyncSession, login: str, password: str, telegram_id: int | None = None
+    session: AsyncSession,
+    login: str,
+    password: str,
+    telegram_id: int | None = None,
+    *,
+    provider: str = PETERSBURG,
+    region: str | None = None,
+    school_id: int | None = None,
 ) -> tuple[str, DiarySession]:
-    """Logs in upstream and opens a session of ours.
+    """Logs in upstream through the named provider and opens a session of ours.
 
     @return the token to hand the client - shown once, stored only as a hash -
         and the row behind it.
@@ -85,16 +87,27 @@ async def sign_in(
     if not diary_enabled():
         raise DiaryDisabled("DIARY_SECRET is not configured")
 
-    client = PetersburgClient()
-    upstream = await client.login(login.strip(), password)
+    impl = provider_for(provider)
+    if impl is None:
+        # A provider key no implementation answers. Callers validate first, so
+        # this is a programming error, not a user's.
+        raise ValueError(f"unknown diary provider {provider!r}")
+
+    credential = await impl.sign_in(
+        SignInRequest(
+            login=login.strip(), password=password, region=region, school_id=school_id
+        )
+    )
 
     token = new_token()
     row = DiarySession(
         token_hash=hash_token(token),
         # Sealed before it is ever handed to the session, so there is no path
         # through this function on which the plaintext reaches the ORM.
-        upstream_token=seal(upstream),
+        upstream_token=seal(credential),
         login=login.strip(),
+        provider=provider,
+        region=region,
         telegram_id=telegram_id,
         last_used_at=utcnow(),
     )
@@ -144,10 +157,10 @@ async def find_session(session: AsyncSession, token: str) -> DiarySession | None
 # correction must not.
 
 
-def owner_key(login: str) -> str:
+def owner_key(login: str, provider: str = PETERSBURG, region: str | None = None) -> str:
     """The form of a login that corrections are filed under.
 
-    Case-folded, because the upstream does not care: a family that signed in as
+    Case-folded, because an upstream does not care: a family that signed in as
     ``Ivan@mail.ru`` and later types ``ivan@mail.ru`` lands in the same account
     there, and must land on the same corrections here. Keyed on the raw string,
     every one of them would vanish the first time somebody's keyboard
@@ -156,12 +169,26 @@ def owner_key(login: str) -> str:
 
     The row's own ``login`` stays as it was typed: it is what «вы вошли как»
     prints, and that should say what the person wrote.
+
+    **Petersburg's key is the bare case-folded login, unchanged**, so every
+    correction filed before there was a second provider still matches. For any
+    other provider a login is unique only on its own regional server, so the
+    key folds in the provider and region — through a hash, because
+    ``login:region:`` prefixes would push a 200-character login past the
+    ``DiaryOverride.login`` column, and a family whose corrections silently
+    stopped saving would have no way to see why. The hash is 71 characters, so
+    it always fits and never collides.
     """
-    return login.strip().casefold()
+    folded = login.strip().casefold()
+    if provider == PETERSBURG:
+        return folded
+    digest = hashlib.sha256(f"{region}\0{folded}".encode()).hexdigest()
+    return f"{provider}:{digest}"
 
 
 async def load_corrections(
-    session: AsyncSession, login: str, student_id: int
+    session: AsyncSession, login: str, student_id: int,
+    *, provider: str = PETERSBURG, region: str | None = None
 ) -> dict[str, dict[str, tuple[str, str | None]]]:
     """Every correction for one child, shaped the way the overlay wants it.
 
@@ -171,7 +198,7 @@ async def load_corrections(
     """
     rows = await session.scalars(
         select(DiaryOverride).where(
-            DiaryOverride.login == owner_key(login),
+            DiaryOverride.login == owner_key(login, provider, region),
             DiaryOverride.student_id == student_id,
         )
     )
@@ -182,13 +209,14 @@ async def load_corrections(
 
 
 async def list_overrides(
-    session: AsyncSession, login: str, student_id: int
+    session: AsyncSession, login: str, student_id: int,
+    *, provider: str = PETERSBURG, region: str | None = None
 ) -> list[DiaryOverride]:
     """The raw rows, for the screen that lists and resets them."""
     rows = await session.scalars(
         select(DiaryOverride)
         .where(
-            DiaryOverride.login == owner_key(login),
+            DiaryOverride.login == owner_key(login, provider, region),
             DiaryOverride.student_id == student_id,
         )
         .order_by(DiaryOverride.target, DiaryOverride.field)
@@ -204,6 +232,7 @@ async def put_override(
     field: str,
     value: str,
     original: str | None,
+    *, provider: str = PETERSBURG, region: str | None = None
 ) -> DiaryOverride:
     """Writes a correction, replacing the one that was there.
 
@@ -213,7 +242,7 @@ async def put_override(
     """
     row = await session.scalar(
         select(DiaryOverride).where(
-            DiaryOverride.login == owner_key(login),
+            DiaryOverride.login == owner_key(login, provider, region),
             DiaryOverride.student_id == student_id,
             DiaryOverride.target == target,
             DiaryOverride.field == field,
@@ -227,7 +256,7 @@ async def put_override(
         return row
 
     row = DiaryOverride(
-        login=owner_key(login),
+        login=owner_key(login, provider, region),
         student_id=student_id,
         target=target,
         field=field,
@@ -247,7 +276,7 @@ async def put_override(
         await session.rollback()
         row = await session.scalar(
             select(DiaryOverride).where(
-                DiaryOverride.login == owner_key(login),
+                DiaryOverride.login == owner_key(login, provider, region),
                 DiaryOverride.student_id == student_id,
                 DiaryOverride.target == target,
                 DiaryOverride.field == field,
@@ -263,12 +292,13 @@ async def put_override(
 
 
 async def drop_override(
-    session: AsyncSession, login: str, student_id: int, target: str, field: str
+    session: AsyncSession, login: str, student_id: int, target: str, field: str,
+    *, provider: str = PETERSBURG, region: str | None = None
 ) -> bool:
     """Resets one field. @return whether there was anything to reset."""
     row = await session.scalar(
         select(DiaryOverride).where(
-            DiaryOverride.login == owner_key(login),
+            DiaryOverride.login == owner_key(login, provider, region),
             DiaryOverride.student_id == student_id,
             DiaryOverride.target == target,
             DiaryOverride.field == field,
@@ -281,9 +311,12 @@ async def drop_override(
     return True
 
 
-async def drop_overrides(session: AsyncSession, login: str, student_id: int) -> int:
+async def drop_overrides(
+    session: AsyncSession, login: str, student_id: int,
+    *, provider: str = PETERSBURG, region: str | None = None
+) -> int:
     """Resets everything for one child. @return how many were dropped."""
-    rows = await list_overrides(session, login, student_id)
+    rows = await list_overrides(session, login, student_id, provider=provider, region=region)
     for row in rows:
         await session.delete(row)
     if rows:
@@ -291,9 +324,29 @@ async def drop_overrides(session: AsyncSession, login: str, student_id: int) -> 
     return len(rows)
 
 
+async def _tell_upstream_goodbye(row: DiarySession) -> None:
+    """Best-effort logout upstream before we forget a session.
+
+    Petersburg has no logout that works without a browser, so its connection's
+    ``close`` does nothing; «Сетевой город» has one, and leaving a session live
+    when the family pressed «Выйти» is exactly what its `close` prevents.
+    Nothing here may raise: we are forgetting the row regardless.
+    """
+    provider = provider_for(row.provider or PETERSBURG)
+    if provider is None:
+        return
+    credential = upstream_of(row)
+    if not credential:
+        return
+    try:
+        await provider.open(credential).close()
+    except Exception:  # noqa: BLE001 - we are leaving; an upstream failure is fine
+        log.info("diary logout upstream failed for session %s", row.id, exc_info=True)
+
+
 async def sign_out(session: AsyncSession, row: DiarySession) -> None:
-    """Forgets the session. The upstream is not told: it has no logout that
-    can be called without a browser, and its token expires on its own."""
+    """Forgets the session, telling the upstream first where it can be told."""
+    await _tell_upstream_goodbye(row)
     await session.delete(row)
     await session.commit()
 
@@ -314,6 +367,16 @@ async def sign_out_here(
     Scoped to the one class on purpose: a parent in two of them is signing out
     of one child, not both. @return how many rows went.
     """
+    rows = list(
+        await session.scalars(
+            select(DiarySession).where(
+                DiarySession.telegram_id == telegram_id,
+                DiarySession.class_id == class_id,
+            )
+        )
+    )
+    for row in rows:
+        await _tell_upstream_goodbye(row)
     result = await session.execute(
         sa_delete(DiarySession).where(
             DiarySession.telegram_id == telegram_id,
@@ -355,7 +418,7 @@ class DiaryService:
     that should have lived for weeks dies in a day.
     """
 
-    __slots__ = ("session", "row", "client", "_upstream")
+    __slots__ = ("session", "row", "connection", "_credential")
 
     def __init__(self, session: AsyncSession, row: DiarySession) -> None:
         self.session = session
@@ -364,76 +427,70 @@ class DiaryService:
         # empty string when the seal will not open, which every call then turns
         # into the upstream's own «signed out» — the same ending the person
         # would reach a few days later anyway.
-        self._upstream = upstream_of(row) or ""
-        self.client = PetersburgClient(self._upstream)
+        self._credential = upstream_of(row) or ""
+        provider = provider_for(row.provider or PETERSBURG)
+        # An unknown provider is treated like an unreadable seal: `find_session`
+        # and the bot's `_session_for` expire such a row before building this,
+        # so this fallback is only ever reached in a test that skips them.
+        provider = provider or provider_for(PETERSBURG)
+        self.connection = provider.open(self._credential)  # type: ignore[union-attr]
 
     async def students(self) -> list[Student]:
-        return await self._call(lambda: self.client.children(), m.to_students)
+        return await self._call(self.connection.students())
 
     async def periods(self, group_id: int) -> list[AcademicPeriod]:
-        # The upstream's own clock, not the server's. This decides which
-        # term is «текущая», and `api/diary.py` answers «какие предметы»
-        # with nothing at all when no period is current — so on the evening of
-        # the day a quarter opens, a server running in UTC (which Vercel does)
-        # was still in yesterday, which is a holiday, and the subjects screen
-        # came back empty. Every other "today" in this project comes from
-        # `SchoolClass.timezone`; a diary session has no class behind it, and
-        # `petersburg.today()` is the clock of the one city whose diary this is.
-        today = upstream_today()
-        return await self._call(
-            lambda: self.client.periods(group_id), lambda items: m.to_periods(items, today)
-        )
+        return await self._call(self.connection.periods(group_id))
 
     async def subjects(self, group_id: int, period_id: int) -> list[Subject]:
-        return await self._call(
-            lambda: self.client.subjects(group_id, period_id), m.to_subjects
-        )
+        return await self._call(self.connection.subjects(group_id, period_id))
 
     async def teachers(self, education_id: int) -> list[Teacher]:
-        return await self._call(lambda: self.client.teachers(education_id), m.to_teachers)
+        return await self._call(self.connection.teachers(education_id))
 
     async def marks(self, education_id: int, date_from: Date, date_to: Date) -> list[Mark]:
-        return await self._call(
-            lambda: self.client.marks(education_id, date_from, date_to), m.to_marks
-        )
+        return await self._call(self.connection.marks(education_id, date_from, date_to))
 
     async def schedule(
         self, education_id: int, date_from: Date, date_to: Date
     ) -> list[DiaryLesson]:
-        return await self._call(
-            lambda: self.client.schedule(education_id, date_from, date_to), m.to_lessons
-        )
-
-    async def lessons(
-        self, education_id: int, date_from: Date, date_to: Date
-    ) -> list[DiaryLesson]:
-        return await self._call(
-            lambda: self.client.lessons(education_id, date_from, date_to), m.to_lessons
-        )
+        return await self._call(self.connection.schedule(education_id, date_from, date_to))
 
     async def homework(
         self, education_id: int, date_from: Date, date_to: Date
     ) -> list[HomeworkItem]:
-        return await self._call(
-            lambda: self.client.lessons(education_id, date_from, date_to), m.to_homework
-        )
+        return await self._call(self.connection.homework(education_id, date_from, date_to))
 
     async def attendance(self, education_id: int) -> list[AttendanceEvent]:
-        return await self._call(lambda: self.client.attendance(education_id), m.to_attendance)
+        return await self._call(self.connection.attendance(education_id))
+
+    def today(self) -> Date:
+        """The diary's own day, from the provider — one city's clock for
+        Petersburg, the region's zone for «Сетевой город»."""
+        return self.connection.today()
 
     # ---- plumbing -----------------------------------------------------
 
-    async def _call(self, fetch, convert):
+    async def _call(self, awaitable):
+        """Run one provider read, then keep any refreshed credential.
+
+        A ``SessionExpired`` expires the row and is re-raised untouched — the
+        route turns it into the re-sign-in signal. Any other provider failure
+        still re-seals first: the answer that failed to read may have carried a
+        rotated token, and dropping it would replay the old one next call.
+        """
         try:
-            items: list[dict[str, Any]] = await fetch()
+            result = await awaitable
         except SessionExpired:
             await self._expire()
             raise
+        except DiaryError:
+            await self._remember_token()
+            raise
         await self._remember_token()
-        return convert(items)
+        return result
 
     async def _remember_token(self) -> None:
-        """Stores a refreshed upstream token, and the fact we were here.
+        """Stores a refreshed upstream credential, and the fact we were here.
 
         Both writes are the same transaction and neither is worth failing a
         read over, so a failure here is logged and swallowed - the answer the
@@ -441,9 +498,10 @@ class DiaryService:
         """
         now = utcnow()
         changed = False
-        if self.client.token and self.client.token != self._upstream:
-            self._upstream = self.client.token
-            self.row.upstream_token = seal(self.client.token)
+        credential = self.connection.credential
+        if credential and credential != self._credential:
+            self._credential = credential
+            self.row.upstream_token = seal(credential)
             changed = True
         last = self.row.last_used_at
         if last is None or (now - last).total_seconds() >= LAST_USED_INTERVAL_SECONDS:

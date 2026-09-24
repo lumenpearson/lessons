@@ -24,13 +24,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START, caller_bucket
 from app.api.routing import DishkaAnnotatedRoute
 from app.models import DiarySession
-from app.providers.petersburg import (
+from app.providers.diary.errors import (
     BadCredentials,
-    PetersburgError,
+    DiaryError,
     SessionExpired,
+    SignInUnsupported,
     UnexpectedResponse,
     UpstreamUnavailable,
 )
+from app.providers.diary.registry import NETSCHOOL, PETERSBURG
 from app.providers.petersburg import (
     today as diary_today,
 )
@@ -73,15 +75,20 @@ MIN_DATE = MIN_BUNDLE_START
 MAX_DATE = MAX_BUNDLE_START
 
 
-def _range(date_from: Date | None, date_to: Date | None) -> tuple[Date, Date]:
+def _range(
+    date_from: Date | None, date_to: Date | None, today: Date | None = None
+) -> tuple[Date, Date]:
     for day in (date_from, date_to):
         if day is not None and not (MIN_DATE <= day <= MAX_DATE):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"dates must be between {MIN_DATE.isoformat()} and {MAX_DATE.isoformat()}",
             )
-    # The diary's own day, not the server's: see `petersburg.TIMEZONE`.
-    start = date_from or diary_today()
+    # The diary's own day, not the server's — the provider's, so «Сетевой
+    # город» gets its region's zone and Petersburg its city's. The default is
+    # Petersburg's when a caller passes no `today`, which keeps the standalone
+    # `_range(None, None)` behaviour its test pins.
+    start = date_from or today or diary_today()
     end = date_to or start + timedelta(days=DEFAULT_RANGE_DAYS)
     if end < start:
         raise HTTPException(
@@ -156,7 +163,17 @@ async def _guard(awaitable):
             detail=failure.message,
             headers={"X-Diary-Reauth": "required"},
         ) from failure
+    except SignInUnsupported as failure:
+        # The region takes only Госуслуги. A 503 rather than a 401, because it
+        # is not the password and there is nothing to retry — and so that the
+        # login limiter, which forgives only a 503, does not count an attempt
+        # where nothing looked at a password.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=failure.message
+        ) from failure
     except UpstreamUnavailable as failure:
+        # AddressRefused is a subclass and lands here too: a 503, uncounted,
+        # carrying its own «дело не в пароле» message.
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=failure.message
         ) from failure
@@ -164,7 +181,7 @@ async def _guard(awaitable):
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=failure.message
         ) from failure
-    except PetersburgError as failure:
+    except DiaryError as failure:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=failure.message
         ) from failure
@@ -193,6 +210,39 @@ async def _guard(awaitable):
 #: their two e-mail addresses the school has is a real person making real
 #: mistakes, and only failures are counted.
 diary_login_limiter = JoinThrottle(limit=10, window=900.0)
+
+
+def _resolve_login_target(payload: DiaryLoginIn) -> tuple[str, str | None, int | None]:
+    """The provider, region and school to sign in with, validated locally.
+
+    Absent provider is Petersburg, so an older phone that sends only a login and
+    a password is unchanged. For «Сетевой город» the region must be an
+    allow-listed key that still takes a password and the school a positive id —
+    checked here, before any upstream call, so a bad target is a 422 and never a
+    request to a region we do not serve.
+    """
+    provider = payload.provider or PETERSBURG
+    if provider == PETERSBURG:
+        return PETERSBURG, None, None
+    if provider == NETSCHOOL:
+        from app.providers.netschool import regions
+
+        region = regions.get(payload.region)
+        if region is None or not region.password:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Unknown or unsupported region for «Сетевой город»",
+            )
+        if payload.school_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="A school id is required for «Сетевой город»",
+            )
+        return NETSCHOOL, region.key, payload.school_id
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=f"Unknown diary provider {provider!r}",
+    )
 
 
 @router.post("/login", response_model=DiaryLoginOut)
@@ -224,8 +274,19 @@ async def login(
             headers={"Retry-After": str(int(retry_after) + 1)},
         )
 
+    provider, region, school_id = _resolve_login_target(payload)
+
     try:
-        token, row = await _guard(service.sign_in(session, payload.login, payload.password))
+        token, row = await _guard(
+            service.sign_in(
+                session,
+                payload.login,
+                payload.password,
+                provider=provider,
+                region=region,
+                school_id=school_id,
+            )
+        )
     except service.DiaryDisabled as failure:
         # No ``DIARY_SECRET``, so the feature is off — see ``app/crypto.py``
         # for why that is a refusal rather than a fallback. ``_guard`` knows
@@ -308,9 +369,11 @@ async def schedule(
     session: FromDishka[AsyncSession],
 ) -> list[DiaryLessonOut]:
     student = await _student(svc, student_id)
-    start, end = _range(date_from, date_to)
+    start, end = _range(date_from, date_to, svc.today())
     lessons = await _guard(svc.schedule(student.education_id, start, end))
-    corrections = await service.load_corrections(session, row.login, student_id)
+    corrections = await service.load_corrections(
+        session, row.login, student_id, provider=row.provider or PETERSBURG, region=row.region
+    )
     return [
         DiaryLessonOut.of(overlaid)
         for overlaid in overrides.overlay_lessons(lessons, corrections)
@@ -333,9 +396,11 @@ async def homework(
     that, so the provider pulls it out and this endpoint exists.
     """
     student = await _student(svc, student_id)
-    start, end = _range(date_from, date_to)
+    start, end = _range(date_from, date_to, svc.today())
     items = await _guard(svc.homework(student.education_id, start, end))
-    corrections = await service.load_corrections(session, row.login, student_id)
+    corrections = await service.load_corrections(
+        session, row.login, student_id, provider=row.provider or PETERSBURG, region=row.region
+    )
     return [
         DiaryHomeworkOut.of(overlaid)
         for overlaid in overrides.overlay_homework(items, corrections)
@@ -350,7 +415,7 @@ async def grades(
     svc: service.DiaryService = Depends(_service),
 ) -> list[DiaryMarkOut]:
     student = await _student(svc, student_id)
-    start, end = _range(date_from, date_to)
+    start, end = _range(date_from, date_to, svc.today())
     marks = await _guard(svc.marks(student.education_id, start, end))
     return [DiaryMarkOut.of(mark) for mark in marks]
 
@@ -435,7 +500,9 @@ async def list_overrides(
 ) -> list[DiaryOverrideOut]:
     """Every correction this account has made for this child."""
     await _student(svc, student_id)
-    found = await service.list_overrides(session, row.login, student_id)
+    found = await service.list_overrides(
+        session, row.login, student_id, provider=row.provider or PETERSBURG, region=row.region
+    )
     return [DiaryOverrideOut.of(item) for item in found]
 
 
@@ -486,6 +553,8 @@ async def put_override(
         field=payload.field,
         value=payload.value,
         original=payload.original,
+        provider=row.provider or PETERSBURG,
+        region=row.region,
     )
     return DiaryOverrideOut.of(stored)
 
@@ -514,7 +583,8 @@ async def reset_override(
     """
     await _student(svc, student_id)
     await service.drop_override(
-        session, row.login, student_id, payload.target, payload.field
+        session, row.login, student_id, payload.target, payload.field,
+        provider=row.provider or PETERSBURG, region=row.region,
     )
 
 
@@ -531,4 +601,6 @@ async def reset_all_overrides(
 ) -> None:
     """Resets every correction for this child. The diary answers for itself again."""
     await _student(svc, student_id)
-    await service.drop_overrides(session, row.login, student_id)
+    await service.drop_overrides(
+        session, row.login, student_id, provider=row.provider or PETERSBURG, region=row.region
+    )
