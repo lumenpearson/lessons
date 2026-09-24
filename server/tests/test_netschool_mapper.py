@@ -60,7 +60,7 @@ TYPES = {"3": "Домашнее задание", "4": "Контрольная р
 
 def test_lessons_drop_the_empty_subject_and_read_both_time_forms():
     lessons = m.to_lessons(WEEK, date(2026, 11, 30), date(2026, 12, 6))
-    assert [l.subject for l in lessons] == ["Алгебра", "Химия"]
+    assert [x.subject for x in lessons] == ["Алгебра", "Химия"]
     algebra, chem = lessons
     assert algebra.number == 1
     assert algebra.starts_at.isoformat() == "09:00:00"

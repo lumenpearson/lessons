@@ -26,8 +26,6 @@ from app.providers.netschool import client as nsclient
 from app.providers.netschool.provider import NetSchoolProvider
 from app.providers.netschool.regions import get as region_for
 
-
-
 LOGINDATA_OK = {"productName": "Сетевой Город. Образование", "version": "5.58.0",
                 "schoolLogin": True, "esiaMainAuth": False, "cacheVer": "639"}
 

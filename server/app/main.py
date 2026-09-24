@@ -90,14 +90,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if bot_task is not None:
             with contextlib.suppress(asyncio.CancelledError):
                 await bot_task
-        # Both providers hold a process-wide pooled HTTP client; closing them
+        # Each provider holds a process-wide pooled HTTP client; closing them
         # is what returns their sockets rather than leaving them to a
-        # finaliser. Imported here rather than at module scope so neither
-        # lands on the cold-start path of a request that uses neither.
+        # finaliser. Imported here rather than at module scope so none of them
+        # lands on the cold-start path of a request that uses none.
         from app.providers.dadata import close_client as close_directory
+        from app.providers.netschool.client import close_client as close_netschool
         from app.providers.petersburg import close_client
 
         await close_client()
+        await close_netschool()
         await close_directory()
         # Last, and after the bot has stopped: a handler still running would
         # otherwise be holding a session out of a container that has shut its

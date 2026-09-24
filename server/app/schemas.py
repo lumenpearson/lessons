@@ -547,6 +547,13 @@ class TickOut(BaseModel):
     device_tokens_purged: int = 0
     diary_links_purged: int = 0
     device_invites_purged: int = 0
+    #: The keep-alive that holds a «Сетевой город» session open across its short
+    #: idle window: how many were pinged alive, how many the upstream had already
+    #: dropped, and true when the keep-alive itself raised (isolated so a diary
+    #: fault never fails the whole tick and reddens the clock).
+    diary_sessions_kept_alive: int = 0
+    diary_sessions_lost: int = 0
+    diary_keepalive_failed: bool = False
 
 
 # ---------------------------------------------------------------------------
