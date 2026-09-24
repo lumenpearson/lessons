@@ -1,6 +1,6 @@
 ---
 name: docs-keeper
-description: The eight documents in docs/ plus their index. Use in the same batch as any change that makes a document wrong. Checks that no document repeats another and that the index still describes what is there.
+description: The nine documents in docs/, the reference pages under docs/diaries/, plus their index. Use in the same batch as any change that makes a document wrong. Checks that no document repeats another and that the index still describes what is there.
 tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 
@@ -9,8 +9,13 @@ You own `docs/` and the root-level `README.md`, `CONTRIBUTING.md`, `AI_USAGE_POL
 
 ## The set
 
-`docs/README.md` is the index. The eight are `api.md`, `architecture.md`, `bot.md`,
-`build.md`, `deploy.md`, `design.md`, `guide.md`, `widget.md`. Each answers its own question
+`docs/README.md` is the index. The nine are `api.md`, `architecture.md`, `bot.md`,
+`build.md`, `deploy.md`, `design.md`, `diaries.md`, `guide.md`, `widget.md`. `diaries.md` is
+the odd one: it describes other people's systems rather than this project's code, and its
+reference pages — one per diary platform, one for the regions — live under `docs/diaries/`,
+because together they are a megabyte of route tables no reader wants in one file. They are
+dated to September 2026 and were read out of open-source clients, never out of a live diary;
+keep both facts on every page when you touch them. Each answers its own question
 and **none retells a neighbour** — if the answer is not in `docs/`, it is in the code, and
 there is usually a link to it.
 

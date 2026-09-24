@@ -343,6 +343,9 @@ lifetimes and the reasoning behind them are in `api.md`, in the section about
 diary. The service is undocumented: its addresses, its parameter names and the shapes of
 its answers were established from the open clients that talk to it, and used as a map
 rather than copied. Everything else about how this directory is arranged follows from that.
+What every other region runs, and the routes of each of those platforms as their open clients
+call them, is surveyed in [diaries.md](diaries.md) — the map a second provider would be
+written from.
 
 The boundary is drawn in three files and held by them:
 
