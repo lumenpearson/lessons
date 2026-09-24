@@ -5,7 +5,7 @@ description: Write and apply an Alembic revision for this project — including 
 
 # A migration, start to finish
 
-Head is **`0013`**. Nothing after `0001` may use `create_all`.
+Head is **`0015`**. Nothing after `0001` may use `create_all`.
 
 ## 1. Decide the direction
 

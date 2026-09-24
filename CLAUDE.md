@@ -45,7 +45,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 1634 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 1668 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -339,7 +339,7 @@ points Hilt does not inject cleanly.
   a half-applied revision cannot claim to be whole. And say what a revision destroys before
   running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
   sentence the owner needs *before* the transaction, not after.
-- **Migrations are Alembic and production is at `0014`, which is the head.** `0001` is a guarded
+- **Migrations are Alembic and the head is `0015`, which goes on before this batch's merge.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
@@ -360,7 +360,18 @@ points Hilt does not inject cleanly.
   `SAEnum` stores the member **name** — the column is exactly as wide as the
   longest one, so adding a kind is a migration rather than a line. It is the
   ordinary additive shape and went on **before** the merge; it rewrites no row
-  and every existing value stays what it was.
+  and every existing value stays what it was. `0015` adds the second diary
+  provider's columns: `diary_sessions.provider` and `region` (which diary and
+  which regional server a session is on, so a session can be matched to its
+  class's binding and grouped per origin for the keep-alive without unsealing
+  the credential), three keep-alive clocks (`kept_alive_at`,
+  `keepalive_attempted_at`, `upstream_ok_at`), and on `classes` the binding
+  `diary_region`, `diary_school_id` and `diary_school_name`. All seven are
+  nullable and additive — the ordinary shape, on **before** the merge — and
+  rewrite no row; a NULL `provider` on an existing session means Petersburg, the
+  only diary before the column. Its downgrade expires every non-Petersburg
+  session before dropping the columns that tell one apart, so reverted code
+  cannot replay a credential at the wrong upstream.
   Nothing after `0001` may use `create_all`.
   Beware the enum: `SAEnum(SomeStrEnum)` stores the member **name**, so a `server_default`
   written as `.value` is a string the ORM cannot read back — which on `classes` is a
