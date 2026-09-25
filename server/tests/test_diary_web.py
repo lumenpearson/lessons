@@ -9,6 +9,7 @@ the headers that stop the ticket leaking out of the URL are actually sent.
 from __future__ import annotations
 
 import json
+import logging
 
 import httpx
 import pytest
@@ -16,6 +17,7 @@ from httpx import ASGITransport
 from sqlalchemy import select
 
 from app.api import diary_web as from_app
+from app.bot import diary_render
 from app.config import get_settings
 from app.main import app
 from app.models import DiaryLinkCode, DiarySession, SchoolClass
@@ -134,10 +136,13 @@ async def test_signing_in_opens_a_session_bound_to_the_telegram_account(
 
 
 async def test_the_password_reaches_the_upstream_and_nothing_else(
-    web, upstream, ticket, session, LOGIN_PATH
+    web, upstream, ticket, session, LOGIN_PATH, caplog
 ):
-    """The whole argument for the page. It goes to dnevnik2 and is written
-    down nowhere — not in our row, not in a log, not in a chat."""
+    """The whole argument for the page. It passes through this server to
+    dnevnik2 and is written down nowhere — not in our row, not in a log, not
+    in a chat. The log half was only this docstring's word until the page
+    started saying «нигде не сохраняется» on the strength of it (#150)."""
+    caplog.set_level(logging.DEBUG)
 
     def accepts_anything(request: httpx.Request) -> httpx.Response:
         response = httpx.Response(200, json={"data": {"token": "body-token"}})
@@ -159,6 +164,25 @@ async def test_the_password_reaches_the_upstream_and_nothing_else(
         ensure_ascii=False,
     )
     assert "hunter2-secret" not in stored
+    assert "hunter2-secret" not in caplog.text
+
+
+async def test_neither_text_says_the_password_skips_this_server(web, ticket):
+    """#150. The page said the password went «прямо в дневник», and so did the
+    bot's card that leads to it; the form posts to our own path, and the
+    handler hands the password on. Both now say it goes through this server,
+    and keep the two promises that are true: not in the chat, kept nowhere."""
+    page = (await web.get(f"/diary/signin/{ticket}")).text
+    card = diary_render.render_signed_out("Санкт-Петербурга")
+
+    # The fact the wording has to agree with: the browser posts here.
+    assert f'action="/diary/signin/{ticket}"' in page
+    for text in (page, card):
+        assert "прямо в дневник" not in text
+        assert "передаёт пароль дневнику для входа" in text
+        assert "нигде не сохраняется" in text
+    assert "а не в чате" in page
+    assert "<b>Пароль не вводится в чат.</b>" in card
 
 
 async def test_a_ticket_is_worth_one_attempt_even_a_failed_one(
@@ -288,6 +312,38 @@ async def test_a_diary_in_maintenance_is_not_reported_as_a_wrong_password(
     assert "Неверный логин или пароль" not in response.text
     assert "dnevnik2.petersburgedu.ru" in response.text
     assert response.status_code == 502
+
+
+async def test_an_unreadable_netschool_answer_names_the_regions_own_server(
+    web, session, school_class, monkeypatch
+):
+    """#158: the fallback sent a «Сетевой город» family to Петербург's diary.
+
+    Opening the diary in a browser is the one check that tells a person
+    whether their diary is down — so it has to be *their* diary's address,
+    the regional server the class is bound to, not dnevnik2.
+    """
+    from app.providers.diary.errors import UnexpectedResponse
+
+    school_class.diary_provider = "netschool"
+    school_class.diary_region = "samara"
+    school_class.diary_school_id = 1234
+    school_class.diary_school_name = "Школа № 1"
+    await session.commit()
+    code = await diary_link.mint(session, telegram_id=42, class_id=school_class.id)
+
+    async def unreadable(*args, **kwargs):
+        raise UnexpectedResponse
+
+    monkeypatch.setattr(from_app.diary_service, "sign_in", unreadable)
+
+    response = await web.post(
+        f"/diary/signin/{code}", data={"login": "parent", "password": "correct"}
+    )
+
+    assert response.status_code == 502
+    assert "asurso.ru" in response.text
+    assert "dnevnik2.petersburgedu.ru" not in response.text
 
 
 async def test_an_unreadable_answer_still_costs_the_ticket(

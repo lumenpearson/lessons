@@ -214,6 +214,11 @@ async def test_the_sign_in_link_is_one_ticket_pointed_at_the_form(
     # decide whether to forward it.
     assert "один раз" in callback.message.last
     assert "Не пересылайте" in callback.message.last
+    # #150: the page posts the password to this server, so the card must not
+    # say it goes «прямо в дневник» or that the bot never sees it.
+    assert "прямо в дневник" not in callback.message.last
+    assert "не видят" not in callback.message.last
+    assert "нигде не сохраняет" in callback.message.last
 
 
 async def test_signing_out_drops_the_session_and_returns_the_door(

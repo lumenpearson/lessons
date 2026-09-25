@@ -164,11 +164,18 @@ def render_signed_out(genitive: str) -> str:
     case — «Санкт-Петербурга», «„Сетевого города“» — because there is more than
     one now, and a card that always said Petersburg would be wrong for the
     other. It is a fixed provider string, never anything a user typed, so it
-    goes in unescaped like the rest of this template."""
+    goes in unescaped like the rest of this template.
+
+    The last sentence used to say the password went from that page «прямо в
+    дневник». It goes to this server, which passes it on for the sign-in
+    (#150); the promise that survives is the one the page exists for — not in
+    the chat, and kept nowhere. `api/diary_web._form` says why neither text
+    speaks for the app."""
     return (
         "📒 <b>Электронный дневник</b>\n\n"
         f"Класс привязан к дневнику {genitive}. Вход — ваш личный: "
         "вы видите своего ребёнка, и никто из класса не видит его за вас.\n\n"
-        "<b>Пароль не вводится в чат.</b> Бот даст ссылку на страницу входа — "
-        "оттуда пароль уходит прямо в дневник и нигде не сохраняется."
+        "<b>Пароль не вводится в чат.</b> Бот даст ссылку на страницу входа "
+        "на своём сервере: сервер передаёт пароль дневнику для входа, "
+        "и пароль нигде не сохраняется."
     )

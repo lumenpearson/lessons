@@ -200,11 +200,15 @@ async def diary_sign_in(
     code = await diary_link.mint(
         session, telegram_id=callback.from_user.id, class_id=school_class.id
     )
+    # The page posts the password to this server, which passes it to the diary
+    # for the sign-in and writes it down nowhere. This card used to say it went
+    # «прямо в дневник» and that the bot never saw it — false twice (#150), and
+    # the one sentence a parent reads before typing a password.
     await callback.message.edit_text(
         "🔐 <b>Вход в дневник</b>\n\n"
         f"Ссылка действует {diary_link.TICKET_MINUTES} минут и только один раз.\n\n"
-        "Пароль вводится на странице и уходит прямо в дневник — "
-        "ни бот, ни эта база его не видят и не сохраняют.\n\n"
+        "Пароль вводится на странице, а не в чате. Сервер бота передаёт его "
+        "дневнику для входа и нигде не сохраняет — ни у бота, ни в этой базе.\n\n"
         "<b>Не пересылайте ссылку никому:</b> она открывает вход в ваш аккаунт.",
         reply_markup=sign_in_keyboard(f"{base}/diary/signin/{code}"),
         disable_web_page_preview=True,

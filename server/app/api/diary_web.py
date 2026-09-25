@@ -42,7 +42,7 @@ from __future__ import annotations
 import logging
 from html import escape
 from typing import NamedTuple
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlsplit
 
 from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Request
@@ -190,6 +190,17 @@ def _form(code: str, binding: Binding | None = None) -> HTMLResponse:
     # the `401` behind it were here from the first draft and nothing ever passed
     # one — an unused branch in a renderer is how a page ends up written for an
     # answer it will never be handed.
+    #
+    # The note under the button said the password went «прямо в дневник», and
+    # it never did: this form posts to our own path (`form-action 'self'`), and
+    # `sign_in_submit` hands the password to the provider (#150). So it says
+    # what is true of this page — typed here rather than in the chat, relayed
+    # by this server for the sign-in, kept nowhere — and nothing about the
+    # app, whose own sign-in skips this server but only from a build that has
+    # it; an older one still posts the password to `/api/v1/diary/login`, and
+    # this page cannot tell which one the reader holds. «Для входа» rather
+    # than «один раз»: «Сетевой город» may ask for a role and take a second
+    # login POST inside the same sign-in.
     return _page(
         "Вход в дневник",
         f"<h1>Электронный дневник</h1>"
@@ -203,9 +214,11 @@ def _form(code: str, binding: Binding | None = None) -> HTMLResponse:
         "autocomplete=current-password required>"
         "<button type=submit>Войти</button>"
         "</form>"
-        "<p class=note>Пароль уходит прямо в дневник и нигде не сохраняется — "
-        "ни у бота, ни в этой базе. Хранится только сессия дневника, "
-        "зашифрованной, и её всегда можно отозвать кнопкой «Выйти».</p>",
+        "<p class=note>Пароль вводится здесь, а не в чате. Эта страница — на "
+        "сервере бота: он передаёт пароль дневнику для входа, и пароль нигде "
+        "не сохраняется — ни у бота, ни в этой базе. Хранится только сессия "
+        "дневника, в зашифрованном виде, и её всегда можно отозвать кнопкой "
+        "«Выйти».</p>",
     )
 
 
@@ -337,7 +350,7 @@ async def sign_in_submit(
         )
     except DiaryError as error:
         # A wrong password costs the ticket; the diary being down does not.
-        verdict = _why(error)
+        verdict = _why(error, binding)
         if verdict.keep_ticket:
             await _unspend(session, ticket_id)
         return _closed(
@@ -375,7 +388,25 @@ class _Verdict(NamedTuple):
     keep_ticket: bool
 
 
-def _why(error: DiaryError) -> _Verdict:
+def _site_of(binding: Binding) -> str:
+    """The address a family can open in a browser to see whether *their*
+    diary is up: the regional server for «Сетевой город», dnevnik2 otherwise.
+
+    Taken from the allow-list, never from anything typed, so it is safe to
+    show. It used to be dnevnik2 whatever the class was bound to, which sent a
+    «Сетевой город» family to Петербург's diary to find out why theirs had
+    answered nonsense (#158).
+    """
+    if binding.region:
+        from app.providers.netschool import regions
+
+        region = regions.get(binding.region)
+        if region is not None:
+            return urlsplit(region.origin).netloc
+    return binding.provider.site or "dnevnik2.petersburgedu.ru"
+
+
+def _why(error: DiaryError, binding: Binding) -> _Verdict:
     """The upstream's failure, said in a way the reader can act on.
 
     Only :class:`BadCredentials` is «неверный пароль». Everything else said so
@@ -422,7 +453,7 @@ def _why(error: DiaryError) -> _Verdict:
     return _Verdict(
         "Дневник ответил непонятно — обычно это технические работы или проверка "
         "«я не робот». Пароль, скорее всего, ни при чём: откройте "
-        "dnevnik2.petersburgedu.ru в браузере, а потом попросите у бота новую ссылку.",
+        f"{_site_of(binding)} в браузере, а потом попросите у бота новую ссылку.",
         502,
         keep_ticket=False,
     )
