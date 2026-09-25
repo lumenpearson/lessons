@@ -22,8 +22,9 @@ names both revisions.
 
 ## 3. Signing
 
-`apk.yml` needs all four `LESSONS_KEYSTORE_*` secrets and fails with `::error::` if any is
-empty. That failure is the feature: an APK signed with the AGP debug key can never be updated
+`apk.yml` needs all four signing secrets — `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`
+and `KEY_PASSWORD` — and fails with `::error::` if any is empty. (`LESSONS_KEYSTORE_*` are
+the names the Gradle build reads them under, not the names of the secrets.) That failure is the feature: an APK signed with the AGP debug key can never be updated
 by the real key on a phone that already installed it. The keystore and its passwords come
 from environment variables or `~/.gradle/gradle.properties` — never from the repository,
 where `*.jks` and `keystore.properties` are gitignored.
@@ -31,7 +32,8 @@ where `*.jks` and `keystore.properties` are gitignored.
 ## 4. The milestone closes before the tag is cut
 
 **The milestone is what decides what is in the release**, so it is settled first and the
-tag is the version it is named for — `v0.8.0 — On a device` is tagged `v0.8.0`.
+tag is the version it is named for — `v0.8.0 — On-device checks, 89-region e-diary survey`
+is tagged `v0.8.0`.
 
 Before tagging, walk the milestone and check three things:
 
@@ -52,7 +54,7 @@ Then tag. A `v*` tag makes `apk.yml` build an installable APK **and** create a G
 release with it attached, so the tag is the moment the notes have to be ready.
 
 ```bash
-git tag -a v0.8.0 -m 'On a device'
+git tag -a v0.8.0 -m 'On-device checks, 89-region e-diary survey'
 git push origin v0.8.0
 ```
 

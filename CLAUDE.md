@@ -216,12 +216,15 @@ points Hilt does not inject cleanly.
   names what is left uncovered. Unlike the owner's other repositories, this history does
   carry a `Co-Authored-By: Claude …` trailer; keep doing what the history does.
 - **Every pull request carries a milestone**, set when it is opened. Nothing in a session
-  here can create a milestone or even list one — when none of the nine fits, ask the owner
+  here can create a milestone or even list one — when none of the ten fits, ask the owner
   to create it and hand over the title and description already written, rather than
   inventing a version or leaving the pull request bare. The `github-pr` skill has the
-  numbers, the one tool that sets them, and the two ways this was got wrong first. **The
-  ninth is `v0.8.0 — On a device` and it is the current one**; issues #109–#117 are on it,
-  and it is the first milestone whose work needs an emulator or a phone.
+  numbers, the one tool that sets them, and the two ways this was got wrong first. **Two
+  version milestones are open:** the ninth, `v0.8.0 — On-device checks, 89-region e-diary
+  survey`, holds issues #109–#117, the first work that needs an emulator or a phone; the
+  tenth, `v0.9.0 — NetSchool e-diary, onboarding via the school's diary`, holds PR #140 and
+  its issues. All ten were renamed on 25 September 2026, so a title quoted from before then
+  finds nothing when searched.
 - **A defect that is found gets an issue, always, and before it gets a fix.** The rule is
   new and it is not optional: the moment an audit, a review, a CI failure or a reader finds
   something wrong, it becomes an issue of its own — title saying what is broken rather than

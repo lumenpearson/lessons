@@ -67,9 +67,10 @@ CI is exactly: ruff, pytest `-n auto`, `./gradlew test`, both assembles. `./grad
   survive review.
 - Commit messages are English sentences saying what the change makes the project do. No
   Conventional Commits prefix — none of this history has one.
-- Every pull request carries a milestone, set when it is opened — there are no issues here,
-  so they are the only grouping the history has. No session can create one: when none fits,
-  ask the owner, with the title and description written out. See `.claude/skills/github-pr/`.
+- Every pull request carries a milestone, set when it is opened, and so does every issue. A
+  defect gets an issue before it gets a fix, and the pull request says `Closes #NN`. No
+  session can create a milestone: when none fits, ask the owner, with the title and
+  description written out. See `.claude/skills/github-pr/`.
 - Versions are copied from a project that builds, never guessed.
 - **Say what is not covered.** "Written, never run" is a legitimate status; a claim
   that something was verified when it was not is not.

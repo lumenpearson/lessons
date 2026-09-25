@@ -69,18 +69,25 @@ matched pull request's body in full.
 
 | # | Title | Covers |
 | --- | --- | --- |
-| 1 | `v0.1.0 — First run on a phone` | #1–#14 |
-| 2 | `v0.2.0 — The diary, and the class run from the bot` | #15–#17, #28–#31 |
-| 3 | `v0.3.0 — The school year` | #27, #32–#35, #43 |
-| 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
-| 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
-| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#62 — the version being worked on |
-| 7 | `Dependencies` | every dependabot bump; deliberately not a version |
-| 8 | `v0.7.0 — Оптимизация` | #75–#85, #128 — the one Russian title |
-| 9 | `v0.8.0 — On a device` | issues #109–#117 — **the current one**, and the first whose work needs an emulator or a phone |
+| 1 | `v0.1.0 — App, widget, admin bot and read API` | PRs #1–#14; issues #86, #88, #89 |
+| 2 | `v0.2.0 — Petersburg e-diary, class run from bot and phone` | PRs #15–#17, #28–#31; issues #87, #90, #91, #102 |
+| 3 | `v0.3.0 — School year, terms, school search, several classes` | PRs #27, #32–#35, #43; issue #92 |
+| 4 | `v0.4.0 — 67-defect sweep, first audit, app-wide correction mode` | PRs #44, #45, #50; issues #93, #94 |
+| 5 | `v0.5.0 — Public repo: secrets audit, English docs, font licence` | PRs #46–#49, #51, #55–#57, #59; issue #95 |
+| 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
+| 7 | `Dependencies — dependabot bumps` | every dependabot bump; deliberately not a version, and open for good |
+| 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | PRs #75–#85, #128; issues #98, #100, #105–#108 |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | PRs #129, #133, #134; issues #109–#117, #130–#132 — **open**, the first whose work needs an emulator or a phone |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | PR #140; issues #135–#139, #141, #145–#160 — **open**, the one being worked on |
+
+All ten were renamed on 25 September 2026: every title now names what the version
+delivered, and each description names its pull requests and issues. A title quoted from
+before that date — «On a device», «Оптимизация», «Nothing breaks in silence» — finds
+nothing when searched, so take titles from this table or from a milestone object, never
+from an old commit message.
 
 New work goes in the newest version milestone unless it plainly opens the next one; a
-dependabot bump goes in `Dependencies` whatever else is in flight.
+dependabot bump goes in milestone 7, `Dependencies — dependabot bumps`, whatever else is in flight.
 
 They are **retrospective**. The boundaries were read off the history in September 2026
 rather than declared at the time, and **nothing in this repository has ever been tagged or
