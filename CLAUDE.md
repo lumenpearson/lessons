@@ -45,7 +45,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 1668 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 1915 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -53,7 +53,7 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 97 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 100 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. Not in CI — the
   owner has not been asked — but run it before you push server code
@@ -305,12 +305,14 @@ points Hilt does not inject cleanly.
   real code.
 - **There are two independent bearer tokens.** The device token from `POST /api/v1/join`
   (`api/deps.py:current_device`) and the diary session token from
-  `POST /api/v1/diary/login` (`api/diary.py:current_diary`). A phone can be joined to a class
+  `POST /api/v1/diary/session` — a session the phone opened with the diary itself — or the
+  older `POST /api/v1/diary/login` (`api/diary.py:current_diary`). A phone can be joined to a class
   without a diary account and signed in to a diary without a class; neither implies the
   other, and one token meaning both would have to be re-minted whenever either half changed.
   They go in the same `Authorization: Bearer` header on different endpoint families — check
   which one an endpoint depends on before moving it.
-- **The diary needs `DIARY_SECRET` or it does not run.** The Petersburg session token is
+- **The diary needs `DIARY_SECRET` or it does not run.** The upstream session — Petersburg's
+  token or «Сетевой город»'s bearer and cookies, however it arrived — is
   the one stored credential that cannot be a hash (it is replayed upstream on every call),
   so it is sealed with Fernet — `app/crypto.py`. No key means the feature refuses at the
   door rather than falling back to plaintext, because a silent fallback is invisible and
@@ -339,7 +341,7 @@ points Hilt does not inject cleanly.
   a half-applied revision cannot claim to be whole. And say what a revision destroys before
   running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
   sentence the owner needs *before* the transaction, not after.
-- **Migrations are Alembic and the head is `0015`, which goes on before this batch's merge.** `0001` is a guarded
+- **Migrations are Alembic and the head is `0016`, which goes on with `0015` before this batch's merge.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
@@ -371,7 +373,15 @@ points Hilt does not inject cleanly.
   rewrite no row; a NULL `provider` on an existing session means Petersburg, the
   only diary before the column. Its downgrade expires every non-Petersburg
   session before dropping the columns that tell one apart, so reverted code
-  cannot replay a credential at the wrong upstream.
+  cannot replay a credential at the wrong upstream. `0016` creates
+  `usage_counters`: one row per counter per Moscow day, which is how the
+  anonymous school directory's share of DaData's daily allowance is spent
+  without touching the share the bot's create-class search needs — a table of
+  its own, because `join_attempts` is pruned to fifteen minutes on every
+  recorded attempt and would cut a day's count to a quarter of an hour. It
+  creates a table and nothing else — additive, the ordinary shape, rewrites
+  and destroys no row — and goes on **before** the merge, together with
+  `0015`; its downgrade drops the table and with it nothing but the counts.
   Nothing after `0001` may use `create_all`.
   Beware the enum: `SAEnum(SomeStrEnum)` stores the member **name**, so a `server_default`
   written as `.value` is a string the ORM cannot read back — which on `classes` is a

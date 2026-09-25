@@ -30,6 +30,7 @@ app/
 ├── schemas.py     the wire contract
 ├── security.py    tokens, join codes, phone normalisation
 ├── di.py          the container both shells take a session from
+├── catalog/       the region catalog — generated data, never edited by hand
 ├── api/           read-only client endpoints
 ├── bot/           aiogram routers, roles, keyboards, renderers
 └── main.py        FastAPI app; its lifespan owns the bot's polling task
@@ -299,7 +300,7 @@ can swap wholesale.
 
 ## The service layer, and why the phone does not log in
 
-`server/app/services/` is twenty-one modules of pure async functions over a session, and
+`server/app/services/` is twenty-two modules of pure async functions over a session, and
 they exist for exactly one reason: every feature of the product now has two entrances, the
 bot and the app. Homework is added by a command in a chat and by a button on a phone; so
 are a substitution, an event and a special day. Two implementations of one rule would have
@@ -369,9 +370,16 @@ no reader would see, was the change deliberately not made.
 `registry.py` answers two questions in one place. `provider_for(key)` maps a stored key to an
 implementation, importing the provider module lazily so neither upstream's HTTP client lands
 on the cold-start path of a request that does not use it. `binding(school_class)` resolves
-what a class is bound to; the bot menu, the class card and the web form all call it, so "is
-this class bound, and to what" has a single answer, and a class bound to a «Сетевой город»
-region since dropped from the allow-list reads as unbound rather than as a dead name.
+what a class is bound to; the bot menu, the class card, the web form and `POST /join`'s
+`diary` field all call it, so "is this class bound, and to what" has a single answer, and a
+class bound to a «Сетевой город» region since dropped from the allow-list reads as unbound
+rather than as a dead name. Its mirror is `services/diary.reads_binding`, the one clause for
+"which sessions does this binding read": the bot's lookup filters by it, and binding a class
+to another diary or another region expires, in the same commit, the members' sessions it no
+longer reads — a session is an account on one regional server, and one left live on the
+server the class moved away from would go on being pinged by the keep-alive for nobody
+(#145). Another school in the same region keeps them; unbinding expires nothing, because it
+takes the door away and the sessions stay their owners' until they sign out.
 
 The boundary each provider draws is three files, and it holds them:
 
@@ -407,19 +415,100 @@ that is not a bad row any more, it is a changed response shape, and a `WARNING` 
 with the list of keys that arrived: an empty week caused by a renamed field and an empty
 week caused by the holidays look identical from above otherwise.
 
-The password is not stored, for either diary. A login is needed for one request, after which
-the upstream's own session is what lives on. Petersburg refreshes it from its own answers and
-we simply keep the newest; «Сетевой город» idles a session out in 15–60 minutes, so the cron
-tick keeps each live one alive with `GET /webapi/context` (the mechanism is in
+The password is not stored, for either diary. What lives on is the upstream's own session.
+Petersburg refreshes it from its own answers and we simply keep the newest; «Сетевой город»
+idles a session out in 15–60 minutes, so the cron tick keeps each live one alive with
+`GET /webapi/context` (the mechanism is in
 [deploy.md](deploy.md#the-clock-the-server-has-none-and-githubs-will-not-do), the counters in
 [api.md](api.md)). When a session dies either way, the request answers `401` with
-`X-Diary-Reauth: required` and the app asks for the password again. The price is that a
-background sync of the diary does not outlive the session; the price of the alternative is
-every family's password in the database.
+`X-Diary-Reauth: required` and the person signs in again. The price is that a background
+sync of the diary does not outlive the session; the price of the alternative is every
+family's password in the database.
+
+### Two ways a session arrives, and only one of them sees the password
+
+A session of ours used to be opened one way: the password came to this server — from the
+app's `POST /api/v1/diary/login`, or from the bot's `/diary/signin` page — and the server
+signed in. "Not stored" was true; "never seen" was not. So there is now a second door,
+`POST /api/v1/diary/session`: a client signs in with the diary itself, straight at the
+allow-listed origin, and hands over **the session** the diary gave it, never the password.
+The server does not take that session on trust. It reads with it once, from its own address
+— Petersburg's pupils, or «Сетевой город»'s four bootstrap calls, which also fill the year
+and the type map a sealed session cannot read without — and only then seals it, through the
+same `_open_row` a password sign-in goes through, so "what a session holds" has one answer
+whichever door it came in by. The read is the whole check: a session the upstream will not
+take from this address is worth nothing to keep, and a registration it refuses is a `409`
+rather than a request for the password, because the password was never the problem and
+asking for it again would loop. Whether either diary does take a session opened in Russia
+and replayed from Frankfurt is exactly what has never been seen; the contract, the statuses
+and the shared limiter are in [api.md](api.md#the-electronic-diary).
+
+The cost is that the sign-in protocol now lives on both sides — a client that registers
+speaks it to the diary, and the server still speaks it for the bot and for older apps — and
+two implementations of «Сетевой город»'s salted hash over a windows-1251 password agree
+exactly until they do not. The known-answer
+vectors in `server/tests/vectors/diary_protocol.json` are the one set of bytes both are
+tested against; the Python half is driven over `httpx.MockTransport`, and #147 and #148 —
+a sign-in that sent the word `None` upstream, and malformed answers that escaped as `500` —
+were fixed in the same change.
+
+The other doors stay. `/diary/login` is unchanged for the apps that still call it. The bot's
+page still relays the password — it posts to this server, which passes it to the diary once
+and writes it nowhere — and since #150 **it says so**: the page and the two cards before it
+used to promise the password went «прямо в дневник», which it never did. A registered
+session carries no Telegram account and no class, so the bot does not see it and a family
+signed in on the phone signs in again in the bot. Linking the two is deliberately deferred
+(#143). It would need the class device token on a `/diary` request — the one place the two
+bearer families would meet — and a linked session would inherit the bot's rules: the bot's
+«Выйти» would sign the phone out too, deleting the class would take the phone's session with
+it, and rebinding the class would expire it. Those are the owner's to weigh first.
+
+### The region catalog is generated, not written
+
+«Which region is this family in, and what can it do there» has one answer, and it is the
+survey's. `server/app/catalog/data/regions.json` is generated from
+[diaries/regions.md](diaries/regions.md), a hand-written overlay and the server's own
+allow-list by `python -m scripts.region_catalog`, and committed; a test fails when the
+committed file and its inputs disagree. Generated, because the alternative was prose parsed
+at run time, or a second hand-kept list of eighty-nine regions that would disagree with the
+survey within a month; committed, because the server reads it at run time and the app is to
+bundle the same file, and neither should run a generator to start. The decisions it carries — which systems are a sign-in,
+which a hand-off to the browser, why there is no Госуслуги sign-in anywhere — are written
+down beside the survey, in [diaries.md](diaries.md#the-region-catalog). The server reads four
+things from it: a region's key, its subject code, its names and DaData's spellings of it,
+which is what placing a school from the company register needs; `app/catalog/` loads it on
+first use rather than at import, so no other cold start pays for parsing it.
+
+### A daily allowance, counted in the database
+
+The school directory has two doors onto one DaData key and its ten thousand requests a day:
+the bot and `/manage/schools`, behind a class admin, and
+`GET /api/v1/directory/school-regions`, which a phone asks **anonymously** before it belongs
+to anything. Without a cap on the second, anybody with a loop could spend the day and leave an
+admin creating a class with «Лимит запросов исчерпан». So the anonymous door gets a fixed
+share, 4,000, and stops there; the admins' side is not metered at all.
+
+The count is `usage_counters` (revision `0016`), one row per allowance per day, and not the
+obvious alternatives. Not memory, for the reason every limiter here gives: on Vercel each
+concurrent invocation is its own process. Not `join_attempts`, although the per-caller
+throttle lives there: that table is pruned to fifteen minutes on every recorded attempt, and a
+day's count kept in it would silently become a quarter of an hour's. The spend is a single
+`INSERT … ON CONFLICT … DO UPDATE … WHERE used + n <= cap RETURNING`, so two invocations
+reaching for the last unit cannot both have it — there is no read-then-write to race through
+(checked on SQLite; on Postgres by construction, not by a test). A unit is spent **before** the
+request it pays for, and the empty-answer retry asks for its own unit first, because DaData
+counts a request whatever comes of it.
+
+The day is Moscow's (`services/quota.py:QUOTA_ZONE`), not UTC and not the server's. DaData is a
+Moscow company and its allowance is assumed to turn at Moscow midnight — assumed, because
+nothing in its documentation says which clock it counts by. If the assumption is wrong and it
+counts in UTC, the worst case is two anonymous days inside one of DaData's, 8,000, which still
+leaves the admins two thousand. The server's zone was never a candidate, because it moves
+with the host.
 
 ## Testing
 
-1668 tests on the server, 968 on Android; `pytest -q -n auto` and `./gradlew test`, both
+1915 tests on the server, 968 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 286,
 `:core:designsystem` 95, `:widget` 90, `:app` 368.
 
@@ -439,6 +528,10 @@ The table below is the load-bearing part of that rather than the whole of it:
 | `server/tests/test_timezones.py` | all eleven Russian zones, ordering, bad-input fallback | pytest |
 | `server/tests/test_bot_message_limits.py` | that no renderer builds a message Telegram refuses at 4096 characters | pytest |
 | `server/tests/test_schema_version.py` | `EXPECTED_REVISION` equals the real Alembic head, and there is exactly one head | pytest |
+| `server/tests/test_diary_session.py` | registering a session a client opened: both body shapes, a `password` key refused, no refused value echoed, every status and which of them the shared limiter counts | pytest + a fake upstream |
+| `server/tests/test_diary_protocol_vectors.py` | both diaries' sign-in protocols against the known-answer vectors in `tests/vectors/diary_protocol.json`, the bytes the phone's port is tested against too | pytest + `httpx.MockTransport` |
+| `server/tests/test_region_catalog.py` | that the committed catalog is what the generator writes, and that only Петербург and the sixteen password «Сетевой город» regions are a sign-in | pytest |
+| `server/tests/test_directory.py`, `test_quota.py` | the anonymous school directory's order of refusals, the per-caller throttle, the daily share and its atomic spend, and `0016`'s DDL against the model | pytest |
 | `android/core/model/.../ScheduleEngineTest.kt` | every `DayState`, boundary conditions, event precedence, next-transition scheduling | JVM JUnit |
 | `android/widget/.../WidgetSizeClassTest.kt` | the launcher's nearest-breakpoint rule over real sizes, and that the ladder is monotonic | JVM JUnit |
 | `android/app/.../ResourceTranslationTest.kt` | every Russian string has an English twin, in every module that ships strings | JVM JUnit |

@@ -27,9 +27,22 @@ Content-Type: application/json
   "class_id": 1,
   "class_name": "9А",
   "school": "Демо-школа",
-  "timezone": "Europe/Moscow"
+  "timezone": "Europe/Moscow",
+  "diary": { "provider": "netschool", "region": "samara", "school_id": 1234,
+             "school_name": "МБОУ Школа № 5" }
 }
 ```
+
+`diary` is the electronic diary the class is bound to in the bot, so that a phone joining a
+bound class can sign in there without searching for its school: `provider` is `petersburg`
+or `netschool`, and for «Сетевой город» `region` is the allow-list's key and `school_id` the
+diary's own school id. It is `null` when the class has no binding **this server can use** —
+none at all, a region since dropped from the allow-list, a region that takes only
+Госуслуги, or a «Сетевой город» binding whose school step was never finished — because it
+is read through the same `registry.binding()` the bot reads, and a phone must never be
+pointed at a diary this server would refuse. The field is additive: an older app ignores
+it. It says which diary, and nothing more; the phone still needs a diary session of its own
+([The electronic diary](#the-electronic-diary)).
 
 The token is stored server-side only as a SHA-256 hash, so a database leak does
 not yield working credentials. Every later request carries it:
@@ -934,11 +947,15 @@ runs between requests:
 | What | When it is deleted | Why |
 | --- | --- | --- |
 | Abandoned bot dialogues (`fsm_states`) | after two days | `fsm_purged`; the «current class» preference sits in the same table and is exempt, because it is written once and only read afterwards |
-| Failed-join counters (`join_attempts`) | after an hour | `join_attempts_purged` |
+| Throttle counters (`join_attempts`): failed joins, failed diary sign-ins, and every directory search | after an hour | `join_attempts_purged` |
 | Diary sessions (`diary_sessions`) | a day after the service refuses one, 30 days after it was last used | a live token for somebody else's service is inside |
 | Device tokens (`device_tokens`) | after 180 days of silence | every `POST /join` creates a row, and reinstalling the app leaves the old one for ever |
 | Diary sign-in tickets (`diary_link_codes`) | on expiry | `diary_links_purged` |
 | Personal connect codes (`device_invites`) | a day after they expire | `device_invites_purged`; a day rather than immediately, because "my code does not work" is asked within minutes, while who connected a phone is remembered by the device token itself |
+
+One table is deliberately not swept: `usage_counters`, the directory's daily allowance, holds
+one row per allowance per day — 365 rows of three columns a year — and yesterday's row is
+what says how close yesterday came to the cap.
 
 180 days is comfortably longer than the summer holidays: a phone silent since the end of May
 has to work in September. A device in use is marked no less than once every 15 minutes, on
@@ -956,6 +973,15 @@ clock. Petersburg sessions are not pinged; they refresh from their own answers. 
 on the external cron, not GitHub's fallback clock, which is too sparse to keep a session
 alive; [deploy.md](deploy.md#the-clock-the-server-has-none-and-githubs-will-not-do) says why.
 
+Two guards keep the pings honest. A regional server that drops this deployment's address
+answers every session on it the same way, so after its first such refusal the tick skips
+that region's sessions not yet started — at most the pings already in flight are wasted —
+and they wait for the next tick. And a ping's result is written back only to a row that
+still holds the sealed credential the ping was sent with: a real read that rotated the
+cookies while the ping was in the air is never overwritten with the older ones, and a ping
+that failed on the old credential does not expire a row whose new one is fine. The two
+counters count rows actually written, not pings sent.
+
 ## `GET /api/v1/health` and `GET /api/v1/warmup`
 
 Both unauthenticated. `/health` returns `{"status": "ok", "api_version": 1}` and
@@ -969,7 +995,7 @@ whether the schema is the one this code was written against. Three answers:
 
 | | Body | Meaning |
 | --- | --- | --- |
-| `200` | `{"status": "ok", "api_version": 1, "schema": "0015"}` | the database is reachable and at the revision the code expects |
+| `200` | `{"status": "ok", "api_version": 1, "schema": "0016"}` | the database is reachable and at the revision the code expects |
 | `200` | `{"status": "degraded", …, "schema": …, "expected_schema": …, "detail": …}` | both revisions named, and `detail` says **which way** they diverge |
 | `503` | `{"status": "down", "api_version": 1, "detail": "База недоступна."}` | the database could not be reached |
 
@@ -1000,16 +1026,138 @@ There are two such services behind this one surface — «Петербургск
 (`dnevnik2.petersburgedu.ru`) and «Сетевой город. Образование», the diary of about twenty
 regions — and **the API does not change between them.** Which one a session is with is
 decided at sign-in and stored on the session; every endpoint below is provider-neutral, and
-the client reads the same shapes whichever diary answered. «Сетевой город» is server-side
-only and has never been tried against a live server (see the README's honest status).
+the client reads the same shapes whichever diary answered. Neither has ever been opened
+against a live server from here (see the README's honest status).
 
-**The app never talks to either service directly.** None of an upstream's parameters —
-Petersburg's `p_educations[]`, `X-JWT-Token`, `estimate_type_code`, or «Сетевой город»'s `at`
-bearer and `scid` — crosses the boundary of our API. If a field is renamed up there tomorrow,
-one directory is what gets fixed (`app/providers/petersburg/` or `app/providers/netschool/`),
-and neither the app nor this document changes.
+**Two ways in, one API after.** A diary session of ours is opened one of two ways. A client
+that signs in with the diary itself — straight at the diary's own address, so that the
+password goes to the diary and nowhere else — hands the session the diary gave it to
+`POST /api/v1/diary/session`; this server reads with it once from its own address, seals it
+and answers with a token of ours, and the client forgets its copy. A client that does not
+sends the login and the password to `POST /api/v1/diary/login`, and this server signs in on
+its behalf. From then on the two are indistinguishable: every read below goes through this
+server with our token, and none of an upstream's parameters — Petersburg's `p_educations[]`
+and `estimate_type_code`, «Сетевой город»'s `scid` and its weekly-diary shape — crosses the
+boundary of our API. If a field is renamed up there tomorrow, one directory is what gets
+fixed (`app/providers/petersburg/` or `app/providers/netschool/`), and neither the app nor
+this document changes.
 
-### Signing in
+The one exception is the registration body, which **is** the upstream's session and so
+carries the upstream's names: Petersburg's `X-JWT-Token`, «Сетевой город»'s `at` bearer and
+its two session cookies. That is the price of the password never reaching this server: the
+diary's sign-in protocol then lives in the client as well as here, and the known-answer
+vectors in `server/tests/vectors/diary_protocol.json` pin both sign-ins so that the two
+implementations are tested against one set of bytes.
+
+### Before a password is typed: `GET /api/v1/diary/capabilities`
+
+```json
+{
+  "enabled": true,
+  "registration": true,
+  "providers": {
+    "petersburg": {},
+    "netschool": { "regions": ["amur", "zabaikalsky", "kamchatka", "…"] }
+  }
+}
+```
+
+Anonymous, and it opens no database connection, so it is cheap to ask on every sign-in
+screen. `enabled` is `false` when the deployment has no `DIARY_SECRET` — nothing a person
+types will help, and a client should say so before asking for a password. `registration`
+says this server takes a session a client opened itself; a server from before that answers
+`404` here, which answers the question too. `netschool.regions` are the allow-list's keys
+this server signs in to with a password: sixteen of the nineteen, because `altai-krai`,
+`primorye` and `tula` take only Госуслуги and are never listed. A region missing from the
+list is one a client should not send a password to, since the session it opened could not
+be kept here.
+
+### Registering a session the client opened: `POST /api/v1/diary/session`
+
+```
+POST /api/v1/diary/session
+{ "provider": "petersburg", "login": "parent@example.com",
+  "credential": { "token": "eyJhbGciOi…" } }
+```
+
+```
+POST /api/v1/diary/session
+{ "provider": "netschool", "login": "ivanova.m", "region": "samara", "school_id": 1234,
+  "credential": { "at": "…", "cookies": { "NSSESSIONID": "…", "ESRNSec": "…" },
+                  "ver": "…", "time_out": 45 } }
+```
+
+```json
+{
+  "token": "…",
+  "login": "ivanova.m",
+  "provider": "netschool",
+  "region": "samara",
+  "school_id": 1234,
+  "school_name": "МБОУ Школа № 5",
+  "zone": "Europe/Samara",
+  "students": [
+    { "id": 7, "first_name": "Маша", "last_name": "Иванова", "middle_name": null,
+      "full_name": "Иванова Маша", "school": null, "class_name": "5Б" }
+  ]
+}
+```
+
+The body is one of two shapes, chosen by `provider`, and every level of it refuses a key it
+does not know: **a `password` key anywhere is a `422`**, so no client can send one here, by
+mistake or otherwise. `login` is what the person typed into the client's own form. Nothing
+upstream vouches for it; it names the session and keys the family's corrections (see
+[Corrections over the diary](#corrections-over-the-diary)), so a client sends the same
+string every time. For «Сетевой город», `region` must be an allow-listed key that takes a
+password and `school_id` the diary's own school id — both checked before any upstream call,
+so a region this server does not serve never receives a request. In `credential`,
+Petersburg's `token` must be a JWT; `NSSESSIONID` is required and `ESRNSec`, `ver` and
+`time_out` are sent only if the diary handed them over. Every value is checked as something
+that can go back upstream whole — a cookie value holding `;` would smuggle a second cookie
+onto every read, and an `at` holding a line break a second header — by the one definition in
+`app/providers/diary/http.py`, which the clients writing those headers apply again.
+
+**The check is one read from here.** The server reads with the session once, from its own
+address: Petersburg's list of pupils, or «Сетевой город»'s four bootstrap calls — the
+pupils, the current school year, the context that names the school, and the assignment
+types — which fill what a sealed session cannot read without. It then seals what it read
+with, possibly rotated by those very reads, exactly as a password sign-in's session is
+sealed. The answer never carries the upstream credential back. `token` and `login` sit where
+`/login`'s answer has them, so a client decodes both the same way; `students` is what the
+check already fetched; `zone` is the zone the diary cuts its days in — Petersburg's, or the
+region's administrative centre — by the same rule the server's own «today» for this session
+uses (`services/diary.zone_for`); `school_name` is what «Сетевой город» calls the school,
+and `null` for Petersburg.
+
+| Status | What happened | Counted by the limiter |
+| --- | --- | --- |
+| `200` | the session works from here, and it is ours now | — |
+| `403` | the diary took the session, and there is no pupil behind the account — a staff account, or a pupil's own account that does not list itself | yes |
+| `409` | the diary refused, **from this server's address**, the session it had just handed the client. It is not the password | yes |
+| `422` | not one of the two shapes, a value that cannot be sent upstream whole, or a region this server does not sign in to. `detail` names what was wrong and **never repeats the value**: FastAPI's validation answer normally echoes each refused value as `input`, and here that value is a session or a password | no |
+| `429` | ten counted failures from this address within fifteen minutes, on `/login` and `/session` together; `Retry-After` says how long | — |
+| `502` | the diary answered something nobody can read | yes |
+| `503` | the diary is off on this server, refuses this server's address, or is not answering; `X-Diary-Unavailable` says which (see [Error codes](#error-codes)) | no |
+
+**`409` rather than `/login`'s `401` + `X-Diary-Reauth`.** The session worked on the client
+seconds ago. Asking for the password again would open another one that fails the same way
+from here, and the client would loop; what failed is where the session came from. A client
+should say that it is not the password and **not retry by itself**. Whether either diary
+accepts a session opened on a phone in Russia when it is replayed from this project's own
+deployment — pinned to Vercel's Frankfurt region (`vercel.json`) — **has never been seen**:
+no session has been registered against a live diary, and `409` is the designed answer for
+the case where it is not.
+
+It shares `/login`'s limiter **and its bucket**, so ten wrong passwords on one do not buy
+ten more tries on the other. What is counted follows the same line as `/login`'s: whatever
+the upstream judged, which includes the `409` a replay of a session that was never real
+produces; what is forgiven is what never reached it, or reached a diary that did not answer.
+
+**A registered session belongs to no class and no Telegram account.** The row carries
+neither, so the bot's «📒 Мой дневник» does not see it; a phone and the bot hold separate
+sessions, each signed in on its own. Linking the two is deliberately deferred (#143).
+
+### Signing in with a password: `POST /api/v1/diary/login`
 
 ```
 POST /api/v1/diary/login
@@ -1020,22 +1168,28 @@ POST /api/v1/diary/login
 { "token": "…", "login": "parent@example.com" }
 ```
 
-`provider`, `region` and `school_id` are optional. Absent `provider` means Petersburg, so a
-phone that sends only a login and a password signs in there exactly as before. For «Сетевой
-город», `provider` is `"netschool"`, `region` is a key into the server's own allow-list and
+Unchanged by registration, and kept for the clients built before it. `provider`, `region`
+and `school_id` are optional. Absent `provider` means Petersburg, so a client that sends
+only a login and a password signs in there exactly as before. For «Сетевой город»,
+`provider` is `"netschool"`, `region` is a key into the server's own allow-list and
 `school_id` the upstream's school id; both are validated in the route before any upstream
-call, so an unknown region or a missing school is a `422`, and a region that takes only
-Госуслуги — or one whose server refuses this deployment's address — answers `503`, which the
-sign-in limiter does not count because nothing there looked at the password. The bot already
-binds a class to a region and a school for its own web sign-in form; these fields are for a
-phone that will one day sign in to «Сетевой город» directly.
+call, so an unknown region, a region the allow-list knows to take only Госуслуги, or a
+missing school is a `422`. A region whose server answers at sign-in that it takes only
+Госуслуги, or refuses this deployment's address, answers `503` with `X-Diary-Unavailable`,
+and the sign-in limiter does not count it, because nothing there looked at the password.
 
-**The password is not stored.** It is needed for exactly one request — the login to
-somebody else's service — after which it is forgotten. Only the diary's own session is
-stored, and it is refreshed on the fly: the service hands back a fresh token on almost every
-answer and we overwrite ours with it, so a session in use does not die of age. When it does
-finally stop being accepted, any request answers `401` with an `X-Diary-Reauth: required`
-header — which is a request to ask for the password again, not "the token is wrong".
+This route **receives the password**, and so does the bot's sign-in page (`/diary/signin`,
+described in [bot.md](bot.md)), which is a separate route over the same sign-in: each passes
+the password to the diary for the sign-in and writes it down nowhere. Only registration
+keeps it off this server altogether.
+
+**The password is not stored**, on either route. It is needed for the sign-in to somebody
+else's service — «Сетевой город» may ask for a role and take a second login request inside
+the same sign-in — after which it is forgotten. Only the diary's own session is stored, and
+it is refreshed on the fly: the service hands back a fresh token on almost every answer and
+we overwrite ours with it, so a session in use does not die of age. When it does finally
+stop being accepted, any request answers `401` with an `X-Diary-Reauth: required` header —
+which is a request to sign in again, not "the token is wrong".
 
 The price of that decision is honest: a background sync of the diary lives no longer than
 the session. The alternative — keeping every family's password in the database to save one
@@ -1046,11 +1200,12 @@ a class without a diary and to a diary without a class; one token meaning both w
 be re-minted whenever either half changed.
 
 Failed sign-ins are rate-limited per client address, ten per fifteen minutes, in a bucket of
-their own: ten wrong diary passwords must not spend a phone's thirty `/join` attempts. Past
-that the endpoint answers `429` with `Retry-After`, and it is counted in the database, like
-the join limiter, because nothing in this deployment survives between requests. What the
-limit is for is that this server's address must not become a way of guessing passwords
-against somebody else's school diary.
+their own shared by `/login` and `/session`: ten wrong diary passwords must not spend a
+phone's thirty `/join` attempts, nor buy ten more tries by session. Past that both answer
+`429` with `Retry-After`, and it is counted in the database, like the join limiter, because
+nothing in this deployment survives between requests. What the limit is for is that this
+server's address must not become a way of guessing passwords against somebody else's school
+diary.
 
 ### What can be asked
 
@@ -1159,12 +1314,21 @@ where they are visible as corrections and are reversible.
 | Code | What happened | What the app should do |
 | --- | --- | --- |
 | `401` | our session's token did not fit | ask them to sign in |
-| `401` + `X-Diary-Reauth: required` | the diary's session expired | ask for the password again |
+| `401` + `X-Diary-Reauth: required` | the diary's session expired | sign in again — a new session to register, or the password on `/login` |
+| `403` | on `/diary/session` only: the account has no pupil | say so; signing in again will not change it |
 | `404` | this account has no such child | — |
-| `422` | on reads, the date range is inverted or wider than 62 days; on `PUT .../overrides`, the correction was refused: an unknown `target`, an uncorrectable field, or an empty value where empty is not allowed | on a read, fix the range; on a correction, show `detail` |
-| `429` | on `/diary/login`, ten failed sign-ins from this address inside fifteen minutes | wait out `Retry-After`, and do not blame the password |
+| `409` | on `/diary/session` only: the diary will not take this session from this server | say it is not the password; do not retry by itself |
+| `422` | on reads, the date range is inverted or wider than 62 days; on `PUT .../overrides`, the correction was refused: an unknown `target`, an uncorrectable field, or an empty value where empty is not allowed; on `/login` and `/session`, a body or a region this server will not sign in with | on a read, fix the range; on a correction, show `detail` |
+| `429` | on `/diary/login` and `/diary/session` together, ten counted failures from this address inside fifteen minutes | wait out `Retry-After`, and do not blame the password |
 | `502` | the diary answered incomprehensibly | say that the service has changed |
-| `503` | the diary is not answering | offer to retry |
+| `503` + `X-Diary-Unavailable: disabled` | this deployment has no `DIARY_SECRET`; the diary is off here | say it is off on this server; nothing typed will help |
+| `503` + `X-Diary-Unavailable: address-refused` | the region's server drops this server's address | say it is not the password, and not worth retrying |
+| `503` + `X-Diary-Unavailable: upstream` | the diary is not answering, or at sign-in answered that it takes only Госуслуги | offer to retry later |
+
+**Every `503` under `/api/v1/diary` carries `X-Diary-Unavailable`**, `/login`'s included,
+because the three cases want three different sentences and `detail` is Russian prose a
+client should not parse. A `503` is also the one refusal the sign-in limiter never counts:
+in each case nothing read what was typed.
 
 One code for two different things is the price of both the range and the correction being
 checked as a request body. What tells them apart is the **call**, not the answer: there is
@@ -1236,8 +1400,10 @@ So what you have is the first twenty of an unknown number, and the only way to r
 school is a longer query — adding the town or the number. A client that shows "20 found"
 would lie about a search that matched three hundred schools.
 
-**Every call is one search upstream**, whatever `page` says: the source has no offset and
-there is nothing to resume. A client that pages should ask once with `page_size=20` and cut
+**Every call is one search upstream** — two when the first finds nothing, because an empty
+answer under the three school ОКВЭД codes is asked again without them and filtered to the
+education group — whatever `page` says: the source has no offset and there is nothing to
+resume. A client that pages should ask once with `page_size=20` and cut
 the answer itself — which is what both the bot and the app do. Four pages of five is four
 searches for one question. `page_size` runs from 1 to 20, and the default is 5 (the size of
 an inline keyboard).
@@ -1253,3 +1419,84 @@ appears.
 
 Admin, even though it writes nothing: every call spends part of a daily limit on somebody
 else's service, and only your own class is reason enough to spend it.
+
+## Which regions a school is in: `GET /api/v1/directory/school-regions`
+
+The one directory question a phone may ask before it belongs to any class, has a diary or
+holds any token: «which regions is a school of this name in», so that somebody who types
+«лицей 1535» is offered Москва rather than a list of eighty-nine regions. **Anonymous.**
+Nothing depends on it — picking the region from the list always works, and every failure
+here says «выберите регион из списка».
+
+```
+GET /api/v1/directory/school-regions?q=лицей 1535
+```
+
+```json
+{
+  "query": "лицей 1535",
+  "regions": [
+    { "region": "moscow", "code": "77", "label": null, "schools": 2,
+      "cities": ["Москва"], "examples": ["ГБОУ \"Лицей № 1535\""] }
+  ],
+  "truncated": false,
+  "generic": false
+}
+```
+
+It is the same search as `/manage/schools` — same upstream, same query rules, same twenty-row
+ceiling — with the rows grouped by region instead of paged. A row is placed by the two-digit
+subject code at the front of the register's `region_kladr_id` and, when that is missing or
+unknown, by the register's own name for the region matched exactly against the region
+catalog's spellings of it ([diaries.md](diaries.md#the-region-catalog)). `region` is then the
+catalog's key, the one the phone's bundled copy of the same catalog knows, and a placed
+region is named from the catalog in the reader's language. A row the catalog cannot place
+comes back with `region: null`, the register's own `code`, and its own name in `label`; a
+row naming no region at all is left out. Groups are ordered by their best-ranked hit, at most
+ten; `schools` counts the hits in the region, `cities` and `examples` show up to three of
+each. A branch registered under its head school's number but standing in another region is a
+group of its own there, which the bot's picker — deduplicating on the number — never needed.
+
+`truncated` means what it means on `/manage/schools`: the ceiling of twenty was reached, so
+these are the regions of the first twenty matches. `generic` means the name is too common to
+place. It is answered **without asking the register** when, once the words a school's name is
+made of are taken away (the catalog's `school_words`, the list the phone reads too), nothing
+is left but a number of one or two digits — «Школа № 5», «СОШ 12», «гимназия 3» are in every
+region; «лицей 1535» and «гимназия 1 Казань» are asked. It is also set, on top of the
+regions found, when a full answer of twenty spans four regions or more. Either way a client
+should say so and show the list.
+
+**Anonymous means two limits.** Every call past validation counts against its caller — twenty
+in fifteen minutes, **found or not**, because a search that finds its school has spent the
+same upstream request as one that does not — in a bucket of its own on the table `/join`
+counts in, with the same fifteen-minute window, because every recorded attempt prunes that
+whole table to its own window. And every request it sends upstream is spent from a daily
+allowance: **4,000 of DaData's 10,000 requests a day**, counted per Moscow day in
+`usage_counters` by one atomic statement (`services/quota.py`), the empty-answer retry
+included — and skipped, with an empty answer, when the second unit is not there. The bot's
+search and `/manage/schools` are not charged to it and not capped by it, so no amount of
+anonymous searching leaves an admin creating a class with «Лимит запросов исчерпан». Why the
+day is Moscow's is in [architecture.md](architecture.md#a-daily-allowance-counted-in-the-database).
+
+In this order, and the order is the contract:
+
+| Status | When | Counted against the caller |
+| --- | --- | --- |
+| `429` + `Retry-After` | the caller has spent its twenty | — |
+| `422` | `q` is shorter than three characters after whitespace is collapsed; `detail` is a Russian sentence | no |
+| `503` + `X-Directory-Unavailable: disabled` | this deployment has no `DADATA_TOKEN` | yes |
+| `200` with `generic: true` | a type word and a small number, answered without the register | yes |
+| `503` + `X-Directory-Unavailable: spent` + `Retry-After` | today's anonymous share is gone; `Retry-After` runs to Moscow midnight | yes |
+| `503` + `X-Directory-Unavailable: upstream` | the register failed in any way — not answering, answering something new, or refusing the key or its own daily allowance | yes |
+| `200` | the regions found, possibly none | yes |
+
+`q` is cut to 150 characters, and `query` in the answer is what was searched. The header says
+which `503` it is for the reason the diary's does: the client picks its sentence without
+reading the Russian. A client should ask on submit or after a pause in typing, never per
+keystroke.
+
+Not verified: whether DaData's party rows carry `region_kladr_id` at all — the name fallback
+exists for the case where they do not; the subject codes 90, 93, 94 and 95 of the four
+regions admitted in 2022, which the catalog marks as unverified; every one of the catalog's
+DaData spellings; DaData's own day boundary; and two requests racing for the last unit on
+Postgres, which has been checked on SQLite only. Nothing here has been asked of a live DaData.

@@ -26,10 +26,10 @@ answer is not here it is in the code, and there is usually a link to it.
 | [widget.md](widget.md) | twelve sizes, seven states, the update schedule, why not a tick once a minute |
 | [build.md](build.md) | standing the project up from a clone and how much of `server/.env` each step needs, the eight secrets Actions holds and what reads them, building the APK in Actions and locally, signing with your own key, a release from a tag, Actions minutes and where they go, the bundled typeface, pointing the app at a server |
 | [deploy.md](deploy.md) | Vercel plus Neon or your own server, the webhook, migrations, why the server has no clock of its own |
-| [api.md](api.md) | the whole `/api/v1` contract: reads, writes, class management, the electronic diary — Петербург and «Сетевой город» behind one contract |
+| [api.md](api.md) | the whole `/api/v1` contract: reads, writes, class management, the electronic diary — Петербург and «Сетевой город» behind one contract, signed into by this server or registered from a session the client opened itself — and the anonymous school directory |
 | [architecture.md](architecture.md) | why the bot is the backend, the timetable resolution model, the five Android modules, the service layer, the tests |
 | [design.md](design.md) | the design system: what was taken from Essentials, what was fixed, and the reasoning behind every visible decision in the interface |
-| [diaries.md](diaries.md) | which electronic diary every region of Russia runs in September 2026, how a client signs in to each platform, and what that means for a second provider; **not about this project's own code** — the survey a future provider is written from |
+| [diaries.md](diaries.md) | which electronic diary every region of Russia runs in September 2026, how a client signs in to each platform, and what that means for a second provider; **not about this project's own code** — the survey a future provider is written from — except for one section, the region catalog the server and the app read, which is generated from this survey |
 | [diaries/](diaries/) | **the reference pages of [diaries.md](diaries.md)**: one page per platform with its hosts, sign-in flows, headers and the full route table read out of the open-source clients, and one page with the evidence for every region. Nothing in them has been tried against a live diary |
 | [app/](app/) | **not a document — the guide the app draws.** `guide.ru.md` is the source, `guide.en.md` the translation, `manifest.json` says which version they are and which app version they describe. The app fetches these files from this repository and falls back to the copy built into the APK |
 
@@ -57,8 +57,14 @@ the user will actually see, it quotes it in Russian, because that is what is on 
   for signing and for the fallback tick. `CRON_SECRET` is the one name in two of the three,
   and nothing checks that the two values match.
 - **The two different tokens** — [api.md](api.md): the device token comes from
-  `POST /api/v1/join`, the diary token from `POST /api/v1/diary/login`, and neither implies
-  the other.
+  `POST /api/v1/join`, the diary token from `POST /api/v1/diary/session` (a session the
+  client opened itself) or `POST /api/v1/diary/login` (a password), and neither implies the
+  other.
+- **Where a diary password goes** — [api.md](api.md#the-electronic-diary) and
+  [architecture.md](architecture.md): registration keeps it off this server; `/diary/login`
+  and the bot's sign-in page pass it through to the diary once and store it nowhere.
+- **Why there is no Госуслуги sign-in** — [diaries.md](diaries.md#what-it-means-for-this-project):
+  a Госуслуги session is the person's whole state-services account.
 - **Who lets a phone into a class** — [api.md](api.md), "Who lets a phone in: the class
   code or the bot", and [bot.md](bot.md), "Who lets a phone in": a class has two join
   modes, and in one of them the class code opens nothing.

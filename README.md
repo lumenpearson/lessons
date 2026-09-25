@@ -113,7 +113,7 @@ The checks CI runs:
 
 ```bash
 ruff check app tests scripts migrations
-python -m pytest -q
+pytest -q -n auto
 ```
 
 The schema is Alembic: `alembic upgrade head` with a working `DATABASE_URL`, from a
@@ -197,8 +197,8 @@ Read this before planning a release.
 | Check | Result |
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
-| `python -m mypy` | clean, 97 modules — asks whether anything reaches for an attribute that does not exist |
-| `pytest -q -n auto` | 1668 tests, green, about four minutes — the command CI runs |
+| `python -m mypy` | clean, 100 modules — asks whether anything reaches for an attribute that does not exist |
+| `pytest -q -n auto` | 1915 tests, green, about four minutes — the command CI runs |
 | `./gradlew test` | 968 tests, green, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
@@ -240,6 +240,17 @@ place of each: that is the only honest way to check an integration with an undoc
 service, but it says nothing about what that service actually answers. No browser has ever
 opened the sign-in page for either, and the first live session, for both, is the owner's
 (#121, #135).
+
+Nor has a session ever been **registered**. `POST /api/v1/diary/session` is the door through
+which a client that signed in with the diary itself hands over the session, so that the
+password never reaches this server; it is exercised against the known-answer vectors both
+sign-in protocols share and against hand-written answers, never against a live diary. The
+question it rests on is open: whether either diary accepts a session opened on a phone in
+Russia when this deployment, in Frankfurt, replays it. If not, the answer is a `409` by
+design, and the password routes — the bot's page and the older `/diary/login`, both of which
+still pass the password through this server — are what is left. The four calls «Сетевой
+город» registration makes have not been timed against Vercel's 30-second ceiling, and a
+session registered from a phone is invisible to the bot (#143).
 
 **Week parity was computed from the ISO week number, and that broke once every five or six
 years.** In an ISO year with 53 weeks, week 53 and week 1 stand next to each other and are
@@ -324,6 +335,15 @@ a stub in place of the registry. Something else was verified: with no key, the s
 answers `503` with the words «введите название вручную», and a class is created as before.
 What the registry actually answers to «гимназия 3 Казань», nobody has checked.
 
+The same holds for the anonymous directory the first run asks,
+`GET /api/v1/directory/school-regions`. It places a school by the subject code at the front
+of DaData's `region_kladr_id`, and whether DaData's rows for organisations carry that field at
+all is unknown — the fallback by the region's name exists for that case, and every one of the
+catalog's DaData spellings it would fall back on is unverified too, as are the codes of the
+four regions admitted in 2022. The daily cap assumes DaData's day turns at Moscow midnight,
+which nothing documents, and that two requests cannot both spend its last unit has been
+checked on SQLite only.
+
 **A flag that meant nothing.** The class card in the bot had a «🔓 Открыть класс / 🔒
 Закрыть класс» button and a «Тип класса: публичный / закрытый» line. **Not one** code path
 read the flag behind them: an administrator who "closed" a class closed nothing, and the
@@ -401,10 +421,11 @@ one of them is proved by a test rather than by a screen.
   Robolectric, against a fake. Which of the four a phone shows when pointed at production,
   nobody has watched.
 * **`/api/v1/warmup` itself has not been read since #61**, when it answered
-  `{"status":"ok","api_version":1,"schema":"0013"}`. Production is at `0015` now, so it
-  should say so, and that one request is the cheapest check of whether the migration and
-  the code that needs it actually met — but the deployment previews sit behind Vercel's
-  protection, and nobody has made the check against production either.
+  `{"status":"ok","api_version":1,"schema":"0013"}`. Production was last recorded at `0014`;
+  the code on this branch expects `0016`, and `0015` and `0016` are to be applied before #140
+  merges, after which it should say `0016`. That one request is the cheapest check of whether
+  the migrations and the code that needs them actually met — but the deployment previews sit
+  behind Vercel's protection, and nobody has made the check against production either.
 * **`docker compose up` has not been run.** There is no Docker in this environment: the
   compose file was parsed and its dependency conditions asserted. The `migrate` service and
   the revisions now in the image are written and never watched coming up.

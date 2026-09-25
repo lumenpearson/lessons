@@ -480,24 +480,41 @@ region step probes that region's sign-in options first, so an admin learns once 
 the school step searches the region's own server by name and offers what it found. Binding
 gives the class *nothing*: it puts one button on every member's menu, and behind that button
 is each member's own account with the bound diary. Nobody in the class sees anybody else's
-child.
+child. Binding another diary, or another «Сетевой город» region, expires in the same step the
+members' sessions on the one the class left — they would otherwise go on being kept alive on
+a server nobody here reads; another school in the same region keeps them, and unbinding
+expires nothing.
 
 That is enforced rather than asserted. Every lookup in `handlers/diary.py`
 starts from `callback.from_user.id`, and a session is found by
 `(telegram_id, class_id)` and nothing else — so a crafted payload reaches the
 presser's own diary or nothing at all. The class half matters too: a parent in
-two classes must not read one child's diary from the other class's screen.
+two classes must not read one child's diary from the other class's screen. A diary
+session registered from a phone (`POST /api/v1/diary/session`) carries neither, so the bot
+does not see it and a family using both signs in twice; linking the two is deferred (#143).
 
 **The password never enters Telegram.** «🔐 Войти в дневник» hands out a link to
 `/diary/signin/<ticket>`, a page this app serves itself. Its subtitle names the bound
 diary — and, for «Сетевой город», its region and school (the school name escaped, because
 it came from the upstream's search) — so the family can see where the password is going.
-The password goes from that browser straight to the bound diary (dnevnik2 for Петербург,
-the region's own server for «Сетевой город») and is written down nowhere — not in the chat
-history, not on Telegram's servers, not in the notification on a locked screen,
-not in the phone's backup. The form re-reads the class's binding at both the GET and the
-submit, so a class unbound or rebound since the link was made refuses before the password
-is sent, rather than sending it to a diary the family is no longer looking at. A ticket is
+The form posts the password to this server, which passes it to the bound diary (dnevnik2 for
+Петербург, the region's own server for «Сетевой город») for the sign-in and writes it down
+nowhere — not in the chat history, not on Telegram's servers, not in the notification on a
+locked screen, not in the phone's backup, not in this database and not in the log.
+
+The three texts a parent reads before typing it say exactly that. The card with the link:
+«Пароль вводится на странице, а не в чате. Сервер бота передаёт его дневнику для входа и
+нигде не сохраняет — ни у бота, ни в этой базе.» The card of somebody not yet signed in:
+«Бот даст ссылку на страницу входа на своём сервере: сервер передаёт пароль дневнику для
+входа, и пароль нигде не сохраняется.» The page's own note: «Пароль вводится здесь, а не в
+чате. Эта страница — на сервере бота: он передаёт пароль дневнику для входа, и пароль нигде
+не сохраняется…». Until #150 all three said the password went «прямо в дневник» and that the
+bot never saw it, which was never true; a test now fails on the old wording. They make no
+claim about the app either way: an app built before registration still posts the password to
+this server, and the page cannot tell which one the reader holds.
+
+The form re-reads the class's binding at both the GET and the submit, so a class unbound or
+rebound since the link was made refuses before the password is sent, rather than sending it to a diary the family is no longer looking at. A ticket is
 worth **one** sign-in for fifteen minutes for one Telegram account in one class; a GET
 checks it without spending
 it (Telegram fetches link previews by itself), a POST spends it before
@@ -508,7 +525,10 @@ cannot read still costs it: a login form on Yii refuses a password with the
 same "200 with some HTML" a captcha arrives in, so forgiving that would turn the link
 into an unlimited password oracle against the upstream from our address. The
 page says so in words rather than blaming the password, which is what it used
-to do for every failure that was not a plain 401.
+to do for every failure that was not a plain 401, and names the bound diary's own
+address to open in a browser — taken from the allow-list, never from anything typed. It
+used to name dnevnik2 whatever the class was bound to, which sent a «Сетевой город» family
+to Петербург's diary to see whether theirs was down (#158).
 
 The session is stored encrypted (`DIARY_SECRET`, `app/crypto.py`). Without that
 key the whole feature refuses at the door rather than falling back to

@@ -9,6 +9,13 @@ says so — by the second round that went after the completeness critique's list
 Nothing here was read from a live diary: the evidence is regional portals, ministries, school
 sites and news, as of September 2026.
 
+This page is also the input of the region catalog the server and the app read
+([how it is built](../diaries.md#the-region-catalog)). `server/scripts/region_catalog.py`
+parses each `## ` heading, the *Mandatory region.* line and the system bullets — role,
+platform link, hosts, confidence — and nothing else: the «Open-source clients», «Notes.» and
+«Checked:» bullets and the evidence indented under each system are for people. A change to a
+parsed line needs the catalog regenerated, or `server/tests/test_region_catalog.py` fails.
+
 ## Республика Адыгея
 
 - **in use now: [Дневник.ру](dnevnik-ru.md)** — Дневник.ру — РГИС «Цифровая образовательная платформа Республики Адыгея» (ООО «Дневник.ру»). Hosts: `dnevnik.ru`, `login.dnevnik.ru`, `schools.dnevnik.ru`. Confidence: high.
