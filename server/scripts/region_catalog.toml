@@ -39,7 +39,8 @@
 #   after `app.catalog.normalise_name` (case, ё, punctuation, spaces) and must place
 #   exactly one region each. None of them has been checked against a live answer.
 # - `aliases` are what people type instead of the name: official long forms and the
-#   informal ones. `cities` are a few large towns, so that «Тольятти» finds Самарская.
+#   informal ones, and an English spelling where it is neither a word of `name_en`
+#   nor something `translit` can spell back («Zabaikalye»). `cities` are a few large towns, so that «Тольятти» finds Самарская.
 #   Both are search hints for the phone, never shown as a region's name.
 #
 # Nothing in this file may describe signing in on a diary's own page inside the app:
@@ -73,10 +74,15 @@ latin_layout = "`qwertyuiop[]asdfghjkl;'zxcvbnm,."
 cyrillic_layout = "ёйцукенгшщзхъфывапролджэячсмитьбю"
 # Longest first: the phone takes the first pair that matches at each position.
 # Best effort, not a standard — «moskva», «kazan», «samara» and «tatarstan» come
-# out whole, and a prefix is enough for the search to land.
+# out whole, and a prefix is enough for the search to land. The endings are how
+# English writes the Russian ones — «Chuvashia», «Bashkiriya», «Khanty-Mansiysk»,
+# «Yakutsk» — and without them a single letter at a time gives «чувашиа»,
+# «мансиыск» and «якуцк», which match nothing.
 translit = [
-    ["shch", "щ"], ["sch", "щ"], ["zh", "ж"], ["kh", "х"], ["ts", "ц"], ["ch", "ч"],
+    ["shch", "щ"], ["sch", "щ"], ["iya", "ия"], ["tsk", "тск"],
+    ["zh", "ж"], ["kh", "х"], ["ts", "ц"], ["ch", "ч"],
     ["sh", "ш"], ["yo", "ё"], ["yu", "ю"], ["ya", "я"], ["ye", "е"],
+    ["ia", "ия"], ["iy", "ий"], ["yy", "ый"],
     ["a", "а"], ["b", "б"], ["c", "к"], ["d", "д"], ["e", "е"], ["f", "ф"], ["g", "г"],
     ["h", "х"], ["i", "и"], ["j", "й"], ["k", "к"], ["l", "л"], ["m", "м"], ["n", "н"],
     ["o", "о"], ["p", "п"], ["q", "к"], ["r", "р"], ["s", "с"], ["t", "т"], ["u", "у"],
@@ -91,6 +97,15 @@ school_words = [
     "маоу", "моу", "мкоу", "гбоу", "гоу", "чоу", "средняя", "основная",
     "общеобразовательная", "№", "n", "no", "номер",
 ]
+
+# What an English word typed may stand for among the words of an English name.
+# «St» is how «Saint» is abbreviated, and «region» is what English calls an oblast
+# or a krai. The word typed is still tried as itself. «oblast» is deliberately not a
+# stop word the way «область» is: «moscow» would then tie Moscow Oblast with Moscow,
+# and a tie goes to the list's order rather than to the city somebody meant.
+[search.synonyms]
+st = ["saint"]
+region = ["oblast", "krai"]
 
 [search.fold]
 "ё" = "е"
@@ -615,7 +630,9 @@ code = "75"
 iso = "RU-ZAB"
 name_en = "Zabaykalsky Krai"
 zone = "Asia/Chita"
-aliases = ["Забайкалье", "Читинская область"]
+# «Zabaikalye» is how English writes «Забайкалье»; no transliteration table
+# turns it back, because the soft sign is not written at all.
+aliases = ["Забайкалье", "Читинская область", "Zabaikalye", "Zabaykalye"]
 cities = ["Чита", "Краснокаменск"]
 dadata_names = ["Забайкальский край", "Забайкальский"]
 
@@ -670,7 +687,7 @@ code = "25"
 iso = "RU-PRI"
 name_en = "Primorsky Krai"
 zone = "Asia/Vladivostok"
-aliases = ["Приморье"]
+aliases = ["Приморье", "Primorye"]
 cities = ["Владивосток", "Уссурийск", "Находка"]
 dadata_names = ["Приморский край", "Приморский"]
 

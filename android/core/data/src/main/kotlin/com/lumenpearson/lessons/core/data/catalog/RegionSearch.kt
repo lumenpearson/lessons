@@ -9,9 +9,10 @@ import java.util.Locale
  *
  * Every word it treats specially comes from the catalog's `search` block
  * ([CatalogSearch]): the fold map, the region type words it ignores, the two
- * keyboard layouts, the transliteration table and the words a school's name is
- * made of. The server's directory reads the same block (`catalog.school_words`),
- * so «a name too common to look up» means one thing on both sides, and no
+ * keyboard layouts, the transliteration table, the English words that stand
+ * for others («St», «region») and the words a school's name is made of. The
+ * server's directory reads the same block (`catalog.school_words`), so «a
+ * name too common to look up» means one thing on both sides, and no
  * Russian word is written into this file.
  *
  * Ranking, best first — ties go to the constitution's order, which is the
@@ -42,6 +43,11 @@ class RegionSearch(val catalog: RegionCatalog) {
 
     private val latinToCyrillic: Map<Char, Char> = layoutMap(lexicon.latinLayout, lexicon.cyrillicLayout)
     private val cyrillicToLatin: Map<Char, Char> = layoutMap(lexicon.cyrillicLayout, lexicon.latinLayout)
+
+    /** A word typed, and the words of a name it may stand for besides itself («st», «saint»). */
+    private val synonyms: Map<String, List<String>> = lexicon.synonyms
+        .mapKeys { (typed, _) -> typed.lowercase(Locale.ROOT) }
+        .mapValues { (_, meant) -> meant.map { it.lowercase(Locale.ROOT) }.filter { it.isNotEmpty() } }
 
     /** Latin sequences, longest first, as the table lists them. */
     private val translit: List<Pair<String, String>> = lexicon.translit
@@ -75,7 +81,9 @@ class RegionSearch(val catalog: RegionCatalog) {
         if (query.isBlank()) {
             return catalog.regions.sortedBy { it.order }.map { RegionMatch(it, MatchVia.LIST, "", LIST_SCORE) }
         }
-        val candidates = candidates(query).map { normalise(it) }.filter { it.isNotEmpty() }.distinct()
+        val candidates = candidates(query).map { normalise(it) }.filter { it.isNotEmpty() }
+            .flatMap { variants(it) }
+            .distinct()
         val digits = query.trim().takeIf { it.length in 1..3 && it.all(Char::isDigit) }?.toIntOrNull()
         return index.mapNotNull { entry ->
             val scored = candidates.mapNotNull { score(entry, it) }
@@ -180,6 +188,26 @@ class RegionSearch(val catalog: RegionCatalog) {
         return null
     }
 
+    /**
+     * [words], and every way of reading them with a word swapped for what the
+     * catalog says it may stand for: «st petersburg» is also «saint
+     * petersburg», «moscow region» also «moscow oblast». A handful at most —
+     * the table is short and a query is a few words — but capped anyway, so a
+     * pasted paragraph of «st st st» cannot multiply without bound.
+     */
+    private fun variants(words: List<String>): List<List<String>> {
+        var out = listOf(words)
+        for ((at, word) in words.withIndex()) {
+            val meant = synonyms[word] ?: continue
+            out = out.flatMap { variant ->
+                listOf(variant) + meant.map { replacement ->
+                    variant.toMutableList().also { it[at] = replacement }
+                }
+            }.take(MAX_VARIANTS)
+        }
+        return out
+    }
+
     /** Every word typed starts some word of [target]. */
     private fun startsWords(target: List<String>, words: List<String>): Boolean =
         words.isNotEmpty() && words.all { word -> target.any { it.startsWith(word) } }
@@ -220,6 +248,7 @@ class RegionSearch(val catalog: RegionCatalog) {
         const val CODE_SCORE = 5
         const val LIST_SCORE = 7
         const val SUBSTRING_MIN = 3
+        const val MAX_VARIANTS = 16
 
         /** `№|\d+|[^\W\d_]+`, in Java's spelling; the numero sign is U+2116. */
         val SCHOOL_TOKEN = Regex("№|\\p{Nd}+|[\\p{L}\\p{M}]+")

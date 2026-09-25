@@ -522,7 +522,7 @@ def _search(overlay: dict[str, Any]) -> dict[str, Any]:
     _fields(
         search,
         {"fold", "stop_words", "latin_layout", "cyrillic_layout", "translit", "school_words"},
-        set(),
+        {"synonyms"},
         "[search]",
     )
     latin, cyrillic = search["latin_layout"], search["cyrillic_layout"]
@@ -537,6 +537,19 @@ def _search(overlay: dict[str, Any]) -> dict[str, Any]:
         raise CatalogError("[search]: translit is a list of [latin, cyrillic] pairs")
     if [len(pair[0]) for pair in pairs] != sorted((len(pair[0]) for pair in pairs), reverse=True):
         raise CatalogError("[search]: translit must list longer Latin spellings first")
+    synonyms = search.get("synonyms", {})
+    # One lower-case Latin word for another: the phone compares them after it has
+    # folded case and cut the query at every punctuation mark, so anything else
+    # here could never be typed.
+    word = re.compile(r"[a-z]+")
+    if any(
+        not word.fullmatch(typed)
+        or not isinstance(meant, list)
+        or not meant
+        or any(not isinstance(each, str) or not word.fullmatch(each) for each in meant)
+        for typed, meant in synonyms.items()
+    ):
+        raise CatalogError("[search]: synonyms map a lower-case Latin word to a list of them")
     return {
         "fold": dict(search["fold"]),
         "stop_words": list(search["stop_words"]),
@@ -544,6 +557,7 @@ def _search(overlay: dict[str, Any]) -> dict[str, Any]:
         "cyrillic_layout": cyrillic,
         "translit": [list(pair) for pair in pairs],
         "school_words": list(search["school_words"]),
+        "synonyms": {typed: list(meant) for typed, meant in synonyms.items()},
     }
 
 

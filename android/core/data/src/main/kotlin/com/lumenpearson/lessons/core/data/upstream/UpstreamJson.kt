@@ -23,11 +23,48 @@ internal object UpstreamJson {
 
     private val INTEGER = Regex("-?(0|[1-9][0-9]*)")
 
-    /** The parsed body, or `null` for one that is not JSON at all. */
-    fun parse(text: String): JsonElement? = try {
-        json.parseToJsonElement(text)
-    } catch (_: Exception) {
-        null
+    /**
+     * The same answer as Python's `json.loads`: the literals it reads, and
+     * nothing else. JavaScript's `NaN` and `Infinity` are among them.
+     */
+    private val LITERAL = Regex("true|false|null|NaN|-?Infinity|-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][-+]?[0-9]+)?")
+
+    /**
+     * The parsed body, or `null` for one that is not JSON at all — the server's
+     * `response.json()` raising `ValueError`, held to it by the vectors'
+     * `raw_answer_cases`.
+     *
+     * kotlinx reads any unquoted token as a literal, lenient or not: «<html>»,
+     * «Error» and «01» on their own, `False` or `abc` as a value inside an
+     * object. Each of those is a refusal to the server, which calls it
+     * «unexpected»; the phone used to carry on with a word, and then called a
+     * firewall page a dead diary and a garbled login answer a wrong password.
+     */
+    fun parse(text: String): JsonElement? {
+        val element = try {
+            json.parseToJsonElement(text)
+        } catch (_: Exception) {
+            return null
+        }
+        return element.takeIf(::strict)
+    }
+
+    /**
+     * Walked with a stack of its own rather than by recursion: kotlinx parses a
+     * two-megabyte «[[[[…» without overflowing, and a recursive walk over what
+     * it built would not.
+     */
+    private fun strict(root: JsonElement): Boolean {
+        val pending = ArrayDeque<JsonElement>().apply { add(root) }
+        while (pending.isNotEmpty()) {
+            when (val element = pending.removeLast()) {
+                is JsonObject -> pending.addAll(element.values)
+                is JsonArray -> pending.addAll(element)
+                is JsonNull -> Unit
+                is JsonPrimitive -> if (!element.isString && !LITERAL.matches(element.content)) return false
+            }
+        }
+        return true
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons.core.data.upstream
 
 import com.lumenpearson.lessons.core.data.catalog.RegionCatalog
+import com.lumenpearson.lessons.core.data.repository.DiaryLogin
 import com.lumenpearson.lessons.core.data.repository.DiarySessionIdleDays
 import com.lumenpearson.lessons.core.data.repository.DiarySignInProblem
 import com.lumenpearson.lessons.core.data.repository.DiaryTarget
@@ -111,6 +112,37 @@ class DiaryProtocolVectorsTest {
             val value = case.getValue("value").jsonPrimitive.content
             val ok = case.getValue("ok").jsonPrimitive.booleanOrNull!!
             assertEquals("header value ${value.quoted()}", ok, UpstreamValues.headerValueOk(value))
+        }
+    }
+
+    /**
+     * The login the diary is sent and our server registers is the one the
+     * server's `_clean_login_value` would have made of what was typed — asked of
+     * the cleaner, and then of both sign-ins, which is where a login pasted
+     * with a bidi mark around it used to go out as pasted.
+     */
+    @Test
+    fun `login cleaning matches the shared vectors, and both sign-ins send the cleaned login`() = runBlocking {
+        val login = Vectors.root.getValue("login").jsonObject
+        assertEquals(login.getValue("min_code_points").jsonPrimitive.int, DiaryLogin.MIN_CODE_POINTS)
+        for (case in Vectors.cases(login, "cases")) {
+            val typed = case.getValue("typed").jsonPrimitive.content
+            val wanted = case.getValue("sent").jsonPrimitive.contentOrNull
+            assertEquals(typed.quoted(), wanted, DiaryLogin.clean(typed))
+            if (wanted == null) continue
+
+            val script = NetSchoolScript()
+            server.dispatcher = script
+            val petersburg = PetersburgSignIn(clientFor(server), originOf(server), clock)
+                .signIn(DiaryTarget.petersburg(typed), "secret")
+            val body = Json.parseToJsonElement(script.to(PetersburgSignIn.LOGIN_PATH).single().body!!.utf8())
+            assertEquals(typed.quoted(), wanted, body.jsonObject.getValue("login").jsonPrimitive.content)
+            assertEquals(typed.quoted(), wanted, petersburg.target.login)
+
+            val netschool = NetSchoolSignIn(clientFor(server), clock)
+                .signIn(regionAt(server), netschoolTarget(login = typed), "hunter2")
+            assertEquals(typed.quoted(), wanted, script.to(NetSchoolSignIn.LOGIN_PATH).single().form()["un"])
+            assertEquals(typed.quoted(), wanted, netschool.target.login)
         }
     }
 
@@ -310,6 +342,35 @@ class DiaryProtocolVectorsTest {
             }
             assertEquals(label, expect.getValue("at").jsonPrimitive.content, session.at)
             assertEquals(label, expect.getValue("time_out").jsonPrimitive.longOrNull, session.timeOut)
+        }
+    }
+
+    /**
+     * Bodies no JSON value can stand for, sent as bytes at one step. The
+     * phone's parser read «<html>» as a word and «{"at": abc}» as an object,
+     * and so called the first a dead diary and the second a wrong password,
+     * where the server's `json.loads` calls both unreadable.
+     */
+    @Test
+    fun `raw answers match the shared vectors`() = runBlocking {
+        for (case in Vectors.cases(Vectors.netschool, "raw_answer_cases")) {
+            val step = case.getValue("step").jsonPrimitive.content
+            val label = "$step ${case["body"]}"
+            val raw = {
+                rawAnswer(
+                    status = case.getValue("status").jsonPrimitive.int,
+                    contentType = case.getValue("content_type").jsonPrimitive.content,
+                    body = case.getValue("body").jsonPrimitive.content,
+                )
+            }
+            val script = when (step) {
+                "logindata" -> NetSchoolScript(logindata = raw)
+                "getdata" -> NetSchoolScript(getdata = raw)
+                "login" -> NetSchoolScript(logins = ArrayDeque(listOf(raw)))
+                else -> error("unknown step $step")
+            }
+            val outcome = signIn(script)
+            assertEquals(label, case.getValue("expect").jsonPrimitive.content, kindOf(outcome.exceptionOrNull()))
         }
     }
 

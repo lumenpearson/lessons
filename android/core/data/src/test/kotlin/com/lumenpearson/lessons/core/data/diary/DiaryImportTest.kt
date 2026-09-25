@@ -217,20 +217,43 @@ class DiaryImportTest {
         assertFalse(failed.resumable)
     }
 
+    /**
+     * 19:30 UTC on Sunday 27 September is 02:30 on Monday in Tomsk (UTC+7) and
+     * still 22:30 on Sunday in Moscow (UTC+3): the one kind of instant at which
+     * the diary's zone and the zone that used to be hard-coded here disagree.
+     * An instant both call Monday would pass with either.
+     */
+    private val tomskMondayMoscowSunday = java.time.Instant.parse("2026-09-27T19:30:00Z")
+
+    private val tomskSession = DiarySession(
+        login = "parent",
+        token = "ours",
+        target = DiaryTarget.netschool("tomsk", 5, null, "parent", "Asia/Tomsk"),
+    )
+
     @Test
     fun `the weeks are cut in the diary's zone, not the phone's`() = runTest {
-        // 22:30 UTC on Sunday is already Monday in Tomsk (UTC+7).
-        val tomsk = DiarySession(
-            login = "parent",
-            token = "ours",
-            target = DiaryTarget.netschool("tomsk", 5, null, "parent", "Asia/Tomsk"),
-        )
-        val rig = DiaryRig(store = MemoryDiaryStore(session = tomsk))
-        rig.clock.now = java.time.Instant.parse("2026-09-27T22:30:00Z")
+        val rig = DiaryRig(store = MemoryDiaryStore(session = tomskSession))
+        rig.clock.now = tomskMondayMoscowSunday
 
         rig.import.run(choose = neverAsked).toList()
 
-        assertTrue(rig.api.calls.contains("schedule 1 2026-09-28..2026-10-11"))
+        assertTrue(rig.api.calls.toString(), rig.api.calls.contains("schedule 1 2026-09-28..2026-10-11"))
+        // Moscow's Sunday would have fetched the fortnight before.
+        assertFalse(rig.api.calls.toString(), rig.api.calls.contains("schedule 1 2026-09-21..2026-10-04"))
+    }
+
+    @Test
+    fun `refreshIfStale cuts the weeks in the diary's zone too`() = runTest {
+        val rig = DiaryRig(store = MemoryDiaryStore(session = tomskSession, student = 1))
+        rig.clock.now = tomskMondayMoscowSunday
+
+        assertEquals(true, rig.import.refreshIfStale().getOrThrow())
+
+        assertEquals(
+            listOf("schedule 1 2026-09-28..2026-10-11", "homework 1 2026-09-28..2026-10-11"),
+            rig.api.calls,
+        )
     }
 
     @Test
@@ -265,18 +288,80 @@ class DiaryImportTest {
         assertEquals(DiarySignInProblem.ReauthRequired, result.exceptionOrNull())
     }
 
+    /**
+     * Asked while the import's own schedule request is in flight — a stored
+     * pupil, and a week not yet stamped — so a refresh that ignored the import
+     * would get as far as a second schedule request. Asked any earlier (while
+     * the pupil is still being chosen) it returns `false` for want of a pupil,
+     * lock or no lock.
+     */
     @Test
     fun `refreshIfStale is a no-op while an import is running`() = runTest {
-        val rig = DiaryRig(api = ScriptedDiaryApi(students = listOf(student(1), student(2))))
+        val rig = DiaryRig(store = MemoryDiaryStore(student = 1))
+        var asked = false
         var during: Result<Boolean>? = null
+        rig.api.duringRequest = { route ->
+            // Once: a refresh that did get through sends a schedule request of
+            // its own, which comes back through here.
+            if (route.startsWith("schedule") && !asked) {
+                asked = true
+                during = rig.import.refreshIfStale()
+            }
+        }
 
-        rig.import.run(choose = { students ->
-            during = rig.import.refreshIfStale()
-            students.first()
-        }).toList()
+        val last = rig.import.run(choose = neverAsked).toList().last()
 
+        assertTrue(last is DiaryImportProgress.Done)
+        assertTrue(asked)
         assertEquals(false, during?.getOrThrow())
-        assertEquals(1, rig.api.calls.count { it.startsWith("schedule") })
+        assertEquals(listOf("schedule 1 $weeks"), rig.api.calls.filter { it.startsWith("schedule") })
+        assertEquals(listOf("homework 1 $weeks"), rig.api.calls.filter { it.startsWith("homework") })
+    }
+
+    /**
+     * The container's sign-in seeds the pupils the registration answered, into
+     * a cache the sign-in has just emptied for a new account — which is exactly
+     * where taking the generation before the registration, or seeding nothing,
+     * would leave the import asking for the pupils again.
+     */
+    @Test
+    fun `the pupils a sign-in registered are seeded after it empties the cache, and not asked for again`() = runTest {
+        for (path in listOf("signIn", "register")) {
+            val rig = DiaryRig()
+            // What the last account left, which a new account's sign-in empties.
+            rig.cache.putStudents(rig.cache.generation(), listOf(pupil(9)))
+            val seeding = SeedingDiarySignIn(ClearingSignIn(rig), rig.cache)
+
+            when (path) {
+                "signIn" -> seeding.signIn(DiaryTarget.petersburg("parent"), "secret").getOrThrow()
+                else -> seeding.register(
+                    com.lumenpearson.lessons.core.data.upstream.UpstreamSession.Petersburg(
+                        target = DiaryTarget.petersburg("parent"),
+                        token = "never read",
+                        openedAt = rig.clock.now,
+                    ),
+                ).getOrThrow()
+            }
+            assertEquals(path, listOf(1L), rig.cache.students.first().students.map { it.id })
+
+            rig.import.run(choose = neverAsked).toList()
+
+            assertFalse(path, rig.api.calls.contains("students"))
+        }
+    }
+
+    /** A sign-in that does what [com.lumenpearson.lessons.core.data.repository.DiarySignInImpl] does for a new account: empties the cache, then answers. */
+    private inner class ClearingSignIn(private val rig: DiaryRig) :
+        com.lumenpearson.lessons.core.data.repository.DiarySignIn by UnusedSignIn {
+        private suspend fun registered(): Result<com.lumenpearson.lessons.core.data.repository.DiaryRegistration> {
+            rig.cache.clear()
+            val session = rig.store.currentDiarySession()!!
+            return Result.success(com.lumenpearson.lessons.core.data.repository.DiaryRegistration(session, listOf(pupil(1))))
+        }
+
+        override suspend fun register(upstream: com.lumenpearson.lessons.core.data.upstream.UpstreamSession) = registered()
+
+        override suspend fun signIn(target: DiaryTarget, password: String) = registered()
     }
 
     private fun pupil(id: Long) = DiaryStudent(

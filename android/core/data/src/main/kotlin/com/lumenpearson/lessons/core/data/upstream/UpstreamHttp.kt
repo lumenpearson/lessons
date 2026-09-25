@@ -3,9 +3,10 @@ package com.lumenpearson.lessons.core.data.upstream
 import java.io.IOException
 import java.net.NoRouteToHostException
 import java.net.UnknownHostException
+import java.security.cert.CertPathBuilderException
 import java.security.cert.CertPathValidatorException
+import java.security.cert.CertificateException
 import java.util.concurrent.TimeUnit
-import javax.net.ssl.SSLHandshakeException
 import javax.net.ssl.SSLPeerUnverifiedException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -126,12 +127,19 @@ internal object UpstreamHttp {
     fun classify(failure: IOException): UpstreamFailure {
         val chain = generateSequence<Throwable>(failure) { it.cause }.take(8).toList()
         return when {
-            // A region signed only by a root the phone does not trust. Nothing
-            // is relaxed to get past it; the screen says so instead.
+            // A region signed only by a root the phone does not trust, an
+            // expired certificate, or one for another name. Nothing is relaxed
+            // to get past it; the screen says so instead. Only a failure that
+            // examined the certificate counts: a bare SSLHandshakeException is
+            // also what a reset or a peer hanging up mid-handshake looks like
+            // (Conscrypt's «Connection reset by peer», the JVM's «Remote host
+            // terminated the handshake»), and that is a network worth retrying,
+            // as the server reads the same failure.
             chain.any {
-                it is SSLHandshakeException ||
-                    it is SSLPeerUnverifiedException ||
-                    it is CertPathValidatorException
+                it is CertificateException ||
+                    it is CertPathValidatorException ||
+                    it is CertPathBuilderException ||
+                    it is SSLPeerUnverifiedException
             } -> UpstreamFailure.Untrusted(failure)
             chain.any { it is UnknownHostException || it is NoRouteToHostException } ->
                 UpstreamFailure.Offline(failure)

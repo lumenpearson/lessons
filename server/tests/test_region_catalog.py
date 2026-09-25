@@ -656,3 +656,24 @@ def test_the_search_lexicon_swaps_layouts_key_for_key():
     assert transliterate("moskva") == "москва"
     assert transliterate("chelyabinsk") == "челябинск"
     assert "казань".startswith(transliterate("kazan"))
+    # The English endings of the Russian ones, which letter by letter came out
+    # as «чувашиа», «мансиыск» and «якуцк» and matched nothing.
+    assert transliterate("chuvashia") == "чувашия"
+    assert transliterate("bashkiriya") == "башкирия"
+    assert transliterate("mansiysk") == "мансийск"
+    assert transliterate("yakutsk") == "якутск"
+
+
+def test_the_search_synonyms_are_english_words_for_the_names_words():
+    """«St Petersburg» and «Moscow region» are how English writes two regions,
+    and neither is a word of their names. «oblast» stays out of the stop words:
+    dropping it would tie Moscow Oblast with Moscow on the query «moscow»."""
+    search = _committed()["search"]
+    assert search["synonyms"]["st"] == ["saint"]
+    assert "oblast" in search["synonyms"]["region"]
+    assert "oblast" not in search["stop_words"]
+    names = {
+        word for region in _committed()["regions"] for word in region["name_en"].lower().split()
+    }
+    for meant in search["synonyms"].values():
+        assert set(meant) <= names, meant

@@ -183,12 +183,22 @@ class SchoolDirectoryTest {
         assertTrue(api.asked.isEmpty())
     }
 
+    /**
+     * «Казань №» is both: the numero sign makes it a school's name worth asking
+     * the directory about, and «Казань» is a city the catalog places on its
+     * own. A query the catalog knows nothing of would pass whatever became of
+     * its answer, because that answer is empty either way.
+     */
     @Test
     fun `a directory that fails leaves the catalog's answer standing`() = runTest {
         val api = FakeDirectoryApi(failure = statusError(503, DirectoryApi.UNAVAILABLE_HEADER to "spent"))
 
-        val result = lookup(api).find("лицей 1535")
+        val result = lookup(api).find("Казань №")
 
+        // The directory really was asked, and really failed.
+        assertEquals(1, api.asked.size)
         assertEquals(SchoolLookup.Failed(DirectoryProblem.Spent(null)), result.bySchool)
+        assertEquals("tatarstan", result.byName.firstOrNull()?.region?.key)
+        assertEquals("tatarstan", result.suggested.firstOrNull()?.key)
     }
 }

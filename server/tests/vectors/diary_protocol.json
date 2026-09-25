@@ -91,6 +91,20 @@
    {"status": 200, "body": {"entryPoint": "/choose-session-role"}, "tried_role": false, "expect": {"failure": "unexpected"}},
    {"status": 200, "body": {"entryPoint": "/choose-session-role"}, "tried_role": true, "expect": {"failure": "bad_credentials", "message": null}}
   ],
+  "raw_answer_cases_about": "Answers given as the bytes the diary sent, for bodies no JSON value can stand for. The step's answer is replaced and the flow's own answers stand in for the rest. Whatever Python's json.loads refuses is unexpected on both sides, however lenient a parser could be about it: a single unquoted word, a leading zero, a bare word inside an object. NaN and Infinity are JSON to Python, so they are to the phone too.",
+  "raw_answer_cases": [
+   {"step": "logindata", "status": 200, "content_type": "text/html", "body": "<html>", "expect": "unexpected"},
+   {"step": "logindata", "status": 200, "content_type": "application/json", "body": "{\"schoolLogin\": False}", "expect": "unexpected"},
+   {"step": "getdata", "status": 200, "content_type": "text/html", "body": "<html>", "expect": "unexpected"},
+   {"step": "getdata", "status": 200, "content_type": "text/plain", "body": "Error", "expect": "unexpected"},
+   {"step": "getdata", "status": 200, "content_type": "application/json", "body": "01", "expect": "unexpected"},
+   {"step": "getdata", "status": 200, "content_type": "application/json", "body": "{\"salt\": \"333\", \"lt\": 1x}", "expect": "unexpected"},
+   {"step": "getdata", "status": 200, "content_type": "application/json", "body": " {\"salt\": \"333\", \"lt\": \"1\", \"ver\": \"2\"}\n", "expect": "ok"},
+   {"step": "login", "status": 200, "content_type": "text/plain", "body": "OK", "expect": "unexpected"},
+   {"step": "login", "status": 200, "content_type": "application/json", "body": "{\"at\": abc}", "expect": "unexpected"},
+   {"step": "login", "status": 200, "content_type": "application/json", "body": "{\"at\": \"x\", \"timeOut\": NaN}", "expect": "ok"},
+   {"step": "login", "status": 200, "content_type": "application/json", "body": "{\"at\": \"x\", \"timeOut\": -Infinity}", "expect": "ok"}
+  ],
   "role_pick": [
    {"body": {"accountInfo": {"userRoles": [{"role": {"id": 7, "name": "Учитель"}}, {"role": {"id": 12, "name": "Родитель"}}]}}, "expect": "12"},
    {"body": {"userRoles": [{"id": 5, "name": "Администратор"}]}, "expect": "5"},
@@ -140,6 +154,29 @@
    {"value": "a\\b", "ok": false},
    {"value": "abc=+/", "ok": true},
    {"value": "ключ", "ok": false}
+  ]
+ },
+ "login": {
+  "about": "The login as both sides clean it before it goes anywhere: the server's schemas._clean_login_value, the phone's DiaryLogin.clean. Every character Python's str.isprintable refuses is dropped (controls, format characters, surrogates, private use, unassigned, and every separator but the plain space), then the ends are trimmed, and fewer than min_code_points code points left is no login. A sent of null is refused before anything is sent anywhere.",
+  "min_code_points": 3,
+  "cases": [
+   {"typed": " parent@example.com ", "sent": "parent@example.com"},
+   {"typed": "⁨parent@example.com⁩", "sent": "parent@example.com"},
+   {"typed": "‎parent", "sent": "parent"},
+   {"typed": "﻿parent", "sent": "parent"},
+   {"typed": "par­ent", "sent": "parent"},
+   {"typed": " parent ", "sent": "parent"},
+   {"typed": "\tparent\r\n", "sent": "parent"},
+   {"typed": "a\u0000bc", "sent": "abc"},
+   {"typed": " abc ", "sent": "abc"},
+   {"typed": "abc", "sent": "abc"},
+   {"typed": "ab͸c", "sent": "abc"},
+   {"typed": "par ent", "sent": "par ent"},
+   {"typed": "Иванов", "sent": "Иванов"},
+   {"typed": "😀ab", "sent": "😀ab"},
+   {"typed": "ab​", "sent": null},
+   {"typed": "  ab  ", "sent": null},
+   {"typed": "​​​", "sent": null}
   ]
  },
  "header_token": {

@@ -94,18 +94,18 @@ internal class DiarySignInImpl(
         }
         val host = endpoint.origin.host
         try {
-            // The server's own rule for a login, checked before anything is
-            // sent, so a typo costs a sentence rather than an attempt.
-            val login = target.login.trim()
-            if (login.codePointCount(0, login.length) < MIN_LOGIN_LENGTH) {
-                throw DiarySignInProblem.LoginTooShort
-            }
+            // The server's own rule for a login, whole — the cleaning as well
+            // as the length — applied before anything is sent: a typo costs a
+            // sentence rather than an attempt, and what the diary is sent is
+            // what the registration will carry.
+            val login = DiaryLogin.clean(target.login) ?: throw DiarySignInProblem.LoginTooShort
             if (password.isEmpty()) throw DiarySignInProblem.WrongPassword(upstreamMessage = null)
+            val cleaned = target.copy(login = login)
             val session = when (endpoint) {
                 is Endpoint.Petersburg ->
-                    PetersburgSignIn(client(), endpoint.origin, clock).signIn(target, password)
+                    PetersburgSignIn(client(), endpoint.origin, clock).signIn(cleaned, password)
                 is Endpoint.NetSchool ->
-                    NetSchoolSignIn(client(), clock).signIn(endpoint.region, target, password)
+                    NetSchoolSignIn(client(), clock).signIn(endpoint.region, cleaned, password)
             }
             Result.success(session)
         } catch (cancellation: CancellationException) {
@@ -255,7 +255,10 @@ internal class DiarySignInImpl(
      */
     private fun requestFor(upstream: UpstreamSession): DiarySessionRequestDto? {
         val target = upstream.target
-        val login = target.login.trim()
+        // Already clean when the session came from `openUpstream`; cleaned
+        // again rather than trusted, because the server stores the cleaned
+        // login and refuses, with a 422, one that cleans to under three.
+        val login = DiaryLogin.clean(target.login) ?: throw DiarySignInProblem.LoginTooShort
         return when (upstream) {
             is UpstreamSession.Petersburg -> {
                 val token = upstream.token
@@ -302,8 +305,8 @@ internal class DiarySignInImpl(
      */
     private fun sessionFrom(response: DiarySessionResponseDto, sent: DiaryTarget): DiarySession {
         // The login as the server stored it, which keys the corrections; what
-        // was typed, trimmed, if it ever stops echoing one.
-        val login = response.login.trim().ifBlank { sent.login.trim() }
+        // was sent, cleaned the same way, if it ever stops echoing one.
+        val login = DiaryLogin.clean(response.login) ?: DiaryLogin.clean(sent.login) ?: sent.login.trim()
         val target = sent.copy(
             region = response.region ?: sent.region,
             schoolId = response.schoolId ?: sent.schoolId,
@@ -315,9 +318,6 @@ internal class DiarySignInImpl(
     }
 
     private companion object {
-        /** `_clean_login_value` in `server/app/schemas.py`. */
-        const val MIN_LOGIN_LENGTH = 3
-
         val DEFAULT_MAX_AGE: Duration = Duration.ofMinutes(10)
         const val MIN_DECLARED_TIMEOUT_MILLIS = 60_000L
 

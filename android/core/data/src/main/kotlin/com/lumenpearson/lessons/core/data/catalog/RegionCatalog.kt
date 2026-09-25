@@ -183,4 +183,5 @@ data class CatalogSearch(
     @SerialName("school_words") val schoolWords: List<String> = emptyList(),
     @SerialName("stop_words") val stopWords: List<String> = emptyList(),
     @SerialName("translit") val translit: List<List<String>> = emptyList(),
+    @SerialName("synonyms") val synonyms: Map<String, List<String>> = emptyMap(),
 )

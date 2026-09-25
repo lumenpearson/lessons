@@ -1,5 +1,7 @@
 package com.lumenpearson.lessons.core.data.upstream
 
+import com.lumenpearson.lessons.core.data.repository.DiaryLogin
+import com.lumenpearson.lessons.core.data.repository.DiarySignInProblem
 import com.lumenpearson.lessons.core.data.repository.DiaryTarget
 import java.time.Clock
 import kotlinx.coroutines.CancellationException
@@ -55,7 +57,9 @@ internal class NetSchoolSignIn(
         // Before any request: a region that takes Госуслуги only is sent nothing.
         if (!region.password) throw UpstreamFailure.SignInUnsupported()
         val schoolId = target.schoolId ?: throw UpstreamFailure.Unexpected("no school")
-        val login = target.login.trim()
+        // The login the server would have cleaned before any upstream call,
+        // so a pasted bidi mark is not a wrong password.
+        val login = DiaryLogin.clean(target.login) ?: throw DiarySignInProblem.LoginTooShort
         val draft = Draft(region.origin)
 
         loginAllowed(draft)

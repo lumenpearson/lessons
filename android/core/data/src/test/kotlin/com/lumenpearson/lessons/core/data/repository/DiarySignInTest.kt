@@ -24,6 +24,7 @@ import com.lumenpearson.lessons.core.data.upstream.MutableClock
 import com.lumenpearson.lessons.core.data.upstream.NetSchoolScript
 import com.lumenpearson.lessons.core.data.upstream.NetSchoolSignIn
 import com.lumenpearson.lessons.core.data.upstream.PETERSBURG_JWT
+import com.lumenpearson.lessons.core.data.upstream.PetersburgSignIn
 import com.lumenpearson.lessons.core.data.upstream.SCRIPT_SESSION_COOKIE
 import com.lumenpearson.lessons.core.data.upstream.Vectors
 import com.lumenpearson.lessons.core.data.upstream.UpstreamHttp
@@ -71,7 +72,9 @@ class DiarySignInTest {
     private lateinit var server: MockWebServer
     private lateinit var script: NetSchoolScript
     private val api = ScriptedDiaryApi()
-    private val store = RecordingStore()
+    /** Every forget, pupil selection and session write, in the order they happened. */
+    private val events = mutableListOf<String>()
+    private val store = RecordingStore(events)
     private val clock = MutableClock()
     private var forgotten = 0
 
@@ -208,6 +211,27 @@ class DiarySignInTest {
         assertEquals(DiarySignInProblem.GosuslugiOnly("https://region.zabedu.ru"), failure)
         assertEquals(0, server.requestCount)
         assertEquals(0, api.capabilityCalls)
+    }
+
+    /**
+     * A login pasted from a chat carries invisible characters — bidi isolates
+     * around it, a zero-width space after it. The server always cleaned them
+     * before any upstream call; the diary is sent, and our server registers,
+     * the same cleaned login, and one that cleans to under three characters is
+     * refused with nothing sent anywhere.
+     */
+    @Test
+    fun `a pasted login goes to the diary and the registration cleaned, as the server cleans it`() = runBlocking {
+        signIn().signIn(DiaryTarget.petersburg("\u2068parent@example.com\u2069\u200b"), "secret").getOrThrow()
+
+        val sent = Json.parseToJsonElement(script.to(PetersburgSignIn.LOGIN_PATH).single().body!!.utf8()).jsonObject
+        assertEquals("parent@example.com", sent.getValue("login").jsonPrimitive.content)
+        assertEquals("parent@example.com", api.registered.single().login)
+        assertEquals("parent@example.com", store.session!!.target.login)
+
+        val failure = signIn().openUpstream(netschoolTarget(login = "ab\u200b"), "hunter2").exceptionOrNull()
+        assertEquals(DiarySignInProblem.LoginTooShort, failure)
+        assertEquals(1, server.requestCount)
     }
 
     @Test
@@ -441,9 +465,14 @@ class DiarySignInTest {
         assertEquals(0, forgotten)
         assertEquals(7L, store.student)
 
+        events.clear()
         signIn().signIn(netschoolTarget(login = "other-parent"), "hunter2").getOrThrow()
         assertEquals(1, forgotten)
         assertNull(store.student)
+        // In this order: were the write first, a process dying between the two
+        // would leave the new account's bearer over the old account's rows,
+        // and every later sign-in to it would match and keep them.
+        assertEquals(listOf("forget", "select:null", "write"), events)
     }
 
     @Test
@@ -463,7 +492,10 @@ class DiarySignInTest {
         store = store,
         directory = { directory },
         client = { UpstreamHttp.client { directory.allowedOrigins() } },
-        forgetLocal = { forgotten++ },
+        forgetLocal = {
+            forgotten++
+            events += "forget"
+        },
         clock = clock,
         ioDispatcher = Dispatchers.Unconfined,
     )
@@ -510,7 +542,7 @@ class DiarySignInTest {
     }
 
     /** The store, with nothing in it but what was last written. */
-    private class RecordingStore : DiarySessionStore {
+    private class RecordingStore(private val events: MutableList<String>) : DiarySessionStore {
         var session: DiarySession? = null
         var target: DiaryTarget? = null
         var student: Long? = null
@@ -518,6 +550,7 @@ class DiarySignInTest {
         override val diarySession: Flow<DiarySession?> get() = MutableStateFlow(session)
         override suspend fun currentDiarySession(): DiarySession? = session
         override suspend fun writeDiarySession(value: DiarySession) {
+            events += "write"
             session = value
             target = value.target
         }
@@ -536,6 +569,7 @@ class DiarySignInTest {
         override suspend fun currentDiaryTarget(): DiaryTarget? = target
         override val selectedStudentId: Flow<Long?> get() = MutableStateFlow(student)
         override suspend fun selectStudent(id: Long?) {
+            events += "select:$id"
             student = id
         }
     }

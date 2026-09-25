@@ -3,10 +3,17 @@ package com.lumenpearson.lessons.core.data.upstream
 import com.lumenpearson.lessons.core.data.network.AuthInterceptor
 import com.lumenpearson.lessons.core.data.network.BaseUrlInterceptor
 import com.lumenpearson.lessons.core.data.network.DiaryAuthInterceptor
+import java.io.EOFException
 import java.io.IOException
+import java.net.SocketException
 import java.net.UnknownHostException
+import java.security.cert.CertPathBuilderException
+import java.security.cert.CertPathValidatorException
+import java.security.cert.CertificateException
+import java.security.cert.CertificateExpiredException
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLHandshakeException
+import javax.net.ssl.SSLPeerUnverifiedException
 import kotlinx.coroutines.runBlocking
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -148,9 +155,11 @@ class UpstreamHttpTest {
     }
 
     @Test
-    fun `a TLS failure is untrusted, never offline`() = runBlocking {
+    fun `a certificate the phone cannot trust is untrusted, never offline`() = runBlocking {
+        // Android's shape: the handshake fails because a CertificateException
+        // wraps the path validator's «Trust anchor for certification path not found».
         val client = clientFor(server).newBuilder()
-            .addInterceptor { throw SSLHandshakeException("PKIX path building failed") }
+            .addInterceptor { throw handshake("Trust anchor", CertificateException(CertPathValidatorException("no anchor"))) }
             .build()
 
         val failure = runCatching {
@@ -158,6 +167,47 @@ class UpstreamHttpTest {
         }.exceptionOrNull()
 
         assertTrue("got $failure", failure is UpstreamFailure.Untrusted)
+    }
+
+    /**
+     * Only a failure that examined the certificate is a trust problem. The
+     * JVM's own «PKIX path building failed» carries a CertificateException
+     * subclass, an expired certificate is one, and a name the certificate does
+     * not cover is OkHttp's SSLPeerUnverifiedException.
+     */
+    @Test
+    fun `every shape of a real trust failure is untrusted`() {
+        val trust = listOf(
+            handshake("PKIX path building failed", CertificateException("PKIX", CertPathBuilderException("unable to find path"))),
+            handshake("expired", CertificateExpiredException("NotAfter: 2020")),
+            handshake("validator", CertPathValidatorException("revoked")),
+            SSLPeerUnverifiedException("Hostname region.zabedu.ru not verified"),
+            IOException("wrapped", SSLPeerUnverifiedException("peer not authenticated")),
+        )
+        for (failure in trust) {
+            assertTrue("$failure", UpstreamHttp.classify(failure) is UpstreamFailure.Untrusted)
+        }
+    }
+
+    /**
+     * A handshake the network broke never looked at a certificate: Conscrypt
+     * says «Connection reset by peer» or «Connection closed by peer» for a
+     * firewall or a flaky link, the JVM «Remote host terminated the handshake»
+     * over an EOF. Calling that «the phone does not trust the diary» offered no
+     * retry for something a retry fixes.
+     */
+    @Test
+    fun `a handshake the network broke is unavailable, not untrusted`() {
+        val broken = listOf(
+            handshake("Read error: ssl=0x7b: I/O error during system call, Connection reset by peer", SocketException("Connection reset")),
+            handshake("Connection closed by peer", null),
+            handshake("Remote host terminated the handshake", EOFException("SSL peer shut down incorrectly")),
+            handshake("Received fatal alert: handshake_failure", null),
+        )
+        for (failure in broken) {
+            val classified = UpstreamHttp.classify(failure)
+            assertTrue("$failure: $classified", classified is UpstreamFailure.Unavailable)
+        }
     }
 
     @Test
@@ -195,6 +245,9 @@ class UpstreamHttpTest {
         val failure = UpstreamHttp.classify(IOException("lookup", UnknownHostException("sgo.example")))
         assertTrue(failure is UpstreamFailure.Offline)
     }
+
+    private fun handshake(message: String, cause: Throwable?): SSLHandshakeException =
+        SSLHandshakeException(message).apply { if (cause != null) initCause(cause) }
 
     @Test
     fun `a session cookie is read from the last live one of its name`() {

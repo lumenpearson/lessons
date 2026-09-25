@@ -44,14 +44,51 @@ class BackupRulesTest {
                 "where the reports are",
             name != null,
         )
-        // Both places the reporter writes, so a third one added there is a
-        // question this test has to be taught rather than one it misses.
-        assertTrue(
-            "CrashReporter writes somewhere other than getExternalFilesDir and filesDir",
-            text.contains("getExternalFilesDir(REPORTS_DIR)") &&
-                text.contains("File(context.filesDir, REPORTS_DIR)"),
-        )
+        assertWritesOnlyToTheReportsFolder(text)
         checkNotNull(name)
+    }
+
+    /**
+     * The two places the reporter writes, and nowhere else — so a third one
+     * added there is a question this test has to be taught rather than one it
+     * misses. A presence check of the two could not fail when a third
+     * appeared beside them: a `File(context.filesDir, "last_crash.txt")` sits in
+     * the `file` domain outside `crash_reports`, which the rules do not exclude.
+     *
+     * Every storage root Android hands an app is looked for, with comments
+     * taken out first so a sentence about one is not a write; what remains once
+     * the two known expressions are removed must name none. A path spelt out as
+     * a string is refused for the same reason.
+     */
+    private fun assertWritesOnlyToTheReportsFolder(source: String) {
+        val code = source
+            .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), " ")
+            .replace(Regex("""//[^\n]*"""), " ")
+        for (known in KNOWN_LOCATIONS) {
+            assertTrue("CrashReporter no longer writes to $known; teach this test where it writes", known in code)
+        }
+        val rest = KNOWN_LOCATIONS.fold(code) { text, known -> text.replace(known, " ") }
+        val other = STORAGE_ROOTS.findAll(rest).map { it.value }.toList() + LITERAL_PATH.findAll(rest).map { it.value }
+        assertTrue(
+            "CrashReporter writes somewhere other than ${KNOWN_LOCATIONS.joinToString(" and ")}: $other — " +
+                "the backup rules exclude only the reports folder, so a file anywhere else goes to Google",
+            other.isEmpty(),
+        )
+    }
+
+    private companion object {
+        /** Where `CrashReporter.directory` puts the reports folder: external files, else internal. */
+        val KNOWN_LOCATIONS = listOf("getExternalFilesDir(REPORTS_DIR)", "File(context.filesDir, REPORTS_DIR)")
+
+        /** Every directory, file and store an app's `Context` or `Environment` can name. */
+        val STORAGE_ROOTS = Regex(
+            """\b(getExternalFilesDirs?|getExternalCacheDirs?|externalCacheDirs?|externalMediaDirs|filesDir|""" +
+                """cacheDir|noBackupFilesDir|codeCacheDir|dataDir|obbDirs?|getDir|openFileOutput|getDatabasePath|""" +
+                """getSharedPreferences|getExternalStorageDirectory|getExternalStoragePublicDirectory|dataStore)\b""",
+        )
+
+        /** A `File("/…")` or `File("…")` whose root is a literal rather than one of the above. */
+        val LITERAL_PATH = Regex("""\bFile\(\s*"""")
     }
 
     /** Every `<exclude>` under [parent] (or the whole file), as domain to path. */

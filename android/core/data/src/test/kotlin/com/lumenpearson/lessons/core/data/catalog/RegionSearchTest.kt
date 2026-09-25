@@ -58,6 +58,47 @@ class RegionSearchTest {
         assertEquals("moscow", first("moskva"))
     }
 
+    /**
+     * How the regions are usually written in English, which is neither a word
+     * of `name_en` nor a clean transliteration: an abbreviation («St»), the
+     * word «region» where the name says «Oblast» or «Krai», and «-ia» for the
+     * Russian «-ия». Each of these used to find nothing at all.
+     */
+    @Test
+    fun `common English spellings find their region first`() {
+        val expected = listOf(
+            "St Petersburg" to "saint-petersburg",
+            "St. Petersburg" to "saint-petersburg",
+            "st.petersburg" to "saint-petersburg",
+            "Moscow region" to "moscow-oblast",
+            "Leningrad region" to "leningrad",
+            "Krasnodar region" to "krasnodar",
+            "Chuvashia" to "chuvashia",
+            "Udmurtia" to "udmurtia",
+            "Bashkiria" to "bashkortostan",
+            "Khakasia" to "khakassia",
+            "Zabaikalye" to "zabaikalsky",
+            "Primorye" to "primorye",
+            "Yakutia" to "yakutia",
+            "Yakutsk" to "yakutia",
+            "Khanty-Mansiysk" to "khmao",
+        )
+        for ((query, key) in expected) assertEquals(query, key, first(query))
+    }
+
+    /**
+     * «Moscow» still means the city first: «Oblast» is not a word the search
+     * drops (that would tie the two and hand Moscow Oblast the city's name),
+     * only a word «region» may stand for.
+     */
+    @Test
+    fun `region stands for oblast without making oblast a stop word`() {
+        assertEquals("moscow", first("moscow"))
+        assertEquals(MatchVia.NAME, search.search("moscow").first().via)
+        assertEquals("moscow-oblast", first("Moscow Oblast"))
+        assertFalse("moscow" in keys("Moscow region"))
+    }
+
     @Test
     fun `a code finds its region`() {
         assertEquals(listOf("leningrad"), keys("47"))

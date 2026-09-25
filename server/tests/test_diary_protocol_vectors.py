@@ -27,7 +27,9 @@ from typing import Any
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
+from app import schemas
 from app.api import cron
 from app.providers.diary import http as diary_http
 from app.providers.diary.errors import (
@@ -50,6 +52,8 @@ NETSCHOOL = VECTORS["netschool"]
 FLOW = NETSCHOOL["flow"]
 PETERSBURG = VECTORS["petersburg"]
 REGION = region_for("zabaikalsky")
+#: Shaped like the ``X-JWT-Token`` Petersburg issues, which is what a registration takes.
+_JWT = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOjF9.c2lnbmF0dXJl"
 
 
 @pytest.fixture(autouse=True)
@@ -235,6 +239,49 @@ def test_the_login_form_carries_exactly_the_vector_fields():
     assert NETSCHOOL["login_form_fields"] == ["loginType", "scid", "un", "pw", "pw2", "lt", "ver"]
 
 
+@pytest.mark.parametrize(
+    "case",
+    NETSCHOOL["raw_answer_cases"],
+    ids=lambda c: f"{c['step']}-{c['body'].strip()}",
+)
+async def test_netschool_raw_answers_match_the_vectors(monkeypatch, case):
+    """Bodies no JSON value can stand for, sent as bytes at one step of an
+    otherwise ordinary sign-in. A parser more lenient than ``json.loads``
+    reads «<html>» as a word and «{"at": abc}» as an object, and then calls
+    the first a dead diary and the second a wrong password."""
+    raw = httpx.Response(
+        case["status"],
+        content=case["body"].encode(),
+        headers={"content-type": case["content_type"]},
+    )
+    steps = {
+        "logindata": "/webapi/logindata",
+        "getdata": "/webapi/auth/getdata",
+        "login": "/webapi/login",
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == steps[case["step"]]:
+            return raw
+        if path == "/webapi/logindata":
+            return _json(200, FLOW["logindata"])
+        if path == "/webapi/auth/getdata":
+            return _json(200, FLOW["getdata"])
+        if path == "/webapi/login":
+            return _json(200, {"at": "x"})
+        return _json(404, {})
+
+    _serve_netschool(monkeypatch, handler)
+    client = nsclient.NetSchoolClient(REGION, {"v": 1, "region": REGION.key})
+    try:
+        await client.login(FLOW["login"], FLOW["password"], FLOW["school_id"])
+    except DiaryError as failure:
+        assert _kind(failure) == case["expect"]
+        return
+    assert case["expect"] == "ok"
+
+
 @pytest.mark.parametrize("case", NETSCHOOL["role_pick"], ids=lambda c: json.dumps(c["body"]))
 def test_netschool_role_pick_matches_the_vectors(case):
     assert nsclient.NetSchoolClient._pick_parent_role(case["body"]) == case["expect"]
@@ -396,6 +443,26 @@ def test_header_token_rule_matches_the_vectors(case):
     assert pattern == "^" + diary_http._HEADER_TOKEN.pattern + "$"
     assert diary_http.header_value_ok(case["value"]) is case["ok"]
     assert (re.fullmatch(pattern, case["value"]) is not None) is case["ok"]
+
+
+@pytest.mark.parametrize("case", VECTORS["login"]["cases"], ids=lambda c: ascii(c["typed"]))
+def test_login_cleaning_matches_the_vectors(case):
+    """The login the server keys a family's corrections on is the login the
+    phone sends the diary and registers — one cleaning, on both sides. The
+    registration body and the password sign-in each run it, so each is asked."""
+    wanted = case["sent"]
+    assert VECTORS["login"]["min_code_points"] == 3
+    for model in (schemas.DiaryLoginIn, schemas.PetersburgSessionIn):
+        fields: dict[str, Any] = {"login": case["typed"]}
+        if model is schemas.DiaryLoginIn:
+            fields["password"] = "secret"
+        else:
+            fields |= {"provider": "petersburg", "credential": {"token": _JWT}}
+        if wanted is None:
+            with pytest.raises(ValidationError):
+                model.model_validate(fields)
+        else:
+            assert model.model_validate(fields).login == wanted
 
 
 def test_user_agent_and_petersburg_origin_are_the_vectors():
