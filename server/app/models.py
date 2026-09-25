@@ -578,6 +578,35 @@ class JoinAttempt(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
 
 
+class UsageCounter(Base):
+    """Units of a shared external allowance spent per calendar day, so one door
+    cannot spend another's.
+
+    DaData gives a key ten thousand requests a day, and two doors spend them:
+    the bot and ``/manage/schools``, behind a class admin, and the anonymous
+    directory the phone asks before it has any class at all. Without a cap on
+    the second, anybody with a loop could spend the whole day's allowance and
+    leave an admin creating a class with «Лимит запросов исчерпан».
+
+    Not in ``join_attempts``: that table is pruned globally to the shortest
+    throttle window on every recorded failure (``JoinThrottle.record``) and by
+    the cron after an hour, so a day's count kept there would be cut to fifteen
+    minutes without anything saying so.
+
+    One row per scope per day and nothing ever deletes one: a year of a single
+    scope is 365 rows of three columns, and yesterday's row is what says how
+    close yesterday came to the cap.
+    """
+
+    __tablename__ = "usage_counters"
+
+    #: Which allowance, such as ``dadata:anon`` (``services/quota.py``).
+    scope: Mapped[str] = mapped_column(String(32), primary_key=True)
+    #: The provider's day, in the zone ``services/quota.py`` counts in.
+    day: Mapped[Date] = mapped_column(SADate, primary_key=True)
+    used: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
 class DeviceToken(Base):
     """Read-only token handed to an Android device after it enters a join code."""
 

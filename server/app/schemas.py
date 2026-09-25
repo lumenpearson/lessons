@@ -1514,3 +1514,53 @@ class RequestDecisionOut(BaseModel):
     # The role actually granted, or ``null`` for a declined request.
     role: RoleName | None = None
     who: str
+
+
+# ---------------------------------------------------------------------------
+# The school directory, anonymous: which regions a school may be in
+# ---------------------------------------------------------------------------
+
+
+class SchoolRegionOut(BaseModel):
+    """One region the search found schools in."""
+
+    #: The region catalog's key («tatarstan»), the one the phone's bundled copy
+    #: of the same catalog knows. ``null`` when the directory named a region
+    #: the catalog cannot place — then ``label`` says what it called it.
+    region: str | None = None
+    #: The two-digit subject code: the catalog's for a placed region, the
+    #: directory's own for one it could not place.
+    code: str | None = None
+    #: The directory's own name for the region («г Байконур»), and only for
+    #: an unplaced one: a placed region is named from the catalog, in the
+    #: reader's language.
+    label: str | None = None
+    #: Hits in this region among the twenty the directory returns at most.
+    schools: int
+    #: Up to three towns, best-ranked first.
+    cities: list[str] = Field(default_factory=list)
+    #: Up to three school names as a person writes them.
+    examples: list[str] = Field(default_factory=list)
+
+
+class SchoolRegionsOut(BaseModel):
+    """What ``GET /api/v1/directory/school-regions`` answers.
+
+    Picking the region from the list always works; this only saves the
+    scrolling. So every failure of it is a 503 that says «выберите регион из
+    списка», and an answer that places nothing is an empty list rather than
+    an error.
+    """
+
+    #: As searched: whitespace collapsed, cut to 150 characters.
+    query: str
+    #: Best-ranked region first, at most ten.
+    regions: list[SchoolRegionOut] = Field(default_factory=list)
+    #: The directory's own ceiling of twenty was reached, so these are the
+    #: regions of the first twenty matches, not of all of them.
+    truncated: bool = False
+    #: The name is too common to place — «школа № 5» is in every region.
+    #: Answered with no upstream call when the name is only a kind of school
+    #: and a small number; after one when twenty matches span four regions or
+    #: more. The phone says so and shows the list.
+    generic: bool = False

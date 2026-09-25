@@ -414,3 +414,88 @@ async def test_one_suggestion_of_the_wrong_shape_does_not_shout_or_lose_the_othe
     # One request, because the first answer was not empty.
     assert len(sent) == 1
 
+
+
+# ---- the region a row is in --------------------------------------------------
+
+
+def test_the_region_code_is_read_from_the_address_kladr_id():
+    """The first two digits of the thirteen are the subject: «78» is Saint
+    Petersburg however the register spells the name beside it."""
+    item = suggestion()
+    item["data"]["address"]["data"]["region_kladr_id"] = "7800000000000"
+    school = m.to_school(item)
+    assert school.region_code == "78"
+    assert school.region == "г Санкт-Петербург"
+    # And the bot's wire shape does not grow a field for it.
+    from app.schemas import SchoolOut
+
+    assert "region_code" not in SchoolOut(**school.model_dump()).model_dump()
+
+
+@pytest.mark.parametrize("kladr", ["ab00000000000", "7", "²800000000000", "", None, 78])
+def test_a_kladr_id_that_is_not_digits_gives_no_code(kladr):
+    """No code rather than a guess: the name is still there to place it by."""
+    item = suggestion()
+    item["data"]["address"]["data"]["region_kladr_id"] = kladr
+    school = m.to_school(item)
+    assert school.region_code is None
+    assert school.region == "г Санкт-Петербург"
+
+
+def test_a_branch_is_one_row_for_the_bot_and_two_for_the_regions():
+    """Same OGRN, two regions. The picker has always folded them and still
+    does; the directory keeps one per region, and falls back to the region's
+    name for a row that carries no code."""
+    head = suggestion()
+    head["data"]["address"]["data"]["region_kladr_id"] = "7800000000000"
+    branch = suggestion()
+    branch["data"]["address"]["data"] = {"region_with_type": "Ленинградская обл"}
+
+    assert len(m.to_schools([head, branch])) == 1
+    assert len(m.to_schools([head, branch], per_region=True)) == 2
+    # A true duplicate in one region is still one row either way.
+    assert len(m.to_schools([head, dict(head)], per_region=True)) == 1
+
+
+async def test_a_retry_the_caller_refuses_is_not_sent(monkeypatch):
+    """The second request costs what the first did, so a caller metering its
+    share is asked before it is made — and a «no» is an empty answer, not an
+    error."""
+    sent = _answering(monkeypatch, {"suggestions": []})
+    asked: list[bool] = []
+
+    async def nothing_left() -> bool:
+        asked.append(True)
+        return False
+
+    found = await dadata_client.suggest_schools("лицей 1535", may_retry=nothing_left)
+
+    assert found == []
+    assert len(sent) == 1
+    assert asked == [True]
+
+
+async def test_a_retry_the_caller_allows_is_sent_as_before(monkeypatch):
+    sent = _answering(monkeypatch, {"suggestions": []}, {"suggestions": [suggestion()]})
+    asked: list[bool] = []
+
+    async def plenty() -> bool:
+        asked.append(True)
+        return True
+
+    found = await dadata_client.suggest_schools("лицей 1535", may_retry=plenty)
+
+    assert len(found) == 1
+    assert len(sent) == 2
+    assert asked == [True]
+
+
+async def test_an_answer_with_rows_never_asks_about_a_retry(monkeypatch):
+    sent = _answering(monkeypatch, {"suggestions": [suggestion()]})
+
+    async def never() -> bool:
+        raise AssertionError("asked about a retry that was not needed")
+
+    assert len(await dadata_client.suggest_schools("лицей 1535", may_retry=never)) == 1
+    assert len(sent) == 1

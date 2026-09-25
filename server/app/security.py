@@ -80,7 +80,7 @@ def normalise_phone(raw: str) -> str:
 
 
 class JoinThrottle:
-    """Sliding-window limit on failed join attempts, counted in the database.
+    """Sliding-window limit on attempts per caller, counted in the database.
 
     Not in memory. The previous implementation kept a dict and justified it on
     the deployment being "a single uvicorn worker sharing one event loop" — true
@@ -90,12 +90,21 @@ class JoinThrottle:
     the endpoint it guards hands out a permanent read token for a real class's
     timetable, homework and teacher names.
 
-    Only failures are recorded, so a classroom of pupils joining from one school
-    NAT is never blocked by each other's successes.
+    `/join` and the diary sign-in record only failures, so a classroom of
+    pupils joining from one school NAT is never blocked by each other's
+    successes. The school directory records every call (:meth:`record`),
+    because there each call spends a request from an allowance somebody else
+    pays for, whether or not it finds anything.
 
-    Both methods take the caller's session and are awaited inside the request,
+    **Every instance must use the same window.** They share one table, and
+    each recorded attempt prunes the *whole* table to its own window, not just
+    its own key's rows — so a limiter with a longer window than the others
+    would have its history cut to theirs without anything saying so.
+    ``test_every_throttle_on_the_attempts_table_uses_one_window`` holds it.
+
+    Every method takes the caller's session and is awaited inside the request,
     which makes this a couple of indexed queries on a table holding one window's
-    worth of failures. That is the price of a limit that is real.
+    worth of attempts. That is the price of a limit that is real.
     """
 
     __slots__ = ("limit", "window")
@@ -135,7 +144,20 @@ class JoinThrottle:
         return max(remaining, 0.0)
 
     async def record_failure(self, session: AsyncSession, key: str) -> None:
-        """Counts one failed attempt, and clears out expired ones."""
+        """Counts one failed attempt, and clears out expired ones.
+
+        A name for what `/join` and the diary sign-in count, which is only what
+        went wrong. It is the same row as :meth:`record`'s.
+        """
+        await self.record(session, key)
+
+    async def record(self, session: AsyncSession, key: str) -> None:
+        """Counts one attempt, whatever came of it, and clears out expired ones.
+
+        For a caller that counts every call rather than only the failures —
+        the school directory, where a search that finds its school has spent
+        the same upstream request as one that finds nothing. Commits.
+        """
         from app.models import JoinAttempt
 
         now = _utcnow()

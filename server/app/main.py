@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from app.api.cron import router as cron_router
 from app.api.diary import router as diary_router
 from app.api.diary_web import router as diary_web_router
+from app.api.directory import router as directory_router
 from app.api.edit import router as edit_router
 from app.api.manage import router as manage_router
 from app.api.public import router as public_router
@@ -136,6 +137,11 @@ app.include_router(diary_router)
 # endpoint a client calls, and it is the one HTML this project serves — see
 # app/api/diary_web.py for why a password may not be typed into a chat.
 app.include_router(diary_web_router)
+# The school directory a phone asks before it has a class: anonymous, and
+# metered per caller and per day (app/api/directory.py). Its imports are the
+# school search's own, which `manage_router` already loads, and the region
+# catalog it reads is parsed on the first search, not here.
+app.include_router(directory_router)
 app.include_router(edit_router)
 # The management surface: what the bot's /subjects, /bells, /class, /devices,
 # /log, /stats, /export, /import and access requests do, for a class admin
