@@ -334,8 +334,11 @@ turned into a file once rather than parsed as prose: `server/app/catalog/data/re
 **generated** by `python -m scripts.region_catalog` (run from `server/`). The server reads it
 to place a school found in the company register in a region
 ([api.md](api.md#which-regions-a-school-is-in-get-apiv1directoryschool-regions)), and the
-same file is written for the app to bundle. It is therefore exactly as current as the survey
-— September 2026 — and exactly as tested: nothing in it was read from a live diary either.
+app bundles the same file in place: on the phone it is the region search, the list of
+systems a family chooses from, and the allow-list of every host the phone may send a diary
+password to ([architecture.md](architecture.md#the-phones-half)). It is therefore exactly as
+current as the survey — September 2026 — and exactly as tested: nothing in it was read from a
+live diary either.
 
 **Three inputs, each trusted for one thing.**
 
@@ -352,6 +355,38 @@ same file is written for the app to bundle. It is therefore exactly as current a
   catches a server that moved in one file and not the other, and the nineteen «Сетевой город»
   keys are the allow-list's own, byte for byte, because they are already stored in
   `classes.diary_region`, `diary_sessions.region` and the sealed credential.
+
+**The search lexicon** is the overlay's `[search]` block, copied into the JSON as `search`,
+and it is data rather than Kotlin because nearly every entry is Cyrillic. The phone
+lower-cases a query and applies `fold` (ё, the dashes), cuts it at punctuation and drops
+`stop_words` («область», «край», «республика»…), and tries it three ways besides: through the
+keyboard-layout swap (`latin_layout` / `cyrillic_layout`, «cfvfhf» for «самара»), through
+`translit` for a Latin query, and through `synonyms`. `school_words` are what make a query a
+school's name rather than a place's, for the phone and for the server's directory alike.
+
+- **`translit`** is `[latin, cyrillic]` pairs, **longest first**, and the generator refuses
+  any other order, because the phone takes the first pair that matches at each position. The
+  endings are how English writes the Russian ones — `iya`, `ia`, `iy`, `yy`, `tsk` — so that
+  «Chuvashia», «Bashkiriya», «Khanty-Mansiysk» and «Yakutsk» come out whole rather than as
+  «чувашиа» or «якуцк». It is best effort, not a standard.
+- **`[search.synonyms]`** is optional: a lower-case Latin word mapped to a non-empty list of
+  them, the only shape the generator accepts, because the phone compares words after it has
+  folded case and cut at punctuation and nothing else could ever be typed. A query is also
+  tried with a word swapped for each of its synonyms, and still as typed: `st` is `saint`,
+  and `region` is `oblast` or `krai`, which is how «St Petersburg» and «Moscow region» find
+  their regions. «oblast» is deliberately **not** a stop word the way «область» is: «moscow»
+  would then tie the region with the city, and a tie goes to the list's order rather than to
+  the city somebody meant.
+- **An English spelling goes into a region's `aliases` only when neither `name_en` nor
+  `translit` can produce it** — «Zabaikalye» and «Zabaykalye» for Забайкальский край,
+  «Primorye» for Приморский: no transliteration table brings back a soft sign. `cities` are a
+  few large towns, so that «Тольятти» finds Самарская. Both are search hints, never shown as
+  a region's name.
+
+`test_region_catalog.py` holds the shape — every synonym is a word some `name_en` actually
+contains, «oblast» is not a stop word, and the transliteration spells the endings above — and
+on the phone `RegionSearchTest` requires fifteen common English spellings, from «St.
+Petersburg» to «Khanty-Mansiysk», to land on their region first.
 
 **Never edit the JSON by hand.** A change to a region goes into regions.md or the overlay, and
 the generator is run again. `server/tests/test_region_catalog.py` runs the generator's

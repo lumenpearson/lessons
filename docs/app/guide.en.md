@@ -13,25 +13,34 @@
 # Lessons — how to use this
 
 ## First run
-<!-- id: START; label: Start; summary: Five steps and a class code -->
+<!-- id: START; label: Start; summary: The introduction and two ways in -->
 
-One person keeps the class timetable in a Telegram bot; the app reads it and shows it — on screen, in the widget and in notifications. There is nothing for you to type in but the class code, once.
+The app shows one of two things, or both: a class timetable that one person keeps in a Telegram bot — on screen, in the widget and in notifications; or your school's electronic diary, if you sign in to it yourself.
 
-A fresh install does not open with the code field. It opens with five steps.
+A fresh install does not open with the code field. It opens with five introductory steps. Under the “Continue” button on the first of them there is always the line “By continuing, you accept the Terms of Use and the Privacy Policy”. Tap either name to open it — in the browser, or offline from the copy built into the app; both are under Settings → About afterwards too.
 
 1. **Welcome** — The app mark, the theme and the language. The mark spins under a finger; the theme and the language are in settings afterwards.
 2. **What this is** — A few paragraphs on what the app shows and what it does not do. It is also where you choose whether crash reports are kept — by default they are not.
 3. **Preferences** — Haptics, wallpaper colours, a black background, the edge blur, the teacher on a lesson row and the progress bar in the widget. Only the things you can judge before seeing a single lesson.
 4. **Permissions** — Notifications, exact alarms and background work, one card each. Without them the timetable still works — it just stays silent.
-5. **The class code** — That field.
+5. **How do you want to start?** — Two ways: “With a class code” and “Find your school”. You can add the other one later.
 
 > The language is on the first step on purpose: somebody who does not read Russian has to be able to switch it before the third screen, not after it. Below Android 13 changing it recreates the screen — that is normal, and the step is not lost.
 
-The bot hands out the code with /code, to anybody who is an administrator of the class. A new code is eight characters long and never contains the look-alikes O, 0, I and 1. Older six-character codes still work: the field accepts 4 to 16 characters and upper-cases them for you.
+“With a class code” opens the code field. The bot hands out the code with /code, to anybody who is an administrator of the class. A new code is eight characters long and never contains the look-alikes O, 0, I and 1. Older six-character codes still work: the field accepts 4 to 16 characters and upper-cases them for you. If the class is linked to a diary the app can sign in to, the app then offers to sign in to that diary too — “Not now” skips it.
 
-If the school runs its own server rather than the one built into this APK, tap “Server” at the bottom of the join screen and type the whole address. It has to be the address the server is reachable at from the phone itself: “localhost” on a phone means the phone.
+“Find your school” is for a family that wants to see its own diary, whether or not there is a class in the bot. The steps come in this order, and the ones a region does not need are skipped:
 
-To change class or leave it: Settings → Class. After leaving, the app shows the code field again rather than the five screens over.
+- **Region** — Search by the name of a region or a city, by the region's code, or by a school's name. The list of every region is built into the app and searches offline; a school's name is looked up by the server, if school search is switched on there.
+- **School** — Only for Setevoy Gorod: the phone takes the list of schools straight from your region's diary server.
+- **The electronic diary** — The systems the region's schools use; one is marked “Recommended”, and “Why?” explains the choice. If a diary opens only through Gosuslugi, or the app cannot read it yet, its site opens instead — or you can use a class code.
+- **Sign-in** — The diary's login and password. The “Where the password goes” card names the diary's address: the password goes there and nowhere else, over HTTPS, and the server gets the session the diary hands out.
+- **Loading** — The student, the terms, two weeks of timetable, homework and marks. If the account has several students, the app asks whose diary to show; if the load stops, “Try again” carries on from where it stopped.
+- **All set** — The student, the diary, the class if there is one, and the main settings. “Open the app” goes to the home screen.
+
+The app has no server of its own: the address comes from the class admin, or from whoever set a server up for your school. It goes into the “Server address” row — on the “How do you want to start?” screen, under the code field, or in Settings → Sync; on the way through your school you are asked for it when it is needed. It has to be the address the server is reachable at from the phone itself: “localhost” on a phone means the phone.
+
+To change class or leave it: Settings → Class. After leaving the last class the app opens not the introduction again but “How do you want to start?” — or the diary, if you are signed in to one.
 
 ## The three tabs
 <!-- id: TABS; label: Tabs; summary: What lives where, and where settings are -->
@@ -72,7 +81,7 @@ Added like any other: long-press an empty spot on the home screen, “Widgets”
 - It counts in the school's time, not the phone's. A parent in another timezone sees the bells as they ring at the school.
 - After the lessons it shows the homework — for the next school day, and across a holiday for the first day after it.
 
-> If the widget says there is no data, open the app: nothing is cached for that date and no sync has run yet.
+> If the widget says “No timetable yet”, open the app and pull the screen down: nothing is cached for that date. The widget draws only a class timetable, so on a phone with no class and only a diary it says “Your diary is in the app”.
 
 ## Notifications
 <!-- id: ALERTS; label: Alerts; summary: Four reasons, and when to stay quiet -->
@@ -128,16 +137,22 @@ The commands an ordinary member of the class needs. One you are not allowed refu
 - /calendar — a subscription link: the timetable in the phone's calendar.
 - /help — the command list, grouped by what is available to you.
 
-## The Petersburg diary
-<!-- id: DIARY; label: Diary; summary: Marks and absences from the city service -->
+## The electronic diary
+<!-- id: DIARY; label: Diary; summary: Marks and homework from the school's diary -->
 
-A separate thing with a separate account: the class timetable lives in the bot, while the diary is the St Petersburg city service that holds marks, absences and the homework the school itself sets. In the app it is Settings → Diary.
+A separate thing with a separate account: the class timetable lives in the bot, while the electronic diary is the system the school keeps marks, absences and homework in. The app signs in to Petersburg Education, and to Setevoy Gorod in the regions where it takes a login and a password. A diary that lets people in only through Gosuslugi, the app does not sign in to.
 
-Signing in takes the same login and password as the diary's own site. What the attempt came to is said in a pop-up: “Signed in”, naming the account, or “Could not sign in” with the reason - wrong pair, diary not answering, no connection. Those are different things and they need different fixes.
+Where the diary is in the app depends on how you came in. On a phone with a class it is Settings → Diary. Without a class the diary is the app: its two tabs are the home screen, and settings has six sections — no content, notifications or class, which all run on a class.
 
-> The password is never stored: it is needed for exactly one request, after which both the phone and the server forget it. Only the diary's own session is kept, and it lives as long as the service renews it. When it ends the app asks for the password again — the login stays where it was.
+Signing in takes the same login and password as the diary's own site. The form names the diary and the address the password will go to; in settings, “Change” beside the name picks another diary. A failure is explained in a “Could not sign in” pop-up with the reason — wrong pair, diary not answering, too many attempts, no connection. Those are different things and they need different fixes.
+
+> The password goes from the phone straight to the diary, over HTTPS, and nowhere else — not to the server and not to the phone's storage. The server gets only the session the diary hands out, and keeps that. When it ends the app asks for the password again — the login stays where it was.
 
 Inside are two tabs — Timetable and Marks — and a child picker if the account sees more than one. Diary homework appears under the lessons of the day it is due on. An absence, a late arrival and a remark all arrive in the same list as the marks, but the app tells them apart and shows them differently.
+
+What was loaded is kept on the phone and opens offline — the app then says it is showing what was saved, and when it was last updated. The app reads the diary again only while it is open: neither the background nor the widget ever reads it. That is also why the sign-in lasts while the app is being opened: after 30 days without that you sign in again, and the Petersburg diary may end the sign-in sooner.
+
+“Sign out of the diary” is in the same place, Settings → Diary. The lessons and marks saved on the phone are deleted and the server forgets its copy of the sign-in; a phone with no class then goes back to “How do you want to start?”.
 
 > The service belongs to somebody else and is undocumented. If it answers in a way the app cannot read, the app says so: that is fixed on the server, not in the app.
 

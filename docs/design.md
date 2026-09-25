@@ -103,7 +103,7 @@ does not apply.
 | `utils/ui/HapticUtil.kt` | `haptic/LessonsHaptics.kt` |
 | `MainActivity` (the tab pager) | `navigation/LessonsApp.kt` |
 | `ui/activities/SettingsActivity.kt` | `ui/settings/SettingsScreen.kt` |
-| `ui/composables/WelcomeScreen.kt` | `ui/onboarding/` — the four steps of first run |
+| `ui/composables/WelcomeScreen.kt` | `ui/onboarding/` — the introduction of the first run |
 
 The AGSL shaders — both the scroll blur and the blur under the sheet — were carried over
 character for character. They were tuned by eye, and an "improved" constant in them breaks
@@ -224,41 +224,102 @@ finger on a row would just as silently stop working again. So instead of coverin
 we remove them from the composition once the page has arrived: there is nothing to block and
 nothing to depend on. `rememberSaveableStateHolder` keeps their scroll position.
 
-## First run is four screens, not one field
+## First run is a path, not one field
 
 A new install used to open with a field for a class code. That is asking a stranger to type
-a key they were given, on a screen that has said nothing about itself yet.
+a key they were given, on a screen that has said nothing about itself yet. And since the
+family's own diary became a way in, a field for a class code is also the wrong question for
+half the people who open the app: a family whose class is kept in no bot has no code to type.
 
-The order is now the same as in Essentials' `WelcomeScreen.kt`, and it is not accidental:
+So the first run is an introduction followed by a choice, and the introduction keeps the
+order of Essentials' `WelcomeScreen.kt`, which is not accidental:
 
-1. **Welcome** — the app's mark, its name, the theme picker and the language picker. The
-   mark spins under a finger and springs back with haptics: it is the first thing the user
-   touches, and it answers instantly. Essentials has the language picker in this slot, and
-   now so do we — together with the theme, the second setting whose effect is visible on the
-   next frame. The language sits on the very first step rather than on "Properties" two
-   screens later because between them lies the acknowledgement: four paragraphs on what this
-   timetable is and what it is not, the most useful thing a new user reads at all. Somebody
-   who does not read Russian has to be able to switch the language before that, not after.
-   The setter and the strings are the same ones the settings page uses. Below API 33,
-   changing the language recreates the activity, so the step number lives in
-   `rememberSaveable` rather than `remember`: `recreate()` saves and restores instance state
-   exactly as a rotation does, so the step, the latched decision to show the introduction and
-   the view model all survive — only the slide animation is lost, and that is no loss.
+1. **Welcome** — the app's mark, its name, the theme picker and the language picker, and
+   «Продолжить». The mark spins under a finger and springs back with haptics: it is the first
+   thing the user touches, and it answers instantly. Essentials has the language picker in
+   this slot, and so do we — together with the theme, the second setting whose effect is
+   visible on the next frame. The language sits on the very first step rather than on
+   "Properties" two screens later because between them lies the acknowledgement: a few
+   paragraphs on what this app shows and what it does not, the most useful thing a new user
+   reads at all. Somebody who does not read Russian has to be able to switch the language
+   before that, not after. The setter and the strings are the same ones the settings page
+   uses.
 2. **Acknowledgement** — what the app shows, what it does not do, and the one thing it can
    record. Crash reports are off by default and are chosen right here, next to the text that
    explains them.
 3. **Properties** — haptics, colours from the wallpaper, a black background, blur, the
    teacher on a lesson's row, the progress bar in the widget. Not every setting, but the
    ones that can be judged without having seen a single lesson.
-4. **The class code** — the very same `JoinScreen` rather than a copy of it, with a back
-   button.
+4. **Permissions** — one card per permission. It stays **before** the choice although a
+   family that takes the diary way in gets no alerts: moved behind the branch, the question
+   would be asked on one path only. The summary at the end hides its notifications row on a
+   phone with no class instead.
+5. **«Как подключиться?»** — two cards, «По коду класса» and «Найти свою школу», and the
+   server address. Nothing is preselected, and the button names the way that was chosen.
 
-The "introduction shown" flag is set on entering the fourth step rather than after a
-successful connection: somebody who closed the app on the code field has already read the
-introduction. The decision whether to show the introduction is latched on the first
-composition — otherwise writing the flag would swap the screen out in the middle of the
-slide. Leaving the **last** class returns to the bare code field rather than to the four
-screens again; while at least one other class remains on the phone, the app simply shows it.
+From the choice the flow branches. «По коду класса» is the very same `JoinScreen` rather
+than a copy of it; a class whose join names a diary this build can sign in to goes on to
+that diary's sign-in, with «Не сейчас» beside it. «Найти свою школу» is region → school →
+diary system → sign-in → import → summary, and a region skips what it does not need: the
+school step exists only where the diary is «Сетевой город», whose sign-in needs a school, and
+a region whose diaries the app cannot sign in to ends at the system step, with the diary's
+site to open and the class code offered instead.
+
+**A path, not an index.** Once the flow branches, "step 4 of 9" stops meaning anything, so
+`OnboardingFlow` keeps the steps walked as a list: back pops it, the slide's direction is
+depth rather than enum order (the system step's way to the class code is plainly forward),
+and the badge above the slide morphs along the path. A **floor** in the path is raised by
+every write that cannot be undone by going back — a join, a registration, a finished import
+— so back never reopens the join screen over a class already joined, or a sign-in that would
+open a second session on the server. The path and the answers are the view model's, saved in
+its `SavedStateHandle`: a `recreate()` for the language below API 33, and a process death,
+bring back the step; no login, password or session is ever among what is saved.
+
+**The dots count a chapter, not the flow.** The whole flow is not known until the choice has
+been answered, and a count that grew at the choice would read as the flow getting longer —
+the one thing progress dots must never do. So the introduction is five dots and the choice
+closes it; the school way is a chapter of its own, counted from what is known — a region not
+yet picked projects the longest route, so the count can only shrink as answers arrive; the
+join screen has no dots and no badge, because it has a heading of its own. The steps with a
+search or a keyboard (region, school, system, sign-in) keep the dots and drop the badge,
+because they need the height more than a shape.
+
+**The flow, not the credential, decides when it is over.** A join and a registration both
+land before the flow is finished — there is still an import or a summary to show — and each
+makes the phone a class phone or a diary phone at once. Left to the credential, the app would
+swap to a half-filled home mid-flow. So the flow holds the screen from the class-code or
+sign-in step until its last «Открыть приложение», and the hold is persisted: a process death
+between the write and the summary brings the flow back at the import or the class's diary
+rather than dropping the family onto a home. How it is stored is in
+[architecture.md](architecture.md#the-first-run-holds-the-screen).
+
+The "introduction shown" flag is set on reaching the choice rather than after a successful
+connection: somebody who closed the app there has already read the introduction. The
+decision whether to show it is latched on the first composition — otherwise writing the flag
+would restart the flow under the finger. Leaving the **last** class returns to the choice
+rather than to the introduction, and there is no bare code field any more: it could reach
+neither the diary nor the diary's sign-out. A phone still signed in to a diary goes to the
+diary instead.
+
+**The line under the first button.** «Продолжая, вы принимаете Условия использования и
+Политику конфиденциальности» is drawn under «Продолжить» on every build, whatever the build
+says about where its documents are published: with no reachable address, a tap opens the copy
+bundled in the APK, so there is never a first screen that asks to continue without saying on
+what terms. The two names are `LinkAnnotation.Clickable` rather than `Url`, so that every tap
+can fall back to the bundled copy instead of handing a dead link to the system; and the
+sentence is one template with two placeholders rather than three pieces with spaces at their
+edges, because aapt2 trims a string's edge spaces — which is how the about page's credit came
+out as «по мотивамEssentials» (#155). The address is a build setting,
+[build.md](build.md#the-terms-and-the-privacy-policy-the-app-links).
+
+**No server is promised.** The APK carries no server address, so no screen may speak of a
+default one, and the class-code screen and the settings no longer do (#154). The school way
+asks for the address where it is first needed — pressing sign-in with none set opens the
+address sheet, saying that the password will not go there — rather than on a screen of its
+own before anybody knows why it is needed.
+
+The whole flow is held by pure rules and view-model tests; nothing composes it end to end,
+and none of it has been seen on a device.
 
 ## Notifications
 
@@ -992,11 +1053,14 @@ the shapes of its answers only partly, and for lessons and the timetable not at 
 work with something like that, but only if you decide in advance exactly who suffers when it
 changes.
 
-The decision: one directory suffers. `app/providers/petersburg/` is the only place that knows
-the words `p_educations[]`, `estimate_type_code` and `X-JWT-Token`. What comes out of it are
-this project's models and typed errors. The app does not talk to dnevnik2.petersburgedu.ru at
-all and does not know it exists: it asks our server about the timetable, the homework and the
-marks.
+The decision: one directory suffers. `app/providers/petersburg/` is the only place on the
+server that knows the words `p_educations[]`, `estimate_type_code` and `X-JWT-Token`. What
+comes out of it are this project's models and typed errors. The app reads nothing from
+dnevnik2.petersburgedu.ru: it asks our server about the timetable, the homework and the marks.
+It talks to the diary once, to sign in — so that the password goes to the diary and nowhere
+else — and that conversation is fenced the same way on the phone: `core/data/.../upstream/` is
+the one place that knows the sign-in's routes, and what comes out of it is a session to hand
+to our server or a failure with a name.
 
 Two asymmetric habits follow from the lack of documentation. On the way in the mapper is
 lenient: a field is looked for under every name it has appeared under (a room is `office`,
@@ -1010,14 +1074,16 @@ client should not have to know that, so a mark in our model has two fields: `val
 written in the cell («5», «Н», «!»), and `kind`, what it actually is. An absence can be
 coloured differently from a bad mark without knowing about the code.
 
-The password is not stored — in any form. It is needed for one request, after which the
-diary's own session lives on, refreshed from its own answers: the service hands back a fresh
-token on almost every call, we overwrite ours with it, and an active session does not die of
-age. When it does finally stop being accepted, any request answers 401 with an
+The password is not stored — in any form, on the phone or on the server. It is sent to the
+diary to sign in, after which the diary's own session lives on, refreshed from its own
+answers: the service hands back a fresh token on almost every call, we overwrite ours with
+it, and an active session does not die of age. When it does finally stop being accepted, any request answers 401 with an
 `X-Diary-Reauth: required` header — a request to ask for the password again rather than "the
 token is wrong": those are different screens.
 
-The price is named honestly: a background sync of the diary does not outlive the session.
+The price is named honestly: nothing reads the diary once the session is gone — and the
+phone never reads it in the background at all, so a family that stops opening the app is
+eventually asked for the password again.
 Reference implementations solve this by storing the password, so they can silently
 re-authenticate once a day. Every family's password in a database to save one sign-in screen
 every few days is a bad bargain, and we do not make it.

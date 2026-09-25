@@ -43,6 +43,11 @@ Before tagging, walk the milestone and check three things:
 - **every pull request on it carries the milestone**, set with `issue_write` when it was
   opened. One left bare is a change the notes will not mention.
 
+**If the terms or the privacy policy changed since the last tag, raise `edition` and set
+`effective` in `docs/legal/legal.json` before tagging**, in the commit the tag points at. The
+APK bundles `docs/legal/` as it is at build time and names the edition in its sheet, so a
+tag cut first ships changed texts under the old edition and date.
+
 Then tag. A `v*` tag makes `apk.yml` build an installable APK **and** create a GitHub
 release with it attached, so the tag is the moment the notes have to be ready.
 

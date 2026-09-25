@@ -22,7 +22,9 @@ android/     Kotlin / Compose / Glance, five Gradle modules
 server/      FastAPI + aiogram in one process, one database, Alembic migrations
 api/         thin Vercel entry point that re-exports server/app/main.py
 docs/        nine documents plus an index (docs/README.md), all current, all English;
-             docs/diaries/ holds the per-platform reference pages of diaries.md
+             docs/diaries/ holds the per-platform reference pages of diaries.md;
+             docs/app/ (the in-app guide) and docs/legal/ (the terms and the privacy
+             policy) are product text the APK bundles, Russian source and English twin
 ```
 
 There is no npm, no Node and no web frontend — with **one** deliberate exception:
@@ -45,7 +47,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 1915 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 1944 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -158,6 +160,14 @@ Room is the single source of truth; the network only fills it. `:core:data` must
 depend on `:widget` — the sync worker tells the widget it has new data by broadcasting
 `com.lumenpearson.lessons.action.DATA_SYNCED`, precisely so the dependency does not have to
 be circular.
+
+There are **two** Room databases: `lessons.db`, the class cache, and `diary.db`, the
+family's own diary, which nothing writes but `DiaryRepositoryImpl`'s successful reads, under
+a generation guard that drops a read landing after a sign-out. A phone is in one of three
+shell modes — `CLASS`, `DIARY` (a diary and no class, whose home is the diary) or `NONE` (the
+first run) — and the periodic class sync is armed in `CLASS` only (#152):
+`LessonsApplication` collects `shellMode.syncArming` rather than scheduling on every settings
+emission.
 
 **A window is one school year, and a class holds several of them.** `synced_window` says
 which years this phone has fetched, `replaceWindow` replaces one and leaves the rest, and
@@ -572,7 +582,9 @@ points Hilt does not inject cleanly.
   What it cannot see is a Russian string written into Kotlin, because that word is
   in neither folder — `grep -rnP '"[^"]*[\x{0400}-\x{04FF}]' */src/main` is the
   check for that, and today it finds only `@Preview` data, maintainer-facing report
-  bodies, and the timezone list, whose file documents the choice.
+  bodies, the timezone list, whose file documents the choice, and
+  `core/data/.../upstream/UpstreamMarkers.kt` — the diaries' own words, matched in their
+  answers, which is the one documented exception on the diary's side.
 - **A renderer is written against the type it is handed, and nothing checks that but you.**
   «🗓 Четверти» crashed on every press in production because the card printed `term.days`
   and `days` lived on a flattened copy of a term that nothing ever constructed. There is

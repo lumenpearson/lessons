@@ -58,7 +58,7 @@ When a phone joins a class, the server keeps:
 When you sign in to a diary, the server keeps:
 
 - the diary session — **encrypted** with the operator's key; for Setevoy Gorod, the region, the school's number and name and the school year's details are sealed inside with it;
-- your login — as you typed it, in plain text; in Petersburg Education that is an email address;
+- your login — in plain text, as you typed it, minus spaces at its ends and characters that print nothing; in Petersburg Education that is an email address;
 - which diary and region it is, when the session was opened, when it was last used, when the server last kept it open and when the diary stopped accepting it;
 - the diary access key issued to the phone — only as a SHA-256 hash.
 

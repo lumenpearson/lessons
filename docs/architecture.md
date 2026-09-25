@@ -116,9 +116,10 @@ Five Gradle modules, split along the lines that actually pay for themselves:
 ```
 :core:model          pure JVM Kotlin — domain types + the state engine
 :core:designsystem   theme + Compose components
-:core:data           Room, Retrofit, repositories, sync
+:core:data           Room (two databases), Retrofit, repositories, sync,
+                     and the one client that talks to a diary directly
 :widget              Glance home-screen widget
-:app                 screens, navigation, ViewModels
+:app                 screens, navigation, ViewModels, the first run
 ```
 
 `:core:model` being a plain JVM library is the load-bearing decision: the state
@@ -139,7 +140,10 @@ Telegram bot ──writes──▶ Postgres/SQLite ──/api/v1/bundle──▶
 
 Room is the single source of truth. The network only fills it. Every screen and
 the widget read from Room, so the app is fully usable offline and the widget
-keeps counting down in a dead zone.
+keeps counting down in a dead zone. There are two databases, not one: `lessons.db`,
+the class timetable this section is about, and `diary.db`, the family's own diary,
+which is filled by a different rule and is described under
+[the phone's half](#the-phones-half) of the diary.
 
 **One device, several classes.** A join code buys one read-only token for one
 class, so a pupil in two classes is a phone holding two tokens — that was always
@@ -242,6 +246,88 @@ The one alert with no clock behind it is «расписание изменило
 changed. Each sync fingerprints the next seven days — index, subject, start, room,
 cancelled, replaced — and compares that against the previous one. The first sync sets the
 baseline and says nothing.
+
+### Three homes: a class, a diary, or the way in
+
+A phone is in a class, reads its own diary without one, or has come in neither way yet,
+and `ShellMode` (`NONE`, `CLASS`, `DIARY`) is that answer, decided by one rule in
+`shellModeOf`: a class outranks a diary, so a phone with both lives in the class's app and
+keeps the diary in settings. What makes `DIARY` is a stored diary **target** — which diary,
+region, school and login — rather than a live session, because a bare `401` drops the bearer
+and keeps the target, and a family whose session lapsed belongs on its own diary's sign-in
+form rather than back at the start. The same rule is what sends a phone that leaves its last
+class while signed in to a diary to the diary home, where the diary and its sign-out are,
+instead of to a join screen that could reach neither (#151).
+
+`ShellModeSource` computes the mode, the first run's hold and the sync arming from **one**
+read of the preferences file each time, never by combining a class flow with a diary flow:
+two flows can disagree for an emission in between, and a gate that flickered to the wrong
+home for a frame would reset the state of the one it left. The gate itself is a pure
+function, `rootScreen` in `navigation/RootGate.kt`: nothing read yet is the splash, a hold or
+`NONE` is the first run, anything else is a home, and `LessonsApp` keys the home on which one
+it is, so moving between the class's home and the diary's resets the shell rather than
+landing in a section of the old one. `AppShellViewModel` settles a cold start once per
+process before the gate first reads: a hold left over in `NONE` means the credential it was
+waiting for never landed, and it is dropped.
+
+What each home offers is one rule too, `SettingsSection.listedOn(mode, manager)`: the diary
+home drops the sections that are about a class — content, alerts and the class account,
+whose requests need a class token this phone does not have — and keeps the rest.
+
+**The periodic class sync is armed in a class and nowhere else** (#152). The application
+used to schedule `SyncWorker` on every emission of the settings, whatever was stored, so a
+phone that had just left its last class — whose sign-out had cancelled the worker — was woken
+every fifteen minutes again from its next launch, for a run that found no class and returned;
+a diary-only phone would have been woken that way for ever. `LessonsApplication` now collects
+`shellMode.syncArming`, which is `syncArmingFor(mode, interval)`: armed at the interval in
+`CLASS`, cancelled in `NONE` and `DIARY`. `SessionEffects` still arms on a join and cancels
+on the last sign-out, and agrees with the rule. `SyncArmingTest` holds it, including a source
+check that the application collects the arming and not the interval alone.
+
+The widget reads the mode as well — it has a sentence for each
+([widget.md](widget.md#when-there-is-nothing-to-draw)) — and never the diary: the reason is
+the diary's, under [the phone's half](#the-phones-half).
+
+### The first run holds the screen
+
+The first run is `ui/onboarding/`, and its rules are pure: `OnboardingFlow` turns a state —
+the steps walked as a **path**, a floor below which back cannot go, and the answers
+collected — into the next state, the dots and the step to draw, with no Compose and no
+Android, so every route through it is a JVM test. Why a path and what the dots count is a
+design decision and is written down in [design.md](design.md#first-run-is-a-path-not-one-field).
+
+`OnboardingViewModel` is activity-scoped and owns a handful of plain holders, each tested on
+its own: `SignInStep`, `ImportRunner`, `RegionFinder` and `SchoolFinder`. What lives where is
+the security of the flow, and it is deliberate:
+
+| What | Where it lives | Where it never is |
+| --- | --- | --- |
+| the path and the answers (region, school, system) | the view model's `SavedStateHandle`, so a recreate and a process death bring the step back | — |
+| the login | the sign-in step's memory | the saved state |
+| the password | the form's text field, and then one argument to `submit` | any field of any holder, the saved state, the disk |
+| the diary's own session, between the diary's answer and ours | a private field of `SignInStep`, behind an opaque `HeldUpstream` | the saved state, the disk, anything the screen can read a token out of |
+| our diary bearer, once registered | the preferences store, like the class bearer | — |
+
+The held session exists for one case: our server could not be reached after the diary let the
+phone in. Then «Повторить без пароля» registers the same session again, and nobody types the
+password twice; any other failure has already discarded it, and leaving the step discards it
+upstream. `OnboardingViewModelTest` checks every value in the saved state for the login and
+the password, and `OnboardingStepsTest` checks by reflection that the password is never a
+field of the sign-in step.
+
+**The hold.** A join and a registration both write their credential before the flow is over —
+an import or a summary is still to come — and either write turns the phone from `NONE` into a
+class phone or a diary phone at once. So the flow calls `shellMode.hold()` on entering the
+class-code or the sign-in step and `release()` in `finish()`, the gate keeps the first run on
+screen while the hold is set, and the hold is persisted: after a process death,
+`OnboardingFlow.resume` picks up at the import for a registered diary, at the class's diary
+sign-in for a joined class whose diary this build can sign in to, and otherwise finishes. The
+introduction counts as seen when the flow **reaches the chooser**, and `LessonsApp` latches
+that flag on its first composition, so writing it cannot restart the flow under the finger.
+
+Nothing composes `LessonsApp` in a test: the gate, the hold through a real join, the swap to
+the right home and the resume after a process death are held by the pure rules and the view
+models only.
 
 ### The guide is data, not code
 
@@ -352,9 +438,11 @@ contract; it never learns which upstream is behind it.
 - **`app/providers/petersburg/`** — «Петербургское образование» (`dnevnik2.petersburgedu.ru`),
   the first provider and still the only one that signs in with an email and a password alone.
 - **`app/providers/netschool/`** — «Сетевой город. Образование», the diary of about twenty
-  regions on one route set (`/webapi`) served from a different regional host in each. It is
-  server-side only, and **it has never met a live server**: every upstream shape is read from
-  open-source clients and hand-written payloads, exactly as Petersburg's was (#121, #135).
+  regions on one route set (`/webapi`) served from a different regional host in each. Its
+  reads are the server's alone — the phone speaks only its sign-in and its school search
+  ([the phone's half](#the-phones-half)) — and **it has never met a live server**: every
+  upstream shape is read from open-source clients and hand-written payloads, exactly as
+  Petersburg's was (#121, #135).
 
 What every region of the country runs, and the routes of each platform as its open clients
 call them, is surveyed in [diaries.md](diaries.md); [diaries/netschool.md](diaries/netschool.md)
@@ -421,9 +509,9 @@ idles a session out in 15–60 minutes, so the cron tick keeps each live one ali
 `GET /webapi/context` (the mechanism is in
 [deploy.md](deploy.md#the-clock-the-server-has-none-and-githubs-will-not-do), the counters in
 [api.md](api.md)). When a session dies either way, the request answers `401` with
-`X-Diary-Reauth: required` and the person signs in again. The price is that a background
-sync of the diary does not outlive the session; the price of the alternative is every
-family's password in the database.
+`X-Diary-Reauth: required` and the person signs in again. The price is that nothing reads
+the diary once its session is gone — and the phone never reads it in the background at all;
+the price of the alternative is every family's password in the database.
 
 ### Two ways a session arrives, and only one of them sees the password
 
@@ -443,16 +531,18 @@ asking for it again would loop. Whether either diary does take a session opened 
 and replayed from Frankfurt is exactly what has never been seen; the contract, the statuses
 and the shared limiter are in [api.md](api.md#the-electronic-diary).
 
-The cost is that the sign-in protocol now lives on both sides — a client that registers
-speaks it to the diary, and the server still speaks it for the bot and for older apps — and
+The cost is that the sign-in protocol now lives on both sides — this app speaks it to the
+diary, and the server still speaks it for the bot and for older apps — and
 two implementations of «Сетевой город»'s salted hash over a windows-1251 password agree
 exactly until they do not. The known-answer
 vectors in `server/tests/vectors/diary_protocol.json` are the one set of bytes both are
-tested against; the Python half is driven over `httpx.MockTransport`, and #147 and #148 —
+tested against; the Python half is driven over `httpx.MockTransport`, the Kotlin half over
+MockWebServer, and #147 and #148 —
 a sign-in that sent the word `None` upstream, and malformed answers that escaped as `500` —
 were fixed in the same change.
 
-The other doors stay. `/diary/login` is unchanged for the apps that still call it. The bot's
+The other doors stay. `/diary/login` is unchanged for the APKs built before registration;
+this app stopped calling it in the same batch that made the phone sign in itself. The bot's
 page still relays the password — it posts to this server, which passes it to the diary once
 and writes it nowhere — and since #150 **it says so**: the page and the two cards before it
 used to promise the password went «прямо в дневник», which it never did. A registered
@@ -463,6 +553,113 @@ bearer families would meet — and a linked session would inherit the bot's rule
 «Выйти» would sign the phone out too, deleting the class would take the phone's session with
 it, and rebinding the class would expire it. Those are the owner's to weigh first.
 
+### The phone's half
+
+The app signs in to a diary itself and hands our server only the session. That puts part of
+the diary on the phone, and it is fenced exactly as the server's is: everything that knows a
+diary's routes lives in `core/data/.../upstream/`, and what comes out of it is an opaque
+`UpstreamSession` or a failure with a name.
+
+**One client, and it talks to diaries only.** `UpstreamHttp.client` shares nothing with the
+client that talks to our server, which rewrites every host to the configured server and signs
+requests with our bearers by path; a diary request through that one would go to our server,
+or carry our bearer to somebody else's. This one has no cookie jar (the session travels per
+request, so two sign-ins cannot meet), follows no redirect (a `302` to another host is the
+one way around an allow-list), does not retry a failed connection (`getdata`'s salt is
+one-shot, and a silent re-POST reads as a wrong password), and carries exactly two
+interceptors: `OriginGuard`, which refuses any origin not on the allow-list before a byte is
+sent, and one that refuses an `Authorization` header outright. The failures are classified
+once: only a failure that examined the certificate is "untrusted" — a handshake the network
+broke is "unavailable", with a retry.
+
+**The bundled catalog is the only source of a diary host.** The app bundles
+`server/app/catalog/data/regions.json` in place as an asset, never a copy, and
+`CatalogUpstreamDirectory` builds the allow-list from it, dropping any origin that is not
+`https` or carries a path, a query, a fragment or credentials. Nothing typed and nothing
+received ever becomes a host: a region is picked by its key and the key finds an origin; the
+one piece of user input that reaches a diary, a school search, travels as a query parameter.
+The same file is the phone's region search — names in both languages, aliases, cities, codes,
+the wrong keyboard layout and transliteration, all read from the catalog's `search` block
+([diaries.md](diaries.md#the-region-catalog)) so that no Russian word has to be written in
+Kotlin. The ports are Kotlin twins of the server's: Petersburg's sign-in, «Сетевой город»'s
+salted hash with its own windows-1251 table (carried in the code rather than trusted to the
+device's ICU), the server's login cleaning (`DiaryLogin.clean`, character for character, so a
+login pasted with an invisible character is not a wrong password on one side only), and a
+JSON reader that refuses what Python's `json.loads` refuses. `DiaryProtocolVectorsTest` runs
+every case of `server/tests/vectors/diary_protocol.json` through them, read in place from
+the test classpath and over real sockets where the case is a request, so the two
+implementations cannot drift apart silently. `upstream/UpstreamMarkers.kt` is the one Kotlin
+file allowed Cyrillic: the diaries' own words, matched in their answers.
+
+**Registration.** `DiarySignIn` is four steps, and the first run's sign-in step drives them
+one at a time. *Preflight* checks the catalog row — region known, password sign-in, school
+present — and then asks `GET /api/v1/diary/capabilities`, before the password field means
+anything. *Open* cleans the login, refuses one too short and an empty password without a
+request, and signs in at the diary. *Register* refuses a session too old to hand over and one
+the server's schema would refuse, posts it as `credential` to `POST /api/v1/diary/session`,
+and keeps our bearer and a `DiaryTarget` — provider, region, school, login and the diary's
+zone, one JSON key in the preferences. A different account than the stored one empties the
+phone's copy of the diary and the chosen pupil **before** the new session is written.
+*Discard* signs a «Сетевой город» session that will not be registered out upstream
+(Petersburg has no logout outside a browser); a session is spent once, by a registration or
+a discard. A bare `401` later clears our bearer only and keeps the
+target, which is what keeps the phone on its diary's sign-in form; signing out forgets both.
+Every failure on the way is a `DiarySignInProblem`, and every diary screen turns one into
+words through one mapping, `ui/diary/DiaryProblemText.kt` — too many attempts, a switched-off
+diary, a diary that refuses our server's address and a timeout each have their own, naming
+the host where there is one, and «Повторить» is offered only where a retry can help (#153).
+Our diary bearer is kept off `/diary/login`, `/diary/session` and `/diary/capabilities`, and
+the class bearer off `/api/v1/directory/` and `/api/v1/diary/`, each held by a test.
+
+**`diary.db` keeps what was read, and has one writer.** It is a second Room database with an
+exported schema: pupils, the terms, lessons, homework and marks, and a row per pupil per week
+whose stamps tell "fetched and empty" from "never fetched" — the same distinction
+`synced_window` draws for the class. Nothing writes it but `DiaryRepositoryImpl`'s own
+successful reads (`remembered`): the pupils, the terms, any window of marks, and a timetable
+or homework range of whole Monday-to-Sunday weeks, each written through as it arrives; a
+write that fails costs the copy, never the answer. **A generation guards it:** a sign-out's
+`clear()` bumps the generation under the same lock every write takes, a read takes the
+generation before its request, and a read that was in flight across a sign-out or another
+account's sign-in is dropped rather than written back after the clear. The registration's
+own list of pupils is written by `SeedingDiarySignIn`, so the import need not ask again. The
+database sits under the backup rules' existing exclusion of every database.
+
+**The import** fills it once, after the first registration: the pupils, the choice of pupil
+(asked only when the account has several and none was chosen before), the terms, this week's
+and next week's timetable, the homework and the marks of the current term — sequential, with
+a weight per phase for the progress bar (rough costs, not measured ones). The pupils and the
+timetable stop it; the terms, the homework and the marks are skipped and named, and a session
+the diary ended stops it with a way back through the sign-in. It resumes from the phase that
+failed, reading the earlier ones from the cache, and "today" is taken in the diary's zone,
+not the phone's.
+
+**The only diary read nobody pressed for is `refreshIfStale`**, and it runs in one place: the
+diary home's `LifecycleStartEffect`, each time the app comes to the foreground. When the
+current week's copy is older than thirty minutes it re-reads this week's and next week's
+timetable and homework; while an import holds the lock it does nothing. It goes through
+`DiaryViewModel.refreshOnStart`, so the screen's own load waits for it rather than reading
+the same week a second time. **There is no background diary read at all** — not in the
+worker, not in the widget, not in the alerts, not in any application class, receiver or
+service a manifest declares — and `SyncWorkerSourceTest` scans all of those and fails on a
+reference to the diary's repository, cache or import. The reason is the keep-alive: a
+«Сетевой город» session is kept open for up to thirty days after the family last used it, and
+a read from the background would count as use with nobody there. The screens read the saved
+copy first, skip the network while it is fresh, and keep it on the screen, saying when it was
+saved, when the diary or the network cannot be reached.
+
+**The school search is two lookups.** «Which region is this school in» asks our server's
+anonymous directory, `GET /api/v1/directory/school-regions`, and only for a query that looks
+like a school's name and is not too common to place, so the day's allowance is spent on
+questions it can answer. «Which school in this region» asks the region's own diary server
+from the phone, like the sign-in.
+
+**Not verified.** None of this has met a live diary or run on a device. Whether a diary
+accepts a session opened on a phone when our server in Frankfurt replays it is open — the
+`409` is the designed failure. TLS against the regional servers (the tests run plain HTTP,
+and the certificate failures are the shapes Conscrypt and the JVM are known to throw), Room's
+invalidation of `diary.db` on a device, and a `Retry-After` given as a date (read as no wait)
+are unverified too; the device's own windows-1251 is never asked, on purpose.
+
 ### The region catalog is generated, not written
 
 «Which region is this family in, and what can it do there» has one answer, and it is the
@@ -471,8 +668,8 @@ survey's. `server/app/catalog/data/regions.json` is generated from
 allow-list by `python -m scripts.region_catalog`, and committed; a test fails when the
 committed file and its inputs disagree. Generated, because the alternative was prose parsed
 at run time, or a second hand-kept list of eighty-nine regions that would disagree with the
-survey within a month; committed, because the server reads it at run time and the app is to
-bundle the same file, and neither should run a generator to start. The decisions it carries — which systems are a sign-in,
+survey within a month; committed, because the server reads it at run time and the app
+bundles the same file, and neither should run a generator to start. The decisions it carries — which systems are a sign-in,
 which a hand-off to the browser, why there is no Госуслуги sign-in anywhere — are written
 down beside the survey, in [diaries.md](diaries.md#the-region-catalog). The server reads four
 things from it: a region's key, its subject code, its names and DaData's spellings of it,
@@ -508,9 +705,9 @@ with the host.
 
 ## Testing
 
-1915 tests on the server, 968 on Android; `pytest -q -n auto` and `./gradlew test`, both
-offline, both in CI. On Android that is `:core:model` 125, `:core:data` 286,
-`:core:designsystem` 95, `:widget` 90, `:app` 368.
+1944 tests on the server, 1371 on Android; `pytest -q -n auto` and `./gradlew test`, both
+offline, both in CI. On Android that is `:core:model` 125, `:core:data` 532,
+`:core:designsystem` 99, `:widget` 102, `:app` 513.
 
 The table below is the load-bearing part of that rather than the whole of it:
 
@@ -539,12 +736,18 @@ The table below is the load-bearing part of that rather than the whole of it:
 | `server/tests/test_scripts.py` | that both one-shot scripts refuse a database that is not a local file, and say truthfully where they are about to write | pytest |
 | `server/tests/test_announcements.py` | that every place pushing to the class is bounded, measured at the call site rather than on the helper | pytest |
 | `android/core/model/.../StabilityPromiseTest.kt` | that nothing in the domain module is a `var`, which is what `compose-stability.conf` promises the Compose compiler | JVM JUnit |
+| `android/core/data/.../upstream/DiaryProtocolVectorsTest.kt` | the phone's sign-in ports against the same known-answer vectors as the server's, over MockWebServer | JVM JUnit |
+| `android/core/data/.../diary/DiaryCacheTest.kt`, `DiaryImportTest.kt` | `diary.db`'s write-through, the generation guard across a sign-out, the import's phases, resume and zone, and `refreshIfStale` | JVM JUnit |
+| `android/core/data/.../sync/SyncWorkerSourceTest.kt` | that the worker, the widget, the alerts and every declared application, receiver and service never name the diary | JVM JUnit, reading the sources |
+| `android/app/.../RootGateTest.kt`, `SyncArmingTest.kt` | which home each mode opens on, and that the class sync is armed in a class only | JVM JUnit |
+| `android/app/.../ui/onboarding/OnboardingFlowTest.kt`, `OnboardingViewModelTest.kt` | the first run's routes, dots and resume, and that the saved state never carries a credential | JVM JUnit |
 
 What nothing covers is a device: there is no `androidTest` directory, so not one test has
-run on hardware or an emulator. Twenty of the app's screens, sheets and rows are composed
-under Robolectric with a Russian locale and a phone's width — among them the class list, the
-join mode, the connection errors, the first-run reveal, the crash-report sheet, the two
-sheets the calendar reopens after a rotation, its header and its day list — and the design
+run on hardware or an emulator. About two dozen of the app's screens, sheets and rows are
+composed under Robolectric with a Russian locale and a phone's width — among them the class
+list, the join mode, the connection errors, the first-run reveal and its legal line, the
+diary home, the crash-report sheet, the two sheets the calendar reopens after a rotation, its
+header and its day list — and the design
 system's components are exercised the same way; for the rest of the interface, compilation
 proves the types line up and says nothing about the screen. The "Honest status" section of the README keeps the full
 list — that is the honest status, not an oversight.

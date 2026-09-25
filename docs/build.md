@@ -81,20 +81,23 @@ cd ../android
 
 The Android SDK has to be real — its path in `android/local.properties` or in
 `ANDROID_HOME` — and Gradle does not, because the wrapper is in the repository. Nothing
-about the app is configured in a file: the address of the server is typed into the app on
-the connection screen, and how to make it reachable from a phone is "Pointing the app at a
-server" at the end of this page. The class code is the one the bot hands out with `/code`,
-or `DEMO24` from the seeding script.
+about the app has to be configured in a file: the address of the server is typed into the
+app itself, and how to make it reachable from a phone is "Pointing the app at a server" at
+the end of this page. The class code is the one the bot hands out with `/code`, or `DEMO24`
+from the seeding script. The one build setting a **fork** has to think about is where the
+first screen's terms and privacy policy link to — "The terms and the privacy policy the app
+links", below.
 
 ### The other place variables live, and it is not `.env`
 
-**GitHub Actions holds eight repository secrets of its own** (Settings → Secrets and
-variables → Actions), and they overlap with `server/.env` by exactly one name. They are
-nothing to do with running the project — none of them is read by the server, and a fresh
-clone needs none of them to develop against. They exist because two workflows do things a
-local build does not: sign an APK, and call a deployed server.
+**GitHub Actions holds eight repository secrets and one repository variable of its own**
+(Settings → Secrets and variables → Actions), and they overlap with `server/.env` by
+exactly one name. They are nothing to do with running the project — none of them is read by
+the server, and a fresh clone needs none of them to develop against. They exist because two
+workflows do things a local build does not: sign an APK and say whose terms it links, and
+call a deployed server.
 
-| Secret | Read by | Without it |
+| Name | Read by | Without it |
 | --- | --- | --- |
 | `KEYSTORE_BASE64` | `apk.yml` | the release APK is signed with the **debug** key; the workflow says so as a warning and carries on. It installs and must not be published — see "Signing" below |
 | `KEYSTORE_PASSWORD` | `apk.yml` | as above: all four are needed together, and Gradle treats three of four as no key at all |
@@ -104,12 +107,14 @@ local build does not: sign an APK, and call a deployed server.
 | `LESSONS_CONTACT_EMAIL` | `apk.yml` | «Отправить письмом» is hidden |
 | `SERVER_URL` | `reminders.yml` | the fallback tick skips with a notice rather than failing — see [deploy.md](deploy.md), "The clock" |
 | `CRON_SECRET` | `reminders.yml` | the same skip |
+| `LESSONS_LEGAL_BASE_URL` — a **variable**, not a secret | `apk.yml` | the APK links `docs/legal/` of the repository the workflow runs in — see "The terms and the privacy policy the app links" |
 
 Four things about that table are worth more than the table.
 
-**`ci.yml` reads no secret at all.** The gate — ruff, pytest, `./gradlew test` and both
-assembles — needs nothing configured, which is why a pull request from a fork runs the
-whole of it.
+**`ci.yml` reads no secret and no variable at all.** The gate — ruff, pytest, `./gradlew
+test` and both assembles — needs nothing configured, which is why a pull request from a fork
+runs the whole of it. The one consequence worth knowing: its APKs are built with the legal
+link's default, so they link *this* repository's terms, whoever's CI built them.
 
 **`CRON_SECRET` is one value living in two places, and nothing checks that they match.**
 The server takes it from its own environment and compares it with the `X-Cron-Secret`
@@ -128,8 +133,9 @@ Nothing in Actions imports the server's code: the tests set their own key in
 `tests/conftest.py`, and `reminders.yml` only calls an already-deployed endpoint over
 HTTP. It belongs to whatever *runs* the app, which is Vercel's environment variables.
 
-The signing four are set up in "Configuring your own key" further down, and the two build
-properties in "What the build is told about itself".
+The signing four are set up in "Configuring your own key" further down, the two build
+properties in "What the build is told about itself", and the variable in "The terms and the
+privacy policy the app links".
 
 ## Through GitHub Actions
 
@@ -200,7 +206,7 @@ step. What stayed in CI for good:
 
 - **`pytest -n auto`.** The suite spread across the runner's cores: 289 s → 101 s on four
   cores locally, 12:18 → 3:23 on the runner, the same 1340 green — 1340 was the count when
-  this was measured; it is 1630 today. That is safe by
+  this was measured, and the README's "Honest status" has today's. That is safe by
   construction rather than by luck: `tests/conftest.py` takes the SQLite path from an
   `mkdtemp` computed at import time, and every xdist worker is a separate process with its
   own import, so they never share a database. It started as a saving and stayed for the
@@ -222,9 +228,15 @@ step. What stayed in CI for good:
   the short life, uploading the test reports is marked `continue-on-error`: the gate is
   `./gradlew test`, not where the report landed.
 - **Path filters.** The "What changed" job decides in eight seconds which halves could
-  possibly have broken; a change confined to `docs/` runs neither. If the commit range
-  cannot be worked out (a force push, a branch's first push), both run — a skipped build
-  costs more than ten wasted minutes.
+  possibly have broken, and a half runs when a file **its tests read** changed, not only a
+  file in its own folder. So a change confined to `docs/` usually runs neither — but
+  `docs/app/` and `docs/legal/` are packaged into the APK and run Android; `docs/build.md`,
+  `docs/deploy.md`, `docs/diaries.md` and `docs/diaries/` are read by server tests and run
+  the server; and the region catalog and the protocol vectors, which live under `server/`
+  and are the phone's inputs too, run both. A commit touching only one of those documents
+  used to run nothing and come back green (#159); `ci.yml` names each file beside the test
+  that reads it. If the commit range cannot be worked out (a force push, a branch's first
+  push), both run — a skipped build costs more than ten wasted minutes.
 
 And one thing that did **not** stay: for a while, release was not built on a pull request.
 That saved about two minutes per push at the cost of finding a broken R8 at the merge
@@ -529,6 +541,68 @@ mailbox is the answer, not leaving it empty.
 Both are ordinary build properties: `lessons.github.clientId` and `lessons.contactEmail` in
 `~/.gradle/gradle.properties`, or the environment variables above.
 
+## The terms and the privacy policy the app links
+
+The first screen of the first run says «Продолжая, вы принимаете Условия использования и
+Политику конфиденциальности» under its «Продолжить» button, always, and «О приложении» has a
+row for each document. Both names are links, and where they lead is a build setting:
+`LESSONS_LEGAL_BASE_URL` in the environment or `lessons.legal.baseUrl` in
+`~/.gradle/gradle.properties`, compiled into `BuildConfig.LEGAL_BASE_URL`.
+
+**What it is.** The `https://` address of a folder holding `terms.ru.md`, `terms.en.md`,
+`privacy.ru.md` and `privacy.en.md` — the four files of [docs/legal/](legal/). The app
+appends `/terms.ru.md` and the like, Russian for a Russian reader and English for everybody
+else, and opens the result in the browser when the phone has a validated network and a
+browser starts. Otherwise — offline, behind a captive portal, no browser — it shows the copy
+the APK carries: `docs/legal/` is an asset folder of `:app`, so the bundled text is the
+repository's own bytes at build time, in a sheet that names its edition and date from
+`docs/legal/legal.json`.
+
+**What the build refuses.** A value that is not `https://`, has no host, or carries a query
+or a fragment fails the build with a message pointing here, and so does a quote, a backslash
+or a space, which would break the generated Java string. It is refused rather than kept
+because it is the first link of every install, and a policy fetched over plain HTTP is one
+anybody on the café's network can rewrite before it is read. A trailing slash is trimmed; a
+blank value counts as unset.
+
+**The default is not empty:** `https://github.com/lumenpearson/lessons/blob/HEAD/docs/legal`,
+this repository's folder on its default branch (GitHub resolves `blob/HEAD` to it). That is
+so a build from a fresh clone links a real, current document rather than nothing — and it
+means **a build that sets nothing links this repository's operator's texts.** A local
+`./gradlew`, and every APK `ci.yml` builds, is such a build.
+
+**`apk.yml` works it out per repository.** Its «Resolve legal documents» step derives
+`https://github.com/<owner>/<repo>/blob/<default branch>/docs/legal` for whichever repository
+the workflow runs in (`HEAD` when the event carries no default branch), so a public fork's
+APK links the fork's own folder with nothing configured. The repository **variable**
+`LESSONS_LEGAL_BASE_URL` (Settings → Secrets and variables → Actions → **Variables**)
+overrides the derivation — a variable rather than a secret because the value is public and
+the run summary prints it, which a masked secret would not allow. The step checks the value
+in seconds, before the compile: whitespace, a quote, a backslash or anything that is not
+`https://` fails it. On a **private** repository it warns, because the derived address opens
+for nobody outside the repository; set the variable to somewhere that does. The summary's
+«Terms and privacy policy» row says which address was used and where it came from. The
+default branch rather than the branch or tag being built, because an installed APK keeps its
+link for life: a feature branch is deleted within a week, and a tag would freeze the policy
+at the day it was cut.
+
+**What every fork has to do.** Set the address to its **own** `docs/legal/` — nothing for a
+public fork's `apk.yml`, the variable for a private one, the property for any build made by
+hand. Then rewrite the texts themselves: the address changes where the link goes and not a
+word of what it says, and until the passages marked `FORK` are rewritten the fork's copy still
+names this repository's maintainer as the operator, and this deployment's hosting, database
+and country. The fields each passage needs are listed at the top of
+`docs/legal/privacy.ru.md` and `docs/legal/terms.ru.md`. The Russian file is the source and the
+English one its translation, held level section for section by `LegalDocumentsTest`; a change
+to what the code stores, sends or keeps changes the texts and raises the `edition` in
+`legal.json`.
+
+**Not verified.** That the default address answers was checked on 25 September 2026 by
+fetching it, not by a tap on a phone; that `github.event.repository.default_branch` is filled
+on a manual run rests on GitHub's documentation; no run of `apk.yml` with this step has been
+seen; neither the browser hand-off nor the bundled sheet has been opened on a device. The texts
+describe what this code does and were never reviewed by a lawyer.
+
 ## Locally
 
 ```bash
@@ -638,8 +712,10 @@ The app needs an address the **phone** can reach, not the computer. `localhost` 
    network rather than the app: the phone and the computer have to be on the same Wi-Fi,
    and the firewall has to let port 8000 through.
 
-4. In the app, press **Сервер** at the bottom of the connection screen and enter
-   `http://<address>:8000/`. Then enter the class code.
+4. In the app, press «Адрес сервера» under «Сервер» — on the first run's «Как
+   подключиться?» screen, at the bottom of the class-code screen, or later in «Настройки →
+   Синхронизация» — and enter `http://<address>:8000/`. Then enter the class code. The app
+   has no server of its own to fall back to: until an address is typed, there is none.
 
 The bot hands out a class code with `/code`, and `python -m scripts.seed_demo` creates a
 demo class with the code `DEMO24`.
@@ -649,6 +725,29 @@ demo class with the code `DEMO24`.
 Since Android 9 the system blocks `http://` by default. The app allows it through
 `network_security_config.xml`, because the real scenario is a server in the same school,
 reachable at a local address, and public CAs do not issue certificates for an IP on a
-private network. What travels over that wire is only a class code and a timetable: no
-passwords, no personal data. If the school has configured TLS, enter `https://` — the
-configuration does not apply to such an address.
+private network. If the school has configured TLS, enter `https://` — the configuration does
+not apply to such an address.
+
+What travels over a plain `http://` wire is **not** harmless, and this page used to say it
+was — «only a class code and a timetable: no passwords, no personal data». The diary
+**password** is not on it, from this app: the app signs in to the diary itself, straight at
+the diary's own origin, which comes from the region catalog bundled in the APK and is
+`https://` or dropped; the client that makes that request refuses any other host
+(`OriginGuard`) and follows no redirect, so nothing typed into the server field can send the
+password anywhere near it. What does cross an `http://` server, readable by anybody on the
+same Wi-Fi, is:
+
+- the diary **session** the diary handed back, sent once at registration
+  (`POST /api/v1/diary/session`) — a working key to the child's diary until it expires;
+- the **diary bearer** on every diary read, and the marks, homework and timetable in the
+  answers;
+- the **class bearer**, which is a write token on a phone connected with a personal code or
+  linked to Telegram, along with the phone's name and the class's timetable.
+
+Two routes still carry a **password** through the server, and over `http://` they carry it
+in the clear: the older `POST /api/v1/diary/login`, kept for the APKs built before
+registration, and the bot's sign-in page, which posts the password to the server at
+`PUBLIC_BASE_URL` — in the clear if that address is `http://`. Neither is on this app's path.
+Before anything is typed, the app's diary sign-in warns when the server address is `http://`
+(«⚠️ Адрес сервера начинается с http://…»), and the warning is about the session, not the
+password; the configuration file's own comment carries the same list.

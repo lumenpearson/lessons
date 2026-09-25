@@ -21,7 +21,7 @@ time zones from Kaliningrad to Kamchatka.
 
 | Part | Stack | Where it is described |
 | --- | --- | --- |
-| **App** — three tabs, nine settings sections, several classes on one phone, Russian and English | Kotlin 2.4, Compose, Material 3 Expressive | [docs/design.md](docs/design.md) |
+| **App** — three tabs, nine settings sections, several classes on one phone, Russian and English; or, with no class, the family's own school diary as the whole app | Kotlin 2.4, Compose, Material 3 Expressive | [docs/design.md](docs/design.md) |
 | **Widget** — twelve sizes, seven states, works offline | Glance | [docs/widget.md](docs/widget.md) |
 | **Notifications** — the bell, the morning digest, tomorrow's homework, substitutions | local alarms, no push | [docs/design.md](docs/design.md#notifications) |
 | **Bot** — and the admin panel: roles, timetable, bells, subjects, the log, who may connect a phone | aiogram 3 | [docs/bot.md](docs/bot.md) |
@@ -155,11 +155,17 @@ With no keystore configured, the release build is signed with the debug key: it 
 on a phone, but it must not be published. How to plug in your own key and how to tell the app where the server is, is in
 [docs/build.md](docs/build.md).
 
-On first run the app walks through four screens and asks for a class code — the one the
-bot hands out with `/code`. A class can be switched to a mode where the class code lets
-nobody in and a phone joins with a personal one-time code from the bot (the «📱 Подключить
-телефон» button); the field for the code is the same one either way —
-[docs/bot.md](docs/bot.md#who-lets-a-phone-in).
+On first run the app walks through five steps — the last of them «Как подключиться?» — and
+offers two ways in. **By the class code**, the one the bot hands out with `/code`: a class
+can be switched to a mode where the class code lets nobody in and a phone joins with a
+personal one-time code from the bot (the «📱 Подключить телефон» button); the field for the
+code is the same one either way — [docs/bot.md](docs/bot.md#who-lets-a-phone-in). Or **through
+the family's own school**: region, school, diary system, a sign-in in which the password goes
+from the phone to the diary and nowhere else, and an import of the diary onto the phone —
+[docs/guide.md](docs/guide.md#first-run). The app has no server built in; its address is
+typed in, and [docs/build.md](docs/build.md#pointing-the-app-at-a-server) says how. Under the
+first screen's button is the line accepting the terms of use and the privacy policy, whose
+texts are in [docs/legal/](docs/legal/) and bundled in the APK.
 
 ### A phone that does more than read
 
@@ -183,6 +189,8 @@ The index is [docs/README.md](docs/README.md). In short:
 * [docs/design.md](docs/design.md) — the design system and the reasoning behind the interface
 * [docs/diaries.md](docs/diaries.md) — which electronic diary every region runs, and the routes
   of each platform as the open-source clients call them
+* [docs/legal/](docs/legal/) — the terms of use and the privacy policy the app links and
+  bundles; product text rather than a document, Russian first
 
 For anybody about to write code: [CONTRIBUTING.md](CONTRIBUTING.md) and
 [CLAUDE.md](CLAUDE.md) — the commands, the boundaries, and what will bite anybody who does
@@ -198,8 +206,8 @@ Read this before planning a release.
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 100 modules — asks whether anything reaches for an attribute that does not exist |
-| `pytest -q -n auto` | 1915 tests, green, about four minutes — the command CI runs |
-| `./gradlew test` | 968 tests, green, all five modules |
+| `pytest -q -n auto` | 1944 tests, green, about four minutes — the command CI runs |
+| `./gradlew test` | 1371 tests, green, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
 
@@ -212,9 +220,10 @@ handing back substitutions, events, homework and `next_school_day`. The state en
 walked through all 1440 minutes of a school day and through all eleven Russian time zones.
 
 **What nothing checks.** There is no `androidTest` directory in this project: not one test
-has run on a device or an emulator. Twenty of the app's screens, sheets and rows — the class
-list, the join mode, the connection errors, the first-run reveal, the crash-report sheet,
-the calendar's header, its two sheets, its year picker and its day list, and the rest — are
+has run on a device or an emulator. About two dozen of the app's screens, sheets and rows —
+the class list, the join mode, the connection errors, the first-run reveal and the terms line
+under its button, the diary home, the crash-report sheet, the calendar's header, its two
+sheets, its year picker and its day list, and the rest — are
 composed in JVM tests under Robolectric, with a Russian locale and a phone's width, and
 those are real presses and real rotations on real strings; the design system's components
 are exercised the same way. Nobody has pressed the
@@ -231,11 +240,11 @@ Material 3 Expressive and Glance 1.3.0-alpha02 are alphas. They compile, but nob
 measured how they behave across Android versions.
 
 The electronic diary has never once been opened against a real server. Not Petersburg's
-dnevnik2.petersburgedu.ru — neither the sign-in page nor any of the four screens — and not
-«Сетевой город. Образование», the second provider, which is **written server-side only and
-has never met a live regional server**: its password sign-in, its keep-alive, its region
-allow-list and its weekly-diary mapping are read from open-source clients and exercised on
-hand-written payloads, exactly as Petersburg's were. The tests run a hand-written stub in
+dnevnik2.petersburgedu.ru — neither the sign-in page nor any screen of the app's diary — and
+not «Сетевой город. Образование», the second provider, which **has never met a live regional
+server**: its password sign-in (on the server and on the phone), its
+keep-alive, its region allow-list and its weekly-diary mapping are read from open-source
+clients and exercised on hand-written payloads, exactly as Petersburg's were. The tests run a hand-written stub in
 place of each: that is the only honest way to check an integration with an undocumented
 service, but it says nothing about what that service actually answers. No browser has ever
 opened the sign-in page for either, and the first live session, for both, is the owner's
@@ -251,6 +260,28 @@ design, and the password routes — the bot's page and the older `/diary/login`,
 still pass the password through this server — are what is left. The four calls «Сетевой
 город» registration makes have not been timed against Vercel's 30-second ceiling, and a
 session registered from a phone is invisible to the bot (#143).
+
+**The first run's second way in, and the diary as a home, are written and JVM-tested and
+nothing more.** The app now signs in to the diary itself and registers the session; keeps
+what it reads in a second database; imports two weeks of it and the term's marks at the
+first run, with a progress bar; and gives a phone with a diary and no class a home of its own, with the class
+sync disarmed there (#151, #152). All of it is held by pure rules, view models and
+MockWebServer: not one step has run on a device, against a live diary or against a deployed
+server. Nothing composes the shell in a test, so the gate, the hold through a join or a
+registration, the swap to the right home and the resume after a process death are proved by
+their rules alone. TLS to the regional servers, Room's `diary.db` on a device, the browser
+hand-offs to Госуслуги and to a diary's site, TalkBack on the new steps and the English text
+in context are all unread. The path also needs a server address somebody gives the family —
+the APK has none — and a diary-only phone gets no widget content, no Today or Calendar and no
+alerts (#142).
+
+**The terms and the privacy policy describe the code and have never been read by a lawyer.**
+The line under the first button opens them in the browser or, offline, from the copy in the
+APK; that the default address resolves was checked on 25 September 2026 by fetching it, and no
+link has been tapped on a phone. Phones that finished the first run before this build never
+see the line — the documents stay reachable from «О приложении» — and the bot shows no link
+to either. That crash reports are kept out of a phone's backup is in the backup rules and
+their test only; it needs a phone to confirm (#156).
 
 **Week parity was computed from the ISO week number, and that broke once every five or six
 years.** In an ISO year with 53 weeks, week 53 and week 1 stand next to each other and are

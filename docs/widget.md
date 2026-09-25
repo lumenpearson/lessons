@@ -82,7 +82,7 @@ from `timetable.nowAtSchool()`.
 | `DuringEvent` | canteen, assembly, excursion | the event's name and how long is left |
 | `AfterSchool` | after the last bell | **homework for the next school day** |
 | `DayOff` | day off, holidays | the same |
-| `NoData` | no cache for this date | a hint to open the app |
+| `NoData` | no cache for this date | one of three sentences, by how the phone came in — see below |
 
 The priority when they overlap: an event with `coversLesson` beats a running lesson; an
 event without it is shown only during a break. That is why «Обед» is visible on a break but
@@ -90,6 +90,40 @@ does not hide a lesson.
 
 The homework heading names the day the way a person would: «на завтра», «на понедельник»,
 «на 15 сентября» — depending on how far away it is.
+
+### When there is nothing to draw
+
+With no timetable — no class, nothing cached, or `NoData` — the widget draws an instruction
+rather than an error, and which instruction depends on how the phone came into the app. The
+snapshot carries the phone's `ShellMode`, read from `container.shellMode.current()`: one
+preferences read, and the same rule the app shell uses to choose its home.
+
+| Mode | Wide rungs | Narrow rungs and `WIDE` |
+| --- | --- | --- |
+| no class, no diary | «Откройте приложение и подключитесь по коду класса или через свою школу» | «Откройте приложение» |
+| a class, nothing synced | «Расписание ещё не загружено — откройте приложение и потяните вниз» | «Расписание не загружено» |
+| a diary and no class | «Виджет показывает расписание класса. Дневник — в приложении» | «Дневник — в приложении» |
+
+The first used to be «введите код класса», which is wrong for exactly the family the second
+way in was built for, and it now names both ways. The third is new, and deliberately does
+not say «потяните вниз»: no pull will ever bring a timetable to a phone that has no class.
+A snapshot that cannot be read at all draws the class sentence, the least wrong of the three
+when nothing is known. Which rungs get the short form is a width rule, `emptyTextIsCompact`,
+because Glance text cannot ellipsize and a long sentence in a 110 dp column is clipped
+mid-word.
+
+**The widget never reads the diary** (#142). Outside a class it does not even ask Room for a
+timetable, and `snapshotOf` ignores one handed to it, so the sentence and anything drawn
+beside it come from one answer. A diary read from the widget would count as the family's
+activity and keep a diary session alive on the server with nobody behind it;
+`SyncWorkerSourceTest` fails if any widget source names the diary's repository, cache or
+import. A diary-only phone therefore gets no widget content at all, and that is recorded as
+the open question it is rather than patched here.
+
+The widget learns that the mode changed the way it learns of a sync: registering a diary
+session and signing out of one send the same `DATA_SYNCED` broadcast. None of this has been
+seen on a launcher — whether the longer first sentence fits its rungs is judged by its
+length, and the redraw on a mode change is not composed by any test.
 
 ## The school's time, not the phone's
 

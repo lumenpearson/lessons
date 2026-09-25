@@ -5,19 +5,23 @@ A document for whoever uses the app rather than builds it. Building is in
 
 The short version: one person keeps the class's timetable in a Telegram bot, and the app
 on the phone reads it and shows it — on the screen, in the widget and in the
-notifications. Nothing has to be typed in except the class code on first run.
+notifications. A family whose class is in no bot can instead sign in to its own school's
+electronic diary and have that as the app; a phone can have both.
 
 > The app speaks Russian (with an English translation, chosen in the app), so the buttons
 > and menu paths quoted below are quoted as they appear on the screen.
 
 ## First run
 
-An installed app opens not with a field for a code but with five steps:
+An installed app opens not with a field for a code but with five steps of introduction:
 
 1. **Welcome** — the app's mark, the theme and the language. The mark spins under a
    finger; the theme and the language are changed here and are always available in the
-   settings afterwards.
-2. **What this is** — four paragraphs about what the app shows and what it does not do.
+   settings afterwards. Under its «Продолжить» button there is always the line «Продолжая,
+   вы принимаете Условия использования и Политику конфиденциальности»: each name opens its
+   document — in the browser, or offline from the copy inside the app — and both are in
+   «Настройки → О приложении» later.
+2. **What this is** — a few paragraphs about what the app shows and what it does not do.
    They are worth reading: it is the shortest description of the project there is. Whether
    to keep crash reports is chosen here too (off by default).
 3. **Properties** — haptics, colours from the wallpaper, a black background, blur, the
@@ -26,11 +30,36 @@ An installed app opens not with a field for a code but with five steps:
 4. **Permissions** — notifications, exact alarms and background work, each with its own
    button and an explanation of what it is for. Refusing breaks nothing: with no
    notifications there simply are no reminders.
-5. **The class code** — that field.
+5. **«Как подключиться?»** — the two ways in, «По коду класса» and «Найти свою школу».
+   The other one can be added later.
 
 The language sits on the first step deliberately: somebody who does not read Russian has
 to be able to switch it **before** the third screen, not after. Below Android 13 changing
 the language recreates the screen — that is normal, and the step is not lost.
+
+**«По коду класса»** is the field for the class code, described in the next section. If
+the class is linked to a diary the app can sign in to, the app then offers that diary's
+sign-in too, and «Не сейчас» skips it.
+
+**«Найти свою школу»** is for a family that wants its own diary, with or without a class in
+the bot. In order, skipping what a region does not need:
+
+- **the region** — found by the name of the region or a city, its code, or a school's name.
+  The list of regions is inside the app and searches offline; a school's name is looked up
+  by the server, when the server has school search switched on;
+- **the school** — only where the diary is «Сетевой город»: the phone asks the region's own
+  diary server for its list of schools;
+- **the diary system** — what the region's schools use, one of them marked «Рекомендуем»,
+  with «Почему?» explaining the choice. A diary that opens only through Госуслуги, or one the
+  app cannot read yet, opens its own site in the browser instead, and the class code is
+  offered beside it;
+- **the sign-in** — the diary's own login and password; the card «Куда уйдёт пароль» names
+  the address the password goes to (more in "The electronic diary" below);
+- **the import** — the pupil, the terms, two weeks of timetable, the homework and the marks,
+  with a progress bar; several pupils on one account are asked about, and a load that stops
+  resumes from where it stopped with «Повторить»;
+- **«Всё готово»** — a summary of the pupil, the diary, the class if there is one, and the
+  main settings.
 
 ## The class code
 
@@ -48,11 +77,14 @@ code is correct — that class simply does not let anybody in with it any more. 
 personal code from the bot; there is no need to go back to whoever gave you the class
 code.
 
-If the school's server is its own rather than the one built into the app, press
-**«Сервер»** at the bottom of the connection screen and enter the whole address —
-`http://192.168.1.50:8000/` or `https://lessons.example.com/`. The address has to be the
-one the **phone** can see the server at: to a phone, `localhost` means itself. The details,
-and how to check from a browser, are in [build.md](build.md#pointing-the-app-at-a-server).
+**The app has no server of its own**: the address comes from the class's administrator,
+or from whoever set a server up for the school. It goes into the **«Адрес сервера»** row
+under «Сервер» — on the «Как подключиться?» screen, at the bottom of the class-code screen,
+or in «Настройки → Синхронизация» — as a whole address, `http://192.168.1.50:8000/` or
+`https://lessons.example.com/`. On the way through the school's diary it is asked for when
+it is first needed. The address has to be the one the **phone** can see the server at: to a
+phone, `localhost` means itself. The details, and how to check from a browser, are in
+[build.md](build.md#pointing-the-app-at-a-server).
 
 ### Several classes on one phone
 
@@ -67,7 +99,8 @@ The widget and the notifications follow the selected class.
 
 There are two ways out now, and they are different. **«Выйти из класса «7А»»** removes one
 class and its timetable and leaves the others alone; **«Выйти из всех классов»** removes
-them all — after which the app shows the code field again rather than the four screens.
+them all — after which the app opens «Как подключиться?» rather than the whole
+introduction again, or the diary, if the phone is signed in to one.
 While there is exactly one class there is one line, and it means what it always did.
 
 Editing rights are per class: a phone is linked to Telegram per class rather than as a
@@ -89,6 +122,10 @@ past ones too.
 The settings are not a fourth tab but a separate button: you go in, change one thing and
 come back. Inside are nine sections, each opened on its own: appearance, interaction,
 content, notifications, sync, class, diary, updates and "about".
+
+A phone with **no class and a diary** has a different home: the diary itself, with its two
+tabs, «Расписание» and «Оценки», in the toolbar. Its settings keep six sections — no
+content, notifications or class, because each of those is about a class timetable.
 
 ## The widget
 
@@ -115,8 +152,11 @@ Worth knowing:
 - **After lessons it shows the homework** — for tomorrow, on Friday for Monday, and across
   the holidays for the first school day after them.
 
-If the widget says «нет данных», open the app: there is nothing in the cache for that date
-and no sync has happened yet.
+If the widget says «Расписание ещё не загружено», open the app and pull the screen down:
+there is nothing in the cache for that date. On a phone with no class it asks to be opened
+and connected instead, and on a phone that has only a diary it says «Дневник — в
+приложении»: the widget draws a class timetable and never the diary. The three sentences are
+in [widget.md](widget.md#when-there-is-nothing-to-draw).
 
 ## Notifications
 
@@ -232,22 +272,43 @@ Editors and administrators additionally have `/subjects`, `/holidays`, `/bells`,
 `/devices`, `/log`, `/class`, `/export`, `/import`, `/stats` and `/code` — all described in
 [bot.md](bot.md).
 
-## The Petersburg electronic diary
+## The electronic diary
 
-A separate thing and a separate account: the class's timetable is kept by the bot, while
-the diary is St Petersburg's state service, holding the marks, the absences and the
-assignments the school sets. In the app it is the **«Настройки → Дневник»** section.
+A separate thing and a separate account: the class's timetable is kept by the bot, while the
+diary is the system the school keeps its marks, absences and assignments in. The app signs in
+to two of them: St Petersburg's «Петербургское образование», and «Сетевой город» in the
+sixteen regions where it takes a login and a password. A diary that lets people in only
+through Госуслуги, the app does not sign in to — which diary each region runs is in
+[diaries.md](diaries.md).
 
-You sign in with the same login and password as on the diary's website. **The password is
-not saved anywhere**: it is needed for exactly one request, after which both the phone and
-the server forget it. Only the diary's own session is stored, and it lives as long as the
-service keeps extending it. When it ends, the app says «Сессия дневника закончилась» and
-asks for the password again — the login stays where it was.
+Where it lives depends on the way in. On a phone with a class it is the **«Настройки →
+Дневник»** section; on a phone with only a diary it is the home screen, and its account —
+the pupil, the diary, the school, «Подключиться к классу по коду» and «Выйти из дневника» —
+is under «Настройки → Дневник».
+
+You sign in with the same login and password as on the diary's website, and the form names
+the address the password will go to. **The password goes from the phone straight to the
+diary, over HTTPS, and nowhere else** — not to the server and not to the phone's storage. The
+server receives the session the diary handed back, checks it with a request of its own, and
+keeps it sealed. When it ends, the app says «Сессия дневника закончилась» and asks for the
+password again — the login stays where it was. A failed sign-in says why: a wrong pair, a
+diary that is not answering, too many attempts, a diary that will not accept the server's
+address, no connection — different things, with different fixes.
+
+The bot's own diary sign-in page works differently: there the password goes through the
+server once on its way to the diary, and the page says so ([bot.md](bot.md)).
 
 Inside are two tabs — «Расписание» and «Оценки» — and a choice of child, if the account
 sees several. The diary's assignments are shown under the lessons of the day they are set
 for. An absence, a late arrival and a remark are all put into one list with the marks by
 the service, but the app tells them apart and shows them differently.
+
+What the app has loaded stays on the phone, so the diary opens without a network — the app
+then says it is showing the saved copy, and from when. The app reads the diary only while
+it is open: the widget and the background sync never do. That is also what keeps the
+sign-in alive — after 30 days without the app being opened you sign in again, and
+Petersburg's diary may end a sign-in sooner. «Выйти из дневника» deletes what the phone
+saved and has the server forget its copy of the sign-in.
 
 The service is somebody else's and undocumented. If it answers incomprehensibly, the app
 says exactly that: the service has changed, and that is fixed on the server rather than in
@@ -290,7 +351,7 @@ A manual check in the same place also shows the notes for the version already in
 
 | What you see | What it means |
 | --- | --- |
-| The widget says «нет данных» | there is no cache for that date — open the app and let it sync |
+| The widget says «Расписание ещё не загружено» | there is no cache for that date — open the app and pull the screen down |
 | The time in the app is wrong | "now" is computed in the class's time zone; an administrator changes it in the bot, «⚙️ Класс → 🕒 Часовой пояс» |
 | Notifications do not arrive | the first line of the «Уведомления» section says whether they are forbidden at the system level; check the quiet hours and "no reminders during the holidays" |
 | The code does not connect | check the server address under «Синхронизация» and open `<address>/api/v1/health` in the phone's browser |
