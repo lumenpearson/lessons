@@ -1,0 +1,14 @@
+{
+  "edition": 1,
+  "effective": "2026-09-25",
+  "files": {
+    "terms": {
+      "ru": "terms.ru.md",
+      "en": "terms.en.md"
+    },
+    "privacy": {
+      "ru": "privacy.ru.md",
+      "en": "privacy.en.md"
+    }
+  }
+}
