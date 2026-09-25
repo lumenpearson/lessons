@@ -33,7 +33,7 @@ This text describes what the app Lessons («Дневник» in Russian), its se
 You type the server's address into the app yourself. If it leads to a server somebody else started, whoever started it is responsible for the data on that server and in its bot, and their own policy should describe it.
 
 ## What is kept on the phone
-<!-- id: PHONE; label: Phone; summary: What the app keeps and what may reach a backup -->
+<!-- id: PHONE; label: Phone; summary: What the app keeps and what is kept out of a backup -->
 
 - For each class you have joined: an access key, and the names of the class and the school.
 - A copy of the class timetable, events and homework, teachers' names included, so that the app and the widget work offline.
@@ -41,7 +41,7 @@ You type the server's address into the app yourself. If it leads to a server som
 - The server's address, the app's settings and, if you signed in to GitHub from the app, the GitHub key and your account name there.
 - Crash reports, only if you turned them on: up to five files with the phone's model, the Android and app versions, a description of the error and the app's latest log lines.
 
-The keys, the login and the settings sit in the app's settings files **unencrypted**. The databases and the settings files are excluded from Google backup and from transfer to a new phone. Crash reports are not excluded: if you turned them on, they may end up in the phone's backup (this has not been checked on a device).
+The keys, the login and the settings sit in the app's settings files **unencrypted**. The databases, the settings files and the crash reports are excluded from Google backup and from transfer to a new phone: a report stays on this phone until you send it yourself. That crash reports really are kept out of the backup has not yet been checked on a device.
 
 The phone never stores the diary password. The session the diary hands out after sign-in is held only in memory, never written down, and forgotten as soon as the phone has handed it to the server or the sign-in is abandoned.
 

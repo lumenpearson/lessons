@@ -377,10 +377,9 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="about_description">A school diary with a widget on the home screen. It works offline: the timetable, the substitutions and the homework are kept on the device.</string>
     <string name="about_name_and_version">Lessons v%1$s</string>
     <string name="about_developer_line">Built by lumenpearson</string>
-    <!-- Split around the link so the repository name can be tappable inside the sentence. -->
-    <string name="about_design_credit_before">Design language, font and components — after </string>
+    <!-- %1$s is the tappable repository name. One template, not three pieces: aapt2 trims the space at a piece's edge (#155). -->
+    <string name="about_design_credit">Design language, font and components — after %1$s, MIT licence.</string>
     <string name="about_design_credit_link">Essentials</string>
-    <string name="about_design_credit_after">, MIT licence.</string>
     <string name="about_link_source">Source code</string>
     <string name="about_link_essentials">Essentials</string>
     <string name="about_closing_line">Made for one school</string>

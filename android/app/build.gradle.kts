@@ -1,3 +1,4 @@
+import java.net.URI
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 /*
@@ -115,6 +116,49 @@ val githubClientId = signingSecret("LESSONS_GITHUB_CLIENT_ID", "lessons.github.c
 val contactEmail = signingSecret("LESSONS_CONTACT_EMAIL", "lessons.contactEmail") ?: ""
 
 /*
+ * Where the terms of use and the privacy policy are published: the https
+ * address of a folder holding terms.{ru,en}.md and privacy.{ru,en}.md. The app
+ * appends "/terms.ru.md" and the like, and opens the result in the browser when
+ * there is a network; otherwise it shows the copy bundled from docs/legal/.
+ *
+ * The default is docs/legal/ of the upstream repository on its default branch
+ * (GitHub resolves blob/HEAD/ to it), so a build from a fresh clone links a
+ * real, current document rather than nothing. `apk.yml` passes docs/legal/ of
+ * whichever repository it runs in, so a fork's APK links the fork's texts with
+ * nothing configured; a fork building by hand sets lessons.legal.baseUrl, or
+ * links the upstream operator's texts. Not a branch or a tag: an installed APK
+ * keeps its link for life, and a feature branch is deleted within a week.
+ *
+ * Refused rather than kept when it is not https or not a plain folder address.
+ * It is the first link of every install, a policy fetched over plain HTTP is
+ * one anybody on the café's network can rewrite before it is read, and
+ * buildConfigField splices the value into Java source, where a stray quote is a
+ * compile error minutes later instead of this sentence now.
+ */
+val defaultLegalBaseUrl = "https://github.com/lumenpearson/lessons/blob/HEAD/docs/legal"
+
+val legalBaseUrl: String =
+    (signingSecret("LESSONS_LEGAL_BASE_URL", "lessons.legal.baseUrl") ?: defaultLegalBaseUrl).let { raw ->
+        val candidate = raw.trim().trimEnd('/')
+        // URI refuses a quote, a backslash, a space and the other
+        // characters that would break the generated Java string.
+        runCatching { URI(candidate) }.getOrNull()
+            ?.takeIf { uri ->
+                uri.scheme == "https" &&
+                    !uri.host.isNullOrEmpty() &&
+                    uri.rawQuery == null &&
+                    uri.rawFragment == null
+            }
+            ?.let { candidate }
+            ?: throw GradleException(
+                "LESSONS_LEGAL_BASE_URL / lessons.legal.baseUrl is \"$raw\"; it must be the " +
+                    "https:// address of a folder holding terms.ru.md, terms.en.md, " +
+                    "privacy.ru.md and privacy.en.md, with no query and no fragment. " +
+                    "See docs/build.md.",
+            )
+    }
+
+/*
  * Where this APK came from, for the about page's badges.
  *
  * None of it can be worked out from inside the app, and that is the point: a
@@ -155,6 +199,18 @@ android {
         buildConfigField("String", "BUILD_COMMIT", "\"$buildCommit\"")
         buildConfigField("String", "BUILD_NUMBER", "\"$buildNumber\"")
         buildConfigField("String", "BUILD_TIME", "\"$buildTime\"")
+        buildConfigField("String", "LEGAL_BASE_URL", "\"$legalBaseUrl\"")
+    }
+
+    sourceSets {
+        // The terms and the privacy policy the first screen's line opens when
+        // the browser is not an answer — offline, no browser, a captive portal.
+        // docs/legal/ itself is the asset folder, like docs/app/ is for the
+        // guide in :core:data, so the APK carries the one copy that is published
+        // rather than a second one kept level by hand. The names cannot collide
+        // with the guide's at the asset root: `legal.json`, not `manifest.json`,
+        // and LegalDocumentsTest holds that for every folder mounted there.
+        getByName("main").assets.srcDirs(rootProject.layout.projectDirectory.dir("../docs/legal"))
     }
 
     androidResources {

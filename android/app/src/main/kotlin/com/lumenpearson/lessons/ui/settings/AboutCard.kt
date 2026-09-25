@@ -19,7 +19,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -32,14 +34,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.lumenpearson.lessons.BuildConfig
@@ -49,7 +50,12 @@ import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.data.legal.LegalDocument
 import com.lumenpearson.lessons.core.data.repository.ServerStatus
+import com.lumenpearson.lessons.ui.legal.LegalOpener
+import com.lumenpearson.lessons.ui.legal.legalTitle
+import com.lumenpearson.lessons.ui.legal.linkedSentence
+import com.lumenpearson.lessons.ui.legal.rememberLegalOpener
 
 /**
  * The card at the very bottom of the about page: what this is, and who it is by.
@@ -159,28 +165,33 @@ private fun AppMark() {
     }
 }
 
-/** Where this came from, with the source repository as a link in the sentence. */
+/**
+ * Where this came from, with the source repository as a link in the sentence.
+ *
+ * One template with the link as its placeholder. It used to be the words
+ * before, the link and the words after as three strings, and aapt2 trims the
+ * space at the end of a string — so both languages shipped with the last word
+ * run into the link, «по мотивамEssentials» (#155).
+ */
 @Composable
 private fun DesignCredit() {
     val label = correctedString(R.string.about_design_credit_link)
-    val credit = buildAnnotatedString {
-        append(correctedString(R.string.about_design_credit_before))
-        withLink(
-            LinkAnnotation.Url(
-                url = EssentialsUrl,
-                styles = TextLinkStyles(
-                    style = SpanStyle(
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium,
-                        textDecoration = TextDecoration.Underline,
-                    ),
-                ),
+    val template = correctedString(R.string.about_design_credit)
+    val plain = correctedString(R.string.about_design_credit, label)
+    val link = LinkAnnotation.Url(
+        url = EssentialsUrl,
+        styles = TextLinkStyles(
+            style = SpanStyle(
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium,
+                textDecoration = TextDecoration.Underline,
             ),
-        ) {
-            append(label)
-        }
-        append(correctedString(R.string.about_design_credit_after))
-    }
+        ),
+    )
+    // A proofreader's correction that typed over the placeholder has nowhere
+    // to put the link; the sentence is still drawn, as plain text, and the
+    // same repository is the «Essentials» row below.
+    val credit = linkedSentence(template, listOf(label to link)) ?: AnnotatedString(plain)
 
     // No onClick and no Intent: LinkAnnotation.Url is opened by the platform's
     // own UriHandler, which is also what makes the link reachable by a screen
@@ -193,19 +204,43 @@ private fun DesignCredit() {
     )
 }
 
+/**
+ * Where a pill goes: a web page, or one of the two legal texts.
+ *
+ * The legal texts are not just two more URLs. They open in the browser only
+ * when there is a network to open them over and a browser to open them in, and
+ * otherwise as the copy bundled in the APK — the same [LegalOpener] the line on
+ * the first screen uses, so that the two ways to a document cannot show a
+ * reader two different ones.
+ */
+private sealed interface AboutTarget {
+    data class Web(val url: String) : AboutTarget
+    data class Legal(val document: LegalDocument) : AboutTarget
+}
+
 /** One outward link: an icon, a label, and somewhere to go. */
 private data class AboutLink(
     val icon: ImageVector,
     @StringRes val label: Int,
-    val url: String,
+    val target: AboutTarget,
 )
 
 private const val ProjectUrl = "https://github.com/lumenpearson/lessons"
 private const val EssentialsUrl = "https://github.com/sameerasw/essentials"
 
 private val Links = listOf(
-    AboutLink(Icons.Rounded.Code, R.string.about_link_source, ProjectUrl),
-    AboutLink(Icons.Rounded.Palette, R.string.about_link_essentials, EssentialsUrl),
+    AboutLink(Icons.Rounded.Code, R.string.about_link_source, AboutTarget.Web(ProjectUrl)),
+    AboutLink(Icons.Rounded.Palette, R.string.about_link_essentials, AboutTarget.Web(EssentialsUrl)),
+    AboutLink(
+        Icons.Rounded.Gavel,
+        legalTitle(LegalDocument.TERMS),
+        AboutTarget.Legal(LegalDocument.TERMS),
+    ),
+    AboutLink(
+        Icons.Rounded.PrivacyTip,
+        legalTitle(LegalDocument.PRIVACY),
+        AboutTarget.Legal(LegalDocument.PRIVACY),
+    ),
 )
 
 /**
@@ -224,12 +259,13 @@ private val Links = listOf(
  */
 @Composable
 private fun LinkPills() {
+    val legal = rememberLegalOpener()
     Column(
         verticalArrangement = Arrangement.spacedBy(PillGap),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Links.forEach { link ->
-            LinkPill(link = link, modifier = Modifier.fillMaxWidth())
+            LinkPill(link = link, onLegal = legal::open, modifier = Modifier.fillMaxWidth())
         }
     }
 }
@@ -412,22 +448,31 @@ private fun open(context: android.content.Context, view: android.view.View, url:
 }
 
 @Composable
-private fun LinkPill(link: AboutLink, modifier: Modifier = Modifier) {
+private fun LinkPill(
+    link: AboutLink,
+    onLegal: (LegalDocument) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val view = rememberHapticView()
 
     OutlinedButton(
         onClick = {
             LessonsHaptics.press(view)
-            val intent = Intent(Intent.ACTION_VIEW, link.url.toUri())
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            // A phone with no browser at all is rare; a work profile or a
-            // locked-down school device that cannot open one is not, and the
-            // reference crashes on both.
-            try {
-                context.startActivity(intent)
-            } catch (_: ActivityNotFoundException) {
-                LessonsHaptics.press(view)
+            when (val target = link.target) {
+                is AboutTarget.Legal -> onLegal(target.document)
+                is AboutTarget.Web -> {
+                    val intent = Intent(Intent.ACTION_VIEW, target.url.toUri())
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    // A phone with no browser at all is rare; a work profile or
+                    // a locked-down school device that cannot open one is not,
+                    // and the reference crashes on both.
+                    try {
+                        context.startActivity(intent)
+                    } catch (_: ActivityNotFoundException) {
+                        LessonsHaptics.press(view)
+                    }
+                }
             }
         },
         modifier = modifier,

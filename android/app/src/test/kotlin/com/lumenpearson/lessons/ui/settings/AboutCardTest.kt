@@ -119,6 +119,25 @@ class AboutCardTest {
     }
 
     @Test
+    fun `the terms and the privacy policy each have a row of their own`() {
+        // The full-size way to the two documents the first screen's small line
+        // links, for anybody who wants to read them again after onboarding.
+        show(ServerStatus.Ok(apiVersion = 1, schema = "0014"))
+
+        assertShows("Условия использования")
+        assertShows("Политика конфиденциальности")
+    }
+
+    @Test
+    fun `the design credit keeps the space before its link`() {
+        // #155: the words before the link were their own string, aapt2 trimmed
+        // its trailing space, and the card said «по мотивамEssentials».
+        show(ServerStatus.Ok(apiVersion = 1, schema = "0014"))
+
+        assertShows("Оформление, шрифт и компоненты — по мотивам Essentials, лицензия MIT.")
+    }
+
+    @Test
     fun `a healthy server says so, and names what it is`() {
         show(ServerStatus.Ok(apiVersion = 1, schema = "0014"))
 

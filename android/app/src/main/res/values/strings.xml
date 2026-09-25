@@ -377,10 +377,9 @@
     <string name="about_description">Школьный дневник с виджетом на главном экране. Работает офлайн: расписание, замены и домашние задания хранятся на устройстве.</string>
     <string name="about_name_and_version">Дневник v%1$s</string>
     <string name="about_developer_line">Собрано lumenpearson</string>
-    <!-- Split around the link so the repository name can be tappable inside the sentence. -->
-    <string name="about_design_credit_before">Оформление, шрифт и компоненты — по мотивам </string>
+    <!-- %1$s is the tappable repository name. One template, not three pieces: aapt2 trims the space at a piece's edge (#155). -->
+    <string name="about_design_credit">Оформление, шрифт и компоненты — по мотивам %1$s, лицензия MIT.</string>
     <string name="about_design_credit_link">Essentials</string>
-    <string name="about_design_credit_after">, лицензия MIT.</string>
     <string name="about_link_source">Исходный код</string>
     <string name="about_link_essentials">Essentials</string>
     <string name="about_closing_line">Сделано для одной школы</string>
