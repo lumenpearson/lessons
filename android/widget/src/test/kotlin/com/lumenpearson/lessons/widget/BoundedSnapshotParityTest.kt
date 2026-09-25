@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.widget
 
+import com.lumenpearson.lessons.core.data.repository.ShellMode
 import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.EventKind
@@ -199,7 +200,7 @@ class BoundedSnapshotParityTest {
     private fun snapshotOf(timetable: Timetable, now: LocalDateTime) = snapshotOf(
         timetable = timetable,
         now = now,
-        signedIn = true,
+        mode = ShellMode.CLASS,
         options = WidgetOptions(),
         language = AppLanguage.SYSTEM,
     )
