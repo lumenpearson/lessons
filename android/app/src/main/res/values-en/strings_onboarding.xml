@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English translation of values/strings_onboarding.xml; see the notes there. -->
+<resources>
+
+    <string name="onboarding_step_of_chapter">%1$s: step %2$d of %3$d</string>
+    <string name="onboarding_chapter_intro">Introduction</string>
+    <string name="onboarding_chapter_school">Your school</string>
+    <string name="onboarding_chapter_class">The class\'s diary</string>
+    <string name="onboarding_chapter_diary">The diary</string>
+
+    <string name="onboarding_action_proceed">Continue</string>
+    <string name="onboarding_action_retry">Try again</string>
+
+    <string name="onboarding_way_title">How do you want to start?</string>
+    <string name="onboarding_way_subtitle">Choose where the app takes your timetable from. You can add the other way later.</string>
+    <string name="onboarding_way_code_title">With a class code</string>
+    <string name="onboarding_way_code_badge">Quick</string>
+    <string name="onboarding_way_code_text">The class admin gives out the code in the Telegram bot. The class\'s shared timetable, changes and homework — and the bot itself.</string>
+    <string name="onboarding_way_school_title">Find your school</string>
+    <string name="onboarding_way_school_badge">On your own</string>
+    <string name="onboarding_way_school_text">Region, school and a sign-in to the electronic diary. Only your own data from the school\'s diary, without the bot. The password goes straight to the diary.</string>
+    <string name="onboarding_way_server_unset">Not set — you will be asked when it is needed</string>
+    <string name="onboarding_action_code">Enter the code</string>
+    <string name="onboarding_action_find">Find the school</string>
+
+    <string name="onboarding_region_title">Your region</string>
+    <string name="onboarding_region_subtitle">A region, a city or a school name</string>
+    <string name="onboarding_region_search_label">Region, city or school</string>
+    <string name="onboarding_region_clear">Clear</string>
+    <string name="onboarding_region_all">All regions</string>
+    <string name="onboarding_region_found">Regions</string>
+    <string name="onboarding_region_by_city">City: %1$s</string>
+    <string name="onboarding_region_by_alias">Also called %1$s</string>
+    <string name="onboarding_region_by_code">Region code: %1$s</string>
+    <string name="onboarding_region_sign_in">%1$s · sign in here</string>
+    <string name="onboarding_region_gosuslugi">%1$s · Gosuslugi only</string>
+    <string name="onboarding_region_site">%1$s · opens the diary\'s site</string>
+    <string name="onboarding_region_unsupported">%1$s · the app cannot read it yet</string>
+    <string name="onboarding_region_paper">No electronic diary</string>
+    <string name="onboarding_region_empty_title">Nothing found</string>
+    <string name="onboarding_region_empty_text">Try a region or a large city — or the school, if you remember its whole name.</string>
+    <string name="onboarding_region_school_section">Where the school “%1$s” may be</string>
+    <string name="onboarding_region_school_searching">Looking the school up by name…</string>
+    <plurals name="onboarding_region_school_count">
+        <item quantity="one">%1$d school</item>
+        <item quantity="other">%1$d schools</item>
+    </plurals>
+    <string name="onboarding_region_school_group">%1$s: %2$s</string>
+    <string name="onboarding_region_school_truncated">There are more matches than shown. If your region is not here, pick it from the list.</string>
+    <string name="onboarding_region_school_generic">Schools with this name are all over the country. Pick the region from the list — the next step finds the school.</string>
+    <string name="onboarding_region_school_empty">No such school in the company register. Pick the region from the list.</string>
+    <plurals name="onboarding_region_school_wait">
+        <item quantity="one">The school-name search is resting for another %1$d minute. Pick the region from the list.</item>
+        <item quantity="other">The school-name search is resting for another %1$d minutes. Pick the region from the list.</item>
+    </plurals>
+    <string name="onboarding_region_school_busy">The school-name search is resting for now. Pick the region from the list.</string>
+    <string name="onboarding_region_school_no_server">The server looks schools up by name, and none is set. Pick the region from the list.</string>
+    <string name="onboarding_region_school_offline">The server cannot be reached, so the school cannot be looked up by name. Pick the region from the list — it works offline.</string>
+    <string name="onboarding_region_school_off">This server cannot look schools up by name. Pick the region from the list.</string>
+
+    <string name="onboarding_school_title">Your school</string>
+    <string name="onboarding_school_subtitle">%1$s · %2$s</string>
+    <string name="onboarding_school_search_label">A number or a word of the name</string>
+    <plurals name="onboarding_school_min_chars">
+        <item quantity="one">Type at least %1$d character.</item>
+        <item quantity="other">Type at least %1$d characters.</item>
+    </plurals>
+    <string name="onboarding_school_empty">The region\'s diary has no school by that name. Try the number alone.</string>
+    <string name="onboarding_school_missing">My school is not listed</string>
+    <string name="onboarding_action_pick_school">Choose the school</string>
+
+    <string name="onboarding_provider_title">The electronic diary</string>
+    <string name="onboarding_provider_subtitle">What schools use: %1$s</string>
+    <string name="onboarding_provider_recommended">Recommended</string>
+    <string name="onboarding_provider_why">Why?</string>
+    <string name="onboarding_provider_why_description">Why %1$s is recommended</string>
+    <string name="onboarding_provider_role_primary">The region\'s main one</string>
+    <string name="onboarding_provider_role_secondary">Runs alongside the main one</string>
+    <string name="onboarding_provider_role_moving_to">The region is moving to it</string>
+    <string name="onboarding_provider_line">%1$s · %2$s</string>
+    <string name="onboarding_provider_action_sign_in">sign in here</string>
+    <string name="onboarding_provider_action_needs_school">choose the school first</string>
+    <string name="onboarding_provider_action_account">the diary takes the school from your account</string>
+    <string name="onboarding_provider_action_gosuslugi">Gosuslugi only, in the browser</string>
+    <string name="onboarding_provider_action_site">the app cannot read it; opens the site</string>
+    <string name="onboarding_provider_action_unsupported">the app cannot read this diary yet</string>
+    <string name="onboarding_provider_action_paper">no electronic diary</string>
+    <string name="onboarding_provider_code_section">Not your diary?</string>
+    <string name="onboarding_provider_code_title">Use a class code</string>
+    <string name="onboarding_provider_code_text">If the class is run in the bot, its admin has a code</string>
+    <string name="onboarding_action_sign_in">Sign in</string>
+    <string name="onboarding_action_gosuslugi">Open Gosuslugi</string>
+    <string name="onboarding_action_open_site">Open the diary\'s site</string>
+
+    <string name="onboarding_handoff_title">%1$s will open</string>
+    <string name="onboarding_handoff_gosuslugi">This diary opens only through Gosuslugi. The app never asks for a Gosuslugi password and never takes its sign-in, so it cannot show this diary. The page opens in the browser — or in whichever app the phone offers for it. Sign in there as usual.</string>
+    <string name="onboarding_handoff_site">The app cannot read this diary yet. Its site will open — sign in there the way your school does. A class code still brings the class timetable into the app.</string>
+    <string name="onboarding_handoff_open">Open</string>
+    <string name="onboarding_handoff_no_browser">Nothing on this phone can open the link.</string>
+
+    <string name="onboarding_why_title">Why %1$s</string>
+    <string name="onboarding_why_primary">In the %3$s school year the main electronic diary of schools in %1$s is %2$s.</string>
+    <string name="onboarding_why_tor_primary">%1$s keeps its diary in %2$s, which opens only through Gosuslugi.</string>
+    <string name="onboarding_why_front_end">Schools in %1$s show their marks in %2$s, while the diary itself is %3$s. The app cannot sign in there, so it recommends what opens for everyone.</string>
+    <string name="onboarding_why_moving_to">%1$s is moving to %2$s school by school. If yours already has, choose this one.</string>
+    <string name="onboarding_why_unreachable">The diary of schools in %1$s takes no secure connections, and the app sends no password without one. So it recommends %2$s.</string>
+    <string name="onboarding_why_unsupported">Schools in %1$s use %2$s. The app cannot read it yet; a class code still brings the class timetable.</string>
+    <string name="onboarding_why_no_diary">In the %2$s school year schools in %1$s keep paper registers — there is no electronic diary.</string>
+    <string name="onboarding_why_confidence_high">A regional portal, the ministry or the diary\'s operator confirms it.</string>
+    <string name="onboarding_why_confidence_medium">This comes from news and school sites; no official page was found.</string>
+    <string name="onboarding_why_confidence_low">This is unconfirmed — it may hold only for some schools.</string>
+    <string name="onboarding_why_esia_only">This diary lets you in only through Gosuslugi, and the app does not take a Gosuslugi sign-in.</string>
+    <string name="onboarding_why_unverified">Signing in to this diary has never yet been tried on a real account. If it fails, a class code works regardless.</string>
+    <string name="onboarding_why_privacy">You type the password here, in the app, and it goes only to %1$s. Our server gets the session the diary hands out after sign-in — not the password.</string>
+    <string name="onboarding_why_source">From the survey of every region\'s diary, %1$s.</string>
+
+    <string name="onboarding_sign_in_title">Sign in to %1$s</string>
+    <string name="onboarding_sign_in_where">%1$s · %2$s</string>
+    <string name="onboarding_sign_in_account">The diary takes the school and class from your account</string>
+    <string name="onboarding_sign_in_class_title">Your class\'s diary</string>
+    <string name="onboarding_sign_in_class_subtitle">Class %1$s keeps its diary in %2$s. Sign in to see your marks and homework from it in the app.</string>
+    <string name="onboarding_sign_in_privacy_title">Where the password goes</string>
+    <string name="onboarding_sign_in_email">Email</string>
+    <string name="onboarding_sign_in_stage_checking">Checking the server…</string>
+    <string name="onboarding_sign_in_stage_upstream">Signing in to %1$s…</string>
+    <string name="onboarding_sign_in_stage_register">Handing the session to the server…</string>
+    <string name="onboarding_sign_in_forgot">Forgot the password? Open the diary\'s site</string>
+    <string name="onboarding_sign_in_skip">Not now</string>
+    <string name="onboarding_sign_in_retry">Try again without the password</string>
+    <string name="onboarding_sign_in_set_server">Set the server</string>
+    <string name="onboarding_sign_in_no_target">It is unclear which diary to sign in to. Go back a step and choose it again.</string>
+    <string name="onboarding_sign_in_needs_server">To keep you signed in and to load the diary, the app needs a server. Whoever set one up for your school, or for you, has its address. The password never goes there — only the session the diary hands out.</string>
+
+    <string name="onboarding_import_title">Loading the diary</string>
+    <string name="onboarding_import_subtitle">It takes up to a minute. Keep the app open until it finishes.</string>
+    <string name="onboarding_import_progress">%1$d%% loaded</string>
+    <string name="onboarding_import_phase_students">Student</string>
+    <string name="onboarding_import_phase_periods">Terms</string>
+    <string name="onboarding_import_phase_schedule">Timetable for two weeks</string>
+    <string name="onboarding_import_phase_homework">Homework</string>
+    <string name="onboarding_import_phase_marks">Marks</string>
+    <string name="onboarding_import_waiting">Waiting</string>
+    <string name="onboarding_import_running">Loading…</string>
+    <string name="onboarding_import_done">Done</string>
+    <string name="onboarding_import_skipped">Did not load — the next refresh tries again</string>
+    <string name="onboarding_import_stopped">The load stopped here</string>
+    <plurals name="onboarding_import_lessons">
+        <item quantity="one">%1$d lesson</item>
+        <item quantity="other">%1$d lessons</item>
+    </plurals>
+    <plurals name="onboarding_import_assignments">
+        <item quantity="one">%1$d assignment</item>
+        <item quantity="other">%1$d assignments</item>
+    </plurals>
+    <string name="onboarding_import_pick_title">Whose diary should the app show?</string>
+    <string name="onboarding_import_pick_text">The account has several students and the app shows one. You can switch in settings.</string>
+    <string name="onboarding_import_failed">The load stopped: %1$s</string>
+    <string name="onboarding_import_expired">The diary ended the session during the load. Sign in again — the load carries on where it stopped.</string>
+    <string name="onboarding_import_sign_in_again">Sign in again</string>
+    <string name="onboarding_import_restart">Sign out of the diary and start over</string>
+
+    <string name="onboarding_summary_title">All set</string>
+    <string name="onboarding_summary_subtitle">This is what the app will show. All of it can be changed in settings.</string>
+    <string name="onboarding_summary_student">Student</string>
+    <string name="onboarding_summary_diary">Diary</string>
+    <string name="onboarding_summary_class">Class</string>
+    <string name="onboarding_summary_no_class_title">No class</string>
+    <string name="onboarding_summary_no_class_text">The bot does not know about you: the app shows only your diary. The widget, the notifications and the Today and Calendar tabs run on a class. If an admin sets your class up in the bot, join with its code in settings.</string>
+    <plurals name="onboarding_summary_keepalive">
+        <item quantity="one">The diary stays signed in while you open the app. After %1$d day without it you will have to sign in again — the widget does not extend it.</item>
+        <item quantity="other">The diary stays signed in while you open the app. After %1$d days without it you will have to sign in again — the widget does not extend it.</item>
+    </plurals>
+    <string name="onboarding_summary_petersburg_note">The Petersburg diary may end the session sooner — the app then asks for the password again.</string>
+    <string name="onboarding_summary_settings">Settings</string>
+    <string name="onboarding_summary_notifications">Notifications</string>
+    <string name="onboarding_summary_notifications_on">Allowed</string>
+    <string name="onboarding_summary_notifications_off">Not all allowed — some reminders will not come</string>
+    <string name="onboarding_action_open">Open the app</string>
+</resources>

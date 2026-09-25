@@ -19,14 +19,12 @@
     <string name="action_back">Назад</string>
 
     <!-- First run -->
-    <string name="onboarding_step_of">Шаг %1$d из %2$d</string>
     <string name="onboarding_welcome_title">Добро пожаловать в «%1$s»</string>
     <string name="onboarding_welcome_subtitle">Расписание, замены и домашние задания вашего класса — в приложении и на главном экране.</string>
-    <string name="onboarding_action_begin">Давайте начнём</string>
     <string name="onboarding_ack_title">Подтверждение</string>
-    <string name="onboarding_ack_body">Приложение показывает расписание того класса, к которому вы подключитесь. Данные приходят с сервера школы: приложение только читает их и ничего не меняет в школьном журнале.
+    <string name="onboarding_ack_body">Приложение показывает расписание вашего класса — по коду из бота — или ваш электронный дневник, если вы войдёте в него сами. Оно только читает эти данные и ничего не меняет ни в школьном журнале, ни в дневнике.
 
-На устройстве остаются выданный вам ключ доступа и копия расписания — чтобы приложение и виджет работали без сети. Всё это удаляется, когда вы выходите из класса.</string>
+На телефоне остаются ключ доступа и копии расписания и дневника, чтобы приложение работало без сети. Выход из класса или из дневника стирает их с телефона; что хранит сервер, сказано в политике конфиденциальности.</string>
     <string name="onboarding_ack_warning">Расписание могли изменить позже, чем приложение успело его забрать. Перед контрольной или заменой сверяйтесь с тем, что сказали в школе.</string>
     <string name="onboarding_ack_footer">Если приложение поведёт себя странно, отчёт об ошибке поможет разобраться. Он остаётся на телефоне, пока вы сами его не отправите.</string>
     <string name="onboarding_ack_reports">Отчёты об ошибках</string>
@@ -52,6 +50,7 @@
     <string name="join_action">Подключиться</string>
     <string name="join_error_invalid_code">В коде от %1$d до %2$d символов</string>
     <string name="join_error_rejected">Не удалось подключиться: %1$s</string>
+    <string name="join_error_no_server">Не указан адрес сервера. Нажмите «Адрес сервера» ниже и введите адрес, который дал администратор класса.</string>
     <string name="join_error_generic">Не удалось подключиться. Проверьте код и подключение к сети.</string>
     <string name="join_error_unknown_code">Такого кода нет. Проверьте его у того, кто его дал.</string>
     <string name="join_error_invite_only">Этот класс подключает телефоны только по личному приглашению. Возьмите личный код в боте: меню → «📱 Подключить телефон».</string>
@@ -70,11 +69,11 @@
     <string name="join_feature_widget">Виджет на главном экране</string>
     <string name="join_feature_widget_description">Текущий урок и сколько до звонка — без открытия приложения.</string>
     <string name="join_server_section">Сервер</string>
-    <string name="join_server_unset">По умолчанию — сервер класса</string>
+    <string name="join_server_unset">Не задан — адрес даёт администратор класса</string>
 
     <!-- The server-address dialog -->
     <string name="server_dialog_title">Адрес сервера</string>
-    <string name="server_dialog_description">Меняйте только если школа использует свой сервер.</string>
+    <string name="server_dialog_description">Адрес сервера, через который работают класс и дневник. Встроенного в приложение сервера нет: адрес даёт администратор класса или тот, кто поднял сервер.</string>
     <string name="server_dialog_label">Адрес</string>
     <string name="server_dialog_placeholder">https://…</string>
 
@@ -315,7 +314,7 @@
     <string name="settings_sync">Синхронизация</string>
     <string name="settings_sync_interval">Как часто обновлять</string>
     <string name="settings_server_url">Адрес сервера</string>
-    <string name="settings_server_url_default">По умолчанию</string>
+    <string name="settings_server_url_unset">Не задан</string>
     <string name="settings_refresh_now">Обновить сейчас</string>
     <string name="settings_class">Класс</string>
     <string name="settings_class_unknown">Класс не выбран</string>

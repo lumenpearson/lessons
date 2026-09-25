@@ -1,8 +1,6 @@
 package com.lumenpearson.lessons.ui.legal
 
-import android.content.ActivityNotFoundException
 import android.content.Context
-import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import androidx.compose.runtime.Composable
@@ -12,10 +10,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.intl.Locale
-import androidx.core.net.toUri
 import com.lumenpearson.lessons.BuildConfig
 import com.lumenpearson.lessons.core.data.legal.LegalDocument
 import com.lumenpearson.lessons.core.data.legal.legalUrl
+import com.lumenpearson.lessons.ui.common.openInBrowser
 
 /** Where a tap on a legal link ends up. */
 internal sealed interface LegalTarget {
@@ -99,18 +97,3 @@ internal fun isOnline(context: Context): Boolean {
     }.getOrDefault(false)
 }
 
-/**
- * `false` when nothing could open [url].
- *
- * A work profile or a locked-down school phone may have no browser at all, and
- * the about card's links already learned that an unguarded `startActivity`
- * takes the app down on one.
- */
-internal fun openInBrowser(context: Context, url: String): Boolean = try {
-    context.startActivity(
-        Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-    )
-    true
-} catch (_: ActivityNotFoundException) {
-    false
-}

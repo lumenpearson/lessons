@@ -1,6 +1,8 @@
 package com.lumenpearson.lessons.ui
 
 import com.lumenpearson.lessons.core.data.repository.AppSettings
+import com.lumenpearson.lessons.core.data.repository.ShellMode
+import com.lumenpearson.lessons.core.data.repository.ShellState
 import com.lumenpearson.lessons.core.model.AppLanguage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -59,19 +61,22 @@ class AppShellLanguageTest {
     }
 
     /**
-     * `signedIn` is a different question and must not be mistaken for this one.
+     * `shell` is a different question and must not be mistaken for this one.
      * It happens to be `null` for as long as the settings are unread, but only
      * because two independent reads are racing in the same view model, and a
      * gate built on that is a gate held up by an accident.
      */
     @Test
-    fun `being signed in decides nothing about the language`() {
-        val notLoaded = AppShellUiState(signedIn = true, settingsLoaded = false)
+    fun `having a home decides nothing about the language`() {
+        val notLoaded = AppShellUiState(
+            shell = ShellState(ShellMode.CLASS, held = false),
+            settingsLoaded = false,
+        )
         assertNull(notLoaded.languageToApply)
 
         val loaded = AppShellUiState(
             settings = AppSettings(language = AppLanguage.ENGLISH),
-            signedIn = null,
+            shell = null,
             settingsLoaded = true,
         )
         assertEquals(AppLanguage.ENGLISH, loaded.languageToApply)

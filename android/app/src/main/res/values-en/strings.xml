@@ -23,14 +23,12 @@
     <string name="action_back">Back</string>
 
     <!-- First run -->
-    <string name="onboarding_step_of">Step %1$d of %2$d</string>
     <string name="onboarding_welcome_title">Welcome to %1$s</string>
     <string name="onboarding_welcome_subtitle">Your class timetable, its substitutions and its homework — in the app and on the home screen.</string>
-    <string name="onboarding_action_begin">Let\'s begin</string>
     <string name="onboarding_ack_title">Confirmation</string>
-    <string name="onboarding_ack_body">The app shows the timetable of whichever class you join. The data comes from the school server: the app only reads it and changes nothing in the school register.
+    <string name="onboarding_ack_body">The app shows your class\'s timetable — with a code from the bot — or your electronic diary, if you sign in to it yourself. It only reads that data and changes nothing in the school register or in the diary.
 
-The access key you were given and a copy of the timetable stay on the device, so that the app and the widget work without a network. All of it is deleted when you leave the class.</string>
+The phone keeps an access key and copies of the timetable and the diary, so the app works offline. Leaving the class or signing out of the diary erases them from the phone; what the server keeps is in the privacy policy.</string>
     <string name="onboarding_ack_warning">The timetable may have been changed later than the app managed to fetch it. Before a test or a substitution, check it against what you were told at school.</string>
     <string name="onboarding_ack_footer">If the app behaves strangely, an error report helps work out why. It stays on the phone until you send it yourself.</string>
     <string name="onboarding_ack_reports">Error reports</string>
@@ -60,6 +58,7 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="join_action">Join</string>
     <string name="join_error_invalid_code" tools:ignore="PluralsCandidate">The code is %1$d to %2$d characters long</string>
     <string name="join_error_rejected">Could not join: %1$s</string>
+    <string name="join_error_no_server">No server address is set. Tap “Server address” below and type the address the class admin gave you.</string>
     <string name="join_error_generic">Could not join. Check the code and your network connection.</string>
     <string name="join_error_unknown_code">No such code. Check it with whoever gave it to you.</string>
     <!--
@@ -82,11 +81,11 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="join_feature_widget">A widget on the home screen</string>
     <string name="join_feature_widget_description">The current lesson and how long until the bell — without opening the app.</string>
     <string name="join_server_section">Server</string>
-    <string name="join_server_unset">Default — the class server</string>
+    <string name="join_server_unset">Not set — the class admin has the address</string>
 
     <!-- Server address dialog -->
     <string name="server_dialog_title">Server address</string>
-    <string name="server_dialog_description">Change this only if the school runs its own server.</string>
+    <string name="server_dialog_description">The address of the server the class and the diary go through. No server is built into the app: the class admin, or whoever set the server up, has the address.</string>
     <string name="server_dialog_label">Address</string>
     <string name="server_dialog_placeholder">https://…</string>
 
@@ -315,7 +314,7 @@ The access key you were given and a copy of the timetable stay on the device, so
     <string name="settings_sync">Sync</string>
     <string name="settings_sync_interval">How often to update</string>
     <string name="settings_server_url">Server address</string>
-    <string name="settings_server_url_default">Default</string>
+    <string name="settings_server_url_unset">Not set</string>
     <string name="settings_refresh_now">Update now</string>
     <string name="settings_class">Class</string>
     <string name="settings_class_unknown">No class chosen</string>

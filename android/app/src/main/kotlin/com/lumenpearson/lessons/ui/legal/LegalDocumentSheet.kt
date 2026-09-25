@@ -35,6 +35,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.lumenpearson.lessons.ui.common.openInBrowser
 
 /** What the sheet has to draw: nothing yet, nothing at all, or the document. */
 internal sealed interface LegalLoad {

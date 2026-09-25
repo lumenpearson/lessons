@@ -32,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,8 +64,9 @@ import com.lumenpearson.lessons.ui.common.ServerUrlSheet
 import com.lumenpearson.lessons.ui.onboarding.OnboardingActions
 
 /**
- * First run: turn a six-character code from the classroom whiteboard into a
- * session.
+ * Turn a class code into a session: the eight-character code a class hands out,
+ * or the ten-character personal one from the bot's «📱 Подключить телефон» —
+ * one field takes both (`ClassCodeLengths`).
  *
  * Shaped like the first-run flow in
  * [Essentials](https://github.com/sameerasw/essentials): a centred mark, a
@@ -72,34 +74,40 @@ import com.lumenpearson.lessons.ui.onboarding.OnboardingActions
  * pinned to the bottom edge carrying its label on the left and an arrow on the
  * right. The content above it scrolls; the action does not move.
  *
- * There is no navigation callback for success — a successful join writes a
- * session and the app shell reacts to it. The screen's own jobs are to say what
- * the app will do once it has a class, to take the code, and to give a pupil
- * whose school runs its own server a way to point the app at it.
+ * A successful join writes a session. Raised from settings, the app shell
+ * reacts to that alone; in the first run the shell holds the screen instead,
+ * and [onJoined] is how the flow hears of it. The screen's own jobs are to say
+ * what the app will do once it has a class, to take the code, and to let a
+ * pupil point the app at the class's server — the APK carries none.
  *
- * @param onBack non-null only when this is the last step of the first-run flow,
- *   where it is one of four screens and the other three are worth being able to
- *   go back to. Reached on its own — after signing out — there is nothing behind
- *   it, so the square is absent rather than dead.
+ * @param onBack the first run's way back to the chooser. `null` where there is
+ *   nothing behind the screen, so the square is absent rather than dead.
+ * @param onJoined the class just joined, once per join; the first run decides
+ *   there whether the class's diary is offered next. `AddClassSheet` passes
+ *   nothing and keeps its own reading of the one-shot.
  */
 @Composable
 fun JoinScreen(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
+    onJoined: ((classId: Long) -> Unit)? = null,
     viewModel: JoinViewModel = viewModel(factory = JoinViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showServerSheet by rememberSaveable { mutableStateOf(false) }
+    val joined by rememberUpdatedState(onJoined)
 
     // A one-shot belongs to whoever sees it first, and this screen sees it
-    // first. It does not act on it — joining writes a session and the shell
-    // navigates on the session — but leaving it set hands the next observer
+    // first. It hands it to [onJoined] when there is one — the first run — and
+    // consumes it either way, because leaving it set hands the next observer
     // somebody else's join. `AddClassSheet` resolves the same view model
     // against the Activity's store, so a class joined during onboarding was
     // still announced when «Добавить класс» was opened an hour later, and the
     // sheet dismissed itself before the user could type a second code.
     LaunchedEffect(state.joinedClassId) {
-        if (state.joinedClassId != null) viewModel.consumeJoined()
+        val classId = state.joinedClassId ?: return@LaunchedEffect
+        joined?.invoke(classId)
+        viewModel.consumeJoined()
     }
 
     if (showServerSheet) {
@@ -193,9 +201,9 @@ fun JoinScreen(
                 Spacer(Modifier.height(GroupSpacing))
             }
 
-            // The same row the first-run steps end with, so the last screen of
-            // the flow does not change shape under the finger that has pressed
-            // its way through three identical ones.
+            // The same row the first-run steps end with, so the class-code step
+            // does not change shape under the finger that has pressed its way
+            // through the introduction's identical ones.
             OnboardingActions(
                 label = correctedString(R.string.join_action),
                 icon = Icons.AutoMirrored.Rounded.ArrowForward,
@@ -319,6 +327,7 @@ internal fun JoinError?.asText(): String? = when (this) {
     null -> null
     JoinError.InvalidCode -> correctedString(R.string.join_error_invalid_code, ClassCodeLengths.first, ClassCodeLengths.last)
     JoinError.UnknownCode -> correctedString(R.string.join_error_unknown_code)
+    JoinError.NoServer -> correctedString(R.string.join_error_no_server)
     JoinError.InviteOnly -> correctedString(R.string.join_error_invite_only)
     is JoinError.TooManyAttempts -> minutes
         ?.let { pluralStringResource(R.plurals.join_error_too_many_wait, it, it) }

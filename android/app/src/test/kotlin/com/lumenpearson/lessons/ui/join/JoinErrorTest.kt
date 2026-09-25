@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.ui.join
 
+import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
 import com.lumenpearson.lessons.core.data.repository.JoinFailure
 import java.io.IOException
 import org.junit.Assert.assertEquals
@@ -73,5 +74,22 @@ class JoinErrorTest {
 
         assertTrue(error is JoinError.Rejected)
         assertEquals("airplane mode", (error as JoinError.Rejected).detail)
+    }
+
+    /**
+     * #154: a blank address used to reach the screen as the interceptor's
+     * English message under a Russian prefix — «Не удалось подключиться: No
+     * server address configured» — on a screen that had just said a default
+     * server was in use.
+     */
+    @Test
+    fun `a missing server address is its own case, not an English message`() {
+        val missing = JoinError.of(JoinFailure.Offline(ServerAddressMissingException()))
+        assertEquals(JoinError.NoServer, missing)
+
+        val wrapped = JoinError.of(
+            JoinFailure.Offline(IOException("call failed", ServerAddressMissingException())),
+        )
+        assertEquals(JoinError.NoServer, wrapped)
     }
 }

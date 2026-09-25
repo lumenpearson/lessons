@@ -199,7 +199,7 @@ class MainActivity : ComponentActivity() {
                     // block a proofreader cannot fix.
                     CorrectionHost {
                         LessonsApp(
-                            signedIn = shell.signedIn,
+                            shell = shell.shell,
                             settings = shell.settings,
                             openDate = openDate,
                             onDateOpened = { pendingDate.value = null },

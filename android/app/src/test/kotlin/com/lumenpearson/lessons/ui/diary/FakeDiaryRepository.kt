@@ -12,6 +12,7 @@ import com.lumenpearson.lessons.core.data.repository.DiarySession
 import com.lumenpearson.lessons.core.data.repository.DiaryStudent
 import com.lumenpearson.lessons.core.data.repository.DiaryTarget
 import java.time.LocalDate
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -37,6 +38,12 @@ internal data class Written(
  *   pull the state holder into a load whose answers would have to be arranged.
  * @property failAfter the number of writes that succeed before [failure] is
  *   answered instead; `null` never fails a write.
+ * @property lessons what a schedule read answers, when it answers.
+ * @property scheduleFailure when set, schedule and homework reads answer it and
+ *   the others do not — the diary unreachable on a screen whose pupils were
+ *   saved.
+ * @property scheduleGate when set, schedule reads wait for it: the network
+ *   that has not answered yet.
  */
 internal class FakeDiaryRepository : DiaryRepository {
 
@@ -45,6 +52,10 @@ internal class FakeDiaryRepository : DiaryRepository {
     var failAfter: Int? = null
     var failure: DiaryFailure = DiaryFailure.Unavailable
     var reloads: Int = 0
+    var lessons: List<DiaryLesson> = emptyList()
+    var scheduleFailure: DiaryFailure? = null
+    var scheduleGate: CompletableDeferred<Unit>? = null
+    var studentReads: Int = 0
 
     /** What a sign-in answers; a success is also stored as the session. */
     var signInResult: Result<DiarySession>? = null
@@ -97,7 +108,10 @@ internal class FakeDiaryRepository : DiaryRepository {
         return Result.success(Unit)
     }
 
-    override suspend fun students(): Result<List<DiaryStudent>> = read(students)
+    override suspend fun students(): Result<List<DiaryStudent>> {
+        studentReads += 1
+        return read(students)
+    }
 
     override suspend fun schedule(
         studentId: Long,
@@ -105,14 +119,19 @@ internal class FakeDiaryRepository : DiaryRepository {
         to: LocalDate,
     ): Result<List<DiaryLesson>> {
         reloads += 1
-        return read(emptyList())
+        scheduleGate?.await()
+        scheduleFailure?.let { return Result.failure(it) }
+        return read(lessons)
     }
 
     override suspend fun homework(
         studentId: Long,
         from: LocalDate,
         to: LocalDate,
-    ): Result<List<DiaryHomework>> = read(emptyList())
+    ): Result<List<DiaryHomework>> {
+        scheduleFailure?.let { return Result.failure(it) }
+        return read(emptyList())
+    }
 
     override suspend fun grades(
         studentId: Long,

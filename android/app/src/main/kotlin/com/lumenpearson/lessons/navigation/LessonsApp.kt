@@ -38,6 +38,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,10 +60,14 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.intl.Locale
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.AppSettings
+import com.lumenpearson.lessons.core.data.repository.ShellMode
+import com.lumenpearson.lessons.core.data.repository.ShellState
 import com.lumenpearson.lessons.core.designsystem.component.LessonsFloatingToolbar
 import com.lumenpearson.lessons.core.designsystem.component.LessonsLoadingIndicator
 import com.lumenpearson.lessons.core.designsystem.component.ToolbarAction
@@ -91,12 +96,16 @@ import com.lumenpearson.lessons.core.designsystem.theme.appSlideMotionBlur
 import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.ui.admin.isClassManager
 import com.lumenpearson.lessons.ui.debug.DebugSheet
+import com.lumenpearson.lessons.ui.diary.DiaryScreen
+import com.lumenpearson.lessons.ui.diary.DiaryTab
+import com.lumenpearson.lessons.ui.diary.DiaryViewModel
+import com.lumenpearson.lessons.ui.diary.icon
+import com.lumenpearson.lessons.ui.diary.labelRes
 import com.lumenpearson.lessons.ui.docs.DocsScreen
 import com.lumenpearson.lessons.ui.docs.DocsViewModel
 import com.lumenpearson.lessons.ui.docs.docsToolbarItems
 import com.lumenpearson.lessons.ui.docs.docsToolbarSelection
 import com.lumenpearson.lessons.ui.homework.HomeworkScreen
-import com.lumenpearson.lessons.ui.join.JoinScreen
 import com.lumenpearson.lessons.ui.onboarding.OnboardingScreen
 import com.lumenpearson.lessons.ui.settings.SettingsRootScreen
 import com.lumenpearson.lessons.ui.settings.SettingsSection
@@ -123,15 +132,17 @@ import kotlinx.coroutines.launch
  * gesture between them is a swipe. A graph would give the same three screens
  * without the swipe, and the swipe is half of what the floating toolbar is for.
  *
- * @param signedIn `null` while the stored session is still being read — the
- *   splash is shown for that moment rather than guessing a destination and then
- *   yanking the user somewhere else a frame later.
+ * @param shell the stored mode and hold, `null` while they are still being
+ *   read — the splash is shown for that moment rather than guessing a
+ *   destination and then yanking the user somewhere else a frame later.
+ *   [rootScreen] decides between the way in and a home, and [shellHome] which
+ *   home.
  * @param openDate a day the widget asked for; the shell moves to the calendar
  *   and selects it, then calls [onDateOpened] so the request is acted on once.
  */
 @Composable
 fun LessonsApp(
-    signedIn: Boolean?,
+    shell: ShellState?,
     settings: AppSettings,
     modifier: Modifier = Modifier,
     openDate: LocalDate? = null,
@@ -175,35 +186,47 @@ fun LessonsApp(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.surfaceContainer,
         ) {
-            when (signedIn) {
-                null -> SplashShell(modifier = modifier)
+            when (rootScreen(shell)) {
+                RootScreen.SPLASH -> SplashShell(modifier = modifier)
 
-                false -> {
-                    // Latched on the first composition of this branch rather than
-                    // read live. The introduction records itself as seen the moment
-                    // it reaches its last step, and re-reading the flag there would
-                    // swap the whole screen for a bare join page halfway through the
-                    // slide that was carrying the user to it.
+                RootScreen.ONBOARDING -> {
+                    // One flow whichever way the phone arrives: a fresh install
+                    // opens at the welcome, and one that has seen the
+                    // introduction — which is what leaving the last class makes
+                    // of it — at the chooser, where both ways in are. There is
+                    // no bare join screen any more; it could reach neither the
+                    // diary nor its sign-out.
                     //
-                    // Safe to latch because settings are real by the time this
-                    // branch exists at all: the shell's state combines the settings
-                    // flow with the session, so nothing is emitted — and the splash
-                    // above stays — until preferences have actually been read from
-                    // disk.
-                    val introduce = rememberSaveable { !settings.onboardingDone }
-                    if (introduce) {
-                        OnboardingScreen(modifier = modifier)
-                    } else {
-                        JoinScreen(modifier = modifier)
-                    }
+                    // Latched on the first composition of this branch rather
+                    // than read live: the flow records the introduction as seen
+                    // on reaching the chooser, and a live read would restart it
+                    // under the finger. Safe to latch because settings are real
+                    // by the time this branch exists at all — the shell's state
+                    // combines the settings flow with the mode, so nothing is
+                    // emitted, and the splash stays, until preferences have been
+                    // read from disk.
+                    val introduced = rememberSaveable { settings.onboardingDone }
+                    OnboardingScreen(introduced = introduced, modifier = modifier)
                 }
 
-                true -> HomeShell(
-                    settings = settings,
-                    openDate = openDate,
-                    onDateOpened = onDateOpened,
-                    modifier = modifier,
-                )
+                RootScreen.HOME -> {
+                    // Never null here — the gate sends NONE to the way in — but
+                    // a class home is the least surprising answer if it were.
+                    val home = shell?.mode?.let(::shellHome) ?: ShellHome.TIMETABLE
+                    // Keyed, so moving between the class and the diary resets
+                    // the shell's hoisted state: the settings layer closes, and
+                    // the phone lands on the new home rather than in a section
+                    // of the old one — or on a pager index the diary has none of.
+                    key(home) {
+                        HomeShell(
+                            home = home,
+                            settings = settings,
+                            openDate = openDate,
+                            onDateOpened = onDateOpened,
+                            modifier = modifier,
+                        )
+                    }
+                }
             }
         }
     }
@@ -249,9 +272,17 @@ private const val TabsStateKey = "home-tabs"
  * halo, because that padding is sized for a row of items and not for one.
  * Destinations that are always present and always reachable — by a screen reader
  * too — beat an animation nobody asked for.
+ *
+ * The same shell draws both homes ([home]). On the diary home the tabs' pager is
+ * replaced by the diary itself and the toolbar carries its two halves instead
+ * of the class tabs; everything else — the settings layers, the guide, back,
+ * the update host — is shared, because a second shell would be a second copy of
+ * the rules `ShellBackTest` holds. The diary's halves are not swiped between
+ * and not rearranged: their order is the diary's, and there are two.
  */
 @Composable
 private fun HomeShell(
+    home: ShellHome,
     settings: AppSettings,
     openDate: LocalDate?,
     onDateOpened: () -> Unit,
@@ -307,9 +338,33 @@ private fun HomeShell(
     // the screens below can keep their own default and nothing is passed down.
     val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory)
     // Hoisted for the same reason: a day chip on the widget has to be able to
-    // put a date into the calendar before the calendar has been composed.
-    val calendarViewModel: WeekViewModel = viewModel(factory = WeekViewModel.Factory)
+    // put a date into the calendar before the calendar has been composed. Only
+    // on the class home — the diary home has no calendar, and building one
+    // would start a timetable load for a class this phone is not in. The
+    // branch is stable for the life of this composition: the shell is keyed
+    // on [home].
+    val calendarViewModel: WeekViewModel? =
+        if (home == ShellHome.TIMETABLE) viewModel(factory = WeekViewModel.Factory) else null
+    // The diary's, on the diary home: the toolbar switches its tabs and back
+    // reads which one is open, so the shell holds it — the activity's store
+    // hands the settings page the same instance.
+    val diaryViewModel: DiaryViewModel? =
+        if (home == ShellHome.DIARY) viewModel(factory = DiaryViewModel.Factory) else null
+    val diaryTab = diaryViewModel?.uiState?.collectAsStateWithLifecycle()?.value?.tab
     val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    val shellMode = if (home == ShellHome.DIARY) ShellMode.DIARY else ShellMode.CLASS
+
+    // The one refresh of the diary that nobody pressed for: each time the diary
+    // home comes to the front, the week is read again if the saved copy is
+    // stale. Here and nowhere else — not in the application, a receiver or the
+    // worker — because a read is what keeps the server's copy of the session
+    // alive, and that has to mean somebody opened the app (G4).
+    if (diaryViewModel != null) {
+        LifecycleStartEffect(diaryViewModel) {
+            diaryViewModel.refreshOnStart { Graph.container.diaryImport.refreshIfStale() }
+            onStopOrDispose { }
+        }
+    }
 
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var showDebugSheet by rememberSaveable { mutableStateOf(false) }
@@ -391,6 +446,7 @@ private fun HomeShell(
     // the scroll depth of the one that left, and the top fade would start
     // halfway down a list that is at the top.
     val pageOffsets = remember { HomeTab.entries.associateWith { ScrollOffsetHolder() } }
+    val diaryOffset = remember { ScrollOffsetHolder() }
 
     /** The holder belonging to whatever tab sits at [page] of the pager. */
     fun offsetOf(page: Int): ScrollOffsetHolder =
@@ -437,9 +493,15 @@ private fun HomeShell(
         // A deep link is somebody arriving with a question, and a bar that is
         // still being arranged is in the way of answering it.
         arranging = null
-        calendarViewModel.select(date)
-        calendarViewModel.setView(ScheduleView.DAY)
-        pagerState.goToPage(motion, tabs.indexOf(HomeTab.WEEK).coerceAtLeast(0))
+        // Only a widget tap from before the phone left its class can reach the
+        // diary home — the widget draws nothing to tap in the diary mode — and
+        // the nearest answer to «this day» there is the diary's week holding it.
+        diaryViewModel?.showWeekOf(date)
+        calendarViewModel?.let { calendar ->
+            calendar.select(date)
+            calendar.setView(ScheduleView.DAY)
+            pagerState.goToPage(motion, tabs.indexOf(HomeTab.WEEK).coerceAtLeast(0))
+        }
         onDateOpened()
     }
 
@@ -563,7 +625,13 @@ private fun HomeShell(
         docsOpen = docsOpen,
         sectionOpen = openSection != null,
         settingsOpen = settingsOpen,
-        onHomePage = pagerState.currentPage == homePage,
+        // The diary's home page is its timetable, as the class's is the
+        // default tab: back from the marks goes there before it leaves.
+        onHomePage = if (home == ShellHome.DIARY) {
+            diaryTab == null || diaryTab == DiaryTab.SCHEDULE
+        } else {
+            pagerState.currentPage == homePage
+        },
     )
     BackHandler(enabled = back == ShellBack.LEAVE_ARRANGING) { stopArranging() }
     BackHandler(enabled = back == ShellBack.CLOSE_DOCS) { docsBack() }
@@ -574,7 +642,11 @@ private fun HomeShell(
     PredictiveBackHandler(enabled = back == ShellBack.HOME) { events ->
         try {
             events.collect { event -> backProgress.snapTo(event.progress) }
-            scope.launch { pagerState.goToPage(motion, homePage) }
+            if (diaryViewModel != null) {
+                diaryViewModel.setTab(DiaryTab.SCHEDULE)
+            } else {
+                scope.launch { pagerState.goToPage(motion, homePage) }
+            }
             scope.launch { backProgress.animateTo(0f, tween(BackReturnMillis)) }
         } catch (_: CancellationException) {
             scope.launch { backProgress.animateTo(0f, tween(BackSettleMillis)) }
@@ -618,7 +690,7 @@ private fun HomeShell(
                 edgeBlur = settings.edgeBlur,
                 statusBarHeightPx = statusBarHeightPx,
                 offset = when (page) {
-                    ShellPage.Tabs -> offsetOf(pagerState.currentPage)
+                    ShellPage.Tabs -> if (home == ShellHome.DIARY) diaryOffset else offsetOf(pagerState.currentPage)
                     ShellPage.SettingsRoot -> settingsOffset
                     is ShellPage.Section -> sectionOffset
                     ShellPage.Docs -> docsOffsets.getOrElse(docsPagerState.currentPage) { docsOffset }
@@ -638,8 +710,12 @@ private fun HomeShell(
                             // are the same one outside the arranging mode, and
                             // inside it the bar's is a frame behind the stored
                             // one on purpose.
-                            ShellPage.Tabs -> tabs.getOrNull(pagerState.currentPage)
-                                ?.let(barTabs::indexOf) ?: -1
+                            ShellPage.Tabs -> if (home == ShellHome.DIARY) {
+                                diaryTab?.ordinal ?: 0
+                            } else {
+                                tabs.getOrNull(pagerState.currentPage)
+                                    ?.let(barTabs::indexOf) ?: -1
+                            }
 
                             ShellPage.Docs -> docsToolbarSelection(
                                 docsPagerState.currentPage,
@@ -654,7 +730,16 @@ private fun HomeShell(
                             // order coming back out of storage, and a tap in
                             // that window has to reach the screen the icon is
                             // of.
-                            ShellPage.Tabs -> barTabs.map { tab ->
+                            // The diary's own halves, in the diary's order.
+                            ShellPage.Tabs -> if (diaryViewModel != null) {
+                                DiaryTab.entries.map { tab ->
+                                    ToolbarItem(
+                                        icon = tab.icon,
+                                        label = correctedString(tab.labelRes()),
+                                        onClick = { diaryViewModel.setTab(tab) },
+                                    )
+                                }
+                            } else barTabs.map { tab ->
                                 ToolbarItem(
                                     icon = tab.icon,
                                     label = correctedString(tab.labelRes),
@@ -683,12 +768,12 @@ private fun HomeShell(
                         // than the reader's: a mode that opened there would let
                         // somebody rearrange a table of contents into one the
                         // text no longer matches.
-                        reorderable = page == ShellPage.Tabs,
+                        reorderable = page == ShellPage.Tabs && home == ShellHome.TIMETABLE,
                         // Read against the page for the same reason everything
                         // else here is: both bars are composed at once while a
                         // slide runs, and the one leaving must not start
                         // jiggling on its way out.
-                        reordering = reordering && page == ShellPage.Tabs,
+                        reordering = reordering && page == ShellPage.Tabs && home == ShellHome.TIMETABLE,
                         onReorderingChange = { on ->
                             arranging = if (on) tabs else null
                         },
@@ -710,8 +795,10 @@ private fun HomeShell(
                         action = shellAction(
                             destination = page.destination,
                             // The shortcut exists for the people who have the
-                            // page it shortcuts to.
-                            manager = isClassManager(settingsState.deviceLink.role),
+                            // page it shortcuts to — never on the diary home,
+                            // where there is no class to manage.
+                            manager = home == ShellHome.TIMETABLE &&
+                                isClassManager(settingsState.deviceLink.role),
                             onOpenSettings = {
                                 settingsOpen = true
                                 stopArranging()
@@ -726,7 +813,22 @@ private fun HomeShell(
                 },
             ) {
                 when (page) {
-                    ShellPage.Tabs -> tabStates.SaveableStateProvider(TabsStateKey) {
+                    ShellPage.Tabs -> if (diaryViewModel != null) {
+                        tabStates.SaveableStateProvider(TabsStateKey) {
+                            CompositionLocalProvider(LocalScrollOffset provides diaryOffset) {
+                                DiaryScreen(
+                                    asHome = true,
+                                    insecureServer = isInsecure(settings.baseUrl),
+                                    viewModel = diaryViewModel,
+                                    modifier = Modifier.graphicsLayer {
+                                        val scale = 1f - backProgress.value * BackScaleDepth
+                                        scaleX = scale
+                                        scaleY = scale
+                                    },
+                                )
+                            }
+                        }
+                    } else tabStates.SaveableStateProvider(TabsStateKey) {
                         HorizontalPager(
                             state = pagerState,
                             userScrollEnabled = settings.swipeTabs,
@@ -768,7 +870,11 @@ private fun HomeShell(
                                         },
                                     )
 
-                                    HomeTab.WEEK -> WeekScreen(viewModel = calendarViewModel)
+                                    HomeTab.WEEK -> WeekScreen(
+                                        viewModel = checkNotNull(calendarViewModel) {
+                                            "the class home always has its calendar"
+                                        },
+                                    )
                                     HomeTab.HOMEWORK -> HomeworkScreen()
                                 }
                             }
@@ -779,6 +885,7 @@ private fun HomeShell(
                         LocalScrollOffset provides settingsOffset,
                     ) {
                         SettingsRootScreen(
+                            mode = shellMode,
                             viewModel = settingsViewModel,
                             onOpenSection = { section -> openSectionName = section.name },
                         )
@@ -792,6 +899,7 @@ private fun HomeShell(
                         // replaces existed to paper over.
                         SettingsSectionScreen(
                             section = page.section,
+                            mode = shellMode,
                             onOpenSection = { next -> openSectionName = next.name },
                             onOpenDocs = ::openDocs,
                             viewModel = settingsViewModel,
@@ -1061,6 +1169,14 @@ private suspend fun PagerState.goToPage(motion: MotionSettings, page: Int) {
  * the first the day the animation is retuned.
  */
 private const val LayerTravelDivisor = 3
+
+/**
+ * Whether [address] is plain `http://` — what the diary's sign-in warns about.
+ * A blank address is not «insecure», it is «not configured»: nothing can be
+ * sent at all, so the warning would be about a request that never happens.
+ */
+internal fun isInsecure(address: String): Boolean =
+    address.isNotBlank() && !address.startsWith("https://", ignoreCase = true)
 
 /**
  * Shown only while the session is being read. It is a deliberate blank with a

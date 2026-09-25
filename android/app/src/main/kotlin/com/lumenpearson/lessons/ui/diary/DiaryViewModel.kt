@@ -6,6 +6,13 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.core.data.di.Graph
+import com.lumenpearson.lessons.core.data.diary.DiaryCache
+import com.lumenpearson.lessons.core.data.diary.DiaryCachedMarks
+import com.lumenpearson.lessons.core.data.diary.DiaryCachedPeriods
+import com.lumenpearson.lessons.core.data.diary.DiaryCachedStudents
+import com.lumenpearson.lessons.core.data.diary.DiaryCachedWeek
+import com.lumenpearson.lessons.core.data.diary.diaryIsFresh
+import com.lumenpearson.lessons.core.data.repository.DiaryBinding
 import com.lumenpearson.lessons.core.data.repository.DiaryFailure
 import com.lumenpearson.lessons.core.data.repository.DiaryField
 import com.lumenpearson.lessons.core.data.repository.DiaryPeriod
@@ -14,14 +21,21 @@ import com.lumenpearson.lessons.core.data.repository.DiarySession
 import com.lumenpearson.lessons.core.data.repository.DiarySignInProblem
 import com.lumenpearson.lessons.core.data.repository.DiaryStudent
 import com.lumenpearson.lessons.core.data.repository.DiaryTarget
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -38,13 +52,31 @@ import kotlinx.coroutines.launch
  *   than one 401 for both meanings.
  * @property student the pupil everything below is about; `null` only while the
  *   list is still loading or empty.
+ * @property zone the zone the diary cuts its days at — the session's, which the
+ *   server named at registration. Moscow until a session says otherwise, which
+ *   is what every session before the second diary was.
+ * @property signInTarget which diary the form would sign in to: one picked on
+ *   this screen, else the live session's, else the one a bare `401` left, else
+ *   the class's binding, else Petersburg — the one diary this form ever offered
+ *   before it could be asked for another. Its login is a placeholder; the typed
+ *   one replaces it on submit.
+ * @property place what the catalog says about [signInTarget] — its names and
+ *   the host the password goes to — or `null` until the catalog has been read.
+ * @property picking the diary picker is open in place of the form.
+ * @property savedAt the rows on screen are what was saved at this moment,
+ *   shown because the diary could not be reached just now; `null` when they
+ *   are the diary's answer of this visit.
  */
 data class DiaryUiState(
     val ready: Boolean = false,
     val session: DiarySession? = null,
     val reauth: Boolean = false,
     val signingIn: Boolean = false,
-    val signInError: DiaryFailure? = null,
+    /**
+     * Why the last sign-in failed, for the form to paint itself by — cleared by
+     * the next keystroke. The sentence is [signInOutcome]'s to say.
+     */
+    val signInError: DiarySignInProblem? = null,
     /**
      * What the last sign-in attempt came to, waiting to be shown once.
      *
@@ -56,13 +88,17 @@ data class DiaryUiState(
      * because the form is no longer on screen by then.
      */
     val signInOutcome: DiarySignInOutcome? = null,
+    val signInTarget: DiaryTarget = DiaryTarget.petersburg(""),
+    val place: DiaryPlace? = null,
+    val picking: Boolean = false,
     val signingOut: Boolean = false,
     val students: List<DiaryStudent> = emptyList(),
     val studentsLoading: Boolean = false,
     val studentsError: DiaryFailure? = null,
     val selectedStudentId: Long? = null,
     val tab: DiaryTab = DiaryTab.SCHEDULE,
-    val weekStart: LocalDate = diaryWeekStart(diaryToday()),
+    val zone: ZoneId = DefaultDiaryZone,
+    val weekStart: LocalDate = diaryWeekStart(diaryToday(DefaultDiaryZone)),
     val scheduleLoading: Boolean = false,
     val scheduleError: DiaryFailure? = null,
     val days: List<DiaryDayUi> = emptyList(),
@@ -70,13 +106,14 @@ data class DiaryUiState(
     val gradesError: DiaryFailure? = null,
     val subjects: List<DiarySubjectMarks> = emptyList(),
     val gradeRange: DiaryRange? = null,
+    val savedAt: Instant? = null,
     /** The row whose corrections are open in a sheet, or `null` for none. */
     val editing: DiaryCorrections? = null,
     val savingEdit: Boolean = false,
     val editError: DiaryFailure? = null,
 ) {
     /**
-     * The date it is in the city whose diary this is.
+     * The date it is where the diary is.
      *
      * Read on every access rather than frozen into the state, because the
      * state object is built once when the screen opens and carried forward by
@@ -84,7 +121,7 @@ data class DiaryUiState(
      * the pupil first opened the diary, and a phone left on the screen
      * overnight kept offering «на этой неделе» for the week that had ended.
      */
-    val today: LocalDate get() = diaryToday()
+    val today: LocalDate get() = diaryToday(zone)
 
     val student: DiaryStudent? get() = students.firstOrNull { it.id == selectedStudentId }
 
@@ -96,7 +133,13 @@ data class DiaryUiState(
 
     /** Whether stepping back to this week would move anything. */
     val canReturnToThisWeek: Boolean get() = weekStart != diaryWeekStart(today)
+
+    /** The login the form starts with: the account's, when one is known. */
+    val knownLogin: String get() = session?.login ?: signInTarget.login
 }
+
+/** Petersburg's zone, which every diary session had before the second diary. */
+private val DefaultDiaryZone: ZoneId = ZoneId.of(DiaryTarget.PETERSBURG_ZONE)
 
 /**
  * The result of one sign-in attempt, for the pop-up that reports it.
@@ -112,39 +155,67 @@ sealed interface DiarySignInOutcome {
     /** @param login the account, echoed back so it can be checked for typos. */
     data class Succeeded(val login: String) : DiarySignInOutcome
 
-    data class Failed(val failure: DiaryFailure) : DiarySignInOutcome
+    /** @param problem said by `DiaryProblemText`, the one mapping there is. */
+    data class Failed(val problem: DiarySignInProblem) : DiarySignInOutcome
 }
 
 /**
- * The diary section's state holder.
+ * The diary section's state holder — and, on a phone in no class, the diary
+ * home's.
  *
  * It owns three loads — the pupils, a week of the timetable, a term of marks —
- * and one rule that runs through all of them: a failure that means "the diary
- * logged us out upstream" flips [DiaryUiState.reauth] instead of becoming an
- * error message. Anything else is kept as a typed [DiaryFailure] and turned
- * into a sentence by the screen, which is the only place that knows how to
- * phrase one.
+ * and two rules that run through all of them.
+ *
+ * The first: what the phone saved is drawn before the network answers, and a
+ * save younger than [com.lumenpearson.lessons.core.data.diary.DiaryFreshFor]
+ * is not asked for again. The cache is filled by the repository's own reads
+ * (write-through), so the week drawn from it is the week the diary answered,
+ * not a second derivation. When the diary cannot be reached, the saved rows
+ * stay on screen with the moment they were saved, rather than being replaced
+ * by a failure card over nothing.
+ *
+ * The second: a failure that means "the diary logged us out upstream" flips
+ * [DiaryUiState.reauth] instead of becoming an error message. Anything else is
+ * kept as a typed [DiaryFailure] and turned into a sentence by the screen,
+ * which is the only place that knows how to phrase one.
  *
  * The password never reaches this class as state: it arrives as an argument to
  * [signIn], is handed to the repository, and is gone when the call returns.
  */
 class DiaryViewModel(
     private val repository: DiaryRepository,
+    private val cache: DiaryCache = NoDiaryCache,
+    binding: Flow<DiaryBinding?> = flowOf(null),
+    private val describe: suspend (DiaryTarget) -> DiaryPlace? = { null },
+    private val clock: Clock = Clock.systemUTC(),
 ) : ViewModel() {
 
-    private val state = MutableStateFlow(DiaryUiState())
+    private val state = MutableStateFlow(
+        DiaryUiState(weekStart = diaryWeekStart(diaryToday(DefaultDiaryZone, clock))),
+    )
     val uiState: StateFlow<DiaryUiState> = state.asStateFlow()
 
     /** Cancelled and replaced whenever the pupil, the week or the tab changes. */
     private var loadJob: Job? = null
 
+    /** The home's start refresh while it runs; see [refreshOnStart]. */
+    private var startRefresh: Job? = null
+
     /** Asked for once per pupil: terms do not change while a screen is open. */
     private val periods = mutableMapOf<Long, DiaryPeriod?>()
+
+    /** A diary picked on this screen, until a sign-in to it lands. */
+    private var chosen: DiaryTarget? = null
+
+    /** What a bare `401` left, and what the class's join said; see [DiaryUiState.signInTarget]. */
+    private var storedTarget: DiaryTarget? = null
+    private var boundTarget: DiaryTarget? = null
 
     init {
         viewModelScope.launch {
             repository.session.collect { session ->
                 val had = state.value.session
+                val zone = session?.target?.zoneId() ?: DefaultDiaryZone
                 state.update {
                     it.copy(
                         ready = true,
@@ -156,6 +227,17 @@ class DiaryViewModel(
                         selectedStudentId = if (session == null) null else it.selectedStudentId,
                         days = if (session == null) emptyList() else it.days,
                         subjects = if (session == null) emptyList() else it.subjects,
+                        savedAt = if (session == null) null else it.savedAt,
+                        zone = zone,
+                        // The week follows the zone only while nobody has moved
+                        // it: a session in Tomsk arriving after the screen opened
+                        // on Moscow's date must not leave the pupil on the week
+                        // Moscow was in, and must not undo a week they chose.
+                        weekStart = if (it.weekStart == diaryWeekStart(diaryToday(it.zone, clock))) {
+                            diaryWeekStart(diaryToday(zone, clock))
+                        } else {
+                            it.weekStart
+                        },
                         // The correction sheet goes with everything else. A
                         // write that meets a dead token clears the session from
                         // under it, and the sheet would stay on top of the
@@ -167,34 +249,89 @@ class DiaryViewModel(
                         editError = if (session == null) null else it.editError,
                     )
                 }
+                settleTarget()
                 if (session != null && state.value.students.isEmpty()) loadStudents()
             }
         }
+        viewModelScope.launch {
+            repository.target.collect { target ->
+                storedTarget = target
+                settleTarget()
+            }
+        }
+        viewModelScope.launch {
+            binding.map { it?.targetFor(login = "") }
+                .distinctUntilChanged()
+                .collect { target ->
+                    boundTarget = target
+                    settleTarget()
+                }
+        }
+    }
+
+    /**
+     * Works out [DiaryUiState.signInTarget] again, and what the catalog says
+     * about it when that changed.
+     */
+    private fun settleTarget() {
+        val target = signInTargetOf(chosen, state.value.session, storedTarget, boundTarget)
+        if (target == state.value.signInTarget && state.value.place != null) return
+        val sameDiary = state.value.signInTarget.sameDiaryAs(target)
+        state.update { it.copy(signInTarget = target, place = if (sameDiary) it.place else null) }
+        if (sameDiary && state.value.place != null) return
+        viewModelScope.launch {
+            val place = runCatching { describe(target) }.getOrNull()
+            // A later target may have arrived while the catalog was read.
+            if (state.value.signInTarget.sameDiaryAs(target)) {
+                state.update { it.copy(place = place) }
+            }
+        }
+    }
+
+    /** Opens the diary picker in place of the sign-in form. */
+    fun startPicking() {
+        state.update { it.copy(picking = true) }
+    }
+
+    /** Closes the picker without changing the diary. */
+    fun cancelPicking() {
+        state.update { it.copy(picking = false) }
+    }
+
+    /**
+     * The picker's answer: the next sign-in goes to [target]. Held in memory
+     * only — it carries no secret, but nothing is stored until the diary has
+     * said yes, which is when the repository writes the session and its target.
+     */
+    fun choose(target: DiaryTarget) {
+        chosen = target
+        state.update { it.copy(picking = false, signInError = null) }
+        settleTarget()
     }
 
     /**
      * Signs in, or answers the re-authentication prompt; both are the same call.
      *
-     * To the diary this phone already knows — the live session's, or the one a
-     * bare `401` left behind — so a re-authentication goes to the same
-     * provider, region and school with only the password typed. With none
-     * known this form can only mean Petersburg, the one diary it has ever
-     * offered; choosing another is the diary picker's, not this form's.
+     * To [DiaryUiState.signInTarget] — so a re-authentication goes to the same
+     * provider, region and school with only the password typed, and a family
+     * whose class names its diary signs in to that one without searching.
      */
     fun signIn(login: String, password: String) {
         if (state.value.signingIn) return
         viewModelScope.launch {
             state.update { it.copy(signingIn = true, signInError = null) }
-            val known = state.value.session?.target ?: repository.target.first()
+            // Read again rather than taken from the state: the stored target
+            // is a DataStore read that may not have reached the collector yet.
+            val known = chosen ?: state.value.session?.target ?: repository.target.first() ?: boundTarget
             val target = known?.copy(login = login.trim()) ?: DiaryTarget.petersburg(login.trim())
             val result = repository.signIn(target, password)
-            val failure = result.exceptionOrNull()?.let(::signInFailure)
+            val problem = result.exceptionOrNull()?.let { DiarySignInProblem.of(it) }
             state.update {
                 it.copy(
                     signingIn = false,
-                    signInError = failure,
-                    reauth = if (failure == null) false else it.reauth,
-                    signInOutcome = failure?.let(DiarySignInOutcome::Failed)
+                    signInError = problem,
+                    reauth = if (problem == null) false else it.reauth,
+                    signInOutcome = problem?.let(DiarySignInOutcome::Failed)
                         // The login as it was typed, not as the server echoed
                         // it: the session row arrives moments later through the
                         // repository's flow, and the pop-up is about the
@@ -202,7 +339,8 @@ class DiaryViewModel(
                         ?: DiarySignInOutcome.Succeeded(login),
                 )
             }
-            if (failure == null) {
+            if (problem == null) {
+                chosen = null
                 // The pupils are re-read rather than kept: the same phone may
                 // have signed in as a different parent.
                 periods.clear()
@@ -219,18 +357,24 @@ class DiaryViewModel(
             state.update { it.copy(signingOut = true) }
             repository.signOut()
             periods.clear()
+            chosen = null
             state.update {
                 DiaryUiState(
                     ready = true,
-                    weekStart = diaryWeekStart(it.today),
+                    zone = DefaultDiaryZone,
+                    weekStart = diaryWeekStart(diaryToday(DefaultDiaryZone, clock)),
                 )
             }
+            settleTarget()
         }
     }
 
     fun selectStudent(id: Long) {
         if (state.value.selectedStudentId == id) return
         state.update { it.copy(selectedStudentId = id, days = emptyList(), subjects = emptyList()) }
+        // Kept, so the next launch — and the start refresh, which reads the
+        // stored choice — are about the same child.
+        viewModelScope.launch { runCatching { cache.selectStudent(id) } }
         reload()
     }
 
@@ -252,9 +396,52 @@ class DiaryViewModel(
         reload()
     }
 
-    /** What the "повторить" button on every failure card does. */
+    /**
+     * The week holding [date], on the timetable tab — what a stale widget tap
+     * asks for when it lands on the diary home rather than on a class calendar.
+     */
+    fun showWeekOf(date: LocalDate) {
+        val start = diaryWeekStart(date)
+        if (state.value.weekStart == start && state.value.tab == DiaryTab.SCHEDULE) return
+        state.update { it.copy(weekStart = start, tab = DiaryTab.SCHEDULE) }
+        reload()
+    }
+
+    /** What the "повторить" button on every failure card does: always the network. */
     fun retry() {
-        if (state.value.students.isEmpty()) loadStudents() else reload()
+        if (state.value.students.isEmpty()) loadStudents(force = true) else reload(force = true)
+    }
+
+    /**
+     * The foreground refresh, run by the diary home each time it comes to the
+     * front: [refresh] is `DiaryImport.refreshIfStale`, which re-reads this week
+     * and the next when the saved copy is older than
+     * [com.lumenpearson.lessons.core.data.diary.DiaryFreshFor] — and is the only
+     * thing that reads the diary without somebody pressing something.
+     *
+     * The screen's own week load waits for it and then reads the save again,
+     * so a cold start asks the diary for the week once and not once per caller:
+     * the week the refresh just saved is fresh, and the load finds it so. Rows
+     * already on screen are redrawn from the save when it lands.
+     */
+    fun refreshOnStart(refresh: suspend () -> Result<Boolean>) {
+        if (startRefresh?.isActive == true) return
+        val job = viewModelScope.launch { runCatching { refresh() } }
+        startRefresh = job
+        viewModelScope.launch {
+            job.join()
+            if (loadJob?.isActive != true && state.value.student != null) reload()
+        }
+    }
+
+    /**
+     * Waits for a start refresh that is under way; `true` when there was one,
+     * so the caller knows the save may have changed under it.
+     */
+    private suspend fun awaitStartRefresh(): Boolean {
+        val running = startRefresh?.takeIf { it.isActive } ?: return false
+        running.join()
+        return true
     }
 
     /** Dismisses the inline sign-in error so the next keystroke starts clean. */
@@ -272,59 +459,90 @@ class DiaryViewModel(
         reload()
     }
 
-    private fun loadStudents() {
+    private fun loadStudents(force: Boolean = false) {
         loadJob?.cancel()
-        loadJob = viewModelScope.launch {
-            state.update { it.copy(studentsLoading = true, studentsError = null) }
-            val result = repository.students()
-            val found = result.getOrNull()
-            if (found == null) {
-                val failure = DiaryFailure.of(result.exceptionOrNull() ?: DiaryFailure.Unavailable)
-                state.update {
-                    it.copy(
-                        studentsLoading = false,
-                        studentsError = failure.takeUnless { f -> f is DiaryFailure.ReauthRequired },
-                        reauth = it.reauth || failure is DiaryFailure.ReauthRequired,
-                    )
-                }
-                return@launch
+        loadJob = viewModelScope.launch { loadStudentsNow(force) }
+    }
+
+    /**
+     * The pupils: what was saved first, then the diary's answer unless the save
+     * is fresh. A choice stored earlier — by the import, or by this screen — is
+     * the child shown, so a family with two children opens on the one they
+     * picked rather than on whoever the diary lists first.
+     */
+    private suspend fun loadStudentsNow(force: Boolean) {
+        val saved = runCatching { cache.students.first() }.getOrNull() ?: NoStudents
+        val remembered = runCatching { cache.selectedStudentId.first() }.getOrNull()
+        if (saved.students.isNotEmpty()) applyStudents(saved.students, remembered)
+        if (!force && saved.students.isNotEmpty() && diaryIsFresh(saved.loadedAt, clock.instant())) {
+            load(force = false)
+            return
+        }
+
+        state.update {
+            it.copy(studentsLoading = it.students.isEmpty(), studentsError = null)
+        }
+        val result = repository.students()
+        val found = result.getOrNull()
+        if (found == null) {
+            val failure = DiaryFailure.of(result.exceptionOrNull() ?: DiaryFailure.Unavailable)
+            if (saved.students.isNotEmpty() && failure.keepsSavedRows) {
+                state.update { it.copy(studentsLoading = false, savedAt = saved.loadedAt) }
+                load(force = false)
+                return
             }
             state.update {
                 it.copy(
                     studentsLoading = false,
-                    students = found,
-                    // Keeps the chosen child across a refresh, and falls back to
-                    // the first one — which for most accounts is the only one,
-                    // and is why the picker is hidden at that size.
-                    selectedStudentId = found.firstOrNull { student ->
-                        student.id == it.selectedStudentId
-                    }?.id ?: found.firstOrNull()?.id,
+                    studentsError = failure.takeUnless { f -> f is DiaryFailure.ReauthRequired },
+                    reauth = it.reauth || failure is DiaryFailure.ReauthRequired,
                 )
             }
-            load()
+            return
+        }
+        state.update { it.copy(studentsLoading = false) }
+        applyStudents(found, remembered)
+        load(force = false)
+    }
+
+    private suspend fun applyStudents(found: List<DiaryStudent>, remembered: Long?) {
+        // The chosen child across a refresh, then the stored choice, then the
+        // first — which for most accounts is the only one, and is why the
+        // picker is hidden at that size.
+        val current = state.value.selectedStudentId
+        val selected = found.firstOrNull { it.id == current }?.id
+            ?: found.firstOrNull { it.id == remembered }?.id
+            ?: found.firstOrNull()?.id
+        state.update { it.copy(students = found, selectedStudentId = selected) }
+        // Written down when it was a default rather than a choice, because the
+        // start refresh reads the stored one and would otherwise refresh no one
+        // for an account with two children.
+        if (selected != null && selected != remembered && found.size > 1) {
+            runCatching { cache.selectStudent(selected) }
         }
     }
 
-    private fun reload() {
+    private fun reload(force: Boolean = false) {
         loadJob?.cancel()
-        loadJob = viewModelScope.launch { load() }
+        loadJob = viewModelScope.launch { load(force) }
     }
 
     /**
-     * Fetches the open tab again.
+     * Fetches the open tab again, from the diary and not from the save.
      *
-     * Public because writing a correction has to be followed by a read: none of
-     * this is cached, the server is what applies a correction, and `retry` — the
-     * only other way back in — is reachable only from a failure card.
+     * Public because writing a correction has to be followed by a read: the
+     * server is what applies a correction, the save holds the rows from before
+     * it, and `retry` — the only other way back in — is reachable only from a
+     * failure card.
      */
-    fun refresh() = reload()
+    fun refresh() = reload(force = true)
 
-    private suspend fun load() {
+    private suspend fun load(force: Boolean) {
         val current = state.value
         val student = current.student ?: return
         when (current.tab) {
-            DiaryTab.SCHEDULE -> loadSchedule(student.id, current.weekStart)
-            DiaryTab.GRADES -> loadGrades(student.id, current.today)
+            DiaryTab.SCHEDULE -> loadSchedule(student.id, current.weekStart, force)
+            DiaryTab.GRADES -> loadGrades(student.id, current.today, force)
         }
     }
 
@@ -337,8 +555,19 @@ class DiaryViewModel(
      * awaited in parallel: one week is one round trip's worth of waiting, not
      * two.
      */
-    private suspend fun loadSchedule(studentId: Long, weekStart: LocalDate) {
-        state.update { it.copy(scheduleLoading = true, scheduleError = null) }
+    private suspend fun loadSchedule(studentId: Long, weekStart: LocalDate, force: Boolean) {
+        var saved = savedWeek(studentId, weekStart)
+        showSavedWeek(weekStart, saved)
+        // The start refresh may be reading this very week; its answer is the
+        // one to draw, and asking again beside it would be the same request
+        // twice.
+        if (awaitStartRefresh()) {
+            saved = savedWeek(studentId, weekStart)
+            showSavedWeek(weekStart, saved)
+        }
+        val savedAt = saved?.savedAt
+        if (!force && savedAt != null && diaryIsFresh(savedAt, clock.instant())) return
+
         val weekEnd = weekStart.plusDays(6)
         val (lessons, homework) = coroutineScope {
             val timetable = async { repository.schedule(studentId, weekStart, weekEnd) }
@@ -347,6 +576,10 @@ class DiaryViewModel(
         }
         val failure = lessons.exceptionOrNull() ?: homework.exceptionOrNull()
         if (failure != null) {
+            if (savedAt != null && DiaryFailure.of(failure).keepsSavedRows) {
+                state.update { it.copy(scheduleLoading = false, savedAt = savedAt) }
+                return
+            }
             applyFailure(failure) { copy(scheduleLoading = false, scheduleError = it) }
             return
         }
@@ -355,7 +588,26 @@ class DiaryViewModel(
             lessons = lessons.getOrDefault(emptyList()),
             homework = homework.getOrDefault(emptyList()),
         )
-        state.update { it.copy(scheduleLoading = false, days = days) }
+        state.update { it.copy(scheduleLoading = false, days = days, savedAt = null) }
+    }
+
+    private suspend fun savedWeek(studentId: Long, weekStart: LocalDate): DiaryCachedWeek? =
+        runCatching { cache.week(studentId, weekStart).first() }.getOrNull()
+
+    /** Draws a saved week, or the skeleton when there is none to draw. */
+    private fun showSavedWeek(weekStart: LocalDate, saved: DiaryCachedWeek?) {
+        if (saved?.savedAt != null) {
+            state.update {
+                it.copy(
+                    scheduleLoading = false,
+                    scheduleError = null,
+                    savedAt = null,
+                    days = diaryWeek(weekStart, saved.lessons, saved.homework),
+                )
+            }
+        } else {
+            state.update { it.copy(scheduleLoading = true, scheduleError = null, savedAt = null) }
+        }
     }
 
     /**
@@ -366,24 +618,59 @@ class DiaryViewModel(
      * longer than the 62 days one request may cover. A term that cannot be read
      * is not an error: the range simply falls back to the last 62 days.
      */
-    private suspend fun loadGrades(studentId: Long, today: LocalDate) {
-        state.update { it.copy(gradesLoading = true, gradesError = null) }
-        val period = if (periods.containsKey(studentId)) {
-            periods[studentId]
-        } else {
-            repository.periods(studentId).getOrNull()
-                ?.firstOrNull { it.isCurrent }
-                .also { periods[studentId] = it }
-        }
+    private suspend fun loadGrades(studentId: Long, today: LocalDate, force: Boolean) {
+        val period = currentPeriod(studentId, force)
         val range = diaryGradeRange(today, period)
+        val saved = runCatching { cache.marks(studentId).first() }.getOrNull()
+        val savedAt = saved?.takeIf { it.covers(range) }?.loadedAt
+        if (saved != null && savedAt != null) {
+            state.update {
+                it.copy(
+                    gradesLoading = false,
+                    gradesError = null,
+                    savedAt = null,
+                    subjects = summariseMarks(saved.marks),
+                    gradeRange = range,
+                )
+            }
+            if (!force && diaryIsFresh(savedAt, clock.instant())) return
+        } else {
+            state.update { it.copy(gradesLoading = true, gradesError = null, savedAt = null) }
+        }
+
         val result = repository.grades(studentId, range.from, range.to)
         val failure = result.exceptionOrNull()
         if (failure != null) {
+            if (savedAt != null && DiaryFailure.of(failure).keepsSavedRows) {
+                state.update { it.copy(gradesLoading = false, savedAt = savedAt) }
+                return
+            }
             applyFailure(failure) { copy(gradesLoading = false, gradesError = it) }
             return
         }
         val subjects = summariseMarks(result.getOrDefault(emptyList()))
-        state.update { it.copy(gradesLoading = false, subjects = subjects, gradeRange = range) }
+        state.update {
+            it.copy(gradesLoading = false, subjects = subjects, gradeRange = range, savedAt = null)
+        }
+    }
+
+    /**
+     * The term today falls in: remembered for the screen's life, else the saved
+     * terms when they are fresh, else the diary's — and the saved ones again
+     * when the diary cannot answer, since a term from last week is a far better
+     * window than none.
+     */
+    private suspend fun currentPeriod(studentId: Long, force: Boolean): DiaryPeriod? {
+        if (!force && periods.containsKey(studentId)) return periods[studentId]
+        val saved = runCatching { cache.periods(studentId).first() }.getOrNull()
+        val period = if (!force && saved != null && diaryIsFresh(saved.loadedAt, clock.instant())) {
+            saved.periods.firstOrNull { it.isCurrent }
+        } else {
+            repository.periods(studentId).getOrNull()?.firstOrNull { it.isCurrent }
+                ?: saved?.periods?.firstOrNull { it.isCurrent }
+        }
+        periods[studentId] = period
+        return period
     }
 
     // -- corrections --------------------------------------------------------
@@ -554,40 +841,68 @@ class DiaryViewModel(
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                DiaryViewModel(repository = Graph.container.diaryRepository)
+                val container = Graph.container
+                DiaryViewModel(
+                    repository = container.diaryRepository,
+                    cache = container.diaryCache,
+                    binding = container.sessionRepository.session.map { it?.diary },
+                    describe = { target -> diaryPlaceOf(container.regionLookup.catalog(), target) },
+                )
             }
         }
     }
 }
 
 /**
- * A sign-in's [DiarySignInProblem] in the words this screen already has.
- *
- * A bridge, and a lossy one: the sign-in now fails in more ways than the
- * [DiaryFailure] this form was written against, and «слишком много попыток»
- * or «дневник выключен на сервере» have no sentence here yet — they read as the
- * nearest one. `DiaryProblemText` is where each problem gets its own; when this
- * form switches to it, this function goes.
+ * Which diary a sign-in goes to; see [DiaryUiState.signInTarget]. The login is
+ * whatever the source carried, and the form replaces it with what was typed.
  */
-internal fun signInFailure(failure: Throwable): DiaryFailure = when (failure) {
-    is DiarySignInProblem.WrongPassword,
-    DiarySignInProblem.LoginTooShort,
-    DiarySignInProblem.SignInRequired,
-    -> DiaryFailure.SignInRequired
-    DiarySignInProblem.ReauthRequired -> DiaryFailure.ReauthRequired
-    DiarySignInProblem.ServerDisabled -> DiaryFailure.Disabled
-    DiarySignInProblem.ServerAddressRefused -> DiaryFailure.ServerAddressRefused
-    is DiarySignInProblem.TooManyAttempts -> DiaryFailure.Throttled(failure.retryAfterSeconds)
-    is DiarySignInProblem.ProviderUnavailable,
-    is DiarySignInProblem.ProviderRefusesPhone,
-    is DiarySignInProblem.Timeout,
-    -> DiaryFailure.Unavailable
-    is DiarySignInProblem.ProviderUnreadable -> DiaryFailure.Unreadable
-    is DiarySignInProblem.ProviderOffline,
-    DiarySignInProblem.Offline,
-    DiarySignInProblem.RegisterUnreachable,
-    DiarySignInProblem.ServerMissing,
-    -> DiaryFailure.Offline(failure)
-    is DiarySignInProblem -> DiaryFailure.Unexpected(code = null, reason = failure)
-    else -> DiaryFailure.of(failure)
+internal fun signInTargetOf(
+    chosen: DiaryTarget?,
+    session: DiarySession?,
+    stored: DiaryTarget?,
+    bound: DiaryTarget?,
+): DiaryTarget = chosen ?: session?.target ?: stored ?: bound ?: DiaryTarget.petersburg("")
+
+/** The same diary, region and school, whoever is signing in to it. */
+private fun DiaryTarget.sameDiaryAs(other: DiaryTarget): Boolean =
+    provider == other.provider && region == other.region && schoolId == other.schoolId
+
+/**
+ * Whether a failed read leaves the saved rows on screen, with when they were
+ * saved, instead of a failure card.
+ *
+ * The failures that say nothing about the rows — the diary or our server could
+ * not be reached just now — and nothing else: a sign-in that ended, or an
+ * answer that says this app asked for the wrong thing, is not something the
+ * saved rows can stand in for.
+ */
+private val DiaryFailure.keepsSavedRows: Boolean
+    get() = this is DiaryFailure.Offline || this is DiaryFailure.Unavailable
+
+/** When a saved week is from: its older half, since both are drawn together. */
+private val DiaryCachedWeek.savedAt: Instant?
+    get() {
+        val lessons = lessonsLoadedAt ?: return null
+        val homework = homeworkLoadedAt ?: return null
+        return minOf(lessons, homework)
+    }
+
+private val NoStudents = DiaryCachedStudents(emptyList(), loadedAt = null)
+
+/**
+ * A cache that holds nothing, for a view model built without one — the tests
+ * that are about the network and nothing in front of it.
+ */
+internal object NoDiaryCache : DiaryCache {
+    override val students: Flow<DiaryCachedStudents> = flowOf(NoStudents)
+    override val selectedStudentId: Flow<Long?> = flowOf(null)
+    override suspend fun selectStudent(id: Long?) = Unit
+    override fun week(studentId: Long, monday: LocalDate): Flow<DiaryCachedWeek> =
+        flowOf(DiaryCachedWeek(monday, emptyList(), emptyList(), null, null))
+    override fun marks(studentId: Long): Flow<DiaryCachedMarks> =
+        flowOf(DiaryCachedMarks(null, null, emptyList(), null))
+    override fun periods(studentId: Long): Flow<DiaryCachedPeriods> =
+        flowOf(DiaryCachedPeriods(emptyList(), null))
+    override suspend fun clear() = Unit
 }

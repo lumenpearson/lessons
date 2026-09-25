@@ -42,10 +42,18 @@ import com.lumenpearson.lessons.core.designsystem.theme.emphasised
  * sheet is anchored to the same edge the keyboard comes from. Essentials puts
  * every input of this kind in a sheet for the same reason.
  *
+ * There is no default to fall back to: the APK carries no server address
+ * (`AppSettings.DEFAULT_BASE_URL` is empty, on purpose — no address is right
+ * for a second user), so the sheet never says «change this only if…». It used
+ * to, and a pupil who took that at its word pressed «Подключиться» on a blank
+ * address and was shown an English exception message (#154).
+ *
  * @param initialUrl current address; the field starts from it rather than empty
  *   so a small typo is a small edit.
- * @param onConfirm called with the trimmed value; the caller decides whether an
- *   empty string means "use the default".
+ * @param description the sentence above the field. The first run passes its
+ *   own where it asks for the address because the diary's sign-in needs one.
+ * @param onConfirm called with the trimmed value; an empty string clears the
+ *   address, and the app then has no server until one is set.
  */
 @Composable
 fun ServerUrlSheet(
@@ -53,6 +61,7 @@ fun ServerUrlSheet(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
     modifier: Modifier = Modifier,
+    description: String = correctedString(R.string.server_dialog_description),
 ) {
     var url by rememberSaveable(initialUrl) { mutableStateOf(initialUrl) }
     val trimmed = remember(url) { url.trim() }
@@ -67,7 +76,7 @@ fun ServerUrlSheet(
         title = correctedString(R.string.server_dialog_title),
     ) {
         Text(
-            text = correctedString(R.string.server_dialog_description),
+            text = description,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = ScreenPadding),
@@ -101,9 +110,9 @@ fun ServerUrlSheet(
             TextButton(onClick = onDismiss) {
                 Text(text = correctedString(R.string.action_cancel))
             }
-            // Enabled on an empty field too: the callers treat "" as "use the
-            // default", and with the button disabled there was no way to undo a
-            // mistyped address short of reinstalling.
+            // Enabled on an empty field too: "" clears the address, and with
+            // the button disabled there was no way to undo a mistyped address
+            // short of reinstalling.
             Button(onClick = { onConfirm(trimmed) }) {
                 Text(text = correctedString(R.string.action_save))
             }

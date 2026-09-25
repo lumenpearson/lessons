@@ -74,18 +74,19 @@ internal class SessionEffects(
      * class the phone is no longer showing, and tapping it opens the app on the
      * other one.
      *
-     * [startBackgroundSync] is here rather than left to the app module, and the
-     * reason is that the app module cannot do it. `schedulePeriodic` has one
-     * caller — `LessonsApplication.observeSyncInterval()`, a
-     * `distinctUntilChanged()` collector on `syncIntervalMinutes` — so it runs
-     * when the *interval* moves. A sign-out and a re-join in one process move
-     * no interval: [onSignedOut] cancels the periodic worker, the collector
-     * never re-emits, and the class joined a moment later gets [syncNow] and
-     * then nothing at all until the next cold start. Fresh once and stale
-     * after, which is indistinguishable on screen from a phone that is syncing.
-     * The collector cannot see a session change and this table is nothing but
-     * session changes, so the re-arm belongs on this side of the line; making
-     * it idempotent is what lets both of them ask.
+     * [startBackgroundSync] is here as well as in the app module, and both are
+     * meant. `LessonsApplication` collects `ShellModeSource.syncArming` — the
+     * mode and the interval, read from one preferences emission — so a sign-out
+     * followed by a re-join disarms and re-arms from there too. It did not
+     * always: the collector used to follow the interval alone, a sign-out and a
+     * re-join move no interval, and the class joined a moment later got
+     * [syncNow] and then nothing at all until the next cold start — fresh once
+     * and stale after, which is indistinguishable on screen from a phone that is
+     * syncing. This table still asks because it acts in the same breath as the
+     * session write, while the collector waits on a DataStore emission, and
+     * because a switch between two classes changes neither the mode nor the
+     * interval and so reaches the collector not at all. `schedulePeriodic` is
+     * idempotent, which is what lets both of them ask.
      */
     fun onActiveClassChanged() {
         redrawWidget()

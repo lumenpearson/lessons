@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The Petersburg electronic diary, in English.
+  The school's electronic diary - Petersburg's or a «Сетевой город» region's - in English.
 
   The mirror of values/strings_diary.xml. Every name, every format argument and
   every plural form has to match the Russian file, which ResourceTranslationTest
@@ -11,17 +11,17 @@
 
     <!-- Settings section -->
     <string name="diary_title">Diary</string>
-    <string name="diary_section_summary">Timetable, homework and marks from the Petersburg electronic diary</string>
+    <string name="diary_section_summary">Timetable, homework and marks from your school\'s electronic diary</string>
 
     <!-- Sign-in -->
     <string name="diary_sign_in_title">Sign in to the diary</string>
-    <string name="diary_sign_in_subtitle">The same login and password as on the Petersburg diary website</string>
+    <string name="diary_sign_in_subtitle">The same login and password as on your electronic diary\'s website</string>
     <string name="diary_login_label">Login</string>
     <string name="diary_password_label">Password</string>
     <string name="diary_password_reveal">Show the password</string>
     <string name="diary_password_hide">Hide the password</string>
     <string name="diary_sign_in_action">Sign in</string>
-    <string name="diary_password_notice">The password is stored nowhere. It is used for exactly one request - signing in to the diary - and then forgotten by both this phone and the server. When the diary session eventually ends, the app will ask for it again.</string>
+    <string name="diary_password_notice">The password goes straight to the diary, over HTTPS, and nowhere else: not to our server and not to this phone\'s storage. The server is handed only the session the diary issued. When that ends, the app will ask for the password again.</string>
 
     <!-- Re-authentication, when the diary session died upstream -->
     <string name="diary_reauth_title">The diary session has ended</string>
@@ -29,14 +29,14 @@
 
     <!-- Failures -->
     <string name="diary_failure_title">That did not work</string>
-    <string name="diary_error_credentials">Wrong login or password</string>
-    <string name="diary_error_signed_out">This diary sign-in is no longer valid. Please sign in again.</string>
-    <string name="diary_error_unavailable">The diary is not answering. Try again later.</string>
-    <string name="diary_error_unreadable">The diary answered in a way the server could not read: the service changed, and that is fixed on the server rather than in the app.</string>
-    <string name="diary_error_offline">No connection to the server. Check the network and the server address under “Sync”.</string>
+    <string name="diary_problem_wrong_password">Wrong login or password</string>
+    <string name="diary_problem_signed_out">This diary sign-in is no longer valid. Please sign in again.</string>
+    <string name="diary_problem_unavailable">The diary is not answering. Try again later.</string>
+    <string name="diary_problem_unreadable">The diary answered in a way the server could not read: the service changed, and that is fixed on the server rather than in the app.</string>
+    <string name="diary_problem_offline">No connection to the server. Check the network and the server address under “Sync”.</string>
     <string name="diary_error_range">That date range is too wide - the diary serves at most 62 days at a time.</string>
     <string name="diary_error_student">This account has no such pupil.</string>
-    <string name="diary_error_unknown">It did not work: %1$s</string>
+    <string name="diary_problem_unknown">It did not work: %1$s</string>
     <string name="diary_retry">Try again</string>
 
     <!-- The outcome of a sign-in attempt. A pop-up rather than a line in the
@@ -105,5 +105,61 @@
     <string name="diary_edited_badge">Corrected</string>
     <string name="diary_edit_hint">Tap a lesson or a task to correct it</string>
     <string name="diary_edit_which">%1$s · lesson %2$s</string>
-    <string name="diary_insecure_server">⚠️ The server address starts with http://, so the password travels in the clear and anyone on the same Wi-Fi can read it. This is your dnevnik2 password, not the one for this app. Set up https:// on the server if you can.</string>
+    <string name="diary_insecure_server">⚠️ The server address starts with http://. That does not touch the password - it goes straight to the diary over HTTPS. But the session the diary issues, and the key to it, travel to the server in the clear: anyone on the same Wi-Fi can pick them up and open your diary. Set up https:// on the server if you can.</string>
+
+    <!-- Where the password goes, said on the form that takes it. -->
+    <string name="diary_password_destination">The password goes only to %1$s - over HTTPS, straight to the diary.</string>
+    <string name="diary_sign_in_where">Diary: %1$s</string>
+
+    <!-- Every way a sign-in or a read can fail; %1$s is the diary server's host. -->
+    <string name="diary_problem_upstream_said">The diary said: “%1$s”.</string>
+    <string name="diary_problem_gosuslugi_only">In this region the diary lets people in through Gosuslugi only. The app does not sign in there - open the diary\'s website in a browser.</string>
+    <string name="diary_problem_host_down">%1$s is not answering. Try again later.</string>
+    <string name="diary_problem_host_refuses_phone">%1$s is refusing this phone. If a VPN is on, turn it off and try again.</string>
+    <string name="diary_problem_refuses_phone">The diary is refusing this phone. If a VPN is on, turn it off and try again.</string>
+    <string name="diary_problem_host_untrusted">This phone does not trust the certificate of %1$s, and the app will not work around that check.</string>
+    <string name="diary_problem_untrusted">This phone does not trust the diary\'s certificate, and the app will not work around that check.</string>
+    <string name="diary_problem_host_unreadable">%1$s answered in a way the app cannot read - most likely its sign-in page changed. An app update fixes that, not another password.</string>
+    <string name="diary_problem_host_offline">Cannot reach %1$s. Check the network.</string>
+    <string name="diary_problem_offline_upstream">Cannot reach the diary. Check the network.</string>
+    <string name="diary_problem_host_timeout">%1$s did not answer in time. Try again.</string>
+    <string name="diary_problem_timeout">No answer came in time. Try again.</string>
+    <string name="diary_problem_register_unreachable">The diary let you in, but the server cannot be reached right now. Try again - no need to type the password.</string>
+    <string name="diary_problem_server_missing">No server address is set. Set one under “Sync”.</string>
+    <string name="diary_problem_server_too_old">This server cannot take a sign-in opened on the phone. It needs a newer server, or another address.</string>
+    <string name="diary_problem_server_disabled">The diary is switched off on this server. Only whoever runs the server can switch it on.</string>
+    <string name="diary_problem_region_not_served">This server does not work with your region\'s diary.</string>
+    <string name="diary_problem_server_refused_session">The diary let you in, but refused the sign-in from the server\'s address. It is not the password, and trying again will not help. You can join a class by its code instead.</string>
+    <string name="diary_problem_server_address_refused">The diary is not answering the server: it refuses requests from its address. It is not the password.</string>
+    <string name="diary_problem_no_student">The diary shows no pupil for this account.</string>
+    <string name="diary_problem_too_many">Too many attempts. Wait a little and try again.</string>
+    <plurals name="diary_problem_too_many_wait">
+        <item quantity="one">Too many attempts. Try again in %1$d minute.</item>
+        <item quantity="other">Too many attempts. Try again in %1$d minutes.</item>
+    </plurals>
+    <string name="diary_problem_session_aged_out">Signing in took too long and the diary closed the session. Please sign in again.</string>
+    <string name="diary_problem_login_too_short">The login is too short - it needs at least three characters.</string>
+    <string name="diary_problem_reauth">The diary closed the session. Type the password again.</string>
+
+    <!-- The diary as the home of a phone in no class -->
+    <string name="diary_offline_saved_at">No connection - showing what was saved on this phone. %1$s</string>
+    <string name="diary_account_region">Region</string>
+    <string name="diary_account_system">System</string>
+    <string name="diary_account_school">School</string>
+    <string name="diary_account_join_class">Join a class by code</string>
+    <string name="diary_account_class_hint">If an administrator sets up your school\'s class in the bot, its code adds the class timetable, the widget and the bell reminders.</string>
+    <string name="diary_sign_out_home_text">The phone goes back to the start. Lessons and marks saved on the phone are deleted, and the server forgets its copy of the sign-in.</string>
+
+    <!-- Choosing which diary to sign in to, when nothing says so yet -->
+    <string name="diary_pick_title">Choose a diary</string>
+    <string name="diary_pick_subtitle">Your region and school tell the app which diary to sign in to.</string>
+    <string name="diary_pick_region_search">Region, city or code</string>
+    <string name="diary_pick_regions_empty">No such region in the list. Try the name of a city.</string>
+    <string name="diary_pick_school_search">School name or number</string>
+    <string name="diary_pick_school_hint">Type at least two characters and the region\'s diary will list matching schools.</string>
+    <string name="diary_pick_schools_empty">No school by that name.</string>
+    <string name="diary_pick_unsupported">The app cannot sign in to a diary in this region yet.</string>
+    <string name="diary_pick_handoff">In this region the diary lets people in through Gosuslugi or its own website only. The app does not sign in there, but the website can be opened in a browser.</string>
+    <string name="diary_pick_open_site">Open the diary\'s website</string>
+    <string name="diary_pick_change">Change</string>
 </resources>

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -35,10 +36,9 @@ import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -54,6 +54,7 @@ import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
+import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealAnchor
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
@@ -61,6 +62,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.appSlideMotionBlur
 import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.ui.join.JoinScreen
+import com.lumenpearson.lessons.ui.legal.LegalAcceptanceLine
 import com.lumenpearson.lessons.ui.settings.EdgeFadeRow
 import com.lumenpearson.lessons.ui.settings.PermissionCard
 import com.lumenpearson.lessons.ui.settings.SettingsUiState
@@ -69,35 +71,7 @@ import com.lumenpearson.lessons.ui.settings.SupportsDynamicColor
 import com.lumenpearson.lessons.ui.settings.labelRes
 import com.lumenpearson.lessons.ui.settings.rememberPermissionPrompts
 
-/**
- * The five screens a new install opens with, in order.
- *
- * The order is Essentials' own and it is not arbitrary: say what this is, say
- * what it is not and let the user opt out of the one thing it records, let them
- * set the handful of preferences that change how the app feels before they have
- * formed a habit, and only then ask for something. Putting the class-code field
- * first — which is what the app did before — asks a stranger for a credential on
- * a screen that has not yet said what the credential is for.
- *
- * [PERMISSIONS] goes last before [JOIN], for two reasons. It is the first time
- * the app hands the user over to the system, and everything the three
- * permissions are *for* — a bell in ten minutes, a replacement lesson, a
- * morning summary — is about the timetable that arrives on the very next
- * screen, so the ask sits as close to its payoff as the flow allows; put before
- * [PREFERENCES] it would interrupt a run of in-app switches with two system
- * dialogs. And [JOIN] is where `onboardingDone` is written, so a step in front
- * of it leaves that rule — reaching the last step is what counts as "seen" —
- * exactly as it was.
- */
-enum class OnboardingStep {
-    WELCOME,
-    ACKNOWLEDGEMENT,
-    PREFERENCES,
-    PERMISSIONS,
-    JOIN,
-}
-
-/** How long one step takes to slide the next one in. */
+/** How long one step takes to slide the next one in, before the reader's motion setting. */
 private const val StepTransitionMillis = 400
 
 /**
@@ -108,96 +82,97 @@ private const val StepTransitionMillis = 400
  * user: anything long enough to notice as a sequence reads as the screen
  * being slow.
  */
-private const val RevealStagger = 90
+internal const val RevealStagger = 90
+
+/** The top of the path, which is what the transition animates between. */
+private data class PathTop(val step: OnboardingStep, val depth: Int)
 
 /**
- * The first-run flow.
+ * The first run: the introduction, the chooser, and whichever way in is chosen.
  *
- * There is no navigation graph behind it and no view model of its own: the step
- * is one piece of saveable state, every preference on it is written straight
- * through [SettingsViewModel] — the same instance the settings screen uses, so
- * anything set here is already stored by the time the flow ends — and the last
- * step is the real join screen rather than a copy of it.
+ * There is no navigation graph behind it. The path is [OnboardingViewModel]'s
+ * saved state ([OnboardingState]); every preference on the introduction is
+ * written straight through [SettingsViewModel] — the same instance the settings
+ * screen uses, so anything set here is already stored by the time the flow
+ * ends — and the class-code step is the real join screen rather than a copy.
  *
- * Reaching the last step is what counts as "seen". It is recorded there rather
- * than after a successful join so that somebody who closes the app at the code
- * field is not made to read the introduction a second time.
+ * The flow, not a credential, decides when it ends. The join and the diary's
+ * registration each write one mid-way, and the shell's hold (set on entering
+ * those steps) keeps this screen up until [OnboardingViewModel.finish].
+ *
+ * @param introduced the introduction was seen before — the flow opens at the
+ *   chooser. Latched by the caller: the flow records it on reaching the
+ *   chooser, and re-reading it live would restart the flow under the user.
  */
 @Composable
 fun OnboardingScreen(
+    introduced: Boolean,
     modifier: Modifier = Modifier,
-    viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
+    viewModel: OnboardingViewModel = viewModel(factory = OnboardingViewModel.Factory),
+    settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
 ) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
-    // Saveable, not remembered, and the language picker on the first step is
-    // what makes that load-bearing rather than tidy. Below API 33 choosing a
-    // language recreates the activity — that is the only way to replace a base
-    // context — and a `remember` here would have put the user back on the
-    // welcome screen every time they touched it. `recreate()` saves and
-    // restores instance state exactly as a rotation does, so the step, the
-    // latched "show the introduction" decision in `LessonsApp` and the settings
-    // view model (retained with the ViewModelStore) all come back as they were;
-    // only the slide animation is lost, which is the right thing to lose.
-    var step by rememberSaveable { mutableStateOf(OnboardingStep.WELCOME) }
+    LaunchedEffect(Unit) { viewModel.start(introduced) }
 
-    fun goTo(next: OnboardingStep) {
-        if (next == OnboardingStep.JOIN) viewModel.setOnboardingDone()
-        step = next
-    }
-
-    // The system gesture walks the same path as the button, so the flow has one
-    // way back rather than two that disagree. On the first step it is left
-    // alone, which lets it do what it means there: leave the app.
-    //
-    // Bounded rather than trusting `enabled` to have caught up. That flag
-    // reaches the callback in a SideEffect, after the composition is applied,
-    // while the write below lands in the snapshot at once — so two back events
-    // drained in one input pass both see it true, and the second asks for the
-    // step before the first. Reachable by tapping back twice during the slide,
-    // which is exactly where this screen is slowest, and a crash writes no
-    // saved state, so it restarted the whole introduction.
-    BackHandler(enabled = step != OnboardingStep.WELCOME) {
-        OnboardingStep.entries.getOrNull(step.ordinal - 1)?.let { step = it }
-    }
+    val settings by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    val flow by viewModel.flow.collectAsStateWithLifecycle()
+    val plan by viewModel.plan.collectAsStateWithLifecycle()
+    val motion = LocalMotion.current
 
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
+        // One frame after the splash, while a saved flow or the stored hold is
+        // read: a surface, rather than a guessed first step and a jump.
+        val state = flow ?: return@Surface
+        val progress = remember(state, plan) { OnboardingFlow.progress(state, plan) }
+
+        // The system gesture walks the same path as the back square, so the
+        // flow has one way back rather than two that disagree. At the floor it
+        // is left alone, which lets it do what it means there: leave the app.
+        //
+        // `back()` is bounded by the floor rather than trusting `enabled` to
+        // have caught up. That flag reaches the callback in a SideEffect, after
+        // the composition is applied, while the write lands in the snapshot at
+        // once — so two back events drained in one input pass both see it
+        // true. Reachable by tapping back twice during the slide, which is
+        // exactly where this screen is slowest.
+        BackHandler(enabled = state.canGoBack) { viewModel.back() }
+        val onBack: (() -> Unit)? = if (state.canGoBack) viewModel::back else null
+
         Column(modifier = Modifier.fillMaxSize()) {
             // Above the transition rather than inside a step, because that is
-            // what lets one shape become the next one instead of five shapes
+            // what lets one shape become the next one instead of a dozen shapes
             // fading past each other. See OnboardingHero.
-            OnboardingHero(step = step)
+            OnboardingHero(state = state, progress = progress)
 
             AnimatedContent(
-                targetState = step,
+                targetState = PathTop(state.current, state.depth),
                 transitionSpec = {
-                    // Direction carries the meaning: forward pushes the old screen
-                    // off to the left, back pulls it in from there. Without it the
-                    // two directions look identical and the flow feels one-way.
-                    if (targetState.ordinal > initialState.ordinal) {
-                        (slideInHorizontally { it } + fadeIn(tween(StepTransitionMillis)))
-                            .togetherWith(
-                                slideOutHorizontally { -it } + fadeOut(tween(StepTransitionMillis)),
-                            )
+                    val millis = motion.durationMillis(StepTransitionMillis)
+                    // Direction carries the meaning: forward pushes the old
+                    // screen off to the left, back pulls it in from there.
+                    // Depth, not ordinal — the flow branches, and the provider
+                    // step's way to the class code is plainly forward.
+                    if (OnboardingFlow.isForward(initialState.depth, targetState.depth)) {
+                        (slideInHorizontally(tween(millis)) { it } + fadeIn(tween(millis)))
+                            .togetherWith(slideOutHorizontally(tween(millis)) { -it } + fadeOut(tween(millis)))
                     } else {
-                        (slideInHorizontally { -it } + fadeIn(tween(StepTransitionMillis)))
-                            .togetherWith(
-                                slideOutHorizontally { it } + fadeOut(tween(StepTransitionMillis)),
-                            )
+                        (slideInHorizontally(tween(millis)) { -it } + fadeIn(tween(millis)))
+                            .togetherWith(slideOutHorizontally(tween(millis)) { it } + fadeOut(tween(millis)))
                     }
                 },
                 label = "onboarding_step",
-            ) { current ->
-                // Each step travels a full screen width, which is the biggest single
-                // movement in the app; blurring it is what the scroll-blur setting
-                // means here. Driven by the transition's own fraction, so the
-                // shader and the slide can never disagree about where the page is.
+            ) { top ->
+                // Each step travels a full screen width, which is the biggest
+                // single movement in the app; blurring it is what the
+                // scroll-blur setting means here. Driven by the transition's
+                // own fraction, so the shader and the slide can never disagree
+                // about where the page is.
                 val slide = transition.animateFloat(
-                    transitionSpec = { tween(StepTransitionMillis) },
+                    transitionSpec = { tween(motion.durationMillis(StepTransitionMillis)) },
                     label = "onboarding_slide",
-                ) { state -> if (state == EnterExitState.Visible) 1f else 0f }
+                ) { phase -> if (phase == EnterExitState.Visible) 1f else 0f }
                 val travel = LocalConfiguration.current.screenWidthDp.dp
 
                 Box(
@@ -209,35 +184,50 @@ fun OnboardingScreen(
                             travel = travel,
                         ),
                 ) {
-                    when (current) {
+                    when (top.step) {
                         OnboardingStep.WELCOME -> WelcomeStep(
-                            state = state,
-                            viewModel = viewModel,
-                            onNext = { goTo(OnboardingStep.ACKNOWLEDGEMENT) },
+                            state = settings,
+                            viewModel = settingsViewModel,
+                            onNext = viewModel::next,
                         )
 
                         OnboardingStep.ACKNOWLEDGEMENT -> AcknowledgementStep(
-                            state = state,
-                            viewModel = viewModel,
-                            onBack = { goTo(OnboardingStep.WELCOME) },
-                            onNext = { goTo(OnboardingStep.PREFERENCES) },
+                            state = settings,
+                            viewModel = settingsViewModel,
+                            onBack = onBack,
+                            onNext = viewModel::next,
                         )
 
                         OnboardingStep.PREFERENCES -> PreferencesStep(
-                            state = state,
-                            viewModel = viewModel,
-                            onBack = { goTo(OnboardingStep.ACKNOWLEDGEMENT) },
-                            onNext = { goTo(OnboardingStep.PERMISSIONS) },
+                            state = settings,
+                            viewModel = settingsViewModel,
+                            onBack = onBack,
+                            onNext = viewModel::next,
                         )
 
                         OnboardingStep.PERMISSIONS -> PermissionsStep(
-                            onBack = { goTo(OnboardingStep.PREFERENCES) },
-                            onNext = { goTo(OnboardingStep.JOIN) },
+                            onBack = onBack,
+                            onNext = viewModel::next,
                         )
 
-                        OnboardingStep.JOIN -> JoinScreen(
-                            onBack = { goTo(OnboardingStep.PERMISSIONS) },
+                        OnboardingStep.WAY_IN -> WayInStep(viewModel = viewModel, onBack = onBack)
+
+                        OnboardingStep.CLASS_CODE -> JoinScreen(
+                            onBack = onBack,
+                            onJoined = { viewModel.onJoined() },
                         )
+
+                        OnboardingStep.REGION -> RegionStep(viewModel = viewModel, onBack = onBack)
+
+                        OnboardingStep.SCHOOL -> SchoolStep(viewModel = viewModel, onBack = onBack)
+
+                        OnboardingStep.PROVIDER -> ProviderStep(viewModel = viewModel, onBack = onBack)
+
+                        OnboardingStep.SIGN_IN -> SignInPage(viewModel = viewModel, onBack = onBack)
+
+                        OnboardingStep.IMPORT -> ImportPage(viewModel = viewModel)
+
+                        OnboardingStep.SUMMARY -> SummaryPage(settings = settings, viewModel = viewModel)
                     }
                 }
             }
@@ -272,9 +262,14 @@ private fun WelcomeStep(
     StepScaffold(
         actions = {
             OnboardingActions(
-                label = correctedString(R.string.onboarding_action_begin),
+                label = correctedString(R.string.onboarding_action_proceed),
                 icon = Icons.AutoMirrored.Rounded.ArrowForward,
                 onClick = onNext,
+                // Always drawn, whatever the build says about where its
+                // documents are published: with no address the line opens the
+                // copies bundled in the APK, so there is never a first screen
+                // that asks to continue without saying on what terms.
+                footer = { LegalAcceptanceLine() },
             )
         },
     ) {
@@ -346,7 +341,7 @@ private fun WelcomeStep(
 private fun AcknowledgementStep(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     onNext: () -> Unit,
 ) {
     Column(
@@ -442,7 +437,7 @@ private fun AcknowledgementStep(
 private fun PreferencesStep(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     onNext: () -> Unit,
 ) {
     StepScaffold(
@@ -532,6 +527,10 @@ private fun PreferencesStep(
  * Step four: the three things the app needs from the system, asked one at a
  * time.
  *
+ * It comes before the chooser on both ways in, although a family that takes
+ * the diary way gets no alerts from it (K23): the chooser comes after the
+ * introduction, and an ask moved behind one branch would be an ask on one path.
+ *
  * Each permission gets a card of its own rather than a shared group, because
  * each is a separate question with a separate answer, and a group reads as one
  * block to be dealt with in one go — which is exactly the "allow everything"
@@ -539,19 +538,19 @@ private fun PreferencesStep(
  * page's, from [PermissionCard]: the same button, the same wording, and the
  * same handling of a dialog the platform has stopped offering.
  *
- * Nothing here blocks [OnboardingStep.JOIN]. The action moves on whatever the
+ * Nothing here blocks [OnboardingStep.WAY_IN]. The action moves on whatever the
  * answers were — «Потом» while something is missing, «Дальше» once nothing is —
  * and it is never disabled, because a pupil who refuses all three still gets a
  * timetable, a week view and a widget; what they lose is being told about them.
  *
  * The step is not skipped when everything is already granted either. Skipping
- * forward would make the back gesture from [OnboardingStep.JOIN] land here and
+ * forward would make the back gesture from [OnboardingStep.WAY_IN] land here and
  * be thrown straight forward again, which is a flow with no way back rather
  * than a shortcut.
  */
 @Composable
 private fun PermissionsStep(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     onNext: () -> Unit,
 ) {
     val prompts = rememberPermissionPrompts()
@@ -605,7 +604,7 @@ private fun PermissionsStep(
  * translation test to keep in step and four more chances for the same word to
  * end up spelled two ways.
  */
-private val AppLanguage.labelRes: Int
+internal val AppLanguage.labelRes: Int
     get() = when (this) {
         AppLanguage.SYSTEM -> R.string.settings_language_system
         AppLanguage.RUSSIAN -> R.string.settings_language_russian
@@ -623,7 +622,7 @@ private const val ProseTint = 0.5f
  * and its settings pages do not. See the note on `SectionHeader.titleColor`.
  */
 @Composable
-private fun AccentSection(
+internal fun AccentSection(
     title: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -645,11 +644,14 @@ private fun AccentSection(
  * it — is kept, one level up.
  */
 @Composable
-private fun StepScaffold(
+internal fun StepScaffold(
     actions: @Composable () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
+    // The keyboard padding on the outer column, as the join screen has it:
+    // on the sign-in step the keyboard then shrinks the scrolling body and
+    // lifts the row, rather than covering the form it was opened for.
+    Column(modifier = Modifier.fillMaxSize().imePadding()) {
         Column(
             modifier = Modifier
                 .weight(1f)

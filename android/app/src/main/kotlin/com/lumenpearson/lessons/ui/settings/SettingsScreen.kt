@@ -77,6 +77,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.BuildConfig
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.AppSettings
+import com.lumenpearson.lessons.core.data.repository.ShellMode
 import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
 import com.lumenpearson.lessons.core.designsystem.component.GroupActionItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
@@ -112,7 +113,10 @@ import com.lumenpearson.lessons.core.model.WeekStart
 import com.lumenpearson.lessons.navigation.labelRes
 import com.lumenpearson.lessons.ui.debug.DebugRow
 import com.lumenpearson.lessons.ui.common.ServerUrlSheet
+import com.lumenpearson.lessons.ui.diary.DiaryAccountPage
 import com.lumenpearson.lessons.ui.diary.DiaryScreen
+import com.lumenpearson.lessons.ui.diary.DiaryViewModel
+import com.lumenpearson.lessons.navigation.isInsecure
 import com.lumenpearson.lessons.ui.common.SyncIntervalOptionsMinutes
 import com.lumenpearson.lessons.ui.common.asText
 import com.lumenpearson.lessons.ui.common.syncIntervalLabel
@@ -133,6 +137,7 @@ import com.lumenpearson.lessons.ui.translate.translationRows
  * The enum is the single definition of the split. The root screen lists it, the
  * section screen renders one of it, and the shell titles the toolbar from it, so
  * a new section is one entry here and one branch in [SettingsSectionScreen].
+ * Which of them the root offers is [listedOn], one rule for both homes.
  *
  * @param tone which accent slot the row's tile takes on the root page.
  */
@@ -182,15 +187,18 @@ enum class SettingsSection(
         1,
     ),
     /**
-     * The Petersburg diary: a second account, in a service this app does not
-     * own, that most installs will never have.
+     * The diary: a second account, in a service this app does not own, that
+     * most installs in a class will never have — and, on a phone in no class,
+     * the only account there is.
      *
-     * It is a section rather than a fourth tab because a tab would show a
-     * sign-in wall in the bottom bar of everybody without such an account, for
-     * good — the toolbar never hides a destination. Next to «Класс» because
-     * the two rows are the same kind of thing: which account this phone is
-     * signed in to. The page it opens is not a list of preferences, which is
-     * why [SettingsSectionScreen] hands it over whole.
+     * In a class it is a section rather than a fourth tab because a tab would
+     * show a sign-in wall in the bottom bar of everybody without such an
+     * account, for good — the toolbar never hides a destination. Next to
+     * «Класс» because the two rows are the same kind of thing: which account
+     * this phone is signed in to. The page it opens is not a list of
+     * preferences, which is why [SettingsSectionScreen] hands it over whole: the
+     * diary itself in a class, the account page on the diary home, where the
+     * diary already is the home.
      */
     DIARY(
         R.string.diary_title,
@@ -214,19 +222,16 @@ enum class SettingsSection(
     /**
      * The pages only an administrator or the owner of the class has.
      *
-     * Kept off the root list by [listedOnRoot] and put back by the root page
-     * itself once the server has said who this phone belongs to — the same
-     * shape as [PERMISSIONS], for a different reason: that one appears when
-     * something is wrong, this one when somebody is allowed.
+     * Listed by [listedOn] only once the server has said who this phone belongs
+     * to — the same shape as [PERMISSIONS], for a different reason: that one
+     * appears when something is wrong, this one when somebody is allowed.
      */
     ADMIN(
         R.string.settings_admin,
         R.string.settings_admin_summary,
         Icons.Rounded.AdminPanelSettings,
         1,
-    ) {
-        override val listedOnRoot: Boolean = false
-    },
+    ),
 
     /**
      * Reached from the notifications page, never from the root list.
@@ -234,20 +239,36 @@ enum class SettingsSection(
      * It is a page about a fault, so it exists only while there is one: a
      * permanent "Разрешения" row on the landing page would be one more thing to
      * read past on every visit, and would say nothing on the phones — most of
-     * them — where everything is granted. [listedOnRoot] is what keeps it off.
+     * them — where everything is granted. [listedOn] is what keeps it off.
      */
     PERMISSIONS(
         R.string.permissions_title,
         R.string.permissions_banner_description,
         Icons.Rounded.Shield,
         5,
-    ) {
-        override val listedOnRoot: Boolean = false
-    },
+    ),
     ;
 
-    /** Whether the landing page offers a row for this section. */
-    open val listedOnRoot: Boolean = true
+    /**
+     * Whether the landing page offers a row for this section, on a phone in
+     * [mode] — [manager] being whether the server has said this phone may
+     * manage its class.
+     *
+     * One rule for both homes, replacing a flag that could only say «never on
+     * the root». On the diary home the rows that are about a class go: its
+     * timetable and widget ([CONTENT]), its alerts ([ALERTS]) — planned from a
+     * class timetable only, so a switch there would be a promise nothing keeps
+     * — and the class account itself ([ACCOUNT]), whose `/me` and Telegram link
+     * need a class token this phone does not have. What stays is what is about
+     * the phone ([APPEARANCE], [FEEL], [UPDATES], [ABOUT]), the server address
+     * every diary read goes through ([SYNC]), and the diary.
+     */
+    fun listedOn(mode: ShellMode, manager: Boolean): Boolean = when (this) {
+        PERMISSIONS -> false
+        ADMIN -> mode == ShellMode.CLASS && manager
+        CONTENT, ALERTS, ACCOUNT -> mode != ShellMode.DIARY
+        APPEARANCE, FEEL, SYNC, DIARY, UPDATES, ABOUT -> true
+    }
 
     companion object {
         /** `null` for anything this build does not have, including `null` itself. */
@@ -266,6 +287,7 @@ enum class SettingsSection(
 fun SettingsRootScreen(
     onOpenSection: (SettingsSection) -> Unit,
     modifier: Modifier = Modifier,
+    mode: ShellMode = ShellMode.CLASS,
     viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -274,8 +296,11 @@ fun SettingsRootScreen(
     // management row has to decide whether it exists. The refresh is a no-op
     // while one is already in flight, and a failure leaves the previous answer
     // standing, so opening settings repeatedly costs one request and never
-    // takes the row away again.
-    LaunchedEffect(Unit) { viewModel.refreshDeviceLink() }
+    // takes the row away again. Only in a class: without a class token the
+    // request answers 401 on every visit, about a row that cannot exist.
+    if (mode == ShellMode.CLASS) {
+        LaunchedEffect(Unit) { viewModel.refreshDeviceLink() }
+    }
 
     val manager = isClassManager(state.deviceLink.role)
 
@@ -286,21 +311,23 @@ fun SettingsRootScreen(
         onMessageShown = viewModel::consumeMessage,
     ) {
         item(key = "class-card") {
-            ClassHeroCard(
-                className = state.session?.className
-                    ?: correctedString(R.string.settings_class_unknown),
-                school = state.session?.school
-                    ?: correctedString(R.string.settings_class_no_school),
-            )
+            if (mode == ShellMode.DIARY) {
+                DiaryHeroCard()
+            } else {
+                ClassHeroCard(
+                    className = state.session?.className
+                        ?: correctedString(R.string.settings_class_unknown),
+                    school = state.session?.school
+                        ?: correctedString(R.string.settings_class_no_school),
+                )
+            }
         }
 
         item(key = "sections") {
             Column(modifier = Modifier.fillMaxWidth()) {
                 SectionHeader(title = correctedString(R.string.settings_sections))
                 RoundedCardContainer {
-                    val sections = SettingsSection.entries.filter {
-                        it.listedOnRoot || (it == SettingsSection.ADMIN && manager)
-                    }
+                    val sections = SettingsSection.entries.filter { it.listedOn(mode, manager) }
                     sections.forEach { section ->
                         GroupLinkItem(
                             title = correctedString(section.titleRes),
@@ -326,6 +353,7 @@ fun SettingsRootScreen(
 fun SettingsSectionScreen(
     section: SettingsSection,
     modifier: Modifier = Modifier,
+    mode: ShellMode = ShellMode.CLASS,
     onOpenSection: (SettingsSection) -> Unit = {},
     onOpenDocs: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
@@ -337,15 +365,13 @@ fun SettingsSectionScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     if (section == SettingsSection.DIARY) {
-        // A blank address is not «insecure», it is «not configured»: nothing
-        // can be sent at all, so the warning would be about a request that
-        // never happens.
-        val address = state.settings.baseUrl
-        DiaryScreen(
-            insecureServer = address.isNotBlank() &&
-                !address.startsWith("https://", ignoreCase = true),
-            modifier = modifier,
-        )
+        // On the diary home the diary is already on screen behind this page;
+        // what the section adds is the account and the way out of it.
+        if (mode == ShellMode.DIARY) {
+            DiaryAccountPage(modifier = modifier)
+        } else {
+            DiaryScreen(insecureServer = isInsecure(state.settings.baseUrl), modifier = modifier)
+        }
         return
     }
     val submitState by viewModel.translationSubmit.collectAsStateWithLifecycle()
@@ -444,10 +470,12 @@ fun SettingsSectionScreen(
 
         when (section) {
             SettingsSection.APPEARANCE -> appearanceRows(state, viewModel)
-            SettingsSection.FEEL -> feelRows(state, viewModel)
+            SettingsSection.FEEL -> feelRows(state, viewModel, tabs = mode != ShellMode.DIARY)
             SettingsSection.CONTENT -> contentRows(state, viewModel)
             SettingsSection.ALERTS -> notificationRows(state, viewModel, onOpenSection)
-            SettingsSection.SYNC -> syncRows(state, viewModel) { showServerSheet = true }
+            SettingsSection.SYNC -> syncRows(state, viewModel, classSync = mode != ShellMode.DIARY) {
+                showServerSheet = true
+            }
             SettingsSection.ACCOUNT -> {
                 classRows(
                     state = state,
@@ -559,6 +587,23 @@ private fun SettingsPage(
                 .padding(bottom = LocalBottomBarSpace.current),
         )
     }
+}
+
+/**
+ * The card at the top of the root page on the diary home: the pupil and the
+ * school, from the diary view model the home already holds (the activity's).
+ */
+@Composable
+private fun DiaryHeroCard(viewModel: DiaryViewModel = viewModel(factory = DiaryViewModel.Factory)) {
+    val diary by viewModel.uiState.collectAsStateWithLifecycle()
+    val student = diary.student
+    ClassHeroCard(
+        className = student?.fullName ?: correctedString(R.string.diary_title),
+        school = student?.let { listOfNotNull(it.className, it.school).joinToString(" · ") }
+            ?.ifBlank { null }
+            ?: diary.signInTarget.schoolName
+            ?: correctedString(R.string.settings_class_no_school),
+    )
 }
 
 /** The card at the top of the root page, naming the class the app is signed into. */
@@ -736,9 +781,14 @@ private val AppFont.labelRes: Int
         AppFont.SYSTEM -> R.string.settings_font_system
     }
 
+/**
+ * @param tabs whether the phone has the class tabs these rows are about — the
+ *   swipe between them and the one it opens on. The diary home has neither.
+ */
 private fun LazyListScope.feelRows(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
+    tabs: Boolean,
 ) {
     item(key = "haptics") {
         SettingsGroup(title = correctedString(R.string.settings_haptics_group)) {
@@ -764,7 +814,7 @@ private fun LazyListScope.feelRows(
         }
     }
 
-    item(key = "navigation") {
+    if (tabs) item(key = "navigation") {
         SettingsGroup(title = correctedString(R.string.settings_navigation_group)) {
             GroupSwitchItem(
                 title = correctedString(R.string.settings_swipe_tabs),
@@ -1088,20 +1138,30 @@ private val WeekStart.labelRes: Int
     }
 
 
+/**
+ * @param classSync whether the phone has a class for the background sync to
+ *   refresh. Without one — the diary home — the interval and «Обновить сейчас»
+ *   drive a worker that syncs a class only, so they would be switches that do
+ *   nothing; the server address stays, because every diary read goes through
+ *   it.
+ */
 private fun LazyListScope.syncRows(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
+    classSync: Boolean,
     onEditServer: () -> Unit,
 ) = item(key = "sync") {
     SettingsGroup(title = correctedString(R.string.settings_sync_group)) {
-        SyncIntervalRow(
-            selectedMinutes = state.settings.syncIntervalMinutes,
-            onSelect = viewModel::setSyncInterval,
-        )
+        if (classSync) {
+            SyncIntervalRow(
+                selectedMinutes = state.settings.syncIntervalMinutes,
+                onSelect = viewModel::setSyncInterval,
+            )
+        }
         GroupLinkItem(
             title = correctedString(R.string.settings_server_url),
             subtitle = state.settings.baseUrl.takeIf { it.isNotBlank() }
-                ?: correctedString(R.string.settings_server_url_default),
+                ?: correctedString(R.string.settings_server_url_unset),
             icon = Icons.Rounded.Dns,
             tone = accentTone(0),
             onClick = onEditServer,
@@ -1110,12 +1170,14 @@ private fun LazyListScope.syncRows(
         // the one thing on this page that *does* something the moment it is
         // pressed rather than storing a preference. Essentials closes its own
         // updates group with the same shape.
-        GroupActionItem(
-            label = correctedString(R.string.settings_refresh_now),
-            icon = Icons.Rounded.Refresh,
-            busy = state.isRefreshing,
-            onClick = viewModel::refreshNow,
-        )
+        if (classSync) {
+            GroupActionItem(
+                label = correctedString(R.string.settings_refresh_now),
+                icon = Icons.Rounded.Refresh,
+                busy = state.isRefreshing,
+                onClick = viewModel::refreshNow,
+            )
+        }
     }
 }
 

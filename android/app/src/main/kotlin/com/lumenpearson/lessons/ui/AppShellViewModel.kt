@@ -7,8 +7,9 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.AppSettings
-import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
+import com.lumenpearson.lessons.core.data.repository.ShellModeSource
+import com.lumenpearson.lessons.core.data.repository.ShellState
 import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.ui.common.DefaultAppSettings
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,14 +18,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * The two facts the app shell needs before it can draw anything:
  *
  * @property settings theme preferences, applied by `LessonsTheme`.
- * @property signedIn `null` while the session is still being read from disk,
- *   which is the signal to show the splash instead of guessing a start
- *   destination and then yanking the user somewhere else a frame later.
+ * @property shell which home the phone has and whether onboarding holds the
+ *   screen — `null` while it is still being read from disk, which is the signal
+ *   to show the splash instead of guessing a start destination and then
+ *   yanking the user somewhere else a frame later. `RootGate.rootScreen` and
+ *   `ShellHome.shellHome` turn it into a screen.
  * @property settingsLoaded whether [settings] is what is stored or the
  *   placeholder this state is constructed with. False for exactly one value —
  *   the `initialValue` below — because the combine that builds every other one
@@ -35,7 +40,7 @@ import kotlinx.coroutines.launch
  */
 data class AppShellUiState(
     val settings: AppSettings = DefaultAppSettings,
-    val signedIn: Boolean? = null,
+    val shell: ShellState? = null,
     val settingsLoaded: Boolean = false,
 ) {
 
@@ -59,32 +64,39 @@ data class AppShellUiState(
 }
 
 /**
- * Owns the state that outlives any single screen: theme preferences and whether
- * a class session exists.
+ * Owns the state that outlives any single screen: theme preferences and which
+ * home the phone has.
  *
  * Keeping it here rather than in the settings screen means signing out anywhere
- * in the app is enough to bounce the user back to the join screen — navigation
- * reacts to the session, no callback plumbing required.
+ * in the app is enough to move the user on — to the way in, or from the class
+ * to the diary home when a diary is still signed in — with no callback
+ * plumbing: navigation reacts to the stored mode.
+ *
+ * Before the first read, the hold a previous process may have left behind is
+ * settled ([ShellModeSource.settleColdStart]) — once per process, through
+ * [coldStart], because this view model is rebuilt with every activity while the
+ * hold a *running* onboarding just set must not be dropped by the rebuild.
  */
 class AppShellViewModel(
-    private val sessionRepository: SessionRepository,
+    private val shellMode: ShellModeSource,
     settingsRepository: SettingsRepository,
+    private val coldStart: ColdStart = ColdStart.Process,
 ) : ViewModel() {
 
     /**
-     * Tri-state sign-in flag. Seeded from [SessionRepository.current] so the very
-     * first value is authoritative, then kept live by the session flow.
+     * The shell's state. Seeded from the settled cold start so the very first
+     * value is authoritative, then kept live by the mode's flow.
      */
-    private val signedIn = MutableStateFlow<Boolean?>(null)
+    private val shell = MutableStateFlow<ShellState?>(null)
 
     val uiState: StateFlow<AppShellUiState> =
-        combine(settingsRepository.settings, signedIn) { settings, session ->
+        combine(settingsRepository.settings, shell) { settings, shell ->
             // `settingsLoaded = true` unconditionally, and that is sound rather
             // than optimistic: combine emits nothing until every source has, so
             // reaching this line is itself the proof that the settings flow has
             // answered. The one state that never comes through here is the
             // initialValue below.
-            AppShellUiState(settings = settings, signedIn = session, settingsLoaded = true)
+            AppShellUiState(settings = settings, shell = shell, settingsLoaded = true)
         }.stateIn(
             scope = viewModelScope,
             // Eagerly: the theme must be ready before the first frame, and this
@@ -95,8 +107,36 @@ class AppShellViewModel(
 
     init {
         viewModelScope.launch {
-            signedIn.value = sessionRepository.current() != null
-            sessionRepository.session.collect { session -> signedIn.value = session != null }
+            shell.value = coldStart.settle(shellMode)
+            shellMode.state.collect { shell.value = it }
+        }
+    }
+
+    /**
+     * «Once per process», as a thing that can be handed to the constructor: the
+     * app passes [Process], which is shared by every view model the process
+     * builds, and a test passes a fresh one so its cases do not share a process.
+     */
+    class ColdStart {
+
+        private val lock = Mutex()
+        private var settled = false
+
+        /**
+         * The first call settles the stored hold and answers with the state
+         * after it; every later call only reads.
+         */
+        suspend fun settle(source: ShellModeSource): ShellState = lock.withLock {
+            if (settled) {
+                source.current()
+            } else {
+                source.settleColdStart().also { settled = true }
+            }
+        }
+
+        companion object {
+            /** The one this process uses. */
+            val Process = ColdStart()
         }
     }
 
@@ -110,7 +150,7 @@ class AppShellViewModel(
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 AppShellViewModel(
-                    sessionRepository = Graph.container.sessionRepository,
+                    shellMode = Graph.container.shellMode,
                     settingsRepository = Graph.container.settingsRepository,
                 )
             }

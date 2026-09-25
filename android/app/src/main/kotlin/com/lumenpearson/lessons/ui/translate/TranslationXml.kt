@@ -178,6 +178,7 @@ internal object TranslationXml {
         "strings_docs.xml",
         "strings_github.xml",
         "strings_legal.xml",
+        "strings_onboarding.xml",
         "strings_telegram.xml",
         "strings_translate.xml",
         "strings_updates.xml",

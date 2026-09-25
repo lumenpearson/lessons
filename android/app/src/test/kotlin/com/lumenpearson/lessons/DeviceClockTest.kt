@@ -22,8 +22,10 @@ import org.junit.Test
  * somebody who knew the rule.
  *
  * The rule is not "never": a read that has no timetable to take a zone from has
- * nowhere else to go, and the diary keeps Moscow time because it is one city's
- * service. So a line may say so. It must say so *on the line above it*, which
+ * nowhere else to go. The diary is not such a read — it has a zone of its own,
+ * the one the server named at registration (`DiaryTarget.zoneId()`), and cuts
+ * its days there rather than in the phone's zone or a fixed Moscow. So a line
+ * that truly has no zone may say so. It must say so *on the line above it*, which
  * is the point — the comment is what makes the next reader stop, and a reviewer
  * who cannot write one has found a defect rather than an exception.
  */
