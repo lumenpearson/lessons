@@ -13,7 +13,7 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
  * There is no DI framework in this app (see `di.Graph` for why), so this object
  * is the factory: [DefaultLessonsContainer][com.lumenpearson.lessons.core.data.di.DefaultLessonsContainer]
  * calls [apis] once and everything else takes the resulting [LessonsApi],
- * [DiaryApi] and [ManageApi].
+ * [DiaryApi], [ManageApi] and [DirectoryApi].
  */
 internal object NetworkModule {
 
@@ -91,10 +91,10 @@ internal object NetworkModule {
         .build()
 
     /**
-     * The stack every call site shares: one client, one Retrofit, three APIs.
+     * The stack every call site shares: one client, one Retrofit, four APIs.
      *
-     * Built as one object rather than through three factories because the
-     * client is the expensive part and all three interfaces want the same one —
+     * Built as one object rather than through four factories because the
+     * client is the expensive part and all four interfaces want the same one —
      * the same pool, the same timeouts and the same base-URL rewrite.
      */
     fun apis(
@@ -110,6 +110,7 @@ internal object NetworkModule {
             lessons = retrofit.create(LessonsApi::class.java),
             diary = retrofit.create(DiaryApi::class.java),
             manage = retrofit.create(ManageApi::class.java),
+            directory = retrofit.create(DirectoryApi::class.java),
         )
     }
 
@@ -118,8 +119,15 @@ internal object NetworkModule {
      *   `/api/v1/manage` is signed by the ordinary class token like the rest of
      *   [LessonsApi], and the role behind that token is looked up per request on
      *   the server.
+     * @property directory the anonymous school directory. The same client, and
+     *   no bearer: [AuthInterceptor] skips its paths by prefix.
      *
      * @see apis
      */
-    data class Apis(val lessons: LessonsApi, val diary: DiaryApi, val manage: ManageApi)
+    data class Apis(
+        val lessons: LessonsApi,
+        val diary: DiaryApi,
+        val manage: ManageApi,
+        val directory: DirectoryApi,
+    )
 }

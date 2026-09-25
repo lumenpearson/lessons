@@ -1,7 +1,18 @@
 package com.lumenpearson.lessons.core.data.di
 
 import android.content.Context
+import com.lumenpearson.lessons.core.data.catalog.RegionCatalog
+import com.lumenpearson.lessons.core.data.catalog.RegionLookup
+import com.lumenpearson.lessons.core.data.catalog.RegionSearch
+import com.lumenpearson.lessons.core.data.catalog.SchoolDirectory
+import com.lumenpearson.lessons.core.data.catalog.ServerSchoolDirectory
 import com.lumenpearson.lessons.core.data.database.LessonsDatabase
+import com.lumenpearson.lessons.core.data.diary.DiaryCache
+import com.lumenpearson.lessons.core.data.diary.DiaryCacheImpl
+import com.lumenpearson.lessons.core.data.diary.DiaryDatabase
+import com.lumenpearson.lessons.core.data.diary.DiaryImport
+import com.lumenpearson.lessons.core.data.diary.DiaryImportImpl
+import com.lumenpearson.lessons.core.data.diary.SeedingDiarySignIn
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.notifications.SchoolAlerts
@@ -20,17 +31,29 @@ import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.DiaryRepository
 import com.lumenpearson.lessons.core.data.repository.DocsRepository
 import com.lumenpearson.lessons.core.data.repository.DiaryRepositoryImpl
+import com.lumenpearson.lessons.core.data.repository.DiarySessionStore
+import com.lumenpearson.lessons.core.data.repository.DiarySignIn
+import com.lumenpearson.lessons.core.data.repository.DiarySignInImpl
 import com.lumenpearson.lessons.core.data.repository.GithubRepository
 import com.lumenpearson.lessons.core.data.repository.ManageRepository
 import com.lumenpearson.lessons.core.data.repository.ManageRepositoryImpl
+import com.lumenpearson.lessons.core.data.repository.ModeAnnouncingDiaryStore
+import com.lumenpearson.lessons.core.data.repository.ShellModeSource
 import com.lumenpearson.lessons.core.data.repository.UpdateRepository
 import com.lumenpearson.lessons.core.data.sync.DataSyncBroadcast
 import com.lumenpearson.lessons.core.data.sync.SyncScheduler
 import com.lumenpearson.lessons.core.data.update.UpdateRepositoryImpl
+import com.lumenpearson.lessons.core.data.upstream.CatalogUpstreamDirectory
+import com.lumenpearson.lessons.core.data.upstream.DiarySchoolSearch
+import com.lumenpearson.lessons.core.data.upstream.NetSchoolSchoolSearch
+import com.lumenpearson.lessons.core.data.upstream.UpstreamDirectory
+import com.lumenpearson.lessons.core.data.upstream.UpstreamHttp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
 
 /**
  * Everything the rest of the app is allowed to reach for.
@@ -54,10 +77,44 @@ interface LessonsContainer {
     val docsRepository: DocsRepository
 
     /**
-     * The Petersburg diary. Present whether or not anybody has signed in to
-     * one: it is the repository that knows, and the section asks it.
+     * The diary — Petersburg's or a «Сетевой город» region's. Present whether
+     * or not anybody has signed in to one: it is the repository that knows,
+     * and the section asks it.
      */
     val diaryRepository: DiaryRepository
+
+    /**
+     * Getting into a diary step by step, for the screens that hold the
+     * diary's own session between the steps (onboarding's sign-in, which
+     * retries a registration without asking for the password again).
+     * [diaryRepository]'s `signIn` is the same thing in one call.
+     */
+    val diarySignIn: DiarySignIn
+
+    /** A «Сетевой город» region's schools, asked of the region's own server. */
+    val diarySchoolSearch: DiarySchoolSearch
+
+    /**
+     * Which home the app opens on — class, diary or neither — and whether
+     * onboarding holds the screen; also whether the periodic class sync should
+     * be armed. Read from the preferences alone, one emission at a time.
+     */
+    val shellMode: ShellModeSource
+
+    /**
+     * The diary as this phone last read it. Drawn by the app's diary screens
+     * only — never by the widget or a worker.
+     */
+    val diaryCache: DiaryCache
+
+    /** Filling [diaryCache] after a sign-in, and refreshing it while the app is open. */
+    val diaryImport: DiaryImport
+
+    /** The server's anonymous school directory, and a region's own school list. */
+    val schoolDirectory: SchoolDirectory
+
+    /** «Which region do you mean»: the bundled catalog and, for a school's name, the directory. */
+    val regionLookup: RegionLookup
 
     /**
      * Running the class. Present on every install, because whether this phone
@@ -274,6 +331,78 @@ class DefaultLessonsContainer(
         DocsRepositoryImpl(appContext)
     }
 
+    /**
+     * The region catalog the server's generator wrote, bundled as an asset.
+     * Read on first use — which is always inside a sign-in or a search, on the
+     * IO dispatcher — and kept, because it does not change while the app runs.
+     */
+    private val regionCatalog: RegionCatalog by lazy { RegionCatalog.load(appContext) }
+
+    /** The only source of a host the phone sends a diary request to. */
+    private val upstreamDirectory: UpstreamDirectory by lazy { CatalogUpstreamDirectory(regionCatalog) }
+
+    /**
+     * The client for the diaries' own servers — its own, with none of [apis]'
+     * interceptors: those rewrite every host to our server and sign by path
+     * with our bearers, and a diary request through them would go to the
+     * wrong server or carry our token to somebody else's.
+     */
+    private val upstreamClient: OkHttpClient by lazy {
+        UpstreamHttp.client { upstreamDirectory.allowedOrigins() }
+    }
+
+    /**
+     * The catalog search, built once over the catalog, and only ever handed out
+     * from the IO dispatcher: the first use reads the asset.
+     */
+    private val regionSearch: RegionSearch by lazy { RegionSearch(regionCatalog) }
+
+    private suspend fun regionSearchOffMain(): RegionSearch = withContext(Dispatchers.IO) { regionSearch }
+
+    /**
+     * `diary.db`, opened on first use: a phone that never signs in to a diary
+     * never creates the file.
+     */
+    private val diaryDatabase: DiaryDatabase by lazy { DiaryDatabase.build(appContext) }
+
+    /**
+     * The concrete cache, because two interfaces are drawn from it: the one the
+     * screens read and the write side only the repository holds.
+     */
+    private val diaryCacheImpl: DiaryCacheImpl by lazy {
+        DiaryCacheImpl(dao = { diaryDatabase.diaryDao() }, selection = preferences)
+    }
+
+    /**
+     * The diary's half of the preferences, announcing the writes that change
+     * the shell's mode to the widget — which redraws only when told, and whose
+     * sentence depends on the mode. Both diary writers share it.
+     */
+    private val diaryStore: DiarySessionStore by lazy {
+        ModeAnnouncingDiaryStore(preferences) { DataSyncBroadcast.send(appContext) }
+    }
+
+    override val diarySignIn: DiarySignIn by lazy {
+        SeedingDiarySignIn(
+            delegate = DiarySignInImpl(
+                api = apis.diary,
+                store = diaryStore,
+                directory = { upstreamDirectory },
+                client = { upstreamClient },
+                // Another account signing in empties what the last one left.
+                forgetLocal = diaryCacheImpl::clear,
+            ),
+            cache = diaryCacheImpl,
+        )
+    }
+
+    override val diarySchoolSearch: DiarySchoolSearch by lazy {
+        NetSchoolSchoolSearch(
+            client = { upstreamClient },
+            directory = { upstreamDirectory },
+        )
+    }
+
     override val diaryRepository: DiaryRepository by lazy {
         DiaryRepositoryImpl(
             api = apis.diary,
@@ -281,8 +410,37 @@ class DefaultLessonsContainer(
             // process that may open the DataStore file, and the interface it
             // implements is narrow enough that this repository cannot reach
             // the class token through it.
-            store = preferences,
+            store = diaryStore,
+            diarySignIn = diarySignIn,
+            forgetLocal = diaryCacheImpl::clear,
+            cache = diaryCacheImpl,
         )
+    }
+
+    override val shellMode: ShellModeSource get() = preferences
+
+    override val diaryCache: DiaryCache get() = diaryCacheImpl
+
+    override val diaryImport: DiaryImport by lazy {
+        DiaryImportImpl(
+            // The repository, not the API: its reads are what fill the cache,
+            // so the import cannot write anything a screen would not have.
+            repository = diaryRepository,
+            store = diaryStore,
+            cache = diaryCacheImpl,
+        )
+    }
+
+    override val schoolDirectory: SchoolDirectory by lazy {
+        ServerSchoolDirectory(
+            api = apis.directory,
+            search = ::regionSearchOffMain,
+            schools = diarySchoolSearch,
+        )
+    }
+
+    override val regionLookup: RegionLookup by lazy {
+        RegionLookup(search = ::regionSearchOffMain, directory = schoolDirectory)
     }
 
     override val manageRepository: ManageRepository by lazy {

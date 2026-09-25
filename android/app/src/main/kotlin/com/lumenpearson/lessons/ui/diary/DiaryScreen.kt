@@ -316,6 +316,14 @@ internal fun DiaryFailure.asText(): String = when (this) {
     DiaryFailure.BadRange -> correctedString(R.string.diary_error_range)
     DiaryFailure.Unreadable -> correctedString(R.string.diary_error_unreadable)
     DiaryFailure.Unavailable -> correctedString(R.string.diary_error_unavailable)
+    // Stand-ins until `DiaryProblemText` gives each its own sentence. «Try
+    // later» is right for a throttle and only half right for the other two —
+    // a diary switched off on the server, or one refusing its address, will
+    // not come back by waiting — so the screen half of #153 is not done here.
+    DiaryFailure.Disabled,
+    DiaryFailure.ServerAddressRefused,
+    is DiaryFailure.Throttled,
+    -> correctedString(R.string.diary_error_unavailable)
     // The server refusing a correction it could never apply. Its own message,
     // because "не получилось: 422" is not something to put in front of anybody.
     DiaryFailure.Rejected -> correctedString(R.string.diary_error_rejected)

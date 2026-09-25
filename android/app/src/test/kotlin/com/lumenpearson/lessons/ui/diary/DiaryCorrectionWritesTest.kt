@@ -3,19 +3,11 @@ package com.lumenpearson.lessons.ui.diary
 import com.lumenpearson.lessons.core.data.repository.DiaryEdit
 import com.lumenpearson.lessons.core.data.repository.DiaryFailure
 import com.lumenpearson.lessons.core.data.repository.DiaryField
-import com.lumenpearson.lessons.core.data.repository.DiaryHomework
 import com.lumenpearson.lessons.core.data.repository.DiaryLesson
-import com.lumenpearson.lessons.core.data.repository.DiaryMark
-import com.lumenpearson.lessons.core.data.repository.DiaryOverrideRecord
-import com.lumenpearson.lessons.core.data.repository.DiaryPeriod
-import com.lumenpearson.lessons.core.data.repository.DiaryRepository
-import com.lumenpearson.lessons.core.data.repository.DiarySession
 import com.lumenpearson.lessons.core.data.repository.DiaryStudent
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -45,7 +37,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiaryCorrectionWritesTest {
 
-    private val repository = RecordingDiaryRepository()
+    private val repository = FakeDiaryRepository()
 
     @Before
     fun setUp() {
@@ -262,106 +254,5 @@ class DiaryCorrectionWritesTest {
 
     private companion object {
         const val TARGET = "lesson:2026-09-07:n1:Алгебра"
-    }
-
-    private data class Written(
-        val target: String,
-        val field: DiaryField,
-        val value: String,
-        val original: String?,
-    )
-
-    /** Records what was asked of it, and can be told to stop answering. */
-    private class RecordingDiaryRepository : DiaryRepository {
-
-        var students: List<DiaryStudent> = emptyList()
-        var failAfter: Int? = null
-        var failure: DiaryFailure = DiaryFailure.Unavailable
-        var reloads: Int = 0
-
-        val corrections = mutableListOf<Written>()
-        val resets = mutableListOf<Pair<String, DiaryField>>()
-
-        private val sessions = MutableStateFlow<DiarySession?>(null)
-        override val session: Flow<DiarySession?> = sessions
-
-        private var writes = 0
-
-        private fun <T> answer(value: T): Result<T> {
-            val limit = failAfter
-            val outcome = if (limit != null && writes >= limit) {
-                Result.failure<T>(failure)
-            } else {
-                Result.success(value)
-            }
-            writes += 1
-            return outcome
-        }
-
-        override suspend fun current(): DiarySession? = sessions.value
-
-        override suspend fun signIn(login: String, password: String): Result<DiarySession> {
-            val opened = DiarySession(login = login, token = "t")
-            sessions.value = opened
-            return Result.success(opened)
-        }
-
-        override suspend fun signOut(): Result<Unit> {
-            sessions.value = null
-            return Result.success(Unit)
-        }
-
-        override suspend fun students(): Result<List<DiaryStudent>> = Result.success(students)
-
-        override suspend fun schedule(
-            studentId: Long,
-            from: LocalDate,
-            to: LocalDate,
-        ): Result<List<DiaryLesson>> {
-            reloads += 1
-            return Result.success(emptyList())
-        }
-
-        override suspend fun homework(
-            studentId: Long,
-            from: LocalDate,
-            to: LocalDate,
-        ): Result<List<DiaryHomework>> = Result.success(emptyList())
-
-        override suspend fun grades(
-            studentId: Long,
-            from: LocalDate,
-            to: LocalDate,
-        ): Result<List<DiaryMark>> = Result.success(emptyList())
-
-        override suspend fun periods(studentId: Long): Result<List<DiaryPeriod>> =
-            Result.success(emptyList())
-
-        override suspend fun overrides(studentId: Long): Result<List<DiaryOverrideRecord>> =
-            Result.success(emptyList())
-
-        override suspend fun correct(
-            studentId: Long,
-            target: String,
-            field: DiaryField,
-            value: String,
-            original: String?,
-        ): Result<Unit> {
-            val outcome = answer(Unit)
-            if (outcome.isSuccess) corrections += Written(target, field, value, original)
-            return outcome
-        }
-
-        override suspend fun reset(
-            studentId: Long,
-            target: String,
-            field: DiaryField,
-        ): Result<Unit> {
-            val outcome = answer(Unit)
-            if (outcome.isSuccess) resets += target to field
-            return outcome
-        }
-
-        override suspend fun resetAll(studentId: Long): Result<Unit> = answer(Unit)
     }
 }

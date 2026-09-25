@@ -1,5 +1,7 @@
 package com.lumenpearson.lessons.core.data.network.dto
 
+import com.lumenpearson.lessons.core.data.repository.DiaryBinding
+import com.lumenpearson.lessons.core.data.repository.DiaryProviderKey
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -28,7 +30,35 @@ internal data class JoinResponseDto(
     @SerialName("class_id") val classId: Long,
     @SerialName("class_name") val className: String,
     @SerialName("school") val school: String? = null,
+    /** `DiaryBindingOut`; absent from a server older than bindings, and for a class with none. */
+    @SerialName("diary") val diary: DiaryBindingDto? = null,
 )
+
+/**
+ * `DiaryBindingOut` in `server/app/schemas.py`: which diary the class reads.
+ *
+ * Every field defaults, so a binding a newer server shapes differently costs
+ * the binding and never the join — [toDomain] turns anything it cannot stand
+ * behind into no binding.
+ */
+@Serializable
+internal data class DiaryBindingDto(
+    @SerialName("provider") val provider: String = "",
+    @SerialName("region") val region: String? = null,
+    @SerialName("school_id") val schoolId: Long? = null,
+    @SerialName("school_name") val schoolName: String? = null,
+) {
+    /** `null` for a provider this build does not know, never a guess. */
+    fun toDomain(): DiaryBinding? {
+        val key = DiaryProviderKey.fromWire(provider) ?: return null
+        return DiaryBinding(
+            provider = key,
+            region = region?.trim()?.ifBlank { null },
+            schoolId = schoolId,
+            schoolName = schoolName?.trim()?.ifBlank { null },
+        )
+    }
+}
 
 /**
  * Response of `GET /api/v1/health`.

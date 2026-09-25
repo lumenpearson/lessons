@@ -4,16 +4,18 @@ import com.lumenpearson.lessons.core.data.network.DiaryApi
 import com.lumenpearson.lessons.core.data.network.dto.DiaryAttendanceDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryHomeworkDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryLessonDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryLoginRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryLoginResponseDto
+import com.lumenpearson.lessons.core.data.network.dto.DiaryCapabilitiesDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryMarkDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryPeriodDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryResetRequestDto
+import com.lumenpearson.lessons.core.data.network.dto.DiarySessionRequestDto
+import com.lumenpearson.lessons.core.data.network.dto.DiarySessionResponseDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryStudentDto
 import com.lumenpearson.lessons.core.data.network.dto.DiarySubjectDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryTeacherDto
+import com.lumenpearson.lessons.core.data.upstream.UpstreamSession
 import java.io.IOException
 import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
@@ -44,38 +46,31 @@ class DiaryRepositoryTest {
 
     private val store = FakeStore()
 
-    @Test
-    fun `signing in stores the token the server minted`() = runTest {
-        val repository = repository(FakeApi())
-
-        val result = repository.signIn(" parent@example.com ", "hunter2")
-
-        assertEquals("diary-token", result.getOrNull()?.token)
-        assertEquals("parent@example.com", store.stored?.login)
-        assertEquals("diary-token", store.stored?.token)
-    }
-
     /**
-     * The password is the one value in this app that must not be kept, so the
-     * test that would catch it being kept is the one that looks at the store.
+     * The repository's sign-in is [DiarySignIn]'s, whole: the target goes
+     * through as it was given and the session that comes back is the one the
+     * sign-in stored. What is stored, and what never is, is `DiarySignInTest`'s.
      */
     @Test
-    fun `signing in stores nothing but the login and the token`() = runTest {
-        val repository = repository(FakeApi())
+    fun `signing in hands the target to the sign-in and answers its session`() = runTest {
+        val signIn = FakeSignIn()
+        val repository = repository(FakeApi(), signIn)
+        val target = DiaryTarget.netschool("samara", 1234, null, "ivanova", "Europe/Samara")
 
-        repository.signIn("parent@example.com", "hunter2")
+        val result = repository.signIn(target, "hunter2")
 
-        val stored = store.stored
-        assertTrue(stored != null && "hunter2" !in stored.toString())
+        assertEquals(listOf(target), signIn.asked)
+        assertEquals("diary-token", result.getOrNull()?.token)
     }
 
     @Test
-    fun `refused credentials are a sign-in failure and store nothing`() = runTest {
-        val repository = repository(FakeApi(loginFailure = httpError(401)))
+    fun `a refused sign-in comes back as the sign-in's own problem`() = runTest {
+        val signIn = FakeSignIn(answer = Result.failure(DiarySignInProblem.WrongPassword("Неверный пароль")))
+        val repository = repository(FakeApi(), signIn)
 
-        val result = repository.signIn("parent@example.com", "wrong")
+        val result = repository.signIn(DiaryTarget.petersburg("parent@example.com"), "wrong")
 
-        assertEquals(DiaryFailure.SignInRequired, result.exceptionOrNull())
+        assertEquals(DiarySignInProblem.WrongPassword("Неверный пароль"), result.exceptionOrNull())
         assertNull(store.stored)
     }
 
@@ -88,6 +83,23 @@ class DiaryRepositoryTest {
 
         assertEquals(DiaryFailure.SignInRequired, result.exceptionOrNull())
         assertNull(store.stored)
+    }
+
+    /**
+     * The bearer is dead; the account is not. Without the target, a family
+     * that had only ever used a «Сетевой город» diary would be sent back to
+     * the start by an expired token instead of being asked for the password.
+     */
+    @Test
+    fun `a dead session token keeps which diary it was for`() = runTest {
+        val target = DiaryTarget.netschool("samara", 1234, "Школа № 5", "ivanova", "Europe/Samara")
+        store.stored = DiarySession(login = "ivanova", token = "stale", target = target)
+        val repository = repository(FakeApi(callFailure = httpError(401)))
+
+        repository.students()
+
+        assertNull(store.stored)
+        assertEquals(target, store.target)
     }
 
     /**
@@ -111,12 +123,25 @@ class DiaryRepositoryTest {
     @Test
     fun `signing out clears the session even when the server cannot be told`() = runTest {
         store.stored = DiarySession(login = "parent@example.com", token = "ours")
-        val repository = repository(FakeApi(logoutFailure = IOException("no network")))
+        store.student = 7
+        var forgotten = 0
+        val repository = DiaryRepositoryImpl(
+            api = FakeApi(logoutFailure = IOException("no network")),
+            store = store,
+            diarySignIn = FakeSignIn(),
+            forgetLocal = { forgotten++ },
+            ioDispatcher = UnconfinedTestDispatcher(),
+        )
 
         val result = repository.signOut()
 
         assertTrue(result.isSuccess)
         assertNull(store.stored)
+        // Signing out is the one thing that forgets the account itself, and
+        // whatever was kept offline for it.
+        assertNull(store.target)
+        assertNull(store.student)
+        assertEquals(1, forgotten)
     }
 
     /** The server's own 62-day rule, applied before the round trip rather than after it. */
@@ -341,11 +366,12 @@ class DiaryRepositoryTest {
     @Test
     fun `a 401 whose sign-out cannot be written is still a failure, not a crash`() = runTest {
         val unwritable = object : DiarySessionStore by store {
-            override suspend fun clearDiarySession() = throw IOException("no space left on device")
+            override suspend fun clearDiaryToken() = throw IOException("no space left on device")
         }
         val repository = DiaryRepositoryImpl(
             api = FakeApi(callFailure = httpError(401)),
             store = unwritable,
+            diarySignIn = FakeSignIn(),
             ioDispatcher = UnconfinedTestDispatcher(),
         )
 
@@ -354,11 +380,39 @@ class DiaryRepositoryTest {
         assertEquals(DiaryFailure.SignInRequired, result.exceptionOrNull())
     }
 
-    private fun repository(api: DiaryApi) = DiaryRepositoryImpl(
+    private fun repository(api: DiaryApi, signIn: DiarySignIn = FakeSignIn()) = DiaryRepositoryImpl(
         api = api,
         store = store,
+        diarySignIn = signIn,
         ioDispatcher = UnconfinedTestDispatcher(),
     )
+
+    /** A sign-in that answers what it is told and records what it was asked for. */
+    private class FakeSignIn(
+        private val answer: Result<DiaryRegistration>? = null,
+    ) : DiarySignIn {
+        val asked = mutableListOf<DiaryTarget>()
+
+        override suspend fun preflight(target: DiaryTarget): Result<Unit> = Result.success(Unit)
+
+        override suspend fun openUpstream(target: DiaryTarget, password: String): Result<UpstreamSession> =
+            Result.failure(DiarySignInProblem.Unexpected("not used here"))
+
+        override suspend fun register(upstream: UpstreamSession): Result<DiaryRegistration> =
+            Result.failure(DiarySignInProblem.Unexpected("not used here"))
+
+        override suspend fun discard(upstream: UpstreamSession) = Unit
+
+        override suspend fun signIn(target: DiaryTarget, password: String): Result<DiaryRegistration> {
+            asked += target
+            return answer ?: Result.success(
+                DiaryRegistration(
+                    session = DiarySession(login = target.login, token = "diary-token", target = target),
+                    students = emptyList(),
+                ),
+            )
+        }
+    }
 
     /** The store, with nothing in it but what was last written. */
     private class FakeStore : DiarySessionStore {
@@ -366,7 +420,10 @@ class DiaryRepositoryTest {
             set(value) {
                 field = value
                 flow.value = value
+                if (value != null) target = value.target
             }
+        var target: DiaryTarget? = null
+        var student: Long? = null
 
         private val flow = MutableStateFlow<DiarySession?>(null)
         override val diarySession: Flow<DiarySession?> get() = flow
@@ -375,8 +432,21 @@ class DiaryRepositoryTest {
             stored = value
         }
 
-        override suspend fun clearDiarySession() {
+        override suspend fun clearDiaryToken() {
             stored = null
+        }
+
+        override suspend fun forgetDiary() {
+            stored = null
+            target = null
+            student = null
+        }
+
+        override val diaryTarget: Flow<DiaryTarget?> get() = MutableStateFlow(target)
+        override suspend fun currentDiaryTarget(): DiaryTarget? = target
+        override val selectedStudentId: Flow<Long?> get() = MutableStateFlow(student)
+        override suspend fun selectStudent(id: Long?) {
+            student = id
         }
     }
 
@@ -385,7 +455,6 @@ class DiaryRepositoryTest {
      * whichever failure the case under test asked for.
      */
     private class FakeApi(
-        private val loginFailure: Throwable? = null,
         private val logoutFailure: Throwable? = null,
         private val callFailure: Throwable? = null,
         private val stored: List<DiaryOverrideDto> = emptyList(),
@@ -410,10 +479,10 @@ class DiaryRepositoryTest {
         var resetAllCalls: Int = 0
             private set
 
-        override suspend fun login(body: DiaryLoginRequestDto): DiaryLoginResponseDto {
-            loginFailure?.let { throw it }
-            return DiaryLoginResponseDto(token = "diary-token", login = body.login)
-        }
+        override suspend fun capabilities(): DiaryCapabilitiesDto = DiaryCapabilitiesDto(enabled = true, registration = true)
+
+        override suspend fun registerSession(body: DiarySessionRequestDto): DiarySessionResponseDto =
+            throw AssertionError("the repository registers nothing itself; DiarySignIn does")
 
         override suspend fun logout() {
             logoutFailure?.let { throw it }

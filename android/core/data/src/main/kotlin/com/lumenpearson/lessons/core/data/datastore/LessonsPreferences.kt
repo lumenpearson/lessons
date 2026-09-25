@@ -10,13 +10,22 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.DiarySession
 import com.lumenpearson.lessons.core.data.repository.DiarySessionStore
+import com.lumenpearson.lessons.core.data.repository.DiaryTarget
+import com.lumenpearson.lessons.core.data.repository.DiaryTargetCodec
 import com.lumenpearson.lessons.core.data.repository.Session
+import com.lumenpearson.lessons.core.data.repository.ShellMode
+import com.lumenpearson.lessons.core.data.repository.ShellModeSource
+import com.lumenpearson.lessons.core.data.repository.ShellState
+import com.lumenpearson.lessons.core.data.repository.SyncArming
+import com.lumenpearson.lessons.core.data.repository.shellModeOf
+import com.lumenpearson.lessons.core.data.repository.syncArmingFor
 import com.lumenpearson.lessons.core.model.AlertPreferences
 import com.lumenpearson.lessons.core.model.AppFont
 import com.lumenpearson.lessons.core.model.AppLanguage
@@ -61,7 +70,7 @@ private val Context.lessonsDataStore: DataStore<Preferences> by preferencesDataS
  * screens, they are both tiny, and a single file means a single fsync and a
  * single flow to observe.
  */
-internal class LessonsPreferences(context: Context) : DiarySessionStore {
+internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellModeSource {
 
     private val dataStore = context.applicationContext.lessonsDataStore
 
@@ -153,7 +162,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
      *
      * The diary keys are not in here on purpose. Leaving a class is not leaving
      * the diary: they are two accounts, and the one being signed out of is the
-     * one the user pressed a button about. [clearDiarySession] is the other
+     * one the user pressed a button about. [forgetDiary] is the other
      * half, and it is just as narrow.
      */
     suspend fun clearSession() {
@@ -196,18 +205,64 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         preferences.first().toDiarySession()
 
     override suspend fun writeDiarySession(value: DiarySession) {
+        dataStore.edit { it.putDiarySession(value) }
+    }
+
+    /** A bare `401`; see [dropDiaryToken]. */
+    override suspend fun clearDiaryToken() {
+        dataStore.edit { it.dropDiaryToken() }
+    }
+
+    /** Signing out: the diary and only the diary; [clearSession] is its counterpart. */
+    override suspend fun forgetDiary() {
+        dataStore.edit { it.dropDiary() }
+    }
+
+    override val diaryTarget: Flow<DiaryTarget?> =
+        preferences.map { it.toDiaryTarget() }.distinctUntilChanged()
+
+    override suspend fun currentDiaryTarget(): DiaryTarget? = preferences.first().toDiaryTarget()
+
+    override val selectedStudentId: Flow<Long?> =
+        preferences.map { it[DiaryKeys.STUDENT_ID] }.distinctUntilChanged()
+
+    override suspend fun selectStudent(id: Long?) {
         dataStore.edit { prefs ->
-            prefs[KEY_DIARY_TOKEN] = value.token
-            prefs[KEY_DIARY_LOGIN] = value.login
+            if (id == null) prefs.remove(DiaryKeys.STUDENT_ID) else prefs[DiaryKeys.STUDENT_ID] = id
         }
     }
 
-    /** Clears the diary and only the diary; [clearSession] is its counterpart. */
-    override suspend fun clearDiarySession() {
+    // ---------------------------------------------------------------------
+    // Which home the app opens on
+    // ---------------------------------------------------------------------
+    //
+    // Every value below is read from one emission of the file: the class and
+    // the diary are both in it, so the mode never has to be assembled from two
+    // flows that can be caught between a write and its echo.
+
+    override val state: Flow<ShellState> = preferences.map { it.shellState() }.distinctUntilChanged()
+
+    override suspend fun current(): ShellState = preferences.first().shellState()
+
+    override val syncArming: Flow<SyncArming> = preferences
+        .map { prefs -> syncArmingFor(prefs.shellState().mode, prefs.toSettings().syncIntervalMinutes) }
+        .distinctUntilChanged()
+
+    override suspend fun hold() {
+        dataStore.edit { it[ShellKeys.ONBOARDING_HELD] = true }
+    }
+
+    override suspend fun release() {
+        dataStore.edit { it.remove(ShellKeys.ONBOARDING_HELD) }
+    }
+
+    override suspend fun settleColdStart(): ShellState {
+        // Read and written in the one transaction, so a join landing between
+        // a separate read and write cannot have its hold taken away.
         dataStore.edit { prefs ->
-            prefs.remove(KEY_DIARY_TOKEN)
-            prefs.remove(KEY_DIARY_LOGIN)
+            if (prefs.shellState().mode == ShellMode.NONE) prefs.remove(ShellKeys.ONBOARDING_HELD)
         }
+        return current()
     }
 
     /** Read-modify-write inside DataStore's transaction, so concurrent edits merge. */
@@ -433,12 +488,6 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         remove(KEY_SCHEDULE_FINGERPRINT)
     }
 
-    /** `null` unless a diary sign-in has actually stored a token. */
-    private fun Preferences.toDiarySession(): DiarySession? {
-        val token = this[KEY_DIARY_TOKEN]?.takeIf { it.isNotBlank() } ?: return null
-        return DiarySession(login = this[KEY_DIARY_LOGIN].orEmpty(), token = token)
-    }
-
     /**
      * Enums are stored by name rather than by ordinal, and unknown names fall
      * back to the default instead of throwing: reordering an enum must not be
@@ -546,8 +595,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
     private companion object {
         // The membership keys live in `MembershipKeys`, beside the code that reads them.
 
-        val KEY_DIARY_TOKEN = stringPreferencesKey("diary_token")
-        val KEY_DIARY_LOGIN = stringPreferencesKey("diary_login")
+        // The diary's keys live in `DiaryKeys`, beside the reads that decode them.
 
         val KEY_CALENDAR_FILTERS = stringSetPreferencesKey("calendar_filters")
         val KEY_CALENDAR_ORDER = stringPreferencesKey("calendar_order")
@@ -633,4 +681,105 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore {
         val KEY_INCLUDE_PRERELEASE = booleanPreferencesKey("settings_include_prerelease")
         val KEY_NOTIFY_UPDATES = booleanPreferencesKey("settings_notify_updates")
     }
+}
+
+/**
+ * The keys of the app shell's own state, which belongs to neither account.
+ *
+ * `onboarding_held` is kept until onboarding releases it, not cleared by a
+ * sign-out of either account: it describes the flow on screen, and only the
+ * flow — or a cold start that finds nothing to finish — may end it.
+ */
+internal object ShellKeys {
+    val ONBOARDING_HELD = booleanPreferencesKey("onboarding_held")
+}
+
+/** [shellModeOf] and the hold, from one emission; see [ShellModeSource]. */
+internal fun Preferences.shellState(): ShellState = ShellState(
+    mode = shellModeOf(activeMembership(), toDiaryTarget()),
+    held = this[ShellKeys.ONBOARDING_HELD] ?: false,
+)
+
+/**
+ * The diary's keys, apart from the class's and never written by the same
+ * method: leaving a class must not sign a parent out of the diary, and signing
+ * out of the diary must not unjoin the class.
+ *
+ * `diary_target` is one JSON value rather than six loose keys, so a write cut
+ * short can never leave a region beside another diary's school.
+ * `diary_student_id` is apart from it because it changes on its own — a
+ * different pupil picked — and is forgotten on its own, when the account
+ * changes.
+ */
+internal object DiaryKeys {
+    val TOKEN = stringPreferencesKey("diary_token")
+    val LOGIN = stringPreferencesKey("diary_login")
+    val TARGET = stringPreferencesKey("diary_target")
+    val STUDENT_ID = longPreferencesKey("diary_student_id")
+}
+
+/**
+ * Which diary this phone signs in to, read from one emission — so whatever
+ * decides a mode from it and from the memberships reads both from the same
+ * moment rather than combining two flows that can disagree in between.
+ *
+ * A stored target that this build cannot read — a later version, a provider it
+ * does not know — is no target at all, rather than a guess: signing a third
+ * diary's account in to Petersburg would be worse than asking. An install from
+ * before targets, holding a token and a login, is Petersburg in Moscow time,
+ * which is the only diary it can have signed in to.
+ */
+internal fun Preferences.toDiaryTarget(): DiaryTarget? {
+    this[DiaryKeys.TARGET]?.let { stored -> return DiaryTargetCodec.decode(stored) }
+    this[DiaryKeys.TOKEN]?.takeIf { it.isNotBlank() } ?: return null
+    val login = this[DiaryKeys.LOGIN]?.takeIf { it.isNotBlank() } ?: return null
+    return DiaryTarget.petersburg(login)
+}
+
+/** Our bearer, the login and the target, in one transaction. */
+internal fun MutablePreferences.putDiarySession(value: DiarySession) {
+    this[DiaryKeys.TOKEN] = value.token
+    this[DiaryKeys.LOGIN] = value.login
+    this[DiaryKeys.TARGET] = DiaryTargetCodec.encode(value.target)
+}
+
+/**
+ * A bare `401`: our bearer is dead, the account is not. The login and the
+ * target stay, so the sign-in that follows is to the same diary.
+ *
+ * An install from before targets has only a token and a login, and its target
+ * is *derived* from the pair — so removing the token would remove the target
+ * with it. It is written down first, in the same transaction, as the Petersburg
+ * target it has always been read as.
+ */
+internal fun MutablePreferences.dropDiaryToken() {
+    if (DiaryKeys.TARGET !in this) {
+        toDiaryTarget()?.let { this[DiaryKeys.TARGET] = DiaryTargetCodec.encode(it) }
+    }
+    remove(DiaryKeys.TOKEN)
+}
+
+/** Signing out: everything about the diary account, and nothing about the class. */
+internal fun MutablePreferences.dropDiary() {
+    remove(DiaryKeys.TOKEN)
+    remove(DiaryKeys.LOGIN)
+    remove(DiaryKeys.TARGET)
+    remove(DiaryKeys.STUDENT_ID)
+}
+
+/**
+ * `null` unless a diary sign-in has actually stored a token — and `null` too
+ * when its target is one this build cannot read (see [toDiaryTarget]): a bearer
+ * sent for an account the app cannot name would be answered for somebody the
+ * screens cannot say.
+ */
+internal fun Preferences.toDiarySession(): DiarySession? {
+    val token = this[DiaryKeys.TOKEN]?.takeIf { it.isNotBlank() } ?: return null
+    val login = this[DiaryKeys.LOGIN].orEmpty()
+    val target = if (DiaryKeys.TARGET in this) {
+        toDiaryTarget() ?: return null
+    } else {
+        DiaryTarget.petersburg(login)
+    }
+    return DiarySession(login = login, token = token, target = target)
 }

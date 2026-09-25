@@ -11,7 +11,9 @@ import com.lumenpearson.lessons.core.data.repository.DiaryField
 import com.lumenpearson.lessons.core.data.repository.DiaryPeriod
 import com.lumenpearson.lessons.core.data.repository.DiaryRepository
 import com.lumenpearson.lessons.core.data.repository.DiarySession
+import com.lumenpearson.lessons.core.data.repository.DiarySignInProblem
 import com.lumenpearson.lessons.core.data.repository.DiaryStudent
+import com.lumenpearson.lessons.core.data.repository.DiaryTarget
 import java.time.LocalDate
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -19,6 +21,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -169,13 +172,23 @@ class DiaryViewModel(
         }
     }
 
-    /** Signs in, or answers the re-authentication prompt; both are the same call. */
+    /**
+     * Signs in, or answers the re-authentication prompt; both are the same call.
+     *
+     * To the diary this phone already knows — the live session's, or the one a
+     * bare `401` left behind — so a re-authentication goes to the same
+     * provider, region and school with only the password typed. With none
+     * known this form can only mean Petersburg, the one diary it has ever
+     * offered; choosing another is the diary picker's, not this form's.
+     */
     fun signIn(login: String, password: String) {
         if (state.value.signingIn) return
         viewModelScope.launch {
             state.update { it.copy(signingIn = true, signInError = null) }
-            val result = repository.signIn(login, password)
-            val failure = result.exceptionOrNull()?.let(DiaryFailure::of)
+            val known = state.value.session?.target ?: repository.target.first()
+            val target = known?.copy(login = login.trim()) ?: DiaryTarget.petersburg(login.trim())
+            val result = repository.signIn(target, password)
+            val failure = result.exceptionOrNull()?.let(::signInFailure)
             state.update {
                 it.copy(
                     signingIn = false,
@@ -545,4 +558,36 @@ class DiaryViewModel(
             }
         }
     }
+}
+
+/**
+ * A sign-in's [DiarySignInProblem] in the words this screen already has.
+ *
+ * A bridge, and a lossy one: the sign-in now fails in more ways than the
+ * [DiaryFailure] this form was written against, and «слишком много попыток»
+ * or «дневник выключен на сервере» have no sentence here yet — they read as the
+ * nearest one. `DiaryProblemText` is where each problem gets its own; when this
+ * form switches to it, this function goes.
+ */
+internal fun signInFailure(failure: Throwable): DiaryFailure = when (failure) {
+    is DiarySignInProblem.WrongPassword,
+    DiarySignInProblem.LoginTooShort,
+    DiarySignInProblem.SignInRequired,
+    -> DiaryFailure.SignInRequired
+    DiarySignInProblem.ReauthRequired -> DiaryFailure.ReauthRequired
+    DiarySignInProblem.ServerDisabled -> DiaryFailure.Disabled
+    DiarySignInProblem.ServerAddressRefused -> DiaryFailure.ServerAddressRefused
+    is DiarySignInProblem.TooManyAttempts -> DiaryFailure.Throttled(failure.retryAfterSeconds)
+    is DiarySignInProblem.ProviderUnavailable,
+    is DiarySignInProblem.ProviderRefusesPhone,
+    is DiarySignInProblem.Timeout,
+    -> DiaryFailure.Unavailable
+    is DiarySignInProblem.ProviderUnreadable -> DiaryFailure.Unreadable
+    is DiarySignInProblem.ProviderOffline,
+    DiarySignInProblem.Offline,
+    DiarySignInProblem.RegisterUnreachable,
+    DiarySignInProblem.ServerMissing,
+    -> DiaryFailure.Offline(failure)
+    is DiarySignInProblem -> DiaryFailure.Unexpected(code = null, reason = failure)
+    else -> DiaryFailure.of(failure)
 }

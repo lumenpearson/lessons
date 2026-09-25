@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.core.data.network.dto
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 
 /**
  * The wire shapes of `/api/v1/diary`, mirroring every `Diary*` model in
@@ -18,24 +19,114 @@ import kotlinx.serialization.Serializable
  * register entry must not stop an older build from showing the other five.
  */
 
-/** `POST /login` — used once and never stored; see [DiaryLoginResponseDto]. */
+/**
+ * `POST /session`: a session the phone opened with the diary itself, handed
+ * over so our server can keep reading with it. Mirrors `DiarySessionBody`.
+ *
+ * There is no password field, and there is nowhere to put one: the server
+ * refuses any key it does not know with a `422` (`extra="forbid"`), so a
+ * password could not be sent here even by mistake. The app stopped calling
+ * `POST /login`, which is the only endpoint that ever took one.
+ *
+ * [credential] is the provider's own shape — [PetersburgCredentialDto] or
+ * [NetSchoolCredentialDto] as JSON — because the server tells the two bodies
+ * apart by [provider] and validates each half separately. [region] and
+ * [schoolId] are left out of the JSON when `null` (the app's `Json` drops
+ * nulls): Petersburg's half of the union has no such fields, and a `null`
+ * there would be a key the server forbids.
+ *
+ * A plain class with a redacted [toString], not a data class: a data class
+ * prints every field, and one of these is a live session.
+ */
 @Serializable
-internal data class DiaryLoginRequestDto(
+internal class DiarySessionRequestDto(
+    @SerialName("provider") val provider: String,
     @SerialName("login") val login: String,
-    @SerialName("password") val password: String,
+    @SerialName("region") val region: String? = null,
+    @SerialName("school_id") val schoolId: Long? = null,
+    @SerialName("credential") val credential: JsonObject,
+) {
+    override fun toString(): String = "DiarySessionRequestDto($provider, $region, <redacted>)"
+}
+
+/** Petersburg's half of [DiarySessionRequestDto.credential]: its `X-JWT-Token`. */
+@Serializable
+internal class PetersburgCredentialDto(
+    @SerialName("token") val token: String,
 )
 
 /**
- * Mirrors `DiaryLoginOut`.
- *
- * The password is deliberately absent from the answer: the server keeps only
- * the session it opened upstream, which is the whole reason a dead session
- * comes back as `401` + `X-Diary-Reauth: required` rather than being refreshed.
+ * «Сетевой город»'s half: the `at` bearer, the two session cookies, and the
+ * two fields the server's own sign-in keeps beside them. `null`s are dropped on
+ * the way out, which is what the server's `exclude_none` stores anyway.
  */
 @Serializable
-internal data class DiaryLoginResponseDto(
+internal class NetSchoolCredentialDto(
+    @SerialName("at") val at: String,
+    @SerialName("cookies") val cookies: NetSchoolCookiesDto,
+    @SerialName("ver") val ver: String? = null,
+    @SerialName("time_out") val timeOut: Long? = null,
+)
+
+/**
+ * The only two cookie names the server takes; any other is a `422`, because
+ * it would be sent upstream on every read.
+ */
+@Serializable
+internal class NetSchoolCookiesDto(
+    @SerialName("NSSESSIONID") val session: String,
+    @SerialName("ESRNSec") val security: String? = null,
+)
+
+/**
+ * Mirrors `DiarySessionOut`: our bearer for the registered session, and what
+ * the phone needs to keep reading it — never the upstream credential, which
+ * stays sealed on the server.
+ *
+ * [zone] is the zone the server cuts this diary's days at, so the phone's
+ * «today» is the server's. [students] saves the import one round trip: the
+ * validating read already fetched them.
+ */
+@Serializable
+internal data class DiarySessionResponseDto(
     @SerialName("token") val token: String,
     @SerialName("login") val login: String = "",
+    @SerialName("provider") val provider: String = "",
+    @SerialName("region") val region: String? = null,
+    @SerialName("school_id") val schoolId: Long? = null,
+    @SerialName("school_name") val schoolName: String? = null,
+    @SerialName("zone") val zone: String? = null,
+    @SerialName("students") val students: List<DiaryStudentDto> = emptyList(),
+) {
+    override fun toString(): String = "DiarySessionResponseDto($provider, $region, <redacted>)"
+}
+
+/**
+ * Mirrors `DiaryCapabilitiesOut`: asked before a password is taken, so a
+ * server that cannot keep the session is found out before anything is sent to
+ * a diary. A server from before registration answers `404` instead.
+ */
+@Serializable
+internal data class DiaryCapabilitiesDto(
+    @SerialName("enabled") val enabled: Boolean = false,
+    @SerialName("registration") val registration: Boolean = false,
+    @SerialName("providers") val providers: DiaryProvidersDto = DiaryProvidersDto(),
+)
+
+/**
+ * Mirrors `DiaryProvidersOut`. [petersburg] is an empty object today; its
+ * presence is what says the server serves Petersburg at all.
+ */
+@Serializable
+internal data class DiaryProvidersDto(
+    @SerialName("petersburg") val petersburg: JsonObject? = null,
+    @SerialName("netschool") val netschool: NetSchoolCapabilitiesDto? = null,
+)
+
+/** Mirrors `NetSchoolCapabilitiesOut`: the allow-list keys this server signs in to. */
+@Serializable
+internal data class NetSchoolCapabilitiesDto(
+    @SerialName("regions") val regions: List<String> = emptyList(),
 )
 
 /** Mirrors `DiaryStudentOut`: one child this account may see. */

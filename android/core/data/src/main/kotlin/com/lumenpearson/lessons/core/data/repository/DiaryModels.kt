@@ -19,14 +19,37 @@ import retrofit2.HttpException
  *
  * [token] is this server's own bearer, not the upstream's, and it is separate
  * from the class device token in [Session] — a phone may hold either, both or
- * neither. [login] is kept only so the re-authentication prompt can say whose
+ * neither. [login] is kept so the re-authentication prompt can say whose
  * password it is asking for; the password itself is stored nowhere, here or on
  * the server.
+ *
+ * [target] says which diary, region and school the session is in, so that
+ * re-authentication signs in to the same one rather than to whatever the form
+ * defaults to. A session stored before there was a second diary has none on
+ * disk and reads as Petersburg, which is the only place it can have been.
  */
 data class DiarySession(
     val login: String,
     val token: String,
+    val target: DiaryTarget = DiaryTarget.petersburg(login),
 )
+
+/**
+ * What a registration hands back: the session now stored, and the pupils the
+ * server's validating read already fetched — so the import that follows does
+ * not ask for them again straight away.
+ */
+data class DiaryRegistration(
+    val session: DiarySession,
+    val students: List<DiaryStudent>,
+)
+
+/**
+ * How long a session nobody uses survives on the server before the cron purges
+ * it (`cron.DIARY_SESSION_TTL`). The screens say it out loud; the shared
+ * vectors (`session.idle_days`) hold this number and the server's to one value.
+ */
+const val DiarySessionIdleDays: Long = 30
 
 /**
  * One pupil the account may see.
@@ -321,8 +344,32 @@ sealed class DiaryFailure(message: String, cause: Throwable? = null) :
     /** `502`: the diary answered something the server could not read. */
     data object Unreadable : DiaryFailure("The diary answered in an unreadable way")
 
-    /** `503`: the diary is down. Worth retrying, and only that. */
+    /**
+     * `503` with `X-Diary-Unavailable: upstream`, a bare `503`, or a `504` —
+     * the diary is down, or the platform gave up waiting for it. Worth
+     * retrying, and only that.
+     */
     data object Unavailable : DiaryFailure("The diary is not answering")
+
+    /**
+     * `503` with `X-Diary-Unavailable: disabled`: the server has no
+     * `DIARY_SECRET`, so its diary is off. Nothing anybody types will help;
+     * whoever runs the server has to switch it on.
+     */
+    data object Disabled : DiaryFailure("The diary is switched off on this server")
+
+    /**
+     * `503` with `X-Diary-Unavailable: address-refused`: the diary will not talk
+     * to our server's address. Not the password and not worth retrying.
+     */
+    data object ServerAddressRefused : DiaryFailure("The diary refuses the server's address")
+
+    /**
+     * `429`: too many sign-in attempts from here. [retryAfterSeconds] is the
+     * server's `Retry-After`, when it sent one a number could be read from.
+     */
+    data class Throttled(val retryAfterSeconds: Long?) :
+        DiaryFailure("Too many diary sign-in attempts")
 
     /** No answer at all: no network, wrong address, a timeout. */
     data class Offline(val reason: Throwable) :
@@ -336,6 +383,13 @@ sealed class DiaryFailure(message: String, cause: Throwable? = null) :
 
         /** The header that separates "sign in" from "type your password again". */
         const val REAUTH_HEADER = "X-Diary-Reauth"
+
+        /**
+         * The header that says which of three things a diary `503` is —
+         * `disabled`, `address-refused` or `upstream` — so the app can tell
+         * them apart without reading the Russian in `detail`.
+         */
+        const val UNAVAILABLE_HEADER = "X-Diary-Unavailable"
 
         /**
          * Classifies whatever a call threw.
@@ -379,9 +433,33 @@ sealed class DiaryFailure(message: String, cause: Throwable? = null) :
 
             404 -> UnknownStudent
             422 -> unprocessable
+            // «Слишком много попыток», not «Не получилось: 429»: the server
+            // said exactly what was wrong and how long to wait (#153).
+            429 -> Throttled(retryAfterSeconds(failure))
             502 -> Unreadable
-            503 -> Unavailable
+            // The header, not the Russian: «выключен на сервере» and «дневник
+            // не отвечает» are both 503s and ask for different things (#153).
+            503 -> when (unavailableReason(failure)) {
+                "disabled" -> Disabled
+                "address-refused" -> ServerAddressRefused
+                else -> Unavailable
+            }
+            // The platform's own ceiling (Vercel answers 504 at 30 s): the diary
+            // was slow, not wrong, so it is worth another try (#153).
+            504 -> Unavailable
             else -> Unexpected(code = failure.code(), reason = failure)
         }
+
+        private fun unavailableReason(failure: HttpException): String? =
+            failure.response()?.headers()?.get(UNAVAILABLE_HEADER)?.trim()?.lowercase()
+
+        /**
+         * `Retry-After` in seconds, or `null`. Only the delta-seconds form: the
+         * server sends nothing else, and an HTTP date would need a clock this
+         * function does not have.
+         */
+        internal fun retryAfterSeconds(failure: HttpException): Long? =
+            failure.response()?.headers()?.get("Retry-After")?.trim()?.toLongOrNull()
+                ?.takeIf { it >= 0 }
     }
 }

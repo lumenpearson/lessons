@@ -1,20 +1,11 @@
 package com.lumenpearson.lessons.ui.diary
 
 import com.lumenpearson.lessons.core.data.repository.DiaryFailure
-import com.lumenpearson.lessons.core.data.repository.DiaryField
-import com.lumenpearson.lessons.core.data.repository.DiaryOverrideRecord
-import com.lumenpearson.lessons.core.data.repository.DiaryHomework
-import com.lumenpearson.lessons.core.data.repository.DiaryLesson
-import com.lumenpearson.lessons.core.data.repository.DiaryMark
-import com.lumenpearson.lessons.core.data.repository.DiaryPeriod
-import com.lumenpearson.lessons.core.data.repository.DiaryRepository
 import com.lumenpearson.lessons.core.data.repository.DiarySession
-import com.lumenpearson.lessons.core.data.repository.DiaryStudent
-import java.time.LocalDate
+import com.lumenpearson.lessons.core.data.repository.DiarySignInProblem
+import com.lumenpearson.lessons.core.data.repository.DiaryTarget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -41,7 +32,12 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiarySignInOutcomeTest {
 
-    private val repository = FakeDiaryRepository()
+    // The reads all fail, on purpose: these tests are about the sign-in and
+    // nothing after it, and a students call that succeeded would pull the
+    // state holder into a load whose answers would have to be arranged too.
+    private val repository = FakeDiaryRepository().apply {
+        readFailure = DiaryFailure.Unavailable
+    }
 
     @Before
     fun setUp() {
@@ -57,7 +53,7 @@ class DiarySignInOutcomeTest {
 
     @Test
     fun `a refused password is an outcome that names the reason`() {
-        repository.signInResult = Result.failure(DiaryFailure.SignInRequired)
+        repository.signInResult = Result.failure(DiarySignInProblem.WrongPassword(null))
         val model = model()
 
         model.signIn("parent@example.com", "wrong")
@@ -78,7 +74,7 @@ class DiarySignInOutcomeTest {
         // The whole point of carrying the failure rather than a boolean. These
         // two need different things from the person reading: one is a typo, the
         // other is waiting.
-        repository.signInResult = Result.failure(DiaryFailure.Unavailable)
+        repository.signInResult = Result.failure(DiarySignInProblem.ProviderUnavailable("dnevnik2.petersburgedu.ru"))
         val model = model()
 
         model.signIn("parent@example.com", "correct-horse")
@@ -108,7 +104,7 @@ class DiarySignInOutcomeTest {
 
     @Test
     fun `the outcome is shown once and then gone`() {
-        repository.signInResult = Result.failure(DiaryFailure.SignInRequired)
+        repository.signInResult = Result.failure(DiarySignInProblem.WrongPassword(null))
         val model = model()
         model.signIn("parent@example.com", "wrong")
 
@@ -122,11 +118,11 @@ class DiarySignInOutcomeTest {
 
     @Test
     fun `a second attempt replaces the first outcome rather than queueing behind it`() {
-        repository.signInResult = Result.failure(DiaryFailure.Unavailable)
+        repository.signInResult = Result.failure(DiarySignInProblem.ProviderUnavailable(null))
         val model = model()
         model.signIn("parent@example.com", "correct-horse")
 
-        repository.signInResult = Result.failure(DiaryFailure.SignInRequired)
+        repository.signInResult = Result.failure(DiarySignInProblem.WrongPassword(null))
         model.signIn("parent@example.com", "wrong")
 
         assertEquals(
@@ -134,75 +130,48 @@ class DiarySignInOutcomeTest {
             model.uiState.value.signInOutcome,
         )
     }
-}
 
-/**
- * A diary that answers `signIn` however the test says and nothing else.
- *
- * The reads all fail, on purpose: the tests here are about the sign-in and
- * nothing after it, and a students call that succeeded would pull the state
- * holder into a load whose answers would have to be arranged too.
- */
-private class FakeDiaryRepository : DiaryRepository {
+    @Test
+    fun `with no diary known, the form signs in to Petersburg`() {
+        val model = model()
 
-    var signInResult: Result<DiarySession> = Result.failure(DiaryFailure.Unavailable)
+        model.signIn(" parent@example.com ", "correct-horse")
 
-    private val sessions = MutableStateFlow<DiarySession?>(null)
-    override val session: Flow<DiarySession?> = sessions
-
-    override suspend fun current(): DiarySession? = sessions.value
-
-    override suspend fun signIn(login: String, password: String): Result<DiarySession> =
-        signInResult.also { result -> result.getOrNull()?.let { sessions.value = it } }
-
-    override suspend fun signOut(): Result<Unit> {
-        sessions.value = null
-        return Result.success(Unit)
+        assertEquals(listOf(DiaryTarget.petersburg("parent@example.com")), repository.signedInTo)
     }
 
-    override suspend fun students(): Result<List<DiaryStudent>> =
-        Result.failure(DiaryFailure.Unavailable)
+    /**
+     * A bare `401` drops the bearer and keeps the target, so the form that
+     * follows must sign in to that diary — a «Сетевой город» family retyping
+     * their password must not be sent to Petersburg with it.
+     */
+    @Test
+    fun `a sign-in after the session died goes to the diary that was kept`() {
+        val kept = DiaryTarget.netschool(
+            region = "samara",
+            schoolId = 1234,
+            schoolName = "Школа № 5",
+            login = "ivanova",
+            zone = "Europe/Samara",
+        )
+        repository.targets.value = kept
+        val model = model()
 
-    override suspend fun schedule(
-        studentId: Long,
-        from: LocalDate,
-        to: LocalDate,
-    ): Result<List<DiaryLesson>> = Result.failure(DiaryFailure.Unavailable)
+        model.signIn("ivanova", "correct-horse")
 
-    override suspend fun homework(
-        studentId: Long,
-        from: LocalDate,
-        to: LocalDate,
-    ): Result<List<DiaryHomework>> = Result.failure(DiaryFailure.Unavailable)
+        assertEquals(listOf(kept), repository.signedInTo)
+    }
 
-    // Corrections are not what this file is about — it pins how a sign-in
-    // reports itself — so these refuse like every other read here.
-    override suspend fun overrides(studentId: Long): Result<List<DiaryOverrideRecord>> =
-        Result.failure(DiaryFailure.Unavailable)
+    @Test
+    fun `too many attempts is not reported as a wrong password`() {
+        repository.signInResult = Result.failure(DiarySignInProblem.TooManyAttempts(retryAfterSeconds = 60))
+        val model = model()
 
-    override suspend fun correct(
-        studentId: Long,
-        target: String,
-        field: DiaryField,
-        value: String,
-        original: String?,
-    ): Result<Unit> = Result.failure(DiaryFailure.Unavailable)
+        model.signIn("parent@example.com", "wrong")
 
-    override suspend fun reset(
-        studentId: Long,
-        target: String,
-        field: DiaryField,
-    ): Result<Unit> = Result.failure(DiaryFailure.Unavailable)
-
-    override suspend fun resetAll(studentId: Long): Result<Unit> =
-        Result.failure(DiaryFailure.Unavailable)
-
-    override suspend fun grades(
-        studentId: Long,
-        from: LocalDate,
-        to: LocalDate,
-    ): Result<List<DiaryMark>> = Result.failure(DiaryFailure.Unavailable)
-
-    override suspend fun periods(studentId: Long): Result<List<DiaryPeriod>> =
-        Result.failure(DiaryFailure.Unavailable)
+        assertEquals(
+            DiarySignInOutcome.Failed(DiaryFailure.Throttled(retryAfterSeconds = 60)),
+            model.uiState.value.signInOutcome,
+        )
+    }
 }

@@ -3,13 +3,14 @@ package com.lumenpearson.lessons.core.data.network
 import com.lumenpearson.lessons.core.data.network.dto.DiaryAttendanceDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryHomeworkDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryLessonDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryLoginRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryLoginResponseDto
+import com.lumenpearson.lessons.core.data.network.dto.DiaryCapabilitiesDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryMarkDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryPeriodDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryResetRequestDto
+import com.lumenpearson.lessons.core.data.network.dto.DiarySessionRequestDto
+import com.lumenpearson.lessons.core.data.network.dto.DiarySessionResponseDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryStudentDto
 import com.lumenpearson.lessons.core.data.network.dto.DiarySubjectDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryTeacherDto
@@ -22,7 +23,8 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 /**
- * The Petersburg diary, as this server publishes it: `/api/v1/diary`.
+ * The diary, as this server publishes it: `/api/v1/diary`, for Petersburg and
+ * «Сетевой город» alike.
  *
  * Its own interface rather than more methods on [LessonsApi] because it is its
  * own thing — one family's account in a foreign service, not the class
@@ -33,22 +35,41 @@ import retrofit2.http.Query
  * Paths are relative, as in [LessonsApi], so a base URL with a path prefix
  * behind a reverse proxy keeps working.
  *
- * Every call but [login] answers `401` when the session is gone, and `401`
- * carrying `X-Diary-Reauth: required` when it is the *upstream* session that
- * died and the password has to be asked for again. Nothing here decides which:
- * `DiaryFailure.of` reads the response and the screen reacts to the type.
+ * Every call but [capabilities] and [registerSession] answers `401` when the
+ * session is gone, and `401` carrying `X-Diary-Reauth: required` when it is the
+ * *upstream* session that died and the password has to be asked for again.
+ * Nothing here decides which: `DiaryFailure.of` reads the response and the
+ * screen reacts to the type.
+ *
+ * `POST /login`, which took the password itself, is deliberately absent. The
+ * endpoint is still served for older builds; this one signs in with the diary
+ * directly (`upstream/`) and hands over only the session it was given, so the
+ * password never reaches our server. Leaving the method out is what makes that
+ * a fact of the build rather than a promise about its callers.
  */
 internal interface DiaryApi {
 
     /**
-     * Signs in to the diary. The password is used for this one call; neither
-     * this app nor the server stores it.
-     *
-     * `401` here means the credentials were refused — a different thing from a
-     * `401` on any other call, which means our own session is no longer good.
+     * What this server's diary can do: whether it runs at all, and which
+     * «Сетевой город» regions it keeps sessions for. Anonymous and cheap,
+     * asked before a password field is enabled. `404` from a server that
+     * predates registration.
      */
-    @POST("api/v1/diary/login")
-    suspend fun login(@Body body: DiaryLoginRequestDto): DiaryLoginResponseDto
+    @GET("api/v1/diary/capabilities")
+    suspend fun capabilities(): DiaryCapabilitiesDto
+
+    /**
+     * Hands over a session the phone opened with the diary, for one of ours.
+     *
+     * Anonymous — see `DiaryAuthInterceptor`, which keeps a stale bearer off
+     * it — and throttled together with `/login`. `409` means the diary would
+     * not take the session from our server's address, which is not the
+     * password and not worth an automatic retry; `403` means the account has no
+     * pupil; `422` means the body was refused before anything was asked
+     * upstream, which only a bug in this app produces.
+     */
+    @POST("api/v1/diary/session")
+    suspend fun registerSession(@Body body: DiarySessionRequestDto): DiarySessionResponseDto
 
     /** Forgets the session on the server; answers 204 with no body. */
     @POST("api/v1/diary/logout")

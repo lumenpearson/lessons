@@ -27,13 +27,70 @@ class DiaryJsonTest {
     private val json = NetworkModule.json()
 
     @Test
-    fun `a login answer decodes`() {
-        val decoded = json.decodeFromString<DiaryLoginResponseDto>(
-            """{ "token": "abc.def", "login": "parent@example.com", "issued_at": "later" }""",
+    fun `a registration answer decodes, zone and pupils included`() {
+        val decoded = json.decodeFromString<DiarySessionResponseDto>(
+            """
+            {
+              "token": "abc.def", "login": "ivanova", "provider": "netschool",
+              "region": "samara", "school_id": 1234, "school_name": null,
+              "zone": "Europe/Samara", "issued_at": "later",
+              "students": [{ "id": 7, "first_name": "Пётр", "last_name": "Иванов",
+                             "full_name": "Иванов Пётр" }]
+            }
+            """.trimIndent(),
         )
 
         assertEquals("abc.def", decoded.token)
-        assertEquals("parent@example.com", decoded.login)
+        assertEquals("ivanova", decoded.login)
+        assertEquals("samara", decoded.region)
+        assertEquals(1234L, decoded.schoolId)
+        assertNull(decoded.schoolName)
+        assertEquals("Europe/Samara", decoded.zone)
+        assertEquals(listOf(7L), decoded.students.map { it.id })
+    }
+
+    /** A data class would print the bearer into any log that printed the answer. */
+    @Test
+    fun `a registration answer never prints its token`() {
+        val decoded = DiarySessionResponseDto(token = "secret-bearer", login = "ivanova")
+
+        assertTrue("secret-bearer" !in decoded.toString())
+    }
+
+    @Test
+    fun `capabilities decode, the regions a server keeps sessions for included`() {
+        val decoded = json.decodeFromString<DiaryCapabilitiesDto>(
+            """
+            { "enabled": true, "registration": true, "later": 1,
+              "providers": { "petersburg": {}, "netschool": { "regions": ["samara", "tomsk"] } } }
+            """.trimIndent(),
+        )
+
+        assertTrue(decoded.enabled)
+        assertTrue(decoded.registration)
+        assertTrue(decoded.providers.petersburg != null)
+        assertEquals(listOf("samara", "tomsk"), decoded.providers.netschool?.regions)
+    }
+
+    /**
+     * The registration body the server takes, field for field. Petersburg's
+     * half of the union has no `region` or `school_id`, and the server forbids
+     * unknown keys — so a `null` written out for either would be a `422`.
+     */
+    @Test
+    fun `a Petersburg registration body carries no region or school at all`() {
+        val body = DiarySessionRequestDto(
+            provider = "petersburg",
+            login = "parent@example.com",
+            credential = json.encodeToJsonElement(PetersburgCredentialDto.serializer(), PetersburgCredentialDto("a.b.c"))
+                as kotlinx.serialization.json.JsonObject,
+        )
+
+        val written = json.parseToJsonElement(json.encodeToString(DiarySessionRequestDto.serializer(), body))
+            as kotlinx.serialization.json.JsonObject
+
+        assertEquals(setOf("provider", "login", "credential"), written.keys)
+        assertTrue("a.b.c" !in body.toString())
     }
 
     @Test

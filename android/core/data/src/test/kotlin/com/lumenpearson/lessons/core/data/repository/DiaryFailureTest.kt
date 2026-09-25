@@ -95,6 +95,57 @@ class DiaryFailureTest {
         assertTrue((failure as DiaryFailure.Offline).reason is IOException)
     }
 
+    /**
+     * The server said «слишком много попыток» and how long to wait; the app
+     * used to answer «Не получилось: 429» (#153).
+     */
+    @Test
+    fun `429 is a throttle carrying the wait`() {
+        assertEquals(
+            DiaryFailure.Throttled(retryAfterSeconds = 120),
+            DiaryFailure.of(httpError(429, "Retry-After" to "120")),
+        )
+    }
+
+    @Test
+    fun `429 without a readable wait is still a throttle`() {
+        assertEquals(
+            DiaryFailure.Throttled(retryAfterSeconds = null),
+            DiaryFailure.of(httpError(429, "Retry-After" to "Wed, 21 Oct 2026 07:28:00 GMT")),
+        )
+    }
+
+    /** «Выключен на сервере» and «не отвечает» are both 503s; the header tells them apart (#153). */
+    @Test
+    fun `503 marked disabled is the diary switched off, not down`() {
+        assertEquals(
+            DiaryFailure.Disabled,
+            DiaryFailure.of(httpError(503, DiaryFailure.UNAVAILABLE_HEADER to "disabled")),
+        )
+    }
+
+    @Test
+    fun `503 marked address-refused is the diary refusing our server`() {
+        assertEquals(
+            DiaryFailure.ServerAddressRefused,
+            DiaryFailure.of(httpError(503, DiaryFailure.UNAVAILABLE_HEADER to "address-refused")),
+        )
+    }
+
+    @Test
+    fun `503 marked upstream is the diary being down`() {
+        assertEquals(
+            DiaryFailure.Unavailable,
+            DiaryFailure.of(httpError(503, DiaryFailure.UNAVAILABLE_HEADER to "upstream")),
+        )
+    }
+
+    /** The platform's 30-second ceiling: slow, not wrong, so worth another try (#153). */
+    @Test
+    fun `504 is the diary being slow, not an unexpected status`() {
+        assertEquals(DiaryFailure.Unavailable, DiaryFailure.of(httpError(504)))
+    }
+
     /** Classifying twice must not wrap a classification in another one. */
     @Test
     fun `an already classified failure passes through`() {

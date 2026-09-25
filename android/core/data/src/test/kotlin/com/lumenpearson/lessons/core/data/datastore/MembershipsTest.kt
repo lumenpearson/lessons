@@ -1,6 +1,8 @@
 package com.lumenpearson.lessons.core.data.datastore
 
 import androidx.datastore.preferences.core.mutablePreferencesOf
+import com.lumenpearson.lessons.core.data.repository.DiaryBinding
+import com.lumenpearson.lessons.core.data.repository.DiaryProviderKey
 import com.lumenpearson.lessons.core.data.repository.Session
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -193,5 +195,44 @@ class MembershipsTest {
         assertEquals(emptyList<Session>(), prefs.memberships())
         assertNull(prefs.activeMembership())
         assertNull(prefs[MembershipKeys.ACTIVE_CLASS_ID])
+    }
+
+    // -- the class's diary binding (gap 3) -----------------------------------
+
+    @Test
+    fun `a session stored before bindings reads as unbound`() {
+        val prefs = mutablePreferencesOf(
+            MembershipKeys.SESSIONS to """[{"classId":1,"className":"7А","token":"t1"}]""",
+        )
+
+        assertNull(prefs.memberships().single().diary)
+    }
+
+    @Test
+    fun `a binding round-trips with its membership`() {
+        val bound = session(1, "7А").copy(
+            diary = DiaryBinding(DiaryProviderKey.NETSCHOOL, "samara", 1234, "Школа № 5"),
+        )
+        val prefs = mutablePreferencesOf()
+
+        prefs.writeMemberships(listOf(bound, session(2, "9Б")))
+
+        assertEquals(listOf(bound, session(2, "9Б")), prefs.memberships())
+    }
+
+    /** A binding this build cannot read costs the binding — never the class and its token. */
+    @Test
+    fun `an unreadable binding costs the binding and not the membership`() {
+        val prefs = mutablePreferencesOf(
+            MembershipKeys.SESSIONS to
+                """[{"classId":1,"className":"7А","token":"t1","diary":{"provider":"eljur","region":"x"}},""" +
+                """{"classId":2,"className":"9Б","token":"t2","diary":"garbage"},""" +
+                """{"classId":3,"className":"5В","token":"t3","diary":{"provider":"netschool","schoolId":"not a number"}}]""",
+        )
+
+        val read = prefs.memberships()
+
+        assertEquals(listOf(1L, 2L, 3L), read.map { it.classId })
+        assertEquals(listOf<DiaryBinding?>(null, null, null), read.map { it.diary })
     }
 }

@@ -27,12 +27,17 @@ import com.lumenpearson.lessons.core.model.WeekStart
  * The [token] is long-lived and read-only; there is no refresh and no password,
  * so its presence is the whole of "signed in" and its absence sends the user
  * back to the join screen.
+ *
+ * [diary] is the class's diary binding as the join answered it, or `null` —
+ * see [DiaryBinding]. Last and defaulted, so every place that builds a session
+ * without one still means «no binding».
  */
 data class Session(
     val classId: Long,
     val className: String,
     val school: String?,
     val token: String,
+    val diary: DiaryBinding? = null,
 )
 
 /**
