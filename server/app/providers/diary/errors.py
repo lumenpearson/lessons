@@ -55,6 +55,20 @@ class SessionExpired(DiaryError):
     message = "Сессия дневника истекла — войдите заново"
 
 
+class NoStudents(SessionExpired):
+    """The account signed in, and there is no pupil behind it.
+
+    A staff-only account, or a pupil's account that does not list itself. A
+    subclass of :class:`SessionExpired` so the password sign-in keeps the
+    answer it always gave (401 with ``X-Diary-Reauth``), while registering a
+    session the phone opened can tell it apart: there the session was
+    accepted, so «войдите снова» would be the wrong sentence and a 403 says
+    what is true.
+    """
+
+    message = "В этой учётной записи нет ученика"
+
+
 class UpstreamUnavailable(DiaryError):
     """A timeout, a connection failure, or a 5xx.
 
@@ -75,8 +89,10 @@ class AddressRefused(UpstreamUnavailable):
     server dropping a foreign or datacenter address, seen as a WAF block page,
     a 403, or a connection reset. Told apart from a timeout because retrying
     cannot help and the family must hear that it is not their password and not
-    worth trying again; the keep-alive trips a per-origin breaker on it rather
-    than pinging that origin's other sessions into the same wall.
+    worth trying again. The keep-alive trips a per-origin breaker on it
+    (`services/diary_keepalive._ping_all`): the rest of that origin's sessions
+    are not pinged for the rest of the tick, rather than each walking into the
+    same wall from the same address.
     """
 
     message = (

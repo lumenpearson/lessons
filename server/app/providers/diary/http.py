@@ -19,12 +19,21 @@ second provider does not pay them again:
 ``build_client`` also pins ``follow_redirects=False`` (a cross-origin redirect
 would carry the session bearer to another host — the one way around a region
 allow-list) and never turns TLS verification off.
+
+And a third, which arrived with the phone opening sessions itself: **a stored
+session value is only ever written into a header if it is safe there.** A
+cookie value holding ``;`` smuggles a second cookie, and one holding CR/LF a
+second header. :func:`cookie_value_ok` and :func:`header_value_ok` are the one
+definition of "safe", used by the schema that accepts a session from a phone
+*and* by the clients that write the headers, so a credential that reached the
+database by any path is checked again on the way out.
 """
 
 from __future__ import annotations
 
 import http.cookiejar
 import logging
+import re
 
 import httpx
 
@@ -36,6 +45,25 @@ USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/124.0.0.0 Safari/537.36"
 )
+
+#: RFC 6265 ``cookie-octet``: printable ASCII less space, the double quote,
+#: the comma, the semicolon and the backslash. What a ``Cookie:`` header can
+#: carry as one value and nothing more.
+_COOKIE_OCTETS = re.compile(r"[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+")
+
+#: RFC 7235 ``token68``: what a bearer-shaped header value is made of. No
+#: space, no quote, no CR or LF — so no way to end the header and start another.
+_HEADER_TOKEN = re.compile(r"[A-Za-z0-9._~+/=-]+")
+
+
+def cookie_value_ok(value: object) -> bool:
+    """Whether ``value`` can be sent as one cookie's value without becoming two."""
+    return isinstance(value, str) and _COOKIE_OCTETS.fullmatch(value) is not None
+
+
+def header_value_ok(value: object) -> bool:
+    """Whether ``value`` can be sent as a bearer-shaped header value, whole."""
+    return isinstance(value, str) and _HEADER_TOKEN.fullmatch(value) is not None
 
 
 class NoCookieJar(http.cookiejar.CookieJar):
@@ -92,7 +120,9 @@ def build_client(
         cookies=NoCookieJar(),
         headers=base_headers,
         follow_redirects=False,
-        # verify defaults to True and is never set False: a region that needs
-        # the Russian Trusted Root must carry its own CA bundle in regions.py,
-        # not have verification switched off for everyone.
+        # verify defaults to True and is never set False. A region whose
+        # server presents a root the system does not trust (the Russian
+        # Trusted Root) is left out of the allow-list rather than given a
+        # CA of its own or a verification switched off — there is no
+        # per-origin trust store here, and none is read.
     )

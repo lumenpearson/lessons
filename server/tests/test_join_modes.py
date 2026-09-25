@@ -95,6 +95,67 @@ async def test_an_open_class_still_joins_on_the_class_code(client, session, scho
     assert token.telegram_id is None and token.linked_at is None
 
 
+async def test_join_tells_the_phone_which_diary_its_class_reads(client, session, school_class):
+    """A phone that joined a class can sign in to the class's diary without
+    searching for its school: the join says which server and which «scid»."""
+    school_class.diary_provider = "netschool"
+    school_class.diary_region = "amur"
+    school_class.diary_school_id = 1234
+    school_class.diary_school_name = "Гимназия № 1"
+    await session.commit()
+
+    response = await _join(client, "TEST42")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["diary"] == {
+        "provider": "netschool",
+        "region": "amur",
+        "school_id": 1234,
+        "school_name": "Гимназия № 1",
+    }
+
+
+async def test_a_petersburg_binding_has_no_region_or_school(client, session, school_class):
+    school_class.diary_provider = "petersburg"
+    await session.commit()
+
+    response = await _join(client, "TEST42")
+
+    assert response.json()["diary"] == {
+        "provider": "petersburg", "region": None, "school_id": None, "school_name": None,
+    }
+
+
+@pytest.mark.parametrize(
+    ("region", "school_id"),
+    [("atlantis", 5), ("tula", 5), ("amur", None)],
+    ids=["dropped-region", "gosuslugi-only-region", "no-school"],
+)
+async def test_a_class_on_a_dropped_region_reads_as_unbound(
+    client, session, school_class, region, school_id
+):
+    """Read through the registry, like every other reader of the binding: a
+    region since dropped from the allow-list, one that takes no password, or a
+    binding that never got its school tells the phone «no diary» rather than
+    pointing it at one this server would refuse."""
+    school_class.diary_provider = "netschool"
+    school_class.diary_region = region
+    school_class.diary_school_id = school_id
+    await session.commit()
+
+    response = await _join(client, "TEST42")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["diary"] is None
+
+
+async def test_an_unbound_class_carries_no_diary(client, school_class):
+    response = await _join(client, "TEST42")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["diary"] is None
+
+
 async def test_an_invite_only_class_refuses_the_class_code(client, session, invite_class):
     """Said plainly, not as «unknown code».
 

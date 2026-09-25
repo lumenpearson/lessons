@@ -137,6 +137,7 @@ from app.models import (
     DayKind,
     DayOverride,
     DeviceToken,
+    DiarySession,
     Homework,
     JoinMode,
     LessonOverride,
@@ -149,6 +150,7 @@ from app.models import (
     TimetableEntry,
     WeekParity,
 )
+from app.security import hash_token, new_token
 from app.services import audit
 
 # --------------------------------------------------------------------------
@@ -2541,6 +2543,135 @@ async def test_an_editor_cannot_walk_the_netschool_flow(session, school_class, m
     await class_diary_search(message, session, editor_state, school_class, Role.EDITOR)
     assert editor_state.cleared
     assert school_class.diary_provider is None
+
+
+# --------------------------------------------------------------------------
+# Rebinding: the sessions a class's new binding no longer reads
+# --------------------------------------------------------------------------
+
+
+async def _member_session(
+    session, school_class, *, provider: str | None, region: str | None, telegram_id: int = 42
+) -> DiarySession:
+    from app.crypto import seal
+
+    row = DiarySession(
+        token_hash=hash_token(new_token()),
+        upstream_token=seal("upstream"),
+        login=f"user{telegram_id}@example.com",
+        telegram_id=telegram_id,
+        class_id=school_class.id,
+        provider=provider,
+        region=region,
+    )
+    session.add(row)
+    await session.commit()
+    return row
+
+
+async def _pick_school(session, school_class, region: str, school_id: int = 11) -> None:
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(
+        data={
+            "diary_region": region,
+            "diary_class_id": school_class.id,
+            "diary_schools": [{"id": school_id, "name": "Гимназия № 1"}],
+        }
+    )
+    await class_diary_school(callback, SimpleNamespace(value=0), session, Role.ADMIN, state)
+    assert school_class.diary_region == region
+
+
+async def test_binding_another_region_expires_the_old_sessions(session, school_class):
+    """A class moved from samara's server to amur's. Its members' samara
+    sessions read a diary the class has left: the bot matched the provider
+    alone and went on reading samara, and the keep-alive went on pinging it."""
+    school_class.diary_provider = "netschool"
+    school_class.diary_region = "samara"
+    school_class.diary_school_id = 5
+    await session.commit()
+    old = await _member_session(session, school_class, provider="netschool", region="samara")
+
+    await _pick_school(session, school_class, "amur")
+
+    await session.refresh(old)
+    assert old.expired_at is not None
+
+
+async def test_binding_the_same_region_again_keeps_them(session, school_class):
+    """Another school on the same regional server: a session is an account on
+    that server, not on one school, so it goes on reading."""
+    school_class.diary_provider = "netschool"
+    school_class.diary_region = "amur"
+    school_class.diary_school_id = 5
+    await session.commit()
+    kept = await _member_session(session, school_class, provider="netschool", region="amur")
+
+    await _pick_school(session, school_class, "amur", school_id=11)
+
+    await session.refresh(kept)
+    assert kept.expired_at is None
+
+
+async def test_a_legacy_petersburg_row_is_expired_when_the_class_moves_to_netschool(
+    session, school_class
+):
+    """A row from before the provider column has NULL there, which means
+    Petersburg. Written naively, «not this binding» is NULL for it in SQL and
+    matches nothing, and the row would have been left reading Petersburg."""
+    school_class.diary_provider = "petersburg"
+    await session.commit()
+    legacy = await _member_session(session, school_class, provider=None, region=None)
+
+    await _pick_school(session, school_class, "amur")
+
+    await session.refresh(legacy)
+    assert legacy.expired_at is not None
+
+
+async def test_binding_petersburg_expires_the_netschool_sessions_and_nothing_else(
+    session, school_class
+):
+    other_class = SchoolClass(name="10Б", join_code="OTHER10")
+    session.add(other_class)
+    await session.commit()
+    netschool = await _member_session(session, school_class, provider="netschool", region="amur")
+    petersburg = await _member_session(
+        session, school_class, provider="petersburg", region=None, telegram_id=43
+    )
+    legacy = await _member_session(
+        session, school_class, provider=None, region=None, telegram_id=44
+    )
+    elsewhere = await _member_session(session, other_class, provider="netschool", region="amur")
+
+    callback = FakeCallback(message=FakeEditable())
+    await class_diary_provider(
+        callback, SimpleNamespace(value="petersburg"), session, school_class, Role.ADMIN
+    )
+
+    for row in (netschool, petersburg, legacy, elsewhere):
+        await session.refresh(row)
+    assert netschool.expired_at is not None
+    assert petersburg.expired_at is None
+    assert legacy.expired_at is None
+    # Another class's binding did not change, so neither did its sessions.
+    assert elsewhere.expired_at is None
+
+
+async def test_unbinding_expires_nothing(session, school_class):
+    """Unbinding takes the door away and nothing else, as the bot promises:
+    the sessions stay their owners' until they sign out."""
+    school_class.diary_provider = "netschool"
+    school_class.diary_region = "amur"
+    school_class.diary_school_id = 5
+    await session.commit()
+    row = await _member_session(session, school_class, provider="netschool", region="amur")
+
+    await class_diary_bind(FakeCallback(message=FakeEditable()), session, school_class, Role.ADMIN)
+
+    await session.refresh(row)
+    assert school_class.diary_provider is None
+    assert row.expired_at is None
 
 
 async def test_the_switch_screen_needs_somewhere_to_switch_to(session, school_class):

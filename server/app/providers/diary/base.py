@@ -1,10 +1,17 @@
-"""The shape a diary provider meets, and the request that signs one in.
+"""The shape a diary provider meets, and the two ways a session reaches it.
 
-Two protocols and one dataclass. `services/diary.DiaryService` builds a
+Two protocols and three dataclasses. `services/diary.DiaryService` builds a
 :class:`DiaryConnection` from the provider named on the session row and calls
 it; it never knows which upstream is behind it. A provider raises only the
 :mod:`app.providers.diary.errors` family from these methods — never a
 ``ValueError`` or a ``KeyError``, which would reach the API edge as a 500.
+
+A session arrives one of two ways. :class:`SignInRequest` carries a password,
+which this server sends upstream once (the bot's sign-in page, and
+``POST /api/v1/diary/login`` for the apps that still call it).
+:class:`AdoptRequest` carries a session the phone opened itself, straight with
+the diary, so the password never came here at all; the provider checks it with
+a read of its own and hands back :class:`Adopted`.
 """
 
 from __future__ import annotations
@@ -39,6 +46,36 @@ class SignInRequest:
     password: str = field(repr=False)
     region: str | None = None
     school_id: int | None = None
+
+
+@dataclass(frozen=True)
+class AdoptRequest:
+    """A session the phone opened itself, handed over once for this server to keep.
+
+    ``credential`` is the provider's own serialisation of what the phone
+    received — Petersburg's bare JWT, «Сетевой город»'s JSON of ``at``, the
+    cookies, ``ver`` and ``timeOut`` — and ``repr=False`` for the same reason
+    as a password: it opens the account.
+    """
+
+    credential: str = field(repr=False)
+    region: str | None = None
+    school_id: int | None = None
+
+
+@dataclass(frozen=True)
+class Adopted:
+    """What a validated session comes to: the credential to seal, and what the
+    validating read already fetched, so the caller does not ask again.
+
+    ``credential`` may differ from the one handed in — the validating read can
+    rotate it — and it is this one that is sealed. ``school_name`` is what the
+    upstream calls the school, where it says; ``None`` otherwise.
+    """
+
+    credential: str = field(repr=False)
+    students: tuple[Student, ...] = ()
+    school_name: str | None = None
 
 
 @runtime_checkable
@@ -95,5 +132,18 @@ class DiaryProvider(Protocol):
     async def sign_in(self, request: SignInRequest) -> str:
         """Sign in and return the serialised credential, which the caller seals."""
 
+    async def adopt(self, request: AdoptRequest) -> Adopted:
+        """Check a session the phone opened, from this server's address, and
+        return what to seal. A session the upstream will not take from here
+        is :class:`~app.providers.diary.errors.SessionExpired`; an account
+        with no pupil is :class:`~app.providers.diary.errors.NoStudents`."""
+
     def open(self, credential: str) -> DiaryConnection:
         """A connection for a stored credential."""
+
+    def zone(self, region: str | None) -> str:
+        """The IANA zone this diary's days are cut at, for ``region``.
+
+        The one rule: a connection's ``today()`` cuts the day with it, and the
+        phone is told it at registration, so the two never disagree about
+        which day it is in the diary."""

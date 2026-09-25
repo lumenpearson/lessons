@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from datetime import date as Date
 
+from app.providers.diary.base import Adopted, AdoptRequest
+from app.providers.diary.errors import NoStudents
 from app.providers.diary.models import (
     AcademicPeriod,
     AttendanceEvent,
@@ -26,7 +28,7 @@ from app.providers.diary.models import (
     Teacher,
 )
 from app.providers.petersburg import mapper as m
-from app.providers.petersburg.client import PetersburgClient, today
+from app.providers.petersburg.client import TIMEZONE, PetersburgClient, today
 
 
 class PetersburgConnection:
@@ -95,5 +97,24 @@ class PetersburgProvider:
         client = PetersburgClient()
         return await client.login(request.login.strip(), request.password)
 
+    async def adopt(self, request: AdoptRequest) -> Adopted:
+        """One read with the phone's token, from here: the pupils.
+
+        The cheapest call that proves the session opens this account from our
+        address, and the one the phone would make next anyway, so its answer
+        rides back with the token. A 401, a 403 or a 200 of the login page is
+        :class:`SessionExpired` through the client's own rules — the upstream
+        did not take the session from here. The token the answer may have
+        rotated is the one kept.
+        """
+        connection = PetersburgConnection(request.credential)
+        students = await connection.students()
+        if not students:
+            raise NoStudents()
+        return Adopted(credential=connection.credential, students=tuple(students))
+
     def open(self, credential: str) -> PetersburgConnection:
         return PetersburgConnection(credential)
+
+    def zone(self, region: str | None) -> str:  # noqa: ARG002 - one city, one zone
+        return TIMEZONE.key

@@ -10,23 +10,38 @@ server already serves a class timetable at ``/api/v1``, filled by the bot, and
 the two are different things: one is a class's shared plan, the other is one
 family's account somewhere else. Keeping them apart in the path keeps them
 apart in everybody's head.
+
+A session of ours is opened two ways. ``POST /session`` registers one the
+phone opened itself, straight with the diary, so the password never reaches
+this server; that is what the app does. ``POST /login`` takes the password and
+signs in from here, and stays exactly as it was for the apps that still call
+it. Every 503 either answers carries ``X-Diary-Unavailable`` — ``disabled``,
+``address-refused`` or ``upstream`` — so the app can tell «выключен на
+сервере» from «дневник не отвечает» without reading the Russian.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
 from datetime import date as Date
 from datetime import timedelta
+from typing import Annotated, Any
 
 from dishka.integrations.fastapi import FromDishka, inject
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START, caller_bucket
 from app.api.routing import DishkaAnnotatedRoute
+from app.crypto import diary_enabled
 from app.models import DiarySession
 from app.providers.diary.errors import (
+    AddressRefused,
     BadCredentials,
     DiaryError,
+    NoStudents,
     SessionExpired,
     SignInUnsupported,
     UnexpectedResponse,
@@ -38,6 +53,7 @@ from app.providers.petersburg import (
 )
 from app.schemas import (
     DiaryAttendanceOut,
+    DiaryCapabilitiesOut,
     DiaryHomeworkOut,
     DiaryLessonOut,
     DiaryLoginIn,
@@ -46,10 +62,15 @@ from app.schemas import (
     DiaryOverrideIn,
     DiaryOverrideOut,
     DiaryPeriodOut,
+    DiaryProvidersOut,
     DiaryResetIn,
+    DiarySessionBody,
+    DiarySessionOut,
     DiaryStudentOut,
     DiarySubjectOut,
     DiaryTeacherOut,
+    NetSchoolCapabilitiesOut,
+    NetSchoolSessionIn,
 )
 from app.security import JoinThrottle
 from app.services import diary as service
@@ -142,6 +163,40 @@ def _service(
     return service.DiaryService(session, row)
 
 
+#: Says which of three things a diary 503 is, because the app does something
+#: different about each and the ``detail`` is Russian prose it should not
+#: parse: ``disabled`` (no ``DIARY_SECRET`` — nothing anybody types will help),
+#: ``address-refused`` (the region drops this server's address — not the
+#: password, not worth retrying) and ``upstream`` (the diary is down or will
+#: not take this way in — try later).
+UNAVAILABLE_HEADER = "X-Diary-Unavailable"
+
+#: The detail of the 503 a deployment without ``DIARY_SECRET`` answers.
+DISABLED_DETAIL = "Дневник на этом сервере выключен."
+
+
+def _unavailable(failure: UpstreamUnavailable | SignInUnsupported) -> HTTPException:
+    """The 503 for an upstream that did not let us in, with its reason named.
+
+    ``SignInUnsupported`` is ``upstream`` too: it is the region's own answer
+    about who it lets in, and it comes only from the password sign-in.
+    """
+    reason = "address-refused" if isinstance(failure, AddressRefused) else "upstream"
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=failure.message,
+        headers={UNAVAILABLE_HEADER: reason},
+    )
+
+
+def _disabled() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=DISABLED_DETAIL,
+        headers={UNAVAILABLE_HEADER: "disabled"},
+    )
+
+
 async def _guard(awaitable):
     """Turns a provider failure into the status code that fits it.
 
@@ -168,15 +223,11 @@ async def _guard(awaitable):
         # is not the password and there is nothing to retry — and so that the
         # login limiter, which forgives only a 503, does not count an attempt
         # where nothing looked at a password.
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=failure.message
-        ) from failure
+        raise _unavailable(failure) from failure
     except UpstreamUnavailable as failure:
         # AddressRefused is a subclass and lands here too: a 503, uncounted,
-        # carrying its own «дело не в пароле» message.
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=failure.message
-        ) from failure
+        # carrying its own «дело не в пароле» message and its own header value.
+        raise _unavailable(failure) from failure
     except UnexpectedResponse as failure:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=failure.message
@@ -212,6 +263,33 @@ async def _guard(awaitable):
 diary_login_limiter = JoinThrottle(limit=10, window=900.0)
 
 
+async def _refuse_if_throttled(session: AsyncSession, client: str) -> None:
+    """429 while ``client`` has spent its failures. One check for both doors
+    onto the upstream, so they cannot drift into two limits."""
+    retry_after = await diary_login_limiter.blocked_for(session, client)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Слишком много попыток входа. Попробуйте позже.",
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
+
+
+def _served_region(key: str | None) -> str:
+    """An allow-listed «Сетевой город» region that still takes a password, or
+    a 422 — asked before any upstream call, so a region we do not serve never
+    receives a request, whichever door it came through."""
+    from app.providers.netschool import regions
+
+    region = regions.get(key)
+    if region is None or not region.password:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Unknown or unsupported region for «Сетевой город»",
+        )
+    return region.key
+
+
 def _resolve_login_target(payload: DiaryLoginIn) -> tuple[str, str | None, int | None]:
     """The provider, region and school to sign in with, validated locally.
 
@@ -225,20 +303,13 @@ def _resolve_login_target(payload: DiaryLoginIn) -> tuple[str, str | None, int |
     if provider == PETERSBURG:
         return PETERSBURG, None, None
     if provider == NETSCHOOL:
-        from app.providers.netschool import regions
-
-        region = regions.get(payload.region)
-        if region is None or not region.password:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Unknown or unsupported region for «Сетевой город»",
-            )
+        region = _served_region(payload.region)
         if payload.school_id is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="A school id is required for «Сетевой город»",
             )
-        return NETSCHOOL, region.key, payload.school_id
+        return NETSCHOOL, region, payload.school_id
     raise HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail=f"Unknown diary provider {provider!r}",
@@ -266,13 +337,7 @@ async def login(
     # 500 instead of 401 and nothing was ever counted — the limit below existed
     # only in the tests, where SQLite does not enforce a width.
     client = caller_bucket(request, scope="diary:")
-    retry_after = await diary_login_limiter.blocked_for(session, client)
-    if retry_after is not None:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Слишком много попыток входа. Попробуйте позже.",
-            headers={"Retry-After": str(int(retry_after) + 1)},
-        )
+    await _refuse_if_throttled(session, client)
 
     provider, region, school_id = _resolve_login_target(payload)
 
@@ -295,10 +360,7 @@ async def login(
         # per attempt, and nothing for the app to put on the screen. The other
         # door onto the same service, ``POST /diary/signin``, has always
         # answered 503 and said so in words; this is that answer.
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Дневник на этом сервере выключен.",
-        ) from failure
+        raise _disabled() from failure
     except HTTPException as refusal:
         # Everything but a 503 counts, and the line is drawn where the other
         # door onto this upstream draws it.
@@ -322,6 +384,168 @@ async def login(
             await diary_login_limiter.record_failure(session, client)
         raise
     return DiaryLoginOut(token=token, login=row.login)
+
+
+# ---------------------------------------------------------------------------
+# A session the phone opened
+# ---------------------------------------------------------------------------
+
+
+#: The detail of a registration the upstream refused from this server.
+REFUSED_FROM_HERE_DETAIL = "Дневник не принял эту сессию с нашего сервера — дело не в пароле."
+
+
+class _NoEchoRoute(DishkaAnnotatedRoute):
+    """A route whose 422 names what was wrong and never repeats what was sent.
+
+    FastAPI's validation answer carries each refused value back as ``input``.
+    On ``/session`` that value is an upstream session — a cookie that failed
+    the charset check, a token that is not a JWT — or, for a client that sent
+    one, a password. A session goes to this server once and is never echoed;
+    the refusal is no exception to that.
+    """
+
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+        handler = super().get_route_handler()
+
+        async def without_echo(request: Request) -> Response:
+            try:
+                return await handler(request)
+            except RequestValidationError as refusal:
+                raise RequestValidationError(
+                    [
+                        {key: value for key, value in error.items() if key != "input"}
+                        for error in refusal.errors()
+                    ]
+                ) from None
+
+        return without_echo
+
+
+@router.get("/capabilities", response_model=DiaryCapabilitiesOut)
+async def capabilities() -> DiaryCapabilitiesOut:
+    """What this server's diary can do, before the phone takes a password.
+
+    Anonymous and database-free, so it is cheap to ask on every sign-in
+    screen: whether the diary runs here at all, and which «Сетевой город»
+    regions this server signs in to — a region missing from the list is one
+    the phone should not send a password to, since the session it opened could
+    not be kept. A server from before registration answers 404 here.
+    """
+    from app.providers.netschool import regions
+
+    return DiaryCapabilitiesOut(
+        enabled=diary_enabled(),
+        providers=DiaryProvidersOut(
+            netschool=NetSchoolCapabilitiesOut(regions=[r.key for r in regions.listed()]),
+        ),
+    )
+
+
+def _resolve_session_target(payload: DiarySessionBody) -> tuple[str, str | None, int | None]:
+    """The provider, region and school to adopt into, checked against the
+    allow-list before any call — a region outside it, or one that takes no
+    password (altai-krai, primorye, tula), is a 422 that nothing upstream saw.
+    """
+    if not isinstance(payload, NetSchoolSessionIn):
+        return PETERSBURG, None, None
+    return NETSCHOOL, _served_region(payload.region), payload.school_id
+
+
+async def register_session(
+    request: Request,
+    payload: Annotated[DiarySessionBody, Body(discriminator="provider")],
+    *,
+    session: FromDishka[AsyncSession],
+) -> DiarySessionOut:
+    """Keep a session the phone opened itself, and hand back a token of ours.
+
+    The phone signed in with the diary directly, so the password never came
+    here; what arrives is the session the diary gave it. It is read with once,
+    from this server's address — that read is the check — then sealed, and the
+    phone forgets its copy. Nothing here stores or accepts a password: a
+    ``password`` key anywhere in the body is a 422.
+
+    Shares ``/login``'s limiter **and bucket**, so a caller who spent ten
+    wrong passwords does not get ten more tries by session. Counted: a session
+    the upstream refused (409), an account with no pupil (403), an answer
+    nobody can read (502). Not counted: anything that never reached the
+    upstream (422), the feature being off, or the upstream not answering (503).
+
+    409 rather than ``/login``'s 401 + ``X-Diary-Reauth``, because asking for
+    the password again would loop: the session was good on the phone seconds
+    ago, and it is *this server* the diary will not take it from.
+    """
+    # The same limiter and the same bucket as /login: a separate one would
+    # double what one caller may try against the upstream from our address.
+    client = caller_bucket(request, scope="diary:")
+    await _refuse_if_throttled(session, client)
+
+    provider, region, school_id = _resolve_session_target(payload)
+    # The provider's own serialisation: Petersburg's bare token, or the JSON of
+    # what «Сетевой город» handed the phone, with the fields it did not hand
+    # left out rather than stored as nulls.
+    credential = (
+        payload.credential.model_dump_json(exclude_none=True)
+        if isinstance(payload, NetSchoolSessionIn)
+        else payload.credential.token
+    )
+
+    try:
+        registered = await service.adopt(
+            session,
+            provider=provider,
+            login=payload.login,
+            credential=credential,
+            region=region,
+            school_id=school_id,
+        )
+    except service.DiaryDisabled as failure:
+        raise _disabled() from failure
+    except UpstreamUnavailable as failure:
+        # Nothing judged the session: the diary did not answer, or will not
+        # talk to this address at all. Forgiven, like /login's 503.
+        raise _unavailable(failure) from failure
+    except NoStudents as failure:
+        await diary_login_limiter.record_failure(session, client)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=failure.message
+        ) from failure
+    except (SessionExpired, BadCredentials) as failure:
+        # Before the broader DiaryError below, and after NoStudents, which is
+        # a SessionExpired too. Counted: this is also what a replay of a
+        # session that was never real looks like.
+        await diary_login_limiter.record_failure(session, client)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=REFUSED_FROM_HERE_DETAIL
+        ) from failure
+    except DiaryError as failure:
+        await diary_login_limiter.record_failure(session, client)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=failure.message
+        ) from failure
+
+    return DiarySessionOut(
+        token=registered.token,
+        login=registered.row.login,
+        provider=provider,
+        region=region,
+        school_id=school_id,
+        school_name=registered.school_name,
+        zone=service.zone_for(provider, region),
+        students=[DiaryStudentOut.of(student) for student in registered.students],
+    )
+
+
+# Added by hand rather than by decorator only to give it the route class that
+# keeps a refused session out of the 422.
+router.add_api_route(
+    "/session",
+    register_session,
+    methods=["POST"],
+    response_model=DiarySessionOut,
+    route_class_override=_NoEchoRoute,
+)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

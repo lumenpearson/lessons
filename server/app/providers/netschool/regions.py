@@ -24,9 +24,10 @@ Two flags decide what a region is good for:
 session in clear text, so a region that serves only ``http`` (Волгоград) is
 left out rather than downgraded.
 
-``ca_bundle`` is for a region that presents a non-Mozilla root (the Russian
-Trusted Root): a path to a CA file to trust *for that origin only*. TLS
-verification is never turned off; a region that would need that is left out.
+Trust is the system's, for every origin alike. A region whose server presents
+a root the system does not trust (the Russian Trusted Root) is left out too:
+there is no per-origin CA here — an earlier ``ca_bundle`` field promised one
+and nothing ever read it — and TLS verification is never turned off.
 """
 
 from __future__ import annotations
@@ -42,11 +43,11 @@ class Region:
     zone: str  # IANA; resolved through app.timezones.resolve, which falls back rather than raises
     password: bool = True
     verified: bool = False
-    ca_bundle: str | None = None
 
 
-# Ordered as docs/diaries.md lists them. Zones are the region's administrative
-# centre; a region spanning several keeps its capital's.
+# Alphabetical by title, which is the order the bot's region picker shows. Zones
+# are the region's administrative centre; a region spanning several keeps its
+# capital's.
 _REGIONS: tuple[Region, ...] = (
     # ЕСИА-only since 10 Jan 2026 — never offered, refused locally.
     Region("altai-krai", "Алтайский край", "https://netschool.edu22.info",

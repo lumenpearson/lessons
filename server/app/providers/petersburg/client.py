@@ -29,6 +29,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
+from app.providers.diary.http import cookie_value_ok
 from app.providers.petersburg.exceptions import (
     BadCredentials,
     SessionExpired,
@@ -353,6 +354,13 @@ class PetersburgClient:
         return self._unwrap(response)
 
     async def _raw(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        if self.token and not cookie_value_ok(self.token):
+            # A session the phone registered is checked at the door, but a
+            # stored credential is checked again here, whatever wrote it: a
+            # value holding `;` would send a second cookie of the caller's
+            # choosing. One that cannot be sent is a dead session, and the
+            # answer to that is the one every dead session gets.
+            raise SessionExpired()
         client = await shared_client()
         cookies = {SESSION_COOKIE: self.token} if self.token else None
         try:

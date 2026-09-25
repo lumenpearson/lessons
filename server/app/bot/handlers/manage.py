@@ -122,6 +122,7 @@ from app.providers.netschool.client import NetSchoolClient
 from app.services import access as access_service
 from app.services import audit, linking, structure, timetable_io
 from app.services import calendar as calendar_service
+from app.services import diary as diary_service
 from app.services import stats as stats_service
 from app.services import subjects as subjects_service
 from app.services import terms as terms_service
@@ -2389,6 +2390,10 @@ async def class_diary_bind(
     if school_class.diary_provider:
         # Bound → unbind. The door goes; the sessions people opened stay theirs
         # until they sign out or the class is deleted, as three screens promise.
+        # Nothing is expired here, deliberately: with no binding the bot reads
+        # none of them anyway, and a later bind expires exactly those it does
+        # not read (`diary_service.expire_off_binding`) — which, unlike this,
+        # knows which diary the class went to.
         school_class.diary_provider = None
         school_class.diary_region = None
         school_class.diary_school_id = None
@@ -2427,6 +2432,9 @@ async def class_diary_provider(
         school_class.diary_region = None
         school_class.diary_school_id = None
         school_class.diary_school_name = None
+        # The members' «Сетевой город» sessions read a diary the class has
+        # left; expired in the same commit as the binding they no longer fit.
+        await diary_service.expire_off_binding(session, school_class)
         await audit.record(
             session, school_class.id, callback.from_user.id, "class.diary",
             "привязан дневник Санкт-Петербурга",
@@ -2583,6 +2591,10 @@ async def class_diary_school(
     school_class.diary_region = region.key
     school_class.diary_school_id = int(school["id"])
     school_class.diary_school_name = str(school["name"])[:300]
+    # Sessions on another region's server, or Petersburg's, read a diary the
+    # class has left: expired with the binding, so the keep-alive stops
+    # pinging a server nobody here uses. The same region keeps them.
+    await diary_service.expire_off_binding(session, school_class)
     await audit.record(
         session, school_class.id, callback.from_user.id, "class.diary",
         f"привязан «Сетевой город»: {region.title}, {str(school['name'])[:200]}",

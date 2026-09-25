@@ -7,15 +7,21 @@ that the bot cannot satisfy — a password typed into a Telegram chat is in the
 chat history, on Telegram's servers, in the notification on a locked screen
 and in that phone's backup, and deleting the message undoes none of it.
 
-So the password is taken here instead: over HTTPS, straight from the browser
-to the upstream, written down nowhere. The page holds no state of its own. It
-sets no cookie, because the session it opens belongs to a Telegram account
-rather than to whichever browser happened to be handy. It is reached once,
-with a ticket the bot handed out (``services/diary_link``), and the ticket is
-spent by an attempt — a right password and a wrong one cost the same. The one
-thing that does not cost it is the diary being unreachable, where nothing ever
-looked at the password and so no guess was made (see ``_unspend``, which says
-why that line is drawn there and not further along).
+So the password is taken here instead: over HTTPS, from the browser to this
+server, which passes it to the diary once and writes it down nowhere. It does
+cross this server. The app's own sign-in does not — it talks to the diary
+directly and hands over only the session — so this page, and the
+``POST /api/v1/diary/login`` older apps still call, are where a family's
+password passes through us, and they are described that way.
+
+The page holds no state of its own. It sets no cookie, because the session it
+opens belongs to a Telegram account rather than to whichever browser happened
+to be handy. It is reached once, with a ticket the bot handed out
+(``services/diary_link``), and the ticket is spent by an attempt — a right
+password and a wrong one cost the same. The one thing that does not cost it is
+the diary being unreachable, where nothing ever looked at the password and so
+no guess was made (see ``_unspend``, which says why that line is drawn there
+and not further along).
 
 Three headers do the rest of the work, and each answers a specific leak:
 

@@ -35,6 +35,7 @@ from app.models import (
     Subject,
     TimetableEntry,
 )
+from app.providers.diary.registry import binding as diary_binding
 from app.schedule import ResolvedDay, ResolvedLesson, ScheduleResolver
 from app.schemas import (
     API_VERSION,
@@ -43,6 +44,7 @@ from app.schemas import (
     ClassOut,
     DayOut,
     DeviceOut,
+    DiaryBindingOut,
     DoneIn,
     DoneOut,
     EventOut,
@@ -430,6 +432,11 @@ async def join(
         class_name=school_class.name,
         school=school_class.school,
         timezone=school_class.timezone_name,
+        # Through `registry.binding`, the one reading of a class's binding, so
+        # a region since dropped from the allow-list, one that takes no
+        # password, or a «Сетевой город» binding with no school all tell the
+        # phone «no diary» rather than point it at one this server refuses.
+        diary=DiaryBindingOut.of(diary_binding(school_class)),
     )
 
 

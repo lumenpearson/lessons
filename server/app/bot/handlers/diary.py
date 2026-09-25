@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.diary_keyboard import (
@@ -44,6 +44,7 @@ from app.bot.keyboards import Menu, shift_days, shift_weeks
 from app.config import get_settings
 from app.crypto import diary_enabled
 from app.models import DiarySession, Role, SchoolClass
+from app.providers.diary import registry as diary_registry
 from app.providers.diary.errors import DiaryError, SessionExpired, UpstreamUnavailable
 from app.providers.diary.registry import binding as diary_binding
 from app.services import diary as diary_service
@@ -53,9 +54,10 @@ log = logging.getLogger(__name__)
 
 router = Router(name="diary")
 
-#: The provider a class may be bound to. One today; the column is a string so
-#: that a second one does not rename it.
-PETERSBURG = "petersburg"
+#: Petersburg's provider key, as the class column stores it. The registry's
+#: own name (`registry.PETERSBURG`), kept here under the spelling the tests of
+#: this module bind a class with.
+PETERSBURG = diary_registry.PETERSBURG
 
 #: How many days of homework a «Задания» screen asks for.
 HOMEWORK_DAYS = 14
@@ -73,29 +75,26 @@ async def _session_for(
     classes would read one child's diary from the other class's screen; on
     class_id alone there would be no diary in this bot worth having.
 
-    Also keyed on the class's *current* provider: an admin can rebind a class
-    from one diary to another, and a session opened against the old upstream
-    holds a credential the new diary would not accept. Filtering it out here
-    turns the stale row into a clean «войдите снова» rather than a screen that
-    silently talks to the diary the class left. A legacy row with no provider
-    is Petersburg, which is what the column meant before it existed.
+    Also keyed on the class's *current* binding: an admin can rebind a class
+    from one diary to another, or from one «Сетевой город» region to another,
+    and a session opened against the old one holds a credential for a server
+    the class has left. Filtering it out here turns the stale row into a clean
+    «войдите снова» rather than a screen that silently talks to the diary the
+    class left. Matching the provider alone let a session on the old region
+    through; `diary_service.reads_binding` is the one clause, and the rebind
+    expires the same rows by it. A legacy row with no provider is Petersburg,
+    which is what the column meant before it existed.
     """
     b = diary_binding(school_class)
     if b is None:
         return None
-    if b.provider.key == PETERSBURG:
-        provider_clause = or_(
-            DiarySession.provider == PETERSBURG, DiarySession.provider.is_(None)
-        )
-    else:
-        provider_clause = DiarySession.provider == b.provider.key
     row = await session.scalar(
         select(DiarySession)
         .where(
             DiarySession.telegram_id == telegram_id,
             DiarySession.class_id == school_class.id,
             DiarySession.expired_at.is_(None),
-            provider_clause,
+            diary_service.reads_binding(b),
         )
         .order_by(DiarySession.id.desc())
     )

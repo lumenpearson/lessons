@@ -90,6 +90,38 @@ async def test_a_session_does_not_cross_between_classes(session, school_class):
     assert await handlers._session_for(session, MINE, other) is not None
 
 
+async def test_a_session_on_the_region_the_class_left_is_not_read(session, school_class):
+    """A class moved from samara's «Сетевой город» server to amur's. The lookup
+    matched the provider alone, so «📒 Мой дневник» went on reading samara — a
+    diary the class had left, with a credential for another server. The region
+    is part of what a session reads now."""
+    school_class.diary_provider = "netschool"
+    school_class.diary_region = "amur"
+    school_class.diary_school_id = 11
+    await session.commit()
+
+    def netschool_row(region: str, token: str) -> DiarySession:
+        return DiarySession(
+            token_hash=hash_token(token),
+            upstream_token=seal("upstream"),
+            login="parent@example.com",
+            telegram_id=MINE,
+            class_id=school_class.id,
+            provider="netschool",
+            region=region,
+        )
+
+    session.add(netschool_row("samara", "left-behind"))
+    await session.commit()
+    assert await handlers._session_for(session, MINE, school_class) is None
+
+    current = netschool_row("amur", "current")
+    session.add(current)
+    await session.commit()
+    found = await handlers._session_for(session, MINE, school_class)
+    assert found is not None and found.id == current.id
+
+
 async def test_a_session_whose_key_no_longer_opens_it_is_dead(session, school_class):
     await _bind(session, school_class)
     row = await _open_session(session, telegram_id=MINE, class_id=school_class.id)

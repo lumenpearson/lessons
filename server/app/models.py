@@ -767,11 +767,15 @@ class DiarySession(Base):
     session dies the app asks the person to sign in again, which is what every
     other service does too.
 
-    The token is a bearer credential, so it is treated like one: it never
-    leaves the server, never reaches the Android client, and the client is
-    handed a token of ours instead (`token_hash`, hashed exactly like
-    :class:`DeviceToken`). One row is one browser-shaped session; a person
-    signing in twice gets two, and signing out drops one.
+    The token is a bearer credential, so it is treated like one. It arrives
+    one of two ways: this server signs in with a password and receives it
+    (the bot's sign-in page, the older ``POST /api/v1/diary/login``), or the
+    phone signs in with the diary itself and hands the session over once
+    (``POST /api/v1/diary/session``), then forgets it. Either way it never
+    leaves this server again — no answer carries it back to any client — and
+    the client is handed a token of ours instead (`token_hash`, hashed exactly
+    like :class:`DeviceToken`). One row is one browser-shaped session; a
+    person signing in twice gets two, and signing out drops one.
     """
 
     __tablename__ = "diary_sessions"
@@ -779,24 +783,28 @@ class DiarySession(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     # Our token, as a hash. The plaintext is shown to the client once.
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
-    # The upstream's ``X-JWT-Token``, **sealed** — see ``app/crypto.py``. It is
-    # the one credential here that cannot be a hash, because it is replayed to
-    # the upstream on every call, so it is the one that is encrypted instead.
-    # Refreshed in place (and re-sealed) whenever the upstream hands back a new
-    # one, which it does on most calls.
+    # The upstream's session — Petersburg's ``X-JWT-Token``, or «Сетевой
+    # город»'s ``at``, cookies and bootstrap as JSON — **sealed**; see
+    # ``app/crypto.py``. It is the one credential here that cannot be a hash,
+    # because it is replayed to the upstream on every call, so it is the one
+    # that is encrypted instead. Refreshed in place (and re-sealed) whenever the
+    # upstream hands back a new one, which it does on most calls.
     upstream_token: Mapped[str] = mapped_column(Text, nullable=False)
     # Who signed in. Shown on the "you are signed in as" line, and also the key
     # a family's corrections hang on (`services/diary.py:owner_key`), so the
     # same login re-used later lays its overrides over the same lessons.
     login: Mapped[str] = mapped_column(String(200), nullable=False)
     # The Telegram account this session belongs to. Set when the session was
-    # opened from the bot's sign-in ticket (`api/diary_web.py`); NULL for the
-    # phone's `POST /api/v1/diary/login`, which has no Telegram account.
+    # opened from the bot's sign-in ticket (`api/diary_web.py`); NULL for a
+    # phone's (`POST /api/v1/diary/session`, or the older `/login`), which has
+    # no Telegram account — showing a phone's session in the bot is left for
+    # later, on purpose.
     telegram_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
     # The class the session was opened from, when it was opened in the bot.
     # Carried so that leaving a class can take its diary session with it, and
     # so that «Дневник» in one class does not answer with a session opened in
-    # another. Null for the Android client, which has no class in this flow.
+    # another. Null for a phone's session, which belongs to no class: joining
+    # a class and signing in to a diary imply nothing about each other.
     class_id: Mapped[int | None] = mapped_column(
         ForeignKey("classes.id", ondelete="CASCADE"), index=True
     )
@@ -838,9 +846,11 @@ class DiaryLinkCode(Base):
     The password is the whole confidentiality question, and the answer this
     project gives is that it never enters Telegram at all. The bot hands out a
     URL; the form is served over HTTPS by this same app; the password goes
-    from the browser straight to the upstream and is never written down. What
-    Telegram ever sees is this code, which is worth one sign-in, for fifteen
-    minutes, for one account.
+    from the browser to this server, which passes it to the diary once and
+    writes it down nowhere. It does cross this server — unlike the app's own
+    sign-in, which talks to the diary directly — and that is said wherever
+    the form is described. What Telegram ever sees is this code, which is
+    worth one sign-in, for fifteen minutes, for one account.
 
     Typing the password to the bot instead would put it in the chat history, on
     Telegram's servers, in the notification that pops up on a locked screen and

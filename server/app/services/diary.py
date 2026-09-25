@@ -6,30 +6,37 @@ and a date range. What lives only here is the part that is this project's
 policy rather than the upstream's behaviour: how a session is stored, when it
 is refreshed, and what happens when it dies.
 
-The rule about credentials is enforced here, in one place: the password is used
-once, to log in, and is never written anywhere. The upstream's own session
-token is what is kept, it is refreshed in place whenever a call brings back a
-newer one, and when the upstream stops accepting it the row is marked expired
-and the person signs in again. That costs a login screen every few days and
-buys not holding a family's password.
+The rule about credentials is enforced here, in one place: the upstream's own
+session is what is kept, never a password. It reaches this server one of two
+ways. :func:`sign_in` takes a password, uses it once to log in and writes it
+nowhere — the bot's sign-in page and ``POST /api/v1/diary/login``, which older
+apps still call. :func:`adopt` takes a session the phone opened itself,
+straight with the diary, so no password ever came here; it is checked with a
+read of this server's own before it is kept. Either way the session is sealed,
+refreshed in place whenever a call brings back a newer one, and when the
+upstream stops accepting it the row is marked expired and the person signs in
+again. That costs a login screen every few days and buys not holding a
+family's password.
 """
 
 from __future__ import annotations
 
 import hashlib
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from datetime import date as Date
 
+from sqlalchemy import ColumnElement, and_, func, select
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import select
+from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crypto import diary_enabled, seal, unseal
 from app.db import rows_affected
-from app.models import DiaryOverride, DiarySession
-from app.providers.diary.base import SignInRequest
+from app.models import DiaryOverride, DiarySession, SchoolClass
+from app.providers.diary.base import AdoptRequest, SignInRequest
 from app.providers.diary.errors import DiaryError, SessionExpired
 from app.providers.diary.models import (
     AcademicPeriod,
@@ -41,7 +48,8 @@ from app.providers.diary.models import (
     Subject,
     Teacher,
 )
-from app.providers.diary.registry import PETERSBURG, provider_for
+from app.providers.diary.registry import PETERSBURG, Binding, provider_for
+from app.providers.diary.registry import binding as class_binding
 from app.security import hash_token, new_token
 
 log = logging.getLogger(__name__)
@@ -63,6 +71,59 @@ class DiaryDisabled(RuntimeError):
 
 def utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+def zone_for(provider: str, region: str | None = None) -> str:
+    """The IANA zone a diary's days are cut at — Petersburg's city clock, or a
+    «Сетевой город» region's administrative centre.
+
+    Asked of the provider, whose connection's ``today()`` cuts the day with
+    the very same rule, so what the phone is told at registration and what
+    this server reads as «today» for the same session cannot drift apart.
+    """
+    impl = provider_for(provider)
+    if impl is None:
+        # A key no implementation answers. Callers validate first, so this is a
+        # programming error, not a user's.
+        raise ValueError(f"unknown diary provider {provider!r}")
+    return impl.zone(region)
+
+
+async def _open_row(
+    session: AsyncSession,
+    credential: str,
+    *,
+    login: str,
+    provider: str,
+    region: str | None,
+    telegram_id: int | None = None,
+) -> tuple[str, DiarySession]:
+    """Seal an upstream credential and open a session of ours on it.
+
+    The one place a row is minted, whichever way the credential arrived, so
+    that «what a session holds» has one answer. Every caller has just had the
+    upstream accept the credential, which is what ``upstream_ok_at`` records.
+
+    @return the token to hand the client — shown once, stored only as a hash —
+        and the row behind it.
+    """
+    now = utcnow()
+    token = new_token()
+    row = DiarySession(
+        token_hash=hash_token(token),
+        # Sealed before it is ever handed to the session, so there is no path
+        # through this function on which the plaintext reaches the ORM.
+        upstream_token=seal(credential),
+        login=login.strip(),
+        provider=provider,
+        region=region,
+        telegram_id=telegram_id,
+        last_used_at=now,
+        upstream_ok_at=now,
+    )
+    session.add(row)
+    await session.commit()
+    return token, row
 
 
 async def sign_in(
@@ -98,22 +159,119 @@ async def sign_in(
             login=login.strip(), password=password, region=region, school_id=school_id
         )
     )
-
-    token = new_token()
-    row = DiarySession(
-        token_hash=hash_token(token),
-        # Sealed before it is ever handed to the session, so there is no path
-        # through this function on which the plaintext reaches the ORM.
-        upstream_token=seal(credential),
-        login=login.strip(),
-        provider=provider,
-        region=region,
+    return await _open_row(
+        session, credential, login=login, provider=provider, region=region,
         telegram_id=telegram_id,
-        last_used_at=utcnow(),
     )
-    session.add(row)
-    await session.commit()
-    return token, row
+
+
+@dataclass(frozen=True)
+class Registered:
+    """A session the phone opened, now ours: the token to hand back once, the
+    row, and what the validating read already fetched."""
+
+    token: str
+    row: DiarySession
+    students: list[Student]
+    school_name: str | None
+
+
+async def adopt(
+    session: AsyncSession,
+    *,
+    provider: str,
+    login: str,
+    credential: str,
+    region: str | None = None,
+    school_id: int | None = None,
+) -> Registered:
+    """Keep a session the phone opened itself, once this server has seen it work.
+
+    The password never came here: the phone signed in with the diary directly
+    and hands over only what the diary gave it. The provider reads with it from
+    this server's address — that read is the whole check, since a session the
+    upstream will not take from here is worth nothing to keep — and what it
+    hands back (possibly rotated) is what is sealed.
+
+    ``login`` is what the person typed on the phone. Nothing upstream vouches
+    for it; it names the row and keys the corrections (:func:`owner_key`),
+    which every route reaches only through a pupil this session can see.
+
+    The row carries no Telegram account and no class: a phone's session is not
+    the bot's, and linking the two is deliberately left for later.
+    """
+    # Before the upstream call, for `sign_in`'s reason: without a key the
+    # answer has nowhere to go, and a read made to throw it away is a read
+    # made from our address for nothing.
+    if not diary_enabled():
+        raise DiaryDisabled("DIARY_SECRET is not configured")
+
+    impl = provider_for(provider)
+    if impl is None:
+        raise ValueError(f"unknown diary provider {provider!r}")
+
+    adopted = await impl.adopt(
+        AdoptRequest(credential=credential, region=region, school_id=school_id)
+    )
+    token, row = await _open_row(
+        session, adopted.credential, login=login, provider=provider, region=region
+    )
+    return Registered(
+        token=token, row=row, students=list(adopted.students), school_name=adopted.school_name
+    )
+
+
+def reads_binding(bound: Binding) -> ColumnElement[bool]:
+    """Whether a session row reads the diary a class is bound to.
+
+    The one clause for it, used by the bot's lookup and by the expiry on
+    rebinding, so «which sessions belong to this binding» cannot be answered
+    two ways. Petersburg is one server, so the provider is enough — and a row
+    with no provider is Petersburg, which is what the column meant before it
+    existed. A many-server provider must match the region too: a «Сетевой
+    город» session is a session with one regional server, and read against
+    another region's binding it would talk to the diary the class has left.
+
+    Both halves are written with ``coalesce`` so the clause is never SQL's
+    NULL, which ``NOT`` would leave NULL and so match nothing.
+    """
+    provider = func.coalesce(DiarySession.provider, PETERSBURG)
+    if bound.region is None:
+        return provider == bound.provider.key
+    return and_(
+        provider == bound.provider.key,
+        func.coalesce(DiarySession.region, "") == bound.region,
+    )
+
+
+async def expire_off_binding(session: AsyncSession, school_class: SchoolClass) -> int:
+    """Expire the class's live sessions its current binding no longer reads.
+
+    Called when a class is bound, before the caller commits, so the binding
+    and the expiry land together. The bot already stops *reading* such a row
+    (:func:`reads_binding`); expiring it as well is what stops the keep-alive
+    pinging a regional server the class has left, and what the purge then
+    sweeps. The same region again, or another school in it, keeps them: a
+    session is an account on the region's server, not on one school.
+
+    Not called on unbinding. That takes the door away and nothing else — the
+    sessions stay their owners' until they sign out, as the bot promises.
+
+    @return how many rows were expired. Does not commit.
+    """
+    bound = class_binding(school_class)
+    if bound is None:
+        return 0
+    result = await session.execute(
+        sa_update(DiarySession)
+        .where(
+            DiarySession.class_id == school_class.id,
+            DiarySession.expired_at.is_(None),
+            ~reads_binding(bound),
+        )
+        .values(expired_at=utcnow())
+    )
+    return rows_affected(result)
 
 
 def upstream_of(row: DiarySession) -> str | None:
