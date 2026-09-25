@@ -86,10 +86,25 @@ jobs:
               # — which is how the Russian guide grows a page the English one
               # does not have, and an English reader gets a toolbar with a
               # different number of buttons and nothing logged.
-              android/*|docs/app/*|.github/workflows/*) android=true ;;
+              # `docs/legal/` is the same case: `:app` packages it as assets
+              # and `LegalDocumentsTest` holds the two languages level. The
+              # region catalog and the protocol vectors live under `server/`
+              # but are Android inputs too — the catalog is the phone's
+              # allow-list of diary hosts, bundled in place, and the vectors
+              # are `DiaryProtocolVectorsTest`'s resource — so an edit to
+              # either must run both halves, not only the server's.
+              android/*|docs/app/*|docs/legal/*|server/app/catalog/data/*|server/tests/vectors/*|.github/workflows/*) android=true ;;
             esac
             case "$file" in
-              server/*|api/*|requirements.txt|.github/workflows/*) server=true ;;
+              # Server tests read documents too, and a commit touching only one
+              # of them used to run nothing (#159): `docs/deploy.md` and
+              # `docs/build.md` are compared with the settings and `.env.example`
+              # (test_deployment_config, test_database_url, test_roles,
+              # test_env_example), `docs/diaries/regions.md` is the region
+              # catalog's input and `docs/diaries.md` its table
+              # (test_region_catalog), `docs/diaries/netschool.md` is quoted by
+              # test_netschool_mapper.
+              server/*|api/*|requirements.txt|docs/deploy.md|docs/build.md|docs/diaries.md|docs/diaries/*|.github/workflows/*) server=true ;;
             esac
           done <<< "$files"
 
