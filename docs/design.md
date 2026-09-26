@@ -54,6 +54,14 @@ tray simply becomes a capsule. The picker used to be clipped at the call site wi
 arithmetic rather than on a screen, which is the only way either could be checked at all:
 Glance builds `RemoteViews` and there is no frame loop to draw them into.
 
+**The same inset is the gap between two segments.** A tray is the space around its
+backings, and it reads as even only when a backing is as far from its neighbour as from the
+edge. The picker's corners followed the 4 dp inset while its segments kept Material's 2 dp
+connected gap, so they looked crowded together inside a wider frame (#184). In a tray the
+gap is the inset now; a picker with no tray keeps the connected gap, because there is no
+edge to match. The floating toolbar keeps the same rule with 8 dp for both: its pill's inset
+and the gap between tabs. `SegmentedPickerGapTest` reads it as geometry.
+
 **The widget derives every inner corner from the rung it is on.** Its `innerCorner()` is
 the 24 dp surface less that rung's own padding, floored at 6 dp. It was a
 flat 18 dp — "one step tighter than the surface" — which would have been right for exactly
