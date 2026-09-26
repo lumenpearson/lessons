@@ -168,6 +168,14 @@ scrolled into next September at all: while the cache held exactly one window
 and a sync wiped the class, arriving in another year would have destroyed the
 one being left.
 
+The class row is the one thing every year shares, and it carries the terms. A
+bundle brings the terms of the year it was asked for, so `replaceWindow` keeps
+every stored term outside the window and takes the window's own from the bundle,
+inside the transaction that writes the row. Written as they came, a look at last
+year replaced this year's quarters, the next refresh of this year answered `304`
+and wrote nothing, and the calendar's header lost «1 четверть» until the year's
+data changed on the server (#169, found on an emulator).
+
 `synced_window` is a table rather than something counted off the days present,
 because **a year fetched and genuinely empty has to be tellable from one never
 fetched**. A class made in March has no rows before it either way; counting
@@ -715,9 +723,9 @@ with the host.
 
 ## Testing
 
-2024 tests on the server, 1408 on Android; `pytest -q -n auto` and `./gradlew test`, both
-offline, both in CI. On Android that is `:core:model` 125, `:core:data` 532,
-`:core:designsystem` 99, `:widget` 104, `:app` 548.
+2024 tests on the server, 1438 on Android; `pytest -q -n auto` and `./gradlew test`, both
+offline, both in CI. On Android that is `:core:model` 125, `:core:data` 537,
+`:core:designsystem` 112, `:widget` 113, `:app` 551.
 
 The table below is the load-bearing part of that rather than the whole of it:
 

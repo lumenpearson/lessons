@@ -207,7 +207,7 @@ Read this before planning a release.
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 100 modules — asks whether anything reaches for an attribute that does not exist |
 | `pytest -q -n auto` | 2024 tests, green, about four minutes — the command CI runs |
-| `./gradlew test` | 1408 tests, green, all five modules |
+| `./gradlew test` | 1438 tests, green, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
 
@@ -219,8 +219,22 @@ The server was checked live: brought up under uvicorn, answering `join` and `bun
 handing back substitutions, events, homework and `next_school_day`. The state engine was
 walked through all 1440 minutes of a school day and through all eleven Russian time zones.
 
-**What nothing checks.** There is no `androidTest` directory in this project: not one test
-has run on a device or an emulator. About two dozen of the app's screens, sheets and rows —
+**What one walkthrough on an emulator saw.** On 26 September 2026 the app was walked by
+hand on an API 37 emulator (Pixel 10 Pro XL image), against a local server and against
+production, with the live bot beside it: the first run in both languages, both ways in as
+far as the diary's password form, a wrong code, the `429`, the calendar's four views and the
+year picker, rearranging the tabs, the correction mode, two classes and the switch between
+them, the join modes and a personal code taken from the bot, the widget on the Pixel
+launcher at four sizes and two font scales, an upgrade from the build before #140, a
+refusal between two signing keys, and a real backup and restore through `bmgr`. It found
+twelve defects (#167–#178), and the fixes were checked on the same emulator. The owner's six
+requests of that night about the tab bar and the pickers (#179–#184) are held by JVM tests;
+on the emulator, which the owner was using at the same time, only the one-touch pickup and
+the pill's round end were seen. What it could not give is written in `HANDOVER.md`: a thumb,
+haptics, a real GPU, Doze on a school morning, TalkBack, a real diary account.
+
+**What nothing checks automatically.** There is no `androidTest` directory in this project:
+not one test runs on a device or an emulator. About two dozen of the app's screens, sheets and rows —
 the class list, the join mode, the connection errors, the first-run reveal and the terms line
 under its button, the diary home, the crash-report sheet, the calendar's header, its two
 sheets, its year picker and its day list, and the rest — are
@@ -230,21 +244,23 @@ are exercised the same way. Nobody has pressed the
 rest of the interface or the widget: compilation proves that the types line up and says
 nothing about what happens on the screen. Covered by nothing:
 
-* the widget drawn at each of its twelve sizes;
+* the widget drawn at each of its twelve sizes — the walkthrough saw four launcher sizes,
+  not twelve rungs;
 * the accuracy of the `TickCadence` alarms in real Doze;
-* the layout of the other screens, the dark theme, dynamic colours;
-* the behaviour when the network drops and on the first sync;
-* runtime crashes the compiler cannot see.
+* the dark theme and dynamic colours beyond a glance, and the screens nobody opened;
+* runtime crashes the compiler cannot see, beyond the ones a walkthrough happens to hit.
 
 Material 3 Expressive and Glance 1.3.0-alpha02 are alphas. They compile, but nobody has
 measured how they behave across Android versions.
 
 The electronic diary has never once been opened against a real server. Not Petersburg's
 dnevnik2.petersburgedu.ru — neither the sign-in page nor any screen of the app's diary — and
-not «Сетевой город. Образование», the second provider, which **has never met a live regional
-server**: its password sign-in (on the server and on the phone), its
-keep-alive, its region allow-list and its weekly-diary mapping are read from open-source
-clients and exercised on hand-written payloads, exactly as Petersburg's were. The tests run a hand-written stub in
+not «Сетевой город. Образование», the second provider, whose **only contact with a live
+regional server** is the phone's school search: on 26 September 2026 the emulator asked
+Амурская область's server over TLS and got its real list of schools back. Its password
+sign-in (on the server and on the phone), its keep-alive, its region allow-list and its
+weekly-diary mapping are read from open-source clients and exercised on hand-written
+payloads, exactly as Petersburg's were. The tests run a hand-written stub in
 place of each: that is the only honest way to check an integration with an undocumented
 service, but it says nothing about what that service actually answers. No browser has ever
 opened the sign-in page for either, and the first live session, for both, is the owner's
@@ -266,8 +282,10 @@ nothing more.** The app now signs in to the diary itself and registers the sessi
 what it reads in a second database; imports two weeks of it and the term's marks at the
 first run, with a progress bar; and gives a phone with a diary and no class a home of its own, with the class
 sync disarmed there (#151, #152). All of it is held by pure rules, view models and
-MockWebServer: not one step has run on a device, against a live diary or against a deployed
-server. Nothing composes the shell in a test, so the gate, the hold through a join or a
+MockWebServer. On an emulator the steps were walked as far as the password form — region,
+school, the Госуслуги and «Моя школа» hand-offs to the browser — and no further: no password
+was typed, so nothing has run against a live diary's sign-in or registered a session with a
+deployed server. Nothing composes the shell in a test, so the gate, the hold through a join or a
 registration, the swap to the right home and the resume after a process death are proved by
 their rules alone. TLS to the regional servers, Room's `diary.db` on a device, the browser
 hand-offs to Госуслуги and to a diary's site, TalkBack on the new steps and the English text
@@ -277,11 +295,13 @@ alerts (#142).
 
 **The terms and the privacy policy describe the code and have never been read by a lawyer.**
 The line under the first button opens them in the browser or, offline, from the copy in the
-APK; that the default address resolves was checked on 25 September 2026 by fetching it, and no
-link has been tapped on a phone. Phones that finished the first run before this build never
-see the line — the documents stay reachable from «О приложении» — and the bot shows no link
-to either. That crash reports are kept out of a phone's backup is in the backup rules and
-their test only; it needs a phone to confirm (#156).
+APK; on an emulator the link opened the English terms on GitHub online and the bundled
+«Privacy policy, Edition 1 of September 25, 2026» sheet in airplane mode. Phones that
+finished the first run before this build never see the line — the documents stay reachable
+from «О приложении» — and the bot shows no link to either. That crash reports are kept out
+of a phone's backup was confirmed on an emulator through `bmgr` and the local transport,
+for the cloud rules and for a device transfer: a real crash report did not come back and a
+file beside it did (#156).
 
 **Week parity was computed from the ISO week number, and that broke once every five or six
 years.** In an ISO year with 53 weeks, week 53 and week 1 stand next to each other and are
