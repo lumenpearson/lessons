@@ -11,7 +11,9 @@ bootstrap over a session the phone opened itself: no password is involved, and
 `NetSchoolConnection` walks the diary a week at a time, because the route is a
 week at a time in every client, and clips each walk to the school year's bounds
 so a session kept alive across 1 September does not ask for a year that has
-ended. A credential that will not parse makes every call
+ended — and asks ``years/current`` again, at most once a day, when a read runs
+past the sealed year's end, so that same session moves on to the new year
+rather than reading an empty one. A credential that will not parse makes every call
 :class:`SessionExpired`, so a key rotation expires the row rather than 500ing.
 """
 
@@ -37,7 +39,12 @@ from app.providers.diary.models import (
     Teacher,
 )
 from app.providers.netschool import mapper as m
-from app.providers.netschool.client import CREDENTIAL_VERSION, SESSION_COOKIES, NetSchoolClient
+from app.providers.netschool.client import (
+    CREDENTIAL_VERSION,
+    SESSION_COOKIES,
+    NetSchoolClient,
+    _json_int,
+)
 from app.providers.netschool.regions import Region
 from app.providers.netschool.regions import get as region_for
 from app.timezones import resolve
@@ -127,14 +134,46 @@ class NetSchoolConnection:
     async def attendance(self, education_id: int) -> list[AttendanceEvent]:  # noqa: ARG002
         return m.to_attendance()
 
-    async def _walk(self, education_id: int, date_from: Date, date_to: Date):
+    async def _year_for(self, date_to: Date) -> tuple[int, Date | None, Date | None]:
+        """The sealed school year, asked again when a read runs past its end.
+
+        The year used to be fetched once, at the bootstrap, and never again —
+        so a session opened in August under the old year, or one the cron has
+        kept open across 1 September, clipped every walk to a year that had
+        ended and answered 200 with an empty diary until the family signed out
+        and back in, with nothing telling anybody to. At most once a day per
+        session: all summer a fortnight's read runs past 31 May, and the
+        upstream's answer then is the same old year until the new one opens.
+        The day it was asked is sealed with the rest, and only after an answer
+        that could be read, so a failed ask is asked again next read.
+        """
         year_id, year_start, year_end = self._year()
+        session = self._client.session
+        stale = year_id is None or (year_end is not None and date_to > year_end)
+        today = self.today().isoformat()
+        if stale and session.get("year_checked") != today:
+            fresh = _usable_year(await self._client.years_current())
+            if fresh is not None:
+                session.update(fresh)
+                session["year_checked"] = today
+                year_id, year_start, year_end = self._year()
         if year_id is None:
             raise SessionExpired  # no year handle sealed → the session is unusable
+        return year_id, year_start, year_end
+
+    async def _walk(self, education_id: int, date_from: Date, date_to: Date):
+        year_id, year_start, year_end = await self._year_for(date_to)
         for week_start, week_end in _weeks(date_from, date_to, year_start, year_end):
-            yield week_start, week_end, await self._client.diary_week(
+            diary = await self._client.diary_week(
                 education_id, year_id, _iso(week_start), _iso(week_end)
             )
+            if not isinstance(diary, dict):
+                # `null`, a list or a string where the week's object belongs.
+                # The mappers read it with `.get`, and the AttributeError was
+                # outside the diary's error family: a bare 500 with no reason
+                # for the phone, where every other odd answer is a 502.
+                raise UnexpectedResponse
+            yield week_start, week_end, diary
 
     async def schedule(
         self, education_id: int, date_from: Date, date_to: Date
@@ -252,12 +291,22 @@ class NetSchoolProvider:
         init = await client.diary_init()
         if not _students_of(init, None):
             raise NoStudents
-        year = await client.years_current()
-        if isinstance(year, dict):
-            client.session["year_id"] = year.get("id")
-            client.session["year_start"] = _year_date(year.get("startDate"))
-            client.session["year_end"] = _year_date(year.get("endDate"))
-        ctx = await client.context()
+        year = _usable_year(await client.years_current())
+        if year is None:
+            # Required, not best effort: every schedule, homework and grades
+            # read needs the year's id, and a session sealed without one was
+            # handed out with a 200 and expired by its first read — a 401 the
+            # phone answered by registering again, into the same loop.
+            raise UnexpectedResponse
+        client.session.update(year)
+        # The school's name and the type map are nice to have: a server that
+        # answers either with a 4xx (`_authed_json` reads that as
+        # UnexpectedResponse) still opens the diary, as a shape it does not
+        # know always did.
+        try:
+            ctx = await client.context()
+        except UnexpectedResponse:
+            ctx = None
         if isinstance(ctx, dict):
             org = ctx.get("organization")
             name = ctx.get("organizationName") or (
@@ -265,7 +314,10 @@ class NetSchoolProvider:
             )
             if name:
                 client.session["school"] = str(name)[:300]
-        types = await client.assignment_types()
+        try:
+            types = await client.assignment_types()
+        except UnexpectedResponse:
+            types = None
         if isinstance(types, list):
             client.session["types"] = {
                 str(t.get("id")): str(t.get("name"))
@@ -297,6 +349,24 @@ class NetSchoolProvider:
 def _year_date(raw) -> str | None:  # noqa: ANN001
     parsed = m._parse_date(raw)
     return parsed.isoformat() if parsed else None
+
+
+def _usable_year(year: Any) -> dict[str, Any] | None:
+    """``years/current`` as the three sealed keys, or ``None`` when the answer
+    lacks any of them — a JSON integer id and both bounds.
+
+    The bounds are required with the id: a year with no end can never be seen
+    to have ended, and `NetSchoolConnection._year_for` would go on clipping to
+    it for as long as the cron keeps the session open.
+    """
+    if not isinstance(year, dict):
+        return None
+    year_id = _json_int(year.get("id"))
+    start = _year_date(year.get("startDate"))
+    end = _year_date(year.get("endDate"))
+    if year_id is None or start is None or end is None:
+        return None
+    return {"year_id": year_id, "year_start": start, "year_end": end}
 
 
 class _DeadConnection:

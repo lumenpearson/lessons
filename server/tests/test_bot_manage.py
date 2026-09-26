@@ -21,6 +21,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import httpx
+import pytest
 from sqlalchemy import select
 
 from app.bot.handlers.manage import (
@@ -137,6 +139,7 @@ from app.models import (
     DayKind,
     DayOverride,
     DeviceToken,
+    DiaryLinkCode,
     DiarySession,
     Homework,
     JoinMode,
@@ -151,7 +154,7 @@ from app.models import (
     WeekParity,
 )
 from app.security import hash_token, new_token
-from app.services import audit
+from app.services import audit, diary_link
 
 # --------------------------------------------------------------------------
 # Stubs
@@ -2359,6 +2362,106 @@ async def test_an_editor_cannot_bind_the_diary(session, school_class):
         await handler(callback)
         assert school_class.diary_provider is None
         assert callback.alerted
+
+
+async def _rebind_to_netschool(session, school_class) -> None:
+    await class_diary_school(
+        FakeCallback(message=FakeEditable()),
+        SimpleNamespace(value=0),
+        session,
+        Role.ADMIN,
+        FakeState(
+            data={
+                "diary_region": "samara",
+                "diary_class_id": school_class.id,
+                "diary_schools": [{"id": 1234, "name": "Школа № 1"}],
+            }
+        ),
+    )
+
+
+async def _rebind_to_petersburg(session, school_class) -> None:
+    await class_diary_provider(
+        FakeCallback(message=FakeEditable()),
+        SimpleNamespace(value="petersburg"),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+
+async def _unbind_then_netschool(session, school_class) -> None:
+    await class_diary_bind(FakeCallback(message=FakeEditable()), session, school_class, Role.ADMIN)
+    await _rebind_to_netschool(session, school_class)
+
+
+@pytest.mark.parametrize(
+    ("before", "rebind", "site"),
+    [
+        ("petersburg", _rebind_to_netschool, "dnevnik2.petersburgedu.ru"),
+        ("petersburg", _unbind_then_netschool, "dnevnik2.petersburgedu.ru"),
+        ("netschool", _rebind_to_petersburg, "Самарская область"),
+    ],
+    ids=["petersburg-to-netschool", "unbind-then-netschool", "netschool-to-petersburg"],
+)
+async def test_a_rebind_between_the_form_and_the_submit_sends_the_password_nowhere(
+    session, school_class, monkeypatch, before, rebind, site
+):
+    """The form named one diary; an admin rebinds the class while the family
+    types; the submit must not hand that password to the diary bound now —
+    a Petersburg password's MD5 to a regional server, or a «Сетевой город»
+    password in plain JSON to dnevnik2 (#137). The rebind drops the class's
+    tickets in its own commit, so the submit finds none and asks nobody."""
+    from app.main import app
+
+    school_class.diary_provider = before
+    if before == "netschool":
+        school_class.diary_region = "samara"
+        school_class.diary_school_id = 1234
+        school_class.diary_school_name = "Школа № 1"
+    await session.commit()
+    code = await diary_link.mint(session, telegram_id=42, class_id=school_class.id)
+
+    sent: list[dict] = []
+
+    async def sign_in(session, login, password, **kwargs):
+        sent.append(kwargs)
+        raise AssertionError("the password was sent to a diary")
+
+    monkeypatch.setattr("app.api.diary_web.diary_service.sign_in", sign_in)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as web:
+        form = await web.get(f"/diary/signin/{code}")
+        assert form.status_code == 200
+        assert site in form.text
+
+        await rebind(session, school_class)
+        assert school_class.diary_provider != before
+
+        submitted = await web.post(
+            f"/diary/signin/{code}", data={"login": "parent", "password": "secret"}
+        )
+
+    assert submitted.status_code == 410
+    assert sent == []
+    assert await session.scalar(select(DiaryLinkCode)) is None
+
+
+async def test_unbinding_drops_the_class_links_and_nobody_elses(session, school_class):
+    other = SchoolClass(name="9Б", school="Школа № 1", join_code="OTHER42")
+    session.add(other)
+    school_class.diary_provider = "petersburg"
+    other.diary_provider = "petersburg"
+    await session.commit()
+    await diary_link.mint(session, telegram_id=42, class_id=school_class.id)
+    await diary_link.mint(session, telegram_id=43, class_id=school_class.id)
+    kept = await diary_link.mint(session, telegram_id=42, class_id=other.id)
+
+    await class_diary_bind(FakeCallback(message=FakeEditable()), session, school_class, Role.ADMIN)
+
+    left = (await session.scalars(select(DiaryLinkCode))).all()
+    assert [row.class_id for row in left] == [other.id]
+    assert await diary_link.claim(session, kept) is not None
 
 
 # --------------------------------------------------------------------------

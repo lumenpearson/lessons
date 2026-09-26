@@ -227,6 +227,46 @@ async def test_an_unknown_ticket_is_gone_rather_than_a_form(web):
     assert "type=password" not in response.text
 
 
+# ---- a class whose binding is not the one the link was minted under (#137) --
+
+
+@pytest.fixture
+def password_sent(monkeypatch) -> list[dict]:
+    """Every sign-in the page attempts. A refusal here must leave it empty:
+    the point of refusing is that the password never leaves this server."""
+    calls: list[dict] = []
+
+    async def spy(session, login, password, **kwargs):
+        calls.append({"login": login, **kwargs})
+        raise AssertionError("the password was sent to a diary")
+
+    monkeypatch.setattr(from_app.diary_service, "sign_in", spy)
+    return calls
+
+
+async def test_a_link_into_a_class_with_no_diary_opens_no_form_and_sends_nothing(
+    web, session, school_class, password_sent
+):
+    """Refused at the GET and at the POST, without spending the ticket: the
+    family did nothing wrong, and a class bound again can use the same link."""
+    assert school_class.diary_provider is None
+    code = await diary_link.mint(session, telegram_id=42, class_id=school_class.id)
+
+    shown = await web.get(f"/diary/signin/{code}")
+    assert shown.status_code == 410
+    assert "type=password" not in shown.text
+
+    sent = await web.post(
+        f"/diary/signin/{code}", data={"login": "parent@example.com", "password": "secret"}
+    )
+    assert sent.status_code == 410
+    assert "не привязан" in sent.text
+    assert password_sent == []
+    row = await session.scalar(select(DiaryLinkCode))
+    await session.refresh(row)
+    assert row.used_at is None
+
+
 async def test_a_second_link_retires_the_first(session, school_class):
     """Two live links is two chances for the older one — further up the chat,
     likelier to be scrolled past by somebody else — to still work."""
@@ -441,3 +481,77 @@ async def test_a_refused_sign_in_never_draws_the_form_again(web, upstream, ticke
     # Not a style left behind by the branch that went either, which is how a
     # renderer keeps a shape nothing builds.
     assert "class=bad" not in response.text
+
+
+async def _netschool_ticket(session, school_class, monkeypatch, routes: dict) -> str:
+    """A ticket for a class bound to «Сетевой город» in samara, with the
+    regional server answering ``routes`` (path → JSON) and 404 elsewhere."""
+    from app.providers.diary import http as diary_http
+    from app.providers.netschool import client as nsclient
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = routes.get(request.url.path)
+        if body is None:
+            return httpx.Response(404, json={})
+        return httpx.Response(200, json=body)
+
+    async def shared():
+        return httpx.AsyncClient(
+            transport=httpx.MockTransport(handler), cookies=diary_http.NoCookieJar()
+        )
+
+    monkeypatch.setattr(nsclient, "shared_client", shared)
+    school_class.diary_provider = "netschool"
+    school_class.diary_region = "samara"
+    school_class.diary_school_id = 1234
+    school_class.diary_school_name = "Школа № 1"
+    await session.commit()
+    return await diary_link.mint(session, telegram_id=42, class_id=school_class.id)
+
+
+async def test_an_account_with_no_pupil_is_told_so_rather_than_sent_to_the_site(
+    web, session, school_class, monkeypatch
+):
+    """The password was right and the account lists no pupil. `NoStudents` fell
+    through to «ответил непонятно … откройте asurso.ru, попросите новую
+    ссылку» — a diary that is up, and a link that fails the same way."""
+    code = await _netschool_ticket(session, school_class, monkeypatch, {
+        "/webapi/logindata": {"schoolLogin": True, "cacheVer": "1"},
+        "/webapi/auth/getdata": {"lt": "1", "ver": "2", "salt": "3"},
+        "/webapi/login": {"at": "at-staff"},
+        "/webapi/student/diary/init": {"students": []},
+    })
+
+    response = await web.post(
+        f"/diary/signin/{code}", data={"login": "teacher", "password": "correct"}
+    )
+
+    assert response.status_code == 403
+    assert "В этой учётной записи нет ученика" in response.text
+    assert "ответил непонятно" not in response.text
+    assert "родителя или ученика" in response.text
+    row = await session.scalar(select(DiaryLinkCode))
+    await session.refresh(row)
+    assert row.used_at is not None, "the password was judged"
+
+
+async def test_a_region_that_takes_only_gosuslugi_does_not_say_try_again(
+    web, session, school_class, monkeypatch
+):
+    """The page said «логин и пароль тут не подойдут» over «откройте её снова и
+    попробуйте ещё раз», because the note was picked by the ticket alone."""
+    code = await _netschool_ticket(session, school_class, monkeypatch, {
+        "/webapi/logindata": {"schoolLogin": False},
+    })
+
+    response = await web.post(
+        f"/diary/signin/{code}", data={"login": "parent", "password": "correct"}
+    )
+
+    assert response.status_code == 503
+    assert "Госуслуги" in response.text
+    assert "попробуйте ещё раз" not in response.text
+    assert "asurso.ru" in response.text
+    row = await session.scalar(select(DiaryLinkCode))
+    await session.refresh(row)
+    assert row.used_at is None, "nothing looked at the password"

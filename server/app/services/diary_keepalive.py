@@ -37,7 +37,7 @@ import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,14 +50,24 @@ from app.providers.diary.registry import NETSCHOOL, provider_for
 log = logging.getLogger(__name__)
 
 #: At most this many sessions a tick, so one tick's work is bounded whatever the
-#: number of families. The rest are first next tick (ordered oldest-attempt).
+#: number of families. The rest are first next tick: the queue is ordered by
+#: how long since a row was last known good (see `_claim`).
 KEEPALIVE_BATCH = 200
 #: A floor between two pings of one session, so extra or overlapping ticks are
 #: free and one address is not hammered. Well under the shortest idle window.
 KEEPALIVE_MIN_INTERVAL = timedelta(minutes=4)
 #: Stop starting new pings this many seconds into the tick, so the whole
-#: request stays inside the platform's function ceiling.
+#: request stays inside the platform's function ceiling (``maxDuration: 30``
+#: in ``vercel.json``). Asked when a ping gets its slot, not when its task is
+#: created: `asyncio.gather` creates all two hundred at once, so a check made
+#: there passed every one of them at t≈0 and stopped nothing.
 KEEPALIVE_DEADLINE_SECONDS = 18.0
+#: And give up on whatever is still in flight at this point, filed as "skip".
+#: A ping has no total timeout of its own — httpx's are per phase, and the
+#: SecurityWarning acknowledgement takes the long read one — so without this
+#: a ping started at 17.9 s could run the function past its ceiling, and a
+#: function killed there never reaches `_apply`: nothing it learnt is written.
+KEEPALIVE_HARD_STOP_SECONDS = 24.0
 #: At most this many pings in flight at once.
 KEEPALIVE_CONCURRENCY = 8
 
@@ -124,9 +134,20 @@ async def _claim(session: AsyncSession) -> list[_Claim]:
             (DiarySession.keepalive_attempted_at.is_(None))
             | (DiarySession.keepalive_attempted_at < cutoff),
         )
-        .order_by(DiarySession.keepalive_attempted_at.is_(None).desc(),
-                  DiarySession.keepalive_attempted_at,
-                  DiarySession.id)
+        # Stalest first: the last attempt, or — for a row never pinged — the
+        # moment the upstream last took it, which for a new row is its
+        # registration. It used to be never-pinged rows first, whatever their
+        # age, so more than a batch of fresh registrations a tick (one real
+        # session replayed into `/session` is enough) meant no family already
+        # in the queue was pinged again, and each idled out upstream.
+        .order_by(
+            func.coalesce(
+                DiarySession.keepalive_attempted_at,
+                DiarySession.upstream_ok_at,
+                DiarySession.created_at,
+            ),
+            DiarySession.id,
+        )
         .limit(KEEPALIVE_BATCH)
     )
     # FOR UPDATE SKIP LOCKED on Postgres so two overlapping ticks never take the
@@ -162,12 +183,19 @@ async def _ping_all(claims: list[_Claim], *, loop, started: float) -> list[_Resu
     refused: set[str] = set()
 
     async def one(claim: _Claim) -> _Result:
-        if loop.time() - started > KEEPALIVE_DEADLINE_SECONDS:
-            return _Result(claim.id, "skip", claim.credential)  # out of budget; first next tick
         async with semaphore:
+            elapsed = loop.time() - started
+            if elapsed > KEEPALIVE_DEADLINE_SECONDS:
+                return _Result(claim.id, "skip", claim.credential)  # out of budget; first next tick
             if claim.region is not None and claim.region in refused:
                 return _Result(claim.id, "skip", claim.credential)
-            result = await _ping(claim)
+            try:
+                result = await asyncio.wait_for(
+                    _ping(claim), KEEPALIVE_HARD_STOP_SECONDS - elapsed
+                )
+            except TimeoutError:
+                log.info("diary keep-alive ping for session %s ran out of the tick", claim.id)
+                result = _Result(claim.id, "skip", claim.credential)
         if result.outcome == "refused" and claim.region is not None:
             if claim.region not in refused:
                 log.warning(

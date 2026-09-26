@@ -246,3 +246,225 @@ async def test_a_ping_rewrites_the_credential_only_when_it_rotated(session, monk
         assert (await check.get(DiarySession, quiet.id)).upstream_token == quiet_blob
         stored = (await check.get(DiarySession, rotating.id)).upstream_token
     assert json.loads(unseal(stored))["at"] == "rotated"
+
+
+# ---------------------------------------------------------------------------
+# Through the real client, not a patched `keep_alive`
+# ---------------------------------------------------------------------------
+
+
+def _upstream(monkeypatch, answer):
+    """«Сетевой город»'s shared client over a transport answering every call
+    with ``answer(request)``."""
+    import httpx
+
+    from app.providers.diary import http as diary_http
+    from app.providers.netschool import client as nsclient
+
+    async def shared():
+        return httpx.AsyncClient(
+            transport=httpx.MockTransport(answer), cookies=diary_http.NoCookieJar()
+        )
+
+    monkeypatch.setattr(nsclient, "shared_client", shared)
+
+
+async def test_an_outage_page_does_not_sign_the_region_out(session, monkeypatch):
+    """A regional server mid-deploy answers nginx's 502 page. Read as a login
+    page, every session the tick claimed on that region was expired at once —
+    and none can be signed back in without its family, because no password is
+    kept. Every keep-alive test before this one patched `keep_alive` itself,
+    so the client's own reading of the answer was never asked."""
+    import httpx
+
+    rows = [_netschool_row() for _ in range(5)]
+    session.add_all(rows)
+    await session.commit()
+    _upstream(monkeypatch, lambda request: httpx.Response(
+        502, text="<html><body><h1>502 Bad Gateway</h1>nginx</body></html>",
+        headers={"content-type": "text/html"},
+    ))
+
+    assert await diary_keepalive.keep_alive(session) == (0, 0)
+    for row in rows:
+        await session.refresh(row)
+        assert row.expired_at is None
+
+
+async def test_a_login_page_still_expires_the_session(session, monkeypatch):
+    import httpx
+
+    row = _netschool_row()
+    session.add(row)
+    await session.commit()
+    _upstream(monkeypatch, lambda request: httpx.Response(
+        200, text="<form action=/login>", headers={"content-type": "text/html"}
+    ))
+
+    assert await diary_keepalive.keep_alive(session) == (0, 1)
+
+
+# ---------------------------------------------------------------------------
+# The tick's budget, and the queue
+# ---------------------------------------------------------------------------
+
+
+def _claims(count: int) -> list:
+    return [
+        diary_keepalive._Claim(id=i, provider="netschool", region="zabaikalsky", credential="x")
+        for i in range(count)
+    ]
+
+
+async def test_the_deadline_stops_the_pings_still_waiting_for_a_slot(monkeypatch):
+    """`gather` starts every claim's task at once, so the deadline — checked
+    before the semaphore — was passed by all of them at t≈0: forty claims, a
+    deadline at 1.5 s and one-second pings pinged all forty in five seconds.
+    Checked when the slot comes, the third wave of eight never starts."""
+    import asyncio
+
+    async def slow(claim):
+        await asyncio.sleep(0.2)
+        return diary_keepalive._Result(claim.id, "ok", claim.credential)
+
+    monkeypatch.setattr(diary_keepalive, "_ping", slow)
+    monkeypatch.setattr(diary_keepalive, "KEEPALIVE_DEADLINE_SECONDS", 0.3)
+    loop = asyncio.get_running_loop()
+
+    results = await diary_keepalive._ping_all(_claims(40), loop=loop, started=loop.time())
+
+    pinged = [r for r in results if r.outcome == "ok"]
+    skipped = [r for r in results if r.outcome == "skip"]
+    assert diary_keepalive.KEEPALIVE_CONCURRENCY <= len(pinged) <= 16
+    assert len(pinged) + len(skipped) == 40
+
+
+async def test_a_ping_still_in_flight_at_the_hard_stop_is_given_up(monkeypatch):
+    """A hung origin, or a SecurityWarning round trip on the long read timeout,
+    held the tick until the platform killed it — before `_apply`, so nothing
+    the tick learnt was written. It is now abandoned as a skip."""
+    import asyncio
+
+    async def hung(claim):
+        await asyncio.sleep(30)
+        return diary_keepalive._Result(claim.id, "ok", claim.credential)
+
+    monkeypatch.setattr(diary_keepalive, "_ping", hung)
+    monkeypatch.setattr(diary_keepalive, "KEEPALIVE_HARD_STOP_SECONDS", 0.3)
+    loop = asyncio.get_running_loop()
+    began = loop.time()
+
+    results = await diary_keepalive._ping_all(_claims(8), loop=loop, started=began)
+
+    assert loop.time() - began < 5
+    assert [r.outcome for r in results] == ["skip"] * 8
+
+
+async def test_fresh_registrations_do_not_starve_a_family_already_in_the_queue(
+    session, monkeypatch
+):
+    """Never-pinged rows used to go first whatever their age, so more than a
+    batch of new ones a tick — one real session replayed into `/session` over
+    and over is enough — meant a family's row, due for its ping, never got
+    one. The queue is now the stalest first, and a fresh row was just seen
+    working by the registration itself."""
+    from datetime import datetime, timedelta
+
+    monkeypatch.setattr(diary_keepalive, "KEEPALIVE_BATCH", 5)
+    now = datetime.utcnow()
+    family = _netschool_row(
+        keepalive_attempted_at=now - timedelta(minutes=10), upstream_ok_at=now - timedelta(hours=1)
+    )
+    session.add(family)
+    await session.commit()
+    session.add_all([_netschool_row(upstream_ok_at=now) for _ in range(5)])
+    await session.commit()
+
+    claimed = await diary_keepalive._claim(session)
+
+    assert family.id in {claim.id for claim in claimed}
+
+
+async def test_a_second_tick_within_the_floor_pings_nothing(session, monkeypatch):
+    """An extra or overlapping tick is free: a row attempted less than
+    `KEEPALIVE_MIN_INTERVAL` ago is not taken again. Without the floor every
+    tick — the external cron and `reminders.yml` both — pings every session,
+    and a caller who can fire the tick can make us hammer a regional server."""
+    from datetime import datetime, timedelta
+
+    pinged: list[int] = []
+
+    async def fake_keep_alive(self):
+        pinged.append(1)
+
+    monkeypatch.setattr(
+        "app.providers.netschool.provider.NetSchoolConnection.keep_alive", fake_keep_alive
+    )
+    row = _netschool_row()
+    stale = _netschool_row(
+        keepalive_attempted_at=datetime.utcnow()
+        - diary_keepalive.KEEPALIVE_MIN_INTERVAL
+        - timedelta(minutes=1)
+    )
+    session.add_all([row, stale])
+    await session.commit()
+
+    assert await diary_keepalive.keep_alive(session) == (2, 0)
+    assert await diary_keepalive.keep_alive(session) == (0, 0)
+    assert pinged == [1, 1]
+
+
+async def test_a_tick_that_arrives_out_of_budget_pings_nothing(session, monkeypatch):
+    """The deadline counts from the start of the request the tick handed in,
+    so a morning whose digests used the budget up leaves the keep-alive for
+    the next tick rather than running the function past its ceiling."""
+    import asyncio
+
+    pinged: list[int] = []
+
+    async def fake_keep_alive(self):
+        pinged.append(1)
+
+    monkeypatch.setattr(
+        "app.providers.netschool.provider.NetSchoolConnection.keep_alive", fake_keep_alive
+    )
+    row = _netschool_row()
+    session.add(row)
+    await session.commit()
+
+    late = asyncio.get_running_loop().time() - diary_keepalive.KEEPALIVE_DEADLINE_SECONDS - 1
+    assert await diary_keepalive.keep_alive(session, started=late) == (0, 0)
+    assert pinged == []
+    await session.refresh(row)
+    assert row.kept_alive_at is None
+
+
+async def test_on_postgres_two_overlapping_ticks_never_take_the_same_rows():
+    """`FOR UPDATE SKIP LOCKED` is the only thing keeping two ticks — the
+    external cron and `reminders.yml` — off each other's rows, and it is
+    asked for on Postgres alone, which CI does not run. So the claim is built
+    against a session that says it is Postgres and the statement read back."""
+    from types import SimpleNamespace
+
+    from sqlalchemy.dialects import postgresql
+
+    class Captured:
+        bind = SimpleNamespace(dialect=postgresql.dialect())
+
+        def __init__(self) -> None:
+            self.statements: list = []
+
+        async def scalars(self, statement):
+            self.statements.append(statement)
+            return []
+
+        async def commit(self) -> None:
+            pass
+
+    captured = Captured()
+    assert await diary_keepalive._claim(captured) == []
+
+    (statement,) = captured.statements
+    sql = " ".join(str(statement.compile(dialect=postgresql.dialect())).split())
+    assert sql.endswith("FOR UPDATE SKIP LOCKED")
+    assert "diary_sessions.keepalive_attempted_at <" in sql

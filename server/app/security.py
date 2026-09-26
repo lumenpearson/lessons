@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 import string
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, func, select
@@ -79,6 +80,19 @@ def normalise_phone(raw: str) -> str:
     return digits
 
 
+@dataclass(frozen=True)
+class Admission:
+    """What :meth:`JoinThrottle.admit` decided.
+
+    ``retry_after`` is ``None`` when the attempt may go ahead, and then
+    ``attempt_id`` is the row counting it; refused, it is the seconds until the
+    caller may try again and there is no row.
+    """
+
+    attempt_id: int | None
+    retry_after: float | None
+
+
 class JoinThrottle:
     """Sliding-window limit on attempts per caller, counted in the database.
 
@@ -105,6 +119,17 @@ class JoinThrottle:
     Every method takes the caller's session and is awaited inside the request,
     which makes this a couple of indexed queries on a table holding one window's
     worth of attempts. That is the price of a limit that is real.
+
+    **A door counts through** :meth:`admit`, which writes the attempt first and
+    counts after, never through :meth:`blocked_for` followed by :meth:`record`.
+    Check-then-record let every request of a concurrent burst read a count from
+    before any of them was written: two hundred wrong passwords sent at once
+    from one address all reached the diary inside one window whose limit is
+    ten, and the directory's twenty searches were as many as a burst could fit.
+    Written first, the n-th attempt to commit sees at least n rows, so no more
+    than ``limit`` of them are let through, however they overlap. A door that
+    counts only failures hands the row back (:meth:`forgive`) once it knows the
+    attempt was not one.
     """
 
     __slots__ = ("limit", "window")
@@ -112,6 +137,69 @@ class JoinThrottle:
     def __init__(self, limit: int, window: float) -> None:
         self.limit = limit
         self.window = window
+
+    async def admit(self, session: AsyncSession, key: str) -> Admission:
+        """Count one attempt by [key] and say whether it may go ahead. Commits.
+
+        Let through, the attempt stays counted until :meth:`forgive` takes it
+        back. Refused, it is taken back at once: a refusal asked nothing of
+        anybody, and counting it would keep a caller who keeps asking locked out
+        for as long as they ask rather than for the window.
+        """
+        from app.models import JoinAttempt
+
+        now = _utcnow()
+        attempt = JoinAttempt(client_key=key, created_at=now)
+        session.add(attempt)
+        await session.flush()
+        attempt_id = attempt.id
+        await self._prune(session, now)
+        await session.commit()
+
+        # After the commit, in a statement of its own: under READ COMMITTED it
+        # sees every attempt committed before it, this one included.
+        counted = await session.scalar(
+            select(func.count())
+            .select_from(JoinAttempt)
+            .where(
+                JoinAttempt.client_key == key,
+                JoinAttempt.created_at > now - timedelta(seconds=self.window),
+            )
+        )
+        if (counted or 0) <= self.limit:
+            return Admission(attempt_id=attempt_id, retry_after=None)
+
+        await self._drop(session, attempt_id)
+        # Never 0: the attempts that filled the window may all be in flight and
+        # about to be forgiven, and a client told to wait no time asks at once.
+        return Admission(
+            attempt_id=None, retry_after=max(await self.blocked_for(session, key) or 0.0, 1.0)
+        )
+
+    async def forgive(self, session: AsyncSession, admission: Admission) -> None:
+        """Take back an attempt :meth:`admit` counted, because it turned out not
+        to be one this door counts — a success, or nothing having judged it.
+        Commits."""
+        if admission.attempt_id is not None:
+            await self._drop(session, admission.attempt_id)
+
+    async def _drop(self, session: AsyncSession, attempt_id: int) -> None:
+        from app.models import JoinAttempt
+
+        await session.execute(delete(JoinAttempt).where(JoinAttempt.id == attempt_id))
+        await session.commit()
+
+    async def _prune(self, session: AsyncSession, now: datetime) -> None:
+        from app.models import JoinAttempt
+
+        # Pruned here rather than on a schedule: there is no scheduler in a
+        # serverless deployment, and the only moment this table is known to be
+        # growing is the moment something is being added to it.
+        await session.execute(
+            delete(JoinAttempt).where(
+                JoinAttempt.created_at <= now - timedelta(seconds=self.window)
+            )
+        )
 
     async def blocked_for(self, session: AsyncSession, key: str) -> float | None:
         """Seconds until [key] may try again, or ``None`` if it may try now."""
@@ -162,15 +250,7 @@ class JoinThrottle:
 
         now = _utcnow()
         session.add(JoinAttempt(client_key=key, created_at=now))
-
-        # Pruned here rather than on a schedule: there is no scheduler in a
-        # serverless deployment, and the only moment this table is known to be
-        # growing is the moment something is being added to it.
-        await session.execute(
-            delete(JoinAttempt).where(
-                JoinAttempt.created_at <= now - timedelta(seconds=self.window)
-            )
-        )
+        await self._prune(session, now)
         await session.commit()
 
 

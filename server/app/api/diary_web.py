@@ -57,6 +57,7 @@ from app.models import DiaryLinkCode, SchoolClass
 from app.providers.diary.errors import (
     BadCredentials,
     DiaryError,
+    NoStudents,
     SignInUnsupported,
     UpstreamUnavailable,
 )
@@ -356,7 +357,7 @@ async def sign_in_submit(
         return _closed(
             verdict.message,
             status=verdict.status,
-            note=_TRY_AGAIN if verdict.keep_ticket else _ASK_AGAIN,
+            note=verdict.note or (_TRY_AGAIN if verdict.keep_ticket else _ASK_AGAIN),
         )
     except Exception:  # noqa: BLE001 - never let an upstream shape reach the page
         log.exception("diary sign-in failed")
@@ -386,6 +387,10 @@ class _Verdict(NamedTuple):
     #: True when the failure was the diary's rather than the person's, so the
     #: ticket goes back and the same link still opens the form.
     keep_ticket: bool
+    #: What to do next, when neither «попробуйте ещё раз» nor «запросите
+    #: ссылку заново» is true. Chosen by `keep_ticket` alone, the Госуслуги
+    #: refusal told the family to retry what it had just said cannot work.
+    note: str | None = None
 
 
 def _site_of(binding: Binding) -> str:
@@ -424,8 +429,28 @@ def _why(error: DiaryError, binding: Binding) -> _Verdict:
     if isinstance(error, SignInUnsupported):
         # Decided before any password was sent, so the ticket goes back — but
         # retrying will not help, so the note points at Госуслуги rather than
-        # «попробуйте снова».
-        return _Verdict(error.message, 502, keep_ticket=True)
+        # «попробуйте снова». A 503, as `/api/v1/diary/login` answers it: the
+        # region's own answer about who it lets in, not a reply nobody can read.
+        return _Verdict(
+            error.message,
+            503,
+            keep_ticket=True,
+            note=f"Дневник региона открывается через Госуслуги на {_site_of(binding)}.",
+        )
+    if isinstance(error, NoStudents):
+        # The password was accepted and there is no pupil behind the account —
+        # staff-only, or a pupil's account that does not list itself. Before
+        # the generic branch below, which it is a subclass of the family of:
+        # there it was «ответил непонятно … откройте сайт», sending the family
+        # to check a diary that is up and to ask for a link that fails the
+        # same way. The ticket is spent: the password was judged.
+        return _Verdict(
+            error.message,
+            403,
+            keep_ticket=False,
+            note="Войдите под учётной записью родителя или ученика — "
+            "попросите у бота новую ссылку.",
+        )
     if isinstance(error, BadCredentials):
         # PasswordExpired and any other BadCredentials with its own words keep
         # them; the bare base message becomes the fixed «неверный пароль».
@@ -435,7 +460,8 @@ def _why(error: DiaryError, binding: Binding) -> _Verdict:
     if isinstance(error, UpstreamUnavailable):
         # AddressRefused lands here too, with its own «дело не в пароле» words.
         return _Verdict(error.message, 503, keep_ticket=True)
-    # UnexpectedResponse, SessionExpired and any future member of the family.
+    # UnexpectedResponse, SessionExpired bar NoStudents, and any future member
+    # of the family.
     # The address is named on purpose: opening the diary in a browser is the
     # one check that tells the person which of the two is broken, and it is
     # also where a captcha would be waiting for them.

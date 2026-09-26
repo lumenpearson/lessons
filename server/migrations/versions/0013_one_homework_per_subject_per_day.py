@@ -68,6 +68,17 @@ def _has_table(table: str) -> bool:
     return sa.inspect(op.get_bind()).has_table(table)
 
 
+def _has_constraint() -> bool:
+    # An empty Postgres has it before this revision runs: 0001's `create_all`
+    # builds today's `homework`, constraint included, and creating it again is
+    # «relation already exists» — which stopped `docker compose up`'s migrate
+    # service here, with every later revision unapplied.
+    if context.is_offline_mode():
+        return False
+    unique = sa.inspect(op.get_bind()).get_unique_constraints("homework")
+    return any(constraint["name"] == _NAME for constraint in unique)
+
+
 def upgrade() -> None:
     # SQLite has no ALTER for constraints at all, and a database that got here
     # through `create_all` already carries this one — which is the only way a
@@ -80,6 +91,8 @@ def upgrade() -> None:
     if op.get_bind().dialect.name == "sqlite":
         return
     if not context.is_offline_mode() and not _has_table("homework"):
+        return
+    if _has_constraint():
         return
     op.execute(_DEDUPE)
     op.create_unique_constraint(_NAME, "homework", list(_COLUMNS))

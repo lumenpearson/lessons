@@ -202,6 +202,22 @@ async def test_netschool_getdata_answers_match_the_vectors(monkeypatch, case):
     assert list(form) == NETSCHOOL["login_form_fields"]
     for field, value in case["form"].items():
         assert form[field] == value
+    # And the fields that carry the credential, which the case's `form` leaves
+    # out: a form posting another school, another login, or `pw2` in both
+    # hash fields passed every case here while every «Сетевой город» password
+    # sign-in would have been refused. The hash is the vectors' own answer for
+    # this salt and this password, not a second call to the function under test.
+    (hashed,) = [
+        row
+        for row in NETSCHOOL["hash"]
+        if row["salt"] == str(case["body"]["salt"]) and row["password"] == FLOW["password"]
+    ]
+    assert form["un"] == FLOW["login"]
+    assert form["scid"] == str(FLOW["school_id"])
+    assert (form["pw"], form["pw2"]) == (hashed["pw"], hashed["pw2"])
+    # «1» is the sign-in by login and password; «2» and the rest are other
+    # doors (Госуслуги among them) that this form must never ask for.
+    assert form["loginType"] == "1"
 
 
 @pytest.mark.parametrize(
@@ -391,6 +407,10 @@ async def test_petersburg_login_answers_match_the_vectors(monkeypatch, case):
     assert set(sent) == {*PETERSBURG["login_fields"], "login", "password"}
     for field, value in PETERSBURG["login_fields"].items():
         assert sent[field] == value
+    # What was typed, as it was typed: an upper-cased or trimmed login is a
+    # refused sign-in for every lower-case e-mail, and nothing else here says so.
+    assert sent["login"] == "parent@example.com"
+    assert sent["password"] == "secret"
 
     expect = case["expect"]
     if "failure" in expect:

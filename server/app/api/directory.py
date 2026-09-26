@@ -93,22 +93,25 @@ async def school_regions(
     # and hashed with the scope inside it — see `caller_bucket` for why a
     # prefix on the digest is a 500 on Postgres.
     client = caller_bucket(request, scope="directory:")
-    retry_after = await directory_limiter.blocked_for(session, client)
-    if retry_after is not None:
+    # Counted first and handed back on a 422, rather than checked here and
+    # recorded after the validation: between a check and a later record, every
+    # request of a parallel burst from one address read the count from before
+    # any of them, and each went on to spend the anonymous share.
+    attempt = await directory_limiter.admit(session, client)
+    if attempt.retry_after is not None:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=THROTTLED_DETAIL,
-            headers={"Retry-After": str(int(retry_after) + 1)},
+            headers={"Retry-After": str(int(attempt.retry_after) + 1)},
         )
 
     try:
         query = schools_service.normalise_query(q)
     except schools_service.SearchError as error:
+        await directory_limiter.forgive(session, attempt)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
         ) from error
-
-    await directory_limiter.record(session, client)
 
     if not schools_service.available():
         raise _unavailable(DISABLED_DETAIL, "disabled")

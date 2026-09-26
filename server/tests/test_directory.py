@@ -343,9 +343,46 @@ async def test_every_call_counts_against_the_caller(client, upstream, session, m
     assert await _attempts(session) == 20
     assert len(upstream.requests) == 10
 
-    # Its own bucket: twenty searches have not spent a phone's join attempts.
-    joined = await client.post("/api/v1/join", json={"code": "NOSUCH12"})
-    assert joined.status_code == 404
+    # One key, and one that fits its column: SQLite ignores a VARCHAR's width
+    # and Postgres refuses the insert, so a key built as «directory:» + the
+    # digest passed here and was a 500 on every search in production — the
+    # shape of the `/diary/login` outage `caller_bucket` was written after.
+    keys = set(await session.scalars(select(JoinAttempt.client_key)))
+    assert len(keys) == 1
+    assert len(next(iter(keys))) <= JoinAttempt.__table__.c.client_key.type.length
+
+
+async def test_twenty_searches_spend_nothing_of_the_join_or_the_diary_sign_in(
+    client, upstream, session, monkeypatch
+):
+    """Its own bucket, asked of the two doors that share the table.
+
+    One `/join` after twenty searches cannot tell: `/join` allows thirty, so
+    it answers 404 whether the searches landed in its bucket or not. Enough
+    mistyped codes to cross thirty only if the twenty were counted there can;
+    and a diary sign-in allows ten, so a single wrong password is a 401 in its
+    own bucket and a 429 in the directory's.
+    """
+    from app.api import diary as diary_api
+    from app.providers.diary.errors import BadCredentials
+
+    for _ in range(directory.directory_limiter.limit):
+        assert (await client.get(PATH, params={"q": "школа 5"})).status_code == 200
+    assert (await client.get(PATH, params={"q": "школа 5"})).status_code == 429
+
+    shared_would_refuse = public.join_limiter.limit - directory.directory_limiter.limit + 1
+    for _ in range(shared_would_refuse):
+        joined = await client.post("/api/v1/join", json={"code": "NOSUCH12"})
+        assert joined.status_code == 404
+
+    async def wrong_password(*args, **kwargs):
+        raise BadCredentials()
+
+    monkeypatch.setattr(diary_api.service, "sign_in", wrong_password)
+    refused = await client.post(
+        "/api/v1/diary/login", json={"login": "parent@example.com", "password": "wrong"}
+    )
+    assert refused.status_code == 401
 
 
 async def test_the_daily_allowance_stops_the_search_and_says_until_when(
@@ -486,6 +523,7 @@ def test_every_throttle_on_the_attempts_table_uses_one_window():
     built = _throttles_built_in_app()
     assert sorted(path for path, _ in built) == [
         "api/diary.py",
+        "api/diary.py",
         "api/directory.py",
         "api/public.py",
     ]
@@ -497,7 +535,46 @@ def test_every_throttle_on_the_attempts_table_uses_one_window():
         assert isinstance(window, ast.Constant), path
         assert float(window.value) == 900.0, path
 
-    live = [public.join_limiter, diary.diary_login_limiter, directory.directory_limiter]
+    live = [
+        public.join_limiter,
+        diary.diary_login_limiter,
+        diary.diary_open_limiter,
+        directory.directory_limiter,
+    ]
     assert {limiter.window for limiter in live} == {900.0}
     assert cron.JOIN_ATTEMPT_TTL.total_seconds() >= 900.0
     assert directory.directory_limiter.limit == 20
+
+
+@pytest.fixture
+async def own_pool():
+    """A connection pool of this test's own. A burst waits on the pool, which
+    binds the pool's queue to this test's event loop — and the next test runs
+    on another loop and cannot wait on it. Disposed before and after."""
+    from app.db import engine
+
+    await engine.dispose()
+    yield
+    await engine.dispose()
+
+
+async def test_a_parallel_burst_from_one_address_cannot_pass_the_limit(
+    client, upstream, session, own_pool
+):
+    """The check was two SELECTs and the record an INSERT after the query had
+    been validated, with nothing between them: every request of a burst read
+    the count from before any of them was written, and each spent from the
+    anonymous share. Sent one after another, as the test above does, the gap
+    never shows."""
+    import asyncio
+
+    upstream.answer([row('ГБОУ "ЛИЦЕЙ № 1535"', ogrn="1", kladr="7700000000000")])
+
+    responses = await asyncio.gather(
+        *(client.get(PATH, params={"q": "лицей 1535"}) for _ in range(100))
+    )
+
+    let_through = [r for r in responses if r.status_code != 429]
+    assert len(let_through) <= directory.directory_limiter.limit
+    assert await _attempts(session) <= directory.directory_limiter.limit
+    assert len(upstream.requests) <= directory.directory_limiter.limit

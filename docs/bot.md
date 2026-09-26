@@ -513,8 +513,13 @@ bot never saw it, which was never true; a test now fails on the old wording. The
 claim about the app either way: an app built before registration still posts the password to
 this server, and the page cannot tell which one the reader holds.
 
-The form re-reads the class's binding at both the GET and the submit, so a class unbound or
-rebound since the link was made refuses before the password is sent, rather than sending it to a diary the family is no longer looking at. A ticket is
+A class unbound since the link was made refuses at the GET and at the submit, before the
+password is sent and without spending the ticket. Rebinding is the harder half, because the
+submit finds a binding and it is the wrong one: re-reading it would send a password typed
+under «Санкт-Петербург» to «Сетевой город», or the other way round. So every change to the
+binding — «📒 Дневник: отвязать», a pick of Petersburg, a pick of a school — drops the class's
+outstanding tickets in the same commit, and a form opened before it answers `410` with no
+upstream call. The family asks the bot for a new link, which names the diary bound now. A ticket is
 worth **one** sign-in for fifteen minutes for one Telegram account in one class; a GET
 checks it without spending
 it (Telegram fetches link previews by itself), a POST spends it before
@@ -528,7 +533,13 @@ page says so in words rather than blaming the password, which is what it used
 to do for every failure that was not a plain 401, and names the bound diary's own
 address to open in a browser — taken from the allow-list, never from anything typed. It
 used to name dnevnik2 whatever the class was bound to, which sent a «Сетевой город» family
-to Петербург's diary to see whether theirs was down (#158).
+to Петербург's diary to see whether theirs was down (#158). Two refusals get sentences of
+their own rather than that one. A region that answers it takes only Госуслуги is a `503`
+that keeps the ticket — no password was sent — and points at Госуслуги on the region's own
+server instead of saying «попробуйте ещё раз» under «логин и пароль тут не подойдут». An
+account the diary accepted but that lists no pupil is a `403` that spends it — the password
+was judged — and says «В этой учётной записи нет ученика», with a new link for a parent's or
+a pupil's account, instead of «ответил непонятно» and a link that fails the same way.
 
 The session is stored encrypted (`DIARY_SECRET`, `app/crypto.py`). Without that
 key the whole feature refuses at the door rather than falling back to

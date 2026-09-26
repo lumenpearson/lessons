@@ -963,11 +963,15 @@ any read.
 
 The same tick also **keeps «Сетевой город» sessions alive**. That diary idles a session out
 in 15–60 minutes and this project stores no password to sign back in with, so the tick pings
-each live one with `GET /webapi/context`, within a batch cap and a time budget, and never
+each live one with `GET /webapi/context`, within a batch cap of 200 taken stalest first
+(by the last ping, or for a row never pinged the moment the diary last took it), and a time
+budget — no ping starts after 18 seconds of the tick and none is waited for past 24, so the
+results are always written before the platform's 30-second ceiling. It never
 touches `last_used_at` — a ping must not look like the family using the session, or the
 30-day purge above would never fire. `diary_sessions_kept_alive` is how many were pinged
 alive, `diary_sessions_lost` how many the upstream had already dropped (they are expired, and
-the app is told to sign in again), and `diary_keepalive_failed` is `true` when the keep-alive
+the app is told to sign in again — a `401` or a login page only: a regional server answering
+a `5xx` or `429`, an HTML error page included, is down, and its sessions are left as they are), and `diary_keepalive_failed` is `true` when the keep-alive
 itself raised — isolated so a diary fault never fails the whole tick and reddens the fallback
 clock. Petersburg sessions are not pinged; they refresh from their own answers. This depends
 on the external cron, not GitHub's fallback clock, which is too sparse to keep a session
@@ -1135,8 +1139,8 @@ and `null` for Petersburg.
 | `403` | the diary took the session, and there is no pupil behind the account — a staff account, or a pupil's own account that does not list itself | yes |
 | `409` | the diary refused, **from this server's address**, the session it had just handed the client. It is not the password | yes |
 | `422` | not one of the two shapes, a value that cannot be sent upstream whole, or a region this server does not sign in to. `detail` names what was wrong and **never repeats the value**: FastAPI's validation answer normally echoes each refused value as `input`, and here that value is a session or a password | no |
-| `429` | ten counted failures from this address within fifteen minutes, on `/login` and `/session` together; `Retry-After` says how long | — |
-| `502` | the diary answered something nobody can read | yes |
+| `429` | ten counted failures, or twenty sessions opened, from this address within fifteen minutes, on `/login` and `/session` together; `Retry-After` says how long | — |
+| `502` | the diary answered something nobody can read — for «Сетевой город», that includes a current school year without an id or its dates, since no read can be made without them | yes |
 | `503` | the diary is off on this server, refuses this server's address, or is not answering; `X-Diary-Unavailable` says which (see [Error codes](#error-codes)) | no |
 
 **`409` rather than `/login`'s `401` + `X-Diary-Reauth`.** The session worked on the client
@@ -1152,6 +1156,11 @@ It shares `/login`'s limiter **and its bucket**, so ten wrong passwords on one d
 ten more tries on the other. What is counted follows the same line as `/login`'s: whatever
 the upstream judged, which includes the `409` a replay of a session that was never real
 produces; what is forgiven is what never reached it, or reached a diary that did not answer.
+A `200` is counted too, on a limit of its own: **twenty sessions opened per address in
+fifteen minutes**, through either door. A session is not free once it is open — the cron
+pings every «Сетевой город» one from this server's address for as long as it lives — and
+counting failures alone let one real session be replayed into `/session` without end, each
+replay a new row in the keep-alive's queue.
 
 **A registered session belongs to no class and no Telegram account.** The row carries
 neither, so the bot's «📒 Мой дневник» does not see it; a phone and the bot hold separate
@@ -1201,11 +1210,16 @@ be re-minted whenever either half changed.
 
 Failed sign-ins are rate-limited per client address, ten per fifteen minutes, in a bucket of
 their own shared by `/login` and `/session`: ten wrong diary passwords must not spend a
-phone's thirty `/join` attempts, nor buy ten more tries by session. Past that both answer
-`429` with `Retry-After`, and it is counted in the database, like the join limiter, because
-nothing in this deployment survives between requests. What the limit is for is that this
-server's address must not become a way of guessing passwords against somebody else's school
-diary.
+phone's thirty `/join` attempts, nor buy ten more tries by session. Sessions opened are held
+to twenty per address in the same fifteen minutes, in a bucket of their own. Past either
+limit both answer `429` with `Retry-After`, and it is counted in the database, like the join
+limiter, because nothing in this deployment survives between requests. What the limit is for
+is that this server's address must not become a way of guessing passwords against somebody
+else's school diary. **An attempt is counted before the diary is asked, and handed back once
+it turns out not to be one** (a success for the failure count, a failure for the session
+count, a `503` for both): counted after the answer, as it used to be, forty guesses sent at
+once all read a count from before any of them had been written, and two dozen reached the
+diary inside a window whose limit is ten. The same holds for `/join` and the directory.
 
 ### What can be asked
 
@@ -1319,11 +1333,11 @@ where they are visible as corrections and are reversible.
 | `404` | this account has no such child | — |
 | `409` | on `/diary/session` only: the diary will not take this session from this server | say it is not the password; do not retry by itself |
 | `422` | on reads, the date range is inverted or wider than 62 days; on `PUT .../overrides`, the correction was refused: an unknown `target`, an uncorrectable field, or an empty value where empty is not allowed; on `/login` and `/session`, a body or a region this server will not sign in with | on a read, fix the range; on a correction, show `detail` |
-| `429` | on `/diary/login` and `/diary/session` together, ten counted failures from this address inside fifteen minutes | wait out `Retry-After`, and do not blame the password |
+| `429` | on `/diary/login` and `/diary/session` together, ten counted failures or twenty sessions opened from this address inside fifteen minutes | wait out `Retry-After`, and do not blame the password |
 | `502` | the diary answered incomprehensibly | say that the service has changed |
 | `503` + `X-Diary-Unavailable: disabled` | this deployment has no `DIARY_SECRET`; the diary is off here | say it is off on this server; nothing typed will help |
 | `503` + `X-Diary-Unavailable: address-refused` | the region's server drops this server's address | say it is not the password, and not worth retrying |
-| `503` + `X-Diary-Unavailable: upstream` | the diary is not answering, or at sign-in answered that it takes only Госуслуги | offer to retry later |
+| `503` + `X-Diary-Unavailable: upstream` | the diary is not answering — a timeout, a `5xx` or a `429`, whatever the body, an HTML error page included — or at sign-in answered that it takes only Госуслуги | offer to retry later; the session is kept |
 
 **Every `503` under `/api/v1/diary` carries `X-Diary-Unavailable`**, `/login`'s included,
 because the three cases want three different sentences and `detail` is Russian prose a

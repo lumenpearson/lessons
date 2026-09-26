@@ -696,6 +696,16 @@ reaching for the last unit cannot both have it — there is no read-then-write t
 request it pays for, and the empty-answer retry asks for its own unit first, because DaData
 counts a request whatever comes of it.
 
+The per-caller throttle had a read-then-write of its own, and so did every door on it — `/join`,
+the diary's `/login` and `/session`, and the directory: two SELECTs to check, an INSERT to
+record, later, with nothing between. A burst of concurrent requests from one address all read
+the count from before any of them was written; forty wrong diary passwords sent at once put
+two dozen through a limit of ten. `JoinThrottle.admit` now writes the attempt first and counts
+after the commit, so the n-th attempt to commit sees at least n rows and no more than the limit
+are let through however they overlap; a door that counts only failures hands the row back
+(`forgive`) once it knows it was not one. On SQLite that is a test with a burst in it; on
+Postgres it rests on READ COMMITTED showing each statement every commit before it.
+
 The day is Moscow's (`services/quota.py:QUOTA_ZONE`), not UTC and not the server's. DaData is a
 Moscow company and its allowance is assumed to turn at Moscow midnight — assumed, because
 nothing in its documentation says which clock it counts by. If the assumption is wrong and it

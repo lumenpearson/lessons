@@ -72,7 +72,7 @@ from app.schemas import (
     NetSchoolCapabilitiesOut,
     NetSchoolSessionIn,
 )
-from app.security import JoinThrottle
+from app.security import Admission, JoinThrottle
 from app.services import diary as service
 from app.services import diary_overrides as overrides
 
@@ -262,17 +262,77 @@ async def _guard(awaitable):
 #: mistakes, and only failures are counted.
 diary_login_limiter = JoinThrottle(limit=10, window=900.0)
 
+#: Sessions one caller may open in a quarter of an hour, through either door.
+#:
+#: The limit above counts failures only, so a caller whose every attempt
+#: *succeeds* was never limited at all — and a success is not free. Each one
+#: is a new row the cron keeps alive with a ping from this server's address,
+#: for up to thirty days, and nothing ties a row to anything but itself: one
+#: real «Сетевой город» session replayed into `/session` a few thousand times
+#: was a few thousand rows, four bootstrap calls each, and a keep-alive queue
+#: that pinged one account over and over from an address the region can block
+#: for everybody. Twenty is a household's phones signing in again with room to
+#: spare; the window is the other limiters', as `JoinThrottle` requires.
+diary_open_limiter = JoinThrottle(limit=20, window=900.0)
 
-async def _refuse_if_throttled(session: AsyncSession, client: str) -> None:
-    """429 while ``client`` has spent its failures. One check for both doors
-    onto the upstream, so they cannot drift into two limits."""
-    retry_after = await diary_login_limiter.blocked_for(session, client)
-    if retry_after is not None:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Слишком много попыток входа. Попробуйте позже.",
-            headers={"Retry-After": str(int(retry_after) + 1)},
+_THROTTLED_DETAIL = "Слишком много попыток входа. Попробуйте позже."
+
+
+class _Attempt:
+    """One attempt on either door, counted by both diary limiters until the
+    outcome says which of the two it was.
+
+    Counted *before* the upstream is asked, not after (see
+    `JoinThrottle.admit`): recorded after, a burst of concurrent wrong
+    passwords all read the count from before any of them and all reached the
+    diary. The same limiter **and bucket** for `/login` and `/session`, so a
+    caller who spent ten wrong passwords does not get ten more tries by
+    session.
+    """
+
+    __slots__ = ("failures", "opened")
+
+    def __init__(self, failures: Admission, opened: Admission) -> None:
+        self.failures = failures
+        self.opened = opened
+
+    @classmethod
+    async def admit(cls, session: AsyncSession, request: Request) -> _Attempt:
+        """Count the attempt, or 429 while the caller has spent either limit."""
+        failures = await diary_login_limiter.admit(
+            session, caller_bucket(request, scope="diary:")
         )
+        if failures.retry_after is not None:
+            raise _throttled(failures.retry_after)
+        opened = await diary_open_limiter.admit(
+            session, caller_bucket(request, scope="diary-open:")
+        )
+        if opened.retry_after is not None:
+            await diary_login_limiter.forgive(session, failures)
+            raise _throttled(opened.retry_after)
+        return cls(failures, opened)
+
+    async def succeeded(self, session: AsyncSession) -> None:
+        """A session was opened: not a failure, and one of the twenty."""
+        await diary_login_limiter.forgive(session, self.failures)
+
+    async def failed(self, session: AsyncSession) -> None:
+        """The upstream judged it and said no: a failure, and no session."""
+        await diary_open_limiter.forgive(session, self.opened)
+
+    async def not_judged(self, session: AsyncSession) -> None:
+        """Nothing looked at what was sent — the feature off, the diary down,
+        the address refused: neither."""
+        await diary_login_limiter.forgive(session, self.failures)
+        await diary_open_limiter.forgive(session, self.opened)
+
+
+def _throttled(retry_after: float) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail=_THROTTLED_DETAIL,
+        headers={"Retry-After": str(int(retry_after) + 1)},
+    )
 
 
 def _served_region(key: str | None) -> str:
@@ -329,17 +389,19 @@ async def login(
     upstream session eventually expires, requests answer 401 with
     ``X-Diary-Reauth: required`` and the app asks for it again.
     """
-    # A bucket of its own, asked for through `caller_bucket` rather than built
-    # by putting «diary:» in front of what it returns. The counter's column is
-    # `VARCHAR(64)` and the digest already fills it, so the prefix made every
-    # recorded failure six characters too long for Postgres: the insert raised
-    # out of the `except` that was recording it, so a wrong password answered
-    # 500 instead of 401 and nothing was ever counted — the limit below existed
-    # only in the tests, where SQLite does not enforce a width.
-    client = caller_bucket(request, scope="diary:")
-    await _refuse_if_throttled(session, client)
-
+    # The buckets are `_Attempt.admit`'s, asked for through `caller_bucket`
+    # rather than built by putting «diary:» in front of what it returns. The
+    # counter's column is `VARCHAR(64)` and the digest already fills it, so the
+    # prefix made every recorded failure six characters too long for Postgres:
+    # the insert raised out of the `except` that was recording it, so a wrong
+    # password answered 500 instead of 401 and nothing was ever counted — the
+    # limit existed only in the tests, where SQLite does not enforce a width.
+    #
+    # The target is checked before the attempt is counted: a region we do not serve is a 422
+    # that nothing upstream saw, and counting it would charge the caller for
+    # our refusal.
     provider, region, school_id = _resolve_login_target(payload)
+    attempt = await _Attempt.admit(session, request)
 
     try:
         token, row = await _guard(
@@ -360,6 +422,7 @@ async def login(
         # per attempt, and nothing for the app to put on the screen. The other
         # door onto the same service, ``POST /diary/signin``, has always
         # answered 503 and said so in words; this is that answer.
+        await attempt.not_judged(session)
         raise _disabled() from failure
     except HTTPException as refusal:
         # Everything but a 503 counts, and the line is drawn where the other
@@ -380,9 +443,12 @@ async def login(
         # 503 is the one that is safe to forgive, and it is safe for the reason
         # `diary_web` names: it means the feature is off, or the transport
         # failed, or the upstream answered 5xx — nothing read what was typed.
-        if refusal.status_code != status.HTTP_503_SERVICE_UNAVAILABLE:
-            await diary_login_limiter.record_failure(session, client)
+        if refusal.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+            await attempt.not_judged(session)
+        else:
+            await attempt.failed(session)
         raise
+    await attempt.succeeded(session)
     return DiaryLoginOut(token=token, login=row.login)
 
 
@@ -466,22 +532,22 @@ async def register_session(
     phone forgets its copy. Nothing here stores or accepts a password: a
     ``password`` key anywhere in the body is a 422.
 
-    Shares ``/login``'s limiter **and bucket**, so a caller who spent ten
-    wrong passwords does not get ten more tries by session. Counted: a session
-    the upstream refused (409), an account with no pupil (403), an answer
-    nobody can read (502). Not counted: anything that never reached the
-    upstream (422), the feature being off, or the upstream not answering (503).
+    Shares ``/login``'s limiters **and buckets**, so a caller who spent ten
+    wrong passwords does not get ten more tries by session. Counted as a
+    failure: a session the upstream refused (409), an account with no pupil
+    (403), an answer nobody can read (502). Counted as a session opened: a 200,
+    twenty to a caller in fifteen minutes across both doors. Not counted:
+    anything that never reached the upstream (422), the feature being off, or
+    the upstream not answering (503).
 
     409 rather than ``/login``'s 401 + ``X-Diary-Reauth``, because asking for
     the password again would loop: the session was good on the phone seconds
     ago, and it is *this server* the diary will not take it from.
     """
-    # The same limiter and the same bucket as /login: a separate one would
-    # double what one caller may try against the upstream from our address.
-    client = caller_bucket(request, scope="diary:")
-    await _refuse_if_throttled(session, client)
-
     provider, region, school_id = _resolve_session_target(payload)
+    # The same limiters and buckets as /login: separate ones would double what
+    # one caller may try against the upstream from our address.
+    attempt = await _Attempt.admit(session, request)
     # The provider's own serialisation: Petersburg's bare token, or the JSON of
     # what «Сетевой город» handed the phone, with the fields it did not hand
     # left out rather than stored as nulls.
@@ -501,13 +567,15 @@ async def register_session(
             school_id=school_id,
         )
     except service.DiaryDisabled as failure:
+        await attempt.not_judged(session)
         raise _disabled() from failure
     except UpstreamUnavailable as failure:
         # Nothing judged the session: the diary did not answer, or will not
         # talk to this address at all. Forgiven, like /login's 503.
+        await attempt.not_judged(session)
         raise _unavailable(failure) from failure
     except NoStudents as failure:
-        await diary_login_limiter.record_failure(session, client)
+        await attempt.failed(session)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail=failure.message
         ) from failure
@@ -515,16 +583,17 @@ async def register_session(
         # Before the broader DiaryError below, and after NoStudents, which is
         # a SessionExpired too. Counted: this is also what a replay of a
         # session that was never real looks like.
-        await diary_login_limiter.record_failure(session, client)
+        await attempt.failed(session)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=REFUSED_FROM_HERE_DETAIL
         ) from failure
     except DiaryError as failure:
-        await diary_login_limiter.record_failure(session, client)
+        await attempt.failed(session)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=failure.message
         ) from failure
 
+    await attempt.succeeded(session)
     return DiarySessionOut(
         token=registered.token,
         login=registered.row.login,

@@ -120,7 +120,7 @@ from app.providers.diary.registry import binding as diary_binding
 from app.providers.netschool import regions as ns_regions
 from app.providers.netschool.client import NetSchoolClient
 from app.services import access as access_service
-from app.services import audit, linking, structure, timetable_io
+from app.services import audit, diary_link, linking, structure, timetable_io
 from app.services import calendar as calendar_service
 from app.services import diary as diary_service
 from app.services import stats as stats_service
@@ -2398,6 +2398,10 @@ async def class_diary_bind(
         school_class.diary_region = None
         school_class.diary_school_id = None
         school_class.diary_school_name = None
+        # An outstanding sign-in link would still open a form; the submit
+        # refuses an unbound class, but only a dropped ticket survives a
+        # rebind that follows at once (#137).
+        await diary_link.drop_for_class(session, school_class.id)
         await audit.record(
             session, school_class.id, callback.from_user.id, "class.diary", "дневник отвязан"
         )
@@ -2434,7 +2438,10 @@ async def class_diary_provider(
         school_class.diary_school_name = None
         # The members' «Сетевой город» sessions read a diary the class has
         # left; expired in the same commit as the binding they no longer fit.
+        # And the sign-in links minted under the old binding go with it, or a
+        # form drawn for one diary sends its password to the other (#137).
         await diary_service.expire_off_binding(session, school_class)
+        await diary_link.drop_for_class(session, school_class.id)
         await audit.record(
             session, school_class.id, callback.from_user.id, "class.diary",
             "привязан дневник Санкт-Петербурга",
@@ -2593,8 +2600,10 @@ async def class_diary_school(
     school_class.diary_school_name = str(school["name"])[:300]
     # Sessions on another region's server, or Petersburg's, read a diary the
     # class has left: expired with the binding, so the keep-alive stops
-    # pinging a server nobody here uses. The same region keeps them.
+    # pinging a server nobody here uses. The same region keeps them. The
+    # sign-in links go whatever the region: each names one school (#137).
     await diary_service.expire_off_binding(session, school_class)
+    await diary_link.drop_for_class(session, school_class.id)
     await audit.record(
         session, school_class.id, callback.from_user.id, "class.diary",
         f"привязан «Сетевой город»: {region.title}, {str(school['name'])[:200]}",

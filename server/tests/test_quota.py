@@ -25,6 +25,7 @@ import subprocess
 import sys
 from datetime import UTC, date, datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from alembic.migration import MigrationContext
@@ -95,6 +96,60 @@ async def test_a_first_spend_larger_than_the_cap_writes_nothing(session):
 async def test_a_spend_of_nothing_is_a_mistake_not_a_free_pass(session):
     with pytest.raises(ValueError):
         await quota.spend(session, "a", 0, cap=2, day=date(2026, 9, 25))
+
+
+def test_every_scope_fits_its_column():
+    """SQLite ignores a VARCHAR's width, so a scope longer than the column
+    passes every test here and is a 500 on every search on Postgres. Every
+    upper-case string in the module is a scope today; one that is not can
+    still stand being measured."""
+    width = UsageCounter.__table__.c.scope.type.length
+    scopes = {
+        name: value
+        for name, value in vars(quota).items()
+        if name.isupper() and isinstance(value, str)
+    }
+    assert "DADATA_ANONYMOUS" in scopes
+    assert {name: len(value) for name, value in scopes.items() if len(value) > width} == {}
+
+
+class _Captured:
+    """A session that says it is Postgres and keeps the statement it is
+    handed. CI has no Postgres, so the dialect's own branch is otherwise
+    never built: swapping its insert for one with no ``on_conflict_do_update``
+    would be green here and an AttributeError on every search in production."""
+
+    class _Result:
+        def scalar_one_or_none(self):
+            return 1
+
+    def __init__(self) -> None:
+        self.statements: list = []
+        self.committed = False
+
+    def get_bind(self):
+        return SimpleNamespace(dialect=postgresql.dialect())
+
+    async def execute(self, statement):
+        self.statements.append(statement)
+        return self._Result()
+
+    async def commit(self) -> None:
+        self.committed = True
+
+
+async def test_the_spend_on_postgres_is_one_guarded_upsert():
+    captured = _Captured()
+
+    assert await quota.spend(captured, "a", 2, cap=5, day=date(2026, 9, 25))
+
+    (statement,) = captured.statements
+    sql = _words(str(statement.compile(dialect=postgresql.dialect())))
+    assert sql.startswith("INSERT INTO usage_counters (scope, day, used) VALUES")
+    assert "ON CONFLICT (scope, day) DO UPDATE SET used = (usage_counters.used +" in sql
+    assert "WHERE usage_counters.used + %(used_2)s <= %(param_1)s" in sql
+    assert sql.endswith("RETURNING usage_counters.used")
+    assert captured.committed
 
 
 # ---- the revision ---------------------------------------------------------

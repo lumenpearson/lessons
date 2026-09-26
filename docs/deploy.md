@@ -328,7 +328,9 @@ columns a second diary provider needs: `diary_sessions.provider` and `region` an
 keep-alive clocks, and `classes.diary_region`, `diary_school_id` and `diary_school_name` —
 eight nullable columns, additive, to go on before the merge. Its downgrade expires every
 non-Petersburg session first, so code rolled back past this revision cannot read a «Сетевой
-город» credential as Petersburg's and replay it at the wrong upstream. `0016` creates
+город» credential as Petersburg's and replay it at the wrong upstream, and unbinds every
+class bound to «Сетевой город», which the old code would call «Санкт-Петербург» on the
+admin's card and «не привязан» behind the diary button. `0016` creates
 `usage_counters` — one row per external allowance per Moscow day, the anonymous school
 directory's share of DaData's — and nothing else: one new table, no existing row read or
 rewritten, additive, and it goes on **together with `0015`, before #140 merges**. Its
@@ -336,7 +338,12 @@ downgrade drops the table, which loses nothing but the counts.
 
 Everything up to `0012` checks with an inspector what is not in the database yet and does
 not rewrite existing tables, so those can be applied to a live class in the middle of a
-school day. The head is `0016`.
+school day. `0013`, `0015` and `0016` ask the inspector too — per constraint, per column,
+per table — because on an empty database `0001` has already built today's schema, and a
+second `ADD COLUMN` or `ADD CONSTRAINT` there is a hard error that stops the `migrate`
+service below; and because a SQLite file `scripts.init_db` built before a model change is
+stamped at the old head without the new columns, and only the revision adds them. The head
+is `0016`.
 
 ### A migration goes BEFORE the deploy, not after
 

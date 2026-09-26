@@ -131,6 +131,25 @@ async def drop_for(session: AsyncSession, *, telegram_id: int, class_id: int) ->
     return rows_affected(result)
 
 
+async def drop_for_class(session: AsyncSession, class_id: int) -> int:
+    """Drop every outstanding sign-in ticket in this class, whoever holds it.
+
+    Called wherever the class's diary binding is written — bound, rebound or
+    unbound. A ticket's form names the diary it will send the password to, and
+    the submit reads the binding again, so a link opened before an admin
+    rebinds and submitted after it would hand a Petersburg password to
+    «Сетевой город», or the other way round (#137). With the tickets gone in
+    the same commit as the binding, the submit finds no ticket and refuses
+    before anything leaves this server: ``claim`` runs after the binding is
+    read, so it cannot win against a rebind that committed first. Committed by
+    the caller.
+    """
+    result = await session.execute(
+        sa_delete(DiaryLinkCode).where(DiaryLinkCode.class_id == class_id)
+    )
+    return rows_affected(result)
+
+
 async def purge(session: AsyncSession) -> int:
     """Drop tickets nobody can use any more. Returns how many went.
 

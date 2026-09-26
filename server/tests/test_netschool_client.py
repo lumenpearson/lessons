@@ -427,3 +427,39 @@ async def test_a_malformed_sign_in_answer_is_never_a_500(monkeypatch, override):
         )
     assert response.status_code != 500, response.text
     assert response.status_code in (200, 401, 502, 503)
+
+
+async def test_terms_during_an_outage_are_the_diary_down_not_a_list(monkeypatch):
+    """terms/search read a 502 page's JSON — or failed to parse its HTML — as
+    the terms; an outage is `UpstreamUnavailable` here as everywhere else."""
+    from app.providers.diary.errors import UpstreamUnavailable
+
+    _install(monkeypatch, lambda request: httpx.Response(
+        502, text="<h1>502 Bad Gateway</h1>", headers={"content-type": "text/html"}))
+    await nsclient.close_client()
+    try:
+        client = nsclient.NetSchoolClient(region_for("samara"), {"at": "a", "cookies": {}})
+        with pytest.raises(UpstreamUnavailable):
+            await client.terms_search(3)
+    finally:
+        await nsclient.close_client()
+
+
+async def test_a_body_that_will_not_decode_before_the_password_hands_the_ticket_back(
+    monkeypatch,
+):
+    """A DecodingError is not a TransportError. At `logindata`, before any
+    password is sent, it walked out as a 500 that spent the sign-in ticket."""
+    from app.providers.diary.errors import UpstreamUnavailable
+
+    _install(monkeypatch, lambda request: httpx.Response(
+        200,
+        headers={"content-type": "application/json", "content-encoding": "gzip"},
+        stream=httpx.ByteStream(b"not gzip at all"),
+    ))
+    await nsclient.close_client()
+    try:
+        with pytest.raises(UpstreamUnavailable):
+            await nsclient.NetSchoolClient(region_for("samara")).login_allowed()
+    finally:
+        await nsclient.close_client()

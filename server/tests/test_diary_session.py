@@ -98,6 +98,8 @@ class _NetSchoolUpstream:
         route = self.routes.get(request.url.path)
         if isinstance(route, httpx.Response):
             return route
+        if callable(route):
+            return route(request)
         if route is None:
             return httpx.Response(404, json={})
         return httpx.Response(200, json=route)
@@ -528,9 +530,13 @@ async def test_the_login_finds_the_corrections_a_password_sign_in_left(
 async def test_a_registered_session_is_invisible_to_the_bot(client, session, petersburg):
     """Showing a phone's session in the bot is deliberately left for later: the
     row belongs to no Telegram account and no class, so no bot screen finds
-    it — even with a device token of a class bound to the same diary sent."""
-    from app.bot.handlers import diary as bot_diary
+    it — even with a device token of a class bound to the same diary sent.
 
+    Sent the way the app sends it, as `Authorization: Bearer`. This test sent
+    it as `X-Device-Token`, which nothing reads, so a registration that began
+    tying itself to the caller's class would have passed; and it asked the bot
+    for Telegram id 42, which a row with no Telegram id can never match
+    whatever its class is."""
     klass = SchoolClass(name="9А", join_code="PHONE42", diary_provider="petersburg")
     session.add(klass)
     await session.commit()
@@ -538,13 +544,18 @@ async def test_a_registered_session_is_invisible_to_the_bot(client, session, pet
     device = joined.json()["token"]
 
     response = await client.post(
-        "/api/v1/diary/session", json=_petersburg_body(), headers={"X-Device-Token": device}
+        "/api/v1/diary/session",
+        json=_petersburg_body(),
+        headers={"Authorization": f"Bearer {device}"},
     )
     assert response.status_code == 200, response.text
 
     row = await session.scalar(select(DiarySession))
     assert row.telegram_id is None and row.class_id is None
-    assert await bot_diary._session_for(session, 42, klass) is None
+    in_the_class = await session.scalar(
+        select(DiarySession).where(DiarySession.class_id == klass.id)
+    )
+    assert in_the_class is None
 
 
 async def test_a_device_token_never_authorises_a_diary_read(client, session, school_class):
@@ -675,3 +686,248 @@ async def test_the_zone_handed_back_is_the_one_the_diary_cuts_its_day_at(monkeyp
     # Every region the allow-list serves has a zone this Python knows.
     for region in regions.listed(password_only=False):
         assert service.zone_for("netschool", region.key) == region.zone
+
+
+# --------------------------------------------------------------------------
+# «Сетевой город» answering the way a real server fails
+# --------------------------------------------------------------------------
+
+#: nginx's own page for a regional server in the middle of a deploy.
+NGINX_502 = "<html><head><title>502 Bad Gateway</title></head><body><center><h1>502 Bad Gateway</h1></center><hr><center>nginx</center></body></html>"  # noqa: E501
+
+
+def _outage(status: int = 502, text: str = NGINX_502, ctype: str = "text/html"):
+    return lambda request: httpx.Response(status, text=text, headers={"content-type": ctype})
+
+
+async def _ns_token(client) -> dict[str, str]:
+    registered = await _register(client, _netschool_body())
+    assert registered.status_code == 200, registered.text
+    return {"Authorization": f"Bearer {registered.json()['token']}"}
+
+
+@pytest.mark.parametrize(
+    ("status", "text", "ctype"),
+    [
+        (502, NGINX_502, "text/html"),
+        (503, "<h1>Service Unavailable</h1>", "text/html; charset=us-ascii"),
+        (500, "Runtime Error", "text/plain"),
+        (429, "<h1>Too Many Requests</h1>", "text/html"),
+    ],
+    ids=["502-nginx", "503-iis", "500-plain", "429-html"],
+)
+async def test_an_outage_page_on_a_read_is_503_and_keeps_the_session(
+    client, session, netschool, status, text, ctype
+):
+    """An error page is the region being down, not the session being over.
+
+    Read as a login page — the rule for a non-JSON *2xx* — it expired the row
+    and sent the phone to sign in again, and no password is stored to do that
+    for the family: one outage signed a whole region out.
+    """
+    headers = await _ns_token(client)
+    netschool.routes["/webapi/student/diary/init"] = _outage(status, text, ctype)
+
+    response = await client.get("/api/v1/diary/students", headers=headers)
+
+    assert response.status_code == 503, response.text
+    assert response.headers["X-Diary-Unavailable"] == "upstream"
+    assert "X-Diary-Reauth" not in response.headers
+    row = await session.scalar(select(DiarySession))
+    await session.refresh(row)
+    assert row.expired_at is None
+
+
+async def test_a_login_page_on_a_read_still_expires_the_session(client, session, netschool):
+    """The other half of the rule above, which must survive it: a 200 of HTML
+    on an authenticated call is the session gone."""
+    headers = await _ns_token(client)
+    netschool.routes["/webapi/student/diary/init"] = _outage(200, "<form>Вход</form>")
+
+    response = await client.get("/api/v1/diary/students", headers=headers)
+
+    assert response.status_code == 401
+    assert response.headers["X-Diary-Reauth"] == "required"
+
+
+async def test_an_outage_page_during_registration_is_503_and_not_counted(
+    client, session, netschool
+):
+    netschool.routes["/webapi/student/diary/init"] = _outage()
+
+    response = await _register(client, _netschool_body())
+
+    assert response.status_code == 503, response.text
+    assert response.headers["X-Diary-Unavailable"] == "upstream"
+    assert await _attempts(session) == 0
+    assert await session.scalar(select(DiarySession)) is None
+
+
+async def test_a_body_that_will_not_decode_is_503_and_not_counted(client, session, netschool):
+    """``Content-Encoding: gzip`` over a body that is not: httpx raises a
+    DecodingError, which is not a TransportError, and it left the client as a
+    bare 500 — uncounted, unexplained, and with no header to switch on."""
+    netschool.routes["/webapi/student/diary/init"] = lambda request: httpx.Response(
+        200,
+        headers={"content-type": "application/json", "content-encoding": "gzip"},
+        stream=httpx.ByteStream(b"this is not gzip"),
+    )
+
+    response = await _register(client, _netschool_body())
+
+    assert response.status_code == 503, response.text
+    assert response.headers["X-Diary-Unavailable"] == "upstream"
+    assert await _attempts(session) == 0
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        httpx.Response(404, json={"message": "not found"}),
+        httpx.Response(200, json={}),
+        httpx.Response(200, json={"id": None, "startDate": "2026-09-01", "endDate": "2027-05-31"}),
+        httpx.Response(200, json=[]),
+        httpx.Response(200, json={"id": 2026}),
+    ],
+    ids=["404", "empty", "null-id", "list", "no-bounds"],
+)
+async def test_a_registration_whose_year_cannot_be_read_is_refused(
+    client, session, netschool, answer
+):
+    """Before, it answered 200 with a token, and the first schedule read found
+    no year sealed and expired it: 401, register again, 200, 401 — for ever."""
+    netschool.routes["/webapi/years/current"] = answer
+
+    response = await _register(client, _netschool_body())
+
+    assert response.status_code == 502, response.text
+    assert await session.scalar(select(DiarySession)) is None
+    assert await _attempts(session) == 1
+
+
+@pytest.mark.parametrize("answer", [None, [], "week", 42], ids=["null", "list", "str", "int"])
+async def test_a_weekly_diary_that_is_not_an_object_is_502(client, netschool, answer):
+    headers = await _ns_token(client)
+    netschool.routes["/webapi/student/diary"] = lambda request: httpx.Response(
+        200, content=json.dumps(answer).encode(), headers={"content-type": "application/json"}
+    )
+
+    for kind in ("schedule", "homework", "grades"):
+        response = await client.get(
+            f"/api/v1/diary/students/11/{kind}?from=2026-09-14&to=2026-09-20", headers=headers
+        )
+        assert response.status_code == 502, (kind, response.text)
+        assert response.json()["detail"] == "Электронный дневник ответил непонятно"
+
+
+async def test_a_session_opened_under_the_old_year_reads_the_new_one(
+    client, session, netschool
+):
+    """Registered while ``years/current`` still named the year that ended in
+    May, then read in September. The walk was clipped to the sealed year and
+    answered 200 with nothing, making no call at all, until the family signed
+    out and back in. Now the year is asked again — once that day."""
+    netschool.routes["/webapi/years/current"] = {
+        "id": 2025, "startDate": "2025-09-01", "endDate": "2026-05-31"}
+    headers = await _ns_token(client)
+    netschool.routes["/webapi/years/current"] = {
+        "id": 2026, "startDate": "2026-09-01", "endDate": "2027-05-31"}
+    netschool.routes["/webapi/student/diary"] = {"weekDays": [{
+        "date": "2026-09-15T00:00:00",
+        "lessons": [{"number": 1, "subjectName": "Алгебра", "startTime": "08:30",
+                     "endTime": "09:15", "room": "12"}],
+    }]}
+    netschool.seen.clear()
+
+    schedule = "/api/v1/diary/students/11/schedule?from=2026-09-14&to=2026-09-20"
+    first = await client.get(schedule, headers=headers)
+    second = await client.get(schedule, headers=headers)
+
+    for response in (first, second):
+        assert response.status_code == 200, response.text
+        assert [lesson["subject"] for lesson in response.json()] == ["Алгебра"]
+    weeks = [r for r in netschool.seen if r.url.path == "/webapi/student/diary"]
+    assert weeks and all(r.url.params["yearId"] == "2026" for r in weeks)
+    # Once, not on every read: the new year is sealed with the session.
+    assert [r.url.path for r in netschool.seen].count("/webapi/years/current") == 1
+    row = await session.scalar(select(DiarySession))
+    await session.refresh(row)
+    assert json.loads(service.upstream_of(row))["year_id"] == 2026
+
+
+# --------------------------------------------------------------------------
+# What one caller may do to the upstream, all at once or one at a time
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def own_pool():
+    """A connection pool of this test's own. A burst waits on the pool, which
+    binds the pool's queue to this test's event loop — and the next test runs
+    on another loop and cannot wait on it. Disposed before and after."""
+    from app.db import engine
+
+    await engine.dispose()
+    yield
+    await engine.dispose()
+
+
+async def test_a_burst_of_wrong_passwords_reaches_the_diary_at_most_ten_times(
+    client, petersburg, LOGIN_PATH, own_pool
+):
+    """Checked first and recorded only after the upstream had answered, a
+    burst of forty concurrent guesses all read a count from before any of them
+    and twenty-odd reached the diary, from our address, inside a window whose
+    limit is ten — the oracle the limiter exists to close."""
+    import asyncio
+
+    async def slow_refusal(request: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(0.2)
+        return httpx.Response(401, json={"message": "Неверный логин или пароль"})
+
+    petersburg.routes[LOGIN_PATH] = slow_refusal
+    responses = await asyncio.gather(*(
+        client.post(
+            "/api/v1/diary/login", json={"login": "parent@example.com", "password": f"guess{i}"}
+        )
+        for i in range(40)
+    ))
+
+    guesses = [r for r in petersburg.seen if r.url.path == LOGIN_PATH]
+    assert len(guesses) <= diary_login_limiter.limit
+    assert {r.status_code for r in responses} <= {401, 429}
+
+
+async def test_one_caller_cannot_open_sessions_without_end(client, session, netschool):
+    """Only failures were counted, so a caller whose every registration
+    succeeded was never limited: one real session replayed into `/session`
+    was a new row per call — four bootstrap calls each, kept alive by the cron
+    from our address for a month."""
+    from app.api.diary import diary_open_limiter
+
+    for _ in range(diary_open_limiter.limit):
+        assert (await _register(client, _netschool_body())).status_code == 200
+
+    refused = await _register(client, _netschool_body())
+
+    assert refused.status_code == 429
+    assert "Retry-After" in refused.headers
+    rows = list(await session.scalars(select(DiarySession)))
+    assert len(rows) == diary_open_limiter.limit
+
+
+async def test_a_failure_does_not_spend_a_session_and_a_session_does_not_spend_a_failure(
+    client, session, netschool
+):
+    """The two counts are apart: a session opened is not a wrong guess, and a
+    wrong guess opened nothing."""
+    from app.api.diary import diary_open_limiter
+
+    ok = await _register(client, _netschool_body())
+    netschool.routes["/webapi/student/diary/init"] = httpx.Response(401, json={})
+    refused = await _register(client, _netschool_body())
+
+    assert (ok.status_code, refused.status_code) == (200, 409)
+    # One row for each: the session opened, the failure counted.
+    assert await _attempts(session) == 2
+    assert diary_open_limiter.limit > 1

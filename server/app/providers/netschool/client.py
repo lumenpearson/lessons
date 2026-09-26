@@ -259,6 +259,12 @@ class NetSchoolClient:
             if "reset" in text or "refused" in text or "denied" in text:
                 raise AddressRefused from error
             raise UpstreamUnavailable from error
+        except httpx.HTTPError as error:
+            # A body whose Content-Encoding does not decode is not a
+            # TransportError, and walked out of here as a bare 500 — on
+            # `/session`, `/login` and the sign-in page alike. Petersburg's
+            # client and DaData's already read it as the upstream failing.
+            raise UpstreamUnavailable from error
         if self._looks_refused(response):
             raise AddressRefused
         return response
@@ -287,9 +293,22 @@ class NetSchoolClient:
                 raise SessionExpired
         if response.status_code == 401 or response.is_redirect:
             raise SessionExpired
+        status = response.status_code
+        if status >= 500 or status == 429:
+            # Before the content-type rule below, and whatever the body is: an
+            # outage arrives as nginx's or IIS's HTML error page, and read as a
+            # login page it expired every session on the region in one
+            # keep-alive tick, and each family's own read expired theirs — with
+            # no password stored to sign back in with.
+            raise UpstreamUnavailable
+        if status >= 400:
+            # 401 is above and 403 never gets past `_send`. Any other 4xx is
+            # not an answer to read as data: a 404 `{"message": …}` from
+            # `years/current` used to be sealed as a year with no id.
+            raise UnexpectedResponse
         ctype = response.headers.get("content-type", "")
         if "json" not in ctype:
-            # A non-JSON 200 on an authenticated call is a login page: the
+            # A non-JSON 2xx on an authenticated call is a login page: the
             # session is gone, which is «войдите снова», not «непонятно».
             raise SessionExpired
         self._absorb_cookies(response)
@@ -583,12 +602,16 @@ class NetSchoolClient:
                 headers=headers,
                 timeout=_TIMEOUT,
             )
-        except httpx.TransportError as error:
+        except httpx.HTTPError as error:
+            # TransportError and a body that will not decode alike: see `_send`.
             raise UpstreamUnavailable from error
         if self._looks_refused(response):
             raise AddressRefused
         if response.status_code == 401 or response.is_redirect:
             raise SessionExpired
+        if response.status_code >= 500 or response.status_code == 429:
+            # An outage, not a list of terms: see `_authed_json`.
+            raise UpstreamUnavailable
         if response.status_code in (404, 405):
             return []  # this server has no such endpoint
         try:
