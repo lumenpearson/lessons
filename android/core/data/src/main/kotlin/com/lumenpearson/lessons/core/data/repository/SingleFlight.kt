@@ -27,7 +27,11 @@ internal class SingleFlight<K : Any, V> {
 
     suspend fun run(key: K, block: suspend () -> V): V {
         val (flight, owner) = lock.withLock {
-            val existing = running[key]
+            // A run that has ended but whose owner has not yet taken its entry
+            // out is not joined: its answer is already spent, and a waiter
+            // retrying after a cancelled owner would otherwise find the same
+            // dead run again and again until the owner got the lock back.
+            val existing = running[key]?.takeIf { it.isActive }
             if (existing != null) {
                 existing to false
             } else {
