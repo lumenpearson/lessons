@@ -155,18 +155,19 @@ fun DiarySignInScreen(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    place?.host?.let { host ->
+                    passwordPrivacyParagraphs(place?.host).forEachIndexed { index, paragraph ->
                         Text(
-                            text = correctedString(R.string.diary_password_destination, host),
+                            text = paragraph,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            // The sentence naming the host first and brightest:
+                            // it is the one fact on this card a reader can check.
+                            color = if (index == 0 && place?.host != null) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                         )
                     }
-                    Text(
-                        text = correctedString(R.string.diary_password_notice),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
         }
