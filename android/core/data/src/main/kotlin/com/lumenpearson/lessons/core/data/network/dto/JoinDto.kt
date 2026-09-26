@@ -93,4 +93,20 @@ internal data class WarmupDto(
     @SerialName("schema") val schema: String? = null,
     @SerialName("expected_schema") val expectedSchema: String? = null,
     @SerialName("detail") val detail: String? = null,
-)
+) {
+    /**
+     * The revision the database is at, or null when the server does not know one.
+     *
+     * The server spells «I have none» as the word `unknown` (`public.py`:
+     * `revision or "unknown"`), and taken as a revision it reached the about
+     * card as «Схема unknown» — English inside a Russian chip, naming a
+     * revision that does not exist (#172). Null draws no chip, and the badge
+     * beside it already says the database and the code have not met.
+     */
+    val revision: String?
+        get() = schema?.takeUnless { it.isBlank() || it.equals(UNKNOWN_REVISION, ignoreCase = true) }
+
+    private companion object {
+        const val UNKNOWN_REVISION = "unknown"
+    }
+}

@@ -75,13 +75,13 @@ internal class SessionRepositoryImpl(
         try {
             val body = api.warmup()
             when (body.status) {
-                "ok" -> ServerStatus.Ok(apiVersion = body.apiVersion, schema = body.schema)
+                "ok" -> ServerStatus.Ok(apiVersion = body.apiVersion, schema = body.revision)
                 // `degraded` and `down` are both «the server answered and said
                 // it is not well», and the schema pair is what says which.
                 // Anything else a future server invents lands here too, with
                 // its own sentence, rather than being reported as healthy.
                 else -> ServerStatus.Degraded(
-                    schema = body.schema,
+                    schema = body.revision,
                     expected = body.expectedSchema,
                     detail = body.detail,
                 )
