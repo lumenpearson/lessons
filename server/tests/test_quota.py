@@ -20,6 +20,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -144,7 +145,13 @@ async def test_the_spend_on_postgres_is_one_guarded_upsert():
     assert await quota.spend(captured, "a", 2, cap=5, day=date(2026, 9, 25))
 
     (statement,) = captured.statements
-    sql = _words(str(statement.compile(dialect=postgresql.dialect())))
+    # Newer SQLAlchemy releases write an explicit cast after every bind
+    # parameter on this dialect (`%(used_2)s::INTEGER`), older ones do not,
+    # and CI installs whatever `>=` resolves to that day — so the casts are
+    # taken out before the shape is compared. What the test asks is the
+    # statement's shape: one insert, one guarded update, one RETURNING.
+    rendered = _words(str(statement.compile(dialect=postgresql.dialect())))
+    sql = re.sub(r"::[A-Z]+(?:\(\d+\))?", "", rendered)
     assert sql.startswith("INSERT INTO usage_counters (scope, day, used) VALUES")
     assert "ON CONFLICT (scope, day) DO UPDATE SET used = (usage_counters.used +" in sql
     assert "WHERE usage_counters.used + %(used_2)s <= %(param_1)s" in sql
