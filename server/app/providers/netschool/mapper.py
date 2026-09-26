@@ -69,6 +69,20 @@ def _parse_time(raw: Any) -> Time | None:
     return None
 
 
+def _json_int(value: Any) -> int | None:
+    """A JSON integer, or ``None`` — never a bool.
+
+    `bool` is an `int` in Python, so a JSON ``true`` passes
+    ``isinstance(value, int)`` as 1. A pupil's id is half of the key the
+    child's corrections are filed under (`services/diary.child_scope`), so a
+    ``true`` read as pupil 1 would lay pupil 1's corrections over another
+    child. Petersburg's `number` refuses a bool too, and the client's
+    `_json_int` is the same rule — not imported, because the client brings the
+    HTTP module with it.
+    """
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
 def to_students(init: dict[str, Any], school: str | None) -> list[Student]:
     """``student/diary/init`` → the pupils this account may see.
 
@@ -85,8 +99,8 @@ def to_students(init: dict[str, Any], school: str | None) -> list[Student]:
     for row in raw:
         if not isinstance(row, dict):
             continue
-        sid = row.get("studentId")
-        if not isinstance(sid, int):
+        sid = _json_int(row.get("studentId"))
+        if sid is None:
             continue
         nick = _text(row.get("nickName")) or ""
         students.append(
@@ -97,7 +111,7 @@ def to_students(init: dict[str, Any], school: str | None) -> list[Student]:
                 school=school,
                 class_name=_text(row.get("className")),
                 education_id=sid,
-                group_id=row.get("classId") if isinstance(row.get("classId"), int) else None,
+                group_id=_json_int(row.get("classId")),
             )
         )
     if raw and not students:

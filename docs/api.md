@@ -999,7 +999,7 @@ whether the schema is the one this code was written against. Three answers:
 
 | | Body | Meaning |
 | --- | --- | --- |
-| `200` | `{"status": "ok", "api_version": 1, "schema": "0016"}` | the database is reachable and at the revision the code expects |
+| `200` | `{"status": "ok", "api_version": 1, "schema": "0017"}` | the database is reachable and at the revision the code expects |
 | `200` | `{"status": "degraded", …, "schema": …, "expected_schema": …, "detail": …}` | both revisions named, and `detail` says **which way** they diverge |
 | `503` | `{"status": "down", "api_version": 1, "detail": "База недоступна."}` | the database could not be reached |
 
@@ -1110,9 +1110,11 @@ POST /api/v1/diary/session
 The body is one of two shapes, chosen by `provider`, and every level of it refuses a key it
 does not know: **a `password` key anywhere is a `422`**, so no client can send one here, by
 mistake or otherwise. `login` is what the person typed into the client's own form. Nothing
-upstream vouches for it; it names the session and keys the family's corrections (see
-[Corrections over the diary](#corrections-over-the-diary)), so a client sends the same
-string every time. For «Сетевой город», `region` must be an allow-listed key that takes a
+upstream vouches for it, so it names the session — it is what the answer echoes and what
+the client prints as the account signed in — and decides nothing: a login copied from
+another family reaches nothing of theirs, because what a session reaches is what its own
+diary lists (see [Corrections over the diary](#corrections-over-the-diary)). For «Сетевой
+город», `region` must be an allow-listed key that takes a
 password and `school_id` the diary's own school id — both checked before any upstream call,
 so a region this server does not serve never receives a request. In `credential`,
 Petersburg's `token` must be a JWT; `NSSESSIONID` is required and `ESRNSec`, `ver` and
@@ -1233,10 +1235,10 @@ diary inside a window whose limit is ten. The same holds for `/join` and the dir
 | `GET /api/v1/diary/students/{id}/subjects?period_id=` | a period's subjects |
 | `GET /api/v1/diary/students/{id}/teachers` | the teachers |
 | `GET /api/v1/diary/students/{id}/attendance` | the turnstile passages |
-| `GET /api/v1/diary/students/{id}/overrides` | the family's corrections over the diary |
+| `GET /api/v1/diary/students/{id}/overrides` | the child's corrections over the diary, whoever wrote them |
 | `PUT /api/v1/diary/students/{id}/overrides` | write a correction |
-| `POST /api/v1/diary/students/{id}/overrides/reset` | reset one |
-| `DELETE /api/v1/diary/students/{id}/overrides/all` | reset them all |
+| `POST /api/v1/diary/students/{id}/overrides/reset` | reset one, for everyone who sees the child |
+| `DELETE /api/v1/diary/students/{id}/overrides/all` | reset them all, for everyone who sees the child |
 | `POST /api/v1/diary/logout` | forget the session |
 
 `from` and `to` are ISO dates; the default is two weeks ahead and the maximum is 62 days.
@@ -1263,7 +1265,7 @@ takes it out and hands it back as a list, because that is how people ask for it.
 
 The diary is **read-only** for us, and that does not change: nothing goes upstream. A
 correction is a value laid **over** what came from above, on the way out, and a reset takes
-it off. Nothing changes in dnevnik2, and the teacher does not see the correction.
+it off. Nothing changes in the diary itself, and the teacher does not see the correction.
 
 A lesson and an assignment arrive with a key and a list of corrections:
 
@@ -1299,9 +1301,56 @@ and a passage are statements about what happened, and an app that lets you rewri
 produces a forged record that looks official. `subject` is not correctable because it is
 half of the key.
 
-Corrections live on the **account's login** rather than on the session: a diary session dies
-every few days, and a correction that went with it would disappear by itself, silently,
-before anybody pressed "reset".
+Corrections belong to the **child** — not to the session, and not to the login. The key is
+the diary's server (Petersburg's, or the «Сетевой город» regional server's host) and the
+pupil's id on it. A diary session dies every few days, and a correction that went with it
+would disappear by itself, silently, before anybody pressed "reset"; and the login is only
+what a client typed at
+[`POST /session`](#registering-a-session-the-client-opened-post-apiv1diarysession), which
+nothing upstream vouches for, so it decides nothing.
+
+So the corrections are **shared by everyone whose own diary lists the child**: both
+parents, each signed in with their own account; the pupil's own account, when the diary
+lists the pupil to themselves; and, literally, any account the diary answers with that
+child — a staff account included, should its list ever not be empty (a staff account gets
+`403` at registration only because its list has so far been empty, which is an observation
+rather than a rule). What decides is the `{id}` check above, before any correction is read
+or written: on every call the id is looked up among the pupils **this session's own diary**
+lists, and anything else is a 404. **A login gains nothing**, because no correction route
+reads it: naming another family's login at `/session`, or a string spelled exactly like the
+server's internal key, reaches the pupils one's own diary lists and nothing else.
+
+What sharing means for a client:
+
+- **One correction per field per child, and the last writer wins** — `original` included, so
+  the other adult's `changed_upstream` is measured against what the last writer saw. Nothing
+  checks a version: a client's copy may be stale, because the other adult may have changed
+  or reset a field since its last read.
+- **No row says who wrote it.** There is no author column, so a client cannot tell «your
+  correction» from «theirs», and should not say either.
+- **A reset takes the correction off for everyone who sees the child** — one field, or all of
+  them. `DELETE …/overrides/all` never reaches beyond the one child in its path.
+
+The same pupil number on two diaries is two children: pupil 11 on one regional server is not
+pupil 11 on another, nor the Petersburg person whose id is 11. The key follows the server's
+host rather than the region's name, so if a region's origin ever moved, its corrections would
+stop matching — lost — rather than attach to whichever child the new server gives the same
+number.
+A session whose region names no server this code knows is sent to sign in again (`401` with
+`X-Diary-Reauth: required`) rather than given a guess.
+
+A Petersburg child the diary lists by a plain `id` rather than by its person id gets **no
+corrections at all**. Nothing says what that number counts, and with the login out of the key
+it would be all that told one family's child from another's. Its schedule and homework come
+back as the diary has them, its list is empty, a reset answers `204` with nothing to take
+off, and `PUT` answers `422` «Для этого ученика правки недоступны», which the app shows as it
+shows any field it cannot correct. No live answer has been seen to take that path.
+
+Two things are assumed and have not been observed: that a «Сетевой город» pupil id is unique
+on its server rather than only within a school, and that two parents' accounts see one child
+under one id, in either diary. If the id turned out to be per school, the school would have to
+come from the diary's own answer — never from the `school_id` a client sends at `/session`,
+which nothing compares with the diary.
 
 Resetting one correction is `POST .../overrides/reset` with a body of
 `{"target": …, "field": …}`, not a `DELETE` with the same fields in the query. `target` is a

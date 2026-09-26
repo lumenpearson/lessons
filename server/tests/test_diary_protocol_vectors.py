@@ -467,8 +467,10 @@ def test_header_token_rule_matches_the_vectors(case):
 
 @pytest.mark.parametrize("case", VECTORS["login"]["cases"], ids=lambda c: ascii(c["typed"]))
 def test_login_cleaning_matches_the_vectors(case):
-    """The login the server keys a family's corrections on is the login the
-    phone sends the diary and registers — one cleaning, on both sides. The
+    """The login the server stores and prints on «Вход выполнен» is the login
+    the phone sends the diary and registers — one cleaning, on both sides, so
+    a login pasted with an invisible character is not a wrong password on one
+    side only. It keys nothing (the corrections are the child's). The
     registration body and the password sign-in each run it, so each is asked."""
     wanted = case["sent"]
     assert VECTORS["login"]["min_code_points"] == 3

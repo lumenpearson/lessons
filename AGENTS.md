@@ -55,7 +55,8 @@ CI is exactly: ruff, pytest `-n auto`, `./gradlew test`, both assembles. `./grad
 2. **Telegram refuses a message over 4096 characters whole**, rather than clipping it, and
    everything from outside must be HTML-escaped before it goes in.
 3. **A model change needs an Alembic revision**, and the direction matters: additive goes on
-   before the merge, a `UNIQUE` or `NOT NULL` after. Head is `0013`.
+   before the merge, a `UNIQUE` or `NOT NULL` after, a rewrite of a key after where there are
+   rows to rewrite. Head is `0017`.
 4. **`LocalDateTime.now()` and `ZoneId.systemDefault()` on the Android side are almost always
    a bug** — time is naive local wall time in the *class's* zone.
 5. **Secrets never enter the repository.** Redact as `<redacted>` in issues, logs and

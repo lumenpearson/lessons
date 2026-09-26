@@ -321,18 +321,25 @@ assignment and a window opens where every field can be rewritten. Under each fie
 **what the diary actually holds**: a correction lies over the school's answer rather than
 erasing it.
 
-Corrected rows are marked with the word «Исправлено». «Сбросить правки» puts everything
-back the way the diary has it.
+Corrected rows are marked with the word «Исправлено». «Сбросить правки» puts the row the
+window is open on back the way the diary has it — for everyone who sees this child, not
+only for you.
 
-Three things worth knowing:
+Four things worth knowing:
 
 * **Nothing changes in the diary itself.** Nothing goes upstream, the teacher does not see
-  the correction, and it does not affect a mark. It is only what you see.
+  the correction, and it does not affect a mark. It is only what the app shows.
+* **A correction belongs to the child, not to whoever made it.** Everybody who signs in to
+  the diary in the app with an account that lists this child — the other parent, the pupil
+  in their own account — sees the same corrections and can change or reset them, and
+  nothing on screen says who wrote one. Signing out does not take them away. If two
+  people save the same field at nearly the same moment, the one who saves last wins:
+  nothing checks whether somebody else changed it first.
 * **Marks and the turnstile cannot be corrected.** A mark is a statement about what
   happened; an app that lets you rewrite one makes a forged record that looks genuine.
 * **If the teacher later fills the field in**, the app says the diary now holds something
-  else and shows the new value beside yours — but it does not drop your correction by
-  itself.
+  else and shows the new value beside the correction — but it does not drop the correction
+  by itself.
 
 The bot does not show corrections: there the diary is seen as it is.
 

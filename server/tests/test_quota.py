@@ -34,6 +34,7 @@ from alembic.operations import Operations
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 
+from app.db import EXPECTED_REVISION
 from app.models import UsageCounter
 from app.services import quota
 
@@ -241,7 +242,10 @@ def test_the_revision_creates_the_table_where_it_is_missing_and_drops_it_going_d
         # (cid, name, type, notnull, default, pk)
         assert [columns[name][5] for name in ("scope", "day")] == [1, 2]
         assert columns["used"][3] == 1
-        assert db.execute("select version_num from alembic_version").fetchall() == [("0016",)]
+        # The head, whichever it is: a later revision runs after this one.
+        assert db.execute("select version_num from alembic_version").fetchall() == [
+            (EXPECTED_REVISION,)
+        ]
 
     downgraded = _alembic(database, "downgrade", "0015")
     assert downgraded.returncode == 0, downgraded.stderr

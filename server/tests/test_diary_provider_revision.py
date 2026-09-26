@@ -35,6 +35,7 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from sqlalchemy.dialects import postgresql
 
+from app.db import EXPECTED_REVISION
 from app.models import DiarySession, SchoolClass
 
 SERVER_ROOT = Path(__file__).resolve().parent.parent
@@ -169,7 +170,10 @@ def test_a_file_built_before_the_model_changed_gets_every_column(tmp_path):
     with sqlite3.connect(database) as db:
         for table, columns in ADDED.items():
             assert set(columns) <= _columns(db, table), table
-        assert db.execute("select version_num from alembic_version").fetchall() == [("0016",)]
+        # The head, whichever it is: a later revision runs after this one.
+        assert db.execute("select version_num from alembic_version").fetchall() == [
+            (EXPECTED_REVISION,)
+        ]
 
     # What the app itself reads: every mapped column of both tables.
     engine = sa.create_engine(f"sqlite:///{database}")

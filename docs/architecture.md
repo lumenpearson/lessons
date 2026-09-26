@@ -715,7 +715,7 @@ with the host.
 
 ## Testing
 
-1998 tests on the server, 1408 on Android; `pytest -q -n auto` and `./gradlew test`, both
+2024 tests on the server, 1408 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 532,
 `:core:designsystem` 99, `:widget` 104, `:app` 548.
 
@@ -739,6 +739,8 @@ The table below is the load-bearing part of that rather than the whole of it:
 | `server/tests/test_diary_protocol_vectors.py` | both diaries' sign-in protocols against the known-answer vectors in `tests/vectors/diary_protocol.json`, the bytes the phone's port is tested against too | pytest + `httpx.MockTransport` |
 | `server/tests/test_region_catalog.py` | that the committed catalog is what the generator writes, and that only Петербург and the sixteen password «Сетевой город» regions are a sign-in | pytest |
 | `server/tests/test_directory.py`, `test_quota.py` | the anonymous school directory's order of refusals, the per-caller throttle, the daily share and its atomic spend, and `0016`'s DDL against the model | pytest |
+| `server/tests/test_diary_corrections_per_child.py` | the corrections are the child's (#165): every account whose own diary lists the child shares them, a login copied from another family reaches nothing, one pupil number on two servers is two children, a child listed by a plain id gets no corrections at all, no scope equals a casefolded login | pytest + a fake upstream per account |
+| `server/tests/test_corrections_per_child_revision.py` | `0017` is data only and locks PostgreSQL's table first, its PostgreSQL text runs on SQLite, a real upgrade leaves exactly the rows it should — collisions, legacy «Сетевой город» keys, per-child rows — twice over and after a downgrade, the counts its docstring gives the owner are what each step deletes, a reset in the after-the-merge window comes back, and a downgrade and upgrade re-file what reverted code wrote | pytest + alembic |
 | `android/core/model/.../ScheduleEngineTest.kt` | every `DayState`, boundary conditions, event precedence, next-transition scheduling | JVM JUnit |
 | `android/widget/.../WidgetSizeClassTest.kt` | the launcher's nearest-breakpoint rule over real sizes, and that the ladder is monotonic | JVM JUnit |
 | `android/app/.../ResourceTranslationTest.kt` | every Russian string has an English twin, in every module that ships strings | JVM JUnit |

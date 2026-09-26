@@ -64,7 +64,7 @@ When you sign in to a diary, the server keeps:
 
 A session opened in the app is linked to neither a Telegram account nor a class, and the bot does not see it. A session opened from the bot is linked to your Telegram account and to the class, and remembers which pupil you chose.
 
-Your corrections to the diary: what you corrected, the new value and what the diary said when you made the correction. They are tied to your login and the pupil's number, not to the session, so they remain after you sign out of the diary.
+Corrections to the diary: what was corrected, the new value and what the diary said when the correction was made. They are tied not to a login or a session but to the pupil — to the diary system (for Setevoy Gorod, the region's server) and the pupil's number in it — so they remain after you sign out of the diary and are shared by everyone whose account shows that pupil (see “Who can read your diary”). The server does not record who made a correction, and no login is kept with it.
 
 If the operator has turned school search on, you can find your region by your school's name while choosing a diary: the server passes the text you typed to the DaData service. The server does not write that text to its database, but it is part of the request's address, and so it stays in the hosting's request log.
 
@@ -88,7 +88,7 @@ The class's own data — the timetable, substitutions, homework, events, teacher
 
 The password does pass through the server in two cases: when you sign in to a diary on the page the bot opens — the browser sends the password to the server, and the server passes it to the diary once — and when an older version of the app signs in, one that does not have this text yet. In both cases the server writes the password down nowhere.
 
-**The diary's contents** — marks, homework, timetable, the list of pupils — are read by the server when you ask and passed on without being kept. The exception is what an entry said when you corrected it.
+**The diary's contents** — marks, homework, timetable, the list of pupils — are read by the server when you ask and passed on without being kept. The exception is what an entry said when it was corrected.
 
 **There are no analytics, no advertising identifiers and no automatic crash reporting**, in the app or on the server.
 
@@ -105,12 +105,13 @@ If the diary does not accept the session from the server's address, the server d
 The app does not sign in to Gosuslugi or to My School: it opens the system's page in your browser, and nothing from Gosuslugi reaches either the app or the server.
 
 ## Who can read your diary
-<!-- id: READERS; label: Readers; summary: The diary's system, the operator, Telegram and whoever has the phone -->
+<!-- id: READERS; label: Readers; summary: The diary's system, the operator, Telegram, whoever has the phone, and whoever sees the same pupil -->
 
 - **The diary's system**, after sign-in, sees the server's address using your session, not your phone's.
 - **The operator** holds the key the sessions are encrypted with, and so can technically open your diary. The encryption protects against whoever gets the database without the key, not against the operator.
 - **Telegram** keeps in the chat history whatever the bot sent you from the diary — marks, homework, timetable.
 - **Whoever holds your phone:** the diary access key sits on it unencrypted, and the app opens the diary without a password until you sign out.
+- **Everyone whose diary account shows the same pupil** — the other parent, the pupil in their own account, and any other account in which the diary shows that pupil — sees in the app the corrections made for that pupil, whoever made them, and can change or reset them. Beyond the corrections, they see only what the diary shows their own account.
 
 ## Keeping the session open
 <!-- id: KEEPALIVE; label: Session; summary: How the server keeps a Setevoy Gorod session open and for how long -->
@@ -132,7 +133,7 @@ The server does not keep Petersburg Education sessions open: they last as long a
 - The link for signing in to a diary from the bot: 15 minutes; a personal code for connecting a phone: one day after its 15 minutes have run out.
 - What you started typing in the bot: 2 days without a change.
 
-**With no time limit** — until somebody deletes them or deletes the class — the server keeps the change log, tasks and “done” ticks, reminder times, requests for rights, invitations by phone number, your membership of the class in the bot, and the class's data. Diary corrections and the class chosen in the bot are not deleted even with the class; corrections are deleted by the “Reset corrections” button.
+**With no time limit** — until somebody deletes them or deletes the class — the server keeps the change log, tasks and “done” ticks, reminder times, requests for rights, invitations by phone number, your membership of the class in the bot, and the class's data. Diary corrections and the class chosen in the bot are not deleted even with the class. A correction is deleted by the “Reset corrections” button — for everyone at once, and anybody who sees that pupil can press it.
 
 These periods are kept by the server's clock. If the operator has not set that clock up, the records in this list stay past their periods, and Setevoy Gorod sessions are not kept open.
 
@@ -183,7 +184,7 @@ If you have connected to a different server, whoever started it decides where it
 
 A diary is information about a child: their marks, homework and timetable. If a pupil under 18 uses Lessons, it should be with the knowledge and consent of their parent or another legal guardian.
 
-The app does not ask anybody's age and checks nothing about who signs in. A parent's diary account may show several children, and everybody who signs in to it sees all of them.
+The app does not ask anybody's age and checks nothing about who signs in. A parent's diary account may show several children, and everybody who signs in to it sees all of them. Corrections to the diary are shared for the child: everyone whose account shows that child sees them and can change or reset them — the child too, in their own account.
 
 A parent who wants the server to delete their child's data can write to the operator — the “Contact” section says how.
 
@@ -202,11 +203,11 @@ In the app, whatever the server's address, the diary password goes only to the d
 <!-- id: CHOICES; label: Your choices; summary: Sign out, reset, switch off — and what you cannot do yourself -->
 
 - Sign out of the diary in the app or in the bot — the server deletes the session. If the phone is offline at that moment, the session is deleted by itself 30 days after it was last used, and until then the server keeps a Setevoy Gorod session open.
-- Reset your corrections to the diary.
+- Reset a correction to the diary — for everyone who sees that pupil, whoever made it.
 - Leave a class — this erases the copy on the phone, but not the server's record of the phone.
 - Turn off the automatic update check. Crash reports stay off until you turn them on yourself.
 
-You cannot remove yourself from the bot or delete your data from the server on your own: there are no commands for that, so write to the operator. The operator cannot delete your Telegram chat history or the data in the diary's system — that is done there.
+You cannot remove yourself from the bot or delete your data from the server on your own: there are no commands for that, so write to the operator. The operator cannot tell which corrections to the diary are yours: the server does not record who made each. So a request to delete your corrections is met by deleting that pupil's corrections — including those somebody else made for that pupil — or the particular ones the request names. The operator cannot delete your Telegram chat history or the data in the diary's system — that is done there.
 
 ## Changes
 <!-- id: CHANGES; label: Changes; summary: Editions, the date, and what changes this text -->

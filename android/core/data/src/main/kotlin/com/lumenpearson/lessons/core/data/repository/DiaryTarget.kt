@@ -65,7 +65,9 @@ data class DiaryTarget(
     /**
      * Whether two targets are the same account, for deciding whether what is
      * cached on the phone still belongs to whoever just signed in. Local only:
-     * it is not the server's `owner_key` and never leaves the device.
+     * it never leaves the device, and it is not what the server files
+     * corrections under — those belong to the child, and every account whose
+     * diary lists that pupil reads the same ones.
      */
     fun accountKey(): String =
         "${provider.wire}|${region.orEmpty()}|${login.trim().lowercase(Locale.ROOT)}"

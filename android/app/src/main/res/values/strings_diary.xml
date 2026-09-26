@@ -93,7 +93,7 @@
 
     <string name="diary_error_rejected">Это поле нельзя исправить.</string>
     <string name="diary_edit_title">Исправить</string>
-    <string name="diary_edit_message">Правка меняет только то, что вы видите здесь. В самом дневнике ничего не меняется, и учитель её не увидит.</string>
+    <string name="diary_edit_message">Правки общие: их видит и может изменить каждый, чей дневник в приложении показывает этого ученика, — например, второй родитель, — а сброс убирает их у всех. В самом дневнике ничего не меняется, и учитель их не увидит.</string>
     <string name="diary_edit_field_homework">Домашнее задание</string>
     <string name="diary_edit_field_room">Кабинет</string>
     <string name="diary_edit_field_teacher">Учитель</string>

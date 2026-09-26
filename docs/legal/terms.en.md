@@ -40,7 +40,7 @@ The app does not ask your age and does not check who signs in to a diary, so thi
 
 - It shows the class timetable that people with rights in that class keep in the Telegram bot, once you have entered the class code or a personal code from the bot.
 - It shows your electronic diary — lessons, homework, marks — if you have signed in to it. The server reads the diary from the diary's system and passes it on to the app.
-- It lets you correct what came from the diary: the homework text, the room, the teacher, the lesson's topic. A correction is kept on the server next to the diary and **is never sent to the diary's system** — the school register does not change because of it. Marks and attendance cannot be corrected.
+- It lets you correct what came from the diary: the homework text, the room, the teacher, the lesson's topic. A correction is kept on the server next to the diary and **is never sent to the diary's system** — the school register does not change because of it. Corrections are shared per pupil: everyone whose diary account shows that pupil — the other parent, for example — sees them in the app and can change or reset them. Marks and attendance cannot be corrected.
 
 ## This is not the official record
 <!-- id: NOT_OFFICIAL; label: Not the record; summary: What to trust when the app and the school disagree -->
@@ -97,7 +97,7 @@ The operator is liable for the consequences of using Lessons only to the extent 
 ## How to stop using it
 <!-- id: ENDING; label: Leaving; summary: What happens when you sign out, leave or uninstall -->
 
-- **Sign out of the diary** — in the app or in the bot. The server deletes the session and, for Setevoy Gorod, also tells the diary you have signed out; your corrections to the diary stay on the server until you reset them.
+- **Sign out of the diary** — in the app or in the bot. The server deletes the session and, for Setevoy Gorod, also tells the diary you have signed out; the corrections to the diary stay on the server until somebody who sees that pupil resets them — you, or the other parent, for example.
 - **Leave a class** in the app — this erases only what is kept on the phone. The server deletes its record of the phone by itself 180 days after the phone's last request; an admin can disconnect the phone sooner, but even then the record is kept until that date.
 - **Uninstall the app** — this erases everything it keeps on the phone; on the server, data is kept for the periods the privacy policy gives.
 

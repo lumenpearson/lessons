@@ -304,8 +304,9 @@ internal class DiarySignInImpl(
      * it — its zone above all, so the phone's «today» is the server's.
      */
     private fun sessionFrom(response: DiarySessionResponseDto, sent: DiaryTarget): DiarySession {
-        // The login as the server stored it, which keys the corrections; what
-        // was sent, cleaned the same way, if it ever stops echoing one.
+        // The login as the server stored it, which is what «Вход выполнен»
+        // prints and what `accountKey` compares; what was sent, cleaned the
+        // same way, if it ever stops echoing one.
         val login = DiaryLogin.clean(response.login) ?: DiaryLogin.clean(sent.login) ?: sent.login.trim()
         val target = sent.copy(
             region = response.region ?: sent.region,

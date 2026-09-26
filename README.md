@@ -206,7 +206,7 @@ Read this before planning a release.
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 100 modules — asks whether anything reaches for an attribute that does not exist |
-| `pytest -q -n auto` | 1998 tests, green, about four minutes — the command CI runs |
+| `pytest -q -n auto` | 2024 tests, green, about four minutes — the command CI runs |
 | `./gradlew test` | 1408 tests, green, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
@@ -453,10 +453,12 @@ one of them is proved by a test rather than by a screen.
   nobody has watched.
 * **`/api/v1/warmup` itself has not been read since #61**, when it answered
   `{"status":"ok","api_version":1,"schema":"0013"}`. Production was last recorded at `0014`;
-  the code on this branch expects `0016`, and `0015` and `0016` are to be applied before #140
-  merges, after which it should say `0016`. That one request is the cheapest check of whether
-  the migrations and the code that needs them actually met — but the deployment previews sit
-  behind Vercel's protection, and nobody has made the check against production either.
+  the code on this branch expects `0017`, and `0015`, `0016` and `0017` are to be applied
+  before #140 merges — production holds no diary corrections, so `0017` has nothing to
+  rewrite there — after which it should say `0017`. That one request is the cheapest check
+  of whether the migrations and the code that needs them actually met — but the deployment
+  previews sit behind Vercel's protection, and nobody has made the check against production
+  either.
 * **`docker compose up` has not been run.** There is no Docker in this environment: the
   compose file was parsed and its dependency conditions asserted. The `migrate` service and
   the revisions now in the image are written and never watched coming up.

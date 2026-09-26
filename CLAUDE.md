@@ -47,7 +47,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 1998 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2024 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -354,7 +354,7 @@ points Hilt does not inject cleanly.
   a half-applied revision cannot claim to be whole. And say what a revision destroys before
   running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
   sentence the owner needs *before* the transaction, not after.
-- **Migrations are Alembic and the head is `0016`, which goes on with `0015` before this batch's merge.** `0001` is a guarded
+- **Migrations are Alembic and the head is `0017`, which goes on with `0015` and `0016` before this batch's merge.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
@@ -395,6 +395,30 @@ points Hilt does not inject cleanly.
   creates a table and nothing else — additive, the ordinary shape, rewrites
   and destroys no row — and goes on **before** the merge, together with
   `0015`; its downgrade drops the table and with it nothing but the counts.
+  `0017` changes no schema: it files the corrections over the diary under the
+  **child** rather than under a login (#165, the owner's decision of 26
+  September) — `diary_overrides.login` keeps its name and holds the scope
+  `services/diary.child_scope` builds, `CHILD:petersburg` or `CHILD:netschool:`
+  and the regional server's host and no other shape (a child the diary lists
+  outside its own numbering gets no corrections at all), upper case so that
+  no casefolded login can ever equal one. It **destroys rows**: every legacy
+  «Сетевой город» key (a hash whose region is recoverable at best for authors
+  still signed in; only where #140's branch ran), and, wherever two logins —
+  or a legacy and a per-child row — corrected the same field of the same
+  child, all but the newest (`updated_at`, then `id`); the rest of the old
+  Petersburg rows are rewritten to `CHILD:petersburg`. Its docstring carries a
+  count per destructive step to read before the transaction, and on
+  PostgreSQL it locks the table against writes first. On this database, with
+  no correction in it on 26 September, that is nothing, and it goes on with
+  `0015` and `0016` **before** the merge. On a deployment that holds
+  corrections it is better applied just **after** the merge — a key rewrite,
+  a third shape beside the column and the constraint: before it, whatever the
+  old code writes in the window is filed under a login the new code never
+  reads; after it, the rewrite folds the old rows into what was typed
+  meanwhile, but a reset made in the window comes back, so the window is
+  minutes. Its downgrade is a no-op, and a revert is **not** lossless: after
+  any window of older code, run its statements again, or
+  `alembic downgrade 0016 && alembic upgrade head`.
   Nothing after `0001` may use `create_all`.
   Beware the enum: `SAEnum(SomeStrEnum)` stores the member **name**, so a `server_default`
   written as `.value` is a string the ORM cannot read back — which on `classes` is a

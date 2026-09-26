@@ -6,9 +6,10 @@ package com.lumenpearson.lessons.core.data.repository
  * vectors.
  *
  * One cleaning, used everywhere a login leaves the phone: the diary's own
- * sign-in and our server's registration. The server keys a family's
- * corrections on the login it stores, and it used to receive the password and
- * clean the login itself before any upstream call. When the phone signs in on
+ * sign-in and our server's registration. The server stores the login only to
+ * name the session — it keys nothing, corrections included, which belong to
+ * the child — and it used to receive the password and clean the login itself
+ * before any upstream call. When the phone signs in on
  * its own, a login pasted from a chat with a bidi mark or a zero-width space
  * around it went upstream exactly as pasted: the diary compared it to the
  * account's name, said no, and the screen asked for the password again,

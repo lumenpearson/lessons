@@ -111,6 +111,26 @@ def test_a_wholly_unreadable_children_answer_raises():
         m.to_students({"students": "nonsense"}, None)
 
 
+def test_a_json_true_is_no_pupil_and_no_class():
+    """`bool` is an `int` in Python, so `true` passed `isinstance(sid, int)`
+    as pupil 1 — and a pupil's id is half of the key the child's corrections
+    are filed under, shared by everyone whose diary lists that child. Read as
+    pupil 1, it would have laid pupil 1's corrections over another child.
+    Refused, as Petersburg's `number` refuses one; `classId` the same."""
+    import pytest
+
+    students = m.to_students(
+        {"students": [{"studentId": True, "nickName": "Никто"},
+                      {"studentId": 12, "nickName": "Петров Пётр", "classId": True}]},
+        None,
+    )
+    assert [(pupil.id, pupil.group_id) for pupil in students] == [(12, None)]
+
+    # A list of nothing but that is a list nobody can read, not an empty one.
+    with pytest.raises(m.UnexpectedResponseError):
+        m.to_students({"students": [{"studentId": True, "nickName": "Никто"}]}, None)
+
+
 def test_periods_mark_the_term_holding_today():
     terms = [
         {"id": 1, "termName": "1 четверть", "startDate": "2026-09-01", "endDate": "2026-10-26"},

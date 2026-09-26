@@ -51,6 +51,13 @@ class Student(BaseModel):
     #: client passes them straight back; never parsed by the phone.
     education_id: int
     group_id: int | None = None
+    #: Which numbering ``id`` is in, when a provider can fill it from more than
+    #: one; ``None`` is the provider's own pupil id. Never sent to a client
+    #: (`DiaryStudentOut` names its fields). A child with any other numbering
+    #: gets no corrections (`services/diary.DiaryService.scope_of`): the key
+    #: they are filed under is the diary and the number, so a number nothing
+    #: says is one person's would let two families' children meet under it.
+    id_space: str | None = None
 
     @property
     def full_name(self) -> str:

@@ -91,7 +91,7 @@
 
     <string name="diary_error_rejected">This field cannot be corrected.</string>
     <string name="diary_edit_title">Correct</string>
-    <string name="diary_edit_message">A correction changes only what you see here. Nothing changes in the diary itself, and the teacher will not see it.</string>
+    <string name="diary_edit_message">Corrections are shared: everyone whose diary in the app shows this pupil — the other parent, for example — sees them and can change them, and a reset removes them for everyone. Nothing changes in the diary itself, and the teacher will not see them.</string>
     <string name="diary_edit_field_homework">Homework</string>
     <string name="diary_edit_field_room">Room</string>
     <string name="diary_edit_field_teacher">Teacher</string>

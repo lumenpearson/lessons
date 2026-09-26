@@ -728,6 +728,16 @@ class DiaryViewModel(
      * correction equal to the upstream: keeping a row that says "show exactly
      * what you were going to show anyway" would leave the value marked as
      * corrected forever, with a reset button that appears to do nothing.
+     *
+     * "What changed" is measured against the row as the sheet opened on it,
+     * not against a fresh read — and the row is not this account's alone. The
+     * corrections are the child's (#165), so the other parent may have
+     * rewritten or reset a field since: a field the snapshot already shows
+     * corrected to the typed value sends nothing, and a field typed back to the
+     * diary's value resets whatever is there now, theirs included. That is
+     * last-writer-wins, which is what the server is too — it keeps no version
+     * to compare against — and the reload after every save is what puts the
+     * outcome on screen.
      */
     fun saveEdit(typed: Map<DiaryField, String>) {
         val open = state.value.editing ?: return

@@ -634,9 +634,11 @@ def _clean_login_value(value: str) -> str:
     """A login as the upstream will see it: printable, trimmed, three or more.
 
     Shared by the password sign-in and the registration of a phone's session,
-    because both write it to the same column and key the same corrections on
-    it — two cleanings of one value would file one family's corrections under
-    two names.
+    because both write it to the same column and «Вход выполнен» prints it
+    from there — and the phone cleans it character for character the same way
+    (`DiaryLogin.clean`), so a login pasted with an invisible character is not
+    a wrong password on one side only. It keys nothing: corrections are filed
+    under the child (`services/diary.child_scope`).
     """
     cleaned = _strip_control_chars(value).strip()
     if len(cleaned) < 3:
@@ -757,8 +759,9 @@ class _SessionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     #: What the person typed into the phone's own form. Nothing upstream
-    #: vouches for it; it names the session and keys the corrections, so the
-    #: phone sends the same string on every sign-in.
+    #: vouches for it, so it only names the session: a login copied from
+    #: another family reaches nothing of theirs (#165), because what a session
+    #: reaches is what its own diary lists.
     login: str = Field(min_length=3, max_length=200)
 
     @field_validator("login")
@@ -1034,8 +1037,12 @@ class DiaryOverrideIn(BaseModel):
     #: question it exists to answer is "has the diary changed since the person
     #: decided to replace this", and the answer is about what *they* saw, not
     #: about what the upstream happened to say in the second this request
-    #: landed. It is also nobody else's data — a family's own correction of
-    #: their own diary — so there is no boundary here to defend.
+    #: landed. The row is shared by everyone whose diary lists the child, so
+    #: the last writer's ``original`` is what everybody's ``changed_upstream``
+    #: is measured against — and still there is no boundary here to defend:
+    #: whoever can write it sees the child in their own diary and could write
+    #: the value itself, and a wrong ``original`` only raises or lowers a flag
+    #: that is drawn beside the diary's own current answer.
     original: str | None = Field(default=None, max_length=4000)
 
 

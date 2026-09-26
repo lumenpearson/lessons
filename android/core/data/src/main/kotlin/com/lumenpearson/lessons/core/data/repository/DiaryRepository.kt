@@ -80,7 +80,8 @@ interface DiaryRepository {
     suspend fun periods(studentId: Long): Result<List<DiaryPeriod>>
 
     /**
-     * Every correction this family has stored for this child.
+     * Every correction stored for this child, by anyone whose diary lists the
+     * pupil — the other parent's as much as this account's.
      *
      * Not needed to *draw* a corrected lesson — [schedule] already comes back
      * corrected, with [DiaryLesson.edits] saying which fields were — but needed

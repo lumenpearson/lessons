@@ -501,11 +501,13 @@ async def test_a_registered_session_reads_like_a_signed_in_one(client, petersbur
     assert all(f"X-JWT-Token={JWT}" in r.headers["cookie"] for r in petersburg.seen)
 
 
-async def test_the_login_finds_the_corrections_a_password_sign_in_left(
+async def test_a_registration_finds_the_corrections_a_password_sign_in_left(
     client, petersburg, LOGIN_PATH, with_token
 ):
-    """Corrections are keyed by the login, case-folded. A family that used to
-    sign in with a password and now registers from the phone keeps them."""
+    """A family that used to sign in with a password and now registers from
+    the phone keeps its corrections. Once that was because both keyed them by
+    the same login, case-folded; now it is because they belong to the child,
+    and the login — typed differently here on purpose — plays no part (#165)."""
     petersburg.routes[LOGIN_PATH] = with_token
     petersburg.routes[SCHEDULE_PATH] = {"items": [
         {"date": "15.09.2026", "subject_name": "Алгебра", "number": 1, "office": "12"}]}
@@ -522,7 +524,7 @@ async def test_the_login_finds_the_corrections_a_password_sign_in_left(
     )
     assert put.status_code == 200, put.text
 
-    token = (await _register(client, _petersburg_body(login="parent@example.com"))).json()["token"]
+    token = (await _register(client, _petersburg_body(login="ivanova.m"))).json()["token"]
     lesson = (await client.get(schedule, headers={"Authorization": f"Bearer {token}"})).json()[0]
     assert lesson["room"] == "204"
 

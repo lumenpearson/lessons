@@ -127,7 +127,10 @@ internal interface DiaryApi {
     suspend fun attendance(@Path("id") studentId: Long): List<DiaryAttendanceDto>
 
     /**
-     * Every correction this account has stored for this child.
+     * Every correction stored for this child, whoever stored it: the server
+     * files them under the pupil rather than under an account, so every
+     * account whose diary lists the pupil reads, replaces and resets the same
+     * rows, and nothing in them says who wrote which.
      *
      * The only calls in this interface that write anything, and they write
      * nothing upstream: a correction is laid over the diary's answer on the way
@@ -171,7 +174,11 @@ internal interface DiaryApi {
         @Body body: DiaryResetRequestDto,
     )
 
-    /** Drops every correction for this child, so the diary answers for itself again. */
+    /**
+     * Drops every correction for this child, so the diary answers for itself
+     * again — for every account that sees the pupil, not just this one, since
+     * the rows are the child's.
+     */
     @DELETE("api/v1/diary/students/{id}/overrides/all")
     suspend fun resetOverrides(@Path("id") studentId: Long)
 }

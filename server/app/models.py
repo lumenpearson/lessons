@@ -819,9 +819,10 @@ class DiarySession(Base):
     # that is encrypted instead. Refreshed in place (and re-sealed) whenever the
     # upstream hands back a new one, which it does on most calls.
     upstream_token: Mapped[str] = mapped_column(Text, nullable=False)
-    # Who signed in. Shown on the "you are signed in as" line, and also the key
-    # a family's corrections hang on (`services/diary.py:owner_key`), so the
-    # same login re-used later lays its overrides over the same lessons.
+    # Who signed in, as typed: shown on the "you are signed in as" line and
+    # nothing more. A phone's registration names it and nothing upstream
+    # vouches for it, so it decides nothing — a family's corrections are filed
+    # under the child (`services/diary.py:child_scope`), not under this (#165).
     login: Mapped[str] = mapped_column(String(200), nullable=False)
     # The Telegram account this session belongs to. Set when the session was
     # opened from the bot's sign-in ticket (`api/diary_web.py`); NULL for a
@@ -952,17 +953,23 @@ class DeviceInvite(Base):
 class DiaryOverride(Base):
     """One correction a family laid over something the diary sent down.
 
-    Nothing here changes dnevnik2. The upstream is read-only to this project
+    Nothing here changes the diary. The upstream is read-only to this project
     and will stay that way; what this table holds is a value put **over** the
     one that came down, on the way out, so that «сбросить» is a delete rather
     than a second guess at what was there before. A row is the correction; its
     absence is the upstream's own answer.
 
-    **Keyed by the account, not by the session.** Signing out and back in makes
-    a new :class:`DiarySession` row, and a correction that went with it would
-    make the reset button meaningless — the correction would already be gone,
-    silently, the first time the upstream session expired. ``login`` is what
-    survives, and it is the same string the session row already stores.
+    **Keyed by the child, not by the session and not by the login.** Signing
+    out and back in makes a new :class:`DiarySession` row, and a correction
+    that went with it would make the reset button meaningless — the correction
+    would already be gone, silently, the first time the upstream session
+    expired. And the login is whatever the phone typed, which nothing upstream
+    vouches for, so keyed on it one family could name another's (#165). The
+    key is the diary's server (``login``, holding a scope) and the pupil's id
+    on it (``student_id``), so everyone whose own diary lists the child —
+    both parents, the pupil's own account — reads and writes one set: one row
+    per field, the last writer's, with no column saying who that was. The
+    routes decide who reaches a child, by asking the session's own diary.
 
     ``target`` names the thing being corrected **semantically** rather than by
     position: a homework item by its upstream id when it has one and by (day,
@@ -988,18 +995,23 @@ class DiaryOverride(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    #: The upstream account, **case-folded** — ``services/diary.py:owner_key``
-    #: is the only thing that writes or queries this column, and it folds.
+    #: **Not a login any more**, whatever the name says: the diary a child's
+    #: corrections belong to, as ``services/diary.py:child_scope`` spells it —
+    #: ``CHILD:petersburg``, or ``CHILD:netschool:`` and the regional server's
+    #: host, and nothing else: a child listed outside its diary's own
+    #: numbering gets no row at all (``DiaryService.scope_of``). So one child's
+    #: rows are exactly ``login = <scope> AND student_id = <id>`` — what an
+    #: operator deleting them on request writes. The name stayed because
+    #: renaming a column is a migration and the key needed none; revision
+    #: ``0017`` rewrote the rows that held a login.
     #:
-    #: Unlike ``DiarySession.login``, which is kept exactly as it was typed
-    #: because it is what «вы вошли как» prints. This one is a key, and the
-    #: upstream treats ``Ivan@mail.ru`` and ``ivan@mail.ru`` as one account —
-    #: so keeping the casing here would file one family's corrections under two
-    #: owners, and the set that went missing would have no reset button left,
-    #: there being nothing to reset. The consequence to remember: this column
-    #: **must not** be joined against ``diary_sessions.login``.
+    #: ``child_scope`` is the only thing that writes or queries it. It **must
+    #: not** be compared with ``diary_sessions.login``, or with any login: the
+    #: upper-case prefix is there precisely so that no casefolded login — the
+    #: form this column held before — can ever equal a scope.
     login: Mapped[str] = mapped_column(String(200), nullable=False)
-    #: Which child, for an account that carries several.
+    #: The pupil's id on that diary (``Student.id``, not the education id the
+    #: bot keeps on a session) — the other half of the key: which child.
     student_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     #: See the class docstring: semantic, never positional.
     target: Mapped[str] = mapped_column(String(300), nullable=False)

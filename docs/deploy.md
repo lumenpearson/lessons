@@ -334,7 +334,27 @@ admin's card and «не привязан» behind the diary button. `0016` creat
 `usage_counters` — one row per external allowance per Moscow day, the anonymous school
 directory's share of DaData's — and nothing else: one new table, no existing row read or
 rewritten, additive, and it goes on **together with `0015`, before #140 merges**. Its
-downgrade drops the table, which loses nothing but the counts.
+downgrade drops the table, which loses nothing but the counts. `0017` changes no schema at
+all: it files the corrections over the diary under the child instead of under a login
+(#165) — `diary_overrides.login` keeps its name and now holds the diary's scope,
+`CHILD:petersburg` or `CHILD:netschool:` and the regional server's host, and no other shape
+(a child the diary lists outside its own numbering gets no corrections at all). It
+**deletes** every legacy «Сетевой город» row (its region is inside a hash, recoverable at
+best for authors still signed in, and such rows exist only where #140's branch ran),
+deletes all but the newest row wherever two logins corrected the same field of the same
+child, and rewrites the rest of the old Petersburg rows to `CHILD:petersburg`. Its
+docstring carries the two counts to read before the transaction, one per destructive step.
+On PostgreSQL it first locks the table against writes until it commits, so a correction
+saved while it runs waits instead of making it roll back. On production, read on 26
+September with no correction in it, that is nothing, and it goes on with `0015` and `0016`
+before the merge. On a deployment that holds corrections it is better applied just
+**after** the merge — see the third shape below. Its downgrade does nothing, on purpose — a
+login cannot be recovered from a scope, and the old code cannot read or write an
+upper-case scope under any login — but a revert is not lossless: what older code writes
+while it runs is filed under logins the new code never reads, and redeploying does not
+re-run `0017`. After any such window, run its statements again, or
+`alembic downgrade 0016 && alembic upgrade head`, which re-runs it because the downgrade does
+nothing.
 
 Everything up to `0012` checks with an inspector what is not in the database yet and does
 not rewrite existing tables, so those can be applied to a live class in the middle of a
@@ -342,8 +362,9 @@ school day. `0013`, `0015` and `0016` ask the inspector too — per constraint, 
 per table — because on an empty database `0001` has already built today's schema, and a
 second `ADD COLUMN` or `ADD CONSTRAINT` there is a hard error that stops the `migrate`
 service below; and because a SQLite file `scripts.init_db` built before a model change is
-stamped at the old head without the new columns, and only the revision adds them. The head
-is `0016`.
+stamped at the old head without the new columns, and only the revision adds them. `0017`
+asks only whether the table is there; its statements are plain SQL that PostgreSQL and SQLite
+both run, and a second run finds nothing to do. The head is `0017`.
 
 ### A migration goes BEFORE the deploy, not after
 
@@ -368,6 +389,21 @@ nobody catches. `0013` is that shape and says so in its own docstring — it wen
 the merge, and `services/homework.py` is written to be correct with or without it, so the
 window in between behaved exactly as production did before.
 
+**A rewrite of a key is a third shape.** `0017` breaks neither code — it changes no column —
+but the old code and the new file the same rows under different keys, so whichever runs in
+the window between the migration and the deploy writes rows the other cannot see, and
+neither order is free of loss. Before the merge, every correction typed in the window is
+filed under a login the new code never reads. After the merge, nothing typed is lost — the
+new code writes per-child rows at once, and the rewrite folds the old ones into them, the
+newer winning — but a **reset** made in the window is undone: the new code cannot see the
+legacy row to take it off, so «Сбросить правки» or «Сбросить всё» leaves it, and `0017` then
+files it under the child and the value comes back for everyone who sees the child. After is
+still the smaller loss, so it is the order for a deployment that holds corrections — with
+the window kept to minutes, and with `/api/v1/warmup` saying «База отстала от кода» through
+it, which there is expected. Where there is nothing to rewrite — production, on 26
+September — the order is free, and it goes on with the additive revisions before the merge,
+which keeps `/api/v1/warmup` level.
+
 That the database really has caught up with the code is shown by `alembic current` — it
 should print the same revision as `alembic heads`. The same thing over HTTP, without going
 into the database by hand:
@@ -376,18 +412,20 @@ into the database by hand:
 curl -s https://<your-project>.vercel.app/api/v1/warmup
 ```
 
-`{"status":"ok","schema":"0016"}` means it all lines up. `"status":"degraded"` together with
+`{"status":"ok","schema":"0017"}` means it all lines up. `"status":"degraded"` together with
 `expected_schema` names both revisions and says which way they diverged: «База отстала от
-кода» — the database is behind the code — is an incident, while «База впереди кода» — the
-database is ahead — is the normal window between steps 1 and 2, which the deploy closes.
+кода» — the database is behind the code — is an incident, except in the minutes a key
+rewrite such as `0017` is deliberately applied after the merge (above), while «База впереди
+кода» — the database is ahead — is the normal window between steps 1 and 2, which the
+deploy closes.
 `/api/v1/health` deliberately does not show this: it opens no database connection at all, or
 a ping meant to warm things up would keep waking a sleeping Neon.
 
 ### What to apply them with
 
 In practice this project's migrations are applied **through the Neon connector** rather than
-with the `alembic` command — that is how `0005`–`0014` were applied, and how `0015` and
-`0016` are to go on before #140 merges. The Neon project is
+with the `alembic` command — that is how `0005`–`0014` were applied, and how `0015`,
+`0016` and `0017` are to go on before #140 merges. The Neon project is
 called `lessons`; its identifier is not kept in the repository — anybody with access sees it
 in the Neon console anyway, and in a public repository it is just the address of somebody
 else's database.
@@ -531,7 +569,7 @@ stack instead of being buried in the API's log, and so that a migration can be r
 with `docker compose run --rm migrate`. It needs only `DATABASE_URL`: `get_settings()` is
 never called there, so `BOT_TOKEN` and `OWNER_IDS` are not its business.
 `GET /api/v1/warmup` is what confirms the result, and it is the endpoint that can: it says
-`{"status": "ok", "schema": "0016"}` when the two agree and names both revisions when they
+`{"status": "ok", "schema": "0017"}` when the two agree and names both revisions when they
 do not.
 
 The app on the phone needs to reach the API. The options are a public IP with a forwarded
