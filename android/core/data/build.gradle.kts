@@ -4,6 +4,10 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+/** A folder of the repository outside `android/`, as the path `directories` takes. */
+fun inRepository(path: String): String =
+    rootProject.layout.projectDirectory.dir("../$path").asFile.path
+
 android {
     namespace = "com.lumenpearson.lessons.core.data"
     compileSdk = 37
@@ -42,9 +46,13 @@ android {
     // instead of being written blind.
     // fallback: if AGP ever drops the `test` android source set, keeping only the
     // `androidTest` line below is enough for Room's MigrationTestHelper.
+    //
+    // Every folder below is added through `directories`, a set of paths, rather
+    // than `srcDirs(...)`, which AGP 9.4 deprecates (#185); both add to the
+    // defaults rather than replace them.
     sourceSets {
-        getByName("test").assets.srcDirs(files("$projectDir/schemas"))
-        getByName("androidTest").assets.srcDirs(files("$projectDir/schemas"))
+        getByName("test").assets.directories += "$projectDir/schemas"
+        getByName("androidTest").assets.directories += "$projectDir/schemas"
 
         // The guide the app draws, shipped in the APK as it is written in the
         // repository — `docs/app/` itself is the asset folder, rather than a
@@ -52,23 +60,21 @@ android {
         // copy of that text, which is the point: the app fetches these same
         // files from GitHub, and a bundled copy that had drifted from them
         // would show a reader a guide nobody wrote.
-        getByName("main").assets.srcDirs(rootProject.layout.projectDirectory.dir("../docs/app"))
+        getByName("main").assets.directories += inRepository("docs/app")
 
         // The region catalog, bundled as the server's generator wrote it — the
         // same one file the server reads, never a copy, because the phone takes
         // every host it will ever send a password to from this file and a
         // second allow-list is a second answer to «may I talk to this host».
-        getByName("main").assets.srcDirs(
-            rootProject.layout.projectDirectory.dir("../server/app/catalog/data"),
-        )
+        getByName("main").assets.directories += inRepository("server/app/catalog/data")
 
         // The known answers both sign-in implementations are held to, read in
         // place from the server's tests so there is one file and not two that
         // agree until somebody edits one. The catalog rides along so a JVM test
         // can load it from the classpath the way the app loads it from assets.
-        getByName("test").resources.srcDirs(
-            rootProject.layout.projectDirectory.dir("../server/tests/vectors"),
-            rootProject.layout.projectDirectory.dir("../server/app/catalog/data"),
+        getByName("test").resources.directories += listOf(
+            inRepository("server/tests/vectors"),
+            inRepository("server/app/catalog/data"),
         )
     }
 }

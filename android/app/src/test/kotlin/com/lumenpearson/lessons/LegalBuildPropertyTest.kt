@@ -92,7 +92,8 @@ class LegalBuildPropertyTest {
         assertTrue(
             "app/build.gradle.kts must mount docs/legal as an asset folder, or an " +
                 "offline reader is told the document could not be opened",
-            buildScript.contains("""assets.srcDirs(rootProject.layout.projectDirectory.dir("../docs/legal"))"""),
+            Regex("""assets\.directories \+=\s+rootProject\.layout\.projectDirectory\.dir\("\.\./docs/legal"\)\.asFile\.path""")
+                .containsMatchIn(buildScript),
         )
         val folder = File(root, "docs/legal")
         listOf("terms.ru.md", "terms.en.md", "privacy.ru.md", "privacy.en.md", "legal.json").forEach { name ->
