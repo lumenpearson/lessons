@@ -68,6 +68,7 @@ import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.ShellMode
 import com.lumenpearson.lessons.core.data.repository.ShellState
+import com.lumenpearson.lessons.core.designsystem.component.ArrangingDismissLayer
 import com.lumenpearson.lessons.core.designsystem.component.LessonsFloatingToolbar
 import com.lumenpearson.lessons.core.designsystem.component.LessonsLoadingIndicator
 import com.lumenpearson.lessons.core.designsystem.component.ToolbarAction
@@ -474,12 +475,15 @@ private fun HomeShell(
     var keepOnTab by remember { mutableStateOf<HomeTab?>(null) }
     LaunchedEffect(tabs) {
         val tab = keepOnTab ?: return@LaunchedEffect
-        keepOnTab = null
         val target = tabs.indexOf(tab)
         // `scrollToPage`, never the animated one: the page did not go
         // anywhere, the index under it did, and an animation here is a screen
         // visibly sliding to a place it never left.
         if (target >= 0 && target != pagerState.currentPage) pagerState.scrollToPage(target)
+        // Let go only once the pager is on it: the bar reads this tab as the
+        // selected one until then, and releasing it first left a frame in which
+        // the selection came from an index that still meant the old order.
+        keepOnTab = null
     }
 
     // A widget tap lands here. Closing the settings layers first, because the
@@ -713,7 +717,15 @@ private fun HomeShell(
                             ShellPage.Tabs -> if (home == ShellHome.DIARY) {
                                 diaryTab?.ordinal ?: 0
                             } else {
-                                tabs.getOrNull(pagerState.currentPage)
+                                // The tab being kept on, while there is one. A
+                                // drop writes the new order, and the frame it
+                                // arrives in still has the pager on the old
+                                // *index* — the keyed pager moves it during its
+                                // own measure, after this was read — so the
+                                // index named the tab that had moved into it,
+                                // and the selected circle hopped to that tab
+                                // for a frame and back (#180).
+                                (keepOnTab ?: tabs.getOrNull(pagerState.currentPage))
                                     ?.let(barTabs::indexOf) ?: -1
                             }
 
@@ -810,6 +822,15 @@ private fun HomeShell(
                             onBack = ::docsBack,
                         ),
                     )
+                },
+                // Read against the page, like `reordering` above: the page
+                // sliding away must not keep a layer that swallows touches.
+                onTouchOutsideBar = if (
+                    reordering && page == ShellPage.Tabs && home == ShellHome.TIMETABLE
+                ) {
+                    ::stopArranging
+                } else {
+                    null
                 },
             ) {
                 when (page) {
@@ -986,6 +1007,10 @@ private val ShellPage.destination: ShellDestination
  * The cost of that is one measurement per page instead of one for the app, and
  * that is deliberate too: during a slide there are two toolbars, and a single
  * shared height would be written twice per frame by two different bars.
+ *
+ * @param onTouchOutsideBar while the tabs are being arranged, what a touch
+ *   anywhere but the bar does; see [ArrangingDismissLayer]. Null the rest of the
+ *   time, when there is no layer and the page takes its own touches.
  */
 @Composable
 private fun ShellScaffold(
@@ -993,6 +1018,7 @@ private fun ShellScaffold(
     statusBarHeightPx: Float,
     offset: ScrollOffsetHolder,
     toolbar: @Composable (Modifier) -> Unit,
+    onTouchOutsideBar: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -1043,6 +1069,9 @@ private fun ShellScaffold(
                 content()
             }
         }
+
+        // Between the page and the bar, so it takes every touch but the bar's.
+        if (onTouchOutsideBar != null) ArrangingDismissLayer(onDismiss = onTouchOutsideBar)
 
         toolbar(
             Modifier

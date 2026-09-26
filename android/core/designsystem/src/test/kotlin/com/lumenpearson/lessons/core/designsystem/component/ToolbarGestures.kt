@@ -82,6 +82,61 @@ internal fun ComposeContentTestRule.dragFarRight(label: String) {
     settle(frames = 120)
 }
 
+/**
+ * A long press that goes straight on into a drag off the end of the bar, without
+ * the finger lifting in between: the one gesture that opens the arranging mode
+ * and carries a tab (#181).
+ *
+ * The wait is on the composition's clock for the same reason as in [longPress],
+ * and the move comes after it, so what is asked is whether a pointer that has
+ * already been a long press is still the drag's.
+ */
+internal fun ComposeContentTestRule.longPressAndDragFarRight(label: String) {
+    onNodeWithContentDescription(label).performTouchInput { down(center) }
+    settle()
+    mainClock.advanceTimeBy(LongPressMillis)
+    settle()
+    onNodeWithContentDescription(label).performTouchInput {
+        moveBy(Offset(SlopPx, 0f))
+        moveBy(Offset(FarPx, 0f))
+    }
+    settle()
+    onNodeWithContentDescription(label).performTouchInput { up() }
+    settle(frames = 120)
+}
+
+/**
+ * Carries a tab off the end of the bar and keeps the finger down, with the row
+ * given time to settle around the gap, so that what is drawn is the last frame
+ * before a drop. [lift] ends it; the two are apart so that a test can read the
+ * row in between.
+ */
+internal fun ComposeContentTestRule.holdFarRight(label: String) {
+    onNodeWithContentDescription(label).performTouchInput {
+        down(center)
+        moveBy(Offset(SlopPx, 0f))
+        moveBy(Offset(FarPx, 0f))
+    }
+    settle(frames = 120)
+}
+
+/** Lifts the finger [holdFarRight] left down, and draws exactly one frame. */
+internal fun ComposeContentTestRule.lift(label: String) {
+    onNodeWithContentDescription(label).performTouchInput { up() }
+    settle(frames = 1)
+}
+
+/**
+ * Where each tab's centre is drawn along the row, the layer that moves it
+ * included. The centre rather than an edge, because the held tab's scale and
+ * the jiggle both turn about it.
+ */
+internal fun SemanticsNodeInteractionsProvider.drawnCentres(labels: List<String>): Map<String, Float> =
+    labels.associateWith { label ->
+        val bounds = onNodeWithContentDescription(label).getUnclippedBoundsInRoot()
+        (bounds.left.value + bounds.right.value) / 2
+    }
+
 /** The tabs left to right, by the slot each was laid out in. */
 internal fun SemanticsNodeInteractionsProvider.drawnOrder(labels: List<String>): List<String> =
     labels.sortedBy { onNodeWithContentDescription(it).getUnclippedBoundsInRoot().left.value }

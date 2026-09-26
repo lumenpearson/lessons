@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -67,6 +70,42 @@ class ToolbarOverflowTest {
         showToolbar(selectedIndex = SectionCount - 1)
 
         compose.onNodeWithContentDescription(ActionLabel).assertExists()
+    }
+
+    /**
+     * A section scrolled half out of view goes under the pill's round end (#183).
+     *
+     * Every scroll container clips to a rectangle along its axis, and there are
+     * two here — Material scrolls the content of a pill with a button beside it,
+     * and the row scrolls its sections — so the edge a section is cut by is the
+     * nearer of their two windows. While Material's padding sat outside both,
+     * both windows began exactly where the first section did: 8 dp inside the
+     * pill, a straight line, and the round end the pill clips itself to was
+     * never reached. Asked of the windows rather than of the pixels, because a
+     * JVM test does not draw.
+     */
+    @Test
+    fun `no scroll window cuts the row short of the pill's end`() {
+        showToolbar(selectedIndex = 0)
+
+        val first = compose.onNodeWithContentDescription("Раздел 0").fetchSemanticsNode().boundsInRoot
+        val windows = compose
+            .onAllNodes(
+                SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange),
+                useUnmergedTree = true,
+            )
+            .fetchSemanticsNodes()
+        val endPadding = with(compose.density) { 8.dp.toPx() }
+
+        assertTrue("found no scrolling window to ask", windows.isNotEmpty())
+        for (window in windows) {
+            val before = first.left - window.boundsInRoot.left
+            assertTrue(
+                "A scroll window begins $before px before the first section, " +
+                    "inside the pill's $endPadding px end, and cuts it with a straight edge",
+                before >= endPadding - 0.5f,
+            )
+        }
     }
 
     private fun showToolbar(selectedIndex: Int) {
