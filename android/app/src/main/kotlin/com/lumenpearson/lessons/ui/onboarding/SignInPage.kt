@@ -43,6 +43,7 @@ import com.lumenpearson.lessons.ui.common.ServerUrlSheet
 import com.lumenpearson.lessons.ui.common.openInBrowser
 import com.lumenpearson.lessons.ui.diary.DiaryCredentialFields
 import com.lumenpearson.lessons.ui.diary.asText
+import com.lumenpearson.lessons.ui.diary.passwordPrivacyParagraphs
 import com.lumenpearson.lessons.ui.diary.regionName
 import com.lumenpearson.lessons.ui.diary.systemName
 
@@ -150,12 +151,7 @@ internal fun SignInPage(
 
             Column(modifier = Modifier.fillMaxWidth()) {
                 SectionHeader(title = correctedString(R.string.onboarding_sign_in_privacy_title))
-                NoteCard(
-                    listOfNotNull(
-                        current.place.host?.let { correctedString(R.string.diary_password_destination, it) },
-                        correctedString(R.string.diary_password_notice),
-                    ).joinToString("\n\n"),
-                )
+                NoteCard(passwordPrivacyParagraphs(current.place.host).joinToString("\n\n"))
             }
 
             if (isInsecure(baseUrl)) NoteCard(correctedString(R.string.diary_insecure_server))

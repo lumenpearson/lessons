@@ -112,8 +112,11 @@
 
     <!-- Where the password goes, said on the form that takes it. The host comes
          from the catalog bundled with the app, the same list the sign-in is
-         allowed to send to. -->
-    <string name="diary_password_destination">Пароль уйдёт только на %1$s — по HTTPS, прямо в дневник.</string>
+         allowed to send to. With a host, these two stand in for
+         diary_password_notice rather than beside it: the notice said the first
+         half again (#175). -->
+    <string name="diary_password_destination">Пароль уйдёт только на %1$s — по HTTPS, прямо в дневник, и больше никуда: ни на наш сервер, ни на диск телефона.</string>
+    <string name="diary_password_session">Серверу телефон передаёт только сессию, которую выдал дневник. Когда она закончится, приложение спросит пароль ещё раз.</string>
     <string name="diary_sign_in_where">Дневник: %1$s</string>
 
     <!-- Every way a sign-in or a read can fail, one sentence each

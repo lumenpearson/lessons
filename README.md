@@ -207,9 +207,10 @@ Read this before planning a release.
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 100 modules — asks whether anything reaches for an attribute that does not exist |
 | `pytest -q -n auto` | 2024 tests, green, about four minutes — the command CI runs |
-| `./gradlew test` | 1438 tests, green, all five modules |
+| `./gradlew test` | 1446 tests, green, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
+| `./gradlew :core:designsystem:connectedDebugAndroidTest` | 3 tests, green on an API 37 emulator — on demand only, never in CI, which has no device |
 
 The release build is checked in the same run as the debug one: R8 and resource shrinking
 are the classic source of "it worked in debug and broke in the APK", and catching that on
@@ -233,8 +234,11 @@ on the emulator, which the owner was using at the same time, only the one-touch 
 the pill's round end were seen. What it could not give is written in `HANDOVER.md`: a thumb,
 haptics, a real GPU, Doze on a school morning, TalkBack, a real diary account.
 
-**What nothing checks automatically.** There is no `androidTest` directory in this project:
-not one test runs on a device or an emulator. About two dozen of the app's screens, sheets and rows —
+**What nothing checks automatically.** One test source set runs on a device, and only on
+demand: `ToolbarOnDeviceTest` in `:core:designsystem` (#110), three tests of the tab bar's
+arranging gesture at the device's own density, run with `connectedDebugAndroidTest` on an
+emulator or a phone and never in CI, which has no device. Everything else is the JVM. About
+two dozen of the app's screens, sheets and rows —
 the class list, the join mode, the connection errors, the first-run reveal and the terms line
 under its button, the diary home, the crash-report sheet, the calendar's header, its two
 sheets, its year picker and its day list, and the rest — are
@@ -431,7 +435,7 @@ thread. The details and the reasons are in
 [docs/design.md](docs/design.md#what-of-this-list-is-already-fixed).
 
 None of the five has been checked on a screen. All of them are about what the eye sees,
-and there is no `androidTest` in this project, so what is proved here is only that the size
+and no test in this project looks at a screen, so what is proved here is only that the size
 ladder's logic became monotonic over real sizes rather than over rungs.
 
 **The app crashed wherever a line of text was drawn, and had done since the marquee

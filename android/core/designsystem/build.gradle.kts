@@ -21,6 +21,11 @@ android {
 
     defaultConfig {
         minSdk = 26
+        // The project's first instrumented tests (#110), which run only on a
+        // device: `./gradlew :core:designsystem:connectedDebugAndroidTest`. Not
+        // a CI gate, because CI has no device, and a gate that cannot run is
+        // worse than none.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures {
@@ -90,4 +95,12 @@ dependencies {
     testImplementation(composeBom)
     testImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // The same Compose test library the JVM tests use, from the same BOM. It
+    // brings the runner and Espresso too, at versions from before API 34;
+    // the two below lift them to ones that run on it (see the catalog).
+    androidTestImplementation(composeBom)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(libs.androidx.test.runner)
 }

@@ -723,9 +723,9 @@ with the host.
 
 ## Testing
 
-2024 tests on the server, 1438 on Android; `pytest -q -n auto` and `./gradlew test`, both
-offline, both in CI. On Android that is `:core:model` 125, `:core:data` 537,
-`:core:designsystem` 112, `:widget` 113, `:app` 551.
+2024 tests on the server, 1446 on Android; `pytest -q -n auto` and `./gradlew test`, both
+offline, both in CI. On Android that is `:core:model` 125, `:core:data` 540,
+`:core:designsystem` 112, `:widget` 113, `:app` 556.
 
 The table below is the load-bearing part of that rather than the whole of it:
 
@@ -762,8 +762,10 @@ The table below is the load-bearing part of that rather than the whole of it:
 | `android/app/.../RootGateTest.kt`, `SyncArmingTest.kt` | which home each mode opens on, and that the class sync is armed in a class only | JVM JUnit |
 | `android/app/.../ui/onboarding/OnboardingFlowTest.kt`, `OnboardingViewModelTest.kt` | the first run's routes, dots and resume, and that the saved state never carries a credential | JVM JUnit |
 
-What nothing covers is a device: there is no `androidTest` directory, so not one test has
-run on hardware or an emulator. About two dozen of the app's screens, sheets and rows are
+A device is covered by one source set, on demand: `ToolbarOnDeviceTest`, the project's
+only `androidTest` (#110), drags the tab bar's arranging gesture by fractions of a slot at
+the device's own density with `connectedDebugAndroidTest`, on an emulator or a phone. CI has
+no device and does not run it. About two dozen of the app's screens, sheets and rows are
 composed under Robolectric with a Russian locale and a phone's width — among them the class
 list, the join mode, the connection errors, the first-run reveal and its legal line, the
 diary home, the crash-report sheet, the two sheets the calendar reopens after a rotation, its

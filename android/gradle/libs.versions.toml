@@ -12,6 +12,13 @@
 #       okhttp at the same version; it rides `version.ref = "okhttp"` so the
 #       two can never be bumped apart.
 #
+#   espresso-core, androidx.test runner -> Google Maven's maven-metadata.xml,
+#       read on 27 September 2026, where each is the <release>. Instrumented
+#       tests only (#110). The Compose BOM's ui-test-junit4 brings espresso
+#       3.5.0 and runner 1.5.0, and espresso 3.5.0 reaches for
+#       InputManager.getInstance by reflection, which API 34 removed: every
+#       test failed at its first Espresso.onIdle on the API 37 emulator.
+#
 # The first CI run failed on invented versions (room 2.9.2, navigation 2.9.6,
 # okhttp 5.2.0, kotlinx-serialization-json 1.9.1) that do not exist in any
 # repository. Verify a version against its repository before adding it here.
@@ -42,6 +49,8 @@ coroutines = "1.11.0"
 
 junit = "4.13.2"
 robolectric = "4.17"
+espresso = "3.7.0"
+androidxTestRunner = "1.7.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -81,6 +90,8 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 

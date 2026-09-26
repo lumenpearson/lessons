@@ -109,7 +109,8 @@
     <string name="diary_insecure_server">⚠️ The server address starts with http://. That does not touch the password - it goes straight to the diary over HTTPS. But the session the diary issues, and the key to it, travel to the server in the clear: anyone on the same Wi-Fi can pick them up and open your diary. Set up https:// on the server if you can.</string>
 
     <!-- Where the password goes, said on the form that takes it. -->
-    <string name="diary_password_destination">The password goes only to %1$s - over HTTPS, straight to the diary.</string>
+    <string name="diary_password_destination">The password goes only to %1$s - over HTTPS, straight to the diary, and nowhere else: not to our server and not to this phone\'s storage.</string>
+    <string name="diary_password_session">The server is handed only the session the diary issued. When that ends, the app will ask for the password again.</string>
     <string name="diary_sign_in_where">Diary: %1$s</string>
 
     <!-- Every way a sign-in or a read can fail; %1$s is the diary server's host. -->

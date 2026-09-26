@@ -197,6 +197,21 @@ internal class TimetableRepositoryImpl(
     }
 
     /**
+     * One sync of a class's year at a time; a second asked for while the first
+     * is on the wire takes the first one's answer (#171).
+     *
+     * A join asks twice in the same second — the join screen's own refresh, and
+     * the one-off worker the class switch schedules — and neither had stored an
+     * `ETag` yet, so each downloaded the whole school year. Keyed like the tag,
+     * by class and year, so a switch between classes is never coalesced into
+     * the class being left.
+     */
+    private val flights = SingleFlight<String, SyncResult>()
+
+    private suspend fun syncYear(openingYear: Int): SyncResult =
+        flights.run("${activeClassId.first() ?: 0L}|$openingYear") { fetchYear(openingYear) }
+
+    /**
      * Fetches one school year and writes it over whatever that year held.
      *
      * The window is the year exactly — `SchoolYear.boundsOf(openingYear)` — and
@@ -213,7 +228,7 @@ internal class TimetableRepositoryImpl(
      * arithmetic. What it costs is payload, once per year visited — which is
      * what the `ETag` is for.
      */
-    private suspend fun syncYear(openingYear: Int): SyncResult {
+    private suspend fun fetchYear(openingYear: Int): SyncResult {
         return try {
             val bounds = SchoolYear.boundsOf(openingYear)
             val start = bounds.start

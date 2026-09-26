@@ -778,6 +778,21 @@ behaves with the server gone, remove the tunnel instead (`adb reverse --remove t
 On Windows the server needs one package Linux does not: the time-zone database. It is
 declared in `pyproject.toml` for Windows only (#170), so `pip install -e ".[dev]"` brings it.
 
+### Instrumented tests
+
+One source set runs on a device rather than the JVM: `:core:designsystem`'s `androidTest`
+(#110). With an emulator running or a phone connected:
+
+```bash
+./gradlew :core:designsystem:connectedDebugAndroidTest
+```
+
+It installs a test APK of its own and does not touch the installed app. It is not in CI and
+must not be: CI has no device. Its two test libraries are pinned in the catalog above what
+the Compose BOM brings, because the BOM's Espresso 3.5.0 reaches for
+`InputManager.getInstance` by reflection, which API 34 removed, and every test failed at its
+first `onIdle` on the API 37 emulator.
+
 ### Why HTTP and not HTTPS
 
 Since Android 9 the system blocks `http://` by default. The app allows it through
