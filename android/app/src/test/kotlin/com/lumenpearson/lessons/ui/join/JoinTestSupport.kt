@@ -25,6 +25,10 @@ internal class JoinRig {
     var syncGate: CompletableDeferred<Unit>? = null
     val codes = mutableListOf<String>()
 
+    /** When set, every join fails with it, as an unreachable server does. */
+    var failWith: Throwable? = null
+    val settings = FakeSettings()
+
     private val sessionRepository = object : SessionRepository {
         override val session: Flow<Session?> = joined.map { it.lastOrNull() }
         override val sessions: Flow<List<Session>> = joined
@@ -33,6 +37,7 @@ internal class JoinRig {
         override suspend fun currentAll(): List<Session> = joined.value
         override suspend fun join(code: String, deviceName: String?): Result<Session> {
             codes += code
+            failWith?.let { return Result.failure(it) }
             val session = Session(classId = 10L + codes.size, className = "9А", school = null, token = "t")
             joined.value = joined.value + session
             return Result.success(session)
@@ -56,7 +61,7 @@ internal class JoinRig {
         override suspend fun forgetClassesOtherThan(keep: Set<Long>) = Unit
     }
 
-    fun model() = JoinViewModel(sessionRepository, timetables, FakeSettings(), deviceName = null)
+    fun model() = JoinViewModel(sessionRepository, timetables, settings, deviceName = null)
 
     /** Hands [model] to `viewModel(factory = …)`, the way the app's own factory would. */
     fun factory(model: JoinViewModel = model()) = object : ViewModelProvider.Factory {

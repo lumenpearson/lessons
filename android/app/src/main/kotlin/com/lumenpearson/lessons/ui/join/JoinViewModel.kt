@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -185,8 +186,21 @@ class JoinViewModel(
 
     private val code = MutableStateFlow("")
     private val submitting = MutableStateFlow(false)
-    private val error = MutableStateFlow<JoinError?>(null)
+    private val error = MutableStateFlow<ShownError?>(null)
     private val joined = MutableStateFlow<JoinedClass?>(null)
+
+    /**
+     * An error, and the server address it was an answer from — `null` for one
+     * that is about the code rather than about any server.
+     *
+     * A refusal is a fact about the address that gave it. The screen used to
+     * keep it after the address was changed, until the next keystroke or the
+     * next press, so it showed a connection error about an address it no
+     * longer used (#176). The address can change from this screen's own link
+     * or from the settings, so the error is matched against the address rather
+     * than cleared by the one path that knows about it.
+     */
+    private data class ShownError(val error: JoinError, val baseUrl: String?)
 
     val uiState: StateFlow<JoinUiState> = combine(
         code,
@@ -194,12 +208,12 @@ class JoinViewModel(
         error,
         joined,
         settingsRepository.settings.map { it.baseUrl },
-    ) { code, isSubmitting, error, joined, baseUrl ->
+    ) { code, isSubmitting, shown, joined, baseUrl ->
         JoinUiState(
             code = code,
             baseUrl = baseUrl,
             isSubmitting = isSubmitting,
-            error = error,
+            error = shown?.takeIf { it.baseUrl == null || it.baseUrl == baseUrl }?.error,
             joined = joined,
         )
     }.stateIn(
@@ -239,7 +253,7 @@ class JoinViewModel(
     fun submit(): String? {
         val value = code.value
         if (value.length !in ClassCodeLengths) {
-            error.value = JoinError.InvalidCode
+            error.value = ShownError(JoinError.InvalidCode, baseUrl = null)
             return null
         }
         if (submitting.value) return null
@@ -250,11 +264,12 @@ class JoinViewModel(
         viewModelScope.launch {
             submitting.value = true
             error.value = null
+            val address = settingsRepository.settings.first().baseUrl
             val result = sessionRepository.join(value, deviceName)
             val failure = result.exceptionOrNull()
             if (failure != null) {
                 submitting.value = false
-                error.value = JoinError.of(failure)
+                error.value = ShownError(JoinError.of(failure), address)
                 return@launch
             }
             // Pull the timetable straight away. Joining only stores a token;
