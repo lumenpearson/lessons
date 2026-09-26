@@ -40,7 +40,11 @@
         android:textColor="@color/widget_preview_on_surface_variant"
         android:textSize="13sp" />
 
-    <View
+    <!-- A FrameLayout, not a View: RemoteViews inflates only the classes marked
+         @RemoteView, and a bare View made the whole preview «Couldn't add
+         widget.» on every launcher that reads previewLayout (#167).
+         RemoteViewsLayoutTest reads this folder for exactly that. -->
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="6dp"
         android:layout_marginTop="8dp"

@@ -610,11 +610,7 @@ private fun TodayHomeworkLine(
         )
         HSpace(6)
         CaptionText(
-            text = if (subjects == 0) {
-                context.getString(R.string.widget_homework_empty)
-            } else {
-                WidgetStrings.subjectCount(context, subjects)
-            },
+            text = WidgetStrings.subjectCount(context, subjects),
             size = size,
             emphasised = subjects > 0,
         )

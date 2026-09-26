@@ -29,10 +29,16 @@ sealed interface SyncMessage {
     /**
      * Anything else: no network, a 5xx, a malformed payload.
      *
-     * @property detail server-provided text, shown verbatim when present because
-     *   it is usually more specific than anything this app could invent.
+     * No detail, on purpose. This carried one, documented as the server's own
+     * words, and nothing ever filled it with those: the repository's failures
+     * are OkHttp's messages, «Server returned HTTP 502» and exception class
+     * names, and a pull-to-refresh with the server down read «Не удалось
+     * обновить: Failed to connect to /127.0.0.1:8000» (#177). What a user can
+     * do about any of them is the same — try again later — and the sentence
+     * written for that says so. The repository still keeps its message for
+     * whoever reads a log.
      */
-    data class Failed(val detail: String?) : SyncMessage
+    data object Failed : SyncMessage
 
     /** A bug report did not reach GitHub. Not a sync, but the same snackbar. */
     data object IssueFailed : SyncMessage
@@ -46,7 +52,7 @@ fun SyncResult.toMessageOrNull(): SyncMessage? = when (this) {
     SyncResult.Success -> null
     SyncResult.Unauthorised -> SyncMessage.Unauthorised
     SyncResult.NotConfigured -> SyncMessage.NotConfigured
-    is SyncResult.Failed -> SyncMessage.Failed(message)
+    is SyncResult.Failed -> SyncMessage.Failed
 }
 
 /** Localizes a [SyncMessage] at the point where it is actually rendered. */
@@ -54,8 +60,6 @@ fun SyncResult.toMessageOrNull(): SyncMessage? = when (this) {
 fun SyncMessage.asText(): String = when (this) {
     SyncMessage.Unauthorised -> correctedString(R.string.sync_error_unauthorised)
     SyncMessage.NotConfigured -> correctedString(R.string.sync_error_not_configured)
-    is SyncMessage.Failed ->
-        detail?.let { correctedString(R.string.sync_error_failed, it) }
-            ?: correctedString(R.string.sync_error_generic)
+    SyncMessage.Failed -> correctedString(R.string.sync_error_generic)
     SyncMessage.IssueFailed -> correctedString(R.string.issue_error_failed)
 }

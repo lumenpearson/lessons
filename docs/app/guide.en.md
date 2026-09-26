@@ -51,6 +51,8 @@ Three tabs under one floating toolbar; swipe between them or tap an icon in the 
 - “Calendar” — the timetable as a week, a month or a single day, with rooms, replacements and cancellations; the day has two readings, “Ribbon” and “List”.
 - “Homework” — assignments grouped by the day they are due on.
 
+The order of the tabs is yours: press and hold an icon in the bar and, without lifting your finger, carry it to its new place. While the icons wobble you can go on rearranging them; to finish, tap anywhere on the screen or go back.
+
 “Homework” shows only what is still ahead. The “All” button opens the past ones too, and says how many were hidden.
 
 Settings holds nine sections, each one a page of its own: appearance, interaction, content, notifications, sync, class, diary, updates and “about”. An administrator of the class has a tenth — “Managing the class”.

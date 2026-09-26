@@ -5,9 +5,11 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -70,6 +72,36 @@ class ToolbarReorderModeTest {
     }
 
     @Test
+    fun `the lift that ends a long press is not a tap`() {
+        // The tab's clickable no longer has a long press of its own (#181), and
+        // a clickable with none takes a press of any length for a tap. What
+        // keeps the long press from also navigating is the arranging detector
+        // consuming the pointer once it has picked the tab up — this is the
+        // test that it does.
+        var tapped: String? = null
+        setBar(reorderingNow = false, onTap = { tapped = it })
+
+        compose.longPress(labels[1])
+
+        assertNull("the long press navigated as well", tapped)
+    }
+
+    @Test
+    fun `a screen reader can still open the mode`() {
+        // The long press moved from the clickable into a detector of the bar's
+        // own, which a screen reader cannot perform; it is offered to TalkBack
+        // as the node's long-click action instead.
+        var reordering: Boolean? = null
+        setBar(reorderingNow = false, onReordering = { reordering = it })
+
+        compose.onNodeWithContentDescription(labels[1])
+            .performSemanticsAction(SemanticsActions.OnLongClick)
+        compose.settle()
+
+        assertEquals("the long-click action did not open the mode", true, reordering)
+    }
+
+    @Test
     fun `a long press does nothing when the caller has not asked for it`() {
         // The documentation's bar uses the same component, and its order is the
         // document's rather than the reader's. A mode that opened there would
@@ -85,10 +117,10 @@ class ToolbarReorderModeTest {
 
     @Test
     fun `inside the mode a tap closes it rather than navigating`() {
-        // The iOS gesture is a tap on the wallpaper; there is no wallpaper
-        // under a floating bar, so the bar takes the tap. Navigating instead
-        // would land the reader on a page they did not ask for, with the bar
-        // still wobbling.
+        // The iOS gesture is a tap on the wallpaper, which the rest of the
+        // window answers through `ArrangingDismissLayer`; on the bar itself a
+        // tab takes the tap. Navigating instead would land the reader on a page
+        // they did not ask for, with the bar still wobbling.
         var reordering: Boolean? = null
         var tapped: String? = null
         setBar(reorderingNow = true, onReordering = { reordering = it }, onTap = { tapped = it })

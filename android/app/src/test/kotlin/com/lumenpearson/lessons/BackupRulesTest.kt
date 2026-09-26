@@ -26,7 +26,11 @@ import org.w3c.dom.Element
  * The folder name is read out of `CrashReporter` itself rather than typed here,
  * so renaming the folder there fails this instead of quietly letting the new
  * folder into the backup. What this cannot say is whether a real phone obeys
- * the rules: that needs a device and `bmgr`, and has not been done.
+ * the rules. That was asked once, on 26 September 2026, of an API 37 emulator
+ * through `bmgr` and the local transport: a report written by a real crash was
+ * not restored, while a file beside it in the same `external` domain was, for
+ * the cloud rules and again with the transport flagged as a device transfer.
+ * A later change to these files is back to being proved in XML only.
  */
 class BackupRulesTest {
 

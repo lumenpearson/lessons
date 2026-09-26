@@ -281,9 +281,21 @@ internal object WidgetStrings {
             text.collapseWhitespace(),
         ).ellipsize(maxChars)
 
-    /** "5 предметов" — Russian needs one/few/many, so this goes through plurals. */
+    /**
+     * "5 предметов" — Russian needs one/few/many, so this goes through plurals —
+     * and «Ничего не задано» when there is nothing.
+     *
+     * Zero is a sentence rather than a number because every taller size already
+     * said it that way, and the one-line sizes, which printed the plural as it
+     * came, read «ДЗ на послезавтра · 0 предметов» beside them on the same home
+     * screen (#173). One place decides it now, so the sizes cannot disagree.
+     */
     fun subjectCount(context: Context, count: Int): String =
-        context.resources.getQuantityString(R.plurals.widget_subject_count, count, count)
+        if (count == 0) {
+            context.resources.getString(R.string.widget_homework_empty)
+        } else {
+            context.resources.getQuantityString(R.plurals.widget_subject_count, count, count)
+        }
 
     /**
      * The word beside the ticking figure.

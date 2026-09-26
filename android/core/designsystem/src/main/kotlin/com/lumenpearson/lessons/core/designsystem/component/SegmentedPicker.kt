@@ -66,9 +66,13 @@ private val SegmentFadeWidth = 8.dp
  * translation-editor plumbing — that component carries a long-press gesture
  * that opens a string-editing sheet, which is a feature of that app rather than
  * of the design system. What is kept is what makes it look right: Material's
- * connected leading/middle/trailing shapes, the `ConnectedSpaceBetween` gap, the
- * row of equal weights and the marquee on labels too long for their segment.
+ * connected leading/middle/trailing shapes, the `ConnectedSpaceBetween` gap
+ * (widened to the tray's inset when there is a tray), the row of equal weights
+ * and the marquee on labels too long for their segment.
  *
+ * @param contentPadding the tray's inset around the segments, when
+ *   [containerColor] draws one. Its top is the one number the tray's corners
+ *   and the gaps between segments are both derived from.
  * @param labelProvider the visible text of an option; also its accessibility name.
  * @param iconProvider optional glyph, drawn before the label.
  */
@@ -100,9 +104,10 @@ fun <T> SegmentedPicker(
     // outer corner is the one the tray has to follow; `topStart` is that
     // corner. The trailing segment is its mirror, so one reading does both
     // ends.
+    val inset = contentPadding.calculateTopPadding()
     val shape = ConcentricShape(
         inner = ButtonGroupDefaults.connectedLeadingButtonShape,
-        inset = contentPadding.calculateTopPadding(),
+        inset = inset,
     )
 
     Row(
@@ -111,7 +116,15 @@ fun <T> SegmentedPicker(
             .clip(shape)
             .background(containerColor)
             .padding(contentPadding),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        // In a tray, the tray's inset: each segment then sits as far from its
+        // neighbour as from the tray's edge (#184). It was Material's connected
+        // gap, 2 dp inside a 4 dp tray, whose corners were already derived from
+        // the inset and whose gaps never were — the segments looked crowded
+        // together in a frame wider than the space between them. Standing alone
+        // there is no inset to match, and the connected gap is the design.
+        horizontalArrangement = Arrangement.spacedBy(
+            maxOf(inset, ButtonGroupDefaults.ConnectedSpaceBetween),
+        ),
     ) {
         items.forEachIndexed { index, item ->
             val selected = item == selectedItem

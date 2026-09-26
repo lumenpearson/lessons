@@ -29,8 +29,13 @@ class LegalBuildPropertyTest {
         error("Could not find the Gradle root from ${File("").absolutePath}")
     }
 
-    private val buildScript by lazy { File(root, "android/app/build.gradle.kts").readText() }
-    private val workflow by lazy { File(root, ".github/workflows/apk.yml").readText() }
+    // Line endings normalised: Git for Windows checks text out with CRLF by
+    // default, and a block cut at a blank line found none there and threw
+    // (#178). The files are about what they say, not how they end a line.
+    private val buildScript by lazy { File(root, "android/app/build.gradle.kts").readText().unixLines() }
+    private val workflow by lazy { File(root, ".github/workflows/apk.yml").readText().unixLines() }
+
+    private fun String.unixLines(): String = replace("\r\n", "\n")
 
     @Test
     fun `the build reads the property under both of its names`() {
@@ -87,7 +92,8 @@ class LegalBuildPropertyTest {
         assertTrue(
             "app/build.gradle.kts must mount docs/legal as an asset folder, or an " +
                 "offline reader is told the document could not be opened",
-            buildScript.contains("""assets.srcDirs(rootProject.layout.projectDirectory.dir("../docs/legal"))"""),
+            Regex("""assets\.directories \+=\s+rootProject\.layout\.projectDirectory\.dir\("\.\./docs/legal"\)\.asFile\.path""")
+                .containsMatchIn(buildScript),
         )
         val folder = File(root, "docs/legal")
         listOf("terms.ru.md", "terms.en.md", "privacy.ru.md", "privacy.en.md", "legal.json").forEach { name ->

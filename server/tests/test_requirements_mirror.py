@@ -26,8 +26,9 @@ REQUIREMENTS = ROOT / "requirements.txt"
 #: where it is left out. ``uvicorn`` is the local server and Vercel brings its
 #: own; ``aiosqlite`` is the local database and the serverless one is Postgres;
 #: ``alembic`` runs from a workstation against the database, never from inside
-#: a request.
-DEPLOYED_WITHOUT = {"uvicorn", "aiosqlite", "alembic"}
+#: a request; ``tzdata`` is the time-zone database for Windows, which is the one
+#: platform without its own, and Vercel runs Linux (#170).
+DEPLOYED_WITHOUT = {"uvicorn", "aiosqlite", "alembic", "tzdata"}
 
 _NAME = re.compile(r"^[A-Za-z0-9._-]+")
 

@@ -36,10 +36,13 @@ class UnusedStringTest {
     private val fromKotlin = Regex("""R\.(?:string|plurals|array)\.([A-Za-z0-9_]+)""")
     private val fromXml = Regex("""@(?:string|plurals|array)/([A-Za-z0-9_]+)""")
 
-    // Relative to `:app`'s own directory, which is where a unit test runs.
+    // Relative to `:app`'s own directory, which is where a unit test runs. Both
+    // path tests read the normalised path: on Windows `File.path` has
+    // backslashes, and a `/src/` matched against it kept no file at all, so
+    // every string in the app was reported unused there (#178).
     private fun sources(module: String): List<File> =
         File("../$module").walkTopDown()
-            .filter { it.isFile && it.path.contains("/src/") }
+            .filter { it.isFile && "/src/" in it.path.replace(File.separatorChar, '/') }
             .filter { it.extension in setOf("kt", "xml") }
             .filter { "/res/values" !in it.path.replace(File.separatorChar, '/') }
             .toList()

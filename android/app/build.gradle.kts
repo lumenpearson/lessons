@@ -210,7 +210,10 @@ android {
         // rather than a second one kept level by hand. The names cannot collide
         // with the guide's at the asset root: `legal.json`, not `manifest.json`,
         // and LegalDocumentsTest holds that for every folder mounted there.
-        getByName("main").assets.srcDirs(rootProject.layout.projectDirectory.dir("../docs/legal"))
+        //
+        // `directories`, not `srcDirs(...)`, which AGP 9.4 deprecates (#185).
+        getByName("main").assets.directories +=
+            rootProject.layout.projectDirectory.dir("../docs/legal").asFile.path
     }
 
     androidResources {
