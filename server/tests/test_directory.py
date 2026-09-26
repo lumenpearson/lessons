@@ -507,7 +507,9 @@ def _throttles_built_in_app() -> list[tuple[str, ast.Call]]:
                 continue
             name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
             if name == "JoinThrottle":
-                found.append((str(path.relative_to(APP)), node))
+                # as_posix: on Windows str() of a relative path has backslashes,
+                # and the list below is written with slashes (#178).
+                found.append((path.relative_to(APP).as_posix(), node))
     return found
 
 
