@@ -684,6 +684,46 @@ licence, so a typeface cannot be swapped without its licence following it.
 The wrapper and its jar are in the repository, so `./gradlew` works on a fresh clone with
 no Gradle installed, and nothing else has to be on the machine.
 
+## Android Studio
+
+**Open the repository root, and link `android/` as the Gradle project** (the Gradle tool
+window's «+», or the prompt Studio shows for a folder with a build in it). The root is what
+shows `server/`, `docs/` and the rest beside the app, and it is the only place Studio reads
+`.run/` from: the shared run configurations there are written against the root, with the
+Gradle project at `$PROJECT_DIR$/android`. Opening `android/` on its own builds the app just
+as well and shows none of them.
+
+The configurations in `.run/` are Gradle ones only, because they are the only kind that
+assume nothing about the machine: the two CI gates (`test`; `assembleDebug assembleRelease`),
+`:core:model:test`, `:app:installDebug`, and `lint`, which is not a gate. Studio makes its own
+«app» configuration on the first sync. The server's commands stay in the terminal, as the
+README gives them: a Python configuration needs a Python plugin and an interpreter somebody
+else's Studio may not have.
+
+**Gradle JDK: 21**, which is what CI runs. In Studio that is Settings → Build, Execution,
+Deployment → Build Tools → Gradle → Gradle JDK; `#GRADLE_LOCAL_JAVA_HOME` reads
+`android/.gradle/config.properties`, which is not committed:
+
+```properties
+java.home=C:/Program Files/Eclipse Adoptium/jdk-21.0.11.10-hotspot
+```
+
+The JetBrains Runtime Studio ships with (25 at the time of writing) builds this project too;
+21 is recommended because it is what CI gates on.
+
+**On Windows**, Git checks text out with CRLF unless told otherwise (`core.autocrlf`), and
+three tests used to fail on such a checkout while passing on CI — two read paths with `/` and
+one looked for a blank line without `\r` (#178). They pass now. The server suite under
+`-n auto` can hit `database is locked` from SQLite on a loaded Windows machine; the same
+tests pass on their own.
+
+**Logs.** Logcat's filter `package:com.lumenpearson.lessons` catches both the release build
+and the debug one, whose package ends in `.debug`; `package:com.lumenpearson.lessons.debug`
+is the debug build alone. The widget draws in the launcher's process and wakes in ours, so
+its story is `tag:WidgetTick | tag:GlanceSessionManager | tag:WM-WorkerWrapper` under the
+package filter, and a layout the launcher refuses is `tag:AppWidgetHostView` in the
+launcher's own log — which is how #167 was found.
+
 ## Pointing the app at a server
 
 The app needs an address the **phone** can reach, not the computer. `localhost` and
@@ -719,6 +759,24 @@ The app needs an address the **phone** can reach, not the computer. `localhost` 
 
 The bot hands out a class code with `/code`, and `python -m scripts.seed_demo` creates a
 demo class with the code `DEMO24`.
+
+### On the emulator
+
+An emulator reaches the computer at `10.0.2.2`, in principle. On the Windows machine this
+was first tried on it did not: «failed to connect to /10.0.2.2 (port 8000)» with uvicorn
+listening on `0.0.0.0`. What works everywhere is a tunnel through `adb`, after which the
+emulator's own loopback *is* the computer's:
+
+```bash
+adb reverse tcp:8000 tcp:8000     # again after every emulator restart
+```
+
+and `http://127.0.0.1:8000` as the address in the app. The tunnel survives airplane mode,
+so switching the network off does not cut the app from this server; to see how the app
+behaves with the server gone, remove the tunnel instead (`adb reverse --remove tcp:8000`).
+
+On Windows the server needs one package Linux does not: the time-zone database. It is
+declared in `pyproject.toml` for Windows only (#170), so `pip install -e ".[dev]"` brings it.
 
 ### Why HTTP and not HTTPS
 
