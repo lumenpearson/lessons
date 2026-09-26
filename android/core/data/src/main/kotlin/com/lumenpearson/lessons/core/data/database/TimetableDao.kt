@@ -394,7 +394,15 @@ internal abstract class TimetableDao {
         deleteLessonsBetween(classId, window.startsOn, window.endsOn)
         deleteDaysBetween(classId, window.startsOn, window.endsOn)
         if (nextSchoolDay != null) deleteLookaheadOf(classId)
-        insertSchoolClass(schoolClass)
+        // The class row is one row for every year, but the terms in a bundle
+        // are the terms of the year it was asked for. Written as they came, a
+        // look at last year replaced this year's quarters, and the refresh that
+        // followed answered `304` and wrote nothing back (#169). So the row
+        // keeps every stored term outside this window and takes this window's
+        // from the bundle — read inside the transaction, so two years syncing
+        // at once cannot each write the other's terms away.
+        val stored = schoolClass(classId)?.terms
+        insertSchoolClass(schoolClass.copy(terms = termsAfterSync(stored, schoolClass.terms, window)))
         (days + listOfNotNull(nextSchoolDay)).forEach { record ->
             // Re-stamped rather than trusted: the class row being written is
             // the one authority on whose window this is, so a record built for

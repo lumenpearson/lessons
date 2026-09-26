@@ -69,12 +69,33 @@ internal fun decodeTerms(raw: String): List<Term> = raw.lineSequence()
             )
         }.getOrNull()
     }
-    .sortedBy { it.index }
+    // By date, and by index only to break a tie: the row holds the terms of
+    // every cached year (#169), and «1, 1, 2, 2…» by index would interleave two
+    // of them. Within one year the two orders are the same.
+    .sortedWith(TermOrder)
     .toList()
+
+private val TermOrder = compareBy<Term>({ it.startsOn }, { it.index })
 
 /** @see decodeTerms */
 internal fun encodeTerms(terms: List<Term>): String = terms.joinToString("\n") { term ->
     "${term.index}|${term.kind.name.lowercase()}|${term.startsOn}|${term.endsOn}"
+}
+
+/**
+ * The terms a class row holds after one year has been synced: the ones the
+ * bundle brought for [window], and every stored one that lies wholly outside it.
+ *
+ * The server sends the terms of the year it was asked for and nothing else, so
+ * a sync of another year must not take the current year's away — which it did,
+ * and a `304` for the current year never wrote them back (#169). A stored term
+ * that so much as touches the window is the bundle's to replace: it is either
+ * this year's, or it was cut differently last time and the bundle is newer.
+ */
+internal fun termsAfterSync(stored: String?, fetched: String, window: SyncedWindowEntity): String {
+    val otherYears = decodeTerms(stored.orEmpty())
+        .filter { it.endsOn < window.startsOn || it.startsOn > window.endsOn }
+    return encodeTerms((otherYears + decodeTerms(fetched)).sortedWith(TermOrder))
 }
 
 /**
