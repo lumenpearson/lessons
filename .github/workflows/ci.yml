@@ -169,7 +169,7 @@ jobs:
       # `@v4` floats, which is how this arrived without anything in the
       # repository changing: CI was green at 19:06 and red at 20:28 on the same
       # workflow file. An exact tag means the next such change is one we choose.
-      - uses: android-actions/setup-android@v4.0.1
+      - uses: android-actions/setup-android@v4.0.4
         with:
           packages: platform-tools
       - uses: gradle/actions/setup-gradle@v6
