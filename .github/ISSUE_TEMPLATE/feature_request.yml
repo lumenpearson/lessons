@@ -1,6 +1,6 @@
 name: Proposal
 description: Propose a new capability, or a change to how something behaves
-labels: ["enhancement"]
+labels: ["type:feature", "status:next"]
 body:
   - type: markdown
     attributes:
