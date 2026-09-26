@@ -55,6 +55,14 @@ dependencies = [
     # workstation against the database, never from inside a request, and the
     # function bundle is smaller without it.
     "alembic>=1.13",
+    # The time-zone database, on Windows only (#170). `zoneinfo` reads the
+    # operating system's, and Windows has none: without this the server does
+    # not even import there — `ZoneInfo("Europe/Moscow")` in
+    # providers/petersburg/client.py raises ZoneInfoNotFoundError on the way
+    # in. Linux, the Docker image and Vercel all ship /usr/share/zoneinfo, so
+    # the marker keeps it out of every deployment, and requirements.txt does
+    # not carry it (tests/test_requirements_mirror.py says why).
+    "tzdata>=2026.4; sys_platform == 'win32'",
 ]
 
 # Spelled out because the repository is a flat layout and now has more than one
