@@ -70,7 +70,7 @@ jobs:
       # Same pin and the same reason as ci.yml: the action's default `packages`
       # asks for the long-dead `tools`, which now exits non-zero, and `@v4`
       # floats. A release build that cannot start is worse than a red PR.
-      - uses: android-actions/setup-android@v4.0.1
+      - uses: android-actions/setup-android@v4.0.4
         with:
           packages: platform-tools
       - uses: gradle/actions/setup-gradle@v6
