@@ -4,7 +4,7 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **25 September 2026**. **PRs #63 through #85, #128, #129, #133 and #134 are
+Last updated: **26 September 2026**. **PRs #63 through #85, #128, #129, #133 and #134 are
 merged**; `main` is at `fa4fe0c`, the merge of #134. `dev` is still at `a43c6e8`, the merge
 of #129, because #133 and #134 each went in from a branch of their own, and #140 is on one
 too. It is behind `main` and has nothing `main` lacks, so bringing it level is a
@@ -13,10 +13,15 @@ fast-forward. **The only thing open is the pull request carrying this paragraph,
 `v0.9.0 — NetSchool e-diary, onboarding via the school's diary`. It is no longer a draft:
 the owner created that milestone on 25 September and renamed the other nine the same day
 (the table, with what each was called before, is under «And before that: nothing on a
-screen is cut off»). What stands between it and the merge is the `github-pr` skill's
-checklist — CI green on the exact head, and the findings of the review of its code fixed on
-the branch — and `0015` and `0016` on the production database, below. The SHA of its own merge
-is for the next close-out to write.
+screen is cut off»). Both reviews of its code have finished, and every confirmed finding is
+fixed on the branch but one. That one is **#165**, and it is the owner's to decide. Three
+things now stand between #140 and the merge, in this order:
+1. The owner decides #165, and its fix lands here.
+2. `0015` and `0016` go onto the production database. The owner made them conditional on
+   code with no known defect, and «Schema» below says why they have not run.
+3. The `github-pr` skill's checklist passes on the exact head.
+
+The SHA of its own merge is for the next close-out to write.
 
 **Code moved on both halves, and the schema with it.** #140 carries two batches. The first
 (#139, `4c34cb5` to `42fdf0a`) reads a second electronic diary, «Сетевой город» (ИРТех
@@ -25,10 +30,11 @@ unchanged. The second (#141, from `17c0473`) is the owner's request of 25 Septem
 run with two ways in — the class code, or the family's own school's diary — on which the
 password goes from the phone to the diary and never to this server, and a phone that reads
 only its diary gets a home of its own. Both halves' gates were run rather than quoted:
-server **1944** tests, Android **1371**.
+server **1998** tests, Android **1408**.
 
-**Once #140 merges, twenty issues are meant to close and twenty-four stay open.** Meant to
-close: #136–#139, #141, #145–#155 and #157–#160. Staying open: **#156**, whose fix is in
+**Once #140 merges, twenty-four issues are meant to close and twenty-five stay open.** Meant to
+close: #136–#139, #141, #145–#155 and #157–#164. Staying open: **#165** until the owner
+decides it; **#156**, whose fix is in
 `ce9c749` but which waits for a phone's backup to be read (`needs:device`); **#135**, the
 owner's decision about the second diary, which the code has now answered but which is theirs
 to close; **#142**, **#143** and **#144**, this batch's deliberate follow-ups, on no
@@ -74,7 +80,7 @@ milestones were the only grouping the history had. Forty-two issues were opened 
 open, for the whole of what was left. Several of the open ones record a decision *not* to do
 something, so that a later session does not re-discover it as an oversight. From #129 on, a
 found defect becomes an issue before it becomes a fix: #131 and #132 were the first two
-filed under that rule, and #140's branch filed #136–#138 and #145–#160.
+filed under that rule, and #140's branch filed #136–#138 and #145–#165.
 
 ## Where the work happens from here: a local machine
 
@@ -124,10 +130,10 @@ section describes, **#118–#122** are the owner's alone, and **#126** collects 
 things carried deliberately, so that a later session does not re-discover a decision as if
 it were an oversight.
 
-**Twenty-eight have been filed since.** #130 was the survey #134 closed, and #131 and #132
+**Thirty-three have been filed since.** #130 was the survey #134 closed, and #131 and #132
 the two defects #133 closed. #135 is the owner's decision about the second diary; #136–#139
 and #141 are the work #140 carries; #142–#144 are its deliberate follow-ups, on no
-milestone; and #145–#160 are the defects found on its branch, each filed before its fix.
+milestone; and #145–#165 are the defects found on its branch, each filed before its fix.
 
 Labels are `type:` (feature, bug, chore, research, decision, epic), `area:`, `status:` (now,
 next, someday, done) and `needs:` (device, owner). **A session cannot create a GitHub
@@ -249,7 +255,7 @@ and four of documents.
 
 ### The defects, each filed before its fix
 
-Sixteen, on top of part one's three (#136–#138):
+Twenty-one, on top of part one's three (#136–#138):
 
 | Issue | What was wrong | Fixed in |
 | --- | --- | --- |
@@ -269,10 +275,18 @@ Sixteen, on top of part one's three (#136–#138):
 | #158 | the bot's sign-in page sent a «Сетевой город» family to Петербург's diary on an unreadable answer | `0a9a188` |
 | #159 | CI skipped the server tests that read `docs/deploy.md` and `docs/build.md` when only those changed | `ba9170c` |
 | #160 | contributor and agent documents quoted a stale test command, stale counts, wrong secret names and milestone facts | `8bad211` |
+| #161 | a join whose screen was gone before it landed left its result behind; the next «Добавить класс» sheet closed on it, and the first run could skip the class's diary sign-in | `061a716` |
+| #162 | Dependabot and the issue templates applied labels the project does not have, so bumps arrived bare and reports outside `type:` and `status:` | `f31e5ed` |
+| #163 | the join and diary sign-in throttles counted before they recorded, so a burst went past them (24 wrong passwords against a limit of 10) | `6b0878f` |
+| #164 | the server's checks assumed SQLAlchemy 2.0 while every fresh install resolves 2.1: one test compared SQL without casts, and mypy failed on `main` | `d208251` |
+| #165 | a session registered from a phone names its own login, unchecked, and that login keys another family's corrections | **not fixed** — waits for the owner (`needs:owner`) |
 
 Twelve more, from an adversarial review of the new Android data layer, were fixed in
-`9c797a2`, each with a test that failed before its fix; they are listed in that commit's body
-and have no issues of their own.
+`9c797a2`, each with a test that failed before its fix. They are listed in that commit's
+body and have no issues of their own: they were in code this branch adds, and none of it
+had reached `main`. The same holds for the thirty findings of the second review of the
+screens (`061a716`, 31 in all, one of them #161) and for twenty of the audit of the server
+half (`6b0878f`, 22 in all: #163 fixed, #165 open).
 
 **One commit body is wrong, and the code is right.** `6fa1c6e` says rebinding a class to
 another *school* expires its diary sessions. `services/diary.expire_off_binding` expires them
@@ -299,7 +313,19 @@ first, and `alembic_version` stamped to `0016` in the same transaction. On 25 Se
 production read `0014`, with **0** rows in `diary_sessions` and **1** class, so neither
 revision had a row to touch.
 
-**Not applied yet, at the time of this commit.** The owner allowed both on one condition: that the code they serve is free of defects. The audit of the server half and of the two revisions was still running, and the DDL taken from the models had been compared with both revision files op by op, with no difference. This paragraph is replaced with the time and the outcome when the transaction runs, and that happens before the merge or not at all.
+**Not applied, and held on purpose, as of 26 September.** The owner allowed both on one
+condition: that the code they serve is free of defects. The audit of the server half and of
+both revisions has finished since. 22 findings survived two refuters each, and `6b0878f`
+fixed 21 of them. The revisions' PostgreSQL DDL came out of that unchanged, and it still
+matches the models op by op, which `test_quota` and `test_diary_provider_revision` now pin.
+The 22nd finding is **#165**: a session registered from a phone names its own login, and
+the family's corrections are filed under it. Its fix is a product decision. The owner first
+chose to key corrections on the account the diary vouches for, then stopped that
+implementation before it changed a file, so the decision is open (`needs:owner`). Until it
+closes, the condition is not met, so the transaction has not run and #140 does not merge;
+merging without `0015` and `0016` would take the bot down. Neither revision depends on how
+#165 is decided: two of its three answers need no schema, and the third would be an additive
+`0017`. When it runs, this paragraph gets the time and what the database said.
 
 ### What was deliberately left alone
 
@@ -332,14 +358,19 @@ revision had a row to touch.
 
 ### Gates
 
-Run, not quoted, on the branch as it stood at `8bad211`: `ruff check app tests scripts
-migrations` clean; `pytest -q -n auto` **1944** passed (1634 on `main`); `python -m mypy`
-**Success** across **100** modules (84 on `main`); `./gradlew test` **1371** (968 on `main`) —
-`:app` 513, `:core:data` 532, `:core:designsystem` 99, `:core:model` 125, `:widget` 102.
-`assembleDebug` and `assembleRelease` were last run locally at `c032ff2`, and CI builds both
-on every push. `b19e6b2` and `c032ff2` report the grep for Russian in Kotlin finding nothing
-new but `UpstreamMarkers.kt`, the diaries' own words matched in their answers; it was not
-re-run for this close-out.
+Run, not quoted. The server was run on the branch at `d208251`, against **SQLAlchemy
+2.1.1**, which is what CI and Vercel install now (#164): `ruff check app tests scripts
+migrations` clean; `pytest -q -n auto` **1998** passed (1634 on `main`); `python -m mypy`
+**Success** across **100** modules (84 on `main`). The Android tests were run at `061a716`,
+and Gradle found every test task up to date against the sources at `f31e5ed`: `./gradlew
+test` **1408** (968 on `main`), with `:app` 548, `:core:data` 532, `:core:designsystem` 99,
+`:core:model` 125 and `:widget` 104. `assembleDebug` and `assembleRelease` were last run
+locally at `061a716`, and CI builds both on every push. A checkout set up before 2.1 was
+published keeps SQLAlchemy 2.0.54 until it is upgraded. The suite passes on both, and a
+mypy run on 2.0 does not see what 2.1's typing sees. `b19e6b2` and `c032ff2` report the
+grep for Russian in Kotlin finding nothing new but `UpstreamMarkers.kt`, the diaries' own
+words matched in their answers. It was not re-run for this close-out, and no Kotlin has
+changed since `061a716`.
 
 ### What nobody has verified in this batch
 
@@ -357,6 +388,11 @@ Section 5 carries each of these with the reason it is unverifiable. In short:
 - **DaData**: whether its company rows carry `region_kladr_id`, the codes of the four regions
   admitted in 2022, and whether its day turns at Moscow midnight.
 - **The legal texts have never been read by a lawyer.**
+- **The throttles' record-then-count (#163) is proven on SQLite only.** On PostgreSQL it
+  rests on READ COMMITTED showing each statement every commit before it, and it has not run
+  against a live database. Neither has `alembic upgrade head` on an empty PostgreSQL. The
+  permission system refused a local server, so `0015`'s guard for a database that `0001`
+  built is proven offline and on SQLite.
 
 ## What the session before it added: the electronic diary of every Russian region, and the routes each platform exposes
 
@@ -2736,9 +2772,9 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 1944 tests, ~4 min (CI runs this)
+cd server  && pytest -q -n auto                          # 1998 tests, ~4 min (CI runs this)
 cd server  && python -m mypy                             # clean, 100 modules
-cd android && ./gradlew test                             # 1371 tests across the five modules
+cd android && ./gradlew test                             # 1408 tests across the five modules
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
