@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
@@ -29,6 +30,7 @@ import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
+import com.lumenpearson.lessons.ui.join.JoinViewModel
 import com.lumenpearson.lessons.ui.settings.AddClassSheet
 
 /**
@@ -49,11 +51,15 @@ import com.lumenpearson.lessons.ui.settings.AddClassSheet
  *
  * It reads the view model the home uses (the activity's), so the pupil chosen
  * here is the pupil the home shows.
+ *
+ * @param joinFactory what builds the class sheet's view model — the app's own,
+ *   or a test's, which has no `Graph` to build it from.
  */
 @Composable
 fun DiaryAccountPage(
     modifier: Modifier = Modifier,
     viewModel: DiaryViewModel = viewModel(factory = DiaryViewModel.Factory),
+    joinFactory: ViewModelProvider.Factory = JoinViewModel.Factory,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var confirmSignOut by rememberSaveable { mutableStateOf(false) }
@@ -70,7 +76,13 @@ fun DiaryAccountPage(
         )
     }
     if (addingClass) {
-        AddClassSheet(onDismiss = { addingClass = false })
+        // A first class, not a second: this page exists only on a phone in
+        // none, where the sheet's own sentence spoke of classes already here.
+        AddClassSheet(
+            onDismiss = { addingClass = false },
+            message = R.string.diary_account_join_class_message,
+            viewModel = viewModel(factory = joinFactory),
+        )
     }
 
     val target = state.session?.target ?: state.signInTarget
@@ -80,9 +92,17 @@ fun DiaryAccountPage(
         item(key = "header") {
             ScreenHeader(
                 title = state.student?.fullName ?: correctedString(R.string.diary_title),
+                // «Вход выполнен» only while it is: the mode follows the stored
+                // target, not a live session, so a bare `401` leaves the phone
+                // on this page with the pupils gone and the login still known.
                 subtitle = state.student?.let { student ->
                     listOfNotNull(student.className, student.school).joinToString(" · ").ifBlank { null }
-                } ?: correctedString(R.string.diary_signed_in_as, target.login),
+                } ?: when {
+                    state.signedIn -> correctedString(R.string.diary_signed_in_as, target.login)
+                    // Nothing either way before the stored session is read.
+                    !state.ready -> null
+                    else -> correctedString(R.string.diary_reauth_title)
+                },
             )
         }
 

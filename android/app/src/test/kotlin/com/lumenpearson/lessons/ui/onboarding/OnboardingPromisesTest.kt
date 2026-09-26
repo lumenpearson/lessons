@@ -72,6 +72,24 @@ class OnboardingPromisesTest {
     }
 
     /**
+     * The note under a school name too common to place promised «школу найдём
+     * на следующем шаге», and most regions have no school step: the next step
+     * there is the diary list, and nothing ever looks for the school.
+     */
+    @Test
+    fun `the generic-name note promises no school step most regions do not have`() {
+        val without = realCatalog.regions.count { !regionPlanOf(it).showsSchool }
+        assertTrue("the premise: most regions skip the school step", without > realCatalog.regions.size / 2)
+
+        val notes = shipped.filter { (name, _) -> name.endsWith("/onboarding_region_school_generic") }
+        assertEquals("both languages", 2, notes.size)
+        val promises = listOf("следующем шаге", "найдём", "next step", "finds the school")
+        for ((name, text) in notes) {
+            assertTrue("$name: $text", promises.none { it in text })
+        }
+    }
+
+    /**
      * #157. The first run is not four screens or five any more and the class
      * code is not six characters; the comments that counted either were a
      * wrong map for the next change, which is what CLAUDE.md sends a reader to

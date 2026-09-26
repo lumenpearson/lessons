@@ -367,7 +367,10 @@ fun whyLines(
             WhyReason.FRONT_END ->
                 WhyLine(R.string.onboarding_why_front_end, listOf(region, system, mainSystem ?: system))
             WhyReason.MOVING_TO -> WhyLine(R.string.onboarding_why_moving_to, listOf(region, system))
-            WhyReason.UNREACHABLE -> WhyLine(R.string.onboarding_why_unreachable, listOf(region, system))
+            // The generator recommends the unreachable diary itself here
+            // (nothing else is the region's), so the sentence names no system
+            // as the answer: it says why this one cannot be opened.
+            WhyReason.UNREACHABLE -> WhyLine(R.string.onboarding_why_unreachable, listOf(region))
             WhyReason.UNSUPPORTED -> WhyLine(R.string.onboarding_why_unsupported, listOf(region, system))
             WhyReason.NO_DIARY -> WhyLine(R.string.onboarding_why_no_diary, listOf(region, year))
         },

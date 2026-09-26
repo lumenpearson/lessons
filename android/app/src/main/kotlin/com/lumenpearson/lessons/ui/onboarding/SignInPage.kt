@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.ui.onboarding
 
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -14,8 +15,10 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -55,6 +58,9 @@ import com.lumenpearson.lessons.ui.diary.systemName
  * what can be done about it stays on the page after the pop-up is gone:
  * re-sending the held session without the password, setting the server, the
  * class code, or the Госуслуги page in the browser.
+ *
+ * The way out is [signInExitOf]'s, and it is held while a sign-in is under
+ * way (see [OnboardingViewModel.back]).
  */
 @Composable
 internal fun SignInPage(
@@ -65,6 +71,7 @@ internal fun SignInPage(
     val ui by viewModel.signIn.state.collectAsStateWithLifecycle()
     val baseUrl by viewModel.baseUrl.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val links = remember(context) { BrowserLinks(context) }
     var editingServer by rememberSaveable { mutableStateOf(false) }
     val current = header
     val problem = ui.problem
@@ -83,23 +90,28 @@ internal fun SignInPage(
     if (ui.dialog && problem != null) {
         LessonsDialog(
             title = correctedString(R.string.diary_sign_in_failed_title),
-            message = problem.asText(),
+            // The first run's wording: no settings exist yet, and a family that
+            // came through its class is not advised to join one.
+            message = problem.asText(firstRun = true, inClass = current?.classBound == true),
             confirmLabel = correctedString(R.string.diary_dialog_dismiss),
             onDismiss = viewModel.signIn::dismissDialog,
         )
     }
 
+    val exit = signInExitOf(classBound = current?.classBound == true, canGoBack = onBack != null)
     StepScaffold(
         actions = {
-            when {
-                current?.classBound == true -> OnboardingActions(
+            when (exit) {
+                SignInExit.SKIP -> OnboardingActions(
                     label = correctedString(R.string.onboarding_sign_in_skip),
                     icon = Icons.AutoMirrored.Rounded.ArrowForward,
                     onBack = onBack,
                     enabled = !ui.busy,
                     onClick = viewModel::skipSignIn,
                 )
-                onBack != null -> OnboardingBackRow(onBack = onBack)
+                SignInExit.BACK -> onBack?.let { OnboardingBackRow(onBack = it, enabled = !ui.busy) }
+                // In the page, under the form, as the import page has it.
+                SignInExit.START_OVER -> Unit
             }
         },
     ) {
@@ -110,6 +122,7 @@ internal fun SignInPage(
             Spacer(Modifier.height(8.dp))
             if (current == null) {
                 NoteCard(correctedString(R.string.onboarding_sign_in_no_target))
+                if (exit == SignInExit.START_OVER) StartOverButton(enabled = !ui.busy, onClick = viewModel::startOver)
                 return@Column
             }
             val system = current.place.systemName().orEmpty()
@@ -181,15 +194,26 @@ internal fun SignInPage(
                     onRetry = viewModel::retrySignIn,
                     onServer = { editingServer = true },
                     onClassCode = viewModel::toClassCode,
-                    onOpen = { url -> openInBrowser(context, url) },
+                    onOpen = links::open,
                 )
             }
 
             current.forgotUrl?.let { url ->
-                TextButton(onClick = { openInBrowser(context, url) }, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = { links.open(url) }, modifier = Modifier.fillMaxWidth()) {
                     Text(correctedString(R.string.onboarding_sign_in_forgot))
                 }
             }
+            // The handoff sheet's own sentence: a tap that opened nothing
+            // must not read as a button that does nothing.
+            if (links.failed) {
+                Text(
+                    text = correctedString(R.string.onboarding_handoff_no_browser),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            if (exit == SignInExit.START_OVER) StartOverButton(enabled = !ui.busy, onClick = viewModel::startOver)
 
             // The server that will hold the session, named where the session is
             // about to be sent to it.
@@ -211,6 +235,14 @@ internal fun SignInPage(
     }
 }
 
+/** «Выйти из дневника и начать заново», drawn as the import page draws it. */
+@Composable
+private fun StartOverButton(enabled: Boolean, onClick: () -> Unit) {
+    TextButton(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+        Text(correctedString(R.string.onboarding_import_restart))
+    }
+}
+
 /** What can be done about [problem], as buttons that outlive its pop-up. */
 @Composable
 private fun ProblemActions(
@@ -224,7 +256,10 @@ private fun ProblemActions(
 ) {
     val handoff = (problem as? DiarySignInProblem.GosuslugiOnly)?.handoffUrl?.takeIf { it.startsWith("https://") }
     val retry = sessionHeld && problem.retryKeepsSession
-    val server = problem.action == DiarySignInProblem.Action.SET_SERVER
+    // No answer from our server is as often a mistyped address as no network,
+    // and the address is on this page.
+    val server = problem.action == DiarySignInProblem.Action.SET_SERVER ||
+        problem == DiarySignInProblem.Offline
     // A class code is the way round a diary that refuses our server — unless a
     // class is what brought the family here.
     val code = problem is DiarySignInProblem.ServerRefusedSession && !classBound
@@ -258,5 +293,44 @@ private fun ProblemActions(
                 onClick = onClassCode,
             )
         }
+    }
+}
+
+/** What leaves the sign-in, other than signing in. */
+internal enum class SignInExit {
+    /** «Не сейчас»: a class's diary, whose class is joined whatever happens here. */
+    SKIP,
+
+    /** The back square, to the step the form was reached from. */
+    BACK,
+
+    /**
+     * «Выйти из дневника и начать заново», the import page's own way out, for
+     * a sign-in with nothing behind it — one reopened after an import the
+     * diary ended sits on the floor. Without it a sign-in that keeps failing
+     * there has no exit short of killing the app.
+     */
+    START_OVER,
+}
+
+internal fun signInExitOf(classBound: Boolean, canGoBack: Boolean): SignInExit = when {
+    classBound -> SignInExit.SKIP
+    canGoBack -> SignInExit.BACK
+    else -> SignInExit.START_OVER
+}
+
+/**
+ * Opens the diary's pages from the sign-in — «Забыли пароль?» and the
+ * Госуслуги handoff — and remembers that nothing on the phone could, so the
+ * page can say so as the handoff sheet does. [openInBrowser] answers `false`
+ * on a phone with no browser, and a dropped answer is a tap that does nothing.
+ */
+@Stable
+internal class BrowserLinks(private val context: Context) {
+    var failed by mutableStateOf(false)
+        private set
+
+    fun open(url: String) {
+        failed = !openInBrowser(context, url)
     }
 }

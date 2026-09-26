@@ -91,7 +91,7 @@
    {"status": 200, "body": {"entryPoint": "/choose-session-role"}, "tried_role": false, "expect": {"failure": "unexpected"}},
    {"status": 200, "body": {"entryPoint": "/choose-session-role"}, "tried_role": true, "expect": {"failure": "bad_credentials", "message": null}}
   ],
-  "raw_answer_cases_about": "Answers given as the bytes the diary sent, for bodies no JSON value can stand for. The step's answer is replaced and the flow's own answers stand in for the rest. Whatever Python's json.loads refuses is unexpected on both sides, however lenient a parser could be about it: a single unquoted word, a leading zero, a bare word inside an object. NaN and Infinity are JSON to Python, so they are to the phone too.",
+  "raw_answer_cases_about": "Answers given as the bytes the diary sent, for bodies no JSON value can stand for. The step's answer is replaced and the flow's own answers stand in for the rest. Whatever Python's json.loads refuses is unexpected on both sides, however lenient a parser could be about it: a single unquoted word, a leading zero, a bare word inside an object. NaN and Infinity are JSON to Python, so they are to the phone too. A control character below a space inside a string is refused unless it is escaped; outside one, tab, line feed and carriage return are whitespace.",
   "raw_answer_cases": [
    {"step": "logindata", "status": 200, "content_type": "text/html", "body": "<html>", "expect": "unexpected"},
    {"step": "logindata", "status": 200, "content_type": "application/json", "body": "{\"schoolLogin\": False}", "expect": "unexpected"},
@@ -103,7 +103,11 @@
    {"step": "login", "status": 200, "content_type": "text/plain", "body": "OK", "expect": "unexpected"},
    {"step": "login", "status": 200, "content_type": "application/json", "body": "{\"at\": abc}", "expect": "unexpected"},
    {"step": "login", "status": 200, "content_type": "application/json", "body": "{\"at\": \"x\", \"timeOut\": NaN}", "expect": "ok"},
-   {"step": "login", "status": 200, "content_type": "application/json", "body": "{\"at\": \"x\", \"timeOut\": -Infinity}", "expect": "ok"}
+   {"step": "login", "status": 200, "content_type": "application/json", "body": "{\"at\": \"x\", \"timeOut\": -Infinity}", "expect": "ok"},
+   {"step": "login", "status": 200, "content_type": "application/json", "body": "{\"at\": \"x\", \"message\": \"a\tb\"}", "expect": "unexpected"},
+   {"step": "login", "status": 200, "content_type": "application/json", "body": "{\"at\": \"x\", \"message\": \"a\\tb\"}", "expect": "ok"},
+   {"step": "getdata", "status": 200, "content_type": "application/json", "body": "{\"salt\": \"3\u000133\", \"lt\": \"1\", \"ver\": \"2\"}", "expect": "unexpected"},
+   {"step": "getdata", "status": 200, "content_type": "application/json", "body": "{\n\t\"salt\": \"333\",\r\n\t\"lt\": \"1\", \"ver\": \"2\"}", "expect": "ok"}
   ],
   "role_pick": [
    {"body": {"accountInfo": {"userRoles": [{"role": {"id": 7, "name": "Учитель"}}, {"role": {"id": 12, "name": "Родитель"}}]}}, "expect": "12"},

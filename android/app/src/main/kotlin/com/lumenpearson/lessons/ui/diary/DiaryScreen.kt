@@ -29,12 +29,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.DiaryFailure
+import com.lumenpearson.lessons.core.data.repository.DiarySessionIdleDays
 import com.lumenpearson.lessons.core.data.repository.DiarySignInProblem
 import com.lumenpearson.lessons.core.data.repository.DiaryStudent
 import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
@@ -133,6 +135,9 @@ fun DiaryScreen(
     // gave it something to say.
     DiarySignInOutcomeDialog(
         outcome = state.signInOutcome,
+        // Drawn as a section only on a phone in a class; the home is the
+        // diary of a phone in none.
+        inClass = !asHome,
         onDismiss = viewModel::consumeSignInOutcome,
     )
 
@@ -390,6 +395,7 @@ private fun DiarySavedAtNote(text: String) {
 @Composable
 private fun DiarySignInOutcomeDialog(
     outcome: DiarySignInOutcome?,
+    inClass: Boolean,
     onDismiss: () -> Unit,
 ) {
     when (outcome) {
@@ -408,7 +414,7 @@ private fun DiarySignInOutcomeDialog(
             title = correctedString(R.string.diary_sign_in_failed_title),
             // The one mapping, which knows a refused password from a diary
             // that is down, a throttle and a server that is switched off.
-            message = outcome.problem.asText(),
+            message = outcome.problem.asText(inClass = inClass),
             confirmLabel = correctedString(R.string.diary_dialog_dismiss),
             onDismiss = onDismiss,
         )
@@ -446,10 +452,19 @@ internal fun DiarySignOutSheet(
         onDismissRequest = onDismiss,
         title = correctedString(R.string.diary_sign_out_title),
     ) {
+        // On the home the sheet says what the server does, and so has to say
+        // what it does when the phone cannot tell it: the sign-out is local
+        // first (`DiaryRepository.signOut`), and a goodbye that never arrives
+        // leaves the session to the idle purge — with a «Сетевой город» one
+        // kept open until then. The privacy policy says the same; a sheet that
+        // promised the forgetting outright was false in airplane mode.
+        val days = DiarySessionIdleDays.toInt()
         Text(
-            text = correctedString(
-                if (leavesTheApp) R.string.diary_sign_out_home_text else R.string.diary_sign_out_message,
-            ),
+            text = if (leavesTheApp) {
+                pluralStringResource(R.plurals.diary_sign_out_home, days, days)
+            } else {
+                correctedString(R.string.diary_sign_out_message)
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = ScreenPadding),

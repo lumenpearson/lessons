@@ -8,6 +8,7 @@ import com.lumenpearson.lessons.core.data.diary.DiaryImportPhase
 import com.lumenpearson.lessons.core.data.diary.DiaryImportProgress
 import com.lumenpearson.lessons.core.data.repository.DiarySignInProblem
 import com.lumenpearson.lessons.core.data.repository.DiaryTarget
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -99,7 +100,134 @@ class OnboardingStepsTest {
         assertNull(step.state.value.problem)
     }
 
+    /**
+     * The password has gone and the diary is answering when the step is left:
+     * the session it opens is ended, not dropped with the cancelled call.
+     */
+    @Test
+    fun `a session the diary opens after the step was left is ended there`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val signIn = FakeSignIn().apply { openGate = gate }
+        val step = SignInStep(this, signIn)
+        step.setLogin("ivan")
+        step.submit(target, password) {}
+        runCurrent()
+        assertEquals(SignInStage.UPSTREAM, step.state.value.stage)
+
+        step.abandon()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals("the session opened after the leave", 1, signIn.discarded.size)
+        assertTrue("and it was never sent to our server", signIn.registered.isEmpty())
+    }
+
+    /**
+     * Leaving while our server adopts the session must neither end it
+     * upstream under the server nor drop the answer: the registration runs to
+     * its end, and the real one stores the bearer, so the row has a key.
+     */
+    @Test
+    fun `leaving during the registration lets it finish and ends nothing under the server`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val stored = mutableListOf<String>()
+        val signIn = FakeSignIn().apply {
+            registerGate = gate
+            this.stored = { stored += it.token }
+        }
+        val step = SignInStep(this, signIn)
+        step.setLogin("ivan")
+        var registered = false
+        step.submit(target, password) { registered = true }
+        runCurrent()
+        assertEquals(SignInStage.REGISTER, step.state.value.stage)
+
+        step.abandon()
+        advanceUntilIdle()
+        assertTrue("nothing said goodbye while the server held the request", signIn.discarded.isEmpty())
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals("the bearer was stored", listOf("bearer"), stored)
+        assertTrue(signIn.discarded.isEmpty())
+        assertFalse("a step that was left is not carried on", registered)
+    }
+
+    @Test
+    fun `a registration that failed after the step was left ends the session it kept`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val signIn = FakeSignIn().apply {
+            registerGate = gate
+            registerResults += Result.failure(DiarySignInProblem.RegisterUnreachable)
+        }
+        val step = SignInStep(this, signIn)
+        step.setLogin("ivan")
+        step.submit(target, password) {}
+        runCurrent()
+
+        step.abandon()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(signIn.registered, signIn.discarded)
+        assertFalse(step.state.value.sessionHeld)
+    }
+
+    @Test
+    fun `the sign-in's way out is back, not now, or start over`() {
+        assertEquals(SignInExit.SKIP, signInExitOf(classBound = true, canGoBack = false))
+        assertEquals(SignInExit.BACK, signInExitOf(classBound = false, canGoBack = true))
+        assertEquals(
+            "a sign-in on the floor still has a way out",
+            SignInExit.START_OVER,
+            signInExitOf(classBound = false, canGoBack = false),
+        )
+    }
+
+    // --- School search ---------------------------------------------------------------------
+
+    @Test
+    fun `a new school name for the same region is a new search, the same one keeps the typing`() = runTest {
+        val asked = mutableListOf<String>()
+        val finder = SchoolFinder(scope = this, schools = { _, query -> asked += query; Result.success(emptyList()) })
+
+        finder.open("samara", "239")
+        advanceUntilIdle()
+        finder.type("2391")
+        advanceUntilIdle()
+
+        // Back from the provider step: what was typed here stays.
+        finder.open("samara", "239")
+        advanceUntilIdle()
+        assertEquals("2391", finder.state.value.query)
+
+        // Back to the region step, and another school name typed there.
+        finder.open("samara", "116")
+        advanceUntilIdle()
+        assertEquals("116", finder.state.value.query)
+        assertEquals("116", asked.last())
+    }
+
     // --- Import ----------------------------------------------------------------------------
+
+    /**
+     * «Повторить» only where a second try can get past the failure (#153's
+     * rule): an account with no pupil, or a diary that refuses our server's
+     * address, answers the same way every time.
+     */
+    @Test
+    fun `the import offers a retry only where one can help`() {
+        fun actionFor(problem: DiarySignInProblem) =
+            importActionOf(ImportUi(failed = ImportFailure(DiaryImportPhase.SCHEDULE, problem, resumable = true)))
+        assertEquals(ImportAction.RETRY, actionFor(DiarySignInProblem.Offline))
+        assertEquals(ImportAction.RETRY, actionFor(DiarySignInProblem.ProviderUnavailable(null)))
+        assertEquals(ImportAction.SIGN_IN_AGAIN, actionFor(DiarySignInProblem.ReauthRequired))
+        assertEquals(ImportAction.START_OVER, actionFor(DiarySignInProblem.NoStudent))
+        assertEquals(ImportAction.START_OVER, actionFor(DiarySignInProblem.ServerAddressRefused))
+        assertEquals(ImportAction.START_OVER, actionFor(DiarySignInProblem.ServerDisabled))
+        assertEquals(ImportAction.RUNNING, importActionOf(ImportUi()))
+        assertEquals(ImportAction.CONTINUE, importActionOf(ImportUi(done = ImportDone(1, 1, 1, emptySet()))))
+    }
 
     @Test
     fun `stage rows follow the phase under way`() {
@@ -151,6 +279,7 @@ class OnboardingStepsTest {
         advanceUntilIdle()
         assertNull(runner.state.value.choosing)
         assertEquals(1f, runner.state.value.completed)
+        assertEquals("the import goes on with the pupil picked", 8L, import.picked?.id)
     }
 
     // --- Region search ---------------------------------------------------------------------
@@ -199,5 +328,22 @@ class OnboardingStepsTest {
         assertEquals(DirectoryFailure.OFFLINE, failed(DirectoryProblem.Offline).reason)
         assertEquals(DirectoryFailure.OFF, failed(DirectoryProblem.Disabled).reason)
         assertEquals(DirectoryFailure.OFF, failed(DirectoryProblem.ServerTooOld).reason)
+        // The directory failing this once is not the server lacking it.
+        assertEquals(DirectoryFailure.DOWN, failed(DirectoryProblem.Upstream).reason)
+        assertEquals(DirectoryFailure.DOWN, failed(DirectoryProblem.Unexpected("500")).reason)
+    }
+
+    @Test
+    fun `a lookup that threw is the directory down, not switched off`() = runTest {
+        val finder = RegionFinder(
+            scope = this,
+            catalog = { realCatalog },
+            byName = { realSearch.search(it) },
+            find = { error("timed out") },
+        )
+        finder.type("Lyceum 239")
+        finder.submit()
+        advanceUntilIdle()
+        assertEquals(SchoolAnswer.Failed(DirectoryFailure.DOWN), finder.state.value.school)
     }
 }

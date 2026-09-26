@@ -39,14 +39,41 @@ internal object UpstreamJson {
      * object. Each of those is a refusal to the server, which calls it
      * «unexpected»; the phone used to carry on with a word, and then called a
      * firewall page a dead diary and a garbled login answer a wrong password.
+     *
+     * And it reads a raw control character inside a string — a tab or a line
+     * break the diary did not escape — which `json.loads` refuses («Invalid
+     * control character»). Outside a string tab, line feed and carriage
+     * return are whitespace to both, and anything else below a space is an
+     * unquoted token, which [strict] already refuses.
      */
     fun parse(text: String): JsonElement? {
+        if (hasRawControlInString(text)) return null
         val element = try {
             json.parseToJsonElement(text)
         } catch (_: Exception) {
             return null
         }
         return element.takeIf(::strict)
+    }
+
+    /**
+     * Whether a character below U+0020 stands unescaped between quotes. A
+     * backslash escapes the one character after it, so `\"` does not end the
+     * string and `\\` does not escape the quote after it.
+     */
+    private fun hasRawControlInString(text: String): Boolean {
+        var inString = false
+        var escaped = false
+        for (c in text) {
+            when {
+                !inString -> if (c == '"') inString = true
+                escaped -> escaped = false
+                c == '\\' -> escaped = true
+                c == '"' -> inString = false
+                c < ' ' -> return true
+            }
+        }
+        return false
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.ui.join
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Column
@@ -82,9 +83,9 @@ import com.lumenpearson.lessons.ui.onboarding.OnboardingActions
  *
  * @param onBack the first run's way back to the chooser. `null` where there is
  *   nothing behind the screen, so the square is absent rather than dead.
- * @param onJoined the class just joined, once per join; the first run decides
- *   there whether the class's diary is offered next. `AddClassSheet` passes
- *   nothing and keeps its own reading of the one-shot.
+ * @param onJoined the class just joined, once per join this screen started;
+ *   the first run decides there whether the class's diary is offered next.
+ *   `AddClassSheet` reads the same one-shot through [rememberJoinSubmit].
  */
 @Composable
 fun JoinScreen(
@@ -95,20 +96,15 @@ fun JoinScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showServerSheet by rememberSaveable { mutableStateOf(false) }
-    val joined by rememberUpdatedState(onJoined)
+    val submit = rememberJoinSubmit(viewModel, state.joined) { classId -> onJoined?.invoke(classId) }
 
-    // A one-shot belongs to whoever sees it first, and this screen sees it
-    // first. It hands it to [onJoined] when there is one — the first run — and
-    // consumes it either way, because leaving it set hands the next observer
-    // somebody else's join. `AddClassSheet` resolves the same view model
-    // against the Activity's store, so a class joined during onboarding was
-    // still announced when «Добавить класс» was opened an hour later, and the
-    // sheet dismissed itself before the user could type a second code.
-    LaunchedEffect(state.joinedClassId) {
-        val classId = state.joinedClassId ?: return@LaunchedEffect
-        joined?.invoke(classId)
-        viewModel.consumeJoined()
-    }
+    // Back is held while the code is out. The join cannot be called back —
+    // the server has the code — so leaving let it land under whatever came
+    // next: the first run's chooser, which then offered «Найти свою школу» to
+    // a family whose class, with its own diary, had just been joined behind
+    // it. Taken rather than disabled, so the gesture does not fall through to
+    // the flow's own handler; composed after that one, so it is asked first.
+    BackHandler(enabled = onBack != null && state.isSubmitting) {}
 
     if (showServerSheet) {
         ServerUrlSheet(
@@ -178,7 +174,7 @@ fun JoinScreen(
                     error = state.error,
                     enabled = !state.isSubmitting,
                     onCodeChange = viewModel::onCodeChange,
-                    onSubmit = viewModel::submit,
+                    onSubmit = submit,
                 )
 
                 Spacer(Modifier.height(GroupSpacing))
@@ -210,10 +206,40 @@ fun JoinScreen(
                 onBack = onBack,
                 enabled = state.canSubmit,
                 busy = state.isSubmitting,
-                onClick = viewModel::submit,
+                onClick = submit,
             )
         }
     }
+}
+
+/**
+ * The caller's half of [JoinViewModel.submit]: the submit to wire to its
+ * button, and [onJoined] once for the join that submit started.
+ *
+ * The view model is the activity's and its one-shot outlives every screen that
+ * reads it, so a join is acted on only by the caller holding its ticket — kept
+ * saveable, so a rotation between the press and the answer still finds it. A
+ * join somebody else started is consumed and dropped: its caller was disposed
+ * before it reported (the shell swaps on the session, which the join writes
+ * before its first sync), and nobody else has any use for it.
+ */
+@Composable
+internal fun rememberJoinSubmit(
+    viewModel: JoinViewModel,
+    joined: JoinedClass?,
+    onJoined: (classId: Long) -> Unit,
+): () -> Unit {
+    var ticket by rememberSaveable { mutableStateOf<String?>(null) }
+    val latest by rememberUpdatedState(onJoined)
+    LaunchedEffect(joined) {
+        val landed = joined ?: return@LaunchedEffect
+        viewModel.consumeJoined(landed)
+        if (landed.ticket == ticket) {
+            ticket = null
+            latest(landed.classId)
+        }
+    }
+    return { viewModel.submit()?.let { ticket = it } }
 }
 
 /**

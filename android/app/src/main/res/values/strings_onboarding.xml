@@ -63,7 +63,7 @@
     <!-- %1$s is the count above, %2$s a few of the names -->
     <string name="onboarding_region_school_group">%1$s: %2$s</string>
     <string name="onboarding_region_school_truncated">Совпадений больше, чем показано. Если вашего региона здесь нет, выберите его из списка.</string>
-    <string name="onboarding_region_school_generic">Школ с таким названием много по всей стране. Выберите регион из списка — школу найдём на следующем шаге.</string>
+    <string name="onboarding_region_school_generic">Школ с таким названием много по всей стране. Выберите регион из списка.</string>
     <string name="onboarding_region_school_empty">В реестре организаций такой школы нет. Выберите регион из списка.</string>
     <plurals name="onboarding_region_school_wait">
         <item quantity="one">Поиск школ по названию отдыхает ещё %1$d минуту. Выберите регион из списка.</item>
@@ -75,6 +75,7 @@
     <string name="onboarding_region_school_no_server">Школу по названию ищет сервер, а он не задан. Выберите регион из списка.</string>
     <string name="onboarding_region_school_offline">Нет связи с сервером, и школу по названию найти не получится. Выберите регион из списка — он работает и без сети.</string>
     <string name="onboarding_region_school_off">Поиск школ по названию на этом сервере не работает. Выберите регион из списка.</string>
+    <string name="onboarding_region_school_down">Поиск школ по названию сейчас не отвечает. Выберите регион из списка или попробуйте название чуть позже.</string>
 
     <!-- The school: %1$s is the region, %2$s the diary system -->
     <string name="onboarding_school_title">Ваша школа</string>
@@ -132,7 +133,8 @@
     <string name="onboarding_why_tor_primary">Регион «%1$s» ведёт дневник в «%2$s»: он открывается только через Госуслуги.</string>
     <string name="onboarding_why_front_end">Оценки школ региона «%1$s» видны в «%2$s», а сам дневник — «%3$s». Приложение туда войти не может, поэтому рекомендуем то, что открывается у всех.</string>
     <string name="onboarding_why_moving_to">Регион «%1$s» переходит на «%2$s» по частям. Если ваша школа уже перешла — выбирайте этот вариант.</string>
-    <string name="onboarding_why_unreachable">Дневник школ региона «%1$s» не принимает защищённые соединения, а приложение без них пароль не отправляет. Поэтому рекомендуем «%2$s».</string>
+    <!-- unreachable: the recommended system is the region's own diary, the one that cannot be reached, so the sentence names no system -->
+    <string name="onboarding_why_unreachable">Дневник школ региона «%1$s» не принимает защищённые соединения, а приложение без них пароль не отправляет, поэтому войти в него из приложения нельзя. Расписание класса можно получить по коду класса.</string>
     <string name="onboarding_why_unsupported">Дневник школ региона «%1$s» — «%2$s». Приложение пока не умеет его читать; расписание класса можно получить по коду.</string>
     <string name="onboarding_why_no_diary">В %2$s учебном году школы региона «%1$s» ведут бумажные журналы — электронного дневника нет.</string>
     <string name="onboarding_why_confidence_high">Это подтверждает региональный портал, министерство или оператор дневника.</string>
@@ -203,11 +205,19 @@
     <string name="onboarding_summary_class">Класс</string>
     <string name="onboarding_summary_no_class_title">Без класса</string>
     <string name="onboarding_summary_no_class_text">Бот о вас не знает: приложение показывает только ваш дневник. Виджет, уведомления и вкладки «Сегодня» и «Календарь» работают от класса. Если администратор заведёт ваш класс в боте, подключитесь по его коду в настройках.</string>
+    <string name="onboarding_summary_keepalive_title">Вход в дневник</string>
     <plurals name="onboarding_summary_keepalive">
         <item quantity="one">Вход в дневник держится, пока вы открываете приложение. После %1$d дня без этого войти придётся заново — виджет вход не продлевает.</item>
         <item quantity="few">Вход в дневник держится, пока вы открываете приложение. После %1$d дней без этого войти придётся заново — виджет вход не продлевает.</item>
         <item quantity="many">Вход в дневник держится, пока вы открываете приложение. После %1$d дней без этого войти придётся заново — виджет вход не продлевает.</item>
         <item quantity="other">Вход в дневник держится, пока вы открываете приложение. После %1$d дня без этого войти придётся заново — виджет вход не продлевает.</item>
+    </plurals>
+    <!-- With a class the home is the class's timetable, and only the diary itself reads the diary -->
+    <plurals name="onboarding_summary_keepalive_class">
+        <item quantity="one">Вход в дневник держится, пока вы открываете дневник: «Настройки → Дневник». После %1$d дня без этого войти придётся заново — расписание класса и виджет вход не продлевают.</item>
+        <item quantity="few">Вход в дневник держится, пока вы открываете дневник: «Настройки → Дневник». После %1$d дней без этого войти придётся заново — расписание класса и виджет вход не продлевают.</item>
+        <item quantity="many">Вход в дневник держится, пока вы открываете дневник: «Настройки → Дневник». После %1$d дней без этого войти придётся заново — расписание класса и виджет вход не продлевают.</item>
+        <item quantity="other">Вход в дневник держится, пока вы открываете дневник: «Настройки → Дневник». После %1$d дня без этого войти придётся заново — расписание класса и виджет вход не продлевают.</item>
     </plurals>
     <string name="onboarding_summary_petersburg_note">Дневник Петербурга может закончить вход и раньше — тогда приложение попросит пароль ещё раз.</string>
     <string name="onboarding_summary_settings">Настройки</string>

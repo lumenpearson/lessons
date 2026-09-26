@@ -119,10 +119,16 @@ sealed class DiarySignInProblem(message: String, cause: Throwable? = null) :
      * An answer nobody could read: the diary's to the phone (a captcha, a
      * changed sign-in page), or its answer to our server (`502`), in which case
      * [host] is `null`. An app update fixes this, not another password.
+     *
+     * Nor another attempt: [Action.NONE], because both sentences for it say
+     * the fix is on the server or in an update, and a «Повторить» under them
+     * asks the same question for the same answer. The diary's card excluded
+     * the `502` from retrying for exactly that reason until the card started
+     * asking this type instead.
      */
     data class ProviderUnreadable(val host: String?) :
         DiarySignInProblem("The diary answered in an unreadable way") {
-        override val action get() = Action.RETRY
+        override val action get() = Action.NONE
     }
 
     /** The phone could not resolve or reach the diary's server at all. */

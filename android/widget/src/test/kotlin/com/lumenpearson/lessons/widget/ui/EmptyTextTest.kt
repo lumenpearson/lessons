@@ -183,8 +183,12 @@ class EmptyTextTest {
         language = AppLanguage.SYSTEM,
     )
 
+    /**
+     * That `snapshotOf` keeps the mode it is handed, and no more: which mode
+     * the render hands it is `WidgetModeReadTest`'s.
+     */
     @Test
-    fun `the snapshot carries the mode it was read in`() {
+    fun `the snapshot keeps the mode it is handed`() {
         for (mode in ShellMode.entries) {
             assertEquals(mode, snapshot(mode, timetable = null).mode)
         }

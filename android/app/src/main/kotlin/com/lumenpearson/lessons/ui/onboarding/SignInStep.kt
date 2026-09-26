@@ -8,11 +8,16 @@ import com.lumenpearson.lessons.core.data.repository.DiaryTarget
 import com.lumenpearson.lessons.core.data.upstream.UpstreamSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * The diary's session between the phone's sign-in and our server's answer, as
@@ -97,6 +102,17 @@ data class SignInUi(
  * failure that already discarded it, and on [abandon] — leaving the step —
  * which also says goodbye to it upstream. The password is never a field at
  * all: it arrives as [submit]'s argument and leaves as [OnboardingSignIn.open]'s.
+ *
+ * Once the password has gone to the diary, nothing on this side may drop the
+ * answer on the floor. [OnboardingSignIn.open] and [OnboardingSignIn.register]
+ * run to their end even when the step is cancelled: a cancelled `open` may
+ * still have opened a session upstream, and a cancelled `register` still has
+ * the whole request on our server, which finishes it and keeps a row whose
+ * bearer only this phone would ever have been told. A session the diary
+ * opened after the step was left is discarded; one our server took is stored
+ * by the registration itself, so the phone holds the only key to that row.
+ * The view model refuses to leave the step while [SignInUi.busy], so in
+ * practice only the process ending cancels one of these.
  */
 class SignInStep(
     private val scope: CoroutineScope,
@@ -130,8 +146,18 @@ class SignInStep(
             mutable.update { it.copy(stage = SignInStage.CHECKING, problem = null, dialog = false, sessionHeld = false) }
             signIn.preflight(withLogin).onFailure { fail(it); return@launch }
             mutable.update { it.copy(stage = SignInStage.UPSTREAM) }
-            val session = signIn.open(withLogin, password).getOrElse { fail(it); return@launch }
-            held = session
+            val step = currentCoroutineContext().job
+            val opened = withContext(NonCancellable) {
+                signIn.open(withLogin, password).onSuccess { session ->
+                    // Left while the diary was answering: nobody will hold
+                    // this one, so it is ended now rather than left to idle.
+                    // Otherwise it is held before this block returns, so a
+                    // leave landing on the way out finds it in [abandon].
+                    if (step.isCancelled) signIn.discard(session) else held = session
+                }
+            }
+            currentCoroutineContext().ensureActive()
+            opened.onFailure { fail(it); return@launch }
             registerHeld(onRegistered)
         }
     }
@@ -144,7 +170,9 @@ class SignInStep(
 
     /**
      * Leaving the step: whatever is in flight stops, and a session the server
-     * never took is ended with the diary rather than left to idle there.
+     * never took is ended with the diary rather than left to idle there. A
+     * session out for registration is not [held] (see [registerHeld]), so it
+     * is never ended upstream under our server while the server adopts it.
      */
     fun abandon() {
         job?.cancel()
@@ -155,22 +183,39 @@ class SignInStep(
         if (stale != null) scope.launch { signIn.discard(stale) }
     }
 
+    /**
+     * [abandon], and the login with it: a flow that has finished is over for
+     * whoever typed it, and the next one may be somebody else's.
+     */
+    fun reset() {
+        abandon()
+        mutable.value = SignInUi()
+    }
+
     private suspend fun registerHeld(onRegistered: () -> Unit) {
         val session = held ?: return
+        // Out of [held] while it is out for registration: [abandon] must not
+        // say goodbye upstream to a session our server may be adopting.
+        held = null
         mutable.update { it.copy(stage = SignInStage.REGISTER, problem = null, dialog = false) }
-        signIn.register(session).fold(
+        val step = currentCoroutineContext().job
+        val outcome = withContext(NonCancellable) {
+            signIn.register(session).onFailure { failure ->
+                // `register` has already discarded a session it will not see
+                // again; holding it here would offer a retry that cannot work.
+                if (!problemOf(failure).retryKeepsSession) return@onFailure
+                // Left while our server was answering, and it did not keep
+                // the session: nobody is left to retry it, so it is ended.
+                if (step.isCancelled) signIn.discard(session) else held = session
+            }
+        }
+        currentCoroutineContext().ensureActive()
+        outcome.fold(
             onSuccess = {
-                held = null
                 mutable.update { it.copy(stage = null, problem = null, dialog = false, sessionHeld = false) }
                 onRegistered()
             },
-            onFailure = { failure ->
-                val problem = problemOf(failure)
-                // `register` has already discarded a session it will not see
-                // again; holding it here would offer a retry that cannot work.
-                if (!problem.retryKeepsSession) held = null
-                fail(problem)
-            },
+            onFailure = ::fail,
         )
     }
 

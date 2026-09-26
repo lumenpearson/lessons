@@ -35,7 +35,7 @@ A fresh install does not open with the code field. It opens with five introducto
 - **School** — Only for Setevoy Gorod: the phone takes the list of schools straight from your region's diary server.
 - **The electronic diary** — The systems the region's schools use; one is marked “Recommended”, and “Why?” explains the choice. If a diary opens only through Gosuslugi, or the app cannot read it yet, its site opens instead — or you can use a class code.
 - **Sign-in** — The diary's login and password. The “Where the password goes” card names the diary's address: the password goes there and nowhere else, over HTTPS, and the server gets the session the diary hands out.
-- **Loading** — The student, the terms, two weeks of timetable, homework and marks. If the account has several students, the app asks whose diary to show; if the load stops, “Try again” carries on from where it stopped.
+- **Loading** — The student, the terms, two weeks of timetable, homework and marks. If the account has several students, the app asks whose diary to show; if the load stops, “Try again” carries on from where it stopped — and where trying again would change nothing (the account has no student, the diary does not let the server in, the diary answered in a way nobody could read), “Sign out of the diary and start over” is what remains.
 - **All set** — The student, the diary, the class if there is one, and the main settings. “Open the app” goes to the home screen.
 
 The app has no server of its own: the address comes from the class admin, or from whoever set a server up for your school. It goes into the “Server address” row — on the “How do you want to start?” screen, under the code field, or in Settings → Sync; on the way through your school you are asked for it when it is needed. It has to be the address the server is reachable at from the phone itself: “localhost” on a phone means the phone.
@@ -150,9 +150,9 @@ Signing in takes the same login and password as the diary's own site. The form n
 
 Inside are two tabs — Timetable and Marks — and a child picker if the account sees more than one. Diary homework appears under the lessons of the day it is due on. An absence, a late arrival and a remark all arrive in the same list as the marks, but the app tells them apart and shows them differently.
 
-What was loaded is kept on the phone and opens offline — the app then says it is showing what was saved, and when it was last updated. The app reads the diary again only while it is open: neither the background nor the widget ever reads it. That is also why the sign-in lasts while the app is being opened: after 30 days without that you sign in again, and the Petersburg diary may end the sign-in sooner.
+What was loaded is kept on the phone and opens offline — the app then says it is showing what was saved, and when it was last updated. The app reads the diary again only while the diary is on screen: neither the background nor the widget ever reads it. That is also why the sign-in lasts while the diary is being opened — on a phone without a class that is the app itself, on one with a class it is Settings → Diary: after 30 days without that you sign in again, and the Petersburg diary may end the sign-in sooner.
 
-“Sign out of the diary” is in the same place, Settings → Diary. The lessons and marks saved on the phone are deleted and the server forgets its copy of the sign-in; a phone with no class then goes back to “How do you want to start?”.
+“Sign out of the diary” is in the same place, Settings → Diary. The lessons and marks saved on the phone are deleted and the server deletes its copy of the sign-in; a phone with no class then goes back to “How do you want to start?”. If the phone is offline at that moment, the server deletes the copy by itself 30 days after the diary was last used, and keeps a Setevoy Gorod session open until then.
 
 > The service belongs to somebody else and is undocumented. If it answers in a way the app cannot read, the app says so: that is fixed on the server, not in the app.
 

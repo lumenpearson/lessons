@@ -10,6 +10,7 @@ import com.lumenpearson.lessons.core.data.repository.DiaryBinding
 import com.lumenpearson.lessons.core.data.repository.DiaryProviderKey
 import com.lumenpearson.lessons.core.data.repository.DiaryTarget
 import com.lumenpearson.lessons.ui.diary.httpsHostOf
+import java.util.Locale
 
 /*
  * The region, school and provider steps, read out of the bundled catalog into
@@ -207,17 +208,31 @@ fun regionRowOf(catalog: RegionCatalog, region: CatalogRegion, via: MatchVia = M
     )
 
 /**
- * The search hands back the words it matched folded (lower case, ё as е); the
- * row names the city as the catalog spells it.
+ * The search hands back the words it matched normalised — folded (lower case,
+ * ё as е, a dash a space) and without the region-type words, so «Читинская
+ * область» comes back as «читинская»; the row names the city or the alias as
+ * the catalog spells it, by normalising each candidate the same way.
  */
-private fun original(catalog: RegionCatalog, candidates: List<String>, folded: String): String =
-    candidates.firstOrNull { fold(catalog, it) == fold(catalog, folded) } ?: folded
+private fun original(catalog: RegionCatalog, candidates: List<String>, matched: String): String {
+    val words = matched.split(' ').filter { it.isNotEmpty() }
+    val stop = catalog.search.stopWords.flatMap { tokens(catalog, it) }.toSet()
+    return candidates.firstOrNull { candidate -> tokens(catalog, candidate).filter { it !in stop } == words } ?: matched
+}
 
-/** The search's own folding, from the catalog's table: no Cyrillic is written in Kotlin. */
-private fun fold(catalog: RegionCatalog, text: String): String {
+/**
+ * `RegionSearch.normalise`'s tokens, from the catalog's own table (no Cyrillic
+ * is written in Kotlin): lower case, folded, anything but a letter or a digit
+ * a space. That function is internal to `:core:data`, which is why this is a
+ * copy of its loop rather than a call.
+ */
+private fun tokens(catalog: RegionCatalog, text: String): List<String> {
     val table = catalog.search.fold
-    return text.lowercase().map { char -> table[char.toString()] ?: char.toString() }.joinToString("")
-        .split(' ').filter { it.isNotBlank() }.joinToString(" ")
+    val folded = buildString {
+        for (char in text.lowercase(Locale.ROOT)) {
+            for (c in table[char.toString()] ?: char.toString()) append(if (c.isLetterOrDigit()) c else ' ')
+        }
+    }
+    return folded.split(' ').filter { it.isNotEmpty() }
 }
 
 /**

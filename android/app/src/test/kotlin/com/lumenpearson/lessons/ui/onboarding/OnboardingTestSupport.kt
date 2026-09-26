@@ -24,6 +24,7 @@ import com.lumenpearson.lessons.core.data.upstream.DiarySchool
 import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.ui.diary.FakeDiaryCache
 import java.io.File
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -73,6 +74,11 @@ internal class TestHeld(override val target: DiaryTarget) : HeldUpstream
 /**
  * The sign-in, scripted: what each step answers, and every call it was asked.
  * The password is recorded only to prove, elsewhere, that nothing else kept it.
+ *
+ * [openGate] and [registerGate], when set, hold that step until completed —
+ * the diary or our server still answering — so a test can leave the step
+ * while the answer is out. [stored] is what the real registration does on
+ * success: it writes the bearer to the phone's store.
  */
 internal class FakeSignIn : OnboardingSignIn {
     var preflightResult: Result<Unit> = Result.success(Unit)
@@ -82,6 +88,9 @@ internal class FakeSignIn : OnboardingSignIn {
     val opened = mutableListOf<Pair<DiaryTarget, String>>()
     val registered = mutableListOf<HeldUpstream>()
     val discarded = mutableListOf<HeldUpstream>()
+    var openGate: CompletableDeferred<Unit>? = null
+    var registerGate: CompletableDeferred<Unit>? = null
+    var stored: (DiarySession) -> Unit = {}
 
     override suspend fun preflight(target: DiaryTarget): Result<Unit> {
         calls += "preflight"
@@ -91,13 +100,17 @@ internal class FakeSignIn : OnboardingSignIn {
     override suspend fun open(target: DiaryTarget, password: String): Result<HeldUpstream> {
         calls += "open"
         opened += target to password
+        openGate?.await()
         return openResult(target)
     }
 
     override suspend fun register(held: HeldUpstream): Result<DiaryRegistration> {
         calls += "register"
         registered += held
-        return registerResults.removeFirstOrNull() ?: Result.success(registration(held.target))
+        registerGate?.await()
+        val result = registerResults.removeFirstOrNull() ?: Result.success(registration(held.target))
+        result.onSuccess { stored(it.session) }
+        return result
     }
 
     override suspend fun discard(held: HeldUpstream) {
@@ -119,7 +132,11 @@ internal val pupil = DiaryStudent(
     className = "9A",
 )
 
-/** An import that answers with [steps], or waits for the chooser when [choosing] is set. */
+/**
+ * An import that answers with [steps], or waits for the chooser when [choosing]
+ * is set. [picked] is whom the chooser answered with, and [selected] is told as
+ * `DiaryImportImpl` tells the store.
+ */
 internal class FakeImport(
     var steps: List<DiaryImportProgress> = listOf(
         DiaryImportProgress.Running(DiaryImportPhase.STUDENTS, 0f, 0.1f),
@@ -128,6 +145,8 @@ internal class FakeImport(
     var choosing: List<DiaryStudent>? = null,
 ) : DiaryImport {
     val runs = mutableListOf<DiaryImportPhase?>()
+    var picked: DiaryStudent? = null
+    var selected: suspend (Long) -> Unit = {}
 
     override fun run(
         resumeFrom: DiaryImportPhase?,
@@ -136,8 +155,10 @@ internal class FakeImport(
         runs += resumeFrom
         choosing?.let { students ->
             emit(DiaryImportProgress.ChoosingStudent(students, 0.1f))
-            val picked = choose(students)
-            emit(DiaryImportProgress.Done(picked, emptySet(), 1, 1, 1))
+            val chosen = choose(students)
+            picked = chosen
+            selected(chosen.id)
+            emit(DiaryImportProgress.Done(chosen, emptySet(), 1, 1, 1))
             return@flow
         }
         steps.forEach { emit(it) }
@@ -161,6 +182,13 @@ internal class OnboardingRig(
     var signedOut = 0
     val directoryAsked = mutableListOf<String>()
     var schools: List<DiarySchool> = listOf(DiarySchool(id = 239, name = "Lyceum 239", address = null))
+
+    init {
+        // What the real registration and import write, where the view model
+        // reads it back: the bearer in the store, the pupil picked in the cache.
+        signIn.stored = { diarySession = it }
+        import.selected = { cache.selectStudent(it) }
+    }
 
     fun deps() = OnboardingDeps(
         settings = settings,

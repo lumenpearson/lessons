@@ -47,8 +47,23 @@ sealed interface DiaryProblemMessage {
         DiaryProblemMessage
 }
 
-/** Which sentence [problem] gets. Pure, so a test can hold every case of it. */
-fun diaryProblemMessage(problem: DiarySignInProblem): DiaryProblemMessage = when (problem) {
+/**
+ * Which sentence [problem] gets. Pure, so a test can hold every case of it.
+ *
+ * Two sentences depend on who reads them, and say something false to the
+ * wrong reader.
+ *
+ * @param firstRun read in the first run, where there are no settings yet: the
+ *   server's address is not «в разделе «Синхронизация»», which does not exist
+ *   until the flow is over, but on the steps themselves.
+ * @param inClass read on a phone already in a class: the way round a diary
+ *   that refuses our server is not a class code — the family has one.
+ */
+fun diaryProblemMessage(
+    problem: DiarySignInProblem,
+    firstRun: Boolean = false,
+    inClass: Boolean = false,
+): DiaryProblemMessage = when (problem) {
     is DiarySignInProblem.WrongPassword -> {
         val main = DiaryProblemMessage.Line(R.string.diary_problem_wrong_password)
         val said = problem.upstreamMessage?.trim()?.take(UpstreamMessageMax)
@@ -69,13 +84,17 @@ fun diaryProblemMessage(problem: DiarySignInProblem): DiaryProblemMessage = when
         hosted(problem.host, R.string.diary_problem_host_offline, R.string.diary_problem_offline_upstream)
     is DiarySignInProblem.Timeout ->
         hosted(problem.host, R.string.diary_problem_host_timeout, R.string.diary_problem_timeout)
-    DiarySignInProblem.Offline -> line(R.string.diary_problem_offline)
+    DiarySignInProblem.Offline ->
+        line(if (firstRun) R.string.diary_problem_offline_first_run else R.string.diary_problem_offline)
     DiarySignInProblem.RegisterUnreachable -> line(R.string.diary_problem_register_unreachable)
-    DiarySignInProblem.ServerMissing -> line(R.string.diary_problem_server_missing)
+    DiarySignInProblem.ServerMissing ->
+        line(if (firstRun) R.string.diary_problem_server_missing_first_run else R.string.diary_problem_server_missing)
     DiarySignInProblem.ServerTooOld -> line(R.string.diary_problem_server_too_old)
     DiarySignInProblem.ServerDisabled -> line(R.string.diary_problem_server_disabled)
     DiarySignInProblem.RegionNotServed -> line(R.string.diary_problem_region_not_served)
-    DiarySignInProblem.ServerRefusedSession -> line(R.string.diary_problem_server_refused_session)
+    DiarySignInProblem.ServerRefusedSession -> line(
+        if (inClass) R.string.diary_problem_server_refused_session_in_class else R.string.diary_problem_server_refused_session,
+    )
     DiarySignInProblem.ServerAddressRefused -> line(R.string.diary_problem_server_address_refused)
     DiarySignInProblem.NoStudent -> line(R.string.diary_problem_no_student)
     is DiarySignInProblem.TooManyAttempts -> problem.retryAfterSeconds
@@ -106,7 +125,8 @@ val DiarySignInProblem.offersRetry: Boolean
 
 /** [diaryProblemMessage], read out of the resources — through correction mode. */
 @Composable
-fun DiarySignInProblem.asText(): String = diaryProblemMessage(this).asText()
+fun DiarySignInProblem.asText(firstRun: Boolean = false, inClass: Boolean = false): String =
+    diaryProblemMessage(this, firstRun = firstRun, inClass = inClass).asText()
 
 @Composable
 private fun DiaryProblemMessage.asText(): String = when (this) {

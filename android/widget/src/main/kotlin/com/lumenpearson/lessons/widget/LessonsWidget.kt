@@ -17,6 +17,7 @@ import androidx.glance.appwidget.provideContent
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.locale.AppLocale
 import com.lumenpearson.lessons.core.data.repository.ShellMode
+import com.lumenpearson.lessons.core.data.repository.ShellModeSource
 import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.DeepLink
@@ -206,9 +207,9 @@ class LessonsWidget : GlanceAppWidget() {
         // count as the family's activity and keep a session alive with nobody
         // behind it. Outside a class there is no class timetable to read, so
         // Room is not asked at all.
-        val mode = container.shellMode.current().mode
-        val timetable: Timetable? =
-            if (mode == ShellMode.CLASS) container.timetableRepository.snapshotAroundToday() else null
+        val (mode, timetable) = readModeAndTimetable(container.shellMode) {
+            container.timetableRepository.snapshotAroundToday()
+        }
         val settings = container.settingsRepository.settings.first()
 
         // The school's wall clock, not the phone's. These differ whenever the
@@ -233,4 +234,20 @@ class LessonsWidget : GlanceAppWidget() {
             language = settings.language,
         )
     }
+}
+
+/**
+ * The mode the widget draws for, and the class timetable only in a class.
+ *
+ * Out of [LessonsWidget.loadSnapshot], which reads `Graph` and cannot be handed
+ * anything by a test, because this is the line the diary-only phone depends
+ * on: read from the class session instead, as it once was, a phone signed in
+ * to a diary and in no class drew the sentence sending it to join one.
+ */
+internal suspend fun readModeAndTimetable(
+    shell: ShellModeSource,
+    timetable: suspend () -> Timetable?,
+): Pair<ShellMode, Timetable?> {
+    val mode = shell.current().mode
+    return mode to if (mode == ShellMode.CLASS) timetable() else null
 }

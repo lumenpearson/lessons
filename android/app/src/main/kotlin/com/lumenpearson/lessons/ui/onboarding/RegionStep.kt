@@ -151,6 +151,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.schoolAnswer(
                     DirectoryFailure.NO_SERVER -> correctedString(R.string.onboarding_region_school_no_server)
                     DirectoryFailure.OFFLINE -> correctedString(R.string.onboarding_region_school_offline)
                     DirectoryFailure.OFF -> correctedString(R.string.onboarding_region_school_off)
+                    DirectoryFailure.DOWN -> correctedString(R.string.onboarding_region_school_down)
                 },
             )
         }
@@ -279,7 +280,7 @@ internal fun SchoolStep(
                 val problem = search.problem ?: return@item
                 EmptyState(
                     title = correctedString(R.string.diary_failure_title),
-                    description = problem.asText(),
+                    description = problem.asText(firstRun = true),
                     actionLabel = correctedString(R.string.onboarding_action_retry).takeIf { problem.offersRetry },
                     onActionClick = viewModel.school::retry.takeIf { problem.offersRetry },
                 )

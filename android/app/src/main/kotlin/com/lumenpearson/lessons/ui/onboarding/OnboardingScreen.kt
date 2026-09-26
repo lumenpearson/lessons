@@ -137,7 +137,13 @@ fun OnboardingScreen(
         // once — so two back events drained in one input pass both see it
         // true. Reachable by tapping back twice during the slide, which is
         // exactly where this screen is slowest.
-        BackHandler(enabled = state.canGoBack) { viewModel.back() }
+        //
+        // While the sign-in is under way the gesture is taken and does nothing
+        // (`back()` refuses then too): left alone at the floor it would finish
+        // the activity, and cancel a registration our server completes anyway.
+        val signingIn by viewModel.signIn.state.collectAsStateWithLifecycle()
+        val busy = state.current == OnboardingStep.SIGN_IN && signingIn.busy
+        BackHandler(enabled = state.canGoBack || busy) { viewModel.back() }
         val onBack: (() -> Unit)? = if (state.canGoBack) viewModel::back else null
 
         Column(modifier = Modifier.fillMaxSize()) {

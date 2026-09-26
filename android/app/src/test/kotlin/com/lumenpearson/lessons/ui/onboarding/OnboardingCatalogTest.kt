@@ -162,14 +162,30 @@ class OnboardingCatalogTest {
 
     @Test
     fun `a region row says why it matched and what can be done there`() {
-        val byCity = realSearch.search("Togliatti").ifEmpty { realSearch.search("tolyatti") }
         val samaraMatch = realSearch.search("63").first { it.region.key == "samara" }
         val row = regionRowOf(realCatalog, samaraMatch)
         assertEquals(MatchVia.CODE, row.via)
         assertEquals("63", row.matched)
         assertEquals(OfferKind.SIGN_IN, row.offer.kind)
-        byCity.firstOrNull { it.via == MatchVia.CITY }?.let { match ->
-            assertTrue(regionRowOf(realCatalog, match).matched in match.region.cities)
+
+        // A city and an alias, as the catalog spells them — never the search's
+        // folded words, which have lost the capitals and «область».
+        val samara = region("samara")
+        val togliatti = samara.cities[1]
+        assertEquals("the premise: Samara's second city is Togliatti", 3, samara.cities.size)
+        val byCity = realSearch.search(togliatti).first { it.region.key == "samara" }
+        assertEquals(MatchVia.CITY, byCity.via)
+        assertEquals(togliatti, regionRowOf(realCatalog, byCity).matched)
+
+        for (key in listOf("zabaikalsky", "perm")) {
+            val entry = region(key)
+            // The alias that carries a region-type word, which the search drops.
+            val alias = entry.aliases.first { it.contains(' ') }
+            for (query in listOf(alias, alias.substringBefore(' '))) {
+                val match = realSearch.search(query).first { it.region.key == key }
+                assertEquals("$query finds $key by its alias", MatchVia.ALIAS, match.via)
+                assertEquals(query, alias, regionRowOf(realCatalog, match).matched)
+            }
         }
 
         assertEquals(OfferKind.GOSUSLUGI, regionOfferOf(realCatalog, region("tula")).kind)

@@ -188,6 +188,8 @@ class DiaryViewModel(
     binding: Flow<DiaryBinding?> = flowOf(null),
     private val describe: suspend (DiaryTarget) -> DiaryPlace? = { null },
     private val clock: Clock = Clock.systemUTC(),
+    /** The shell's hold: the first run owns the screen; see [onboarding]. */
+    held: Flow<Boolean> = flowOf(false),
 ) : ViewModel() {
 
     private val state = MutableStateFlow(
@@ -210,6 +212,22 @@ class DiaryViewModel(
     /** What a bare `401` left, and what the class's join said; see [DiaryUiState.signInTarget]. */
     private var storedTarget: DiaryTarget? = null
     private var boundTarget: DiaryTarget? = null
+
+    /**
+     * The first run holds the screen, and its import is the one reading the
+     * diary — pupils included.
+     *
+     * This view model is the activity's, so one made by an earlier diary home
+     * (or by «Настройки → Дневник» on a class phone) is still collecting when a
+     * later first run signs in. It used to take that session for its own: it
+     * read the pupils, wrote the first of two as the stored choice — the key
+     * the import asks before it offers its chooser, so a family with two
+     * children was never asked — and kept that child in memory even when the
+     * chooser won, so the home opened on the pupil nobody picked. While held
+     * it loads nothing; on the release it reads the pupils and the choice the
+     * import stored, as a home opened for the first time would.
+     */
+    private var onboarding = false
 
     init {
         viewModelScope.launch {
@@ -250,7 +268,19 @@ class DiaryViewModel(
                     )
                 }
                 settleTarget()
-                if (session != null && state.value.students.isEmpty()) loadStudents()
+                if (session != null && state.value.students.isEmpty() && !onboarding) loadStudents()
+            }
+        }
+        viewModelScope.launch {
+            held.distinctUntilChanged().collect { holding ->
+                onboarding = holding
+                if (holding) {
+                    // What an earlier session left running is not the new one's.
+                    loadJob?.cancel()
+                    state.update { it.copy(students = emptyList(), selectedStudentId = null, studentsLoading = false) }
+                } else if (state.value.session != null && state.value.students.isEmpty()) {
+                    loadStudents()
+                }
             }
         }
         viewModelScope.launch {
@@ -847,6 +877,7 @@ class DiaryViewModel(
                     cache = container.diaryCache,
                     binding = container.sessionRepository.session.map { it?.diary },
                     describe = { target -> diaryPlaceOf(container.regionLookup.catalog(), target) },
+                    held = container.shellMode.state.map { it.held },
                 )
             }
         }

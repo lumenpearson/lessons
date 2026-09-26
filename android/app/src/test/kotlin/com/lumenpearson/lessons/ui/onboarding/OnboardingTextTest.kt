@@ -80,6 +80,43 @@ class OnboardingTextTest {
         }
     }
 
+    /**
+     * The one region the catalog calls unreachable is recommended its own
+     * diary — the generator has nothing else to name there — so a sentence
+     * ending «Поэтому рекомендуем «%2$s»» recommended the very diary it had
+     * just said cannot be reached. Read against the real row, in both languages.
+     */
+    @Test
+    fun `the unreachable reason does not recommend the diary it calls unreachable`() {
+        val volgograd = realCatalog.regions.single { it.recommended?.reason == WhyReason.UNREACHABLE.code }
+        val why = checkNotNull(providerPageOf(realCatalog, volgograd, school = null).why)
+        for ((language, system) in listOf(context to why.systemRu, inEnglish() to why.systemEn)) {
+            val line = whyLines(why, volgograd.nameRu, system, null, null).first()
+            val text = language.getString(line.id, *line.args.toTypedArray())
+            assertFalse("\"$text\" names $system as the answer", system in text)
+            assertTrue(text, volgograd.nameRu in text)
+        }
+    }
+
+    /**
+     * What keeps the diary's sign-in, by mode: only a diary read moves the
+     * server's idle clock, and in a class nothing reads the diary on start —
+     * the class's timetable is the home. The class sentence sends the family
+     * to the diary itself.
+     */
+    @Test
+    fun `the keep-alive sentence says what keeps the sign-in in each mode`() {
+        for (language in listOf(context, inEnglish())) {
+            val resources = language.resources
+            val home = resources.getQuantityString(keepAliveText(inClass = false), 30, 30)
+            val inClass = resources.getQuantityString(keepAliveText(inClass = true), 30, 30)
+            assertFalse("a class's sentence is its own", home == inClass)
+            val settings = language.getString(com.lumenpearson.lessons.R.string.settings_title)
+            assertTrue(inClass, settings in inClass)
+            assertTrue(inClass, "30" in inClass)
+        }
+    }
+
     @Test
     fun `a sign-in reason names the system and the school year`() {
         val text = whyLines(why(WhyReason.PRIMARY), "Region", "System", null, null)

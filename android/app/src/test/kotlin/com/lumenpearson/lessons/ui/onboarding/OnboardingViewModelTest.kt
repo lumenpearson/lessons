@@ -183,11 +183,269 @@ class OnboardingViewModelTest {
         model.importShown()
         advanceUntilIdle()
         assertEquals(OnboardingStep.SUMMARY, model.state.current)
-        assertNotNull(model.summary.value)
+        val summary = checkNotNull(model.summary.value)
+        assertEquals(login, summary.login)
+        assertEquals("asurso.ru", summary.place?.host)
+        assertFalse("a diary-only phone draws no class and no notifications row", summary.inClass)
+        assertNull(summary.className)
 
         model.finish()
         advanceUntilIdle()
         assertFalse(rig.shell.stored.value.held)
+    }
+
+    /**
+     * The pupil the owner asked the summary to name is the one picked on the
+     * chooser, not whoever the diary lists first — and the class, when there
+     * is one, is what turns on the class card and the notifications row.
+     */
+    @Test
+    fun `the summary names the pupil picked and the class joined`() = runTest(dispatcher) {
+        val sister = pupil.copy(id = 8, firstName = "Anna", fullName = "Petrova Anna", className = "5B")
+        val rig = OnboardingRig(import = FakeImport(choosing = listOf(pupil, sister)))
+        rig.cache.saveStudents(listOf(pupil, sister), java.time.Instant.EPOCH)
+        val model = rig.model()
+        toSamaraSignIn(model)
+        model.signIn.setLogin(login)
+        model.submitSignIn(password)
+        advanceUntilIdle()
+        assertEquals(listOf(7L, 8L), model.importing.state.value.choosing?.map { it.id })
+
+        model.pickStudent(8)
+        advanceUntilIdle()
+        assertEquals("the import goes on with the pupil picked", 8L, rig.import.picked?.id)
+        model.importShown()
+        advanceUntilIdle()
+        val summary = checkNotNull(model.summary.value)
+        assertEquals("Petrova Anna", summary.studentName)
+        assertEquals("5B", summary.studentClass)
+        assertFalse(summary.inClass)
+
+        // The same page for a phone that also holds a class.
+        val joined = OnboardingRig()
+        joined.joinedClass(DiaryBinding(DiaryProviderKey.NETSCHOOL, "samara", 239L, "Lyceum 239"))
+        val classModel = joined.model()
+        classModel.start(introduced = true)
+        advanceUntilIdle()
+        classModel.chooseWay(WayIn.CLASS_CODE)
+        classModel.proceedFromWayIn()
+        advanceUntilIdle()
+        classModel.onJoined()
+        advanceUntilIdle()
+        classModel.signIn.setLogin(login)
+        classModel.submitSignIn(password)
+        advanceUntilIdle()
+        classModel.importShown()
+        advanceUntilIdle()
+        val inClass = checkNotNull(classModel.summary.value)
+        assertTrue(inClass.inClass)
+        assertEquals("9A", inClass.className)
+    }
+
+    /**
+     * Back during «Передаём сессию серверу…» used to cancel
+     * the request our server finishes anyway: a sealed diary credential tied
+     * to no device, which no sign-out could reach, and a second with the next
+     * try. The step now stays until the answer is in.
+     */
+    @Test
+    fun `back is refused while the server is adopting the session`() = runTest(dispatcher) {
+        val rig = OnboardingRig()
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        rig.signIn.registerGate = gate
+        val model = rig.model()
+        toSamaraSignIn(model)
+        model.signIn.setLogin(login)
+        model.submitSignIn(password)
+        advanceUntilIdle()
+        assertEquals(SignInStage.REGISTER, model.signIn.state.value.stage)
+
+        model.back()
+        advanceUntilIdle()
+        assertEquals("the sign-in is not left mid-registration", OnboardingStep.SIGN_IN, model.state.current)
+        assertTrue("nothing said goodbye under the server", rig.signIn.discarded.isEmpty())
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(OnboardingStep.IMPORT, model.state.current)
+        assertNotNull("the phone holds the bearer to the row the server kept", rig.diarySession)
+        assertTrue(rig.signIn.discarded.isEmpty())
+    }
+
+    @Test
+    fun `not now is refused while a class's sign-in is under way`() = runTest(dispatcher) {
+        val rig = OnboardingRig()
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        rig.signIn.registerGate = gate
+        val model = rig.model()
+        model.start(introduced = true)
+        advanceUntilIdle()
+        model.chooseWay(WayIn.CLASS_CODE)
+        model.proceedFromWayIn()
+        advanceUntilIdle()
+        rig.joinedClass(DiaryBinding(DiaryProviderKey.PETERSBURG, null, null, null))
+        model.onJoined()
+        advanceUntilIdle()
+        model.signIn.setLogin(login)
+        model.submitSignIn(password)
+        advanceUntilIdle()
+
+        model.skipSignIn()
+        advanceUntilIdle()
+        assertTrue("the flow did not end under the registration", rig.shell.stored.value.held)
+        assertEquals(OnboardingStep.SIGN_IN, model.state.current)
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(OnboardingStep.IMPORT, model.state.current)
+    }
+
+    /**
+     * The bundle is written when the activity stops; a
+     * registration that lands after that reaches the in-memory handle only,
+     * and a process death then restored the form over a diary already
+     * registered — a second sign-in there orphans the first server row.
+     */
+    @Test
+    fun `a saved sign-in over a diary registered since goes on to its import`() = runTest(dispatcher) {
+        val rig = OnboardingRig(shell = FakeShellMode(ShellState(ShellMode.DIARY, held = true)))
+        OnboardingState(
+            path = listOf(
+                OnboardingStep.WAY_IN,
+                OnboardingStep.REGION,
+                OnboardingStep.SCHOOL,
+                OnboardingStep.PROVIDER,
+                OnboardingStep.SIGN_IN,
+            ),
+            choices = OnboardingChoices(
+                wayIn = WayIn.FIND_SCHOOL,
+                region = "samara",
+                school = PickedSchool(239, "Lyceum 239"),
+                system = 0,
+            ),
+        ).toSaved().forEach { (key, value) -> rig.saved[key] = value }
+        rig.diarySession = DiarySession(login, "bearer", DiaryTarget.netschool("samara", 239L, "Lyceum 239", login, "Europe/Samara"))
+
+        val model = rig.model()
+        model.start(introduced = true)
+        advanceUntilIdle()
+
+        assertEquals(OnboardingStep.IMPORT, model.state.current)
+        assertFalse("the form cannot be walked back into", model.state.canGoBack)
+        assertEquals("the import runs from the start", listOf<DiaryImportPhase?>(null), rig.import.runs)
+    }
+
+    @Test
+    fun `a saved join screen over a class joined since goes on as the join would`() = runTest(dispatcher) {
+        val finished = OnboardingRig(shell = FakeShellMode(ShellState(ShellMode.CLASS, held = true)))
+        val atCode = OnboardingState(
+            path = listOf(OnboardingStep.WAY_IN, OnboardingStep.CLASS_CODE),
+            choices = OnboardingChoices(wayIn = WayIn.CLASS_CODE),
+        )
+        atCode.toSaved().forEach { (key, value) -> finished.saved[key] = value }
+        finished.joinedClass(binding = null)
+        finished.model().start(introduced = true)
+        advanceUntilIdle()
+        assertFalse("a class with no diary: the flow is done", finished.shell.stored.value.held)
+
+        val bound = OnboardingRig(shell = FakeShellMode(ShellState(ShellMode.CLASS, held = true)))
+        atCode.toSaved().forEach { (key, value) -> bound.saved[key] = value }
+        bound.joinedClass(DiaryBinding(DiaryProviderKey.PETERSBURG, null, null, null))
+        val model = bound.model()
+        model.start(introduced = true)
+        advanceUntilIdle()
+        assertEquals(OnboardingStep.SIGN_IN, model.state.current)
+        assertTrue(model.state.choices.classBound)
+        assertFalse("the join screen cannot be walked back into", model.state.canGoBack)
+    }
+
+    /**
+     * «Забыли пароль?» took the site of a system
+     * picked on the provider step and walked back from, over the class's own
+     * diary the form now signs in to.
+     */
+    @Test
+    fun `a class's sign-in after a family attempt links the class's diary site`() = runTest(dispatcher) {
+        val rig = OnboardingRig()
+        rig.signIn.registerResults += Result.failure(DiarySignInProblem.ServerRefusedSession)
+        val model = rig.model()
+        toSamaraSignIn(model)
+        assertEquals("https://asurso.ru", model.signInHeader.value?.forgotUrl)
+        model.signIn.setLogin(login)
+        model.submitSignIn(password)
+        advanceUntilIdle()
+        assertEquals(DiarySignInProblem.ServerRefusedSession, model.signIn.state.value.problem)
+
+        model.toClassCode()
+        advanceUntilIdle()
+        rig.joinedClass(DiaryBinding(DiaryProviderKey.PETERSBURG, null, null, null))
+        model.onJoined()
+        advanceUntilIdle()
+
+        val header = checkNotNull(model.signInHeader.value)
+        assertEquals(DiaryProviderKey.PETERSBURG, header.provider)
+        assertEquals("https://dnevnik2.petersburgedu.ru", header.forgotUrl)
+    }
+
+    /** The same, reached by walking back from the family's sign-in rather than through a 409. */
+    @Test
+    fun `a class's sign-in after walking back from the family's links the class's diary site`() = runTest(dispatcher) {
+        val rig = OnboardingRig()
+        val model = rig.model()
+        toSamaraSignIn(model)
+        model.back()
+        advanceUntilIdle()
+        assertEquals(OnboardingStep.PROVIDER, model.state.current)
+
+        model.toClassCode()
+        advanceUntilIdle()
+        rig.joinedClass(DiaryBinding(DiaryProviderKey.PETERSBURG, null, null, null))
+        model.onJoined()
+        advanceUntilIdle()
+
+        assertEquals(OnboardingStep.SIGN_IN, model.state.current)
+        assertEquals("https://dnevnik2.petersburgedu.ru", model.signInHeader.value?.forgotUrl)
+    }
+
+    /**
+     * «Войти ещё раз» put the sign-in on the floor with no
+     * back and no «Не сейчас»; a sign-in that kept failing there had no way
+     * out short of killing the app. It has the import page's own now.
+     */
+    @Test
+    fun `a sign-in reopened after the import can still start over`() = runTest(dispatcher) {
+        val rig = OnboardingRig()
+        rig.import.steps = listOf(
+            DiaryImportProgress.Failed(DiaryImportPhase.SCHEDULE, DiarySignInProblem.ReauthRequired, true, 0.2f),
+        )
+        val model = rig.model()
+        toSamaraSignIn(model)
+        model.signIn.setLogin(login)
+        model.submitSignIn(password)
+        advanceUntilIdle()
+        model.signInAgain()
+        advanceUntilIdle()
+        val reopened = model.state
+        assertEquals(OnboardingStep.SIGN_IN, reopened.current)
+        assertEquals(SignInExit.START_OVER, signInExitOf(reopened.choices.classBound, reopened.canGoBack))
+
+        // Not while a sign-in is out: the registration would land on a flow
+        // that has moved on.
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        rig.signIn.registerGate = gate
+        rig.signIn.registerResults += Result.failure(DiarySignInProblem.WrongPassword(upstreamMessage = null))
+        model.submitSignIn(password)
+        advanceUntilIdle()
+        model.startOver()
+        advanceUntilIdle()
+        assertEquals(OnboardingStep.SIGN_IN, model.state.current)
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        model.startOver()
+        advanceUntilIdle()
+        assertEquals(listOf(OnboardingStep.WAY_IN), model.state.path)
+        assertEquals(1, rig.signedOut)
     }
 
     @Test
@@ -288,6 +546,52 @@ class OnboardingViewModelTest {
         model.start(introduced = true)
         advanceUntilIdle()
         assertEquals(listOf(OnboardingStep.WAY_IN), model.state.path)
+    }
+
+    /**
+     * The step holders live as long as the view model, which is the
+     * activity's. After «Выйти из дневника» sends a diary-only phone back to
+     * the first run, the next one opened on the old region's search and on a
+     * sign-in form holding the login that sign-out had just forgotten.
+     */
+    @Test
+    fun `a finished flow's login and searches do not reach the next one`() = runTest(dispatcher) {
+        val rig = OnboardingRig()
+        val model = rig.model()
+        model.start(introduced = true)
+        advanceUntilIdle()
+        model.region.type("Самара")
+        model.school.open("samara", "Лицей")
+        model.signIn.setLogin(login)
+        advanceUntilIdle()
+
+        model.finish()
+        advanceUntilIdle()
+        model.start(introduced = true)
+        advanceUntilIdle()
+
+        assertEquals("", model.signIn.state.value.login)
+        assertEquals("", model.region.state.value.query)
+        assertTrue(model.region.state.value.rows.isEmpty())
+        assertEquals("", model.school.state.value.query)
+        assertNull(model.school.state.value.regionKey)
+        assertNull(model.signInHeader.value)
+        assertNull(model.summary.value)
+    }
+
+    /** A first start is not a restart: a recreation keeps the login in memory. */
+    @Test
+    fun `a flow that has not finished keeps its login across a second start`() = runTest(dispatcher) {
+        val rig = OnboardingRig()
+        val model = rig.model()
+        model.start(introduced = true)
+        advanceUntilIdle()
+        model.signIn.setLogin(login)
+
+        model.start(introduced = true)
+        advanceUntilIdle()
+
+        assertEquals(login, model.signIn.state.value.login)
     }
 
     @Test

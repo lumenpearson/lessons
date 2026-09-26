@@ -44,12 +44,31 @@ class SchoolFinder(
 
     private var job: Job? = null
 
-    /** A region picked: start over, with the query the region step carried, asked at once. */
+    /** The prefill the search last started from; see [open]. */
+    private var openedWith: String? = null
+
+    /**
+     * A region picked: start over, with the query the region step carried,
+     * asked at once.
+     *
+     * Arriving again with the same region and the same prefill — back from
+     * the provider step — keeps what was typed here since. A new school name
+     * carried from the region step is a new question, even in the same region.
+     */
     fun open(regionKey: String, prefill: String) {
-        if (mutable.value.regionKey == regionKey && mutable.value.query.isNotEmpty()) return
+        val current = mutable.value
+        if (current.regionKey == regionKey && openedWith == prefill && current.query.isNotEmpty()) return
+        openedWith = prefill
         job?.cancel()
         mutable.value = SchoolSearchUi(regionKey = regionKey, query = prefill)
         search(prefill, debounce = false)
+    }
+
+    /** Nothing typed and nothing asked, for a flow that starts again. */
+    fun reset() {
+        job?.cancel()
+        openedWith = null
+        mutable.value = SchoolSearchUi()
     }
 
     fun type(query: String) {

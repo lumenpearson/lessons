@@ -106,7 +106,10 @@ internal fun OnboardingActions(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (onBack != null) BackSquare(onBack)
+            // Dead while [busy]: what is running was sent and will land
+            // whether or not the step is left, and it would land behind the
+            // step before — the class-code step's join under the chooser.
+            if (onBack != null) BackSquare(onBack, enabled = !busy)
 
             Button(
                 onClick = {
@@ -151,26 +154,27 @@ internal fun OnboardingActions(
  * because the password must not leave the form to reach a button out here.
  */
 @Composable
-internal fun OnboardingBackRow(onBack: () -> Unit, modifier: Modifier = Modifier) {
+internal fun OnboardingBackRow(onBack: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(ScreenPadding),
     ) {
-        BackSquare(onBack)
+        BackSquare(onBack, enabled)
     }
 }
 
 /** The square way back, the same on every step. */
 @Composable
-private fun BackSquare(onBack: () -> Unit) {
+private fun BackSquare(onBack: () -> Unit, enabled: Boolean = true) {
     val view = rememberHapticView()
     OutlinedButton(
         onClick = {
             LessonsHaptics.press(view)
             onBack()
         },
+        enabled = enabled,
         modifier = Modifier.size(ActionHeight),
         shape = MaterialTheme.shapes.large,
         contentPadding = PaddingValues(0.dp),

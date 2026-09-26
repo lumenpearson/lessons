@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.ui.settings
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +22,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -44,6 +44,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 import com.lumenpearson.lessons.ui.common.ClassCodeLengths
 import com.lumenpearson.lessons.ui.join.JoinViewModel
+import com.lumenpearson.lessons.ui.join.rememberJoinSubmit
 import com.lumenpearson.lessons.ui.join.asText
 
 /**
@@ -148,11 +149,15 @@ internal fun LazyListScope.classRows(
  * whose device was revoked gets back in — and it succeeds without changing
  * which class is active, so a sheet keyed on that sat there after a successful
  * join with the code still in the field and nothing to say it had worked.
+ *
+ * @param message the sentence under the title. A second class by default; the
+ *   diary home, where the phone is in no class, passes one about a first.
  */
 @Composable
 internal fun AddClassSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    @StringRes message: Int = R.string.settings_class_add_message,
     viewModel: JoinViewModel = viewModel(factory = JoinViewModel.Factory),
 ) {
     val join by viewModel.uiState.collectAsStateWithLifecycle()
@@ -168,16 +173,13 @@ internal fun AddClassSheet(
         onDismiss()
     }
 
-    // In an effect rather than in the body: dismissing is a state change, and
-    // composition is not allowed to make one. Done inline it dismissed on the
-    // same frame it was deciding what to draw, which Compose is entitled to
-    // treat as an infinite recomposition.
-    LaunchedEffect(join.joinedClassId) {
-        if (join.joinedClassId != null) {
-            viewModel.consumeJoined()
-            close()
-        }
-    }
+    // Dismissed from an effect rather than in the body: dismissing is a state
+    // change, and composition is not allowed to make one. Done inline it
+    // dismissed on the same frame it was deciding what to draw, which Compose
+    // is entitled to treat as an infinite recomposition. Only on this sheet's
+    // own join: another caller's, landing late, closed it before a code could
+    // be typed.
+    val submit = rememberJoinSubmit(viewModel, join.joined) { close() }
 
     val interactionSource = remember { MutableInteractionSource() }
     val focused by interactionSource.collectIsFocusedAsState()
@@ -189,7 +191,7 @@ internal fun AddClassSheet(
         title = correctedString(R.string.settings_class_add),
     ) {
         Text(
-            text = correctedString(R.string.settings_class_add_message),
+            text = correctedString(message),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = ScreenPadding),
@@ -236,7 +238,7 @@ internal fun AddClassSheet(
             TextButton(onClick = close) {
                 Text(text = correctedString(R.string.action_cancel))
             }
-            Button(onClick = viewModel::submit, enabled = join.canSubmit) {
+            Button(onClick = submit, enabled = join.canSubmit) {
                 Text(text = correctedString(R.string.join_action))
             }
         }

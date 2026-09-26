@@ -47,7 +47,7 @@
     </plurals>
     <string name="onboarding_region_school_group">%1$s: %2$s</string>
     <string name="onboarding_region_school_truncated">There are more matches than shown. If your region is not here, pick it from the list.</string>
-    <string name="onboarding_region_school_generic">Schools with this name are all over the country. Pick the region from the list — the next step finds the school.</string>
+    <string name="onboarding_region_school_generic">Schools with this name are all over the country. Pick the region from the list.</string>
     <string name="onboarding_region_school_empty">No such school in the company register. Pick the region from the list.</string>
     <plurals name="onboarding_region_school_wait">
         <item quantity="one">The school-name search is resting for another %1$d minute. Pick the region from the list.</item>
@@ -57,6 +57,7 @@
     <string name="onboarding_region_school_no_server">The server looks schools up by name, and none is set. Pick the region from the list.</string>
     <string name="onboarding_region_school_offline">The server cannot be reached, so the school cannot be looked up by name. Pick the region from the list — it works offline.</string>
     <string name="onboarding_region_school_off">This server cannot look schools up by name. Pick the region from the list.</string>
+    <string name="onboarding_region_school_down">The school-name search is not answering right now. Pick the region from the list, or try the name again a little later.</string>
 
     <string name="onboarding_school_title">Your school</string>
     <string name="onboarding_school_subtitle">%1$s · %2$s</string>
@@ -103,7 +104,7 @@
     <string name="onboarding_why_tor_primary">%1$s keeps its diary in %2$s, which opens only through Gosuslugi.</string>
     <string name="onboarding_why_front_end">Schools in %1$s show their marks in %2$s, while the diary itself is %3$s. The app cannot sign in there, so it recommends what opens for everyone.</string>
     <string name="onboarding_why_moving_to">%1$s is moving to %2$s school by school. If yours already has, choose this one.</string>
-    <string name="onboarding_why_unreachable">The diary of schools in %1$s takes no secure connections, and the app sends no password without one. So it recommends %2$s.</string>
+    <string name="onboarding_why_unreachable">The diary of schools in %1$s takes no secure connections, and the app sends no password without one, so it cannot sign in there. A class code still brings the class timetable.</string>
     <string name="onboarding_why_unsupported">Schools in %1$s use %2$s. The app cannot read it yet; a class code still brings the class timetable.</string>
     <string name="onboarding_why_no_diary">In the %2$s school year schools in %1$s keep paper registers — there is no electronic diary.</string>
     <string name="onboarding_why_confidence_high">A regional portal, the ministry or the diary\'s operator confirms it.</string>
@@ -166,9 +167,14 @@
     <string name="onboarding_summary_class">Class</string>
     <string name="onboarding_summary_no_class_title">No class</string>
     <string name="onboarding_summary_no_class_text">The bot does not know about you: the app shows only your diary. The widget, the notifications and the Today and Calendar tabs run on a class. If an admin sets your class up in the bot, join with its code in settings.</string>
+    <string name="onboarding_summary_keepalive_title">Diary sign-in</string>
     <plurals name="onboarding_summary_keepalive">
         <item quantity="one">The diary stays signed in while you open the app. After %1$d day without it you will have to sign in again — the widget does not extend it.</item>
         <item quantity="other">The diary stays signed in while you open the app. After %1$d days without it you will have to sign in again — the widget does not extend it.</item>
+    </plurals>
+    <plurals name="onboarding_summary_keepalive_class">
+        <item quantity="one">The diary stays signed in while you open the diary: Settings → Diary. After %1$d day without it you will have to sign in again — the class timetable and the widget do not extend it.</item>
+        <item quantity="other">The diary stays signed in while you open the diary: Settings → Diary. After %1$d days without it you will have to sign in again — the class timetable and the widget do not extend it.</item>
     </plurals>
     <string name="onboarding_summary_petersburg_note">The Petersburg diary may end the session sooner — the app then asks for the password again.</string>
     <string name="onboarding_summary_settings">Settings</string>

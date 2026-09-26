@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons.ui.onboarding
 
 import androidx.activity.compose.BackHandler
+import androidx.annotation.PluralsRes
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
@@ -99,17 +100,7 @@ internal fun SummaryPage(
                         icon = Icons.AutoMirrored.Rounded.MenuBook,
                         tone = accentTone(2),
                     )
-                    GroupItem(
-                        title = pluralStringResource(
-                            R.plurals.onboarding_summary_keepalive,
-                            DiarySessionIdleDays.toInt(),
-                            DiarySessionIdleDays.toInt(),
-                        ),
-                        subtitle = correctedString(R.string.onboarding_summary_petersburg_note)
-                            .takeIf { current.petersburg },
-                        icon = Icons.Rounded.Timer,
-                        tone = accentTone(4),
-                    )
+                    KeepAliveItem(inClass = current.inClass, petersburg = current.petersburg)
                 }
                 Spacer(Modifier.height(GroupSpacing))
 
@@ -174,3 +165,34 @@ internal fun SummaryPage(
         Spacer(Modifier.height(24.dp))
     }
 }
+
+/**
+ * What keeping the diary's sign-in costs (G8), under a short title.
+ *
+ * The sentence is the subtitle, which wraps: a row's title is one line that
+ * scrolls when it does not fit, and two sentences of warning crawling past
+ * one line at a time is a warning nobody reads.
+ */
+@Composable
+internal fun KeepAliveItem(inClass: Boolean, petersburg: Boolean) {
+    val days = DiarySessionIdleDays.toInt()
+    GroupItem(
+        title = correctedString(R.string.onboarding_summary_keepalive_title),
+        subtitle = listOfNotNull(
+            pluralStringResource(keepAliveText(inClass), days, days),
+            correctedString(R.string.onboarding_summary_petersburg_note).takeIf { petersburg },
+        ).joinToString(" "),
+        icon = Icons.Rounded.Timer,
+        tone = accentTone(4),
+    )
+}
+
+/**
+ * Which sentence says what keeps the sign-in. Only a diary read moves the
+ * server's idle clock, and the one read nobody presses for is the diary
+ * home's refresh on start: a phone in a class opens on the class's timetable,
+ * and there it is opening the diary — «Настройки → Дневник» — that counts.
+ */
+@PluralsRes
+internal fun keepAliveText(inClass: Boolean): Int =
+    if (inClass) R.plurals.onboarding_summary_keepalive_class else R.plurals.onboarding_summary_keepalive

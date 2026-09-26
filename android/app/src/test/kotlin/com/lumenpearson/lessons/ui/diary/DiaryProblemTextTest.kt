@@ -6,6 +6,7 @@ import com.lumenpearson.lessons.core.data.repository.DiarySignInProblem
 import com.lumenpearson.lessons.ui.diary.DiaryProblemMessage.Counted
 import com.lumenpearson.lessons.ui.diary.DiaryProblemMessage.Line
 import com.lumenpearson.lessons.ui.diary.DiaryProblemMessage.WithUpstream
+import java.io.File
 import java.io.IOException
 import java.net.SocketTimeoutException
 import org.junit.Assert.assertEquals
@@ -144,5 +145,68 @@ class DiaryProblemTextTest {
         assertFalse(DiarySignInProblem.ServerDisabled.offersRetry)
         assertFalse(DiarySignInProblem.ServerAddressRefused.offersRetry)
         assertFalse(DiarySignInProblem.TooManyAttempts(60).offersRetry)
+    }
+
+    /**
+     * Both sentences for an unreadable answer say the fix is on the server or
+     * in an update; a «Повторить» under them asked for the same answer again.
+     * The week's card had excluded our server's 502 on purpose, and lost that
+     * when it started asking the problem type instead.
+     */
+    @Test
+    fun `an answer nobody could read offers no retry, on a read or a sign-in`() {
+        assertFalse(DiarySignInProblem.ProviderUnreadable(null).offersRetry)
+        assertFalse(DiarySignInProblem.ProviderUnreadable(host).offersRetry)
+        assertEquals(false, DiaryFailure.Unreadable.asProblem()?.offersRetry)
+    }
+
+    /**
+     * The first run has no settings, so «в разделе «Синхронизация»» names a
+     * place the family cannot open; the address is on the steps themselves.
+     */
+    @Test
+    fun `the first run is not sent to a settings section it does not have`() {
+        assertEquals(Line(R.string.diary_problem_offline), diaryProblemMessage(DiarySignInProblem.Offline))
+        assertEquals(
+            Line(R.string.diary_problem_offline_first_run),
+            diaryProblemMessage(DiarySignInProblem.Offline, firstRun = true),
+        )
+        assertEquals(
+            Line(R.string.diary_problem_server_missing_first_run),
+            diaryProblemMessage(DiarySignInProblem.ServerMissing, firstRun = true),
+        )
+        for (lang in listOf("values", "values-en")) {
+            val strings = stringsOf(lang)
+            for (name in listOf("diary_problem_offline_first_run", "diary_problem_server_missing_first_run")) {
+                val text = strings.getValue(name)
+                assertFalse("$lang/$name names the settings: $text", "Синхронизац" in text || "Sync" in text)
+            }
+        }
+    }
+
+    /** A family that joined a class by its code is not told to join one by its code. */
+    @Test
+    fun `a phone in a class is not advised to join a class`() {
+        assertEquals(
+            Line(R.string.diary_problem_server_refused_session),
+            diaryProblemMessage(DiarySignInProblem.ServerRefusedSession),
+        )
+        assertEquals(
+            Line(R.string.diary_problem_server_refused_session_in_class),
+            diaryProblemMessage(DiarySignInProblem.ServerRefusedSession, inClass = true),
+        )
+        for (lang in listOf("values", "values-en")) {
+            val text = stringsOf(lang).getValue("diary_problem_server_refused_session_in_class")
+            assertFalse("$lang: $text", "по коду" in text || "by its code" in text)
+        }
+    }
+
+    /** One `strings_diary.xml`, name to text, read from the source tree. */
+    private fun stringsOf(folder: String): Map<String, String> {
+        val file = listOf("src/main/res/$folder/strings_diary.xml", "app/src/main/res/$folder/strings_diary.xml")
+            .map(::File).first { it.isFile }
+        return Regex("<string name=\"([^\"]+)\">(.*?)</string>", RegexOption.DOT_MATCHES_ALL)
+            .findAll(file.readText())
+            .associate { it.groupValues[1] to it.groupValues[2] }
     }
 }

@@ -77,25 +77,32 @@ internal fun ImportPage(viewModel: OnboardingViewModel) {
     }
 
     val failed = ui.failed
+    val action = importActionOf(ui)
     StepScaffold(
         actions = {
-            when {
-                ui.done != null -> OnboardingActions(
+            when (action) {
+                ImportAction.CONTINUE -> OnboardingActions(
                     label = correctedString(R.string.onboarding_action_continue),
                     icon = Icons.AutoMirrored.Rounded.ArrowForward,
                     onClick = viewModel::importShown,
                 )
-                failed != null && failed.needsSignIn -> OnboardingActions(
+                ImportAction.SIGN_IN_AGAIN -> OnboardingActions(
                     label = correctedString(R.string.onboarding_import_sign_in_again),
                     icon = Icons.AutoMirrored.Rounded.ArrowForward,
                     onClick = viewModel::signInAgain,
                 )
-                failed != null -> OnboardingActions(
+                ImportAction.RETRY -> OnboardingActions(
                     label = correctedString(R.string.onboarding_action_retry),
                     icon = Icons.Rounded.Refresh,
                     onClick = viewModel::retryImport,
                 )
-                else -> OnboardingActions(
+                // The way out below the card becomes the one action.
+                ImportAction.START_OVER -> OnboardingActions(
+                    label = correctedString(R.string.onboarding_import_restart),
+                    icon = Icons.AutoMirrored.Rounded.ArrowForward,
+                    onClick = viewModel::startOver,
+                )
+                ImportAction.RUNNING -> OnboardingActions(
                     label = correctedString(R.string.onboarding_import_running),
                     icon = Icons.Rounded.CloudDownload,
                     busy = true,
@@ -150,11 +157,13 @@ internal fun ImportPage(viewModel: OnboardingViewModel) {
                 if (failed.needsSignIn) {
                     correctedString(R.string.onboarding_import_expired)
                 } else {
-                    correctedString(R.string.onboarding_import_failed, failed.problem.asText())
+                    correctedString(R.string.onboarding_import_failed, failed.problem.asText(firstRun = true))
                 },
             )
-            TextButton(onClick = viewModel::startOver, modifier = Modifier.fillMaxWidth()) {
-                Text(correctedString(R.string.onboarding_import_restart))
+            if (action != ImportAction.START_OVER) {
+                TextButton(onClick = viewModel::startOver, modifier = Modifier.fillMaxWidth()) {
+                    Text(correctedString(R.string.onboarding_import_restart))
+                }
             }
         }
         Spacer(Modifier.height(24.dp))

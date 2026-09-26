@@ -114,7 +114,8 @@ data class SummaryUi(
  * keep the flow on screen, because the join and the registration each write a
  * credential that would otherwise swap the flow for a home mid-way; [finish]
  * releases it. After a process death with no saved state, [start] resumes by
- * [OnboardingFlow.resume].
+ * [OnboardingFlow.resume]; with saved state, by the saved path squared with
+ * the credentials stored since ([reconciled]).
  */
 class OnboardingViewModel(
     private val saved: SavedStateHandle,
@@ -181,11 +182,17 @@ class OnboardingViewModel(
      */
     fun start(introduced: Boolean) {
         if (mutable.value != null && !finished) return
+        // The step holders live as long as this view model, and a finished
+        // flow left its answers in them: the next first run — after «Выйти из
+        // дневника», say — opened on the old region's rows and on a sign-in
+        // form holding the login that sign-out had just forgotten. Only after
+        // a finish: a first start keeps what a recreation left in memory.
+        if (finished) forgetFinishedFlow()
         finished = false
         generation += 1
         mutable.value = null
-        onboardingStateOf(OnboardingKeys.all.associateWith { saved.get<Any?>(it) })?.let {
-            mutable.value = it
+        onboardingStateOf(OnboardingKeys.all.associateWith { saved.get<Any?>(it) })?.let { restored ->
+            viewModelScope.launch { reconciled(restored)?.let(::set) ?: finish() }
             return
         }
         viewModelScope.launch {
@@ -201,6 +208,15 @@ class OnboardingViewModel(
             )
             if (resumed == null) finish() else set(resumed)
         }
+    }
+
+    private fun forgetFinishedFlow() {
+        signIn.reset()
+        region.reset()
+        school.reset()
+        header.value = null
+        summaryState.value = null
+        target = null
     }
 
     // --- The introduction and the chooser -------------------------------------------------
@@ -233,10 +249,19 @@ class OnboardingViewModel(
         viewModelScope.launch { deps.settings.update { it.copy(baseUrl = url) } }
     }
 
+    /**
+     * One step back. Refused on the sign-in while it is under way: once the
+     * password has gone, our server may be adopting the session, and leaving
+     * would keep a server row whose bearer nobody is left to hear — a
+     * credential no sign-out can reach, and a second one with the next try.
+     */
     fun back() {
         val state = mutable.value ?: return
         if (!state.canGoBack) return
-        if (state.current == OnboardingStep.SIGN_IN) signIn.abandon()
+        if (state.current == OnboardingStep.SIGN_IN) {
+            if (signIn.state.value.busy) return
+            signIn.abandon()
+        }
         set(OnboardingFlow.back(state))
     }
 
@@ -310,16 +335,37 @@ class OnboardingViewModel(
     fun onJoined() {
         viewModelScope.launch {
             val state = mutable.value ?: return@launch
-            val usable = classTargetOf(catalog(), deps.currentClass()?.diary) != null
-            if (usable && deps.currentDiary() == null) {
-                set(
-                    OnboardingFlow.commit(state, OnboardingStep.SIGN_IN)
-                        .let { it.copy(choices = it.choices.copy(classBound = true)) },
-                )
-            } else {
-                finish()
-            }
+            afterJoin(state)?.let(::set) ?: finish()
         }
+    }
+
+    /** Where a joined class leaves [state]: its diary's sign-in, or `null` for «done». */
+    private suspend fun afterJoin(state: OnboardingState): OnboardingState? {
+        val usable = classTargetOf(catalog(), deps.currentClass()?.diary) != null
+        if (!usable || deps.currentDiary() != null) return null
+        return OnboardingFlow.commit(state, OnboardingStep.SIGN_IN)
+            .let { it.copy(choices = it.choices.copy(classBound = true)) }
+    }
+
+    /**
+     * A saved flow, squared with the credentials stored since it was saved.
+     *
+     * The bundle is written when the activity stops, and a join or a
+     * registration still under way then lands after it: its commit reaches
+     * the in-memory handle only. After a process death the saved path would
+     * reopen the join screen over a class already joined, or the sign-in form
+     * over a diary already registered — where a second sign-in would orphan
+     * the first server row. So the stored credential wins: a join goes on as
+     * [onJoined] would, a registration on to its import. A sign-in reopened
+     * after an import the diary ended ([OnboardingChoices.resumeFrom]) started
+     * with a session stored, so a stored one proves nothing there.
+     */
+    private suspend fun reconciled(restored: OnboardingState): OnboardingState? = when {
+        restored.current == OnboardingStep.CLASS_CODE && deps.currentClass() != null -> afterJoin(restored)
+        restored.current == OnboardingStep.SIGN_IN &&
+            restored.choices.resumeFrom == null &&
+            deps.currentDiary() != null -> OnboardingFlow.commit(restored, OnboardingStep.IMPORT)
+        else -> restored
     }
 
     // --- Sign-in --------------------------------------------------------------------------
@@ -331,8 +377,13 @@ class OnboardingViewModel(
 
     fun retrySignIn() = signIn.retry(onRegistered = ::registered)
 
-    /** «Не сейчас» on a class's diary: the class is joined, and the diary can wait for settings. */
+    /**
+     * «Не сейчас» on a class's diary: the class is joined, and the diary can
+     * wait for settings. Refused while the sign-in is under way, for [back]'s
+     * reason.
+     */
     fun skipSignIn() {
+        if (signIn.state.value.busy) return
         signIn.abandon()
         finish()
     }
@@ -370,8 +421,14 @@ class OnboardingViewModel(
      * «Выйти из дневника и начать заново»: best-effort sign-out, then the
      * chooser — or, on a class's diary, the end of the flow, since the class is
      * still there to go home to.
+     *
+     * Offered by the import and by a sign-in with no way back (one reopened
+     * after an import the diary ended), which is why it leaves the sign-in the
+     * way [back] does — and, like it, not while a sign-in is under way.
      */
     fun startOver() {
+        if (signIn.state.value.busy) return
+        signIn.abandon()
         viewModelScope.launch {
             importing.stop()
             deps.signOutDiary()
@@ -477,14 +534,23 @@ class OnboardingViewModel(
         if (signIn.state.value.login.isBlank() && stored?.provider == chosen.provider) {
             signIn.setLogin(stored.login)
         }
-        val system = catalog.region(choices.region)?.let { region -> choices.system?.let(region.systems::getOrNull) }
+        // The picked system's own site only when the form really signs in to
+        // it. A class's diary, or the stored one, can differ from a system
+        // picked earlier and walked back from — and «Забыли пароль?» must not
+        // send a parent to reset a password in another region's diary.
+        val signsInToPicked = !choices.classBound && picked != null
+        val pickedSite = if (signsInToPicked) {
+            catalog.region(choices.region)?.let { region -> choices.system?.let(region.systems::getOrNull) }?.webUrl
+        } else {
+            null
+        }
         header.value = SignInHeader(
             provider = chosen.provider,
             place = diaryPlaceOf(catalog, chosen),
             schoolName = chosen.schoolName,
             classBound = choices.classBound,
             className = if (choices.classBound) cls?.className else null,
-            forgotUrl = (system?.webUrl ?: forgotUrlOf(catalog, chosen))?.takeIf { it.startsWith("https://") },
+            forgotUrl = (pickedSite ?: forgotUrlOf(catalog, chosen))?.takeIf { it.startsWith("https://") },
         )
     }
 

@@ -34,6 +34,7 @@
     <string name="diary_problem_unavailable">The diary is not answering. Try again later.</string>
     <string name="diary_problem_unreadable">The diary answered in a way the server could not read: the service changed, and that is fixed on the server rather than in the app.</string>
     <string name="diary_problem_offline">No connection to the server. Check the network and the server address under “Sync”.</string>
+    <string name="diary_problem_offline_first_run">No connection to the server. Check the network and the server address.</string>
     <string name="diary_error_range">That date range is too wide - the diary serves at most 62 days at a time.</string>
     <string name="diary_error_student">This account has no such pupil.</string>
     <string name="diary_problem_unknown">It did not work: %1$s</string>
@@ -126,10 +127,12 @@
     <string name="diary_problem_timeout">No answer came in time. Try again.</string>
     <string name="diary_problem_register_unreachable">The diary let you in, but the server cannot be reached right now. Try again - no need to type the password.</string>
     <string name="diary_problem_server_missing">No server address is set. Set one under “Sync”.</string>
+    <string name="diary_problem_server_missing_first_run">No server address is set, and signing in needs one.</string>
     <string name="diary_problem_server_too_old">This server cannot take a sign-in opened on the phone. It needs a newer server, or another address.</string>
     <string name="diary_problem_server_disabled">The diary is switched off on this server. Only whoever runs the server can switch it on.</string>
     <string name="diary_problem_region_not_served">This server does not work with your region\'s diary.</string>
     <string name="diary_problem_server_refused_session">The diary let you in, but refused the sign-in from the server\'s address. It is not the password, and trying again will not help. You can join a class by its code instead.</string>
+    <string name="diary_problem_server_refused_session_in_class">The diary let you in, but refused the sign-in from the server\'s address. It is not the password, and trying again will not help.</string>
     <string name="diary_problem_server_address_refused">The diary is not answering the server: it refuses requests from its address. It is not the password.</string>
     <string name="diary_problem_no_student">The diary shows no pupil for this account.</string>
     <string name="diary_problem_too_many">Too many attempts. Wait a little and try again.</string>
@@ -148,7 +151,11 @@
     <string name="diary_account_school">School</string>
     <string name="diary_account_join_class">Join a class by code</string>
     <string name="diary_account_class_hint">If an administrator sets up your school\'s class in the bot, its code adds the class timetable, the widget and the bell reminders.</string>
-    <string name="diary_sign_out_home_text">The phone goes back to the start. Lessons and marks saved on the phone are deleted, and the server forgets its copy of the sign-in.</string>
+    <string name="diary_account_join_class_message">Enter the class code the administrator gave you in the bot. The diary stays: it moves to Settings → Diary.</string>
+    <plurals name="diary_sign_out_home">
+        <item quantity="one">The phone goes back to the start. Lessons and marks saved on the phone are deleted, and the server deletes its copy of the sign-in. If the phone is offline right now, the server deletes it by itself %1$d day after the diary was last used, and keeps a Setevoy Gorod session open until then.</item>
+        <item quantity="other">The phone goes back to the start. Lessons and marks saved on the phone are deleted, and the server deletes its copy of the sign-in. If the phone is offline right now, the server deletes it by itself %1$d days after the diary was last used, and keeps a Setevoy Gorod session open until then.</item>
+    </plurals>
 
     <!-- Choosing which diary to sign in to, when nothing says so yet -->
     <string name="diary_pick_title">Choose a diary</string>

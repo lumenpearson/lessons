@@ -6,6 +6,7 @@ import com.lumenpearson.lessons.core.data.diary.DiaryImportPhase
 import com.lumenpearson.lessons.core.data.diary.DiaryImportProgress
 import com.lumenpearson.lessons.core.data.repository.DiarySignInProblem
 import com.lumenpearson.lessons.core.data.repository.DiaryStudent
+import com.lumenpearson.lessons.ui.diary.offersRetry
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -57,6 +58,36 @@ data class ImportUi(
     val done: ImportDone? = null,
     val failed: ImportFailure? = null,
 )
+
+/** The import screen's one action, by what the import is doing. */
+enum class ImportAction {
+    RUNNING,
+    CONTINUE,
+
+    /** The diary ended the session: a new sign-in continues. */
+    SIGN_IN_AGAIN,
+
+    /** «Повторить»: the failure is one a second try can get past. */
+    RETRY,
+
+    /**
+     * «Выйти из дневника и начать заново» and nothing else: a retry would meet
+     * the same answer — an account with no pupil, a diary that refuses our
+     * server's address (#153's rule, as `offersRetry` has it elsewhere).
+     */
+    START_OVER,
+}
+
+fun importActionOf(ui: ImportUi): ImportAction {
+    val failed = ui.failed
+    return when {
+        ui.done != null -> ImportAction.CONTINUE
+        failed == null -> ImportAction.RUNNING
+        failed.needsSignIn -> ImportAction.SIGN_IN_AGAIN
+        failed.problem.offersRetry -> ImportAction.RETRY
+        else -> ImportAction.START_OVER
+    }
+}
 
 /** One row of the import screen. */
 enum class StageState { WAITING, RUNNING, DONE, SKIPPED, FAILED }

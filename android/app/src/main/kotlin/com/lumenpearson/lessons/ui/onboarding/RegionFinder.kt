@@ -17,8 +17,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Why the school-name search said nothing useful. Every one ends in «выберите регион из списка». */
-enum class DirectoryFailure { WAIT, NO_SERVER, OFFLINE, OFF }
+/**
+ * Why the school-name search said nothing useful. Every one ends in «выберите
+ * регион из списка».
+ *
+ * [OFF] is for a server that cannot search at all — no key, or too old to
+ * have the directory — and says so for good. [DOWN] is the directory failing
+ * this once (DaData slow or refusing, an answer nobody could read), and says
+ * «сейчас»: telling a family the search does not work here, a minute before
+ * it does, is telling them not to try the name again.
+ */
+enum class DirectoryFailure { WAIT, NO_SERVER, OFFLINE, OFF, DOWN }
 
 /** What the directory said about the name typed, if it was asked. */
 sealed interface SchoolAnswer {
@@ -101,6 +110,13 @@ class RegionFinder(
         }
     }
 
+    /** Nothing typed and nothing asked, for a flow that starts again. */
+    fun reset() {
+        nameJob?.cancel()
+        schoolJob?.cancel()
+        mutable.value = RegionSearchUi()
+    }
+
     /** The keyboard's search key: ask now rather than after the pause. */
     fun submit() {
         val query = mutable.value.query
@@ -120,7 +136,7 @@ class RegionFinder(
             current.copy(
                 searching = false,
                 rows = result?.byName?.map { match -> regionRowOf(book, match) } ?: current.rows,
-                school = result?.bySchool?.let(::answerOf) ?: SchoolAnswer.Failed(DirectoryFailure.OFF),
+                school = result?.bySchool?.let(::answerOf) ?: SchoolAnswer.Failed(DirectoryFailure.DOWN),
             )
         }
     }
@@ -148,7 +164,8 @@ fun answerOf(lookup: SchoolLookup): SchoolAnswer = when (lookup) {
         is DirectoryProblem.Spent -> SchoolAnswer.Failed(DirectoryFailure.WAIT, minutesOf(problem.retryAfterSeconds))
         DirectoryProblem.ServerMissing -> SchoolAnswer.Failed(DirectoryFailure.NO_SERVER)
         DirectoryProblem.Offline -> SchoolAnswer.Failed(DirectoryFailure.OFFLINE)
-        else -> SchoolAnswer.Failed(DirectoryFailure.OFF)
+        DirectoryProblem.Disabled, DirectoryProblem.ServerTooOld -> SchoolAnswer.Failed(DirectoryFailure.OFF)
+        else -> SchoolAnswer.Failed(DirectoryFailure.DOWN)
     }
 }
 

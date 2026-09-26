@@ -13,6 +13,7 @@ import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
 import com.lumenpearson.lessons.ui.common.ClassCodeLengths
+import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -118,7 +119,7 @@ data class JoinUiState(
     val isSubmitting: Boolean = false,
     val error: JoinError? = null,
     /**
-     * The class just joined, until somebody consumes it.
+     * The join that just finished, until somebody consumes it.
      *
      * Joining writes a session, and outside the first run the shell navigates
      * on the session. Two callers need more than that. The «Добавить класс»
@@ -130,21 +131,42 @@ data class JoinUiState(
      * class already on screen is a real case — it is how somebody whose device
      * was revoked gets back in — and it leaves the active class exactly as it
      * was while having plainly succeeded.
+     *
+     * Only the caller holding [JoinedClass.ticket] may act on it; see
+     * [JoinViewModel.submit].
      */
-    val joinedClassId: Long? = null,
+    val joined: JoinedClass? = null,
 ) {
     /** The button is only live for a complete code with no request running. */
     val canSubmit: Boolean get() = code.length in ClassCodeLengths && !isSubmitting
 }
 
 /**
+ * A finished join, and the ticket of the [JoinViewModel.submit] that started it.
+ *
+ * @property ticket what that call returned; a caller acts on a join only when
+ *   the ticket is the one it was handed.
+ */
+data class JoinedClass(val ticket: String, val classId: Long)
+
+/**
  * The join screen's state, for the first run's class-code step and the
  * «Добавить класс» sheet alike.
  *
- * Success is reported as a one-shot ([JoinUiState.joinedClassId]) rather than a
+ * Success is reported as a one-shot ([JoinUiState.joined]) rather than a
  * callback held by this view model: it is resolved against the activity's
  * store and outlives either screen, and a callback kept here would outlive the
  * screen that passed it.
+ *
+ * The one-shot outlives the screen too, which is why it carries a ticket. The
+ * join writes the session before its first sync, and the session is what swaps
+ * the shell — so the screen that pressed «Подключиться» is usually gone by the
+ * time the join reports (the first run's join screen on a class with no diary,
+ * the «Добавить класс» sheet on the diary home), and the report used to wait
+ * for whoever came next. That was the class-code step of a later first run,
+ * which took it for its own join and finished a flow with no class in it, or
+ * the next «Добавить класс» sheet, which closed itself before anything could
+ * be typed.
  *
  * @param deviceName sent with the join request so a teacher can tell one pupil's
  *   phone from another in the class admin panel.
@@ -159,7 +181,7 @@ class JoinViewModel(
     private val code = MutableStateFlow("")
     private val submitting = MutableStateFlow(false)
     private val error = MutableStateFlow<JoinError?>(null)
-    private val joined = MutableStateFlow<Long?>(null)
+    private val joined = MutableStateFlow<JoinedClass?>(null)
 
     val uiState: StateFlow<JoinUiState> = combine(
         code,
@@ -167,13 +189,13 @@ class JoinViewModel(
         error,
         joined,
         settingsRepository.settings.map { it.baseUrl },
-    ) { code, isSubmitting, error, joinedClassId, baseUrl ->
+    ) { code, isSubmitting, error, joined, baseUrl ->
         JoinUiState(
             code = code,
             baseUrl = baseUrl,
             isSubmitting = isSubmitting,
             error = error,
-            joinedClassId = joinedClassId,
+            joined = joined,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -201,14 +223,24 @@ class JoinViewModel(
         }
     }
 
-    /** Sends the code. The result reaches the UI as a session, or as an error. */
-    fun submit() {
+    /**
+     * Sends the code. The result reaches the UI as a session, or as an error.
+     *
+     * Returns the ticket this join will report under in [JoinUiState.joined],
+     * or `null` when nothing was sent — a code of the wrong length, or a join
+     * already running. The caller keeps it (across a rotation, too) and acts
+     * only on a join carrying it.
+     */
+    fun submit(): String? {
         val value = code.value
         if (value.length !in ClassCodeLengths) {
             error.value = JoinError.InvalidCode
-            return
+            return null
         }
-        if (submitting.value) return
+        if (submitting.value) return null
+        // Random rather than counted: a caller's saved ticket survives a
+        // process death that restarts any counter at zero.
+        val ticket = UUID.randomUUID().toString()
 
         viewModelScope.launch {
             submitting.value = true
@@ -229,15 +261,23 @@ class JoinViewModel(
             // has just this second joined a class.
             timetableRepository.refresh()
             submitting.value = false
+            // The code has been spent. Cleared here rather than by the caller,
+            // which may have been disposed with the shell it was drawn in, and
+            // would leave the next «Добавить класс» sheet opening on it.
+            code.value = ""
             // Last, so that whoever is watching for it sees a finished join
             // rather than one still fetching its first week.
-            joined.value = result.getOrNull()?.classId
+            joined.value = result.getOrNull()?.let { JoinedClass(ticket, it.classId) }
         }
+        return ticket
     }
 
-    /** Clears the one-shot in [JoinUiState.joinedClassId]. */
-    fun consumeJoined() {
-        joined.value = null
+    /**
+     * Clears the one-shot, if it is still [landed] — a join that reported
+     * after it was read is not thrown away with it.
+     */
+    fun consumeJoined(landed: JoinedClass) {
+        joined.compareAndSet(landed, null)
     }
 
     companion object {

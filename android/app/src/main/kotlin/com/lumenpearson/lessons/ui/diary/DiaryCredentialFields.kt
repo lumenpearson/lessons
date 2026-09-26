@@ -45,7 +45,12 @@ import com.lumenpearson.lessons.core.designsystem.text.correctedString
  * The login is hoisted ([login], [onLoginChange]) because it is not a secret
  * and the caller may want it to survive a recreation, which the onboarding does.
  *
- * @param login the login shown; trimmed as it is typed.
+ * @param login the login shown, as typed. Not trimmed per keystroke: the
+ *   field hands back the value it is given, so a space trimmed off the end is
+ *   a space that can never be followed by a letter — and «Сетевой город»
+ *   logins may have one inside («Иванова Мария»). The ends are cleaned where
+ *   the login is sent (`DiaryLogin.clean`, the server's own rule) and in the
+ *   [onSubmit] argument.
  * @param loginEditable `false` on a re-authentication, where the login is known
  *   and a field that could be changed invites signing in as somebody else.
  * @param busy a sign-in is in flight: both fields and the button are held.
@@ -79,7 +84,7 @@ fun DiaryCredentialFields(
 
     val canSubmit = password.isNotBlank() && login.isNotBlank() && !busy
     fun submit() {
-        if (canSubmit) onSubmit(login, password)
+        if (canSubmit) onSubmit(login.trim(), password)
     }
 
     RoundedCardContainer(modifier = modifier) {
@@ -87,7 +92,7 @@ fun DiaryCredentialFields(
             OutlinedTextField(
                 value = login,
                 onValueChange = {
-                    onLoginChange(it.trim())
+                    onLoginChange(it)
                     onEdited()
                 },
                 modifier = Modifier

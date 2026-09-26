@@ -13,6 +13,7 @@ import com.lumenpearson.lessons.core.data.repository.DiarySession
 import com.lumenpearson.lessons.core.data.repository.DiaryStudent
 import com.lumenpearson.lessons.core.data.repository.DiaryTarget
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.ui.join.JoinRig
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
@@ -102,6 +103,57 @@ class DiaryHomeScreenTest {
     }
 
     /**
+     * The sign-out is local first: offline, the goodbye never reaches the
+     * server, which keeps the session until the idle purge. The sheet used to
+     * promise the forgetting outright; it now says what the privacy policy
+     * says, in both halves.
+     */
+    @Test
+    fun `the sign-out sheet says what the server does when the phone is offline`() {
+        val model = model()
+        compose.setContent {
+            LessonsTheme { DiaryAccountPage(viewModel = model) }
+        }
+
+        compose.onNodeWithText("Выйти из дневника").performScrollTo().performClick()
+        compose.onNodeWithText("сервер удалит свою копию входа", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Если телефон сейчас не в сети", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("через 30 дней", substring = true).assertIsDisplayed()
+    }
+
+    /**
+     * The mode follows the stored target, not a live session: after a bare
+     * `401` the phone stays on the diary home with the login known and the
+     * pupils gone, and the page said «Вход выполнен» about it.
+     */
+    @Test
+    fun `a lapsed sign-in is not called a sign-in on the account page`() {
+        val target = DiaryTarget.netschool("samara", 5, "Школа № 5", "ivanova", "Europe/Samara")
+        val lapsed = FakeDiaryRepository().apply { targets.value = target }
+        val model = DiaryViewModel(lapsed)
+        compose.setContent {
+            LessonsTheme { DiaryAccountPage(viewModel = model) }
+        }
+
+        compose.onAllNodesWithText("Вход выполнен", substring = true).assertCountEquals(0)
+        compose.onNodeWithText("Сессия дневника закончилась").assertIsDisplayed()
+        compose.onNodeWithText("ivanova").performScrollTo().assertIsDisplayed()
+    }
+
+    /** This page exists only on a phone in no class, so the sheet asks for a first one. */
+    @Test
+    fun `the account page asks for a first class, not a second`() {
+        val model = model()
+        compose.setContent {
+            LessonsTheme { DiaryAccountPage(viewModel = model, joinFactory = JoinRig().factory()) }
+        }
+
+        compose.onNodeWithText("Подключиться к классу по коду").performScrollTo().performClick()
+        compose.onNodeWithText("Введите код класса от администратора", substring = true).assertIsDisplayed()
+        compose.onAllNodesWithText("второго класса", substring = true).assertCountEquals(0)
+    }
+
+    /**
      * The card under a week that could not be read. It said «Дневник не
      * отвечает. Попробуйте позже.» for a throttle and for a diary switched off
      * on the server alike (#153), and offered «Повторить» for both.
@@ -123,6 +175,17 @@ class DiaryHomeScreenTest {
         }
 
         compose.onNodeWithText("Дневник выключен на этом сервере", substring = true).assertIsDisplayed()
+        compose.onAllNodesWithText("Повторить").assertCountEquals(0)
+    }
+
+    /** Our server's 502: the sentence says the fix is on the server, so no button says try again. */
+    @Test
+    fun `an answer nobody could read says so, and offers no retry`() {
+        compose.setContent {
+            LessonsTheme { DiaryFailureCard(DiaryFailure.Unreadable, onRetry = {}) }
+        }
+
+        compose.onNodeWithText("Дневник ответил непонятно", substring = true).assertIsDisplayed()
         compose.onAllNodesWithText("Повторить").assertCountEquals(0)
     }
 
