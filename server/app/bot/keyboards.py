@@ -113,6 +113,20 @@ class SchoolPick(CallbackData, prefix="sch"):
     value: int = 0
 
 
+class DiarySchoolPick(CallbackData, prefix="dsch"):
+    """A pick from the «Сетевой город» school search, when binding a class.
+
+    Its own prefix rather than sharing :class:`SchoolPick`, which is scoped to
+    the create-a-class flow: two flows on one payload would be told apart only
+    by which state was active, and a diary school id is not a ЕГРЮЛ record. The
+    value is the school's index in the searched list held in FSM data, checked
+    against that list where it is read — never trusted as an id.
+    """
+
+    action: str  # pick | cancel
+    value: int = 0
+
+
 class ClassAction(CallbackData, prefix="cls"):
     action: str  # settings | rotate_code | rename | create | switch
     value: str = ""

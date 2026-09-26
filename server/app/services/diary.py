@@ -6,38 +6,39 @@ and a date range. What lives only here is the part that is this project's
 policy rather than the upstream's behaviour: how a session is stored, when it
 is refreshed, and what happens when it dies.
 
-The rule about credentials is enforced here, in one place: the password is used
-once, to log in, and is never written anywhere. The upstream's own session
-token is what is kept, it is refreshed in place whenever a call brings back a
-newer one, and when the upstream stops accepting it the row is marked expired
-and the person signs in again. That costs a login screen every few days and
-buys not holding a family's password.
+The rule about credentials is enforced here, in one place: the upstream's own
+session is what is kept, never a password. It reaches this server one of two
+ways. :func:`sign_in` takes a password, uses it once to log in and writes it
+nowhere — the bot's sign-in page and ``POST /api/v1/diary/login``, which older
+apps still call. :func:`adopt` takes a session the phone opened itself,
+straight with the diary, so no password ever came here; it is checked with a
+read of this server's own before it is kept. Either way the session is sealed,
+refreshed in place whenever a call brings back a newer one, and when the
+upstream stops accepting it the row is marked expired and the person signs in
+again. That costs a login screen every few days and buys not holding a
+family's password.
 """
 
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from datetime import date as Date
-from typing import Any
+from urllib.parse import urlsplit
 
+from sqlalchemy import ColumnElement, and_, func, select
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import select
+from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crypto import diary_enabled, seal, unseal
 from app.db import rows_affected
-from app.models import DiaryOverride, DiarySession
-from app.providers.petersburg import (
-    PetersburgClient,
-    SessionExpired,
-)
-from app.providers.petersburg import mapper as m
-from app.providers.petersburg import (
-    today as upstream_today,
-)
-from app.providers.petersburg.models import (
+from app.models import DiaryOverride, DiarySession, SchoolClass
+from app.providers.diary.base import AdoptRequest, SignInRequest
+from app.providers.diary.errors import DiaryError, SessionExpired
+from app.providers.diary.models import (
     AcademicPeriod,
     AttendanceEvent,
     DiaryLesson,
@@ -47,6 +48,8 @@ from app.providers.petersburg.models import (
     Subject,
     Teacher,
 )
+from app.providers.diary.registry import NETSCHOOL, PETERSBURG, Binding, provider_for
+from app.providers.diary.registry import binding as class_binding
 from app.security import hash_token, new_token
 
 log = logging.getLogger(__name__)
@@ -70,10 +73,70 @@ def utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-async def sign_in(
-    session: AsyncSession, login: str, password: str, telegram_id: int | None = None
+def zone_for(provider: str, region: str | None = None) -> str:
+    """The IANA zone a diary's days are cut at — Petersburg's city clock, or a
+    «Сетевой город» region's administrative centre.
+
+    Asked of the provider, whose connection's ``today()`` cuts the day with
+    the very same rule, so what the phone is told at registration and what
+    this server reads as «today» for the same session cannot drift apart.
+    """
+    impl = provider_for(provider)
+    if impl is None:
+        # A key no implementation answers. Callers validate first, so this is a
+        # programming error, not a user's.
+        raise ValueError(f"unknown diary provider {provider!r}")
+    return impl.zone(region)
+
+
+async def _open_row(
+    session: AsyncSession,
+    credential: str,
+    *,
+    login: str,
+    provider: str,
+    region: str | None,
+    telegram_id: int | None = None,
 ) -> tuple[str, DiarySession]:
-    """Logs in upstream and opens a session of ours.
+    """Seal an upstream credential and open a session of ours on it.
+
+    The one place a row is minted, whichever way the credential arrived, so
+    that «what a session holds» has one answer. Every caller has just had the
+    upstream accept the credential, which is what ``upstream_ok_at`` records.
+
+    @return the token to hand the client — shown once, stored only as a hash —
+        and the row behind it.
+    """
+    now = utcnow()
+    token = new_token()
+    row = DiarySession(
+        token_hash=hash_token(token),
+        # Sealed before it is ever handed to the session, so there is no path
+        # through this function on which the plaintext reaches the ORM.
+        upstream_token=seal(credential),
+        login=login.strip(),
+        provider=provider,
+        region=region,
+        telegram_id=telegram_id,
+        last_used_at=now,
+        upstream_ok_at=now,
+    )
+    session.add(row)
+    await session.commit()
+    return token, row
+
+
+async def sign_in(
+    session: AsyncSession,
+    login: str,
+    password: str,
+    telegram_id: int | None = None,
+    *,
+    provider: str = PETERSBURG,
+    region: str | None = None,
+    school_id: int | None = None,
+) -> tuple[str, DiarySession]:
+    """Logs in upstream through the named provider and opens a session of ours.
 
     @return the token to hand the client - shown once, stored only as a hash -
         and the row behind it.
@@ -85,22 +148,131 @@ async def sign_in(
     if not diary_enabled():
         raise DiaryDisabled("DIARY_SECRET is not configured")
 
-    client = PetersburgClient()
-    upstream = await client.login(login.strip(), password)
+    impl = provider_for(provider)
+    if impl is None:
+        # A provider key no implementation answers. Callers validate first, so
+        # this is a programming error, not a user's.
+        raise ValueError(f"unknown diary provider {provider!r}")
 
-    token = new_token()
-    row = DiarySession(
-        token_hash=hash_token(token),
-        # Sealed before it is ever handed to the session, so there is no path
-        # through this function on which the plaintext reaches the ORM.
-        upstream_token=seal(upstream),
-        login=login.strip(),
-        telegram_id=telegram_id,
-        last_used_at=utcnow(),
+    credential = await impl.sign_in(
+        SignInRequest(
+            login=login.strip(), password=password, region=region, school_id=school_id
+        )
     )
-    session.add(row)
-    await session.commit()
-    return token, row
+    return await _open_row(
+        session, credential, login=login, provider=provider, region=region,
+        telegram_id=telegram_id,
+    )
+
+
+@dataclass(frozen=True)
+class Registered:
+    """A session the phone opened, now ours: the token to hand back once, the
+    row, and what the validating read already fetched."""
+
+    token: str
+    row: DiarySession
+    students: list[Student]
+    school_name: str | None
+
+
+async def adopt(
+    session: AsyncSession,
+    *,
+    provider: str,
+    login: str,
+    credential: str,
+    region: str | None = None,
+    school_id: int | None = None,
+) -> Registered:
+    """Keep a session the phone opened itself, once this server has seen it work.
+
+    The password never came here: the phone signed in with the diary directly
+    and hands over only what the diary gave it. The provider reads with it from
+    this server's address — that read is the whole check, since a session the
+    upstream will not take from here is worth nothing to keep — and what it
+    hands back (possibly rotated) is what is sealed.
+
+    ``login`` is what the person typed on the phone. Nothing upstream vouches
+    for it, so it names the row — what «Вход выполнен» prints — and nothing
+    else: corrections are filed under the child (:func:`child_scope`) and
+    reached only through a pupil this session's own diary lists.
+
+    The row carries no Telegram account and no class: a phone's session is not
+    the bot's, and linking the two is deliberately left for later.
+    """
+    # Before the upstream call, for `sign_in`'s reason: without a key the
+    # answer has nowhere to go, and a read made to throw it away is a read
+    # made from our address for nothing.
+    if not diary_enabled():
+        raise DiaryDisabled("DIARY_SECRET is not configured")
+
+    impl = provider_for(provider)
+    if impl is None:
+        raise ValueError(f"unknown diary provider {provider!r}")
+
+    adopted = await impl.adopt(
+        AdoptRequest(credential=credential, region=region, school_id=school_id)
+    )
+    token, row = await _open_row(
+        session, adopted.credential, login=login, provider=provider, region=region
+    )
+    return Registered(
+        token=token, row=row, students=list(adopted.students), school_name=adopted.school_name
+    )
+
+
+def reads_binding(bound: Binding) -> ColumnElement[bool]:
+    """Whether a session row reads the diary a class is bound to.
+
+    The one clause for it, used by the bot's lookup and by the expiry on
+    rebinding, so «which sessions belong to this binding» cannot be answered
+    two ways. Petersburg is one server, so the provider is enough — and a row
+    with no provider is Petersburg, which is what the column meant before it
+    existed. A many-server provider must match the region too: a «Сетевой
+    город» session is a session with one regional server, and read against
+    another region's binding it would talk to the diary the class has left.
+
+    Both halves are written with ``coalesce`` so the clause is never SQL's
+    NULL, which ``NOT`` would leave NULL and so match nothing.
+    """
+    provider = func.coalesce(DiarySession.provider, PETERSBURG)
+    if bound.region is None:
+        return provider == bound.provider.key
+    return and_(
+        provider == bound.provider.key,
+        func.coalesce(DiarySession.region, "") == bound.region,
+    )
+
+
+async def expire_off_binding(session: AsyncSession, school_class: SchoolClass) -> int:
+    """Expire the class's live sessions its current binding no longer reads.
+
+    Called when a class is bound, before the caller commits, so the binding
+    and the expiry land together. The bot already stops *reading* such a row
+    (:func:`reads_binding`); expiring it as well is what stops the keep-alive
+    pinging a regional server the class has left, and what the purge then
+    sweeps. The same region again, or another school in it, keeps them: a
+    session is an account on the region's server, not on one school.
+
+    Not called on unbinding. That takes the door away and nothing else — the
+    sessions stay their owners' until they sign out, as the bot promises.
+
+    @return how many rows were expired. Does not commit.
+    """
+    bound = class_binding(school_class)
+    if bound is None:
+        return 0
+    result = await session.execute(
+        sa_update(DiarySession)
+        .where(
+            DiarySession.class_id == school_class.id,
+            DiarySession.expired_at.is_(None),
+            ~reads_binding(bound),
+        )
+        .values(expired_at=utcnow())
+    )
+    return rows_affected(result)
 
 
 def upstream_of(row: DiarySession) -> str | None:
@@ -139,29 +311,99 @@ async def find_session(session: AsyncSession, token: str) -> DiarySession | None
 #
 # The rules for applying them live in ``services/diary_overrides.py``, which is
 # free of SQLAlchemy so that they can be tested without a database. This is the
-# other half: getting the rows in and out. They are keyed by the upstream login
-# rather than by the session, because a session ends every few days and a
-# correction must not.
+# other half: getting the rows in and out. They are filed under the child — the
+# diary, and the pupil's id on it — rather than under the session or the login:
+# a session ends every few days and a correction must not, and the login is
+# whatever the phone typed, which nothing upstream vouches for (#165). So they
+# are shared by everyone whose own diary lists the child. Which children a
+# session reaches is decided in the routes, by `_student`: the session's own
+# diary is asked for its pupils on every call, and an id it does not list is a
+# 404 before any row here is read or written.
+
+#: What every scope starts with — upper case on purpose; see `child_scope`.
+SCOPE_PREFIX = "CHILD:"
 
 
-def owner_key(login: str) -> str:
-    """The form of a login that corrections are filed under.
+class UnknownDiaryServer(ValueError):
+    """A session whose diary this code cannot name a server for: a provider no
+    implementation answers, or a «Сетевой город» region the allow-list does not
+    hold. Refused rather than given a fallback scope, which would file one
+    server's pupils beside another's."""
 
-    Case-folded, because the upstream does not care: a family that signed in as
-    ``Ivan@mail.ru`` and later types ``ivan@mail.ru`` lands in the same account
-    there, and must land on the same corrections here. Keyed on the raw string,
-    every one of them would vanish the first time somebody's keyboard
-    capitalised the first letter — with no reset button, because there would be
-    nothing left to reset.
 
-    The row's own ``login`` stays as it was typed: it is what «вы вошли как»
-    prints, and that should say what the person wrote.
+def child_scope(provider: str | None, region: str | None) -> str:
+    """The diary a child's corrections are filed under; ``student_id`` is the
+    child. Stored in ``DiaryOverride.login``, a column named for what it held
+    before.
+
+    Not the session: a diary session ends every few days, and a correction
+    that went with it would vanish before anybody pressed «сбросить», with
+    nothing left to reset. Not the login either: it is what the phone typed,
+    and nothing upstream vouches for it.
+
+    **Petersburg** is one city-wide server, and a ``NULL`` provider is a row
+    from before there was a second one: ``CHILD:petersburg``.
+
+    **«Сетевой город»** is taken to number its pupils per regional server (see
+    below), so the scope names the server — ``CHILD:netschool:`` and the host
+    of the region's origin, resolved through the allow-list exactly as the
+    session's own calls are. The host, not the region key: if a region's
+    origin ever moves, the corrections stop matching (lost) rather than attach
+    to whichever child carries the same number on the new server (leaked), and
+    two regions on one server rightly share its numbering. A region the
+    allow-list does not hold raises :class:`UnknownDiaryServer`, never a guess.
+
+    Those two are the only shapes. A child a diary lists by an id outside the
+    provider's own numbering (``Student.id_space``) gets no scope at all —
+    :meth:`DiaryService.scope_of` answers ``None`` and the routes offer it no
+    corrections — because the number would then be the whole key, and nothing
+    says that numbering names one person across families.
+
+    Assumed and never observed: that a «Сетевой город» pupil id is unique per
+    server rather than per school, and that two parents' accounts see one
+    child under one id, in either diary. Were it per school, the school would
+    have to come from the diary's own answer — never from the ``school_id`` a
+    phone sends at registration, which nothing compares with the diary.
+
+    **Upper case is the point of the prefix.** A key written before this
+    function existed is ``login.strip().casefold()`` for Petersburg, or
+    ``netschool:`` and 64 lower-case hex digits — casefolded or lower-case
+    either way — so no scope can ever equal one, whatever login somebody types:
+    «CHILD:petersburg» folds to ``child:petersburg``. Code reverted to before
+    this change therefore cannot read a per-child row, or write into one, under
+    any login; revision ``0017`` rewrites the old rows into scopes. What such
+    code writes while it runs is filed under logins this code never reads, so
+    a revert is not lossless — ``0017``'s docstring says how to fold them in.
     """
-    return login.strip().casefold()
+    provider = provider or PETERSBURG
+    if provider == PETERSBURG:
+        scope = f"{SCOPE_PREFIX}{PETERSBURG}"
+    elif provider == NETSCHOOL:
+        from app.providers.netschool import regions
+
+        known = regions.get(region)
+        if known is None:
+            raise UnknownDiaryServer(f"no «Сетевой город» server for region {region!r}")
+        scope = f"{SCOPE_PREFIX}{NETSCHOOL}:{urlsplit(known.origin).netloc.lower()}"
+    else:
+        raise UnknownDiaryServer(f"unknown diary provider {provider!r}")
+    return scope
+
+
+def _of_child(scope: str, student_id: int) -> tuple[ColumnElement[bool], ColumnElement[bool]]:
+    """The two halves of the key, as the WHERE clause every query here uses.
+
+    Refuses anything that is not a scope, because a login passed where a scope
+    belongs is #165 again — a string the phone chose deciding whose
+    corrections are read — and it would type-check perfectly well.
+    """
+    if not scope.startswith(SCOPE_PREFIX):
+        raise ValueError("corrections are filed under child_scope(), not under a login")
+    return DiaryOverride.login == scope, DiaryOverride.student_id == student_id
 
 
 async def load_corrections(
-    session: AsyncSession, login: str, student_id: int
+    session: AsyncSession, scope: str, student_id: int
 ) -> dict[str, dict[str, tuple[str, str | None]]]:
     """Every correction for one child, shaped the way the overlay wants it.
 
@@ -169,12 +411,7 @@ async def load_corrections(
     and asking the database to reason about that would make the key format
     something the schema knows. A family has a handful of these.
     """
-    rows = await session.scalars(
-        select(DiaryOverride).where(
-            DiaryOverride.login == owner_key(login),
-            DiaryOverride.student_id == student_id,
-        )
-    )
+    rows = await session.scalars(select(DiaryOverride).where(*_of_child(scope, student_id)))
     corrections: dict[str, dict[str, tuple[str, str | None]]] = {}
     for row in rows:
         corrections.setdefault(row.target, {})[row.field] = (row.value, row.original)
@@ -182,15 +419,12 @@ async def load_corrections(
 
 
 async def list_overrides(
-    session: AsyncSession, login: str, student_id: int
+    session: AsyncSession, scope: str, student_id: int
 ) -> list[DiaryOverride]:
     """The raw rows, for the screen that lists and resets them."""
     rows = await session.scalars(
         select(DiaryOverride)
-        .where(
-            DiaryOverride.login == owner_key(login),
-            DiaryOverride.student_id == student_id,
-        )
+        .where(*_of_child(scope, student_id))
         .order_by(DiaryOverride.target, DiaryOverride.field)
     )
     return list(rows)
@@ -198,7 +432,7 @@ async def list_overrides(
 
 async def put_override(
     session: AsyncSession,
-    login: str,
+    scope: str,
     student_id: int,
     target: str,
     field: str,
@@ -209,16 +443,16 @@ async def put_override(
 
     Upsert rather than insert: correcting the same field twice is the ordinary
     case — a person fixes a typo in their own fix — and a second row would make
-    the unique constraint the thing that reports it.
+    the unique constraint the thing that reports it. The last writer wins,
+    ``original`` included, whoever wrote the row before: there is one
+    correction per field per child, and no column says whose it was.
     """
-    row = await session.scalar(
-        select(DiaryOverride).where(
-            DiaryOverride.login == owner_key(login),
-            DiaryOverride.student_id == student_id,
-            DiaryOverride.target == target,
-            DiaryOverride.field == field,
-        )
+    one = (
+        *_of_child(scope, student_id),
+        DiaryOverride.target == target,
+        DiaryOverride.field == field,
     )
+    row = await session.scalar(select(DiaryOverride).where(*one))
     if row is not None:
         row.value = value
         row.original = original
@@ -227,7 +461,7 @@ async def put_override(
         return row
 
     row = DiaryOverride(
-        login=owner_key(login),
+        login=scope,
         student_id=student_id,
         target=target,
         field=field,
@@ -238,21 +472,13 @@ async def put_override(
     try:
         await session.commit()
     except IntegrityError:
-        # Select-then-insert has a gap, and two devices of one family — or one
-        # device double-tapping through a retry — fall into it. The unique
-        # constraint catches it, which is the constraint doing its job; what it
-        # must not do is become a 500 on the way out, because from the person's
-        # side both taps said the same thing and the answer to both is the row
-        # that is now there.
+        # Select-then-insert has a gap, and two adults who both see the child —
+        # or one device double-tapping through a retry — fall into it. The
+        # unique constraint catches it, which is the constraint doing its job;
+        # what it must not do is become a 500 on the way out: the answer to
+        # both writes is the row that is now there, carrying the later value.
         await session.rollback()
-        row = await session.scalar(
-            select(DiaryOverride).where(
-                DiaryOverride.login == owner_key(login),
-                DiaryOverride.student_id == student_id,
-                DiaryOverride.target == target,
-                DiaryOverride.field == field,
-            )
-        )
+        row = await session.scalar(select(DiaryOverride).where(*one))
         if row is None:
             raise
         row.value = value
@@ -263,13 +489,12 @@ async def put_override(
 
 
 async def drop_override(
-    session: AsyncSession, login: str, student_id: int, target: str, field: str
+    session: AsyncSession, scope: str, student_id: int, target: str, field: str
 ) -> bool:
     """Resets one field. @return whether there was anything to reset."""
     row = await session.scalar(
         select(DiaryOverride).where(
-            DiaryOverride.login == owner_key(login),
-            DiaryOverride.student_id == student_id,
+            *_of_child(scope, student_id),
             DiaryOverride.target == target,
             DiaryOverride.field == field,
         )
@@ -281,9 +506,14 @@ async def drop_override(
     return True
 
 
-async def drop_overrides(session: AsyncSession, login: str, student_id: int) -> int:
-    """Resets everything for one child. @return how many were dropped."""
-    rows = await list_overrides(session, login, student_id)
+async def drop_overrides(session: AsyncSession, scope: str, student_id: int) -> int:
+    """Resets everything for one child, for everyone who sees that child — the
+    corrections are the child's, not the account's — and never beyond it: the
+    rows go through `list_overrides`, whose WHERE carries ``student_id``.
+
+    @return how many were dropped.
+    """
+    rows = await list_overrides(session, scope, student_id)
     for row in rows:
         await session.delete(row)
     if rows:
@@ -291,9 +521,29 @@ async def drop_overrides(session: AsyncSession, login: str, student_id: int) -> 
     return len(rows)
 
 
+async def _tell_upstream_goodbye(row: DiarySession) -> None:
+    """Best-effort logout upstream before we forget a session.
+
+    Petersburg has no logout that works without a browser, so its connection's
+    ``close`` does nothing; «Сетевой город» has one, and leaving a session live
+    when the family pressed «Выйти» is exactly what its `close` prevents.
+    Nothing here may raise: we are forgetting the row regardless.
+    """
+    provider = provider_for(row.provider or PETERSBURG)
+    if provider is None:
+        return
+    credential = upstream_of(row)
+    if not credential:
+        return
+    try:
+        await provider.open(credential).close()
+    except Exception:  # noqa: BLE001 - we are leaving; an upstream failure is fine
+        log.info("diary logout upstream failed for session %s", row.id, exc_info=True)
+
+
 async def sign_out(session: AsyncSession, row: DiarySession) -> None:
-    """Forgets the session. The upstream is not told: it has no logout that
-    can be called without a browser, and its token expires on its own."""
+    """Forgets the session, telling the upstream first where it can be told."""
+    await _tell_upstream_goodbye(row)
     await session.delete(row)
     await session.commit()
 
@@ -314,6 +564,16 @@ async def sign_out_here(
     Scoped to the one class on purpose: a parent in two of them is signing out
     of one child, not both. @return how many rows went.
     """
+    rows = list(
+        await session.scalars(
+            select(DiarySession).where(
+                DiarySession.telegram_id == telegram_id,
+                DiarySession.class_id == class_id,
+            )
+        )
+    )
+    for row in rows:
+        await _tell_upstream_goodbye(row)
     result = await session.execute(
         sa_delete(DiarySession).where(
             DiarySession.telegram_id == telegram_id,
@@ -355,7 +615,7 @@ class DiaryService:
     that should have lived for weeks dies in a day.
     """
 
-    __slots__ = ("session", "row", "client", "_upstream")
+    __slots__ = ("session", "row", "connection", "_credential")
 
     def __init__(self, session: AsyncSession, row: DiarySession) -> None:
         self.session = session
@@ -364,76 +624,100 @@ class DiaryService:
         # empty string when the seal will not open, which every call then turns
         # into the upstream's own «signed out» — the same ending the person
         # would reach a few days later anyway.
-        self._upstream = upstream_of(row) or ""
-        self.client = PetersburgClient(self._upstream)
+        self._credential = upstream_of(row) or ""
+        provider = provider_for(row.provider or PETERSBURG)
+        # An unknown provider is treated like an unreadable seal: `find_session`
+        # and the bot's `_session_for` expire such a row before building this,
+        # so this fallback is only ever reached in a test that skips them.
+        provider = provider or provider_for(PETERSBURG)
+        self.connection = provider.open(self._credential)  # type: ignore[union-attr]
 
     async def students(self) -> list[Student]:
-        return await self._call(lambda: self.client.children(), m.to_students)
+        return await self._call(self.connection.students())
 
     async def periods(self, group_id: int) -> list[AcademicPeriod]:
-        # The upstream's own clock, not the server's. This decides which
-        # term is «текущая», and `api/diary.py` answers «какие предметы»
-        # with nothing at all when no period is current — so on the evening of
-        # the day a quarter opens, a server running in UTC (which Vercel does)
-        # was still in yesterday, which is a holiday, and the subjects screen
-        # came back empty. Every other "today" in this project comes from
-        # `SchoolClass.timezone`; a diary session has no class behind it, and
-        # `petersburg.today()` is the clock of the one city whose diary this is.
-        today = upstream_today()
-        return await self._call(
-            lambda: self.client.periods(group_id), lambda items: m.to_periods(items, today)
-        )
+        return await self._call(self.connection.periods(group_id))
 
     async def subjects(self, group_id: int, period_id: int) -> list[Subject]:
-        return await self._call(
-            lambda: self.client.subjects(group_id, period_id), m.to_subjects
-        )
+        return await self._call(self.connection.subjects(group_id, period_id))
 
     async def teachers(self, education_id: int) -> list[Teacher]:
-        return await self._call(lambda: self.client.teachers(education_id), m.to_teachers)
+        return await self._call(self.connection.teachers(education_id))
 
     async def marks(self, education_id: int, date_from: Date, date_to: Date) -> list[Mark]:
-        return await self._call(
-            lambda: self.client.marks(education_id, date_from, date_to), m.to_marks
-        )
+        return await self._call(self.connection.marks(education_id, date_from, date_to))
 
     async def schedule(
         self, education_id: int, date_from: Date, date_to: Date
     ) -> list[DiaryLesson]:
-        return await self._call(
-            lambda: self.client.schedule(education_id, date_from, date_to), m.to_lessons
-        )
-
-    async def lessons(
-        self, education_id: int, date_from: Date, date_to: Date
-    ) -> list[DiaryLesson]:
-        return await self._call(
-            lambda: self.client.lessons(education_id, date_from, date_to), m.to_lessons
-        )
+        return await self._call(self.connection.schedule(education_id, date_from, date_to))
 
     async def homework(
         self, education_id: int, date_from: Date, date_to: Date
     ) -> list[HomeworkItem]:
-        return await self._call(
-            lambda: self.client.lessons(education_id, date_from, date_to), m.to_homework
-        )
+        return await self._call(self.connection.homework(education_id, date_from, date_to))
 
     async def attendance(self, education_id: int) -> list[AttendanceEvent]:
-        return await self._call(lambda: self.client.attendance(education_id), m.to_attendance)
+        return await self._call(self.connection.attendance(education_id))
+
+    def today(self) -> Date:
+        """The diary's own day, from the provider — one city's clock for
+        Petersburg, the region's zone for «Сетевой город»."""
+        return self.connection.today()
+
+    async def scope_of(self, student: Student) -> str | None:
+        """The scope ``student``'s corrections are filed under, from this
+        session's diary — its provider and region, never its login — or
+        ``None`` when this child can have no corrections at all.
+
+        ``None`` is a child the diary listed by an id outside the provider's
+        own numbering (``Student.id_space``: Petersburg's plain ``id``, where
+        ``identity.id`` was missing). With the login out of the key, the
+        number would be all that tells one family's child from another's, and
+        nothing — no answer seen, no client read — says that numbering names a
+        person across accounts rather than, say, a relation within one. Two
+        families each listing a plain 7 would share, overwrite and reset one
+        set. So such a child fails closed: its diary is shown as it came, and a
+        correction is refused. No live answer has ever taken this path.
+
+        Asked only of a pupil this session's own diary has just listed. A row
+        whose region names no server this code knows is treated the way an
+        unreadable credential is: expired, and :class:`SessionExpired` for the
+        route to turn into «войдите заново», because a session this server
+        cannot place is not one to keep reading, and a fallback scope would
+        file its pupils beside another server's.
+        """
+        try:
+            scope = child_scope(self.row.provider, self.row.region)
+        except UnknownDiaryServer:
+            log.warning("diary session %s names no known server", self.row.id)
+            await self._expire()
+            raise SessionExpired from None
+        return None if student.id_space is not None else scope
 
     # ---- plumbing -----------------------------------------------------
 
-    async def _call(self, fetch, convert):
+    async def _call(self, awaitable):
+        """Run one provider read, then keep any refreshed credential.
+
+        A ``SessionExpired`` expires the row and is re-raised untouched — the
+        route turns it into the re-sign-in signal. Any other provider failure
+        still re-seals first: the answer that failed to read may have carried a
+        rotated token, and dropping it would replay the old one next call.
+        """
         try:
-            items: list[dict[str, Any]] = await fetch()
+            result = await awaitable
         except SessionExpired:
             await self._expire()
             raise
+        except DiaryError:
+            await self._remember_token()
+            raise
         await self._remember_token()
-        return convert(items)
+        return result
 
     async def _remember_token(self) -> None:
-        """Stores a refreshed upstream token, and the fact we were here.
+        """Stores a refreshed upstream credential, and the fact we were here.
 
         Both writes are the same transaction and neither is worth failing a
         read over, so a failure here is logged and swallowed - the answer the
@@ -441,9 +725,10 @@ class DiaryService:
         """
         now = utcnow()
         changed = False
-        if self.client.token and self.client.token != self._upstream:
-            self._upstream = self.client.token
-            self.row.upstream_token = seal(self.client.token)
+        credential = self.connection.credential
+        if credential and credential != self._credential:
+            self._credential = credential
+            self.row.upstream_token = seal(credential)
             changed = True
         last = self.row.last_used_at
         if last is None or (now - last).total_seconds() >= LAST_USED_INTERVAL_SECONDS:
@@ -459,9 +744,10 @@ class DiaryService:
             # A rollback expires every instance in the session, including this
             # one — and an expired instance in an async session reloads itself
             # lazily, which raises MissingGreenlet from whatever attribute is
-            # touched next. The routes read `row.login` after calling in here,
-            # so without this the failure this branch exists to absorb comes
-            # back as a 500 from a line that only wanted a string.
+            # touched next. `scope_of` reads the row's provider and region
+            # straight after `_student`'s call in here, so without this the
+            # failure this branch exists to absorb comes back as a 500 from a
+            # line that only wanted a string.
             # `api/deps.py:_touch_last_seen` carries the same refresh, for the
             # same reason and after the same outage.
             await _refresh_quietly(self.session, self.row)

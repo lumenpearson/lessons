@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The terms of use and the privacy policy: the line under the first screen's
+    button, the two rows on «О приложении», and the sheet that shows the copy
+    bundled in the APK. The texts themselves are not here: they are
+    docs/legal/*.md, Russian source and English translation, drawn by the same
+    renderer as the guide.
+
+    The line is one template with two placeholders rather than three pieces with
+    spaces at their edges, because aapt2 trims a string's leading and trailing
+    spaces — which is how «по мотивамEssentials» shipped (#155) — and because the
+    links are in the accusative in Russian and in a different order in English.
+-->
+<resources>
+
+    <!-- Under the first screen's button: %1$s is the terms link, %2$s the privacy link -->
+    <string name="onboarding_legal_notice">Продолжая, вы принимаете %1$s и %2$s</string>
+    <string name="onboarding_legal_terms">Условия использования</string>
+    <string name="onboarding_legal_privacy">Политику конфиденциальности</string>
+
+    <!-- The documents' titles: the sheet's heading and the rows on «О приложении» -->
+    <string name="legal_title_terms">Условия использования</string>
+    <string name="legal_title_privacy">Политика конфиденциальности</string>
+
+    <!-- The bundled copy: %1$d is the edition, %2$s the date it applies from -->
+    <string name="legal_edition">Редакция %1$d от %2$s</string>
+    <string name="legal_bundled_note">Это копия, встроенная в приложение. Актуальная редакция — по ссылке.</string>
+    <string name="legal_open_current">Открыть актуальную редакцию</string>
+    <string name="legal_missing">Не удалось открыть документ.</string>
+
+</resources>

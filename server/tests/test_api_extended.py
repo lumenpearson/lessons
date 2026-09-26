@@ -8,6 +8,7 @@ endpoints get a bot that records messages instead of delivering them.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any
@@ -1605,6 +1606,9 @@ async def test_cron_tick_delivers_a_morning_digest_once(
         "device_tokens_purged": 0,
         "diary_links_purged": 0,
         "device_invites_purged": 0,
+        "diary_sessions_kept_alive": 0,
+        "diary_sessions_lost": 0,
+        "diary_keepalive_failed": False,
     }
     assert len(tick_bot.sent) == 1
     recipient, text = tick_bot.sent[0]
@@ -1691,6 +1695,94 @@ async def test_cron_tick_sweeps_dead_and_forgotten_diary_sessions(
 
     left = await session.scalars(select(DiarySession.login))
     assert sorted(left) == ["b@e", "e@e"]
+
+
+def _live_netschool_session() -> DiarySession:
+    from app.crypto import seal
+
+    credential = {"v": 1, "region": "zabaikalsky", "school_id": 1, "at": "at",
+                  "cookies": {}, "year_id": 2026}
+    return DiarySession(
+        token_hash=hash_token("netschool-session"),
+        upstream_token=seal(json.dumps(credential)),
+        login="parent@example.com",
+        provider="netschool",
+        region="zabaikalsky",
+    )
+
+
+async def test_cron_tick_keeps_the_netschool_sessions_alive(
+    client, session, school_class, monkeypatch, tick_bot
+):
+    """The tick is the keep-alive's only clock. The digest test above has no
+    «Сетевой город» row, so it reads 0 and False — exactly what a tick that
+    never called the keep-alive returns; without a ping every such session
+    idles out upstream within the hour and the family signs in again."""
+    _configure_cron(monkeypatch)
+    row = _live_netschool_session()
+    session.add(row)
+    await session.commit()
+    pinged: list[int] = []
+
+    async def keep_alive(self):
+        pinged.append(1)
+
+    monkeypatch.setattr(
+        "app.providers.netschool.provider.NetSchoolConnection.keep_alive", keep_alive
+    )
+
+    response = await client.get("/api/v1/cron/tick", headers={"X-Cron-Secret": CRON_SECRET})
+
+    assert response.status_code == 200
+    assert response.json()["diary_sessions_kept_alive"] == 1
+    assert response.json()["diary_keepalive_failed"] is False
+    assert pinged == [1]
+    await session.refresh(row)
+    assert row.kept_alive_at is not None
+
+
+async def test_cron_tick_hands_the_keep_alive_the_start_of_the_request(
+    client, session, school_class, monkeypatch, tick_bot
+):
+    """The keep-alive's deadline counts from the start of the request, so a
+    morning heavy with digests shortens it rather than pushing the function
+    past its ceiling. The clock it is handed is the tick's, not its own."""
+    import asyncio
+
+    _configure_cron(monkeypatch)
+    seen: list[float | None] = []
+
+    async def keep_alive(session, *, started=None):
+        seen.append(started)
+        assert started is not None and started <= asyncio.get_running_loop().time()
+        return 0, 0
+
+    monkeypatch.setattr(cron.diary_keepalive, "keep_alive", keep_alive)
+    before = asyncio.get_running_loop().time()
+    response = await client.get("/api/v1/cron/tick", headers={"X-Cron-Secret": CRON_SECRET})
+
+    assert response.status_code == 200
+    assert len(seen) == 1 and seen[0] >= before
+
+
+async def test_a_keep_alive_that_raises_does_not_fail_the_tick(
+    client, session, school_class, monkeypatch, tick_bot
+):
+    """A diary fault must not turn the fallback clock red every five minutes,
+    nor cost the digests and sweeps that ran before it."""
+    _configure_cron(monkeypatch)
+
+    async def broken(session, *, started=None):
+        raise RuntimeError("the keep-alive fell over")
+
+    monkeypatch.setattr(cron.diary_keepalive, "keep_alive", broken)
+    response = await client.get("/api/v1/cron/tick", headers={"X-Cron-Secret": CRON_SECRET})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["diary_keepalive_failed"] is True
+    assert body["diary_sessions_kept_alive"] == 0
+    assert "fsm_purged" in body
 
 
 async def test_cron_tick_sweeps_the_phones_that_stopped_asking(

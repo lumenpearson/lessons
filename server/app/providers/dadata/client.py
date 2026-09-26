@@ -12,19 +12,21 @@ endpoints of Rosobrnadzor, the federal education watchdog — the ones every
 GitHub project that tried this links to — answer 404 today. What does exist is
 the ЕГРЮЛ company register, which every school is in because every school is
 one, and DaData is the search over it that people actually use (119 files on
-GitHub call this exact URL). The cost is a request per keystroke-ish search and
-a key in the environment;
-the alternative is a snapshot that is wrong by September and says nothing
-about it.
+GitHub call this exact URL). The cost is a request per search — two when the
+first finds nothing, see :func:`suggest_schools` — and a key in the
+environment; the alternative is a snapshot that is wrong by September and says
+nothing about it. Nobody calls it per keystroke: the bot searches on a sent
+message and the phone on submit or after a pause in typing.
 
-One client per process, not one per request: a search is three or four calls
-in a row as somebody types, and three TLS handshakes is most of the wait.
+One client per process, not one per request: a person narrowing a search asks
+three or four times in a row, and three TLS handshakes is most of the wait.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import httpx
@@ -127,6 +129,7 @@ async def suggest_schools(
     query: str,
     *,
     region: str | None = None,
+    may_retry: Callable[[], Awaitable[bool]] | None = None,
 ) -> list[dict[str, Any]]:
     """Raw suggestions for one search.
 
@@ -134,6 +137,13 @@ async def suggest_schools(
         Петербург», «Татарстан»). A hint, not a filter: the upstream's
         ``locations`` narrows hard, and a school just over a city boundary is
         still the school the child goes to.
+    @param may_retry asked before the second request an empty first answer
+        makes, and that request is skipped — with ``[]`` — when it answers
+        false. The second request costs the allowance exactly what the first
+        did, so a caller that meters its share has to be asked for it rather
+        than find out afterwards; the anonymous directory passes its daily
+        spend here. ``None``, which is what the bot and ``/manage/schools``
+        pass, retries as it always has.
     @raises NotConfigured when this deployment has no key.
     """
     token = _token()
@@ -159,6 +169,8 @@ async def suggest_schools(
     # who typed their own school's name that it does not exist, ask again
     # without the filter and keep whatever is in the education group. One
     # extra request, only ever on an empty result.
+    if may_retry is not None and not await may_retry():
+        return []
     payload.pop("okved", None)
     return [
         item

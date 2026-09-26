@@ -4,72 +4,91 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **24 September 2026**. **PRs #63 through #85, #128, #129 and #133 are
-merged**; `main` is at `5a77d14`, the merge of #133. `dev` is still at `a43c6e8`, the merge
-of #129, because #133 went in from a branch of its own. It is behind `main` and has
-nothing `main` lacks, so bringing it level is a fast-forward. **The only thing open is the
-pull request carrying this paragraph, #134**, from `claude/school-diary-api-routes-cc4o1n`.
-It closes #130 with a map of every region's electronic diary and the routes its platform
-exposes. The SHA of its own merge is for the next close-out to write.
+Last updated: **26 September 2026**. **PRs #63 through #85, #128, #129, #133 and #134 are
+merged**; `main` is at `fa4fe0c`, the merge of #134. `dev` is still at `a43c6e8`, the merge
+of #129, because #133 and #134 each went in from a branch of their own, and #140 is on one
+too. It is behind `main` and has nothing `main` lacks, so bringing it level is a
+fast-forward. **The only thing open is the pull request carrying this paragraph, #140**, from
+`claude/school-diary-api-routes-cc4o1n`, on milestone 10,
+`v0.9.0 — NetSchool e-diary, onboarding via the school's diary`. It is no longer a draft:
+the owner created that milestone on 25 September and renamed the other nine the same day
+(the table, with what each was called before, is under «And before that: nothing on a
+screen is cut off»). Both reviews of its code have finished, and every confirmed finding is
+fixed on the branch. The last one, **#165**, was a product decision. The owner decided it on
+26 September: corrections are shared per child. It is fixed in `e01443d`, with a third
+revision, `0017`. With no known defect left, `0015`, `0016` and `0017` went onto the
+production database on 26 September 2026 at 12:26 UTC, as the owner's condition allowed.
+What stands between #140 and the merge is only the `github-pr` skill's checklist on the
+exact head.
 
-**Nothing in the code has moved since #85.** #128, #129 and #133 changed documentation and
-agent configuration. #134 changes documentation only: `docs/diaries.md`, `docs/diaries/`,
-and the lines that count or link them in `CLAUDE.md`, `README.md`, `docs/README.md`,
-`docs/architecture.md` and the `docs-keeper` agent. So the gates are where #85 left them,
-and this close-out quotes them rather than running them again.
+The SHA of its own merge is for the next close-out to write.
 
-**Once #134 merges, twenty issues are open, and the next step is on a device.**
-**#109** is the epic and **#110–#117** are its children on `v0.8.0 — On a device`.
-**#118–#122** are the owner's alone, and #123–#127 are `status:someday`. **#130** was the
-one item a cloud session could do end to end, and #134 closes it. What it found is
-**#135**, the owner's too: three decisions that come before any second diary provider is
-written.
+**Code moved on both halves, and the schema with it.** #140 carries two batches. The first
+(#139, `4c34cb5` to `42fdf0a`) reads a second electronic diary, «Сетевой город» (ИРТех
+NetSchool), on the server, behind a provider-neutral seam that Петербург went behind
+unchanged. The second (#141, from `17c0473`) is the owner's request of 25 September: a first
+run with two ways in — the class code, or the family's own school's diary — on which the
+password goes from the phone to the diary and never to this server, and a phone that reads
+only its diary gets a home of its own. Both halves' gates were run rather than quoted:
+server **2024** tests, Android **1408**.
+
+**Once #140 merges, twenty-five issues are meant to close and twenty-four stay open.** Meant to
+close: #136–#139, #141, #145–#155 and #157–#165. Staying open: **#156**, whose fix is in
+`ce9c749` but which waits for a phone's backup to be read (`needs:device`); **#135**, the
+owner's decision about the second diary, which the code has now answered but which is theirs
+to close; **#142**, **#143** and **#144**, this batch's deliberate follow-ups, on no
+milestone; **#109–#117**, the device epic and its children on milestone 9; **#118–#122**,
+the owner's alone; and #123–#127, `status:someday`. What a merge closes is decided by the
+`Closes` lines in the pull request body and in the commit messages, not by this paragraph —
+read them against this list before merging.
+
+**The code expects head `0017`, and production is at `0017` since 26 September 2026 at 12:26 UTC.**
+`EXPECTED_REVISION` in `app/db.py` is `0017`, pinned to the real head by
+`tests/test_schema_version.py`. `0015` adds the eight nullable columns the second diary
+needs. `0016` creates `usage_counters`, the anonymous school directory's daily count of
+DaData requests. `0017` files the diary corrections under the child rather than a login, and
+it is data only. All three went on through the Neon connector (the project named `lessons`)
+**before** the merge, in one transaction; «Schema» in the section on #140 below says what the
+database said. The `0014` chapter still holds: #83's
+pinned table of the enum column widths fails when a `SAEnum` member's **name** outgrows its
+`VARCHAR`, which SQLite cannot see and production Postgres finds at the moment somebody marks
+a day.
+
+Production was read after #60 and again after #61, rather than assumed: `/api/v1/warmup` —
+which opens a real connection, so it answers for the database as well as the code —
+answered `{"status":"ok","api_version":1,"schema":"0013"}`. **It has not been re-read since,
+and #83 found out why.** The deployments sit behind Vercel's Deployment Protection and
+answer a redirect to a login page, so `/api/v1/warmup` cannot be read from a session here at
+all. It still wants reading, by the owner's browser or with a bypass token (#119). Once #140
+has merged and deployed it should answer `"schema":"0017"`; in the window between the
+migrations and the merge it answers `degraded` with «База впереди кода…», which is the
+window the correct order creates rather than a fault. That single line is the cheapest check
+that the migrations and the code actually met.
 
 **Two things changed about how this project is tracked, and they are the reason to read on
 before planning anything.**
 
-**The work moves to a local machine.** Everything up to #85 was built in a cloud session
-with no emulator, no `adb` and no device. The section «Where the work happens from here»
-below says what that unlocks and what it still cannot do; **#109** is the epic.
+**The work moves to a local machine.** Everything up to #85 was built with no emulator, no
+`adb` and no device, and so were #133, #134 and #140. The section «Where the work happens
+from here» below says what that unlocks and what it still cannot do; **#109** is the epic.
+#140 is the first batch since that decision to change screens, so nearly everything it adds
+to section 5 is a question a device answers.
 
 **The repository has issues now, and until #128 it had none at all.** Before that, the
 milestones were the only grouping the history had. Forty-two issues were opened in one go:
 **#86–#108**, closed, for what was built and what each bug sweep found, and **#109–#127**,
 open, for the whole of what was left. Several of the open ones record a decision *not* to do
 something, so that a later session does not re-discover it as an oversight. From #129 on, a
-found defect becomes an issue before it becomes a fix. #131 and #132 are the first two filed
-under that rule.
-
-**The database is at head `0014`** and has not moved since #77. **No server code
-changed in #85** — not a model, not an endpoint — but four tests joined it, so the server
-gates were run rather than quoted: `ruff` clean, `pytest -q -n auto` **1634
-passed**, `python -m mypy` clean across 84 modules. There was no migration to write, let
-alone to apply; that is a fact about the batch rather than a thing left undone.
-`EXPECTED_REVISION` in `app/db.py` is `0014`, pinned to the real head by
-`tests/test_schema_version.py`. `0014` was applied to Neon before #77 merged, as an additive
-revision should be — it widened `day_overrides.kind` from `VARCHAR(9)` to `VARCHAR(10)`,
-because `DayKind` gained `SELF_STUDY` and a `SAEnum` column stores the member *name*. #83
-closed the class that revision belonged to: a pinned table of the ten enum column widths now
-fails when a member's **name** outgrows its column, which SQLite cannot see and production
-Postgres finds at the moment somebody marks a day.
-
-Production was read after #60 and again after #61, rather than assumed: `/api/v1/health`
-answered `{"status":"ok","api_version":1}` and `/api/v1/warmup` — which opens a real
-connection, so it answers for the database as well as the code — answered
-`{"status":"ok","api_version":1,"schema":"0013"}`. **It has not been re-read since, and #83
-found out why.** The deployments sit behind Vercel's Deployment Protection and answer a
-redirect to a login page, so `/api/v1/warmup` cannot be read from a session here at all —
-this is not an omission anybody can close with one more `curl`. It still wants reading, by
-the owner's browser or with a bypass token: #77 moved server code and the schema together,
-so the answer should now be `"schema":"0014"`, and that single line is the cheapest check
-that the migration and the code actually met. It is outstanding since #61.
+found defect becomes an issue before it becomes a fix: #131 and #132 were the first two
+filed under that rule, and #140's branch filed #136–#138 and #145–#165.
 
 ## Where the work happens from here: a local machine
 
 **#128 was meant to be the last batch built in a cloud session, and the change is one of
 venue rather than of direction.** #133 and #134 were still written from one, because neither
-needs a device. Everything up to and including #85 was made with no emulator, no `adb`
-and no device. That is what produced a project with 968 Android tests, 1634 server tests —
+needs a device, and #140 was written without one too, although its screens want one most.
+Everything up to and including #85 was made with no emulator, no `adb` and no device. That
+is what produced a project with 968 Android tests, 1634 server tests —
 and a section 5 of this document that has only ever grown, because the things in it are not
 things a JVM test can be asked.
 
@@ -111,16 +130,292 @@ section describes, **#118–#122** are the owner's alone, and **#126** collects 
 things carried deliberately, so that a later session does not re-discover a decision as if
 it were an oversight.
 
+**Thirty-three have been filed since.** #130 was the survey #134 closed, and #131 and #132
+the two defects #133 closed. #135 is the owner's decision about the second diary; #136–#139
+and #141 are the work #140 carries; #142–#144 are its deliberate follow-ups, on no
+milestone; and #145–#165 are the defects found on its branch, each filed before its fix.
+
 Labels are `type:` (feature, bug, chore, research, decision, epic), `area:`, `status:` (now,
 next, someday, done) and `needs:` (device, owner). **A session cannot create a GitHub
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: the electronic diary of every Russian region, and the routes each platform exposes
+## What the last session added: «Сетевой город» on the server, and a way in through your own school's diary
 
-Open as PR #134, from `claude/school-diary-api-routes-cc4o1n`, in the milestone
-`v0.8.0 — On a device`; it closes #130. **Documentation only.** No file under `server/`,
-`android/` or `.github/` changed, and there is no migration.
+Open as PR #140, from `claude/school-diary-api-routes-cc4o1n`, on milestone 10
+(`v0.9.0 — NetSchool e-diary, onboarding via the school's diary`). Twenty-two commits on
+`fa4fe0c` when this was written, `4c34cb5` to `8bad211`, then the fixes of the review that
+was running on the branch and this close-out. It is two batches on one branch, and both
+halves of the project moved.
+
+The second part was planned in design documents and a decision record that stayed in the
+session's scratch space, as #134's generator did. What they settled is in the commit bodies,
+in #141 and in `docs/architecture.md`, so nothing needs them; but a session that goes looking
+for a design document in the repository will not find one.
+
+### Part one: «Сетевой город» on the server (#139)
+
+Seven commits, `4c34cb5` to `9ceef0c`, and their documentation, `42fdf0a`. The project read
+one diary, Петербург's, wired straight into `services/diary.py` and `/diary/signin`. This
+part puts a seam between the service and the provider, adds a second provider behind it, and
+reads either from the same bot and API.
+
+- **A provider-neutral diary seam** lives under `server/app/providers/diary/`: the shared
+  models, a `DiaryError` family (`PetersburgError` re-exported as an alias so nothing that
+  caught it breaks), a `DiaryProvider` / `DiaryConnection` `Protocol` contract, and a
+  `registry.py` whose `binding()` is the single resolver of a class's diary binding.
+  Петербург goes behind it **byte-for-byte unchanged**.
+- **«Сетевой город»** (`server/app/providers/netschool/`) — ИРТех NetSchool, the main diary
+  of about twenty regions, one route set for all. It carries a region **allow-list** (the
+  only origins ever contacted — the SSRF guard), windows-1251 salted-MD5 password sign-in,
+  the weekly diary mapped onto the existing models (homework is assignment type 3),
+  keep-alive, and school search for binding.
+- **The service dispatches by provider.** `POST /api/v1/diary/login` accepts optional
+  `provider` / `region` / `school_id`, and `services/diary_keepalive.py` keeps every live
+  «Сетевой город» session alive from `GET /api/v1/cron/tick` with `GET /webapi/context`,
+  within a batch cap and a time budget, never touching `last_used_at`. `TickOut` gained
+  `diary_sessions_kept_alive`, `diary_sessions_lost` and `diary_keepalive_failed`.
+- **The bot binds and reads either diary.** An admin binds a class to «Сетевой город» through
+  a provider chooser → region → school-name search; the read path (`bot/handlers/diary.py`)
+  is provider-neutral, and the sign-in card names the bound diary in the genitive.
+- **Three diary defects fixed (#136, #137, #138).** Revoking a member drops their diary
+  sessions and links, not just invites and subscriptions; `/diary/signin` re-checks the
+  class binding at submit and refuses **before** spending the ticket if the diary was unbound
+  or rebound after the ticket was issued; four false diary comments corrected and two dead
+  type names removed.
+
+Its gates at `9ceef0c`, a record of that commit: `pytest -q -n auto` 1668, `python -m mypy`
+clean across 97 modules; Android was not touched.
+
+### Part two: a way in through your own school's diary (#141)
+
+Fourteen commits, `17c0473` to `8bad211`: four on the server, five on the phone, one for CI
+and four of documents.
+
+- **The first run has two ways in.** After «Продолжить», the introduction and the
+  permissions, a family picks the class code, as before, or its own school's diary: the
+  region — all 89, found on every keystroke in Russian or English, by nickname, city, code,
+  the wrong keyboard layout or transliteration, or by typing a school's name — then the
+  school, searched on the region's own «Сетевой город» server, then the region's systems
+  with the recommended one highlighted and «Почему?» beside it, then the sign-in, then the
+  import under a wavy progress bar, then a summary. The path is a saved list of steps,
+  `OnboardingFlow`, in `android/app/.../ui/onboarding/`.
+- **On that path the password never reaches our server.** The phone signs in to Петербург or
+  «Сетевой город» itself — over https, only to an origin in the bundled catalog, with no
+  redirects and no cookie jar (`core/data/.../upstream/`) — and hands the session to
+  `POST /api/v1/diary/session`, which reads once with it from its own address, seals it with
+  Fernet and answers with our diary bearer. A `password` key in that body is a `422`. The app
+  no longer calls `POST /api/v1/diary/login`; the endpoint stays for older APKs, and
+  `docs/api.md` and the bot's `/diary/signin` page now say plainly that on those two routes
+  the password passes through this server.
+- **The phone knows what the server can do before a password is typed**
+  (`GET /api/v1/diary/capabilities`), every diary `503` says why in `X-Diary-Unavailable`
+  (`disabled`, `address-refused`, `upstream`), and a session the diary refuses from our
+  address is a `409` rather than `/login`'s `401`, because asking for the password again
+  would loop. `JoinResponse.diary` hands a joining phone its class's binding.
+- **A phone that reads only its diary has a home of its own.** `ShellMode` is none, class or
+  diary: a phone in no class with a diary session opens on the diary, whose settings keep
+  «Дневник» and «Выйти из дневника» (#151), and periodic class sync is armed only in class
+  mode (#152). Every diary failure has its own words through `DiarySignInProblem` and
+  `DiaryProblemText` (#153).
+- **The phone keeps what it reads.** `diary.db` is a second Room database, written only by
+  successful reads; `DiaryImport` fetches pupils, terms, timetable, homework and marks with
+  weighted progress and resumes from the phase that failed. The one unprompted read is a
+  refresh when the app comes to the foreground and the copy is older than 30 minutes;
+  `SyncWorkerSourceTest` fails if the worker or the widget ever names the diary.
+- **The widget says which way in a phone took**: a diary-only phone is told «Дневник — в
+  приложении» rather than asked for a class code, and a phone with neither is offered both
+  ways.
+- **The terms and the privacy policy exist and are linked.** «Продолжая, вы принимаете
+  Условия использования и Политику конфиденциальности» is always drawn under «Продолжить»;
+  `docs/legal/{terms,privacy}.{ru,en}.md` and `legal.json` are bundled in the APK, opened in
+  the browser when online and from the bundle otherwise, and also from «О приложении».
+  `LESSONS_LEGAL_BASE_URL` / `lessons.legal.baseUrl` becomes `BuildConfig.LEGAL_BASE_URL`,
+  https only, one per fork; `apk.yml` derives it from the repository it runs in unless the
+  repository variable of that name overrides it.
+- **A catalog of all 89 regions** — `server/app/catalog/data/regions.json`, generated by
+  `scripts/region_catalog.py` from `docs/diaries/regions.md` and a hand overlay
+  (`scripts/region_catalog.toml`): each region's systems, which one is recommended and the
+  reason codes for it, and the allow-list's «Сетевой город» origins byte for byte. The phone
+  bundles the same file in place as its only source of a diary host, and `--check` and a
+  test fail when the survey or the allow-list changes without a regeneration.
+- **An anonymous school directory.** `GET /api/v1/directory/school-regions?q=` answers which
+  regions a school may be in, from DaData; a name that exists everywhere («Школа № 5») is
+  answered `generic` without calling DaData. It is throttled at 20 calls per 15 minutes per
+  caller and capped at 4,000 of DaData's 10,000 daily requests, counted per Moscow day in
+  `usage_counters` (`services/quota.py`, migration `0016`), so onboarding cannot spend the
+  search the bot's create-class step depends on.
+- **Known-answer vectors both halves run.** `server/tests/vectors/diary_protocol.json` pins
+  both sign-in protocols, the login cleaning and the parsing of raw answers; the Python tests
+  and the Kotlin port run every case, so the two implementations cannot drift apart silently.
+  That proves they agree, not that either is right.
+- **Each CI job runs whenever a file its tests read changes** (#159), not only its own
+  folder — `docs/deploy.md`, `docs/build.md`, `docs/diaries*`, `docs/legal/`, the catalog
+  and the vectors included.
+
+### The defects, each filed before its fix
+
+Twenty-one, on top of part one's three (#136–#138):
+
+| Issue | What was wrong | Fixed in |
+| --- | --- | --- |
+| #145 | «📒 Мой дневник» kept reading the «Сетевой город» region a class had been rebound away from | `6fa1c6e` |
+| #146 | the keep-alive could overwrite a credential a diary read had rotated while the ping was in flight | `6fa1c6e` |
+| #147 | a sign-in without `cacheVer` sent the word `None` upstream as `ver` | `6fa1c6e` |
+| #148 | malformed «Сетевой город» sign-in answers escaped the diary errors as `500`s | `6fa1c6e` |
+| #149 | the school search kept a result whose id was JSON `true` and bound the class to school 1 or 0 | `6fa1c6e` |
+| #150 | comments and documents described a CA bundle, a breaker, a region order and a password route that do not exist, and the bot told families their password went «прямо в дневник» | `6fa1c6e`, `0a9a188`, `6281dea`, `5efca54` |
+| #151 | a phone that left its last class kept its diary sign-in but could neither open «Дневник» nor sign out of it | `b19e6b2`, `c032ff2` |
+| #152 | a phone in no class had its periodic sync re-armed on every cold start | `b19e6b2`, `c032ff2` |
+| #153 | the diary said «HTTP 429», «Дневник не отвечает» for a switched-off diary, and a raw «HTTP 504» | `6fa1c6e`, `b19e6b2`, `c032ff2` |
+| #154 | the join screen, settings and the guide promised a default server the APK does not have | `c032ff2`, `5efca54` |
+| #155 | the design credit ran into the word before it, «по мотивамEssentials» | `ce9c749` |
+| #156 | crash reports went into the cloud backup although the first run says they stay on the phone | `ce9c749` — **stays open** until a phone confirms it |
+| #157 | comments and `docs/design.md` described a four-screen first run and a six-character class code | `c032ff2`, `5efca54` |
+| #158 | the bot's sign-in page sent a «Сетевой город» family to Петербург's diary on an unreadable answer | `0a9a188` |
+| #159 | CI skipped the server tests that read `docs/deploy.md` and `docs/build.md` when only those changed | `ba9170c` |
+| #160 | contributor and agent documents quoted a stale test command, stale counts, wrong secret names and milestone facts | `8bad211` |
+| #161 | a join whose screen was gone before it landed left its result behind; the next «Добавить класс» sheet closed on it, and the first run could skip the class's diary sign-in | `061a716` |
+| #162 | Dependabot and the issue templates applied labels the project does not have, so bumps arrived bare and reports outside `type:` and `status:` | `f31e5ed` |
+| #163 | the join and diary sign-in throttles counted before they recorded, so a burst went past them (24 wrong passwords against a limit of 10) | `6b0878f` |
+| #164 | the server's checks assumed SQLAlchemy 2.0 while every fresh install resolves 2.1: one test compared SQL without casts, and mypy failed on `main` | `d208251` |
+| #165 | a session registered from a phone names its own login, unchecked, and that login keys another family's corrections | `e01443d` — corrections are now the child's, by the owner's decision |
+
+Twelve more, from an adversarial review of the new Android data layer, were fixed in
+`9c797a2`, each with a test that failed before its fix. They are listed in that commit's
+body and have no issues of their own: they were in code this branch adds, and none of it
+had reached `main`. The same holds for the thirty findings of the second review of the
+screens (`061a716`, 31 in all, one of them #161) and for twenty of the audit of the server
+half (`6b0878f`, 22 in all: #163 fixed there, #165 in `e01443d`). The change for #165 had a
+review of its own: five lenses, two refuters per finding, 17 of 23 findings confirmed. All 17
+are fixed in the same commit, and its body lists them.
+
+**One commit body is wrong, and the code is right.** `6fa1c6e` says rebinding a class to
+another *school* expires its diary sessions. `services/diary.expire_off_binding` expires them
+when the provider or the region changes and keeps them for another school in the same region,
+because a «Сетевой город» session is an account on the region's server rather than on one
+school. The documents follow the code.
+
+### Schema
+
+`EXPECTED_REVISION` is `0017`. Production was at `0014`, three revisions behind, until the
+transaction below:
+
+- **`0015`** (`0015_diary_provider_columns.py`) adds five nullable columns to
+  `diary_sessions` — `provider`, `region`, `kept_alive_at`, `keepalive_attempted_at`,
+  `upstream_ok_at` — and three to `classes` — `diary_region`, `diary_school_id`,
+  `diary_school_name`. A `NULL` provider means Петербург, the only diary before the column.
+  Its downgrade expires every non-Petersburg session before dropping the columns that tell
+  one apart.
+- **`0016`** (`0016_usage_counters.py`) creates `usage_counters` and nothing else.
+- **`0017`** (`0017_corrections_per_child.py`) is data only (#165). It rewrites
+  `diary_overrides.login` from a login to the child's scope: `CHILD:petersburg`, or
+  `CHILD:netschool:` and the regional server's host. It deletes the branch-only
+  «Сетевой город» hash-keyed rows, which could no longer be read. Where two rows corrected
+  one field of one child, it keeps the newest. On PostgreSQL it takes a lock first. It is a
+  third shape, «a rewrite of a key»: free where there are no rows, and **after** the merge
+  where there are, for the reasons its docstring and `docs/deploy.md` give.
+
+`0015` and `0016` are additive, and rewrite and destroy no row. `0017` would destroy rows
+only where there are corrections, and production had none. So all three went on **before**
+the merge, together, through the Neon connector. The DDL was taken from the revisions
+rendered offline for PostgreSQL, and it matched the models' own DDL statement for statement.
+The database's state was read first, and `alembic_version` was stamped in the same
+transaction, last.
+
+**Applied on 26 September 2026 at 12:26 UTC, before the merge, as one transaction through
+the Neon connector.** The owner had allowed the migrations on one condition: that the code
+they serve has no known defect. That was met once #165 was decided and fixed in `e01443d`,
+and CI went green on that commit. The database was read twice first, at 11:22 and at 12:25
+UTC. Both reads showed head `0014`, none of the eight columns, no `usage_counters`, **0**
+rows in `diary_overrides` (0 of them legacy «Сетевой город» keys), **0** diary sessions and
+**1** class. The transaction ran the eight `ADD COLUMN`s of `0015` and the `CREATE TABLE` of
+`0016`. Then `0017` ran its lock, its two deletes and its rewrite, and last came the stamp
+`UPDATE alembic_version SET version_num = '0017' WHERE version_num = '0014'`. Every
+statement was taken from the revisions rendered offline for PostgreSQL, which matched the
+models' DDL. Read back afterwards: head `0017`, one stamp, all eight columns nullable with
+the declared types and widths (`VARCHAR(32)`, `BIGINT`, `VARCHAR(300)`, `TIMESTAMP WITHOUT
+TIME ZONE`), and `usage_counters` with primary key `(scope, day)`. There were still 0
+corrections, 0 sessions and 1 class, so nothing was rewritten and nothing was destroyed.
+Until #140 merges and deploys, the running code is older than the database, and
+`/api/v1/warmup` answers «База впереди кода…»: the window the correct order creates. The one
+thing the window could lose is a correction typed through the old `/diary/login` before the
+deploy, which would be filed under a login. No diary session existed to type one.
+
+### What was deliberately left alone
+
+- **No Госуслуги (ЕСИА) sign-in, no WebView and no cookie capture, anywhere.** A Госуслуги
+  session is a session to the person's whole state-services account. ТОР «Моя школа» and the
+  three Госуслуги-only «Сетевой город» regions (`altai-krai`, `primorye`, `tula`) hand off to
+  the official site instead, and a generator test refuses any catalog field for an in-page
+  sign-in. This is the code's answer to #135's second and third questions; the issue stays
+  open for the owner to close.
+- **A diary-only phone's widget, «Сегодня», «Календарь» and alerts show nothing from the
+  diary** —
+  #142, `status:next`, no milestone. Feeding them would mean a background read, which would
+  count as the family's activity and keep a session alive with nobody behind it.
+- **A diary session opened on the phone is invisible to the bot** — #143, `status:someday`,
+  no milestone. Phone-registered rows carry no Telegram account and no class.
+- **A fresh install has no default server** — #144, a decision for the owner, no milestone.
+  The address is asked for where it is first needed; there is no
+  `LESSONS_DEFAULT_SERVER_URL`.
+- **The class's binding reaches the phone in `JoinResponse.diary` only**; `ClassOut` does not
+  carry it.
+- **The password routes stay.** The bot's `/diary/signin` and `POST /api/v1/diary/login`
+  still pass a password through this server, for the bot and for older APKs, and the texts
+  now say so.
+- **The phone does not refuse a login longer than the server's 200 characters**; the server
+  answers `422` at registration, which the phone reads as an app bug.
+- **Left from part one:** the refresh-token grant (LoginType 9) is in the client and
+  unverified live, and SignalR reports — final marks, attendance letters — are not read.
+- **The older sections of this file quote the milestones' old titles** where that is what
+  they were called at the time; the table maps each to its new one.
+
+### Gates
+
+Run, not quoted. The server was run on the branch at `e01443d`, against **SQLAlchemy
+2.1.1**, which is what CI and Vercel install now (#164): `ruff check app tests scripts
+migrations` clean; `pytest -q -n auto` **2024** passed (1634 on `main`); `python -m mypy`
+**Success** across **100** modules (84 on `main`). The alembic chain from nothing lands on
+`0017`. The Android tests were run at `061a716`,
+and Gradle found every test task up to date against the sources at `f31e5ed`: `./gradlew
+test` **1408** (968 on `main`), with `:app` 548, `:core:data` 532, `:core:designsystem` 99,
+`:core:model` 125 and `:widget` 104; they were rerun with `--rerun` after the texts of
+#165's fix changed, with the same counts. `assembleDebug` and `assembleRelease` were last run
+locally at `061a716`, and CI builds both on every push. A checkout set up before 2.1 was
+published keeps SQLAlchemy 2.0.54 until it is upgraded. The suite passes on both, and a
+mypy run on 2.0 does not see what 2.1's typing sees. `b19e6b2` and `c032ff2` report the
+grep for Russian in Kotlin finding nothing new but `UpstreamMarkers.kt`, the diaries' own
+words matched in their answers. It was not re-run for this close-out, and no Kotlin has
+changed since `061a716`.
+
+### What nobody has verified in this batch
+
+Section 5 carries each of these with the reason it is unverifiable. In short:
+
+- **Nothing has met a live diary.** «Сетевой город» has never been signed in to for real, on
+  the server or through the phone's port, and Петербург never through the phone.
+- **Whether a session opened on a phone is accepted when our Frankfurt server replays it** is
+  open for both diaries. A `409` is the designed failure; the owner's first live session
+  decides it.
+- **Nothing has run on a device**: the first run, the swap between the three homes, the
+  handoffs to the browser, the backup exclusion (#156), TLS against the regional servers,
+  Android's own windows-1251, `diary.db` on a real phone, the widget's new sentence on a
+  launcher.
+- **DaData**: whether its company rows carry `region_kladr_id`, the codes of the four regions
+  admitted in 2022, and whether its day turns at Moscow midnight.
+- **The legal texts have never been read by a lawyer.**
+- **The throttles' record-then-count (#163) is proven on SQLite only.** On PostgreSQL it
+  rests on READ COMMITTED showing each statement every commit before it, and it has not run
+  against a live database. Neither has `alembic upgrade head` on an empty PostgreSQL. The
+  permission system refused a local server, so `0015`'s guard for a database that `0001`
+  built is proven offline and on SQLite.
+
+## What the session before it added: the electronic diary of every Russian region, and the routes each platform exposes
+
+Merged as PR #134 (`fa4fe0c`), from `claude/school-diary-api-routes-cc4o1n`, in the milestone
+then called `v0.8.0 — On a device`; it closed #130. **Documentation only.** No file under
+`server/`, `android/` or `.github/` changed, and there is no migration.
 
 The project reads one diary, Петербург's. Until this batch nothing in it said what a school
 anywhere else keeps its marks in, how a client signs in there, or which routes it exposes.
@@ -200,10 +495,11 @@ passed. What was checked instead, on the final head:
 - every table row has its header's column count;
 - the redaction scan finds no credential.
 
-## What the session before it added: the tracker (#128), its rule (#129), and their close-out (#133)
+## What the batch before added: the tracker (#128), its rule (#129), and their close-out (#133)
 
-Documentation and agent configuration only. No model, endpoint, screen or test changed, so
-the gates stand exactly where #85 measured them.
+Merged as #128 (`3c3b728`), #129 (`a43c6e8`) and #133 (`5a77d14`). Documentation and agent
+configuration only. No model, endpoint, screen or test changed, so the gates stood exactly
+where #85 measured them.
 
 - **#128** opened the issue tracker: forty-two issues, #86–#108 closed and #109–#127 open,
   labelled `type:`, `area:`, `status:` and `needs:`. It also moved the work to a local
@@ -231,12 +527,12 @@ already point at their issues. `/api/v1/warmup` has still not been read since #6
 
 ## What the batch before added: the gesture #84 shipped did nothing, and the variables nobody could find
 
-Open as PR #85, in the milestone `v0.7.0 — Оптимизация`. It is one defect, and it is the
-defect that the feature merged an hour earlier did not work: **a tab dragged to another slot
-went back where it came from and the order was never stored.** On the screen it looked
-right the whole way — the icons slid, the row opened a gap, the neighbours moved — because
-all of that is recomputed every frame. Only the drop was wrong, and the drop is the part
-that is remembered.
+Merged as PR #85 (`ef07739`), in the milestone `v0.7.0 — Оптимизация`. It is one defect, and
+it is the defect that the feature merged an hour earlier did not work: **a tab dragged to
+another slot went back where it came from and the order was never stored.** On the screen it
+looked right the whole way — the icons slid, the row opened a gap, the neighbours moved —
+because all of that is recomputed every frame. Only the drop was wrong, and the drop is the
+part that is remembered.
 
 ### Why it survived #84's tests
 
@@ -1195,11 +1491,11 @@ server either.
 
 ## What the batch before added: an audit of the whole project, and a typeface that can draw it
 
-Open as PR #76, in the milestone `v0.7.0 — Оптимизация`. Twelve agents swept the nine areas
-of `.claude/skills/audit/SKILL.md` plus documentation, strings and access, read-only; every
-finding below was then re-verified by hand here and closed by a test proved red without its
-fix. What was found is larger than what is fixed, and the rest is listed at the end rather
-than quietly dropped.
+Merged as PR #76 (`01f7a30`), in the milestone `v0.7.0 — Оптимизация`. Twelve agents swept the
+nine areas of `.claude/skills/audit/SKILL.md` plus documentation, strings and access,
+read-only; every finding below was then re-verified by hand here and closed by a test proved
+red without its fix. What was found is larger than what is fixed, and the rest is listed at
+the end rather than quietly dropped.
 
 ### The app shipped a typeface that cannot draw Russian
 
@@ -1318,11 +1614,11 @@ repository.
 
 ## What the batch before added: the typeface is compressed by the build
 
-Four commits in `dev`, open as PR #75, in the milestone `v0.7.0 — Оптимизация` (number 8),
-which the owner created for this batch because none of the seven fitted. Its number was not
-handed over and nothing here lists a milestone, so it was assigned as 8 — the next after the
-seven — and then **read back off the pull request** rather than assumed, which is the only
-check available and is what the `github-pr` skill means by reading a number back.
+Four commits in `dev`, merged as PR #75 (`01a69fc`), in the milestone `v0.7.0 — Оптимизация`
+(number 8), which the owner created for this batch because none of the seven fitted. Its
+number was not handed over and nothing here lists a milestone, so it was assigned as 8 — the
+next after the seven — and then **read back off the pull request** rather than assumed, which
+is the only check available and is what the `github-pr` skill means by reading a number back.
 
 Its title is Russian where the other seven are English, which is the one place the project's
 own rule — Russian on the screen, English in everything written about the project — is not
@@ -1487,10 +1783,10 @@ the code asks for and renders under Robolectric like any other resource. Nothing
 GitHub sign-in has run against live GitHub either; the secrets are set and the button is in
 the build, and the first press will be the owner's.
 
-## What the last session added: the two loose ends
+## What the batch before added: the two loose ends
 
-One commit in `dev`, open as PR #72, in the milestone `v0.6.0`. Both were named by the batch
-below as found-and-not-taken, and both are now taken.
+One commit in `dev`, merged as PR #72 (`cb20b45`), in the milestone `v0.6.0`. Both were named
+by the batch below as found-and-not-taken, and both are now taken.
 
 **A command the bot does not have answers.** Telegram stays silent on one, and for a bot with
 a single screen that is fine — but once a command started breaking out of a half-finished
@@ -1537,12 +1833,12 @@ Nothing here has run on a device or against a live Telegram, as with everything 
 `LESSONS_GITHUB_CLIENT_ID` and an address in `LESSONS_CONTACT_EMAIL`. Until then «Войти через
 GitHub» is in no build and the APK run summary says «off».
 
-## What the last session added: the four things the sweep would not decide
+## What the batch before added: the four things the sweep would not decide
 
-Three commits in `dev`, open as PR #71, in the milestone `v0.6.0`. The batch below found
-these four and deliberately left every one of them, because each is a decision rather than a
-correction. The owner took all four; what follows is what each decision *was*, because the
-code is the easy half.
+Three commits in `dev`, merged as PR #71 (`0cdd7f1`), in the milestone `v0.6.0`. The batch
+below found these four and deliberately left every one of them, because each is a decision
+rather than a correction. The owner took all four; what follows is what each decision *was*,
+because the code is the easy half.
 
 **A command wins over a half-finished form.** `/week` typed at «Теперь пришлите текст
 задания:» was committed as an assignment whose text was «/week», audited, and pushed to every
@@ -1604,11 +1900,11 @@ register an OAuth App with **Enable Device Flow** ticked and put its client id i
 repository secret `LESSONS_GITHUB_CLIENT_ID`, and an address in `LESSONS_CONTACT_EMAIL`.
 Until then «Войти через GitHub» is in no build, and the APK run summary says «off».
 
-## What the last session added: the crash, the button that was never built, and twelve defects
+## What the batch before added: the crash, the button that was never built, and twelve defects
 
-Seven commits in `dev`, open as PR #70, in the milestone `v0.6.0`. Three parts: the crash the
-batch below could not explain, a feature that was missing from every APK ever built, and a
-five-agent sweep of the whole tree.
+Seven commits in `dev`, merged as PR #70 (`7bde4f7`), in the milestone `v0.6.0`. Three parts:
+the crash the batch below could not explain, a feature that was missing from every APK ever
+built, and a five-agent sweep of the whole tree.
 
 ### The crash after the link, which was a line of layout
 
@@ -1733,10 +2029,10 @@ honest answer rather than a silent one. And install a build carrying all of this
 phone again: none of it has run on a device, and the uninstall-first caveat below still
 applies to a debug-signed APK.
 
-## What the last session added: a crash report that its own phone can read
+## What the batch before added: a crash report that its own phone can read
 
-One commit in `dev`, open as PR #69, in the milestone `v0.6.0`. It is the answer to a
-question that could not be answered: **«приложение вылетает через несколько секунд после
+One commit in `dev`, merged as PR #69 (`cbb81e8`), in the milestone `v0.6.0`. It is the answer
+to a question that could not be answered: **«приложение вылетает через несколько секунд после
 привязки Telegram» — and there was no way to get the stack trace off the phone.**
 
 The switch that records crash reports has always been on «О приложении», where everybody can
@@ -1775,7 +2071,7 @@ is written, not when it is written.
 
 ---
 
-## What the last session added: the guide is fetched, and a debug-signed APK explained
+## What the batch before added: the guide is fetched, and a debug-signed APK explained
 
 Four commits in `dev`, merged as PR #67 (`0957628`), in the milestone `v0.6.0`. Two
 unrelated things that arrived in one batch because the first was a question about the
@@ -1880,7 +2176,7 @@ afterwards — and silent on this tree, where it had just spoken.
 
 ---
 
-## What the session before it added: a correction goes out as a pull request
+## What the batch before added: a correction goes out as a pull request
 
 Three commits in `dev`, merged as PR #64 (`e4361a0`), in the milestone `v0.6.0`. Before them,
 PR #63 (`ec0d976`) carried the previous batch's close-out in this file and nothing else, and
@@ -2035,27 +2331,37 @@ turn a true record of a named commit into a false one.
 
 **Every pull request now carries a milestone, and the rule is written down.** Sixty-two had
 gone in without one, and they have one only because somebody went back and did it by hand.
-There are no issues in this repository — not one has ever been opened — so the milestones are
-the only grouping its history has. Seven exist and they are **retrospective**: the boundaries
-were read off the history rather than declared, and nothing here has ever been tagged or
-released, so `versionName` is still the `0.1.0` default.
+There were no issues in this repository then — #128 opened the first — so the milestones
+were the only grouping its history had. Seven existed and they are **retrospective**: the
+boundaries were read off the history rather than declared, and nothing here has ever been
+tagged or released, so `versionName` is still the `0.1.0` default.
 
-| # | Milestone | Covers |
-| --- | --- | --- |
-| 1 | `v0.1.0 — First run on a phone` | #1–#14 |
-| 2 | `v0.2.0 — The diary, and the class run from the bot` | #15–#17, #28–#31 |
-| 3 | `v0.3.0 — The school year` | #27, #32–#35, #43 |
-| 4 | `v0.4.0 — Nothing breaks in silence` | #44, #45, #50 |
-| 5 | `v0.5.0 — A public repository` | #46–#49, #51, #55–#57, #59 |
-| 6 | `v0.6.0 — One container, and nothing cut off` | #60–#74 |
-| 8 | `v0.7.0 — Оптимизация` | #75–#85, #128 — the one Russian title |
-| 9 | `v0.8.0 — On a device` | issues #109–#117, #130–#132; #129, #133 and #134 — **the current one** |
-| 7 | `Dependencies` | every dependabot bump; deliberately not a version |
+**The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
+every title names what its version delivered and every description names its pull requests
+and issues, and created the tenth the same day. The older sections of this file quote the
+titles of their own time, which a search no longer finds; the third column maps them. The
+`github-pr` skill carries the same table.
+
+| # | Title | Called before 25 September | State | Covers |
+| --- | --- | --- | --- | --- |
+| 1 | `v0.1.0 — App, widget, admin bot and read API` | `v0.1.0 — First run on a phone` | closed | PRs #1–#14; issues #86, #88, #89 |
+| 2 | `v0.2.0 — Petersburg e-diary, class run from bot and phone` | `v0.2.0 — The diary, and the class run from the bot` | closed | PRs #15–#17, #28–#31; issues #87, #90, #91, #102 |
+| 3 | `v0.3.0 — School year, terms, school search, several classes` | `v0.3.0 — The school year` | closed | PRs #27, #32–#35, #43; issue #92 |
+| 4 | `v0.4.0 — 67-defect sweep, first audit, app-wide correction mode` | `v0.4.0 — Nothing breaks in silence` | closed | PRs #44, #45, #50; issues #93, #94 |
+| 5 | `v0.5.0 — Public repo: secrets audit, English docs, font licence` | `v0.5.0 — A public repository` | closed | PRs #46–#49, #51, #55–#57, #59; issue #95 |
+| 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
+| 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
+| 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134; issues #109–#117, #130–#132 — the first whose work needs an emulator or a phone |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PR #140; issues #135–#139, #141, #145–#160 — the one being worked on |
+
+**#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
+#140 left alone on purpose, which belong to whichever version takes them up.
 
 **Nothing in a session here can create a milestone**, only attach one — the owner created
-the ninth on 22 September 2026 and issues #109–#117 are on it. **It is the first milestone
-that groups issues rather than pull requests**, and the first whose work cannot be done
-without an emulator or a phone.
+the ninth on 22 September 2026 and the tenth on 25 September. **The ninth was the first
+milestone that groups issues rather than pull requests**, and the first whose work cannot be
+done without an emulator or a phone.
 
 From here the rule is in `CLAUDE.md` and in the `audit`, `github-pr` and `release` skills:
 a found defect becomes an issue before it becomes a fix, the pull request ties itself to it
@@ -2460,7 +2766,7 @@ curl -s https://<project>.vercel.app/api/v1/warmup   # {"status":"ok","schema":"
 
 A `"degraded"` here would mean the deploy had not arrived; before `0013` was applied, the
 same request honestly called the database behind, because `EXPECTED_REVISION` was already
-`0013`. The head is `0014` today — see the top of this file — and the same request reads it
+`0013`. The head is `0017` today — see the top of this file — and the same request reads it
 the other way round while a revision waits for its merge: the database is *ahead* of the
 code, and `/warmup` says so in as many words, «База впереди кода…».
 
@@ -2483,9 +2789,9 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 1634 tests, ~4 min (CI runs this)
-cd server  && python -m mypy                             # clean, 84 modules
-cd android && ./gradlew test                             # 968 tests across the five modules
+cd server  && pytest -q -n auto                          # 2024 tests, ~4 min (CI runs this)
+cd server  && python -m mypy                             # clean, 100 modules
+cd android && ./gradlew test                             # 1408 tests across the five modules
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
@@ -2557,11 +2863,14 @@ parity was computed from the ISO week number, which does not alternate in a 53-w
 from January 2027 the whole denominator of the **current** school year slid by a week,
 simultaneously in the API, the widget, the digests and the calendar.
 
-**Migrations:** production is at `0014`, and that is the last revision written. `0007`–`0012`
-were applied **before** the merge through the Neon connector, `0013` after it (it adds a
-`UNIQUE`, and a constraint migrates in the opposite direction from a column), and `0014`
-before it again. The details and what each one did are in section 7, item 1. **There is
-nothing left to do to the database before a merge.**
+**Migrations:** the last revision written is `0017`, and production is at `0017`.
+`0007`–`0012` were applied **before** their merge through the Neon connector, `0013` after it
+(it adds a `UNIQUE`, and a constraint migrates in the opposite direction from a column), and
+`0014` before it again. `0015`, `0016` and `0017`, all written on #140, went on before #140's
+merge, in one transaction. `0017` rewrites a key, which on a database holding rows goes on
+after the merge; production held none. «Schema» in that batch's section at the top of this
+file has what the database said. What each earlier revision did is in `CLAUDE.md` and in section 7,
+item 1.
 
 ---
 
@@ -2574,6 +2883,11 @@ calendar by years — was a decision rather than work, the owner made it on 21 S
 2026 (the windowed sync, not the picker bound to the synced year), and it is done. The
 section is kept struck through rather than deleted: it shows what exactly was asked for
 and what it turned out to be.
+
+**One request has come in since, and it is on #140.** On 25 September the owner asked for a
+way in through the family's own school's diary, with the password never reaching our server
+(#141). It is built — the first run, the diary-only home, the legal line, the catalog and the
+directory — and closes when #140 merges; what nobody has verified about it is in section 5.
 
 ~~1. **A pupil choosing their own class.**~~ Done in `8ec2e31`. The phone keeps a list of
    memberships, shows one of them and switches instantly; the cache is split by class, so
@@ -2598,6 +2912,13 @@ The same as the "What does not exist at all" section of `README.md`:
 - The widget stays on the system font: Glance passes `fontFamily` as the name of a system
   family rather than as a resource.
 
+And two that #140 left out on purpose, which are issues rather than lines in `README.md`'s
+list:
+
+- A phone that reads only its diary gets nothing from it in the widget, «Сегодня»,
+  «Календарь» or the alerts (#142).
+- A diary session opened on the phone is invisible to the bot (#143).
+
 ### 3.3. The typeface's licence — closed, and not the way this said
 
 **`google_sans_flex.ttf` is under SIL Open Font License 1.1**, Copyright 2015 Google LLC. The
@@ -2620,7 +2941,14 @@ trademark stays a trademark: bundling is allowed, naming a product after it is n
 
 ---
 
-## 4. There are no open defects
+## 4. Open defects: none that #140 does not fix, and one fix that waits for a phone
+
+**The defects open as this is written are the ones #140 fixes.** #136–#138 and #145–#160 are
+all fixed on its branch and meant to close with its merge — the table is in that batch's
+section at the top of this file. The exception is **#156**: crash reports are now excluded
+from every backup path in the rule files and a test reads both, but whether a phone's backup
+really leaves them out takes a phone and `bmgr`, so the issue stays open, `needs:device`.
+Everything below is the record from before the tracker, and it still holds.
 
 All sixteen findings of the first four audits are closed, as are all six findings of the four
 audits of `8ec2e31` (`569bab8`), the fifteen of `ce02348` (`c6ba66c`), the seven of `59c7a77`
@@ -2856,8 +3184,10 @@ else.**
 #113 the widget's sizes, #114 the arranging gesture, #115 the correction mode, #116 two
 classes on one phone, #117 the upgrade path, #111 what the ribbon's shader costs, #121 the
 real diary. They are children of **#109**, the epic for moving this work to a machine with a
-device on it. The prose here is kept because it says *why* each one is unverifiable, which
-an issue title cannot.
+device on it. #140's additions below belong to #121 where they need a live diary and to
+#156 where they need a phone's backup; the rest wait for the first APK built after its
+merge. The prose here is kept because it says *why* each one is unverifiable, which an issue
+title cannot.
 
 - **Not one route in `docs/diaries/` has been seen answering.** #134's 1916 routes
   were read from client code and two official apps, and cross-checked against each other.
@@ -2865,7 +3195,58 @@ an issue title cannot.
   means that a client active in 2025 or 2026 sends it, not that a server accepts it today.
   ТОР «Моя школа» rests on one app build, 5.0.0.454, and its first-wave list rests on one
   official post. The first live session on any platform will correct its page. Whoever has
-  it should edit the page by hand, because the generator is not in the repository.
+  it should edit the page by hand, because the generator is not in the repository — and,
+  where the edit touches `docs/diaries/regions.md`, regenerate the region catalog with
+  `scripts/region_catalog.py`, which a test insists on.
+- **The «Сетевой город» provider has never met a live server.** #140 wrote the client, the
+  mapper, the keep-alive and the school search from open-source clients and hand-written test
+  payloads; no ИРТех server answers a cloud session, so none was called. Every upstream shape
+  — the salted-MD5 sign-in, `/webapi/context`, the weekly diary, the school search — is what a
+  client sends, not what a server was seen to accept. The refresh-token grant (LoginType 9)
+  and the Госуслуги refusal path (`SignInUnsupported`) are the least exercised of all. The
+  first live sign-in on it is the owner's, #121's caveat a second time.
+- **The phone's own sign-in has never met a live diary either — neither «Сетевой город» nor
+  Петербург.** The Kotlin ports and the Python originals run one set of known-answer vectors
+  (`server/tests/vectors/diary_protocol.json`), which proves the two agree and nothing about
+  whether either is right. Whether a Петербург pupil's own account lists itself as a pupil,
+  and how long its token lives, are unknown for the same reason.
+- **Nobody knows whether a diary accepts a session opened on a phone when our server replays
+  it.** The phone signs in from the family's own address, and `POST /api/v1/diary/session`
+  then reads with that session from Frankfurt. A diary that ties a session to its address, or
+  refuses foreign ones, answers that read with a refusal, and the server turns it into a
+  `409`, meaning the diary refused the session from our address — by design, with no automatic
+  retry. If that is what the first live session gets, the phone-registered path does not work
+  for that diary and only the password routes remain. Whether «Сетевой город»'s four bootstrap
+  calls fit inside Vercel's 30-second ceiling is unmeasured too.
+- **Nothing of #140's phone half has run on a device.** Nothing composes `LessonsApp` in a
+  test, so the gate between the three homes, the hold on the first run through a join or a
+  registration, the swap to the right home and the resume after the process dies are proved
+  by the pure rules and the view models only. Nobody has seen the first run on a screen,
+  the wavy progress bar under real timings, the browser handoffs — the legal documents, ТОР
+  «Моя школа», the three Госуслуги-only regions — or the bundled fallback sheet, or heard
+  any of it through TalkBack. `diary.db` has not been written on a real phone.
+- **TLS against the regional servers, and Android's own windows-1251, are inferred.** The
+  failure shapes `UpstreamHttp` classifies are the ones Conscrypt and the JVM are known to
+  throw, not ones seen on a device; the port carries its own windows-1251 table rather than
+  trusting the device's ICU, and whether the device's would have agreed is unasked. A
+  `Retry-After` given as a date is read as no wait.
+- **The backup exclusion of crash reports (#156) is proved in XML only.** `BackupRulesTest`
+  reads both rule files and the reporter's folder name; whether a real backup leaves the
+  reports out takes a phone and `bmgr`, which is why the issue stays open.
+- **The widget's third sentence has never been on a launcher.** Whether «Дневник — в
+  приложении» and the new sentence for a phone with neither fit their rungs without a clip is
+  judged by length only, and the redraw when the mode changes rests on a broadcast no test
+  composes.
+- **DaData's side of the school directory is assumed.** Whether its company rows carry
+  `region_kladr_id` is unknown — the directory falls back to the region's name for exactly
+  that reason — and so are the subject codes of the four regions admitted in 2022 (90, 93,
+  94, 95), every DaData spelling in the catalog's overlay, and whether DaData's day turns at
+  Moscow midnight, which is when `usage_counters` starts a new one. Two requests racing for
+  the last unit of the day were checked on SQLite only.
+- **The terms of use and the privacy policy have never been read by a lawyer.** They
+  describe what the code does and claim compliance with nothing: whether naming a GitHub
+  account as operator satisfies 152-ФЗ, the transfer to hosting in Frankfurt, the age line
+  and parental consent are open.
 - **Nothing of the tab arranging has been seen on a phone, and it is a gesture.** #84 is a
   long press, a wobble and a drag; #85 is the drag actually reporting where it landed. What
   the 39 tests prove is arithmetic and contracts: where a drag of so many pixels lands, that
@@ -2941,7 +3322,8 @@ an issue title cannot.
 - **`/api/v1/warmup` has still not been read, and it is now known to be unreachable from a
   session rather than merely not done.** The deployments are behind Vercel's Deployment
   Protection and answer a redirect to a login page, so no `curl` from here can settle
-  whether `0014` and the code that needs it met. It needs the owner's browser or a bypass
+  whether the schema — `0017` once #140 has deployed — and the code that needs it
+  met. It needs the owner's browser or a bypass
   token; it has been outstanding since #61 and it is in section 7 for that reason.
 - **`docker compose up` has never been run.** There is no Docker in this environment, so
   what #83 proves about the new `migrate` service is that the compose file parses and that
@@ -2963,8 +3345,8 @@ an issue title cannot.
   would not compile normally throws in-process instead of logging from the render thread.
 - **The reported term defect is fixed against tests, not against the class that reported
   it.** The server fix needs no new APK, so the first real check is that class's next sync
-  after the deploy, and `/api/v1/warmup` answering `"schema":"0014"` is the cheapest sign
-  that the migration and the code actually met.
+  after the deploy, and `/api/v1/warmup` answering `"schema":"0014"` or later is the
+  cheapest sign that the migration and the code actually met.
 - **There is still no `androidTest` in the project**, and no emulator is available here: the
   container has no `/dev/kvm` and no virtualisation flags, so the system could only be
   started by full software emulation, that is, not at all.
@@ -3038,9 +3420,10 @@ an issue title cannot.
   decision (`SchoolAlerts.arm` refused `setWindow` and explained why).
 - **A live DaData has never been asked**: there is no `DADATA_TOKEN` in the development
   environment, and every test on both sides runs a stub. The owner reported setting the key
-  on Vercel — **nothing has verified that.**
-- **The real dnevnik2 has never been opened**, neither the sign-in nor any of the four
-  screens.
+  on Vercel — **nothing has verified that.** #140's anonymous school directory rests on the
+  same stub, and so does its daily count.
+- **The real dnevnik2 has never been opened**, neither the sign-in — the server's or, since
+  #140, the phone's own — nor any of the four screens.
 - **Not one server-side fix has been run against a live class.** `claim` is verified by
   claiming twice on one date, but nobody has run two ticks at once; the export's round trip
   is verified by computing both sides, which is all it claims.
@@ -3114,8 +3497,10 @@ second between those two answers during a switch, and taking the local one would
 one class's window under another's name. `replaceAll` moves the `classId` from the class's
 row onto the day records for the same reason.
 
-The Room schema is at version 3. There is no migration and none is needed — the cache is
-disposable (`fallbackToDestructiveMigration`) and the first sync fills it.
+`lessons.db` (`LessonsDatabase`) is at Room schema version 5, and #140 added a second
+database, `diary.db` (`DiaryDatabase`), at version 1. Neither has a migration and neither needs
+one — both are disposable (`fallbackToDestructiveMigration`): the first sync fills the one and
+the next diary read the other.
 
 The memberships live in `Memberships.kt`, separately from `LessonsPreferences`: that is also
 where the **old format** is read — one session in four flat keys — and where the
@@ -3220,6 +3605,43 @@ version of that docstring claimed the opposite.
 checked only by its hash — `find_live` does not re-read `BotUser` — so without this, somebody
 excluded in the last fifteen minutes would still let a phone in. Used rows are left alone:
 they are the record that a phone has already joined.
+
+### The second way in: a phone that signs in to its own diary
+
+`docs/architecture.md` says where the password, the upstream session and the two bearers
+live during the first run, and where they never do. These are the parts that break quietly:
+
+- **On the phone's path the password goes to the diary and nowhere else.**
+  `POST /api/v1/diary/session` refuses a body with a `password` key (`extra="forbid"`), and
+  every credential value passes the one "safe to put in a header" check in
+  `providers/diary/http.py`, because cookie values go straight into `Cookie:`. Do not add a
+  field there that could carry a password. `/diary/login` and the bot's `/diary/signin`
+  still take one, and say so to the person typing it.
+- **The phone's diary hosts come from the bundled catalog and nowhere else.** `OriginGuard`
+  refuses any other origin; the catalog is `server/app/catalog/data/regions.json`, bundled
+  in place rather than copied, and its «Сетевой город» origins are the server's allow-list
+  byte for byte. Change the allow-list or `docs/diaries/regions.md` and regenerate with
+  `scripts/region_catalog.py` — `--check` and
+  `test_the_committed_catalog_is_what_the_generator_writes` fail otherwise.
+- **The two sign-in implementations are held together by one file.**
+  `server/tests/vectors/diary_protocol.json` runs in the Python tests and against the Kotlin
+  port; a protocol change is a change to the vectors first, then to both.
+- **Nothing reads the diary in the background** — not the sync worker, not the widget.
+  `SyncWorkerSourceTest` scans them and every application, receiver and service the manifests
+  declare. A background read would count as the family's activity and hold a «Сетевой город»
+  session open for the keep-alive's thirty days with nobody behind it (#142).
+- **Periodic class sync is armed only in class mode**, from the shell mode's arming in
+  `LessonsApplication` rather than on every settings emission (#152).
+- **The directory's share of DaData is its own.** `/api/v1/directory/school-regions` is
+  charged to `usage_counters` under a cap of 4,000 a day; the bot's and `/manage/schools`'
+  searches are never charged to it. Putting them on one counter is how onboarding would
+  spend the search the bot's create-class step depends on.
+- **The legal address is per fork.** `LESSONS_LEGAL_BASE_URL` compiles into
+  `BuildConfig.LEGAL_BASE_URL`, and the build refuses a value that is not https; the texts
+  carry `FORK:` comments naming what a fork rewrites, and `docs/build.md` says the rest.
+- **CI runs a job when a file its tests read changes**, and `ci.yml`'s path filter names
+  those files; a test that starts reading a document outside its half adds the document
+  there (#159).
 
 ### Everything that came from outside is escaped before it is sent
 
@@ -3670,24 +4092,66 @@ All of this is beyond an agent's reach: it needs a phone, a key or a live servic
 **These are issues now**, so that they can be closed rather than re-read: #118 the Preview
 environment, #119 `/api/v1/warmup` and the bot's `/start`, #120 the external cron and
 `DADATA_TOKEN`, #121 the real diary, #122 the widget's tick cadence and the diary
-credential's bound, #135 the second diary. Each carries the label `needs:owner`.
+credential's bound, #135 the second diary, #144 a default server for a fresh install. Each
+carries the label `needs:owner`; #156 carries `needs:device`.
 
-**Decide what the second diary is before anybody writes it (#135).** `docs/diaries.md` is
-the map, and three things on it are decisions rather than research:
+**The tenth milestone exists, and #140 is on it.** The owner created
+`v0.9.0 — NetSchool e-diary, onboarding via the school's diary` on 25 September and renamed
+the other nine the same day. One line of it is behind: its description names issues
+#145–#159, and #160 is on it too. A milestone's description is the owner's to edit; nothing
+in a session here can.
 
-- **Which platform.** The survey's order is «Сетевой город» first: one route set, the
-  largest group of regions, and a password still accepted outside the regions that allow
-  Госуслуги only. The МЭШ family comes after it.
-- **How a family signs in**, now that Госуслуги is the only door in most regions. Either
-  the server accepts a token a person brought from a browser, which is what every durable
-  client does, or it drives ЕСИА itself and breaks whenever Госуслуги changes its login.
-  The first makes `/diary/signin` a page with a second job, and `CLAUDE.md` guards that page
-  closely.
-- **Whether ТОР «Моя школа» may be used at all.** It is the diary of twenty regions since
-  1 September 2026. Its only known way in is a person signing in to Госуслуги inside a
-  WebView, and nobody has read Госуслуги's terms.
+**Sign in once, for real, from a phone — it is the one question #140 cannot answer about
+itself.** Build an APK from `main` after #140 merges, install it on a phone in no class, and
+take the diary path twice: a «Сетевой город» region that takes a password, and Петербург.
+Whether the import arrives, or the phone says the diary refused the session from our
+server's address — the `409` — decides whether the phone-registered path works for that
+diary at all. It is #121's first live session, for both diaries at once.
 
-Whichever platform it is, the first step is one real session against it, as #121 is for
+**Then walk the rest of the first run on that phone.** The class code as the other way in;
+leaving the last class with a diary signed in, which should land on the diary as the home
+with «Выйти из дневника» still in settings (#151's path); the two legal links online and in
+airplane mode; a ТОР region's hand-off to the official site. And read a backup with `bmgr`
+for the crash reports — #156 closes only on that.
+
+**Decide #144: whether a fresh install gets a default server.** The diary path needs our
+server to register the session, and today a fresh install asks for its address where it is
+first needed, because no address is compiled in and none is promised any more (#154). A
+default is a build property and a decision about who that server serves; it is the owner's.
+
+**Have the terms of use and the privacy policy read before anybody relies on them.** They
+describe what the code does and claim compliance with nothing: whether a GitHub account named
+as operator satisfies 152-ФЗ, the transfer to hosting in Frankfurt, the age line and parental
+consent are questions for a lawyer. Each passage about this deployment sits under a `FORK:`
+comment. Nothing has been published, so `docs/legal/legal.json` is still edition 1; once
+the texts are out, every change to them raises it, as the `release` skill says.
+
+**`DADATA_TOKEN` now serves a second caller (#120).** The anonymous school directory spends at
+most 4,000 of DaData's 10,000 daily requests. Without the key it answers `503` with
+`X-Directory-Unavailable: disabled`, and a family still finds its region in the bundled
+catalog — only the search by a school's name is gone.
+
+**The keep-alive is only as alive as the cron (#120).** «Сетевой город» sessions are held
+open from `GET /api/v1/cron/tick`, so they lapse if the external cron does not tick;
+`.github/workflows/reminders.yml` is the fallback, not the clock, exactly as for the digests.
+
+**#135 now has an answer in the code to each of its three questions, and closing it is the
+owner's.** `docs/diaries.md` is the map:
+
+- **Which platform** — «Сетевой город», built on the server in #140's first part: one route
+  set, the largest group of regions, and a password still accepted outside the regions that
+  allow Госуслуги only. The МЭШ family comes after it. Against a live server it has not been
+  read.
+- **How a family signs in** — with its password, typed into the app's own form and sent to
+  the diary alone; the session, not the password, reaches our server. Госуслуги is not driven
+  and no token is carried over from a browser, because a Госуслуги session is the person's
+  whole state-services account. The three Госуслуги-only «Сетевой город» regions hand off to
+  their own site.
+- **Whether ТОР «Моя школа» may be used** — it is not read. The provider screen names it as
+  the region's system and hands off to the official site. Nobody has read Госуслуги's terms,
+  and nothing needs them read until somebody proposes reading ТОР.
+
+Whichever platform comes next, the first step is one real session against it, as #121 is for
 Петербург. Not one route in `docs/diaries/` has been seen answering.
 
 **Install one built after #85 and long-press a tab on the home screen.** The APK on #84's
@@ -3727,11 +4191,12 @@ turn Preview deployments off in the project's Git settings; nothing here is a we
 there is nothing for a preview to show. Only the owner can do either — this session can read
 which keys exist per environment but must not create them.
 
-**Open `/api/v1/warmup` in a browser — it is the one thing that settles whether `0014` and
-the code that needs it actually met**, and it is outstanding since #61. It cannot be closed
-from a session here at any effort: the deployments are behind Vercel's Deployment Protection
-and answer a redirect to a login page, so this needs the owner's own browser or a bypass
-token. The answer wanted is `{"status":"ok","api_version":1,"schema":"0014"}`; a
+**Open `/api/v1/warmup` in a browser — it is the one thing that settles whether the schema
+and the code that needs it actually met**, and it is outstanding since #61. It cannot be
+closed from a session here at any effort: the deployments are behind Vercel's Deployment
+Protection and answer a redirect to a login page, so this needs the owner's own browser or a
+bypass token. The answer wanted once #140 has merged and deployed is
+`{"status":"ok","api_version":1,"schema":"0017"}`; a
 `"degraded"` naming two revisions is the honest report of a migration and a deploy that have
 not met, and which way round it is, is in the `detail`.
 
@@ -3762,24 +4227,22 @@ a deliberate replacement rather than an addition, because two views of one day i
 bot's two timetable editors nearly drifted apart; if it turns out to be missed, the ruler is
 in the history at `f5a8172^`.
 
-**The milestones were the newest of these, and that one is done.** Milestones 1 to 5 cover
-versions that are finished and the owner has closed all five. Three stay open on purpose:
-`v0.6.0`, which is finished but not yet closed; **`v0.7.0 — Оптимизация`, number 8**, which
-the owner created when none of the earlier ones fitted and which every batch from #75 to
-#84 has gone in; and `Dependencies`, which takes every future bump. There is no
-number 7 — the numbering is GitHub's and it skips. The reason a new one has to be asked for
-stands for next time: no tool in a session here changes a milestone's state or creates one —
-`issue_write` only assigns an existing one by number — and there is no `gh` CLI.
+**The milestones were the newest of these, and that one is done.** Milestones 1 to 6 and 8
+cover versions that are finished, and the owner has closed all seven. Three stay open on
+purpose: number 9, `v0.8.0 — On-device checks, 89-region e-diary survey`, whose device work
+is still to do; number 10, `v0.9.0 — NetSchool e-diary, onboarding via the school's
+diary`, which #140 is on; and number 7, `Dependencies — dependabot bumps`, which takes every
+future bump. The ten titles, and what each was called before the owner renamed them on
+25 September, are in the table under «And before that: nothing on a screen is cut off». The
+reason a new one has to be asked for stands for next time: no tool in a session here changes
+a milestone's state or creates one — `issue_write` only assigns an existing one by number —
+and there is no `gh` CLI.
 
 **The first press of two network paths should be the owner's.** Neither the translation
 pull request from #64 nor the guide's fetch from #67 has ever run against GitHub, and both
 are written to be pressed by a reader. Opening the documentation once on a real phone, with
 and without a network, checks the second of them in about a minute — and the first press of
 «Отправить как pull request» checks the first.
-
-**What is left of it is one line of text.** Milestone 6 describes itself as «PRs #60–#62»
-and now holds everything up to #74. Editing that description needs the same access closing
-it does.
 
 **Two more are decisions rather than actions**, both from the second audit, both
 deliberately not taken by the session that found them because they trade one real cost
@@ -3827,12 +4290,12 @@ and that is the thing to decide rather than the ttl.
    matches the model column for column, three indexes.
 ~~1a. **Apply `0013` after PR #45 is merged.**~~ Applied: head `0013`, the constraint in
    place, zero rows deleted (`homework` had none).
-1b. **Open `/api/v1/warmup` and make sure the deploy arrived** — today that is
-   `{"status":"ok","schema":"0014"}` — and then send the bot `/start`: the very first message
-   goes through the middleware that reads a class, and that is the fastest check that the
-   schema and the code agree. That is all that is left of item 1; it needs a live service,
-   and since the deployments sit behind Deployment Protection it needs a browser or a bypass
-   token rather than a `curl` from a session.
+1b. **Open `/api/v1/warmup` and make sure the deploy arrived** — once #140 has merged and
+   deployed that is `{"status":"ok","schema":"0017"}` — and then send the bot `/start`: the
+   very first message goes through the middleware that reads a class, and that is the fastest
+   check that the schema and the code agree. That is all that is left of item 1; it needs a
+   live service, and since the deployments sit behind Deployment Protection it needs a browser
+   or a bypass token rather than a `curl` from a session.
 2. **Build the APK from `main` and install it on a phone.** See section 5 — it is the only
    way to check what nothing currently checks, and doubly so after three build-chain bumps.
    Three things have been added to this: connect the phone to two classes and walk between

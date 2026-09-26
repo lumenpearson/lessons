@@ -4,9 +4,13 @@ import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.lumenpearson.lessons.core.data.repository.DiaryBinding
+import com.lumenpearson.lessons.core.data.repository.DiaryProviderKey
 import com.lumenpearson.lessons.core.data.repository.Session
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonArray
 
@@ -37,6 +41,39 @@ private data class StoredSession(
     val className: String = "",
     val school: String? = null,
     val token: String = "",
+    /**
+     * The class's diary binding, as a raw element decoded on its own
+     * ([storedBinding]): a binding this build cannot read must cost the
+     * binding, never the membership — and a typed field that failed would
+     * take the whole record with it. Absent on every record written before
+     * bindings, which read as unbound.
+     */
+    val diary: JsonElement? = null,
+)
+
+/** One class's diary binding as it is written down; see [StoredSession.diary]. */
+@Serializable
+private data class StoredBinding(
+    val provider: String = "",
+    val region: String? = null,
+    val schoolId: Long? = null,
+    val schoolName: String? = null,
+)
+
+private fun storedBinding(element: JsonElement?): DiaryBinding? {
+    if (element == null || element is JsonNull) return null
+    val stored = runCatching { membershipJson.decodeFromJsonElement<StoredBinding>(element) }
+        .getOrNull()
+        ?: return null
+    // A provider a later build added reads as no binding rather than as the
+    // wrong diary.
+    val provider = DiaryProviderKey.fromWire(stored.provider) ?: return null
+    return DiaryBinding(provider, stored.region, stored.schoolId, stored.schoolName)
+}
+
+private fun DiaryBinding.stored(): JsonElement = membershipJson.encodeToJsonElement(
+    StoredBinding.serializer(),
+    StoredBinding(provider.wire, region, schoolId, schoolName),
 )
 
 /**
@@ -82,6 +119,7 @@ internal fun Preferences.memberships(): List<Session> {
                 className = stored.className,
                 school = stored.school,
                 token = token,
+                diary = storedBinding(stored.diary),
             )
         }
     }
@@ -142,7 +180,7 @@ internal fun List<Session>.withMembership(joined: Session): List<Session> =
  */
 internal fun MutablePreferences.writeMemberships(value: List<Session>) {
     this[MembershipKeys.SESSIONS] = membershipJson.encodeToString(
-        value.map { StoredSession(it.classId, it.className, it.school, it.token) },
+        value.map { StoredSession(it.classId, it.className, it.school, it.token, it.diary?.stored()) },
     )
     remove(MembershipKeys.TOKEN)
     remove(MembershipKeys.CLASS_ID)

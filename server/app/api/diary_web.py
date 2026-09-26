@@ -7,15 +7,21 @@ that the bot cannot satisfy — a password typed into a Telegram chat is in the
 chat history, on Telegram's servers, in the notification on a locked screen
 and in that phone's backup, and deleting the message undoes none of it.
 
-So the password is taken here instead: over HTTPS, straight from the browser
-to the upstream, written down nowhere. The page holds no state of its own. It
-sets no cookie, because the session it opens belongs to a Telegram account
-rather than to whichever browser happened to be handy. It is reached once,
-with a ticket the bot handed out (``services/diary_link``), and the ticket is
-spent by an attempt — a right password and a wrong one cost the same. The one
-thing that does not cost it is the diary being unreachable, where nothing ever
-looked at the password and so no guess was made (see ``_unspend``, which says
-why that line is drawn there and not further along).
+So the password is taken here instead: over HTTPS, from the browser to this
+server, which passes it to the diary once and writes it down nowhere. It does
+cross this server. The app's own sign-in does not — it talks to the diary
+directly and hands over only the session — so this page, and the
+``POST /api/v1/diary/login`` older apps still call, are where a family's
+password passes through us, and they are described that way.
+
+The page holds no state of its own. It sets no cookie, because the session it
+opens belongs to a Telegram account rather than to whichever browser happened
+to be handy. It is reached once, with a ticket the bot handed out
+(``services/diary_link``), and the ticket is spent by an attempt — a right
+password and a wrong one cost the same. The one thing that does not cost it is
+the diary being unreachable, where nothing ever looked at the password and so
+no guess was made (see ``_unspend``, which says why that line is drawn there
+and not further along).
 
 Three headers do the rest of the work, and each answers a specific leak:
 
@@ -36,7 +42,7 @@ from __future__ import annotations
 import logging
 from html import escape
 from typing import NamedTuple
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlsplit
 
 from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Request
@@ -47,8 +53,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routing import DishkaAnnotatedRoute
 from app.crypto import diary_enabled
-from app.models import DiaryLinkCode
-from app.providers.petersburg import BadCredentials, PetersburgError, UpstreamUnavailable
+from app.models import DiaryLinkCode, SchoolClass
+from app.providers.diary.errors import (
+    BadCredentials,
+    DiaryError,
+    NoStudents,
+    SignInUnsupported,
+    UpstreamUnavailable,
+)
+from app.providers.diary.registry import Binding
+from app.providers.diary.registry import binding as class_binding
 from app.security import hash_token
 from app.services import diary as diary_service
 from app.services import diary_link
@@ -126,7 +140,45 @@ def _closed(message: str, status: int = 400, note: str = _ASK_AGAIN) -> HTMLResp
     )
 
 
-def _form(code: str) -> HTMLResponse:
+async def _binding_of(session: AsyncSession, class_id: int | None) -> Binding | None:
+    """The diary binding of the ticket's class, or ``None`` if it has none now.
+
+    Read at both the GET and the POST, never trusted from when the ticket was
+    minted: an admin who unbinds or rebinds the class between the two must not
+    have the password sent to a diary the family is no longer looking at (#137).
+    """
+    if class_id is None:
+        return None
+    school_class = await session.get(SchoolClass, class_id)
+    if school_class is None:
+        return None
+    return class_binding(school_class)
+
+
+def _where(binding: Binding | None) -> str:
+    """The subtitle line under the form's heading, escaped.
+
+    Names the provider, and for «Сетевой город» its region and school, so the
+    family can see which diary and which school this password goes to. Every
+    part is escaped: the school name comes from the upstream's search.
+    """
+    if binding is None:
+        return "Санкт-Петербург · dnevnik2.petersburgedu.ru"
+    parts = [binding.provider.title]
+    if binding.region:
+        from app.providers.netschool import regions
+
+        region = regions.get(binding.region)
+        if region is not None:
+            parts.append(region.title)
+        if binding.school_name:
+            parts.append(binding.school_name)
+    elif binding.provider.site:
+        parts.append(binding.provider.site)
+    return " · ".join(escape(part) for part in parts)
+
+
+def _form(code: str, binding: Binding | None = None) -> HTMLResponse:
     # The code goes in the action rather than a hidden field: it is already in
     # the URL the browser is on, and one place for it is one place to get
     # wrong. autocomplete is on, so a password manager can fill this — the
@@ -139,10 +191,21 @@ def _form(code: str) -> HTMLResponse:
     # the `401` behind it were here from the first draft and nothing ever passed
     # one — an unused branch in a renderer is how a page ends up written for an
     # answer it will never be handed.
+    #
+    # The note under the button said the password went «прямо в дневник», and
+    # it never did: this form posts to our own path (`form-action 'self'`), and
+    # `sign_in_submit` hands the password to the provider (#150). So it says
+    # what is true of this page — typed here rather than in the chat, relayed
+    # by this server for the sign-in, kept nowhere — and nothing about the
+    # app, whose own sign-in skips this server but only from a build that has
+    # it; an older one still posts the password to `/api/v1/diary/login`, and
+    # this page cannot tell which one the reader holds. «Для входа» rather
+    # than «один раз»: «Сетевой город» may ask for a role and take a second
+    # login POST inside the same sign-in.
     return _page(
         "Вход в дневник",
         f"<h1>Электронный дневник</h1>"
-        f"<p class=sub>Санкт-Петербург · dnevnik2.petersburgedu.ru</p>"
+        f"<p class=sub>{_where(binding)}</p>"
         f'<form method=post action="/diary/signin/{escape(code)}">'
         "<label for=login>Логин</label>"
         "<input id=login name=login type=text inputmode=email autocomplete=username "
@@ -152,9 +215,11 @@ def _form(code: str) -> HTMLResponse:
         "autocomplete=current-password required>"
         "<button type=submit>Войти</button>"
         "</form>"
-        "<p class=note>Пароль уходит прямо в дневник и нигде не сохраняется — "
-        "ни у бота, ни в этой базе. Хранится только сессия дневника, "
-        "зашифрованной, и её всегда можно отозвать кнопкой «Выйти».</p>",
+        "<p class=note>Пароль вводится здесь, а не в чате. Эта страница — на "
+        "сервере бота: он передаёт пароль дневнику для входа, и пароль нигде "
+        "не сохраняется — ни у бота, ни в этой базе. Хранится только сессия "
+        "дневника, в зашифрованном виде, и её всегда можно отозвать кнопкой "
+        "«Выйти».</p>",
     )
 
 
@@ -170,7 +235,13 @@ async def sign_in_form(
     row = await _peek(session, code)
     if row is None:
         return _closed("Ссылка уже использована или устарела.", status=410)
-    return _form(code)
+    binding = await _binding_of(session, row.class_id)
+    if binding is None:
+        return _closed(
+            "Дневник в этом классе больше не привязан.", status=410,
+            note="Попросите у администратора класса новую ссылку.",
+        )
+    return _form(code, binding)
 
 
 #: Refuse a body larger than this before reading it.
@@ -246,6 +317,20 @@ async def sign_in_submit(
         return _closed("Заполните логин и пароль.", status=400)
     login, password = fields
 
+    # Peek at the ticket first, and read the class's binding, before spending
+    # anything. If the class was unbound or rebound since the link was minted,
+    # the password must not go to the diary that is bound now (#137): refuse
+    # without spending the ticket and without any upstream call.
+    peeked = await _peek(session, code)
+    if peeked is None:
+        return _closed("Ссылка уже использована или устарела.", status=410)
+    binding = await _binding_of(session, peeked.class_id)
+    if binding is None:
+        return _closed(
+            "Дневник в этом классе больше не привязан — запросите новую ссылку.",
+            status=410,
+        )
+
     ticket = await diary_link.claim(session, code)
     if ticket is None:
         return _closed("Ссылка уже использована или устарела.", status=410)
@@ -256,17 +341,23 @@ async def sign_in_submit(
 
     try:
         _, opened = await diary_service.sign_in(
-            session, login, password, telegram_id=ticket.telegram_id
+            session,
+            login,
+            password,
+            telegram_id=ticket.telegram_id,
+            provider=binding.provider.key,
+            region=binding.region,
+            school_id=binding.school_id,
         )
-    except PetersburgError as error:
+    except DiaryError as error:
         # A wrong password costs the ticket; the diary being down does not.
-        verdict = _why(error)
+        verdict = _why(error, binding)
         if verdict.keep_ticket:
             await _unspend(session, ticket_id)
         return _closed(
             verdict.message,
             status=verdict.status,
-            note=_TRY_AGAIN if verdict.keep_ticket else _ASK_AGAIN,
+            note=verdict.note or (_TRY_AGAIN if verdict.keep_ticket else _ASK_AGAIN),
         )
     except Exception:  # noqa: BLE001 - never let an upstream shape reach the page
         log.exception("diary sign-in failed")
@@ -296,9 +387,31 @@ class _Verdict(NamedTuple):
     #: True when the failure was the diary's rather than the person's, so the
     #: ticket goes back and the same link still opens the form.
     keep_ticket: bool
+    #: What to do next, when neither «попробуйте ещё раз» nor «запросите
+    #: ссылку заново» is true. Chosen by `keep_ticket` alone, the Госуслуги
+    #: refusal told the family to retry what it had just said cannot work.
+    note: str | None = None
 
 
-def _why(error: PetersburgError) -> _Verdict:
+def _site_of(binding: Binding) -> str:
+    """The address a family can open in a browser to see whether *their*
+    diary is up: the regional server for «Сетевой город», dnevnik2 otherwise.
+
+    Taken from the allow-list, never from anything typed, so it is safe to
+    show. It used to be dnevnik2 whatever the class was bound to, which sent a
+    «Сетевой город» family to Петербург's diary to find out why theirs had
+    answered nonsense (#158).
+    """
+    if binding.region:
+        from app.providers.netschool import regions
+
+        region = regions.get(binding.region)
+        if region is not None:
+            return urlsplit(region.origin).netloc
+    return binding.provider.site or "dnevnik2.petersburgedu.ru"
+
+
+def _why(error: DiaryError, binding: Binding) -> _Verdict:
     """The upstream's failure, said in a way the reader can act on.
 
     Only :class:`BadCredentials` is «неверный пароль». Everything else said so
@@ -309,17 +422,46 @@ def _why(error: PetersburgError) -> _Verdict:
     this was fixed first). Rendered as «неверный логин или пароль» it sends
     somebody to retype a password that was right, over and over, with nothing
     anywhere hinting that the diary is the thing that is broken.
+
+    A message that is not the class default (the expired-password one, say)
+    is passed through rather than flattened to «неверный пароль».
     """
-    if isinstance(error, BadCredentials):
-        return _Verdict("Неверный логин или пароль.", 401, keep_ticket=False)
-    if isinstance(error, UpstreamUnavailable):
+    if isinstance(error, SignInUnsupported):
+        # Decided before any password was sent, so the ticket goes back — but
+        # retrying will not help, so the note points at Госуслуги rather than
+        # «попробуйте снова». A 503, as `/api/v1/diary/login` answers it: the
+        # region's own answer about who it lets in, not a reply nobody can read.
         return _Verdict(
-            "Дневник сейчас не отвечает — дело не в пароле. Попробуйте через "
-            "несколько минут.",
+            error.message,
             503,
             keep_ticket=True,
+            note=f"Дневник региона открывается через Госуслуги на {_site_of(binding)}.",
         )
-    # UnexpectedResponse, SessionExpired and any future member of the family.
+    if isinstance(error, NoStudents):
+        # The password was accepted and there is no pupil behind the account —
+        # staff-only, or a pupil's account that does not list itself. Before
+        # the generic branch below, which it is a subclass of the family of:
+        # there it was «ответил непонятно … откройте сайт», sending the family
+        # to check a diary that is up and to ask for a link that fails the
+        # same way. The ticket is spent: the password was judged.
+        return _Verdict(
+            error.message,
+            403,
+            keep_ticket=False,
+            note="Войдите под учётной записью родителя или ученика — "
+            "попросите у бота новую ссылку.",
+        )
+    if isinstance(error, BadCredentials):
+        # PasswordExpired and any other BadCredentials with its own words keep
+        # them; the bare base message becomes the fixed «неверный пароль».
+        spoke = error.message and error.message != BadCredentials.message
+        return _Verdict(error.message if spoke else "Неверный логин или пароль.", 401,
+                        keep_ticket=False)
+    if isinstance(error, UpstreamUnavailable):
+        # AddressRefused lands here too, with its own «дело не в пароле» words.
+        return _Verdict(error.message, 503, keep_ticket=True)
+    # UnexpectedResponse, SessionExpired bar NoStudents, and any future member
+    # of the family.
     # The address is named on purpose: opening the diary in a browser is the
     # one check that tells the person which of the two is broken, and it is
     # also where a captcha would be waiting for them.
@@ -337,7 +479,7 @@ def _why(error: PetersburgError) -> _Verdict:
     return _Verdict(
         "Дневник ответил непонятно — обычно это технические работы или проверка "
         "«я не робот». Пароль, скорее всего, ни при чём: откройте "
-        "dnevnik2.petersburgedu.ru в браузере, а потом попросите у бота новую ссылку.",
+        f"{_site_of(binding)} в браузере, а потом попросите у бота новую ссылку.",
         502,
         keep_ticket=False,
     )

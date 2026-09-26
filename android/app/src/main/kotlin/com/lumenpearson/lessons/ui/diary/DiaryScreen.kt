@@ -15,6 +15,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.rounded.CalendarViewWeek
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.Grade
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -26,13 +29,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.repository.DiaryFailure
+import com.lumenpearson.lessons.core.data.repository.DiarySessionIdleDays
+import com.lumenpearson.lessons.core.data.repository.DiarySignInProblem
 import com.lumenpearson.lessons.core.data.repository.DiaryStudent
+import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
+import com.lumenpearson.lessons.core.designsystem.component.GroupRow
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
@@ -51,34 +60,44 @@ import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
+import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import androidx.compose.ui.draw.clip
+import com.lumenpearson.lessons.ui.common.syncedAtLabel
 
 /**
- * The Petersburg diary, as one page of the settings tree.
+ * The diary: a page of the settings tree on a phone in a class, and the home
+ * itself on a phone in none.
  *
- * Why here and not as a fourth tab: the tabs are the class timetable, which
- * every install has the moment it joins a class. The diary is a second account
- * in a foreign service that most users of this app will never have, and a tab
- * for it would put a sign-in wall in the bottom bar of everybody who does not —
- * permanently, because the toolbar does not hide destinations. `HomeTab` also
- * lives in `:core:model`, where the widget and the "default tab" preference
+ * In a class it is a section reached from the settings root, not a fourth tab:
+ * the tabs are the class timetable, which every install has the moment it joins
+ * a class, and a tab for a second account in a foreign service would put a
+ * sign-in wall in the bottom bar of everybody who does not have one. `HomeTab`
+ * also lives in `:core:model`, where the widget and the "default tab" preference
  * read it, so a fourth entry there would appear in two more places that have
- * nothing to do with a diary. A section reached from the settings root costs
- * one row on a page people already visit, and it comes with the shell's title,
- * its back gesture and its slide for free.
+ * nothing to do with a diary.
+ *
+ * On a phone whose only account is the diary ([asHome]), there is no timetable
+ * to be a tab beside, and the diary is what the app is: the shell draws this
+ * page where the tabs would be and carries the diary's own two halves in its
+ * toolbar, so the in-page picker goes; and the sign-out moves to the account
+ * page in settings, next to the rest of what the account is, because on the
+ * home it would be one tap from the first screen somebody sees.
  *
  * The page is a `LazyColumn` of the same shape as every settings section — same
  * padding, same status-bar inset, same scroll report for the top fade — rather
  * than a screen with a scaffold of its own.
+ *
+ * @param asHome drawn as the home of the diary mode rather than as a section.
  */
 @Composable
 fun DiaryScreen(
     /** Whether the server address is plain `http://`; see `DiarySignInScreen`. */
     insecureServer: Boolean = false,
     modifier: Modifier = Modifier,
+    asHome: Boolean = false,
     viewModel: DiaryViewModel = viewModel(factory = DiaryViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -100,6 +119,7 @@ fun DiaryScreen(
 
     if (confirmSignOut) {
         DiarySignOutSheet(
+            leavesTheApp = asHome,
             onDismiss = { confirmSignOut = false },
             onConfirm = {
                 confirmSignOut = false
@@ -115,6 +135,9 @@ fun DiaryScreen(
     // gave it something to say.
     DiarySignInOutcomeDialog(
         outcome = state.signInOutcome,
+        // Drawn as a section only on a phone in a class; the home is the
+        // diary of a phone in none.
+        inClass = !asHome,
         onDismiss = viewModel::consumeSignInOutcome,
     )
 
@@ -125,14 +148,25 @@ fun DiaryScreen(
             item(key = "loading") { SkeletonGroup(rows = 4) }
         }
 
+        // Choosing which diary, before a form for it: a phone whose class named
+        // none, or somebody who is not in Petersburg (r11, gap 2).
+        state.picking && state.session == null -> DiaryPickerPage(
+            onPicked = viewModel::choose,
+            onCancel = viewModel::cancelPicking,
+            modifier = modifier,
+        )
+
         state.session == null || state.reauth -> DiarySignInScreen(
             reauth = state.reauth,
-            knownLogin = state.session?.login.orEmpty(),
+            knownLogin = state.knownLogin,
             insecureServer = insecureServer,
             busy = state.signingIn,
             failed = state.signInError != null,
             onSignIn = viewModel::signIn,
             onEdited = viewModel::clearSignInError,
+            place = state.place,
+            schoolName = state.signInTarget.schoolName,
+            onChangeDiary = viewModel::startPicking,
             modifier = modifier,
         )
 
@@ -150,6 +184,20 @@ fun DiaryScreen(
                 )
             }
 
+            // The rows below are what the phone saved, not what the diary said
+            // just now — said once, above them, with when they were saved, in
+            // the diary's zone rather than the phone's.
+            state.savedAt?.let { savedAt ->
+                item(key = "saved-at") {
+                    DiarySavedAtNote(
+                        text = correctedString(
+                            R.string.diary_offline_saved_at,
+                            syncedAtLabel(savedAt.toEpochMilli(), state.zone),
+                        ),
+                    )
+                }
+            }
+
             if (state.showStudentPicker) {
                 item(key = "students") {
                     DiaryStudentPicker(
@@ -160,7 +208,9 @@ fun DiaryScreen(
                 }
             }
 
-            item(key = "tabs") {
+            // On the home the toolbar carries the two halves; a second switch
+            // for the same thing under the header would be one too many.
+            if (!asHome) item(key = "tabs") {
                 SegmentedPicker(
                     items = DiaryTab.entries,
                     selectedItem = state.tab,
@@ -191,7 +241,7 @@ fun DiaryScreen(
                 else -> diaryGrades(state, viewModel)
             }
 
-            item(key = "sign-out") {
+            if (!asHome) item(key = "sign-out") {
                 RoundedCardContainer {
                     GroupItem(
                         title = correctedString(R.string.diary_sign_out),
@@ -215,7 +265,7 @@ fun DiaryScreen(
  * which is where a retry button belongs.
  */
 @Composable
-private fun DiaryPage(
+internal fun DiaryPage(
     modifier: Modifier = Modifier,
     content: LazyListScope.() -> Unit,
 ) {
@@ -247,7 +297,7 @@ private fun DiaryPage(
  * with one option is a control that can only ever be pressed to no effect.
  */
 @Composable
-private fun DiaryStudentPicker(
+internal fun DiaryStudentPicker(
     students: List<DiaryStudent>,
     selectedId: Long?,
     onSelect: (Long) -> Unit,
@@ -281,49 +331,53 @@ internal fun DiaryFailureCard(
     modifier: Modifier = Modifier,
 ) {
     if (failure == null) return
+    // Only the answers worth pressing a button about get one — the data layer's
+    // own verdict (`DiarySignInProblem.action`). A diary switched off on the
+    // server, or a request this app got wrong, answers the same way twice.
+    val retry = failure.asProblem()?.offersRetry == true
     EmptyState(
         title = correctedString(R.string.diary_failure_title),
         description = failure.asText(),
         modifier = modifier,
-        // Only the answers worth pressing a button about get one. A 502 means
-        // the server has to be fixed and a 422 means this app asked wrongly;
-        // pressing "повторить" would produce the same answer, twice.
-        actionLabel = correctedString(R.string.diary_retry).takeIf { failure.isRetryable },
-        onActionClick = onRetry.takeIf { failure.isRetryable },
+        actionLabel = correctedString(R.string.diary_retry).takeIf { retry },
+        onActionClick = onRetry.takeIf { retry },
     )
 }
 
-/** Whether pressing a button again could plausibly give a different answer. */
-private val DiaryFailure.isRetryable: Boolean
-    get() = this is DiaryFailure.Unavailable ||
-        this is DiaryFailure.Offline ||
-        this is DiaryFailure.Unexpected
-
 /**
- * Every failure this section can show, as one sentence each.
+ * Every failure a diary read can end in, as one sentence each.
  *
- * [DiaryFailure.SignInRequired] reads as "sign in again" here; on the sign-in
- * form itself the same failure means the credentials were refused, which is
- * why that screen overrides this one case and no other.
+ * Three are about what this app asked — a pupil the account does not have, a
+ * range the server refuses, a correction it will not file — and keep their own
+ * sentences. Everything else is a way of not getting into the diary, and is
+ * said by `DiaryProblemText`, the one mapping there is: a 429 as too many
+ * attempts, a diary switched off on the server as switched off, a refused
+ * server address as the diary refusing our server (#153).
  */
 @Composable
 internal fun DiaryFailure.asText(): String = when (this) {
-    DiaryFailure.SignInRequired -> correctedString(R.string.diary_error_signed_out)
-    // Shown only if it ever leaks into a card: the state holder turns it into
-    // the password prompt long before a screen could render it.
-    DiaryFailure.ReauthRequired -> correctedString(R.string.diary_reauth_title)
     DiaryFailure.UnknownStudent -> correctedString(R.string.diary_error_student)
     DiaryFailure.BadRange -> correctedString(R.string.diary_error_range)
-    DiaryFailure.Unreadable -> correctedString(R.string.diary_error_unreadable)
-    DiaryFailure.Unavailable -> correctedString(R.string.diary_error_unavailable)
     // The server refusing a correction it could never apply. Its own message,
     // because "не получилось: 422" is not something to put in front of anybody.
     DiaryFailure.Rejected -> correctedString(R.string.diary_error_rejected)
-    is DiaryFailure.Offline -> correctedString(R.string.diary_error_offline)
-    is DiaryFailure.Unexpected -> correctedString(
-        R.string.diary_error_unknown,
-        reason.message?.takeIf { it.isNotBlank() } ?: message.orEmpty(),
-    )
+    else -> DiarySignInProblem.of(this).asText()
+}
+
+/** The line above the rows when they are what the phone saved. */
+@Composable
+private fun DiarySavedAtNote(text: String) {
+    RoundedCardContainer {
+        GroupRow {
+            AccentIconTile(icon = Icons.Rounded.CloudOff, tone = accentTone(3))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
 }
 
 /**
@@ -341,6 +395,7 @@ internal fun DiaryFailure.asText(): String = when (this) {
 @Composable
 private fun DiarySignInOutcomeDialog(
     outcome: DiarySignInOutcome?,
+    inClass: Boolean,
     onDismiss: () -> Unit,
 ) {
     when (outcome) {
@@ -357,31 +412,39 @@ private fun DiarySignInOutcomeDialog(
 
         is DiarySignInOutcome.Failed -> LessonsDialog(
             title = correctedString(R.string.diary_sign_in_failed_title),
-            // `asSignInText`, not `asText`: on this one call a 401 means "the
-            // diary refused these credentials", and everywhere else it means
-            // "your session is gone". Saying the second here would send
-            // somebody to sign in again on the screen they are already on.
-            message = outcome.failure.asSignInText(),
+            // The one mapping, which knows a refused password from a diary
+            // that is down, a throttle and a server that is switched off.
+            message = outcome.problem.asText(inClass = inClass),
             confirmLabel = correctedString(R.string.diary_dialog_dismiss),
             onDismiss = onDismiss,
         )
     }
 }
 
-/** The label of a tab in the segmented picker. */
-private fun DiaryTab.labelRes(): Int = when (this) {
+/** The label of a tab — in the segmented picker, and in the toolbar on the home. */
+internal fun DiaryTab.labelRes(): Int = when (this) {
     DiaryTab.SCHEDULE -> R.string.diary_tab_schedule
     DiaryTab.GRADES -> R.string.diary_tab_grades
 }
 
+/** The glyph of a tab in the toolbar, on the diary home. */
+internal val DiaryTab.icon: ImageVector
+    get() = when (this) {
+        DiaryTab.SCHEDULE -> Icons.Rounded.CalendarViewWeek
+        DiaryTab.GRADES -> Icons.Rounded.Grade
+    }
+
 /**
- * The confirmation, which exists to say what signing out does *not* do.
+ * The confirmation, which exists to say what signing out does *not* do — and,
+ * when the diary is the phone's only account ([leavesTheApp]), what it does:
+ * the phone goes back to the start, and what was saved on it goes.
  *
- * The two accounts are separate and nothing on screen says so until the moment
- * somebody is about to leave one of them.
+ * In a class the two accounts are separate and nothing on screen says so until
+ * the moment somebody is about to leave one of them.
  */
 @Composable
-private fun DiarySignOutSheet(
+internal fun DiarySignOutSheet(
+    leavesTheApp: Boolean,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
@@ -389,8 +452,19 @@ private fun DiarySignOutSheet(
         onDismissRequest = onDismiss,
         title = correctedString(R.string.diary_sign_out_title),
     ) {
+        // On the home the sheet says what the server does, and so has to say
+        // what it does when the phone cannot tell it: the sign-out is local
+        // first (`DiaryRepository.signOut`), and a goodbye that never arrives
+        // leaves the session to the idle purge — with a «Сетевой город» one
+        // kept open until then. The privacy policy says the same; a sheet that
+        // promised the forgetting outright was false in airplane mode.
+        val days = DiarySessionIdleDays.toInt()
         Text(
-            text = correctedString(R.string.diary_sign_out_message),
+            text = if (leavesTheApp) {
+                pluralStringResource(R.plurals.diary_sign_out_home, days, days)
+            } else {
+                correctedString(R.string.diary_sign_out_message)
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = ScreenPadding),

@@ -55,7 +55,8 @@ CI is exactly: ruff, pytest `-n auto`, `./gradlew test`, both assembles. `./grad
 2. **Telegram refuses a message over 4096 characters whole**, rather than clipping it, and
    everything from outside must be HTML-escaped before it goes in.
 3. **A model change needs an Alembic revision**, and the direction matters: additive goes on
-   before the merge, a `UNIQUE` or `NOT NULL` after. Head is `0013`.
+   before the merge, a `UNIQUE` or `NOT NULL` after, a rewrite of a key after where there are
+   rows to rewrite. Head is `0017`.
 4. **`LocalDateTime.now()` and `ZoneId.systemDefault()` on the Android side are almost always
    a bug** — time is naive local wall time in the *class's* zone.
 5. **Secrets never enter the repository.** Redact as `<redacted>` in issues, logs and
@@ -67,9 +68,10 @@ CI is exactly: ruff, pytest `-n auto`, `./gradlew test`, both assembles. `./grad
   survive review.
 - Commit messages are English sentences saying what the change makes the project do. No
   Conventional Commits prefix — none of this history has one.
-- Every pull request carries a milestone, set when it is opened — there are no issues here,
-  so they are the only grouping the history has. No session can create one: when none fits,
-  ask the owner, with the title and description written out. See `.claude/skills/github-pr/`.
+- Every pull request carries a milestone, set when it is opened, and so does every issue. A
+  defect gets an issue before it gets a fix, and the pull request says `Closes #NN`. No
+  session can create a milestone: when none fits, ask the owner, with the title and
+  description written out. See `.claude/skills/github-pr/`.
 - Versions are copied from a project that builds, never guessed.
 - **Say what is not covered.** "Written, never run" is a legitimate status; a claim
   that something was verified when it was not is not.

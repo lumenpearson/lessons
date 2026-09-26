@@ -1,0 +1,1342 @@
+# What the survey of every region's diary does not say, and the region catalog needs.
+#
+# `scripts/region_catalog.py` reads this beside `docs/diaries/regions.md` and writes
+# `app/catalog/data/regions.json`. Everything the survey *does* say — which systems a
+# region runs, in what role, on which hosts, how sure the survey is — comes from the
+# survey and is never repeated here. Everything the allow-list says — which «Сетевой
+# город» origins exist, whether a password gets in, whether an origin has been seen
+# to answer — comes from `app/providers/netschool/regions.py` and is never repeated
+# here either. This file is only what nothing in the repository derives.
+#
+# After an edit, from `server/`:
+#
+#     python -m scripts.region_catalog          # rewrites the JSON
+#     python -m scripts.region_catalog --check  # what the test runs
+#
+# Rules the generator enforces, so that this file cannot drift quietly:
+#
+# - `name_ru` of every [[region]] is a `## ` heading of regions.md, character for
+#   character, and every heading has exactly one [[region]]. The order of the catalog
+#   is the survey's (Constitution Art. 65), not this file's.
+# - `key` is what the database stores (`classes.diary_region`, `diary_sessions.region`,
+#   the sealed credential). The nineteen «Сетевой город» regions MUST keep the
+#   allow-list's key byte for byte — renaming one here orphans every class bound to it.
+#   The other seventy are slugs in the same style. Never rename a key once shipped.
+# - `code` is the two-digit subject code (КЛАДР/ФНС numbering, the one DaData's
+#   `region_kladr_id` starts with). 91 Крым and 92 Севастополь are the long-standing
+#   ones. The four subjects admitted in 2022 are NOT VERIFIED: Запорожская 90,
+#   ДНР 93, ЛНР 94 and Херсонская 95 are what the survey's author believed the ФНС
+#   assigned, and nothing here has checked it against a live DaData answer or a
+#   primary source. `by_code` then misses, and the name fallback (`dadata_names`) is
+#   what places a school there.
+# - `iso` is ISO 3166-2:RU, which has no code for the six subjects above; it is left
+#   out for them rather than invented.
+# - `zone` is the IANA zone of the region's administrative centre. For a «Сетевой
+#   город» region it must equal the allow-list's zone. The four 2022 subjects keep
+#   Europe/Moscow: tzdata's own names for Запорожье and Херсон are links to Kyiv time.
+# - `dadata_names` are the spellings DaData's `region_with_type` and `region` use for
+#   the region — «Респ Татарстан», «г Москва», «Ленинградская обл». They are compared
+#   after `app.catalog.normalise_name` (case, ё, punctuation, spaces) and must place
+#   exactly one region each. None of them has been checked against a live answer.
+# - `aliases` are what people type instead of the name: official long forms and the
+#   informal ones, and an English spelling where it is neither a word of `name_en`
+#   nor something `translit` can spell back («Zabaikalye»). `cities` are a few large towns, so that «Тольятти» finds Самарская.
+#   Both are search hints for the phone, never shown as a region's name.
+#
+# Nothing in this file may describe signing in on a diary's own page inside the app:
+# there is no such surface (the decision record, §1), and
+# `test_only_petersburg_and_password_netschool_are_signable` reads this file too.
+
+[survey]
+# The month the survey describes; `docs/diaries.md`'s regions table says it in its
+# header («In use now (September 2026)») and the generator holds the two equal.
+month = "2026-09"
+
+# ---------------------------------------------------------------------------------
+# The lexicon the phone's region search is built from.
+#
+# It is data rather than Kotlin because every entry is Cyrillic, and `:app` keeps
+# Russian out of its source (the `grep` check in CLAUDE.md). The phone lower-cases,
+# applies `fold`, turns any other punctuation into a space, drops `stop_words`, and
+# also tries the query through the keyboard-layout swap and, for a Latin query,
+# through `translit`. `school_words` are what make a query look like a school's name
+# rather than a region's — and «школа 5», with nothing distinctive left once they are
+# gone, is too common to look up at all.
+# ---------------------------------------------------------------------------------
+[search]
+stop_words = [
+    "республика", "респ", "область", "обл", "край", "автономный", "автономная",
+    "автономной", "округ", "ао", "аобл", "город", "г", "федерального", "значения",
+]
+# The same keys in the same places: a query typed with the wrong layout is
+# «cfvfhf» for «самара». Position n of one string is position n of the other.
+latin_layout = "`qwertyuiop[]asdfghjkl;'zxcvbnm,."
+cyrillic_layout = "ёйцукенгшщзхъфывапролджэячсмитьбю"
+# Longest first: the phone takes the first pair that matches at each position.
+# Best effort, not a standard — «moskva», «kazan», «samara» and «tatarstan» come
+# out whole, and a prefix is enough for the search to land. The endings are how
+# English writes the Russian ones — «Chuvashia», «Bashkiriya», «Khanty-Mansiysk»,
+# «Yakutsk» — and without them a single letter at a time gives «чувашиа»,
+# «мансиыск» and «якуцк», which match nothing.
+translit = [
+    ["shch", "щ"], ["sch", "щ"], ["iya", "ия"], ["tsk", "тск"],
+    ["zh", "ж"], ["kh", "х"], ["ts", "ц"], ["ch", "ч"],
+    ["sh", "ш"], ["yo", "ё"], ["yu", "ю"], ["ya", "я"], ["ye", "е"],
+    ["ia", "ия"], ["iy", "ий"], ["yy", "ый"],
+    ["a", "а"], ["b", "б"], ["c", "к"], ["d", "д"], ["e", "е"], ["f", "ф"], ["g", "г"],
+    ["h", "х"], ["i", "и"], ["j", "й"], ["k", "к"], ["l", "л"], ["m", "м"], ["n", "н"],
+    ["o", "о"], ["p", "п"], ["q", "к"], ["r", "р"], ["s", "с"], ["t", "т"], ["u", "у"],
+    ["v", "в"], ["w", "в"], ["x", "кс"], ["y", "ы"], ["z", "з"],
+]
+# The words a school's name is made of rather than distinguished by. The server's
+# directory answers «too common to place» for a query that is nothing else plus a
+# number of one or two digits, and the phone asks the same question before it spends
+# a search; this is the one list both read.
+school_words = [
+    "школа", "сош", "оош", "нош", "гимназия", "лицей", "центр", "образования", "мбоу",
+    "маоу", "моу", "мкоу", "гбоу", "гоу", "чоу", "средняя", "основная",
+    "общеобразовательная", "№", "n", "no", "номер",
+]
+
+# What an English word typed may stand for among the words of an English name.
+# «St» is how «Saint» is abbreviated, and «region» is what English calls an oblast
+# or a krai. The word typed is still tried as itself. «oblast» is deliberately not a
+# stop word the way «область» is: «moscow» would then tie Moscow Oblast with Moscow,
+# and a tie goes to the list's order rather than to the city somebody meant.
+[search.synonyms]
+st = ["saint"]
+region = ["oblast", "krai"]
+
+[search.fold]
+"ё" = "е"
+"‐" = " "
+"‑" = " "
+"‒" = " "
+"–" = " "
+"—" = " "
+"−" = " "
+"-" = " "
+
+# ---------------------------------------------------------------------------------
+# Platforms: one per page under docs/diaries/, except myschool-federal.md, which
+# describes two different things under three labels — ТОР «Моя школа», the diary
+# reached through Госуслуги, and ФГИС «Моя школа», the federal portal that is not a
+# diary at all. A system linking that page is told apart by `host`, never by label.
+#
+# `kind`:   diary | portal | admissions | none (Севастополь's paper registers).
+# `signin`: how the platform's own users get in, for reading only — password, mixed
+#           (it depends on the region), esia_only, oauth, retired, unknown, none.
+#           It never decides anything; `action` in the output does, and it comes
+#           from the provider registry and the allow-list, not from this word.
+# `provider` is not written here: a platform is backed by a provider exactly when its
+# key is one of `app.providers.diary.registry.KEYS`.
+# Names carry no guillemets: the phone's sentences put their own around them.
+# ---------------------------------------------------------------------------------
+
+[[platform]]
+key = "petersburg"
+page = "petersburg"
+name_ru = "Петербургское образование"
+name_en = "Petersburg Education"
+kind = "diary"
+signin = "password"
+# The one provider-backed platform whose `verified` has no allow-list to live in.
+# Nothing under providers/petersburg/ has been opened with a real account (#121).
+verified = false
+
+[[platform]]
+key = "netschool"
+page = "netschool"
+name_ru = "Сетевой город. Образование"
+name_en = "Setevoy Gorod (NetSchool)"
+kind = "diary"
+signin = "mixed"
+
+[[platform]]
+key = "tor-myschool"
+page = "myschool-federal"
+host = "gosuslugi.ru/school"
+name_ru = "Госуслуги Моя школа"
+name_en = "Gosuslugi My School"
+kind = "diary"
+signin = "esia_only"
+
+[[platform]]
+key = "fgis-myschool"
+page = "myschool-federal"
+host = "myschool.edu.ru"
+name_ru = "ФГИС «Моя школа»"
+name_en = "My School federal portal"
+kind = "portal"
+signin = "none"
+
+[[platform]]
+key = "mesh-moscow"
+page = "mesh-moscow"
+name_ru = "МЭШ"
+name_en = "Moscow Electronic School"
+kind = "diary"
+signin = "oauth"
+
+[[platform]]
+key = "mesh-myschool"
+page = "mesh-myschool"
+name_ru = "Моя школа (МЭШ)"
+name_en = "My School (MESH)"
+kind = "diary"
+signin = "esia_only"
+
+[[platform]]
+key = "dnevnik-ru"
+page = "dnevnik-ru"
+name_ru = "Дневник.ру"
+name_en = "Dnevnik.ru"
+kind = "diary"
+signin = "mixed"
+
+[[platform]]
+key = "eljur"
+page = "eljur"
+name_ru = "ЭлЖур"
+name_en = "ElJur"
+kind = "diary"
+signin = "mixed"
+
+[[platform]]
+key = "bars"
+page = "bars"
+name_ru = "БАРС"
+name_en = "BARS"
+kind = "diary"
+signin = "mixed"
+
+[[platform]]
+key = "one-x1"
+page = "one-x1"
+name_ru = "one."
+name_en = "one."
+kind = "diary"
+signin = "mixed"
+
+[[platform]]
+key = "kiasuo"
+page = "kiasuo"
+name_ru = "КИАСУО"
+name_en = "KIASUO"
+kind = "diary"
+signin = "esia_only"
+
+[[platform]]
+key = "epos"
+page = "epos"
+name_ru = "ЭПОС.Школа"
+name_en = "EPOS.School"
+kind = "diary"
+signin = "esia_only"
+
+[[platform]]
+key = "ruobr"
+page = "ruobr"
+name_ru = "Электронная школа 2.0"
+name_en = "Electronic School 2.0"
+kind = "diary"
+signin = "mixed"
+
+[[platform]]
+key = "virtual-school"
+page = "virtual-school"
+name_ru = "Виртуальная школа"
+name_en = "Virtual School"
+kind = "diary"
+signin = "oauth"
+
+[[platform]]
+key = "elschool"
+page = "elschool"
+name_ru = "ELSCHOOL"
+name_en = "ELSCHOOL"
+kind = "diary"
+signin = "mixed"
+
+[[platform]]
+key = "eschool-center"
+page = "eschool-center"
+name_ru = "eSchool"
+name_en = "eSchool"
+kind = "diary"
+signin = "password"
+
+[[platform]]
+key = "egov66"
+page = "egov66"
+name_ru = "ГИС СО «ЕЦП»"
+name_en = "Sverdlovsk Oblast Unified Digital Platform"
+kind = "diary"
+signin = "retired"
+
+[[platform]]
+key = "edu-tatar"
+page = "edu-tatar"
+name_ru = "edu.tatar.ru"
+name_en = "edu.tatar.ru"
+kind = "diary"
+signin = "retired"
+
+[[platform]]
+key = "dnevnik76"
+page = "dnevnik76"
+name_ru = "Дневник76"
+name_en = "Dnevnik76"
+kind = "diary"
+signin = "retired"
+
+# Systems the survey names without a page of their own. Each is reached through the
+# exact label in [unlinked] below, never by guessing from the words.
+
+[[platform]]
+key = "e-uslugi"
+name_ru = "Е-услуги. Образование"
+name_en = "E-uslugi. Education"
+kind = "admissions"
+signin = "none"
+
+[[platform]]
+key = "web2edu"
+name_ru = "Web2edu"
+name_en = "Web2edu"
+kind = "diary"
+signin = "unknown"
+
+[[platform]]
+key = "avers"
+name_ru = "Аверс"
+name_en = "Avers"
+kind = "diary"
+signin = "unknown"
+
+[[platform]]
+key = "mrko"
+name_ru = "МРКО"
+name_en = "MRKO (Moscow)"
+kind = "diary"
+signin = "retired"
+
+[[platform]]
+key = "it-school-penza"
+name_ru = "АйТи Школа"
+name_en = "IT School (Penza)"
+kind = "diary"
+signin = "mixed"
+
+[[platform]]
+key = "paper"
+name_ru = "Бумажные журналы и дневники"
+name_en = "Paper registers and diaries"
+kind = "none"
+signin = "none"
+
+# The survey's own words for a system with no page, as they stand in the bullet's bold
+# label — truncations and all, because a label that changes should stop the build
+# rather than fall through to a platform nobody chose.
+[unlinked]
+"Е-услуги. Образование" = "e-uslugi"
+"Web2edu" = "web2edu"
+"«Аверс»" = "avers"
+"МРКО — «Электронный дневник школьника» (Московский регистр качества об…" = "mrko"
+"«АйТи Школа» («АйТи Софт - Цифровая школа») — образовательный сервис Г…" = "it-school-penza"
+"paper journals and diaries; no electronic diary" = "paper"
+
+# ---------------------------------------------------------------------------------
+# The eighty-nine regions, in the survey's order for the reader's sake only.
+# ---------------------------------------------------------------------------------
+
+[[region]]
+name_ru = "Республика Адыгея"
+key = "adygea"
+code = "01"
+iso = "RU-AD"
+name_en = "Republic of Adygea"
+zone = "Europe/Moscow"
+aliases = ["Адыгея", "Республика Адыгея (Адыгея)"]
+cities = ["Майкоп"]
+dadata_names = ["Респ Адыгея", "Адыгея"]
+
+[[region]]
+name_ru = "Республика Алтай"
+key = "altai-republic"
+code = "04"
+iso = "RU-AL"
+name_en = "Altai Republic"
+zone = "Asia/Barnaul"
+aliases = ["Горный Алтай", "Алтай"]
+cities = ["Горно-Алтайск"]
+dadata_names = ["Респ Алтай", "Алтай"]
+
+[[region]]
+name_ru = "Республика Башкортостан"
+key = "bashkortostan"
+code = "02"
+iso = "RU-BA"
+name_en = "Republic of Bashkortostan"
+zone = "Asia/Yekaterinburg"
+aliases = ["Башкирия", "Башкортостан"]
+cities = ["Уфа", "Стерлитамак", "Салават", "Нефтекамск"]
+dadata_names = ["Респ Башкортостан", "Башкортостан"]
+
+[[region]]
+name_ru = "Республика Бурятия"
+key = "buryatia"
+code = "03"
+iso = "RU-BU"
+name_en = "Republic of Buryatia"
+zone = "Asia/Irkutsk"
+aliases = ["Бурятия"]
+cities = ["Улан-Удэ"]
+dadata_names = ["Респ Бурятия", "Бурятия"]
+
+[[region]]
+name_ru = "Республика Дагестан"
+key = "dagestan"
+code = "05"
+iso = "RU-DA"
+name_en = "Republic of Dagestan"
+zone = "Europe/Moscow"
+aliases = ["Дагестан"]
+cities = ["Махачкала", "Дербент", "Хасавюрт", "Каспийск"]
+dadata_names = ["Респ Дагестан", "Дагестан"]
+
+[[region]]
+name_ru = "Донецкая Народная Республика"
+key = "dnr"
+code = "93"  # not verified: see the header
+name_en = "Donetsk People's Republic"
+zone = "Europe/Moscow"
+aliases = ["ДНР", "Донецкая республика", "Донбасс"]
+cities = ["Донецк", "Макеевка", "Горловка", "Мариуполь"]
+dadata_names = ["Донецкая Народная Респ", "Донецкая Народная"]
+
+[[region]]
+name_ru = "Республика Ингушетия"
+key = "ingushetia"
+code = "06"
+iso = "RU-IN"
+name_en = "Republic of Ingushetia"
+zone = "Europe/Moscow"
+aliases = ["Ингушетия"]
+cities = ["Магас", "Назрань"]
+dadata_names = ["Респ Ингушетия", "Ингушетия"]
+
+[[region]]
+name_ru = "Кабардино-Балкарская Республика"
+key = "kbr"
+code = "07"
+iso = "RU-KB"
+name_en = "Kabardino-Balkarian Republic"
+zone = "Europe/Moscow"
+aliases = ["КБР", "Кабардино-Балкария", "Кабарда"]
+cities = ["Нальчик"]
+dadata_names = ["Кабардино-Балкарская Респ", "Кабардино-Балкарская"]
+
+[[region]]
+name_ru = "Республика Калмыкия"
+key = "kalmykia"
+code = "08"
+iso = "RU-KL"
+name_en = "Republic of Kalmykia"
+zone = "Europe/Moscow"
+aliases = ["Калмыкия"]
+cities = ["Элиста"]
+dadata_names = ["Респ Калмыкия", "Калмыкия"]
+
+[[region]]
+name_ru = "Карачаево-Черкесская Республика"
+key = "kchr"
+code = "09"
+iso = "RU-KC"
+name_en = "Karachay-Cherkess Republic"
+zone = "Europe/Moscow"
+aliases = ["КЧР", "Карачаево-Черкесия"]
+cities = ["Черкесск"]
+dadata_names = ["Карачаево-Черкесская Респ", "Карачаево-Черкесская"]
+
+[[region]]
+name_ru = "Республика Карелия"
+key = "karelia"
+code = "10"
+iso = "RU-KR"
+name_en = "Republic of Karelia"
+zone = "Europe/Moscow"
+aliases = ["Карелия"]
+cities = ["Петрозаводск"]
+dadata_names = ["Респ Карелия", "Карелия"]
+
+[[region]]
+name_ru = "Республика Коми"
+key = "komi"
+code = "11"
+iso = "RU-KO"
+name_en = "Komi Republic"
+zone = "Europe/Moscow"
+aliases = ["Коми"]
+cities = ["Сыктывкар", "Ухта", "Воркута"]
+dadata_names = ["Респ Коми", "Коми"]
+
+[[region]]
+name_ru = "Республика Крым"
+key = "crimea"
+code = "91"
+name_en = "Republic of Crimea"
+zone = "Europe/Simferopol"
+aliases = ["Крым"]
+cities = ["Симферополь", "Керчь", "Евпатория", "Ялта"]
+dadata_names = ["Респ Крым", "Крым"]
+
+[[region]]
+name_ru = "Луганская Народная Республика"
+key = "lnr"
+code = "94"  # not verified: see the header
+name_en = "Luhansk People's Republic"
+zone = "Europe/Moscow"
+aliases = ["ЛНР", "Луганская республика", "Донбасс"]
+cities = ["Луганск", "Алчевск"]
+dadata_names = ["Луганская Народная Респ", "Луганская Народная"]
+
+[[region]]
+name_ru = "Республика Марий Эл"
+key = "mari-el"
+code = "12"
+iso = "RU-ME"
+name_en = "Mari El Republic"
+zone = "Europe/Moscow"
+aliases = ["Марий Эл"]
+cities = ["Йошкар-Ола"]
+dadata_names = ["Респ Марий Эл", "Марий Эл"]
+
+[[region]]
+name_ru = "Республика Мордовия"
+key = "mordovia"
+code = "13"
+iso = "RU-MO"
+name_en = "Republic of Mordovia"
+zone = "Europe/Moscow"
+aliases = ["Мордовия"]
+cities = ["Саранск"]
+dadata_names = ["Респ Мордовия", "Мордовия"]
+
+[[region]]
+name_ru = "Республика Саха (Якутия)"
+key = "yakutia"
+code = "14"
+iso = "RU-SA"
+name_en = "Sakha (Yakutia) Republic"
+zone = "Asia/Yakutsk"
+aliases = ["Якутия", "Саха"]
+cities = ["Якутск", "Нерюнгри"]
+dadata_names = ["Респ Саха /Якутия/", "Саха /Якутия/"]
+
+[[region]]
+name_ru = "Республика Северная Осетия — Алания"
+key = "north-ossetia"
+code = "15"
+iso = "RU-SE"
+name_en = "Republic of North Ossetia–Alania"
+zone = "Europe/Moscow"
+aliases = ["РСО", "РСО-Алания", "Северная Осетия", "Осетия", "Алания"]
+cities = ["Владикавказ"]
+dadata_names = ["Респ Северная Осетия - Алания", "Северная Осетия - Алания"]
+
+[[region]]
+name_ru = "Республика Татарстан"
+key = "tatarstan"
+code = "16"
+iso = "RU-TA"
+name_en = "Republic of Tatarstan"
+zone = "Europe/Moscow"
+aliases = ["Татарстан", "Татария", "Республика Татарстан (Татарстан)"]
+cities = ["Казань", "Набережные Челны", "Нижнекамск", "Альметьевск"]
+dadata_names = ["Респ Татарстан", "Татарстан"]
+
+[[region]]
+name_ru = "Республика Тыва"
+key = "tuva"
+code = "17"
+iso = "RU-TY"
+name_en = "Tuva Republic"
+zone = "Asia/Krasnoyarsk"
+aliases = ["Тыва", "Тува"]
+cities = ["Кызыл"]
+dadata_names = ["Респ Тыва", "Тыва"]
+
+[[region]]
+name_ru = "Удмуртская Республика"
+key = "udmurtia"
+code = "18"
+iso = "RU-UD"
+name_en = "Udmurt Republic"
+zone = "Europe/Samara"
+aliases = ["Удмуртия"]
+cities = ["Ижевск", "Сарапул", "Глазов", "Воткинск"]
+dadata_names = ["Удмуртская Респ", "Удмуртская"]
+
+[[region]]
+name_ru = "Республика Хакасия"
+key = "khakassia"
+code = "19"
+iso = "RU-KK"
+name_en = "Republic of Khakassia"
+zone = "Asia/Krasnoyarsk"
+aliases = ["Хакасия"]
+cities = ["Абакан", "Черногорск"]
+dadata_names = ["Респ Хакасия", "Хакасия"]
+
+[[region]]
+name_ru = "Чеченская Республика"
+key = "chechnya"
+code = "20"
+iso = "RU-CE"
+name_en = "Chechen Republic"
+zone = "Europe/Moscow"
+aliases = ["Чечня"]
+cities = ["Грозный", "Гудермес"]
+dadata_names = ["Чеченская Респ", "Чеченская"]
+
+[[region]]
+name_ru = "Чувашская Республика"
+key = "chuvashia"
+code = "21"
+iso = "RU-CU"
+name_en = "Chuvash Republic"
+zone = "Europe/Moscow"
+aliases = ["Чувашия", "Чувашская Республика — Чувашия"]
+cities = ["Чебоксары", "Новочебоксарск"]
+# The register's own spelling carries the second name after a hyphen.
+dadata_names = ["Чувашская Республика - Чувашия", "Чувашская Респ", "Чувашская Республика"]
+
+[[region]]
+name_ru = "Алтайский край"
+key = "altai-krai"
+code = "22"
+iso = "RU-ALT"
+name_en = "Altai Krai"
+zone = "Asia/Barnaul"
+aliases = []
+cities = ["Барнаул", "Бийск", "Рубцовск"]
+dadata_names = ["Алтайский край", "Алтайский"]
+
+[[region]]
+name_ru = "Забайкальский край"
+key = "zabaikalsky"
+code = "75"
+iso = "RU-ZAB"
+name_en = "Zabaykalsky Krai"
+zone = "Asia/Chita"
+# «Zabaikalye» is how English writes «Забайкалье»; no transliteration table
+# turns it back, because the soft sign is not written at all.
+aliases = ["Забайкалье", "Читинская область", "Zabaikalye", "Zabaykalye"]
+cities = ["Чита", "Краснокаменск"]
+dadata_names = ["Забайкальский край", "Забайкальский"]
+
+[[region]]
+name_ru = "Камчатский край"
+key = "kamchatka"
+code = "41"
+iso = "RU-KAM"
+name_en = "Kamchatka Krai"
+zone = "Asia/Kamchatka"
+aliases = ["Камчатка"]
+cities = ["Петропавловск-Камчатский", "Елизово"]
+dadata_names = ["Камчатский край", "Камчатский"]
+
+[[region]]
+name_ru = "Краснодарский край"
+key = "krasnodar"
+code = "23"
+iso = "RU-KDA"
+name_en = "Krasnodar Krai"
+zone = "Europe/Moscow"
+aliases = ["Кубань"]
+cities = ["Краснодар", "Сочи", "Новороссийск", "Армавир"]
+dadata_names = ["Краснодарский край", "Краснодарский"]
+
+[[region]]
+name_ru = "Красноярский край"
+key = "krasnoyarsk"
+code = "24"
+iso = "RU-KYA"
+name_en = "Krasnoyarsk Krai"
+zone = "Asia/Krasnoyarsk"
+aliases = ["Красноярье"]
+cities = ["Красноярск", "Норильск", "Ачинск"]
+dadata_names = ["Красноярский край", "Красноярский"]
+
+[[region]]
+name_ru = "Пермский край"
+key = "perm"
+code = "59"
+iso = "RU-PER"
+name_en = "Perm Krai"
+zone = "Asia/Yekaterinburg"
+aliases = ["Прикамье", "Пермская область"]
+cities = ["Пермь", "Березники", "Соликамск"]
+dadata_names = ["Пермский край", "Пермский"]
+
+[[region]]
+name_ru = "Приморский край"
+key = "primorye"
+code = "25"
+iso = "RU-PRI"
+name_en = "Primorsky Krai"
+zone = "Asia/Vladivostok"
+aliases = ["Приморье", "Primorye"]
+cities = ["Владивосток", "Уссурийск", "Находка"]
+dadata_names = ["Приморский край", "Приморский"]
+
+[[region]]
+name_ru = "Ставропольский край"
+key = "stavropol"
+code = "26"
+iso = "RU-STA"
+name_en = "Stavropol Krai"
+zone = "Europe/Moscow"
+aliases = ["Ставрополье"]
+cities = ["Ставрополь", "Пятигорск", "Кисловодск", "Невинномысск"]
+dadata_names = ["Ставропольский край", "Ставропольский"]
+
+[[region]]
+name_ru = "Хабаровский край"
+key = "khabarovsk"
+code = "27"
+iso = "RU-KHA"
+name_en = "Khabarovsk Krai"
+zone = "Asia/Vladivostok"
+aliases = []
+cities = ["Хабаровск", "Комсомольск-на-Амуре"]
+dadata_names = ["Хабаровский край", "Хабаровский"]
+
+[[region]]
+name_ru = "Амурская область"
+key = "amur"
+code = "28"
+iso = "RU-AMU"
+name_en = "Amur Oblast"
+zone = "Asia/Yakutsk"
+aliases = ["Приамурье"]
+cities = ["Благовещенск", "Белогорск", "Свободный"]
+dadata_names = ["Амурская обл", "Амурская"]
+
+[[region]]
+name_ru = "Архангельская область"
+key = "arkhangelsk"
+code = "29"
+iso = "RU-ARK"
+name_en = "Arkhangelsk Oblast"
+zone = "Europe/Moscow"
+aliases = ["Поморье"]
+cities = ["Архангельск", "Северодвинск", "Котлас"]
+dadata_names = ["Архангельская обл", "Архангельская"]
+
+[[region]]
+name_ru = "Астраханская область"
+key = "astrakhan"
+code = "30"
+iso = "RU-AST"
+name_en = "Astrakhan Oblast"
+zone = "Europe/Astrakhan"
+aliases = []
+cities = ["Астрахань"]
+dadata_names = ["Астраханская обл", "Астраханская"]
+
+[[region]]
+name_ru = "Белгородская область"
+key = "belgorod"
+code = "31"
+iso = "RU-BEL"
+name_en = "Belgorod Oblast"
+zone = "Europe/Moscow"
+aliases = ["Белгородчина"]
+cities = ["Белгород", "Старый Оскол", "Губкин"]
+dadata_names = ["Белгородская обл", "Белгородская"]
+
+[[region]]
+name_ru = "Брянская область"
+key = "bryansk"
+code = "32"
+iso = "RU-BRY"
+name_en = "Bryansk Oblast"
+zone = "Europe/Moscow"
+aliases = ["Брянщина"]
+cities = ["Брянск"]
+dadata_names = ["Брянская обл", "Брянская"]
+
+[[region]]
+name_ru = "Владимирская область"
+key = "vladimir"
+code = "33"
+iso = "RU-VLA"
+name_en = "Vladimir Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Владимир", "Ковров", "Муром"]
+dadata_names = ["Владимирская обл", "Владимирская"]
+
+[[region]]
+name_ru = "Волгоградская область"
+key = "volgograd"
+code = "34"
+iso = "RU-VGG"
+name_en = "Volgograd Oblast"
+zone = "Europe/Volgograd"
+aliases = []
+cities = ["Волгоград", "Волжский", "Камышин"]
+dadata_names = ["Волгоградская обл", "Волгоградская"]
+# Its «Сетевой город» serves http only and refuses datacenter addresses, so the
+# allow-list leaves it out (regions.py says why). The catalog still lists it — a
+# family there should be told why the app cannot open it, not that it does not exist.
+netschool_excluded = "http-only"
+
+[[region]]
+name_ru = "Вологодская область"
+key = "vologda"
+code = "35"
+iso = "RU-VLG"
+name_en = "Vologda Oblast"
+zone = "Europe/Moscow"
+aliases = ["Вологодчина"]
+cities = ["Вологда", "Череповец"]
+dadata_names = ["Вологодская обл", "Вологодская"]
+
+[[region]]
+name_ru = "Воронежская область"
+key = "voronezh"
+code = "36"
+iso = "RU-VOR"
+name_en = "Voronezh Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Воронеж"]
+dadata_names = ["Воронежская обл", "Воронежская"]
+
+[[region]]
+name_ru = "Запорожская область"
+key = "zaporozhye"
+code = "90"  # not verified: see the header
+name_en = "Zaporozhye Oblast"
+zone = "Europe/Moscow"
+aliases = ["Запорожье"]
+cities = ["Мелитополь", "Бердянск", "Энергодар"]
+dadata_names = ["Запорожская обл", "Запорожская"]
+# docs/diaries.md: «Госуслуги Моя школа» is offered in front of every regional
+# system except here and in Херсонская.
+tor = "absent"
+
+[[region]]
+name_ru = "Ивановская область"
+key = "ivanovo"
+code = "37"
+iso = "RU-IVA"
+name_en = "Ivanovo Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Иваново", "Кинешма"]
+dadata_names = ["Ивановская обл", "Ивановская"]
+
+[[region]]
+name_ru = "Иркутская область"
+key = "irkutsk"
+code = "38"
+iso = "RU-IRK"
+name_en = "Irkutsk Oblast"
+zone = "Asia/Irkutsk"
+aliases = ["Приангарье"]
+cities = ["Иркутск", "Братск", "Ангарск"]
+dadata_names = ["Иркутская обл", "Иркутская"]
+
+[[region]]
+name_ru = "Калининградская область"
+key = "kaliningrad"
+code = "39"
+iso = "RU-KGD"
+name_en = "Kaliningrad Oblast"
+zone = "Europe/Kaliningrad"
+aliases = []
+cities = ["Калининград", "Советск"]
+dadata_names = ["Калининградская обл", "Калининградская"]
+
+[[region]]
+name_ru = "Калужская область"
+key = "kaluga"
+code = "40"
+iso = "RU-KLU"
+name_en = "Kaluga Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Калуга", "Обнинск"]
+dadata_names = ["Калужская обл", "Калужская"]
+
+[[region]]
+name_ru = "Кемеровская область — Кузбасс"
+key = "kemerovo"
+code = "42"
+iso = "RU-KEM"
+name_en = "Kemerovo Oblast — Kuzbass"
+zone = "Asia/Novokuznetsk"
+aliases = ["Кузбасс", "Кемеровская область"]
+cities = ["Кемерово", "Новокузнецк", "Прокопьевск"]
+dadata_names = [
+    "Кемеровская область - Кузбасс", "Кемеровская обл - Кузбасс", "Кемеровская обл",
+    "Кемеровская",
+]
+
+[[region]]
+name_ru = "Кировская область"
+key = "kirov"
+code = "43"
+iso = "RU-KIR"
+name_en = "Kirov Oblast"
+zone = "Europe/Kirov"
+aliases = ["Вятка"]
+cities = ["Киров"]
+dadata_names = ["Кировская обл", "Кировская"]
+
+[[region]]
+name_ru = "Костромская область"
+key = "kostroma"
+code = "44"
+iso = "RU-KOS"
+name_en = "Kostroma Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Кострома"]
+dadata_names = ["Костромская обл", "Костромская"]
+
+[[region]]
+name_ru = "Курганская область"
+key = "kurgan"
+code = "45"
+iso = "RU-KGN"
+name_en = "Kurgan Oblast"
+zone = "Asia/Yekaterinburg"
+aliases = ["Зауралье"]
+cities = ["Курган", "Шадринск"]
+dadata_names = ["Курганская обл", "Курганская"]
+
+[[region]]
+name_ru = "Курская область"
+key = "kursk"
+code = "46"
+iso = "RU-KRS"
+name_en = "Kursk Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Курск", "Железногорск"]
+dadata_names = ["Курская обл", "Курская"]
+
+[[region]]
+name_ru = "Ленинградская область"
+key = "leningrad"
+code = "47"
+iso = "RU-LEN"
+name_en = "Leningrad Oblast"
+zone = "Europe/Moscow"
+aliases = ["Ленобласть", "ЛО"]
+cities = ["Гатчина", "Всеволожск", "Выборг", "Мурино"]
+dadata_names = ["Ленинградская обл", "Ленинградская"]
+
+[[region]]
+name_ru = "Липецкая область"
+key = "lipetsk"
+code = "48"
+iso = "RU-LIP"
+name_en = "Lipetsk Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Липецк", "Елец"]
+dadata_names = ["Липецкая обл", "Липецкая"]
+
+[[region]]
+name_ru = "Магаданская область"
+key = "magadan"
+code = "49"
+iso = "RU-MAG"
+name_en = "Magadan Oblast"
+zone = "Asia/Magadan"
+aliases = ["Колыма"]
+cities = ["Магадан"]
+dadata_names = ["Магаданская обл", "Магаданская"]
+
+[[region]]
+name_ru = "Московская область"
+key = "moscow-oblast"
+code = "50"
+iso = "RU-MOS"
+name_en = "Moscow Oblast"
+zone = "Europe/Moscow"
+aliases = ["Подмосковье", "МО"]
+cities = ["Балашиха", "Подольск", "Химки", "Мытищи", "Королёв"]
+dadata_names = ["Московская обл", "Московская"]
+
+[[region]]
+name_ru = "Мурманская область"
+key = "murmansk"
+code = "51"
+iso = "RU-MUR"
+name_en = "Murmansk Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Мурманск", "Апатиты", "Североморск"]
+dadata_names = ["Мурманская обл", "Мурманская"]
+
+[[region]]
+name_ru = "Нижегородская область"
+key = "nizhny-novgorod"
+code = "52"
+iso = "RU-NIZ"
+name_en = "Nizhny Novgorod Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Нижний Новгород", "Дзержинск", "Арзамас"]
+dadata_names = ["Нижегородская обл", "Нижегородская"]
+
+[[region]]
+name_ru = "Новгородская область"
+key = "novgorod"
+code = "53"
+iso = "RU-NGR"
+name_en = "Novgorod Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Великий Новгород", "Боровичи"]
+dadata_names = ["Новгородская обл", "Новгородская"]
+
+[[region]]
+name_ru = "Новосибирская область"
+key = "novosibirsk"
+code = "54"
+iso = "RU-NVS"
+name_en = "Novosibirsk Oblast"
+zone = "Asia/Novosibirsk"
+aliases = []
+cities = ["Новосибирск", "Бердск"]
+dadata_names = ["Новосибирская обл", "Новосибирская"]
+
+[[region]]
+name_ru = "Омская область"
+key = "omsk"
+code = "55"
+iso = "RU-OMS"
+name_en = "Omsk Oblast"
+zone = "Asia/Omsk"
+aliases = []
+cities = ["Омск"]
+dadata_names = ["Омская обл", "Омская"]
+
+[[region]]
+name_ru = "Оренбургская область"
+key = "orenburg"
+code = "56"
+iso = "RU-ORE"
+name_en = "Orenburg Oblast"
+zone = "Asia/Yekaterinburg"
+aliases = ["Оренбуржье"]
+cities = ["Оренбург", "Орск", "Новотроицк"]
+dadata_names = ["Оренбургская обл", "Оренбургская"]
+
+[[region]]
+name_ru = "Орловская область"
+key = "oryol"
+code = "57"
+iso = "RU-ORL"
+name_en = "Oryol Oblast"
+zone = "Europe/Moscow"
+aliases = ["Орловщина"]
+cities = ["Орёл", "Ливны"]
+dadata_names = ["Орловская обл", "Орловская"]
+
+[[region]]
+name_ru = "Пензенская область"
+key = "penza"
+code = "58"
+iso = "RU-PNZ"
+name_en = "Penza Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Пенза", "Кузнецк"]
+dadata_names = ["Пензенская обл", "Пензенская"]
+
+[[region]]
+name_ru = "Псковская область"
+key = "pskov"
+code = "60"
+iso = "RU-PSK"
+name_en = "Pskov Oblast"
+zone = "Europe/Moscow"
+aliases = ["Псковщина"]
+cities = ["Псков", "Великие Луки"]
+dadata_names = ["Псковская обл", "Псковская"]
+
+[[region]]
+name_ru = "Ростовская область"
+key = "rostov"
+code = "61"
+iso = "RU-ROS"
+name_en = "Rostov Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Ростов-на-Дону", "Таганрог", "Шахты", "Волгодонск"]
+dadata_names = ["Ростовская обл", "Ростовская"]
+
+[[region]]
+name_ru = "Рязанская область"
+key = "ryazan"
+code = "62"
+iso = "RU-RYA"
+name_en = "Ryazan Oblast"
+zone = "Europe/Moscow"
+aliases = ["Рязанщина"]
+cities = ["Рязань"]
+dadata_names = ["Рязанская обл", "Рязанская"]
+
+[[region]]
+name_ru = "Самарская область"
+key = "samara"
+code = "63"
+iso = "RU-SAM"
+name_en = "Samara Oblast"
+zone = "Europe/Samara"
+aliases = []
+cities = ["Самара", "Тольятти", "Сызрань"]
+dadata_names = ["Самарская обл", "Самарская"]
+
+[[region]]
+name_ru = "Саратовская область"
+key = "saratov"
+code = "64"
+iso = "RU-SAR"
+name_en = "Saratov Oblast"
+zone = "Europe/Saratov"
+aliases = []
+cities = ["Саратов", "Энгельс", "Балаково"]
+dadata_names = ["Саратовская обл", "Саратовская"]
+
+[[region]]
+name_ru = "Сахалинская область"
+key = "sakhalin"
+code = "65"
+iso = "RU-SAK"
+name_en = "Sakhalin Oblast"
+zone = "Asia/Sakhalin"
+aliases = ["Сахалин"]
+cities = ["Южно-Сахалинск", "Корсаков"]
+dadata_names = ["Сахалинская обл", "Сахалинская"]
+
+[[region]]
+name_ru = "Свердловская область"
+key = "sverdlovsk"
+code = "66"
+iso = "RU-SVE"
+name_en = "Sverdlovsk Oblast"
+zone = "Asia/Yekaterinburg"
+aliases = ["Средний Урал"]
+cities = ["Екатеринбург", "Нижний Тагил", "Каменск-Уральский"]
+dadata_names = ["Свердловская обл", "Свердловская"]
+
+[[region]]
+name_ru = "Смоленская область"
+key = "smolensk"
+code = "67"
+iso = "RU-SMO"
+name_en = "Smolensk Oblast"
+zone = "Europe/Moscow"
+aliases = ["Смоленщина"]
+cities = ["Смоленск", "Вязьма"]
+dadata_names = ["Смоленская обл", "Смоленская"]
+
+[[region]]
+name_ru = "Тамбовская область"
+key = "tambov"
+code = "68"
+iso = "RU-TAM"
+name_en = "Tambov Oblast"
+zone = "Europe/Moscow"
+aliases = ["Тамбовщина"]
+cities = ["Тамбов", "Мичуринск"]
+dadata_names = ["Тамбовская обл", "Тамбовская"]
+
+[[region]]
+name_ru = "Тверская область"
+key = "tver"
+code = "69"
+iso = "RU-TVE"
+name_en = "Tver Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Тверь", "Ржев"]
+dadata_names = ["Тверская обл", "Тверская"]
+
+[[region]]
+name_ru = "Томская область"
+key = "tomsk"
+code = "70"
+iso = "RU-TOM"
+name_en = "Tomsk Oblast"
+zone = "Asia/Tomsk"
+aliases = []
+cities = ["Томск", "Северск"]
+dadata_names = ["Томская обл", "Томская"]
+
+[[region]]
+name_ru = "Тульская область"
+key = "tula"
+code = "71"
+iso = "RU-TUL"
+name_en = "Tula Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Тула", "Новомосковск"]
+dadata_names = ["Тульская обл", "Тульская"]
+
+[[region]]
+name_ru = "Тюменская область"
+key = "tyumen"
+code = "72"
+iso = "RU-TYU"
+name_en = "Tyumen Oblast"
+zone = "Asia/Yekaterinburg"
+aliases = []
+cities = ["Тюмень", "Тобольск", "Ишим"]
+dadata_names = ["Тюменская обл", "Тюменская"]
+
+[[region]]
+name_ru = "Ульяновская область"
+key = "ulyanovsk"
+code = "73"
+iso = "RU-ULY"
+name_en = "Ulyanovsk Oblast"
+zone = "Europe/Ulyanovsk"
+aliases = []
+cities = ["Ульяновск", "Димитровград"]
+dadata_names = ["Ульяновская обл", "Ульяновская"]
+
+[[region]]
+name_ru = "Херсонская область"
+key = "kherson"
+code = "95"  # not verified: see the header
+name_en = "Kherson Oblast"
+zone = "Europe/Moscow"
+aliases = ["Херсонщина"]
+cities = ["Геническ", "Новая Каховка", "Скадовск"]
+dadata_names = ["Херсонская обл", "Херсонская"]
+# docs/diaries.md: «Госуслуги Моя школа» is not offered here.
+tor = "absent"
+
+[[region]]
+name_ru = "Челябинская область"
+key = "chelyabinsk"
+code = "74"
+iso = "RU-CHE"
+name_en = "Chelyabinsk Oblast"
+zone = "Asia/Yekaterinburg"
+aliases = ["Южный Урал"]
+cities = ["Челябинск", "Магнитогорск", "Златоуст", "Миасс"]
+dadata_names = ["Челябинская обл", "Челябинская"]
+
+[[region]]
+name_ru = "Ярославская область"
+key = "yaroslavl"
+code = "76"
+iso = "RU-YAR"
+name_en = "Yaroslavl Oblast"
+zone = "Europe/Moscow"
+aliases = []
+cities = ["Ярославль", "Рыбинск"]
+dadata_names = ["Ярославская обл", "Ярославская"]
+
+[[region]]
+name_ru = "Москва"
+key = "moscow"
+code = "77"
+iso = "RU-MOW"
+name_en = "Moscow"
+zone = "Europe/Moscow"
+aliases = ["Мск"]
+cities = ["Зеленоград"]
+dadata_names = ["г Москва", "Москва"]
+
+[[region]]
+name_ru = "Санкт-Петербург"
+key = "saint-petersburg"
+code = "78"
+iso = "RU-SPE"
+name_en = "Saint Petersburg"
+zone = "Europe/Moscow"
+aliases = ["Питер", "СПб", "Петербург", "Ленинград"]
+cities = ["Колпино", "Пушкин", "Петергоф", "Кронштадт"]
+dadata_names = ["г Санкт-Петербург", "Санкт-Петербург"]
+
+[[region]]
+name_ru = "Севастополь"
+key = "sevastopol"
+code = "92"
+name_en = "Sevastopol"
+zone = "Europe/Simferopol"
+aliases = []
+cities = ["Балаклава", "Инкерман"]
+dadata_names = ["г Севастополь", "Севастополь"]
+# regions.md: not among ТОР's regions, and with the journal suspended «Госуслуги Моя
+# школа» has no marks of the city's to show.
+tor = "absent"
+
+[[region]]
+name_ru = "Еврейская автономная область"
+key = "eao"
+code = "79"
+iso = "RU-YEV"
+name_en = "Jewish Autonomous Oblast"
+zone = "Asia/Vladivostok"
+aliases = ["ЕАО"]
+cities = ["Биробиджан"]
+dadata_names = ["Еврейская Аобл", "Еврейская"]
+
+[[region]]
+name_ru = "Ненецкий автономный округ"
+key = "nao"
+code = "83"
+iso = "RU-NEN"
+name_en = "Nenets Autonomous Okrug"
+zone = "Europe/Moscow"
+aliases = ["НАО"]
+cities = ["Нарьян-Мар"]
+dadata_names = ["Ненецкий АО", "Ненецкий"]
+
+[[region]]
+name_ru = "Ханты-Мансийский автономный округ — Югра"
+key = "khmao"
+code = "86"
+iso = "RU-KHM"
+name_en = "Khanty-Mansi Autonomous Okrug — Yugra"
+zone = "Asia/Yekaterinburg"
+aliases = ["ХМАО", "Югра", "ХМАО — Югра"]
+cities = ["Ханты-Мансийск", "Сургут", "Нижневартовск", "Нефтеюганск"]
+dadata_names = ["Ханты-Мансийский Автономный округ - Югра", "Ханты-Мансийский АО - Югра"]
+
+[[region]]
+name_ru = "Чукотский автономный округ"
+key = "chukotka"
+code = "87"
+iso = "RU-CHU"
+name_en = "Chukotka Autonomous Okrug"
+zone = "Asia/Anadyr"
+aliases = ["Чукотка", "ЧАО"]
+cities = ["Анадырь", "Билибино"]
+dadata_names = ["Чукотский АО", "Чукотский"]
+
+[[region]]
+name_ru = "Ямало-Ненецкий автономный округ"
+key = "yanao"
+code = "89"
+iso = "RU-YAN"
+name_en = "Yamalo-Nenets Autonomous Okrug"
+zone = "Asia/Yekaterinburg"
+aliases = ["ЯНАО", "Ямал"]
+cities = ["Салехард", "Новый Уренгой", "Ноябрьск"]
+dadata_names = ["Ямало-Ненецкий АО", "Ямало-Ненецкий"]

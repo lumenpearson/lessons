@@ -48,6 +48,10 @@ ABSENCE_MARK = "Н"
 LATE_MARK = "О"
 REMARK_MARK = "!"
 
+#: `Student.id_space` of a child found by a plain ``id`` rather than by
+#: ``identity.id`` — see `to_students`.
+PLAIN_ID = "plain-id"
+
 _DATE_FORMATS = ("%d.%m.%Y", "%Y-%m-%d", "%d.%m.%y")
 _TIME_FORMATS = ("%H:%M:%S", "%H:%M")
 
@@ -274,7 +278,21 @@ def to_students(items: list[dict[str, Any]]) -> list[Student]:
         if education is None or education_id is None:
             continue
 
-        student_id = identity_id(item)
+        # The person's `identity.id` is what every related-child-list item the
+        # third-party clients document carries (none of it from a live diary
+        # here), and it is taken to be city-wide — that two parents' accounts
+        # name one child by it is assumed, not observed (see
+        # `services/diary.child_scope`). A plain `id` is `identity_id`'s
+        # fallback for endpoints that send one instead, and nothing says what
+        # it numbers — so a child found by it is marked, and gets no
+        # corrections at all (`services/diary.DiaryService.scope_of`), rather
+        # than share them with whichever child anywhere has the same number.
+        identity = item.get("identity")
+        student_id = number(identity, "id") if isinstance(identity, dict) else None
+        id_space = None
+        if student_id is None:
+            student_id = number(item, "id")
+            id_space = PLAIN_ID
         if student_id is None:
             continue
 
@@ -288,6 +306,7 @@ def to_students(items: list[dict[str, Any]]) -> list[Student]:
                 class_name=text(education, "group_name", "class_name"),
                 education_id=education_id,
                 group_id=number(education, "group_id"),
+                id_space=id_space,
             )
         )
     note_if_nothing_read("student", items, students)

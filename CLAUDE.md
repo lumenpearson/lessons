@@ -22,7 +22,9 @@ android/     Kotlin / Compose / Glance, five Gradle modules
 server/      FastAPI + aiogram in one process, one database, Alembic migrations
 api/         thin Vercel entry point that re-exports server/app/main.py
 docs/        nine documents plus an index (docs/README.md), all current, all English;
-             docs/diaries/ holds the per-platform reference pages of diaries.md
+             docs/diaries/ holds the per-platform reference pages of diaries.md;
+             docs/app/ (the in-app guide) and docs/legal/ (the terms and the privacy
+             policy) are product text the APK bundles, Russian source and English twin
 ```
 
 There is no npm, no Node and no web frontend — with **one** deliberate exception:
@@ -45,7 +47,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 1634 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2024 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -53,7 +55,7 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 84 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 100 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. Not in CI — the
   owner has not been asked — but run it before you push server code
@@ -159,6 +161,14 @@ depend on `:widget` — the sync worker tells the widget it has new data by broa
 `com.lumenpearson.lessons.action.DATA_SYNCED`, precisely so the dependency does not have to
 be circular.
 
+There are **two** Room databases: `lessons.db`, the class cache, and `diary.db`, the
+family's own diary, which nothing writes but `DiaryRepositoryImpl`'s successful reads, under
+a generation guard that drops a read landing after a sign-out. A phone is in one of three
+shell modes — `CLASS`, `DIARY` (a diary and no class, whose home is the diary) or `NONE` (the
+first run) — and the periodic class sync is armed in `CLASS` only (#152):
+`LessonsApplication` collects `shellMode.syncArming` rather than scheduling on every settings
+emission.
+
 **A window is one school year, and a class holds several of them.** `synced_window` says
 which years this phone has fetched, `replaceWindow` replaces one and leaves the rest, and
 `syncedYears` is what the screens read to tell «нет уроков» from «ещё не загружено». The
@@ -206,12 +216,15 @@ points Hilt does not inject cleanly.
   names what is left uncovered. Unlike the owner's other repositories, this history does
   carry a `Co-Authored-By: Claude …` trailer; keep doing what the history does.
 - **Every pull request carries a milestone**, set when it is opened. Nothing in a session
-  here can create a milestone or even list one — when none of the nine fits, ask the owner
+  here can create a milestone or even list one — when none of the ten fits, ask the owner
   to create it and hand over the title and description already written, rather than
   inventing a version or leaving the pull request bare. The `github-pr` skill has the
-  numbers, the one tool that sets them, and the two ways this was got wrong first. **The
-  ninth is `v0.8.0 — On a device` and it is the current one**; issues #109–#117 are on it,
-  and it is the first milestone whose work needs an emulator or a phone.
+  numbers, the one tool that sets them, and the two ways this was got wrong first. **Two
+  version milestones are open:** the ninth, `v0.8.0 — On-device checks, 89-region e-diary
+  survey`, holds issues #109–#117, the first work that needs an emulator or a phone; the
+  tenth, `v0.9.0 — NetSchool e-diary, onboarding via the school's diary`, holds PR #140 and
+  its issues. All ten were renamed on 25 September 2026, so a title quoted from before then
+  finds nothing when searched.
 - **A defect that is found gets an issue, always, and before it gets a fix.** The rule is
   new and it is not optional: the moment an audit, a review, a CI failure or a reader finds
   something wrong, it becomes an issue of its own — title saying what is broken rather than
@@ -305,12 +318,14 @@ points Hilt does not inject cleanly.
   real code.
 - **There are two independent bearer tokens.** The device token from `POST /api/v1/join`
   (`api/deps.py:current_device`) and the diary session token from
-  `POST /api/v1/diary/login` (`api/diary.py:current_diary`). A phone can be joined to a class
+  `POST /api/v1/diary/session` — a session the phone opened with the diary itself — or the
+  older `POST /api/v1/diary/login` (`api/diary.py:current_diary`). A phone can be joined to a class
   without a diary account and signed in to a diary without a class; neither implies the
   other, and one token meaning both would have to be re-minted whenever either half changed.
   They go in the same `Authorization: Bearer` header on different endpoint families — check
   which one an endpoint depends on before moving it.
-- **The diary needs `DIARY_SECRET` or it does not run.** The Petersburg session token is
+- **The diary needs `DIARY_SECRET` or it does not run.** The upstream session — Petersburg's
+  token or «Сетевой город»'s bearer and cookies, however it arrived — is
   the one stored credential that cannot be a hash (it is replayed upstream on every call),
   so it is sealed with Fernet — `app/crypto.py`. No key means the feature refuses at the
   door rather than falling back to plaintext, because a silent fallback is invisible and
@@ -331,7 +346,7 @@ points Hilt does not inject cleanly.
   `alembic upgrade head` by hand and this session has no `DATABASE_URL`; the project is the
   one named `lessons` on the Neon MCP server — the account has two, so read the name rather
   than guessing an id, and the id itself stays out of the repository — and `0005` through
-  `0014` were all applied that way. It is not alembic running — it is the revision's DDL executed as one
+  `0017` were all applied that way. It is not alembic running — it is the revision's DDL executed as one
   transaction, with `alembic_version` stamped in the same transaction — so three things
   follow. Take the DDL from the model rather than writing it out: `CreateTable(...).compile(
   dialect=postgresql.dialect())` prints exactly what `create_all` would build, which is what
@@ -339,7 +354,7 @@ points Hilt does not inject cleanly.
   a half-applied revision cannot claim to be whole. And say what a revision destroys before
   running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
   sentence the owner needs *before* the transaction, not after.
-- **Migrations are Alembic and production is at `0014`, which is the head.** `0001` is a guarded
+- **Migrations are Alembic and the head is `0017`, on production since 26 September 2026 with `0015` and `0016`, before #140's merge.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
@@ -360,7 +375,50 @@ points Hilt does not inject cleanly.
   `SAEnum` stores the member **name** — the column is exactly as wide as the
   longest one, so adding a kind is a migration rather than a line. It is the
   ordinary additive shape and went on **before** the merge; it rewrites no row
-  and every existing value stays what it was.
+  and every existing value stays what it was. `0015` adds the second diary
+  provider's columns: `diary_sessions.provider` and `region` (which diary and
+  which regional server a session is on, so a session can be matched to its
+  class's binding and grouped per origin for the keep-alive without unsealing
+  the credential), three keep-alive clocks (`kept_alive_at`,
+  `keepalive_attempted_at`, `upstream_ok_at`), and on `classes` the binding
+  `diary_region`, `diary_school_id` and `diary_school_name`. All eight are
+  nullable and additive — the ordinary shape, on **before** the merge — and
+  rewrite no row; a NULL `provider` on an existing session means Petersburg, the
+  only diary before the column. Its downgrade expires every non-Petersburg
+  session before dropping the columns that tell one apart, so reverted code
+  cannot replay a credential at the wrong upstream. `0016` creates
+  `usage_counters`: one row per counter per Moscow day, which is how the
+  anonymous school directory's share of DaData's daily allowance is spent
+  without touching the share the bot's create-class search needs — a table of
+  its own, because `join_attempts` is pruned to fifteen minutes on every
+  recorded attempt and would cut a day's count to a quarter of an hour. It
+  creates a table and nothing else — additive, the ordinary shape, rewrites
+  and destroys no row — and goes on **before** the merge, together with
+  `0015`; its downgrade drops the table and with it nothing but the counts.
+  `0017` changes no schema: it files the corrections over the diary under the
+  **child** rather than under a login (#165, the owner's decision of 26
+  September) — `diary_overrides.login` keeps its name and holds the scope
+  `services/diary.child_scope` builds, `CHILD:petersburg` or `CHILD:netschool:`
+  and the regional server's host and no other shape (a child the diary lists
+  outside its own numbering gets no corrections at all), upper case so that
+  no casefolded login can ever equal one. It **destroys rows**: every legacy
+  «Сетевой город» key (a hash whose region is recoverable at best for authors
+  still signed in; only where #140's branch ran), and, wherever two logins —
+  or a legacy and a per-child row — corrected the same field of the same
+  child, all but the newest (`updated_at`, then `id`); the rest of the old
+  Petersburg rows are rewritten to `CHILD:petersburg`. Its docstring carries a
+  count per destructive step to read before the transaction, and on
+  PostgreSQL it locks the table against writes first. On this database, with
+  no correction in it on 26 September, that was nothing, and it went on with
+  `0015` and `0016` **before** the merge. On a deployment that holds
+  corrections it is better applied just **after** the merge — a key rewrite,
+  a third shape beside the column and the constraint: before it, whatever the
+  old code writes in the window is filed under a login the new code never
+  reads; after it, the rewrite folds the old rows into what was typed
+  meanwhile, but a reset made in the window comes back, so the window is
+  minutes. Its downgrade is a no-op, and a revert is **not** lossless: after
+  any window of older code, run its statements again, or
+  `alembic downgrade 0016 && alembic upgrade head`.
   Nothing after `0001` may use `create_all`.
   Beware the enum: `SAEnum(SomeStrEnum)` stores the member **name**, so a `server_default`
   written as `.value` is a string the ORM cannot read back — which on `classes` is a
@@ -551,7 +609,9 @@ points Hilt does not inject cleanly.
   What it cannot see is a Russian string written into Kotlin, because that word is
   in neither folder — `grep -rnP '"[^"]*[\x{0400}-\x{04FF}]' */src/main` is the
   check for that, and today it finds only `@Preview` data, maintainer-facing report
-  bodies, and the timezone list, whose file documents the choice.
+  bodies, the timezone list, whose file documents the choice, and
+  `core/data/.../upstream/UpstreamMarkers.kt` — the diaries' own words, matched in their
+  answers, which is the one documented exception on the diary's side.
 - **A renderer is written against the type it is handed, and nothing checks that but you.**
   «🗓 Четверти» crashed on every press in production because the card printed `term.days`
   and `days` lived on a flattened copy of a term that nothing ever constructed. There is

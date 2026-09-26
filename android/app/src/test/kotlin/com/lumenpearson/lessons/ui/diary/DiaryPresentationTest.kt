@@ -6,10 +6,12 @@ import com.lumenpearson.lessons.core.data.repository.DiaryLesson
 import com.lumenpearson.lessons.core.data.repository.DiaryMark
 import com.lumenpearson.lessons.core.data.repository.DiaryMarkKind
 import com.lumenpearson.lessons.core.data.repository.DiaryPeriod
+import com.lumenpearson.lessons.core.data.repository.DiaryTarget
 import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -196,18 +198,41 @@ class DiaryPresentationTest {
         // device's own clock, on a phone left in another zone, has not reached —
         // and the server cuts its default window at the same boundary, so a
         // screen that disagreed would look like the diary had lost a day.
+        val moscow = ZoneId.of("Europe/Moscow")
         val justAfterMidnightThere = Clock.fixed(
             LocalDateTime.of(2026, 9, 7, 21, 30).toInstant(ZoneOffset.UTC),
             ZoneOffset.UTC,
         )
-        assertEquals(LocalDate.of(2026, 9, 8), diaryToday(justAfterMidnightThere))
+        assertEquals(LocalDate.of(2026, 9, 8), diaryToday(moscow, justAfterMidnightThere))
 
         // And the hours on either side of it still resolve the ordinary way.
         val teaTimeThere = Clock.fixed(
             LocalDateTime.of(2026, 9, 7, 12, 0).toInstant(ZoneOffset.UTC),
             ZoneOffset.UTC,
         )
-        assertEquals(LocalDate.of(2026, 9, 7), diaryToday(teaTimeThere))
+        assertEquals(LocalDate.of(2026, 9, 7), diaryToday(moscow, teaTimeThere))
+    }
+
+    /**
+     * The zone is the session's, not Moscow's: a «Сетевой город» pupil in Tomsk
+     * (UTC+7) is past midnight four hours before Moscow is, and a diary that
+     * cut the day in Moscow opened on yesterday for those four hours.
+     */
+    @Test
+    fun `a Tomsk session cuts the day at Tomsk midnight`() {
+        val tomsk = DiaryTarget.netschool(
+            region = "tomsk",
+            schoolId = 1,
+            schoolName = null,
+            login = "pupil",
+            zone = "Asia/Tomsk",
+        ).zoneId()
+        val eveningInMoscow = Clock.fixed(
+            LocalDateTime.of(2026, 9, 7, 18, 30).toInstant(ZoneOffset.UTC),
+            ZoneOffset.UTC,
+        )
+        assertEquals(LocalDate.of(2026, 9, 8), diaryToday(tomsk, eveningInMoscow))
+        assertEquals(LocalDate.of(2026, 9, 7), diaryToday(ZoneId.of("Europe/Moscow"), eveningInMoscow))
     }
 
     // -- the marks window ---------------------------------------------------

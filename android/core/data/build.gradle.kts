@@ -53,6 +53,23 @@ android {
         // files from GitHub, and a bundled copy that had drifted from them
         // would show a reader a guide nobody wrote.
         getByName("main").assets.srcDirs(rootProject.layout.projectDirectory.dir("../docs/app"))
+
+        // The region catalog, bundled as the server's generator wrote it — the
+        // same one file the server reads, never a copy, because the phone takes
+        // every host it will ever send a password to from this file and a
+        // second allow-list is a second answer to «may I talk to this host».
+        getByName("main").assets.srcDirs(
+            rootProject.layout.projectDirectory.dir("../server/app/catalog/data"),
+        )
+
+        // The known answers both sign-in implementations are held to, read in
+        // place from the server's tests so there is one file and not two that
+        // agree until somebody edits one. The catalog rides along so a JVM test
+        // can load it from the classpath the way the app loads it from assets.
+        getByName("test").resources.srcDirs(
+            rootProject.layout.projectDirectory.dir("../server/tests/vectors"),
+            rootProject.layout.projectDirectory.dir("../server/app/catalog/data"),
+        )
     }
 }
 
@@ -100,4 +117,8 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // A real socket for the provider sign-ins: the ports are held to what an
+    // HTTP exchange actually carries (form bodies, cookies, redirects not
+    // followed), which a scripted interceptor would only restate.
+    testImplementation(libs.okhttp.mockwebserver3)
 }

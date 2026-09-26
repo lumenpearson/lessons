@@ -31,9 +31,17 @@ internal class AuthInterceptor(
         // [DiaryAuthInterceptor] is what signs those calls. The class token on
         // a diary request would be answered with a 401 that means nothing the
         // user could act on.
+        //
+        // The school directory is excluded for another reason: it is
+        // anonymous, asked on the first screen by a phone that may be in no
+        // class, and a phone that is in one has no business telling the server
+        // which class is searching for which school. Its paths are matched as a
+        // prefix, not by suffix like the three above, so that a second
+        // directory call cannot arrive signed because nobody listed it.
         val path = request.url.encodedPath
         val needsAuth = UNAUTHENTICATED_SUFFIXES.none { path.endsWith(it) } &&
-            !path.contains(DiaryAuthInterceptor.DIARY_PATH_PREFIX)
+            !path.contains(DiaryAuthInterceptor.DIARY_PATH_PREFIX) &&
+            !path.contains(DIRECTORY_PATH_PREFIX)
         if (!needsAuth || request.header(HEADER) != null) {
             return chain.proceed(request)
         }
@@ -48,8 +56,11 @@ internal class AuthInterceptor(
         )
     }
 
-    private companion object {
+    internal companion object {
         const val HEADER = "Authorization"
+
+        /** `GET /api/v1/directory/school-regions` and whatever joins it; see above. */
+        const val DIRECTORY_PATH_PREFIX = "/api/v1/directory/"
         // `/warmup` joins the two: it is the about page's server badge, and it
         // is asked before this device has joined anything at all.
         val UNAUTHENTICATED_SUFFIXES = listOf("/join", "/health", "/warmup")

@@ -18,6 +18,7 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
+import com.lumenpearson.lessons.core.data.repository.ShellMode
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.Lesson
 import com.lumenpearson.lessons.core.model.RibbonEntry
@@ -71,9 +72,10 @@ private const val LOOK_AHEAD_BELOW_ROWS = 2
  * possible to reason about (the same arguments always draw the same pixels).
  *
  * @param state what is happening now, or null when there is no cached timetable.
- * @param signedIn whether a class has been joined. Only this tells the two
- *   causes of a null [state] apart: no class code yet, or a class joined whose
- *   timetable has never reached the device.
+ * @param mode how this phone came in, if it has. Only this tells the three
+ *   causes of a null [state] apart: no way in taken yet, a class joined whose
+ *   timetable has never reached the device, or a phone that reads its own
+ *   school's diary and has no class timetable to draw.
  * @param today today's [SchoolDay], for the remaining-day timeline and for
  *   today's own homework. Null on a date outside the cached window.
  * @param homeworkDay the day whose homework to show. After school this is
@@ -90,7 +92,7 @@ private const val LOOK_AHEAD_BELOW_ROWS = 2
 @Composable
 internal fun LessonsWidgetBody(
     state: DayState?,
-    signedIn: Boolean,
+    mode: ShellMode,
     today: SchoolDay?,
     homeworkDay: SchoolDay?,
     now: LocalDateTime,
@@ -119,7 +121,7 @@ internal fun LessonsWidgetBody(
         // homework. Both are claims about a day the widget has never seen. The
         // instruction underneath is the only thing it actually knows.
         if (state == null || state is DayState.NoData) {
-            EmptyBody(size = size, signedIn = signedIn)
+            EmptyBody(size = size, mode = mode)
         } else {
             when (size) {
                 WidgetSizeClass.TINY -> TinyBody(state, homeworkDay, now, size)
@@ -147,35 +149,57 @@ internal fun LessonsWidgetBody(
  * thing a parent adds after installing, and the whole surface is already
  * clickable, so tapping the sentence does the thing the sentence asks for.
  *
- * Which instruction depends on [signedIn]. Telling somebody who has already
- * joined a class to go and enter a class code sends them to the one screen that
- * cannot help them — what they actually need is to pull the timetable down, or
- * to check the server address.
+ * Which instruction is [emptyTextRes]'s to decide.
  */
 @Composable
-private fun EmptyBody(size: WidgetSizeClass, signedIn: Boolean) {
+private fun EmptyBody(size: WidgetSizeClass, mode: ShellMode) {
     val context = LocalContext.current
-    // By width, not by naming the sizes one at a time. The list was written when
-    // there were three narrow rungs and did not grow when two more arrived, so
-    // SMALL_TALL and NARROW were handed the long strings in a 110 dp column —
-    // and Glance text cannot ellipsize, so they were hard-clipped mid-word.
-    val compact = size.isNarrow || size == WidgetSizeClass.WIDE
-    val text = when {
-        !signedIn && compact -> R.string.widget_empty_short
-        !signedIn -> R.string.widget_empty_title
-        compact -> R.string.widget_no_data_short
-        else -> R.string.widget_no_data_title
-    }
+    val compact = emptyTextIsCompact(size)
     Box(
         modifier = GlanceModifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
         BodyText(
-            text = context.getString(text),
+            text = context.getString(emptyTextRes(mode, size)),
             size = size,
             maxLines = if (compact) 2 else 3,
             muted = true,
         )
+    }
+}
+
+/**
+ * Whether [size] gets the short empty sentence.
+ *
+ * By width, not by naming the sizes one at a time. The list was written when
+ * there were three narrow rungs and did not grow when two more arrived, so
+ * SMALL_TALL and NARROW were handed the long strings in a 110 dp column — and
+ * Glance text cannot ellipsize, so they were hard-clipped mid-word.
+ */
+internal fun emptyTextIsCompact(size: WidgetSizeClass): Boolean =
+    size.isNarrow || size == WidgetSizeClass.WIDE
+
+/**
+ * The sentence the widget draws in place of a timetable, per way in.
+ *
+ *  - [ShellMode.NONE]: nobody has come in, and there are two ways to — a class
+ *    code, or the family's own school — so the sentence names the app rather
+ *    than one of them. It used to say «введите код класса», which is wrong for
+ *    exactly the family the second way was built for.
+ *  - [ShellMode.CLASS]: a class was joined and nothing has synced. Telling
+ *    them to enter a class code sends them to the one screen that cannot help;
+ *    what they need is to pull the timetable down, or to check the server.
+ *  - [ShellMode.DIARY]: the phone reads its own diary and has no class. The
+ *    widget draws a class timetable and nothing from the diary (#142), so it
+ *    says where the diary is instead of pretending to be about to load one —
+ *    «потяните вниз» would promise a timetable that no pull will ever bring.
+ */
+internal fun emptyTextRes(mode: ShellMode, size: WidgetSizeClass): Int {
+    val compact = emptyTextIsCompact(size)
+    return when (mode) {
+        ShellMode.NONE -> if (compact) R.string.widget_empty_short else R.string.widget_empty_title
+        ShellMode.CLASS -> if (compact) R.string.widget_no_data_short else R.string.widget_no_data_title
+        ShellMode.DIARY -> if (compact) R.string.widget_diary_only_short else R.string.widget_diary_only_title
     }
 }
 

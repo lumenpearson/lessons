@@ -60,7 +60,7 @@ internal class DocsRepositoryImpl(
     private val gate = Mutex()
 
     override suspend fun load(language: String) {
-        val wanted = normalise(language)
+        val wanted = docsLanguage(language)
         gate.withLock {
             val current = mutableState.value.library
             if (current != null && current.guide.language == wanted) return
@@ -72,7 +72,7 @@ internal class DocsRepositoryImpl(
     }
 
     override suspend fun refresh(language: String) {
-        val wanted = normalise(language)
+        val wanted = docsLanguage(language)
         gate.withLock {
             mutableState.value = mutableState.value.copy(refreshing = true)
             val outcome = withContext(Dispatchers.IO) { fetch(wanted) }
@@ -205,10 +205,6 @@ internal class DocsRepositoryImpl(
     }.onFailure { failure ->
         Log.w(TAG, "The documentation manifest did not parse", failure)
     }.getOrNull()
-
-    /** `ru` or `en`; a phone in any other language reads the English guide. */
-    private fun normalise(language: String): String =
-        if (language.lowercase().startsWith("ru")) "ru" else "en"
 
     private sealed interface Outcome {
         data object Unchanged : Outcome

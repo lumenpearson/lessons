@@ -92,11 +92,13 @@
     </plurals>
     <string name="widget_next_day_summary">%1$s · %2$s at %3$s</string>
 
-    <string name="widget_empty_title">Open the app and enter your class code</string>
-    <string name="widget_empty_short">Enter class code</string>
+    <string name="widget_empty_title">Open the app and connect with a class code or through your school</string>
+    <string name="widget_empty_short">Open the app</string>
     <string name="widget_loading">Loading the timetable…</string>
     <string name="widget_no_data_title">No timetable yet — open the app and pull down to refresh</string>
     <string name="widget_no_data_short">No timetable yet</string>
+    <string name="widget_diary_only_title">The widget shows a class timetable. Your diary is in the app</string>
+    <string name="widget_diary_only_short">Your diary is in the app</string>
 
     <plurals name="widget_subject_count">
         <item quantity="one">%d subject</item>

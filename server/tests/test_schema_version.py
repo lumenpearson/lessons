@@ -14,6 +14,7 @@ be bumped by hand is exactly the kind that silently stops being true.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -76,6 +77,51 @@ def test_the_constant_the_app_ships_is_the_real_migration_head():
     whatever: add 0007 without touching it, and the build stops here.
     """
     assert EXPECTED_REVISION == _head()
+
+
+REPOSITORY = SERVER_ROOT.parent
+
+#: How a document says which revision is the head. A sentence cannot be
+#: checked; a revision number in one of these can.
+_HEAD_SENTENCES = (
+    re.compile(r"[Hh]ead is \**`(\d{4})`"),
+    re.compile(r"expects `(\d{4})`"),
+)
+#: The answer `/warmup` gives when all is well, as the reference documents
+#: print it. Only under docs/: the README quotes an answer from #61 on purpose.
+_WARMUP_OK = re.compile(r'"status": ?"ok"[^}\n]*"schema": ?"(\d{4})"')
+
+
+def _documents() -> list[Path]:
+    """Everything a person or an agent reads to learn the head — not
+    HANDOVER.md, which is a history and holds every head there has been."""
+    found = [REPOSITORY / name for name in ("README.md", "CLAUDE.md", "AGENTS.md")]
+    found.append(REPOSITORY / ".github" / "copilot-instructions.md")
+    found += sorted((REPOSITORY / "docs").rglob("*.md"))
+    found += sorted((REPOSITORY / ".claude").rglob("*.md"))
+    return [document for document in found if document.is_file()]
+
+
+def test_every_document_that_names_the_head_names_this_one():
+    """The constant is pinned above; the documents quoting it were not, and a
+    batch that moved the head to `0017` left the README telling the operator to
+    expect `0016` from `/warmup` — which after the merge answers «degraded» —
+    and the migration skill, the procedure the next revision follows, a head
+    behind. A document that names a head names this one."""
+    named: dict[str, set[str]] = {}
+    for document in _documents():
+        text = document.read_text("utf-8")
+        patterns = list(_HEAD_SENTENCES)
+        if document.is_relative_to(REPOSITORY / "docs"):
+            patterns.append(_WARMUP_OK)
+        for pattern in patterns:
+            for revision in pattern.findall(text):
+                named.setdefault(revision, set()).add(str(document.relative_to(REPOSITORY)))
+
+    assert EXPECTED_REVISION in named, "no document names the head any more"
+    stale = {revision: sorted(where) for revision, where in named.items()
+             if revision != EXPECTED_REVISION}
+    assert not stale, f"the head is {EXPECTED_REVISION}, but these say otherwise: {stale}"
 
 
 def test_every_revision_is_reachable_from_the_head():

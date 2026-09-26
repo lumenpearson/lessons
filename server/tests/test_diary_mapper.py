@@ -84,6 +84,20 @@ def test_a_child_with_no_identity_is_skipped():
     assert m.to_students([child(identity={})]) == []
 
 
+def test_a_child_found_by_a_plain_id_says_so():
+    """`identity.id` is taken to be the person, city-wide. A plain ``id`` is
+    the fallback some endpoints send instead, and nothing says what it
+    numbers — so a child found by one carries it in `id_space`, which is what
+    keeps corrections off that child altogether."""
+    by_identity = m.to_students([child()])[0]
+    assert (by_identity.id, by_identity.id_space) == (4021, None)
+
+    by_plain_id = m.to_students([child(identity=None, id=4021)])[0]
+    assert (by_plain_id.id, by_plain_id.id_space) == (4021, m.PLAIN_ID)
+    # An identity that does not carry a number falls back the same way.
+    assert m.to_students([child(identity={}, id=4021)])[0].id_space == m.PLAIN_ID
+
+
 def test_a_missing_middle_name_is_absent_rather_than_empty():
     student = m.to_students([child(middlename="")])[0]
     assert student.middle_name is None

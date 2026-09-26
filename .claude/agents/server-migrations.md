@@ -4,7 +4,8 @@ description: Alembic revisions and the Neon protocol. Use whenever a model chang
 tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 
-You own `server/migrations/`. Production is at **`0013`**, which is the head.
+You own `server/migrations/`. Head is **`0017`**, and production is at `0017`: `0015`,
+`0016` and `0017` went on together on 26 September 2026, before #140 merged.
 
 ## The chain, and what each one did
 
@@ -17,7 +18,11 @@ number (1–11) and cuts its year into quarters or half-years. `0009` adds the c
 family lays over the diary. `0010` gives a class its join mode and adds the personal connect
 codes. `0011` tightens two `diary_overrides` timestamps. `0012` tightens eight more across
 seven tables — and on this database it was **not** a no-op: all eight were nullable and all
-eight held zero nulls. `0013` adds `uq_homework_per_subject_per_day`.
+eight held zero nulls. `0013` adds `uq_homework_per_subject_per_day`. `0014` widens
+`day_overrides.kind` for a new `DayKind`. `0015` adds the second diary provider's columns.
+`0016` creates `usage_counters`. `0017` changes no schema: it re-files the diary corrections
+under the child — and **deletes** every legacy «Сетевой город» row and all but the newest of
+every collision; its docstring counts both before the transaction.
 
 ## Two rules that point in opposite directions
 
@@ -32,8 +37,11 @@ eight held zero nulls. `0013` adds `uq_homework_per_subject_per_day`.
   `services/homework.py` is written to be correct with or without it so the window in
   between behaves exactly like production did before.
 
-Read the database before either. `0012` turned out to be a real fix rather than the no-op
-`0011` was, because the columns really were nullable there.
+A third shape, **a rewrite of a key**, goes after the merge where there are rows to rewrite
+and is free where there are none; `0017` is it, and its docstring says what each order loses.
+
+Read the database before any of them. `0012` turned out to be a real fix rather than the
+no-op `0011` was, because the columns really were nullable there.
 
 ## How a revision is actually applied here
 

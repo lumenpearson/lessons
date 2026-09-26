@@ -5,7 +5,7 @@ description: Write and apply an Alembic revision for this project — including 
 
 # A migration, start to finish
 
-Head is **`0013`**. Nothing after `0001` may use `create_all`.
+Head is **`0017`**. Nothing after `0001` may use `create_all`.
 
 ## 1. Decide the direction
 
@@ -18,6 +18,15 @@ Head is **`0013`**. Nothing after `0001` may use `create_all`.
   breaks against the constraint, with an `IntegrityError` nobody catches. Write the service
   so it is correct with or without the constraint, so the window behaves like production did
   before. `0013` is this shape and says so in its own docstring.
+- **A rewrite of a key** (rows moved from one key to another, no schema change) → **free**
+  where there are no rows to move, so it goes on with the additive revisions; **after** the
+  merge where there are. Old and new code file the same rows under different keys, so each
+  order loses what the window makes: before the merge, what the old code writes is filed
+  where the new code never reads; after it, nothing typed is lost but a reset made in the
+  window is undone when the rewrite runs — keep that window to minutes, and expect
+  `/api/v1/warmup` to say «База отстала от кода» through it. Lock the table on PostgreSQL
+  first, or a write landing between the rewrite's statements breaks it. A redeploy never
+  re-runs a stamped revision, so after a revert run it again by hand. `0017` is this shape.
 
 ## 2. Read the database first
 

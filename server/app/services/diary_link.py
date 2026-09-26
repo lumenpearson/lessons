@@ -8,8 +8,9 @@ is written down nowhere.
 The alternative — typing it to the bot — puts it in the chat history, on
 Telegram's servers, in the notification that lands on a locked screen and in
 whatever backs that phone up. Deleting the message afterwards undoes exactly
-none of those. The bot keeps that path as a fallback for a deployment with no
-public URL, and says plainly that it is the worse one.
+none of those, so there is no such path: a deployment with no ``PUBLIC_BASE_URL``
+has nowhere to serve the form, and `bot/handlers/diary.py` says the page cannot
+be opened and stops there rather than falling back to a password in the chat.
 
 What Telegram ever carries is the code in this module: worth one sign-in, for
 fifteen minutes, for one Telegram account, in one class. Stored as a hash like
@@ -112,6 +113,41 @@ async def claim(session: AsyncSession, code: str) -> DiaryLinkCode | None:
     )
     await session.commit()
     return row
+
+
+async def drop_for(session: AsyncSession, *, telegram_id: int, class_id: int) -> int:
+    """Drop every outstanding sign-in ticket this account holds in this class.
+
+    Used when a member is removed: an unspent ticket is worth a sign-in for
+    fifteen minutes, and an ex-member must not be able to open a session in a
+    class they have just been taken out of. Committed by the caller.
+    """
+    result = await session.execute(
+        sa_delete(DiaryLinkCode).where(
+            DiaryLinkCode.telegram_id == telegram_id,
+            DiaryLinkCode.class_id == class_id,
+        )
+    )
+    return rows_affected(result)
+
+
+async def drop_for_class(session: AsyncSession, class_id: int) -> int:
+    """Drop every outstanding sign-in ticket in this class, whoever holds it.
+
+    Called wherever the class's diary binding is written — bound, rebound or
+    unbound. A ticket's form names the diary it will send the password to, and
+    the submit reads the binding again, so a link opened before an admin
+    rebinds and submitted after it would hand a Petersburg password to
+    «Сетевой город», or the other way round (#137). With the tickets gone in
+    the same commit as the binding, the submit finds no ticket and refuses
+    before anything leaves this server: ``claim`` runs after the binding is
+    read, so it cannot win against a rebind that committed first. Committed by
+    the caller.
+    """
+    result = await session.execute(
+        sa_delete(DiaryLinkCode).where(DiaryLinkCode.class_id == class_id)
+    )
+    return rows_affected(result)
 
 
 async def purge(session: AsyncSession) -> int:

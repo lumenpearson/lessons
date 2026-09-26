@@ -44,7 +44,9 @@ from app.bot.keyboards import Menu, shift_days, shift_weeks
 from app.config import get_settings
 from app.crypto import diary_enabled
 from app.models import DiarySession, Role, SchoolClass
-from app.providers.petersburg import PetersburgError, SessionExpired, UpstreamUnavailable
+from app.providers.diary import registry as diary_registry
+from app.providers.diary.errors import DiaryError, SessionExpired, UpstreamUnavailable
+from app.providers.diary.registry import binding as diary_binding
 from app.services import diary as diary_service
 from app.services import diary_link
 
@@ -52,9 +54,10 @@ log = logging.getLogger(__name__)
 
 router = Router(name="diary")
 
-#: The provider a class may be bound to. One today; the column is a string so
-#: that a second one does not rename it.
-PETERSBURG = "petersburg"
+#: Petersburg's provider key, as the class column stores it. The registry's
+#: own name (`registry.PETERSBURG`), kept here under the spelling the tests of
+#: this module bind a class with.
+PETERSBURG = diary_registry.PETERSBURG
 
 #: How many days of homework a «Задания» screen asks for.
 HOMEWORK_DAYS = 14
@@ -64,20 +67,34 @@ SUNDAY = 6
 
 
 async def _session_for(
-    session: AsyncSession, telegram_id: int, class_id: int
+    session: AsyncSession, telegram_id: int, school_class: SchoolClass
 ) -> DiarySession | None:
     """This person's live diary session in this class, or ``None``.
 
-    Keyed on both, always. On telegram_id alone, a parent in two classes would
-    read one child's diary from the other class's screen; on class_id alone
-    there would be no diary in this bot worth having.
+    Keyed on person and class, always. On telegram_id alone, a parent in two
+    classes would read one child's diary from the other class's screen; on
+    class_id alone there would be no diary in this bot worth having.
+
+    Also keyed on the class's *current* binding: an admin can rebind a class
+    from one diary to another, or from one «Сетевой город» region to another,
+    and a session opened against the old one holds a credential for a server
+    the class has left. Filtering it out here turns the stale row into a clean
+    «войдите снова» rather than a screen that silently talks to the diary the
+    class left. Matching the provider alone let a session on the old region
+    through; `diary_service.reads_binding` is the one clause, and the rebind
+    expires the same rows by it. A legacy row with no provider is Petersburg,
+    which is what the column meant before it existed.
     """
+    b = diary_binding(school_class)
+    if b is None:
+        return None
     row = await session.scalar(
         select(DiarySession)
         .where(
             DiarySession.telegram_id == telegram_id,
-            DiarySession.class_id == class_id,
+            DiarySession.class_id == school_class.id,
             DiarySession.expired_at.is_(None),
+            diary_service.reads_binding(b),
         )
         .order_by(DiarySession.id.desc())
     )
@@ -91,12 +108,22 @@ async def _session_for(
 
 
 def _bound(school_class: SchoolClass) -> bool:
-    return school_class.diary_provider == PETERSBURG
+    """Whether the class is bound to a diary this server can still reach. Reads
+    the registry rather than the raw column, so a class bound to a «Сетевой
+    город» region since dropped from the allow-list counts as unbound."""
+    return diary_binding(school_class) is not None
 
 
-async def _offer_sign_in(callback: CallbackQuery) -> None:
+def _genitive(school_class: SchoolClass) -> str:
+    """The bound diary's name in the genitive, for the sign-in card. Falls back
+    to Petersburg's, which is the only binding that predates the column."""
+    b = diary_binding(school_class)
+    return b.provider.genitive if b is not None else "Санкт-Петербурга"
+
+
+async def _offer_sign_in(callback: CallbackQuery, school_class: SchoolClass) -> None:
     await callback.message.edit_text(
-        render_signed_out(),
+        render_signed_out(_genitive(school_class)),
         reply_markup=signed_out_keyboard(can_sign_in=diary_enabled()),
         disable_web_page_preview=True,
     )
@@ -126,9 +153,9 @@ async def diary_root(
         )
         return
 
-    row = await _session_for(session, callback.from_user.id, school_class.id)
+    row = await _session_for(session, callback.from_user.id, school_class)
     if row is None:
-        await _offer_sign_in(callback)
+        await _offer_sign_in(callback, school_class)
         await callback.answer()
         return
 
@@ -173,11 +200,15 @@ async def diary_sign_in(
     code = await diary_link.mint(
         session, telegram_id=callback.from_user.id, class_id=school_class.id
     )
+    # The page posts the password to this server, which passes it to the diary
+    # for the sign-in and writes it down nowhere. This card used to say it went
+    # «прямо в дневник» and that the bot never saw it — false twice (#150), and
+    # the one sentence a parent reads before typing a password.
     await callback.message.edit_text(
         "🔐 <b>Вход в дневник</b>\n\n"
         f"Ссылка действует {diary_link.TICKET_MINUTES} минут и только один раз.\n\n"
-        "Пароль вводится на странице и уходит прямо в дневник — "
-        "ни бот, ни эта база его не видят и не сохраняют.\n\n"
+        "Пароль вводится на странице, а не в чате. Сервер бота передаёт его "
+        "дневнику для входа и нигде не сохраняет — ни у бота, ни в этой базе.\n\n"
         "<b>Не пересылайте ссылку никому:</b> она открывает вход в ваш аккаунт.",
         reply_markup=sign_in_keyboard(f"{base}/diary/signin/{code}"),
         disable_web_page_preview=True,
@@ -200,7 +231,7 @@ async def diary_sign_out(
     await diary_service.sign_out_here(
         session, telegram_id=callback.from_user.id, class_id=school_class.id
     )
-    await _offer_sign_in(callback)
+    await _offer_sign_in(callback, school_class)
     await callback.answer("Вы вышли из дневника")
 
 
@@ -213,16 +244,16 @@ async def diary_students(
     if school_class is None:
         await callback.answer("Нет доступа", show_alert=True)
         return
-    row = await _session_for(session, callback.from_user.id, school_class.id)
+    row = await _session_for(session, callback.from_user.id, school_class)
     if row is None:
-        await _offer_sign_in(callback)
+        await _offer_sign_in(callback, school_class)
         await callback.answer()
         return
 
     service = diary_service.DiaryService(session, row)
     try:
         students = await service.students()
-    except PetersburgError as error:
+    except DiaryError as error:
         await _stumble(callback, session, school_class, error)
         return
 
@@ -243,9 +274,9 @@ async def diary_view(
     if school_class is None:
         await callback.answer("Нет доступа", show_alert=True)
         return
-    row = await _session_for(session, callback.from_user.id, school_class.id)
+    row = await _session_for(session, callback.from_user.id, school_class)
     if row is None:
-        await _offer_sign_in(callback)
+        await _offer_sign_in(callback, school_class)
         await callback.answer()
         return
 
@@ -296,10 +327,10 @@ async def _show(
 
         text = await _body(service, school_class, view, offset, student)
     except SessionExpired:
-        await _offer_sign_in(callback)
+        await _offer_sign_in(callback, school_class)
         await callback.answer("Дневник разлогинил — войдите снова", show_alert=True)
         return
-    except PetersburgError as error:
+    except DiaryError as error:
         await _stumble(callback, session, school_class, error)
         return
     except Exception:  # noqa: BLE001 - an upstream shape must not reach a chat
@@ -379,7 +410,7 @@ async def _stumble(
     callback: CallbackQuery,
     session: AsyncSession,
     school_class: SchoolClass,
-    error: PetersburgError,
+    error: DiaryError,
 ) -> None:
     """One place that turns an upstream failure into something to do about it."""
     if isinstance(error, UpstreamUnavailable):

@@ -356,16 +356,6 @@ class SettingsViewModel(
     fun setDebugMode(enabled: Boolean) = update { it.copy(debugMode = enabled) }
 
     /**
-     * Records that the first-run introduction has been seen.
-     *
-     * Written when the introduction reaches the class-code step rather than when
-     * a class is actually joined: a pupil who backs out at the code field has
-     * still read the four screens, and making them read them again is a
-     * punishment for hesitating.
-     */
-    fun setOnboardingDone() = update { it.copy(onboardingDone = true) }
-
-    /**
      * Everything the app is allowed to interrupt the user about.
      *
      * One setter over the whole block rather than seven: the repository re-arms

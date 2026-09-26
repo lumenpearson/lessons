@@ -217,6 +217,16 @@ class SchoolClass(Base):
     # *member* a way to sign in to their own account and read their own diary
     # in the same chat — which is why nothing here holds a credential.
     diary_provider: Mapped[str | None] = mapped_column(String(32))
+    # For a provider that serves many regional servers — «Сетевой город» —
+    # which one this class reads, and which school on it. NULL for Petersburg,
+    # whose one server needs neither. The region is a key into the provider's
+    # own allow-list, never a URL; the id is the upstream's own `scid`; the name
+    # is what the class card and the sign-in form show. Added by 0015.
+    diary_region: Mapped[str | None] = mapped_column(String(32))
+    # No foreign key — it is a foreign system's id — so BigInteger, per the
+    # hardening rule for any *_id column that does not reference a table here.
+    diary_school_id: Mapped[int | None] = mapped_column(BigInteger)
+    diary_school_name: Mapped[str | None] = mapped_column(String(300))
     # `is_public` used to sit here. It was toggled from «⚙️ Класс», printed on
     # the card as «публичный / закрытый», and read by nothing at all: an admin
     # who closed the class closed nothing, and the screen told them otherwise.
@@ -568,6 +578,35 @@ class JoinAttempt(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
 
 
+class UsageCounter(Base):
+    """Units of a shared external allowance spent per calendar day, so one door
+    cannot spend another's.
+
+    DaData gives a key ten thousand requests a day, and two doors spend them:
+    the bot and ``/manage/schools``, behind a class admin, and the anonymous
+    directory the phone asks before it has any class at all. Without a cap on
+    the second, anybody with a loop could spend the whole day's allowance and
+    leave an admin creating a class with «Лимит запросов исчерпан».
+
+    Not in ``join_attempts``: that table is pruned globally to the shortest
+    throttle window on every recorded failure (``JoinThrottle.record``) and by
+    the cron after an hour, so a day's count kept there would be cut to fifteen
+    minutes without anything saying so.
+
+    One row per scope per day and nothing ever deletes one: a year of a single
+    scope is 365 rows of three columns, and yesterday's row is what says how
+    close yesterday came to the cap.
+    """
+
+    __tablename__ = "usage_counters"
+
+    #: Which allowance, such as ``dadata:anon`` (``services/quota.py``).
+    scope: Mapped[str] = mapped_column(String(32), primary_key=True)
+    #: The provider's day, in the zone ``services/quota.py`` counts in.
+    day: Mapped[Date] = mapped_column(SADate, primary_key=True)
+    used: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
 class DeviceToken(Base):
     """Read-only token handed to an Android device after it enters a join code."""
 
@@ -746,7 +785,8 @@ class AuditEntry(Base):
 
 
 class DiarySession(Base):
-    """A signed-in session with the Petersburg electronic diary.
+    """A signed-in session with an electronic diary — Petersburg or another;
+    which one is in ``provider``.
 
     What is stored here is the upstream's own session token and nothing else.
     Not the password: the reference implementations this integration was
@@ -756,11 +796,15 @@ class DiarySession(Base):
     session dies the app asks the person to sign in again, which is what every
     other service does too.
 
-    The token is a bearer credential, so it is treated like one: it never
-    leaves the server, never reaches the Android client, and the client is
-    handed a token of ours instead (`token_hash`, hashed exactly like
-    :class:`DeviceToken`). One row is one browser-shaped session; a person
-    signing in twice gets two, and signing out drops one.
+    The token is a bearer credential, so it is treated like one. It arrives
+    one of two ways: this server signs in with a password and receives it
+    (the bot's sign-in page, the older ``POST /api/v1/diary/login``), or the
+    phone signs in with the diary itself and hands the session over once
+    (``POST /api/v1/diary/session``), then forgets it. Either way it never
+    leaves this server again — no answer carries it back to any client — and
+    the client is handed a token of ours instead (`token_hash`, hashed exactly
+    like :class:`DeviceToken`). One row is one browser-shaped session; a
+    person signing in twice gets two, and signing out drops one.
     """
 
     __tablename__ = "diary_sessions"
@@ -768,21 +812,29 @@ class DiarySession(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     # Our token, as a hash. The plaintext is shown to the client once.
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
-    # The upstream's ``X-JWT-Token``, **sealed** — see ``app/crypto.py``. It is
-    # the one credential here that cannot be a hash, because it is replayed to
-    # the upstream on every call, so it is the one that is encrypted instead.
-    # Refreshed in place (and re-sealed) whenever the upstream hands back a new
-    # one, which it does on most calls.
+    # The upstream's session — Petersburg's ``X-JWT-Token``, or «Сетевой
+    # город»'s ``at``, cookies and bootstrap as JSON — **sealed**; see
+    # ``app/crypto.py``. It is the one credential here that cannot be a hash,
+    # because it is replayed to the upstream on every call, so it is the one
+    # that is encrypted instead. Refreshed in place (and re-sealed) whenever the
+    # upstream hands back a new one, which it does on most calls.
     upstream_token: Mapped[str] = mapped_column(Text, nullable=False)
-    # Who signed in, for the "you are signed in as" line and nothing else.
+    # Who signed in, as typed: shown on the "you are signed in as" line and
+    # nothing more. A phone's registration names it and nothing upstream
+    # vouches for it, so it decides nothing — a family's corrections are filed
+    # under the child (`services/diary.py:child_scope`), not under this (#165).
     login: Mapped[str] = mapped_column(String(200), nullable=False)
-    # The Telegram account this session belongs to, when it was created from a
-    # linked device. Null for a session created by login alone.
+    # The Telegram account this session belongs to. Set when the session was
+    # opened from the bot's sign-in ticket (`api/diary_web.py`); NULL for a
+    # phone's (`POST /api/v1/diary/session`, or the older `/login`), which has
+    # no Telegram account — showing a phone's session in the bot is left for
+    # later, on purpose.
     telegram_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
     # The class the session was opened from, when it was opened in the bot.
     # Carried so that leaving a class can take its diary session with it, and
     # so that «Дневник» in one class does not answer with a session opened in
-    # another. Null for the Android client, which has no class in this flow.
+    # another. Null for a phone's session, which belongs to no class: joining
+    # a class and signing in to a diary imply nothing about each other.
     class_id: Mapped[int | None] = mapped_column(
         ForeignKey("classes.id", ondelete="CASCADE"), index=True
     )
@@ -790,8 +842,26 @@ class DiarySession(Base):
     # account can carry several; the bot asks once and remembers, because
     # asking on every screen is a question with the same answer every time.
     student_id: Mapped[int | None] = mapped_column(BigInteger)
+    # Which diary this session is with. NULL means a row written before 0015,
+    # which is Petersburg — a string, not an SAEnum, so a new provider is a
+    # value and not a migration, and never a `.value` server_default (an enum
+    # column stores the member NAME, and that has taken the bot down once).
+    provider: Mapped[str | None] = mapped_column(String(32))
+    # For a many-server provider, which regional server this session is on, so
+    # a session can be matched to its class's binding and grouped per origin
+    # for the keep-alive without unsealing the credential. NULL for Petersburg.
+    region: Mapped[str | None] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # The keep-alive's own clocks, kept apart from last_used_at so pinging a
+    # session never looks like the family using it (which would defeat the
+    # 30-day purge of one nobody opens). `kept_alive_at` / `upstream_ok_at` is
+    # the last successful ping / any successful upstream contact;
+    # `keepalive_attempted_at` is the last attempt whatever its outcome, so the
+    # tick can order by it and a failing origin cannot sit at the head forever.
+    kept_alive_at: Mapped[datetime | None] = mapped_column(DateTime)
+    keepalive_attempted_at: Mapped[datetime | None] = mapped_column(DateTime)
+    upstream_ok_at: Mapped[datetime | None] = mapped_column(DateTime)
     # When the upstream refused us and the person has to sign in again.
     expired_at: Mapped[datetime | None] = mapped_column(DateTime)
 
@@ -806,9 +876,11 @@ class DiaryLinkCode(Base):
     The password is the whole confidentiality question, and the answer this
     project gives is that it never enters Telegram at all. The bot hands out a
     URL; the form is served over HTTPS by this same app; the password goes
-    from the browser straight to the upstream and is never written down. What
-    Telegram ever sees is this code, which is worth one sign-in, for fifteen
-    minutes, for one account.
+    from the browser to this server, which passes it to the diary once and
+    writes it down nowhere. It does cross this server — unlike the app's own
+    sign-in, which talks to the diary directly — and that is said wherever
+    the form is described. What Telegram ever sees is this code, which is
+    worth one sign-in, for fifteen minutes, for one account.
 
     Typing the password to the bot instead would put it in the chat history, on
     Telegram's servers, in the notification that pops up on a locked screen and
@@ -881,17 +953,23 @@ class DeviceInvite(Base):
 class DiaryOverride(Base):
     """One correction a family laid over something the diary sent down.
 
-    Nothing here changes dnevnik2. The upstream is read-only to this project
+    Nothing here changes the diary. The upstream is read-only to this project
     and will stay that way; what this table holds is a value put **over** the
     one that came down, on the way out, so that «сбросить» is a delete rather
     than a second guess at what was there before. A row is the correction; its
     absence is the upstream's own answer.
 
-    **Keyed by the account, not by the session.** Signing out and back in makes
-    a new :class:`DiarySession` row, and a correction that went with it would
-    make the reset button meaningless — the correction would already be gone,
-    silently, the first time the upstream session expired. ``login`` is what
-    survives, and it is the same string the session row already stores.
+    **Keyed by the child, not by the session and not by the login.** Signing
+    out and back in makes a new :class:`DiarySession` row, and a correction
+    that went with it would make the reset button meaningless — the correction
+    would already be gone, silently, the first time the upstream session
+    expired. And the login is whatever the phone typed, which nothing upstream
+    vouches for, so keyed on it one family could name another's (#165). The
+    key is the diary's server (``login``, holding a scope) and the pupil's id
+    on it (``student_id``), so everyone whose own diary lists the child —
+    both parents, the pupil's own account — reads and writes one set: one row
+    per field, the last writer's, with no column saying who that was. The
+    routes decide who reaches a child, by asking the session's own diary.
 
     ``target`` names the thing being corrected **semantically** rather than by
     position: a homework item by its upstream id when it has one and by (day,
@@ -917,18 +995,23 @@ class DiaryOverride(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    #: The upstream account, **case-folded** — ``services/diary.py:owner_key``
-    #: is the only thing that writes or queries this column, and it folds.
+    #: **Not a login any more**, whatever the name says: the diary a child's
+    #: corrections belong to, as ``services/diary.py:child_scope`` spells it —
+    #: ``CHILD:petersburg``, or ``CHILD:netschool:`` and the regional server's
+    #: host, and nothing else: a child listed outside its diary's own
+    #: numbering gets no row at all (``DiaryService.scope_of``). So one child's
+    #: rows are exactly ``login = <scope> AND student_id = <id>`` — what an
+    #: operator deleting them on request writes. The name stayed because
+    #: renaming a column is a migration and the key needed none; revision
+    #: ``0017`` rewrote the rows that held a login.
     #:
-    #: Unlike ``DiarySession.login``, which is kept exactly as it was typed
-    #: because it is what «вы вошли как» prints. This one is a key, and the
-    #: upstream treats ``Ivan@mail.ru`` and ``ivan@mail.ru`` as one account —
-    #: so keeping the casing here would file one family's corrections under two
-    #: owners, and the set that went missing would have no reset button left,
-    #: there being nothing to reset. The consequence to remember: this column
-    #: **must not** be joined against ``diary_sessions.login``.
+    #: ``child_scope`` is the only thing that writes or queries it. It **must
+    #: not** be compared with ``diary_sessions.login``, or with any login: the
+    #: upper-case prefix is there precisely so that no casefolded login — the
+    #: form this column held before — can ever equal a scope.
     login: Mapped[str] = mapped_column(String(200), nullable=False)
-    #: Which child, for an account that carries several.
+    #: The pupil's id on that diary (``Student.id``, not the education id the
+    #: bot keeps on a session) — the other half of the key: which child.
     student_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     #: See the class docstring: semantic, never positional.
     target: Mapped[str] = mapped_column(String(300), nullable=False)

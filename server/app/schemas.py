@@ -10,9 +10,14 @@ import re
 from datetime import date as Date
 from datetime import datetime
 from datetime import time as Time
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.providers.diary.http import cookie_value_ok, header_value_ok
+
+if TYPE_CHECKING:
+    from app.providers.diary.registry import Binding
 
 API_VERSION = 1
 
@@ -94,12 +99,47 @@ class JoinRequest(BaseModel):
         return cleaned or None
 
 
+class DiaryBindingOut(BaseModel):
+    """Which diary a class reads, so a phone that joined it can sign in there
+    without searching for its school.
+
+    Defined here rather than in the diary block below because
+    :class:`JoinResponse` carries it. Built only through ``of`` from
+    `registry.binding`, so a class bound to a region since dropped from the
+    allow-list, one that takes no password, or a «Сетевой город» binding with
+    no school all read as no binding at all — the phone is never pointed at a
+    diary this server would refuse.
+    """
+
+    provider: Literal["petersburg", "netschool"]
+    #: The allow-list key, which is the region catalog's key. ``None`` for
+    #: Petersburg, which is one city's server.
+    region: str | None = None
+    #: The upstream's own school id («scid»), which the phone signs in with.
+    school_id: int | None = None
+    school_name: str | None = None
+
+    @classmethod
+    def of(cls, bound: Binding | None) -> DiaryBindingOut | None:
+        if bound is None:
+            return None
+        return cls(
+            provider=bound.provider.key,
+            region=bound.region,
+            school_id=bound.school_id,
+            school_name=bound.school_name,
+        )
+
+
 class JoinResponse(BaseModel):
     token: str
     class_id: int
     class_name: str
     school: str | None = None
     timezone: str
+    #: The class's diary binding, or ``None`` when it has none this server can
+    #: reach. Additive, so an older phone ignores it and ``API_VERSION`` holds.
+    diary: DiaryBindingOut | None = None
 
 
 class LessonOut(BaseModel):
@@ -547,6 +587,13 @@ class TickOut(BaseModel):
     device_tokens_purged: int = 0
     diary_links_purged: int = 0
     device_invites_purged: int = 0
+    #: The keep-alive that holds a «Сетевой город» session open across its short
+    #: idle window: how many were pinged alive, how many the upstream had already
+    #: dropped, and true when the keep-alive itself raised (isolated so a diary
+    #: fault never fails the whole tick and reddens the clock).
+    diary_sessions_kept_alive: int = 0
+    diary_sessions_lost: int = 0
+    diary_keepalive_failed: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -569,19 +616,40 @@ class DiaryLoginIn(BaseModel):
 
     login: str = Field(min_length=3, max_length=200)
     password: str = Field(min_length=1, max_length=200)
+    #: Which diary. Absent means Petersburg, so an older phone that sends only a
+    #: login and a password still signs in there. For «Сетевой город» the region
+    #: is a key into the allow-list and the school is the upstream's own id;
+    #: both are validated in the route before any upstream call.
+    provider: str | None = Field(default=None, max_length=32)
+    region: str | None = Field(default=None, max_length=32)
+    school_id: int | None = Field(default=None, ge=1, le=2_000_000_000)
 
     @field_validator("login")
     @classmethod
     def _clean_login(cls, value: str) -> str:
-        cleaned = _strip_control_chars(value).strip()
-        if len(cleaned) < 3:
-            raise ValueError("login must contain at least 3 usable characters")
-        return cleaned
+        return _clean_login_value(value)
+
+
+def _clean_login_value(value: str) -> str:
+    """A login as the upstream will see it: printable, trimmed, three or more.
+
+    Shared by the password sign-in and the registration of a phone's session,
+    because both write it to the same column and «Вход выполнен» prints it
+    from there — and the phone cleans it character for character the same way
+    (`DiaryLogin.clean`), so a login pasted with an invisible character is not
+    a wrong password on one side only. It keys nothing: corrections are filed
+    under the child (`services/diary.child_scope`).
+    """
+    cleaned = _strip_control_chars(value).strip()
+    if len(cleaned) < 3:
+        raise ValueError("login must contain at least 3 usable characters")
+    return cleaned
 
 
 class DiaryLoginOut(BaseModel):
     token: str
     login: str
+
 
 
 class DiaryStudentOut(BaseModel):
@@ -608,6 +676,165 @@ class DiaryStudentOut(BaseModel):
             school=student.school,
             class_name=student.class_name,
         )
+
+
+#: Three dot-separated base64url parts, the last possibly empty: the shape of
+#: the ``X-JWT-Token`` Petersburg issues.
+_JWT = re.compile(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*")
+
+#: An allow-list key's shape. Whether it is *in* the allow-list is the route's
+#: question, asked before any upstream call.
+_REGION_KEY = r"^[a-z0-9-]{2,32}$"
+
+
+class PetersburgCredentialIn(BaseModel):
+    """The session Petersburg handed the phone: the ``X-JWT-Token`` cookie, or
+    ``data.token`` when the answer carried no cookie."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: str = Field(min_length=16, max_length=4096, repr=False)
+
+    @field_validator("token")
+    @classmethod
+    def _a_jwt_that_can_be_a_cookie(cls, value: str) -> str:
+        # Sent back upstream as a cookie on every read, so it must be one
+        # cookie value and nothing more; `_raw` checks the same again.
+        if not _JWT.fullmatch(value) or not cookie_value_ok(value):
+            raise ValueError("token must be a JWT")
+        return value
+
+
+class NetSchoolCookiesIn(BaseModel):
+    """The two session cookies «Сетевой город» sets, and no other — an unknown
+    name is refused rather than carried, since it would be sent on every read."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    NSSESSIONID: str = Field(min_length=1, max_length=128, repr=False)
+    ESRNSec: str | None = Field(default=None, min_length=1, max_length=2048, repr=False)
+
+    @field_validator("NSSESSIONID", "ESRNSec")
+    @classmethod
+    def _one_cookie_value(cls, value: str | None) -> str | None:
+        # A `;` here would smuggle a second cookie onto every read.
+        if value is not None and not cookie_value_ok(value):
+            raise ValueError("not a cookie value")
+        return value
+
+
+class NetSchoolCredentialIn(BaseModel):
+    """What the phone's «Сетевой город» sign-in ended holding."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: The bearer, sent in the ``at`` header, so it must be one header value.
+    at: str = Field(min_length=8, max_length=512, repr=False)
+    cookies: NetSchoolCookiesIn
+    #: The version the server's own sign-in keeps for the SecurityWarning
+    #: acknowledgement and the logout.
+    ver: str | None = Field(default=None, max_length=32, pattern=r"^[A-Za-z0-9._-]+$")
+    #: The login's ``timeOut``. Stored and read by nothing (the keep-alive has
+    #: a floor of its own), so any non-negative integer is taken: refusing a
+    #: whole session over the unit of a field nobody reads would be absurd.
+    time_out: int | None = Field(default=None, ge=0, le=2_147_483_647)
+
+    @field_validator("at")
+    @classmethod
+    def _one_header_value(cls, value: str) -> str:
+        # A line break here would be a second header on every read.
+        if not header_value_ok(value):
+            raise ValueError("not a header value")
+        return value
+
+
+class _SessionIn(BaseModel):
+    """What every registration carries besides the session itself.
+
+    ``extra="forbid"`` is the rule this endpoint exists for, not tidiness: a
+    ``password`` key is a 422, so no client can send one here, by mistake or
+    otherwise.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: What the person typed into the phone's own form. Nothing upstream
+    #: vouches for it, so it only names the session: a login copied from
+    #: another family reaches nothing of theirs (#165), because what a session
+    #: reaches is what its own diary lists.
+    login: str = Field(min_length=3, max_length=200)
+
+    @field_validator("login")
+    @classmethod
+    def _clean_login(cls, value: str) -> str:
+        return _clean_login_value(value)
+
+
+class PetersburgSessionIn(_SessionIn):
+    provider: Literal["petersburg"]
+    credential: PetersburgCredentialIn
+
+
+class NetSchoolSessionIn(_SessionIn):
+    provider: Literal["netschool"]
+    #: An allow-list key; one outside it, or a region that takes no password,
+    #: is a 422 from the route before any upstream call.
+    region: str = Field(pattern=_REGION_KEY)
+    #: The upstream school id («scid») the phone signed in with.
+    school_id: int = Field(ge=1, le=2_000_000_000)
+    credential: NetSchoolCredentialIn
+
+
+#: The registration body, told apart by ``provider``.
+DiarySessionBody = PetersburgSessionIn | NetSchoolSessionIn
+
+
+class DiarySessionOut(DiaryLoginOut):
+    """Our bearer for a session the phone opened, and what the phone needs to
+    keep reading it. Never the upstream credential: that stays here, sealed.
+
+    ``token`` and ``login`` sit where ``DiaryLoginOut`` has them, so an app
+    decodes both answers the same way.
+    """
+
+    provider: Literal["petersburg", "netschool"]
+    region: str | None = None
+    school_id: int | None = None
+    #: What the diary calls the school, where it says (``None`` for Petersburg).
+    school_name: str | None = None
+    #: The zone the diary cuts its days at — the same rule the server's own
+    #: «today» uses for this session (`services/diary.zone_for`).
+    zone: str
+    #: The pupils the validating read already fetched, so the phone does not
+    #: ask again straight away.
+    students: list[DiaryStudentOut] = Field(default_factory=list)
+
+
+class PetersburgCapabilitiesOut(BaseModel):
+    """Nothing to say yet about Petersburg beyond that it is served."""
+
+
+class NetSchoolCapabilitiesOut(BaseModel):
+    #: The allow-list keys this server signs in to with a password.
+    regions: list[str] = Field(default_factory=list)
+
+
+class DiaryProvidersOut(BaseModel):
+    petersburg: PetersburgCapabilitiesOut = Field(default_factory=PetersburgCapabilitiesOut)
+    netschool: NetSchoolCapabilitiesOut = Field(default_factory=NetSchoolCapabilitiesOut)
+
+
+class DiaryCapabilitiesOut(BaseModel):
+    """What this server's diary can do, asked before the phone takes a password.
+
+    ``enabled`` is false without ``DIARY_SECRET``; ``registration`` says the
+    server takes a session the phone opened (a server from before this answers
+    404 here instead).
+    """
+
+    enabled: bool
+    registration: bool = True
+    providers: DiaryProvidersOut = Field(default_factory=DiaryProvidersOut)
 
 
 class DiaryPeriodOut(BaseModel):
@@ -810,8 +1037,12 @@ class DiaryOverrideIn(BaseModel):
     #: question it exists to answer is "has the diary changed since the person
     #: decided to replace this", and the answer is about what *they* saw, not
     #: about what the upstream happened to say in the second this request
-    #: landed. It is also nobody else's data — a family's own correction of
-    #: their own diary — so there is no boundary here to defend.
+    #: landed. The row is shared by everyone whose diary lists the child, so
+    #: the last writer's ``original`` is what everybody's ``changed_upstream``
+    #: is measured against — and still there is no boundary here to defend:
+    #: whoever can write it sees the child in their own diary and could write
+    #: the value itself, and a wrong ``original`` only raises or lowers a flag
+    #: that is drawn beside the diary's own current answer.
     original: str | None = Field(default=None, max_length=4000)
 
 
@@ -1290,3 +1521,53 @@ class RequestDecisionOut(BaseModel):
     # The role actually granted, or ``null`` for a declined request.
     role: RoleName | None = None
     who: str
+
+
+# ---------------------------------------------------------------------------
+# The school directory, anonymous: which regions a school may be in
+# ---------------------------------------------------------------------------
+
+
+class SchoolRegionOut(BaseModel):
+    """One region the search found schools in."""
+
+    #: The region catalog's key («tatarstan»), the one the phone's bundled copy
+    #: of the same catalog knows. ``null`` when the directory named a region
+    #: the catalog cannot place — then ``label`` says what it called it.
+    region: str | None = None
+    #: The two-digit subject code: the catalog's for a placed region, the
+    #: directory's own for one it could not place.
+    code: str | None = None
+    #: The directory's own name for the region («г Байконур»), and only for
+    #: an unplaced one: a placed region is named from the catalog, in the
+    #: reader's language.
+    label: str | None = None
+    #: Hits in this region among the twenty the directory returns at most.
+    schools: int
+    #: Up to three towns, best-ranked first.
+    cities: list[str] = Field(default_factory=list)
+    #: Up to three school names as a person writes them.
+    examples: list[str] = Field(default_factory=list)
+
+
+class SchoolRegionsOut(BaseModel):
+    """What ``GET /api/v1/directory/school-regions`` answers.
+
+    Picking the region from the list always works; this only saves the
+    scrolling. So every failure of it is a 503 that says «выберите регион из
+    списка», and an answer that places nothing is an empty list rather than
+    an error.
+    """
+
+    #: As searched: whitespace collapsed, cut to 150 characters.
+    query: str
+    #: Best-ranked region first, at most ten.
+    regions: list[SchoolRegionOut] = Field(default_factory=list)
+    #: The directory's own ceiling of twenty was reached, so these are the
+    #: regions of the first twenty matches, not of all of them.
+    truncated: bool = False
+    #: The name is too common to place — «школа № 5» is in every region.
+    #: Answered with no upstream call when the name is only a kind of school
+    #: and a small number; after one when twenty matches span four regions or
+    #: more. The phone says so and shows the list.
+    generic: bool = False

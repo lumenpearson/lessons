@@ -35,6 +35,7 @@ from app.models import (
     Subject,
     TimetableEntry,
 )
+from app.providers.diary.registry import binding as diary_binding
 from app.schedule import ResolvedDay, ResolvedLesson, ScheduleResolver
 from app.schemas import (
     API_VERSION,
@@ -43,6 +44,7 @@ from app.schemas import (
     ClassOut,
     DayOut,
     DeviceOut,
+    DiaryBindingOut,
     DoneIn,
     DoneOut,
     EventOut,
@@ -345,12 +347,15 @@ async def join(
     not been true of every token since invites existed.
     """
     client = caller_bucket(request)
-    retry_after = await join_limiter.blocked_for(session, client)
-    if retry_after is not None:
+    # Counted before the code is looked at, and handed back below on every
+    # answer that is not a wrong code: see `JoinThrottle.admit` for why a check
+    # followed by a later record let a concurrent burst through.
+    attempt = await join_limiter.admit(session, client)
+    if attempt.retry_after is not None:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many join attempts",
-            headers={"Retry-After": str(int(retry_after) + 1)},
+            headers={"Retry-After": str(int(attempt.retry_after) + 1)},
         )
 
     code = payload.code.strip().upper()
@@ -371,6 +376,7 @@ async def join(
         # stop somebody walking the code space, and this caller has already
         # found a code — counting it would let a class that switched to invites
         # lock out everybody who still had the old one.
+        await join_limiter.forgive(session, attempt)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Этот класс принимает только по личному приглашению из бота",
@@ -382,7 +388,7 @@ async def join(
             school_class = await session.get(SchoolClass, invite.class_id)
 
     if school_class is None:
-        await join_limiter.record_failure(session, client)
+        # The one answer that stays counted: the attempt `admit` wrote is it.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown join code")
 
     # Spent before the token is minted, not after: the update is what makes
@@ -394,7 +400,9 @@ async def join(
         # spent by the time it was written. Not counted against the limiter,
         # for the same reason the 403 above is not — this caller had a real
         # code, and the limiter is there for somebody who does not.
+        await join_limiter.forgive(session, attempt)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown join code")
+
 
     token = new_token()
     session.add(
@@ -424,12 +432,22 @@ async def join(
             f"телефон подключён по личному коду: {payload.device_name or 'без названия'}",
         )
     await session.commit()
+    # A real code: only failures are counted, so a classroom joining from one
+    # school NAT is never blocked by each other's successes. After the commit
+    # above, which is the join, so the invite's burn and the token land in one
+    # transaction as they always did.
+    await join_limiter.forgive(session, attempt)
     return JoinResponse(
         token=token,
         class_id=school_class.id,
         class_name=school_class.name,
         school=school_class.school,
         timezone=school_class.timezone_name,
+        # Through `registry.binding`, the one reading of a class's binding, so
+        # a region since dropped from the allow-list, one that takes no
+        # password, or a «Сетевой город» binding with no school all tell the
+        # phone «no diary» rather than point it at one this server refuses.
+        diary=DiaryBindingOut.of(diary_binding(school_class)),
     )
 
 

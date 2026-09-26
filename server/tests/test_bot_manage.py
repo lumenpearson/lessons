@@ -21,6 +21,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import httpx
+import pytest
 from sqlalchemy import select
 
 from app.bot.handlers.manage import (
@@ -42,6 +44,11 @@ from app.bot.handlers.manage import (
     class_delete_apply,
     class_delete_prompt,
     class_diary_bind,
+    class_diary_cancel,
+    class_diary_provider,
+    class_diary_region,
+    class_diary_school,
+    class_diary_search,
     class_field_apply,
     class_field_prompt,
     class_root,
@@ -121,6 +128,7 @@ from app.bot.manage_render import (
     time_ago,
 )
 from app.bot.middlewares import active_class, prefs_key
+from app.bot.states import BindDiary
 from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
 from app.models import (
@@ -131,6 +139,8 @@ from app.models import (
     DayKind,
     DayOverride,
     DeviceToken,
+    DiaryLinkCode,
+    DiarySession,
     Homework,
     JoinMode,
     LessonOverride,
@@ -143,7 +153,8 @@ from app.models import (
     TimetableEntry,
     WeekParity,
 )
-from app.services import audit
+from app.security import hash_token, new_token
+from app.services import audit, diary_link
 
 # --------------------------------------------------------------------------
 # Stubs
@@ -192,18 +203,29 @@ class FakeMessage:
     text: str | None = ""
     user_id: int = 42
     replies: list[str] = field(default_factory=list)
+    markups: list[Any] = field(default_factory=list)
     bot: Any = None
 
     @property
     def from_user(self):
         return SimpleNamespace(id=self.user_id, username="tester", full_name="Тестер")
 
-    async def answer(self, text: str, **_: Any) -> None:
+    async def answer(self, text: str, reply_markup: Any = None, **_: Any) -> None:
         self.replies.append(text)
+        self.markups.append(reply_markup)
 
     @property
     def last(self) -> str:
         return self.replies[-1]
+
+    @property
+    def last_labels(self) -> list[str]:
+        """Every button caption on the keyboard of the last message, so a test
+        can check what can be pressed as well as what is written."""
+        markup = self.markups[-1]
+        if markup is None:
+            return []
+        return [button.text for row in markup.inline_keyboard for button in row]
 
 
 @dataclass
@@ -226,8 +248,9 @@ class FakeCallback:
 
 
 class FakeEditable(FakeMessage):
-    async def edit_text(self, text: str, **_: Any) -> None:
+    async def edit_text(self, text: str, reply_markup: Any = None, **_: Any) -> None:
         self.replies.append(text)
+        self.markups.append(reply_markup)
 
 
 
@@ -2281,30 +2304,477 @@ async def test_a_field_prompt_that_expired_sends_the_admin_back_to_the_card(
     assert state.cleared
 
 
-async def test_binding_and_unbinding_the_diary_flips_one_line_of_the_card(
+async def test_binding_the_diary_opens_a_chooser_rather_than_binding_at_once(
     session, school_class
 ):
-    """Binding gives the class nothing and takes nothing — it puts «📒 Мой
-    дневник» on the menu — so the card is the only place it is visible."""
+    """There is more than one diary now, so «📒 Привязать дневник» opens a
+    chooser — it must not silently pick one, and it changes nothing yet."""
     callback = FakeCallback(message=FakeEditable())
     await class_diary_bind(callback, session, school_class, Role.ADMIN)
 
-    assert school_class.diary_provider is not None
+    assert school_class.diary_provider is None
+    assert "Выберите, к какому дневнику" in callback.message.last
+    labels = callback.message.last_labels
+    assert any("Санкт-Петербург" in label for label in labels)
+    assert any("Сетевой город" in label for label in labels)
+
+
+async def test_choosing_petersburg_binds_it_and_the_card_says_so(session, school_class):
+    """Binding gives the class nothing and takes nothing — it puts «📒 Мой
+    дневник» on the menu — so the card is the only place it is visible."""
+    callback = FakeCallback(message=FakeEditable())
+    await class_diary_provider(
+        callback, SimpleNamespace(value="petersburg"), session, school_class, Role.ADMIN
+    )
+
+    assert school_class.diary_provider == "petersburg"
     assert "📒 Дневник: Санкт-Петербург" in callback.message.last
 
-    again = FakeCallback(message=FakeEditable())
-    await class_diary_bind(again, session, school_class, Role.ADMIN)
+
+async def test_unbinding_clears_every_diary_column_and_flips_the_card(session, school_class):
+    """Unbinding removes the door and everything behind it on the class — the
+    region and school of a «Сетевой город» binding go with the provider, or a
+    later rebind to Petersburg would carry a stale region no one can see."""
+    school_class.diary_provider = "netschool"
+    school_class.diary_region = "moscow"
+    school_class.diary_school_id = 123
+    school_class.diary_school_name = "Гимназия № 1"
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await class_diary_bind(callback, session, school_class, Role.ADMIN)
 
     assert school_class.diary_provider is None
-    assert "📒 Дневник: не привязан" in again.message.last
+    assert school_class.diary_region is None
+    assert school_class.diary_school_id is None
+    assert school_class.diary_school_name is None
+    assert "📒 Дневник: не привязан" in callback.message.last
 
 
 async def test_an_editor_cannot_bind_the_diary(session, school_class):
+    for handler in (
+        lambda cb: class_diary_bind(cb, session, school_class, Role.EDITOR),
+        lambda cb: class_diary_provider(
+            cb, SimpleNamespace(value="petersburg"), session, school_class, Role.EDITOR
+        ),
+    ):
+        callback = FakeCallback(message=FakeEditable())
+        await handler(callback)
+        assert school_class.diary_provider is None
+        assert callback.alerted
+
+
+async def _rebind_to_netschool(session, school_class) -> None:
+    await class_diary_school(
+        FakeCallback(message=FakeEditable()),
+        SimpleNamespace(value=0),
+        session,
+        Role.ADMIN,
+        FakeState(
+            data={
+                "diary_region": "samara",
+                "diary_class_id": school_class.id,
+                "diary_schools": [{"id": 1234, "name": "Школа № 1"}],
+            }
+        ),
+    )
+
+
+async def _rebind_to_petersburg(session, school_class) -> None:
+    await class_diary_provider(
+        FakeCallback(message=FakeEditable()),
+        SimpleNamespace(value="petersburg"),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+
+async def _unbind_then_netschool(session, school_class) -> None:
+    await class_diary_bind(FakeCallback(message=FakeEditable()), session, school_class, Role.ADMIN)
+    await _rebind_to_netschool(session, school_class)
+
+
+@pytest.mark.parametrize(
+    ("before", "rebind", "site"),
+    [
+        ("petersburg", _rebind_to_netschool, "dnevnik2.petersburgedu.ru"),
+        ("petersburg", _unbind_then_netschool, "dnevnik2.petersburgedu.ru"),
+        ("netschool", _rebind_to_petersburg, "Самарская область"),
+    ],
+    ids=["petersburg-to-netschool", "unbind-then-netschool", "netschool-to-petersburg"],
+)
+async def test_a_rebind_between_the_form_and_the_submit_sends_the_password_nowhere(
+    session, school_class, monkeypatch, before, rebind, site
+):
+    """The form named one diary; an admin rebinds the class while the family
+    types; the submit must not hand that password to the diary bound now —
+    a Petersburg password's MD5 to a regional server, or a «Сетевой город»
+    password in plain JSON to dnevnik2 (#137). The rebind drops the class's
+    tickets in its own commit, so the submit finds none and asks nobody."""
+    from app.main import app
+
+    school_class.diary_provider = before
+    if before == "netschool":
+        school_class.diary_region = "samara"
+        school_class.diary_school_id = 1234
+        school_class.diary_school_name = "Школа № 1"
+    await session.commit()
+    code = await diary_link.mint(session, telegram_id=42, class_id=school_class.id)
+
+    sent: list[dict] = []
+
+    async def sign_in(session, login, password, **kwargs):
+        sent.append(kwargs)
+        raise AssertionError("the password was sent to a diary")
+
+    monkeypatch.setattr("app.api.diary_web.diary_service.sign_in", sign_in)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as web:
+        form = await web.get(f"/diary/signin/{code}")
+        assert form.status_code == 200
+        assert site in form.text
+
+        await rebind(session, school_class)
+        assert school_class.diary_provider != before
+
+        submitted = await web.post(
+            f"/diary/signin/{code}", data={"login": "parent", "password": "secret"}
+        )
+
+    assert submitted.status_code == 410
+    assert sent == []
+    assert await session.scalar(select(DiaryLinkCode)) is None
+
+
+async def test_unbinding_drops_the_class_links_and_nobody_elses(session, school_class):
+    other = SchoolClass(name="9Б", school="Школа № 1", join_code="OTHER42")
+    session.add(other)
+    school_class.diary_provider = "petersburg"
+    other.diary_provider = "petersburg"
+    await session.commit()
+    await diary_link.mint(session, telegram_id=42, class_id=school_class.id)
+    await diary_link.mint(session, telegram_id=43, class_id=school_class.id)
+    kept = await diary_link.mint(session, telegram_id=42, class_id=other.id)
+
+    await class_diary_bind(FakeCallback(message=FakeEditable()), session, school_class, Role.ADMIN)
+
+    left = (await session.scalars(select(DiaryLinkCode))).all()
+    assert [row.class_id for row in left] == [other.id]
+    assert await diary_link.claim(session, kept) is not None
+
+
+# --------------------------------------------------------------------------
+# Binding a class to «Сетевой город»: provider → region → school
+# --------------------------------------------------------------------------
+
+
+class _FakeNetSchool:
+    """Stands in for NetSchoolClient: no network, scripted answers.
+
+    ``login_error`` is what ``login_allowed`` raises (None = the region takes a
+    password), and ``schools`` is what a search returns.
+    """
+
+    login_error: Exception | None = None
+    schools: list[dict] = []
+
+    def __init__(self, region: Any) -> None:
+        self.region = region
+
+    async def login_allowed(self) -> None:
+        if type(self).login_error is not None:
+            raise type(self).login_error
+
+    async def schools_search(self, query: str) -> list[dict]:
+        return list(type(self).schools)
+
+
+def _patch_netschool(monkeypatch, *, login_error=None, schools=None) -> None:
+    _FakeNetSchool.login_error = login_error
+    _FakeNetSchool.schools = schools or []
+    monkeypatch.setattr("app.bot.handlers.manage.NetSchoolClient", _FakeNetSchool)
+
+
+async def test_choosing_netschool_shows_the_region_list(session, school_class):
     callback = FakeCallback(message=FakeEditable())
-    await class_diary_bind(callback, session, school_class, Role.EDITOR)
+    await class_diary_provider(
+        callback, SimpleNamespace(value="netschool"), session, school_class, Role.ADMIN
+    )
+
+    assert school_class.diary_provider is None  # nothing bound yet
+    assert "регион" in callback.message.last.lower()
+    assert "Амурская область" in callback.message.last_labels
+
+
+async def test_a_password_region_asks_for_the_school_and_arms_the_search(
+    session, school_class, monkeypatch
+):
+    _patch_netschool(monkeypatch)
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await class_diary_region(
+        callback, SimpleNamespace(value="amur"), session, school_class, Role.ADMIN, state
+    )
+
+    assert state.state == BindDiary.school
+    assert state.data["diary_region"] == "amur"
+    assert state.data["diary_class_id"] == school_class.id
+    assert "названия школы" in callback.message.last
+    assert school_class.diary_provider is None
+
+
+async def test_a_govru_only_region_is_refused_before_the_school_step(
+    session, school_class, monkeypatch
+):
+    """A region that only lets families in through Госуслуги cannot be bound —
+    the admin is told once, not every family at sign-in."""
+    from app.providers.diary.errors import SignInUnsupported
+
+    _patch_netschool(monkeypatch, login_error=SignInUnsupported())
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await class_diary_region(
+        callback, SimpleNamespace(value="amur"), session, school_class, Role.ADMIN, state
+    )
+
+    assert state.state is None
+    assert callback.alerted
+    assert "Госуслуги" in callback.answers[-1][0]
+
+
+async def test_an_unknown_region_key_is_refused(session, school_class, monkeypatch):
+    _patch_netschool(monkeypatch)
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState()
+    await class_diary_region(
+        callback, SimpleNamespace(value="atlantis"), session, school_class, Role.ADMIN, state
+    )
+
+    assert state.state is None
+    assert callback.alerted
+
+
+async def test_searching_shows_the_schools_the_region_found(
+    session, school_class, monkeypatch
+):
+    _patch_netschool(
+        monkeypatch,
+        schools=[{"id": 11, "name": "Гимназия № 1"}, {"id": 22, "name": "Лицей № 2"}],
+    )
+    message = FakeMessage(text="гимназия")
+    state = FakeState(data={"diary_region": "amur", "diary_class_id": school_class.id})
+    await class_diary_search(message, session, state, school_class, Role.ADMIN)
+
+    assert "Гимназия № 1" in message.last_labels
+    assert "Лицей № 2" in message.last_labels
+    assert state.data["diary_schools"][0]["id"] == 11
+
+
+async def test_a_search_that_finds_nothing_says_so(session, school_class, monkeypatch):
+    _patch_netschool(monkeypatch, schools=[])
+    message = FakeMessage(text="школа которой нет")
+    state = FakeState(data={"diary_region": "amur", "diary_class_id": school_class.id})
+    await class_diary_search(message, session, state, school_class, Role.ADMIN)
+
+    assert "не найдена" in message.last.lower()
+
+
+async def test_picking_a_school_binds_the_class_to_netschool(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(
+        data={
+            "diary_region": "amur",
+            "diary_class_id": school_class.id,
+            "diary_schools": [{"id": 11, "name": "Гимназия № 1"}],
+        }
+    )
+    await class_diary_school(
+        callback, SimpleNamespace(value=0), session, Role.ADMIN, state
+    )
+
+    assert school_class.diary_provider == "netschool"
+    assert school_class.diary_region == "amur"
+    assert school_class.diary_school_id == 11
+    assert school_class.diary_school_name == "Гимназия № 1"
+    assert state.cleared
+    assert "Сетевой город" in callback.message.last
+    assert "Амурская область" in callback.message.last
+    assert "Гимназия № 1" in callback.message.last
+
+
+async def test_a_school_index_the_list_cannot_reach_is_refused(session, school_class):
+    """The pick carries an index into the searched list, never an id — an index
+    past the list is a stale keyboard, not a school to bind."""
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(
+        data={
+            "diary_region": "amur",
+            "diary_class_id": school_class.id,
+            "diary_schools": [{"id": 11, "name": "Гимназия № 1"}],
+        }
+    )
+    await class_diary_school(
+        callback, SimpleNamespace(value=9), session, Role.ADMIN, state
+    )
 
     assert school_class.diary_provider is None
     assert callback.alerted
+
+
+async def test_cancelling_the_school_pick_clears_the_state(session, school_class):
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(data={"diary_region": "amur"})
+    await class_diary_cancel(callback, session, school_class, Role.ADMIN, state)
+
+    assert state.cleared
+    assert school_class.diary_provider is None
+
+
+async def test_an_editor_cannot_walk_the_netschool_flow(session, school_class, monkeypatch):
+    _patch_netschool(monkeypatch)
+    state = FakeState()
+    callback = FakeCallback(message=FakeEditable())
+    await class_diary_region(
+        callback, SimpleNamespace(value="amur"), session, school_class, Role.EDITOR, state
+    )
+    assert callback.alerted
+    assert state.state is None
+
+    message = FakeMessage(text="гимназия")
+    editor_state = FakeState(data={"diary_region": "amur", "diary_class_id": school_class.id})
+    await class_diary_search(message, session, editor_state, school_class, Role.EDITOR)
+    assert editor_state.cleared
+    assert school_class.diary_provider is None
+
+
+# --------------------------------------------------------------------------
+# Rebinding: the sessions a class's new binding no longer reads
+# --------------------------------------------------------------------------
+
+
+async def _member_session(
+    session, school_class, *, provider: str | None, region: str | None, telegram_id: int = 42
+) -> DiarySession:
+    from app.crypto import seal
+
+    row = DiarySession(
+        token_hash=hash_token(new_token()),
+        upstream_token=seal("upstream"),
+        login=f"user{telegram_id}@example.com",
+        telegram_id=telegram_id,
+        class_id=school_class.id,
+        provider=provider,
+        region=region,
+    )
+    session.add(row)
+    await session.commit()
+    return row
+
+
+async def _pick_school(session, school_class, region: str, school_id: int = 11) -> None:
+    callback = FakeCallback(message=FakeEditable())
+    state = FakeState(
+        data={
+            "diary_region": region,
+            "diary_class_id": school_class.id,
+            "diary_schools": [{"id": school_id, "name": "Гимназия № 1"}],
+        }
+    )
+    await class_diary_school(callback, SimpleNamespace(value=0), session, Role.ADMIN, state)
+    assert school_class.diary_region == region
+
+
+async def test_binding_another_region_expires_the_old_sessions(session, school_class):
+    """A class moved from samara's server to amur's. Its members' samara
+    sessions read a diary the class has left: the bot matched the provider
+    alone and went on reading samara, and the keep-alive went on pinging it."""
+    school_class.diary_provider = "netschool"
+    school_class.diary_region = "samara"
+    school_class.diary_school_id = 5
+    await session.commit()
+    old = await _member_session(session, school_class, provider="netschool", region="samara")
+
+    await _pick_school(session, school_class, "amur")
+
+    await session.refresh(old)
+    assert old.expired_at is not None
+
+
+async def test_binding_the_same_region_again_keeps_them(session, school_class):
+    """Another school on the same regional server: a session is an account on
+    that server, not on one school, so it goes on reading."""
+    school_class.diary_provider = "netschool"
+    school_class.diary_region = "amur"
+    school_class.diary_school_id = 5
+    await session.commit()
+    kept = await _member_session(session, school_class, provider="netschool", region="amur")
+
+    await _pick_school(session, school_class, "amur", school_id=11)
+
+    await session.refresh(kept)
+    assert kept.expired_at is None
+
+
+async def test_a_legacy_petersburg_row_is_expired_when_the_class_moves_to_netschool(
+    session, school_class
+):
+    """A row from before the provider column has NULL there, which means
+    Petersburg. Written naively, «not this binding» is NULL for it in SQL and
+    matches nothing, and the row would have been left reading Petersburg."""
+    school_class.diary_provider = "petersburg"
+    await session.commit()
+    legacy = await _member_session(session, school_class, provider=None, region=None)
+
+    await _pick_school(session, school_class, "amur")
+
+    await session.refresh(legacy)
+    assert legacy.expired_at is not None
+
+
+async def test_binding_petersburg_expires_the_netschool_sessions_and_nothing_else(
+    session, school_class
+):
+    other_class = SchoolClass(name="10Б", join_code="OTHER10")
+    session.add(other_class)
+    await session.commit()
+    netschool = await _member_session(session, school_class, provider="netschool", region="amur")
+    petersburg = await _member_session(
+        session, school_class, provider="petersburg", region=None, telegram_id=43
+    )
+    legacy = await _member_session(
+        session, school_class, provider=None, region=None, telegram_id=44
+    )
+    elsewhere = await _member_session(session, other_class, provider="netschool", region="amur")
+
+    callback = FakeCallback(message=FakeEditable())
+    await class_diary_provider(
+        callback, SimpleNamespace(value="petersburg"), session, school_class, Role.ADMIN
+    )
+
+    for row in (netschool, petersburg, legacy, elsewhere):
+        await session.refresh(row)
+    assert netschool.expired_at is not None
+    assert petersburg.expired_at is None
+    assert legacy.expired_at is None
+    # Another class's binding did not change, so neither did its sessions.
+    assert elsewhere.expired_at is None
+
+
+async def test_unbinding_expires_nothing(session, school_class):
+    """Unbinding takes the door away and nothing else, as the bot promises:
+    the sessions stay their owners' until they sign out."""
+    school_class.diary_provider = "netschool"
+    school_class.diary_region = "amur"
+    school_class.diary_school_id = 5
+    await session.commit()
+    row = await _member_session(session, school_class, provider="netschool", region="amur")
+
+    await class_diary_bind(FakeCallback(message=FakeEditable()), session, school_class, Role.ADMIN)
+
+    await session.refresh(row)
+    assert school_class.diary_provider is None
+    assert row.expired_at is None
 
 
 async def test_the_switch_screen_needs_somewhere_to_switch_to(session, school_class):
@@ -3542,6 +4012,43 @@ async def test_every_management_step_checks_the_role_for_itself(session, school_
     )
     await press(
         "class_diary_bind", lambda cb: class_diary_bind(cb, session, school_class, viewer)
+    )
+    await press(
+        "class_diary_provider",
+        lambda cb: class_diary_provider(
+            cb, SimpleNamespace(value="netschool"), session, school_class, viewer
+        ),
+    )
+    await press(
+        "class_diary_region",
+        lambda cb: class_diary_region(
+            cb, SimpleNamespace(value="amur"), session, school_class, viewer, FakeState()
+        ),
+    )
+    await press(
+        "class_diary_school",
+        lambda cb: class_diary_school(
+            cb,
+            SimpleNamespace(value=0),
+            session,
+            viewer,
+            FakeState(
+                data={
+                    "diary_region": "amur",
+                    "diary_class_id": school_class.id,
+                    "diary_schools": [{"id": 11, "name": "Ш"}],
+                }
+            ),
+        ),
+    )
+    await press(
+        "class_diary_cancel",
+        lambda cb: class_diary_cancel(cb, session, school_class, viewer, FakeState()),
+    )
+    await send(
+        "class_diary_search",
+        lambda m, st: class_diary_search(m, session, st, school_class, viewer),
+        data={"diary_region": "amur", "diary_class_id": school_class.id},
     )
     await press(
         "calendar_rotate", lambda cb: calendar_rotate(cb, session, school_class, viewer)

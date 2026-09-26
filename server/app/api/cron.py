@@ -12,6 +12,8 @@ hour late; ``reminders.send_due`` is built for both.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from datetime import UTC, datetime, timedelta
 from hmac import compare_digest
 from typing import Any
@@ -26,7 +28,9 @@ from app.config import get_settings
 from app.db import SessionLocal, rows_affected
 from app.models import DeviceToken, DiarySession, JoinAttempt
 from app.schemas import TickOut
-from app.services import device_invites, diary_link, reminders
+from app.services import device_invites, diary_keepalive, diary_link, reminders
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/api/v1", tags=["cron"])
 
@@ -144,6 +148,7 @@ async def tick(
     subscriber at will. The comparison is constant-time for the same reason
     the webhook's is.
     """
+    started = asyncio.get_running_loop().time()
     settings = get_settings()
     if not settings.cron_secret:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cron is not configured")
@@ -173,6 +178,18 @@ async def tick(
     # The personal join codes of a class in «по приглашению». Same reason again:
     # they expire in fifteen minutes and nothing would ever come back for them.
     invites_purged = await device_invites.prune(session)
+    # Hold the «Сетевой город» sessions open. Last, and inside its own guard, so
+    # a slow or raising keep-alive never fails the tick — that would turn the
+    # fallback clock red every five minutes over a diary fault. Its deadline
+    # counts from the start of the request, so a morning heavy with digests
+    # shortens the keep-alive rather than pushing the function past its ceiling.
+    kept_alive = lost = 0
+    keepalive_failed = False
+    try:
+        kept_alive, lost = await diary_keepalive.keep_alive(session, started=started)
+    except Exception:  # noqa: BLE001 - a diary fault must not fail the whole tick
+        keepalive_failed = True
+        log.exception("diary keep-alive failed")
     return TickOut(
         **counts,
         fsm_purged=fsm_purged,
@@ -181,6 +198,9 @@ async def tick(
         device_tokens_purged=device_purged,
         diary_links_purged=links_purged,
         device_invites_purged=invites_purged,
+        diary_sessions_kept_alive=kept_alive,
+        diary_sessions_lost=lost,
+        diary_keepalive_failed=keepalive_failed,
     )
 
 

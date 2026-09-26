@@ -1,6 +1,6 @@
 name: Bug
 description: Something behaves wrongly — in the app, the widget, the bot or on the server
-labels: ["bug"]
+labels: ["type:bug", "status:next"]
 body:
   - type: markdown
     attributes:

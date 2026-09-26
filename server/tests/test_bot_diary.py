@@ -66,10 +66,10 @@ async def test_a_session_is_found_by_the_presser_and_never_by_the_class(
     await _bind(session, school_class)
     theirs = await _open_session(session, telegram_id=SOMEBODY_ELSE, class_id=school_class.id)
 
-    assert await handlers._session_for(session, MINE, school_class.id) is None
+    assert await handlers._session_for(session, MINE, school_class) is None
 
     mine = await _open_session(session, telegram_id=MINE, class_id=school_class.id)
-    found = await handlers._session_for(session, MINE, school_class.id)
+    found = await handlers._session_for(session, MINE, school_class)
     assert found.id == mine.id
     assert found.id != theirs.id
 
@@ -77,22 +77,58 @@ async def test_a_session_is_found_by_the_presser_and_never_by_the_class(
 async def test_a_session_does_not_cross_between_classes(session, school_class):
     """A parent in two classes must not read one child's diary from the other
     class's screen — the session is keyed on both halves, always."""
-    other = SchoolClass(name="9Б", school="Школа № 1", join_code="OTHER42")
+    other = SchoolClass(
+        name="9Б", school="Школа № 1", join_code="OTHER42", diary_provider="petersburg"
+    )
     session.add(other)
+    await _bind(session, school_class)
     await session.commit()
 
     await _open_session(session, telegram_id=MINE, class_id=other.id)
 
-    assert await handlers._session_for(session, MINE, school_class.id) is None
-    assert await handlers._session_for(session, MINE, other.id) is not None
+    assert await handlers._session_for(session, MINE, school_class) is None
+    assert await handlers._session_for(session, MINE, other) is not None
+
+
+async def test_a_session_on_the_region_the_class_left_is_not_read(session, school_class):
+    """A class moved from samara's «Сетевой город» server to amur's. The lookup
+    matched the provider alone, so «📒 Мой дневник» went on reading samara — a
+    diary the class had left, with a credential for another server. The region
+    is part of what a session reads now."""
+    school_class.diary_provider = "netschool"
+    school_class.diary_region = "amur"
+    school_class.diary_school_id = 11
+    await session.commit()
+
+    def netschool_row(region: str, token: str) -> DiarySession:
+        return DiarySession(
+            token_hash=hash_token(token),
+            upstream_token=seal("upstream"),
+            login="parent@example.com",
+            telegram_id=MINE,
+            class_id=school_class.id,
+            provider="netschool",
+            region=region,
+        )
+
+    session.add(netschool_row("samara", "left-behind"))
+    await session.commit()
+    assert await handlers._session_for(session, MINE, school_class) is None
+
+    current = netschool_row("amur", "current")
+    session.add(current)
+    await session.commit()
+    found = await handlers._session_for(session, MINE, school_class)
+    assert found is not None and found.id == current.id
 
 
 async def test_a_session_whose_key_no_longer_opens_it_is_dead(session, school_class):
+    await _bind(session, school_class)
     row = await _open_session(session, telegram_id=MINE, class_id=school_class.id)
     row.upstream_token = "not-a-fernet-blob"
     await session.commit()
 
-    assert await handlers._session_for(session, MINE, school_class.id) is None
+    assert await handlers._session_for(session, MINE, school_class) is None
     await session.refresh(row)
     assert row.expired_at is not None
 
@@ -178,6 +214,11 @@ async def test_the_sign_in_link_is_one_ticket_pointed_at_the_form(
     # decide whether to forward it.
     assert "один раз" in callback.message.last
     assert "Не пересылайте" in callback.message.last
+    # #150: the page posts the password to this server, so the card must not
+    # say it goes «прямо в дневник» or that the bot never sees it.
+    assert "прямо в дневник" not in callback.message.last
+    assert "не видят" not in callback.message.last
+    assert "нигде не сохраняет" in callback.message.last
 
 
 async def test_signing_out_drops_the_session_and_returns_the_door(
@@ -189,7 +230,7 @@ async def test_signing_out_drops_the_session_and_returns_the_door(
 
     await handlers.diary_sign_out(callback, session, school_class)
 
-    assert await handlers._session_for(session, MINE, school_class.id) is None
+    assert await handlers._session_for(session, MINE, school_class) is None
     assert "Пароль не вводится в чат" in callback.message.last
 
 
@@ -221,7 +262,7 @@ async def test_signing_out_leaves_no_session_behind_to_walk_back_in_on(
 
     await handlers.diary_sign_out(CardCallback(user_id=MINE), session, school_class)
 
-    assert await handlers._session_for(session, MINE, school_class.id) is None
+    assert await handlers._session_for(session, MINE, school_class) is None
 
 
 async def test_signing_out_of_one_class_leaves_the_other_class_alone(
@@ -230,7 +271,7 @@ async def test_signing_out_of_one_class_leaves_the_other_class_alone(
     """The bot addresses a session by (telegram_id, class_id) and nothing else,
     so «Выйти» in one class must not sign a parent out of the other child."""
     await _bind(session, school_class)
-    other = SchoolClass(name="5Б", join_code="OTHER1")
+    other = SchoolClass(name="5Б", join_code="OTHER1", diary_provider="petersburg")
     session.add(other)
     await session.flush()
     await _open_session(session, telegram_id=MINE, class_id=school_class.id)
@@ -238,7 +279,7 @@ async def test_signing_out_of_one_class_leaves_the_other_class_alone(
 
     await handlers.diary_sign_out(CardCallback(user_id=MINE), session, school_class)
 
-    still = await handlers._session_for(session, MINE, other.id)
+    still = await handlers._session_for(session, MINE, other)
     assert still is not None
     assert still.id == elsewhere.id
 
@@ -861,12 +902,20 @@ def test_the_other_three_views_escape_the_upstream_too():
 
 def test_the_signed_out_card_promises_the_password_never_enters_the_chat():
     """The one sentence the whole ``diary_web`` sign-in form exists for."""
-    text = diary_render.render_signed_out()
+    text = diary_render.render_signed_out("Санкт-Петербурга")
 
     assert "📒 <b>Электронный дневник</b>" in text
+    assert "дневнику Санкт-Петербурга" in text
     assert "<b>Пароль не вводится в чат.</b>" in text
     assert "никто из класса не видит его за вас" in text
     assert "нигде не сохраняется" in text
+
+
+def test_the_signed_out_card_names_the_bound_diary():
+    """The card names whichever diary the class is bound to, in the genitive,
+    now that there is more than one — a card that always said Petersburg would
+    be a lie for «Сетевого города»."""
+    assert "дневнику «Сетевого города»" in diary_render.render_signed_out("«Сетевого города»")
 
 
 def test_the_signed_out_card_offers_a_way_in_only_when_there_is_one():

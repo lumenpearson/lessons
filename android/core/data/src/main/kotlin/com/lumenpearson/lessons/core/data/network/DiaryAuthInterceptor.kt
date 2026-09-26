@@ -32,11 +32,14 @@ internal class DiaryAuthInterceptor(
         val request = chain.request()
         val path = request.url.encodedPath
 
-        // `/login` is the call that creates the token, so it cannot carry one;
-        // a stale bearer on it would be ignored by the server anyway, and not
-        // sending it keeps a dead session out of the one request that is
-        // supposed to replace it.
-        val mine = path.contains(DIARY_PATH_PREFIX) && !path.endsWith(LOGIN_SUFFIX)
+        // `/login` and `/session` are the calls that mint the token, so they
+        // cannot carry one: a stale bearer riding the request that is meant to
+        // replace it is a dead session sent along for nothing, and a family
+        // signing in to a second account would hand the server the first
+        // one's. `/capabilities` is asked before anybody is signed in and says
+        // the same thing to everyone. All three are anonymous on the server.
+        val mine = path.contains(DIARY_PATH_PREFIX) &&
+            ANONYMOUS_SUFFIXES.none { path.endsWith(it) }
         if (!mine || request.header(HEADER) != null) {
             return chain.proceed(request)
         }
@@ -61,6 +64,13 @@ internal class DiaryAuthInterceptor(
          */
         const val DIARY_PATH_PREFIX = "/api/v1/diary"
 
-        const val LOGIN_SUFFIX = "/diary/login"
+        /**
+         * `/login` stays in the list although this build never calls it: the
+         * rule is about what the server treats as anonymous, and a list that
+         * matched the app's calls rather than the server's routes would be
+         * wrong again the day somebody calls it for a test.
+         */
+        val ANONYMOUS_SUFFIXES: List<String> =
+            listOf("/diary/login", "/diary/session", "/diary/capabilities")
     }
 }

@@ -1,24 +1,18 @@
 package com.lumenpearson.lessons.core.designsystem.component
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
@@ -164,7 +158,8 @@ fun StateHeroCard(
  *
  * Separated out because it is the only stateful-looking part of the card and the
  * animation has to survive the card recomposing every minute; keeping it in its
- * own composable means only the bar re-runs when the fraction ticks.
+ * own composable means only the bar re-runs when the fraction ticks. The bar
+ * itself is [LessonsWavyProgress], shared with every other screen that waits.
  */
 @Composable
 private fun HeroProgress(
@@ -172,22 +167,9 @@ private fun HeroProgress(
     accent: Color,
     track: Color,
 ) {
-    val animated by animateFloatAsState(
-        targetValue = progress.coerceIn(0f, 1f),
-        // Uses the MotionScheme installed by LessonsTheme, which is the point of
-        // MaterialExpressiveTheme. If MaterialTheme.motionScheme moves, the
-        // stable fallback is tween(durationMillis = 600).
-        animationSpec = MaterialTheme.motionScheme.slowSpatialSpec<Float>(),
-        label = "heroProgress",
-    )
-    val description = correctedString(R.string.ds_countdown_progress, progress.asPercent())
-
-    LinearWavyProgressIndicator(
-        progress = { animated },
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(12.dp)
-            .semantics { contentDescription = description },
+    LessonsWavyProgress(
+        progress = progress,
+        description = correctedString(R.string.ds_countdown_progress, progress.asPercent()),
         color = accent,
         trackColor = track,
     )

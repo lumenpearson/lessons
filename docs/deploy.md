@@ -178,9 +178,11 @@ the variable and redeploying.
 
 ### The electronic diary
 
-`DIARY_SECRET` is the key the electronic diary's session is encrypted with (`app/crypto.py`).
-It is the only credential in the project that cannot be stored as a hash: the diary's token
-is sent upstream on every request, so it is encrypted rather than hashed.
+`DIARY_SECRET` is the key the electronic diary's session is encrypted with (`app/crypto.py`)
+— every session, whether this server signed in with a password or a phone signed in itself
+and registered what the diary gave it. It is the only credential in the project that cannot
+be stored as a hash: the diary's token is sent upstream on every request, so it is encrypted
+rather than hashed.
 
 ```bash
 python3 -c "import secrets; print(secrets.token_urlsafe(48))"
@@ -190,7 +192,9 @@ Without it the diary is **switched off entirely** rather than running in plainte
 fallback to plaintext would be invisible — the feature answers, and the only difference is in
 a column nobody looks at — and deployments live like that for years. "Too short" counts as
 missing: anything under 32 characters is refused at the same door, and the startup log says
-the diary is off rather than letting a set-but-unusable key look configured.
+the diary is off rather than letting a set-but-unusable key look configured. A client can
+tell before anybody types a password: `GET /api/v1/diary/capabilities` answers
+`"enabled": false`, and every diary `503` carries `X-Diary-Unavailable: disabled`.
 
 Three things worth knowing about this key:
 
@@ -232,21 +236,41 @@ company register, where every school appears simply because every school is a le
 and DaData, which is a search over it that people actually use.
 
 The key is taken from https://dadata.ru/profile/#info — you want the "API key", not the
-"secret key". The free plan is 10,000 requests a day; the bot makes one request per search
-and pages through the results locally, so the pages cost nothing.
+"secret key". The free plan is 10,000 requests a day. A search is one request, and **two
+when the first finds nothing**: an empty answer under the three school ОКВЭД codes is asked
+again without them, so that somebody who typed their own school's name is not told it does
+not exist. The results are paged locally, so the pages cost nothing.
+
+Two doors spend that allowance, and one of them is capped. The bot and
+`GET /api/v1/manage/schools` search behind a class admin, a few searches per class created,
+and are not metered here. `GET /api/v1/directory/school-regions` is asked
+**anonymously**, by a phone that belongs to no class yet, so that door gets a fixed share:
+**4,000 requests per Moscow day**, the empty-answer retry included, counted in the database
+(`usage_counters`, revision `0016`). When the share is spent it answers `503` with
+`X-Directory-Unavailable: spent` and «выберите регион из списка» until Moscow midnight, while
+the other 6,000 stay for the bot's create-class step — which is what the cap exists to
+protect. Each caller is also held to twenty searches in fifteen minutes. The share is a
+constant (`ANONYMOUS_DAILY_UNITS` in `app/services/quota.py`), not a setting; on a paid plan
+with a larger allowance, change it there. Whether DaData's own day turns at Moscow midnight
+is not documented anywhere: if it counts in UTC, the worst case is two anonymous days inside
+one of DaData's, 8,000, which still leaves the admins 2,000.
 
 Worth knowing:
 
 * **The key lives only in the server's environment.** It is not in the APK and must not be:
-  the phone asks our server (`GET /api/v1/manage/schools`), and the server goes upstream.
+  the phone asks our server (`GET /api/v1/manage/schools`, or the anonymous
+  `GET /api/v1/directory/school-regions` before it has a class), and the server goes
+  upstream.
 * **Twenty is a ceiling, not a number of matches.** DaData's endpoint is built for
   type-ahead suggestions: it returns no more than twenty at a time and has no offset ("the
   next twenty"). So the answer honestly says «показаны первые 20» rather than «найдено 20»,
   and the only way to reach your school is to add the town or the number.
 * **A missing key is not a breakage.** The search answers 503 with the words «введите
-  название вручную», and a class is created as before. There is deliberately no fallback
-  list inside the project: a snapshot of the register would confidently answer with last
-  year's schools, and nothing on the screen would tell you which you were looking at.
+  название вручную», and a class is created as before; the anonymous directory answers
+  503 with `X-Directory-Unavailable: disabled`, and the region is picked from the list.
+  There is deliberately no fallback list inside the project: a snapshot of the register
+  would confidently answer with last year's schools, and nothing on the screen would tell
+  you which you were looking at.
 
 ### The Neon connection string
 
@@ -299,11 +323,48 @@ from `create_all` — on ours it does not, because the DDL for `0009` came from 
 no-op: all eight really were nullable, and all eight held no nulls, so it tightened them and
 rewrote nothing. `0013` adds `uq_homework_per_subject_per_day`. `0014` widens
 `day_overrides.kind` to `VARCHAR(10)`: `DayKind` gained `SELF_STUDY`, and a `SAEnum`
-stores the member name, so the column is as wide as the longest of them.
+stores the member name, so the column is as wide as the longest of them. `0015` adds the
+columns a second diary provider needs: `diary_sessions.provider` and `region` and the three
+keep-alive clocks, and `classes.diary_region`, `diary_school_id` and `diary_school_name` —
+eight nullable columns, additive, to go on before the merge. Its downgrade expires every
+non-Petersburg session first, so code rolled back past this revision cannot read a «Сетевой
+город» credential as Petersburg's and replay it at the wrong upstream, and unbinds every
+class bound to «Сетевой город», which the old code would call «Санкт-Петербург» on the
+admin's card and «не привязан» behind the diary button. `0016` creates
+`usage_counters` — one row per external allowance per Moscow day, the anonymous school
+directory's share of DaData's — and nothing else: one new table, no existing row read or
+rewritten, additive, and it goes on **together with `0015`, before #140 merges**. Its
+downgrade drops the table, which loses nothing but the counts. `0017` changes no schema at
+all: it files the corrections over the diary under the child instead of under a login
+(#165) — `diary_overrides.login` keeps its name and now holds the diary's scope,
+`CHILD:petersburg` or `CHILD:netschool:` and the regional server's host, and no other shape
+(a child the diary lists outside its own numbering gets no corrections at all). It
+**deletes** every legacy «Сетевой город» row (its region is inside a hash, recoverable at
+best for authors still signed in, and such rows exist only where #140's branch ran),
+deletes all but the newest row wherever two logins corrected the same field of the same
+child, and rewrites the rest of the old Petersburg rows to `CHILD:petersburg`. Its
+docstring carries the two counts to read before the transaction, one per destructive step.
+On PostgreSQL it first locks the table against writes until it commits, so a correction
+saved while it runs waits instead of making it roll back. On production, read on 26
+September with no correction in it, that was nothing: it went on with `0015` and `0016`
+before the merge, at 12:26 UTC that day. On a deployment that holds corrections it is better applied just
+**after** the merge — see the third shape below. Its downgrade does nothing, on purpose — a
+login cannot be recovered from a scope, and the old code cannot read or write an
+upper-case scope under any login — but a revert is not lossless: what older code writes
+while it runs is filed under logins the new code never reads, and redeploying does not
+re-run `0017`. After any such window, run its statements again, or
+`alembic downgrade 0016 && alembic upgrade head`, which re-runs it because the downgrade does
+nothing.
 
 Everything up to `0012` checks with an inspector what is not in the database yet and does
 not rewrite existing tables, so those can be applied to a live class in the middle of a
-school day. The head is `0014`.
+school day. `0013`, `0015` and `0016` ask the inspector too — per constraint, per column,
+per table — because on an empty database `0001` has already built today's schema, and a
+second `ADD COLUMN` or `ADD CONSTRAINT` there is a hard error that stops the `migrate`
+service below; and because a SQLite file `scripts.init_db` built before a model change is
+stamped at the old head without the new columns, and only the revision adds them. `0017`
+asks only whether the table is there; its statements are plain SQL that PostgreSQL and SQLite
+both run, and a second run finds nothing to do. The head is `0017`.
 
 ### A migration goes BEFORE the deploy, not after
 
@@ -328,6 +389,21 @@ nobody catches. `0013` is that shape and says so in its own docstring — it wen
 the merge, and `services/homework.py` is written to be correct with or without it, so the
 window in between behaved exactly as production did before.
 
+**A rewrite of a key is a third shape.** `0017` breaks neither code — it changes no column —
+but the old code and the new file the same rows under different keys, so whichever runs in
+the window between the migration and the deploy writes rows the other cannot see, and
+neither order is free of loss. Before the merge, every correction typed in the window is
+filed under a login the new code never reads. After the merge, nothing typed is lost — the
+new code writes per-child rows at once, and the rewrite folds the old ones into them, the
+newer winning — but a **reset** made in the window is undone: the new code cannot see the
+legacy row to take it off, so «Сбросить правки» or «Сбросить всё» leaves it, and `0017` then
+files it under the child and the value comes back for everyone who sees the child. After is
+still the smaller loss, so it is the order for a deployment that holds corrections — with
+the window kept to minutes, and with `/api/v1/warmup` saying «База отстала от кода» through
+it, which there is expected. Where there is nothing to rewrite — production, on 26
+September — the order is free, and it went on with the additive revisions before the merge,
+which keeps `/api/v1/warmup` level.
+
 That the database really has caught up with the code is shown by `alembic current` — it
 should print the same revision as `alembic heads`. The same thing over HTTP, without going
 into the database by hand:
@@ -336,17 +412,20 @@ into the database by hand:
 curl -s https://<your-project>.vercel.app/api/v1/warmup
 ```
 
-`{"status":"ok","schema":"0014"}` means it all lines up. `"status":"degraded"` together with
+`{"status":"ok","schema":"0017"}` means it all lines up. `"status":"degraded"` together with
 `expected_schema` names both revisions and says which way they diverged: «База отстала от
-кода» — the database is behind the code — is an incident, while «База впереди кода» — the
-database is ahead — is the normal window between steps 1 and 2, which the deploy closes.
+кода» — the database is behind the code — is an incident, except in the minutes a key
+rewrite such as `0017` is deliberately applied after the merge (above), while «База впереди
+кода» — the database is ahead — is the normal window between steps 1 and 2, which the
+deploy closes.
 `/api/v1/health` deliberately does not show this: it opens no database connection at all, or
 a ping meant to warm things up would keep waking a sleeping Neon.
 
 ### What to apply them with
 
 In practice this project's migrations are applied **through the Neon connector** rather than
-with the `alembic` command — that is how `0005`–`0014` were applied. The Neon project is
+with the `alembic` command — that is how `0005`–`0017` were applied, the last three
+together on 26 September 2026, before #140 merged. The Neon project is
 called `lessons`; its identifier is not kept in the repository — anybody with access sees it
 in the Neon console anyway, and in a public repository it is just the address of somebody
 else's database.
@@ -490,7 +569,7 @@ stack instead of being buried in the API's log, and so that a migration can be r
 with `docker compose run --rm migrate`. It needs only `DATABASE_URL`: `get_settings()` is
 never called there, so `BOT_TOKEN` and `OWNER_IDS` are not its business.
 `GET /api/v1/warmup` is what confirms the result, and it is the endpoint that can: it says
-`{"status": "ok", "schema": "0014"}` when the two agree and names both revisions when they
+`{"status": "ok", "schema": "0017"}` when the two agree and names both revisions when they
 do not.
 
 The app on the phone needs to reach the API. The options are a public IP with a forwarded
@@ -577,6 +656,11 @@ Without those secrets the workflow does not fail: it writes a notice and exits z
 Actions tab would go red for everybody who cloned the repository.
 
 The same tick also sweeps up abandoned bot dialogues and expired records of failed code
-attempts — on serverless that is the only moment anything can be swept up at all. For the
-sweeping, whatever GitHub deigns to run is enough; for the digests it is not, which is why
-the external cron is not a nice-to-have but the condition of what the bot says.
+attempts — on serverless that is the only moment anything can be swept up at all — and it
+holds **«Сетевой город» sessions open**, pinging each live one before its 15-to-60-minute
+idle window runs out, because this project stores no password to sign back in with. For the
+sweeping, whatever GitHub deigns to run is enough; for the digests and the keep-alive it is
+not — a session dies in the gaps GitHub leaves — which is why the external cron is not a
+nice-to-have but the condition of both what the bot promises and whether a «Сетевой город»
+family stays signed in. The keep-alive runs last in the tick and inside its own guard, so a
+diary that is slow or down never fails the tick and reddens the clock.

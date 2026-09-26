@@ -32,7 +32,17 @@ class School(BaseModel):
     #: list needs the short one and the card the long one.
     address: str | None = None
     city: str | None = None
+    #: The region as the register writes it — «Респ Татарстан», «г Москва».
+    #: Shown when nothing better is known, and matched against the catalog's
+    #: spellings when :attr:`region_code` is missing.
     region: str | None = None
+    #: The region's two-digit subject code, cut from the address's KLADR id
+    #: («1600000000000» → «16»), or ``None`` when the row carries none. A code
+    #: rather than the name because the name comes in several spellings and
+    #: the code in one, so it is what places a school in the region catalog
+    #: first. Not on ``SchoolOut``: the bot and ``/manage/schools`` never
+    #: needed it, and adding it there would be a wire change for nothing.
+    region_code: str | None = None
     #: Whether the register still considers it operating. A liquidated school
     #: is kept rather than hidden: a class created in May may well belong to
     #: one merged over the summer, and «ликвидирована» beside the name is more

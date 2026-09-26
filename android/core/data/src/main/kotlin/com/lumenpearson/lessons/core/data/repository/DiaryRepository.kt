@@ -4,7 +4,7 @@ import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 
 /**
- * The family's account in the Petersburg diary.
+ * The family's account in a diary — Petersburg's or a «Сетевой город» region's.
  *
  * Deliberately not part of [SessionRepository]. The two sessions are
  * independent in both directions — a phone can be in a class without a diary
@@ -13,8 +13,9 @@ import kotlinx.coroutines.flow.Flow
  * does not touch the other. Two repositories is how that stays true when
  * somebody later adds a sign-out to either.
  *
- * Every call returns [Result] like [SessionRepository.join] does, but the
- * failure inside it is always a [DiaryFailure]: the screens have a different
+ * Every call returns [Result] like [SessionRepository.join] does, and the
+ * failure inside it is a [DiaryFailure] — [signIn]'s alone is a
+ * [DiarySignInProblem], see there. The screens have a different
  * thing to do about each answer, and
  * [ReauthRequired][DiaryFailure.ReauthRequired] in particular has to be
  * recognisable without reading a message.
@@ -24,24 +25,32 @@ interface DiaryRepository {
     /** `null` means "not signed in to the diary"; the section switches on it. */
     val session: Flow<DiarySession?>
 
+    /**
+     * Which diary this phone signs in to, whether or not the session is alive:
+     * it outlives a bare `401`, so the sign-in that follows one is to the same
+     * diary, region and school rather than to a blank form.
+     */
+    val target: Flow<DiaryTarget?>
+
     /** One-shot read, for a screen that needs the login before its first frame. */
     suspend fun current(): DiarySession?
 
     /**
-     * Exchanges credentials for a session and stores it.
+     * Signs in to [target]'s diary on the phone, registers the session with the
+     * server and stores our bearer — [DiarySignIn.signIn], for the screens that
+     * hold nothing between the steps: Settings → Дневник and re-authentication,
+     * which passes the stored session's target so only the password is typed.
      *
-     * The password is passed straight through to the one call that needs it and
-     * is never written anywhere — not by this app, and not by the server, which
-     * is why an expired upstream session ends in
-     * [DiaryFailure.ReauthRequired] rather than in a silent refresh.
-     *
-     * A refused password comes back as [DiaryFailure.SignInRequired]: on this
-     * call, and only on this call, that means "wrong login or password".
+     * The password goes to the diary's own server and nowhere else: not to
+     * ours, not to disk. The failure inside the [Result] is a
+     * [DiarySignInProblem], not a [DiaryFailure] — a sign-in has more ways to
+     * fail than a read, and the screens say one sentence per way.
      */
-    suspend fun signIn(login: String, password: String): Result<DiarySession>
+    suspend fun signIn(target: DiaryTarget, password: String): Result<DiarySession>
 
     /**
-     * Forgets the diary session, here and on the server.
+     * Forgets the diary session, here and on the server — the bearer, the
+     * target, the chosen pupil and whatever was kept offline for the account.
      *
      * The local half happens even when the server cannot be reached: a user who
      * asked to be signed out must not stay signed in because the network was
@@ -71,7 +80,8 @@ interface DiaryRepository {
     suspend fun periods(studentId: Long): Result<List<DiaryPeriod>>
 
     /**
-     * Every correction this family has stored for this child.
+     * Every correction stored for this child, by anyone whose diary lists the
+     * pupil — the other parent's as much as this account's.
      *
      * Not needed to *draw* a corrected lesson — [schedule] already comes back
      * corrected, with [DiaryLesson.edits] saying which fields were — but needed

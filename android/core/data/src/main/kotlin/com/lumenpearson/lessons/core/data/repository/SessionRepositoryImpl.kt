@@ -117,6 +117,10 @@ internal class SessionRepositoryImpl(
                     className = response.className,
                     school = response.school?.trim()?.ifBlank { null },
                     token = response.token,
+                    // The join is the only answer that carries it (the bundle
+                    // does not), so it is kept with the membership it came
+                    // with — and replaced, like the token, by a re-join.
+                    diary = response.diary?.toDomain(),
                 )
                 // Before the membership is stored, so the new token can never
                 // show rows that predate it. Only this class's rows: the other

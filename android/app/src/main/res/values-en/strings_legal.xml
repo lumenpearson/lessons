@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The English twin of values/strings_legal.xml; the reasoning is written there.
+-->
+<resources>
+
+    <string name="onboarding_legal_notice">By continuing, you accept the %1$s and the %2$s</string>
+    <string name="onboarding_legal_terms">Terms of Use</string>
+    <string name="onboarding_legal_privacy">Privacy Policy</string>
+
+    <string name="legal_title_terms">Terms of use</string>
+    <string name="legal_title_privacy">Privacy policy</string>
+
+    <string name="legal_edition">Edition %1$d of %2$s</string>
+    <string name="legal_bundled_note">This is the copy built into the app. The current edition is at the link.</string>
+    <string name="legal_open_current">Open the current edition</string>
+    <string name="legal_missing">Could not open the document.</string>
+
+</resources>

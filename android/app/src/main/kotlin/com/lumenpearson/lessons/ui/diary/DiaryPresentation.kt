@@ -2,6 +2,8 @@ package com.lumenpearson.lessons.ui.diary
 
 import androidx.annotation.StringRes
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.diary.DiaryDateRange
+import com.lumenpearson.lessons.core.data.diary.DiaryWindows
 import com.lumenpearson.lessons.core.data.repository.DiaryEdit
 import com.lumenpearson.lessons.core.data.repository.DiaryField
 import com.lumenpearson.lessons.core.data.repository.DiaryHomework
@@ -11,11 +13,8 @@ import com.lumenpearson.lessons.core.data.repository.DiaryMarkKind
 import com.lumenpearson.lessons.core.data.repository.DiaryPeriod
 import com.lumenpearson.lessons.core.data.repository.DiaryRepository
 import java.time.Clock
-import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.ZoneId
-import java.time.temporal.TemporalAdjusters
 
 /**
  * Everything the diary screens decide, with nothing on screen.
@@ -64,29 +63,22 @@ internal val DiaryLesson.correctable: Boolean get() = target.isNotBlank()
 internal val DiaryHomework.correctable: Boolean get() = target.isNotBlank()
 
 /**
- * The zone the diary's own days are cut at.
+ * The date it is where the diary is.
  *
- * Every other date in this app comes from the class's zone, because the project
- * serves schools across eleven of them. The diary has no class behind it and
- * needs none: it is one city's service, and that city keeps Moscow time. The
- * server cuts the same boundary in `providers/petersburg`, and the two have to
- * agree - a phone that highlighted a different day as today than the server
- * served the week for would look like the diary had lost a day.
- */
-val DiaryZone: ZoneId = ZoneId.of("Europe/Moscow")
-
-/**
- * The date it is in the city whose diary this is.
+ * [zone] is the session's — `DiaryTarget.zoneId()`, which is the zone the server
+ * told this phone at registration and cuts the diary's days at. It used to be
+ * Moscow for every diary, which was true while the only diary was Petersburg's;
+ * a «Сетевой город» pupil in Tomsk would have opened on yesterday for four
+ * hours every evening. Not `LocalDate.now()` either: a pupil travelling, or a
+ * phone left on another zone, would open on a day the diary has not reached.
  *
- * Not `LocalDate.now()`: a pupil travelling east, or a phone left on another
- * zone, would otherwise open the diary on a day the diary has not reached.
+ * [DiaryWindows.today] is the rule; this is the name the screens read it by.
  */
-fun diaryToday(clock: Clock = Clock.systemUTC()): LocalDate =
-    LocalDateTime.ofInstant(clock.instant(), DiaryZone).toLocalDate()
+fun diaryToday(zone: ZoneId, clock: Clock = Clock.systemUTC()): LocalDate =
+    DiaryWindows.today(zone, clock)
 
-/** Monday of the week [date] falls in; the week view's anchor. */
-fun diaryWeekStart(date: LocalDate): LocalDate =
-    date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+/** Monday of the week [date] falls in; the week view's anchor, and the cache's key. */
+fun diaryWeekStart(date: LocalDate): LocalDate = DiaryWindows.weekStart(date)
 
 /**
  * Groups a week's worth of lessons and homework into days.
@@ -206,31 +198,22 @@ fun DiaryMarkKind.toneIndex(): Int = when (this) {
 }
 
 /**
- * The window the marks screen asks for, as [from] to [to] inclusive.
+ * The window the marks screen asks for, [from][DiaryDateRange.from] to
+ * [to][DiaryDateRange.to] inclusive.
  *
- * The server refuses anything wider than
- * [DiaryRepository.MAX_RANGE_DAYS] with a 422, and a school quarter is
- * routinely longer than that, so the term cannot simply be passed through. The
- * rule, in order:
- *
- *  * end at today, or at the end of the term when the term is already over —
- *    asking for marks that have not been given yet returns nothing and says
- *    nothing;
- *  * start at the beginning of the term, when that fits;
- *  * otherwise start as far back as the limit allows, so what is shown is the
- *    most recent 62 days of the term rather than its first 62.
+ * The same type the import fills the cache with, because the two have to be
+ * the same range: a window worked out twice is a window that will one day be
+ * worked out differently, and a cache that is never hit says nothing about it.
  */
-data class DiaryRange(val from: LocalDate, val to: LocalDate)
+typealias DiaryRange = DiaryDateRange
 
-/** @see DiaryRange */
-fun diaryGradeRange(today: LocalDate, period: DiaryPeriod? = null): DiaryRange {
-    val limit = DiaryRepository.MAX_RANGE_DAYS
-    val end = period?.endsOn?.takeIf { it.isBefore(today) } ?: today
-    val widest = end.minusDays(limit)
-    val start = period?.startsOn?.takeIf { it.isAfter(widest) } ?: widest
-    // A term whose start is somehow after its end cannot narrow anything.
-    return DiaryRange(from = minOf(start, end), to = end)
-}
+/**
+ * The current term, cut to what the server will serve — [DiaryWindows.gradeWindow],
+ * which says how. The server refuses anything wider than
+ * [DiaryRepository.MAX_RANGE_DAYS], and a school quarter is routinely longer.
+ */
+fun diaryGradeRange(today: LocalDate, period: DiaryPeriod? = null): DiaryRange =
+    DiaryWindows.gradeWindow(today, period)
 
 /**
  * One row's correctable fields, as the sheet needs them.

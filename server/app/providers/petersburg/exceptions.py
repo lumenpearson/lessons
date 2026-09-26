@@ -1,55 +1,29 @@
-"""What can go wrong upstream, named so a route can answer it.
+"""Petersburg's error names, which are now the shared diary errors.
 
-The upstream speaks HTTP and sometimes speaks HTML at us; the rest of the
-application should not have to tell the difference between "wrong password",
-"session over", "they are down" and "they changed the response". Each of those
-needs a different answer at the API edge, so each is a type here.
+This module pre-dates :mod:`app.providers.diary.errors`. Its names are kept as
+aliases of the very classes defined there — ``PetersburgError is DiaryError`` —
+so every ``from app.providers.petersburg import BadCredentials`` still works and
+``isinstance`` holds whether a failure was raised under the old spelling or the
+new one. New code should import from :mod:`app.providers.diary.errors`.
 """
 
 from __future__ import annotations
 
+from app.providers.diary.errors import (
+    BadCredentials,
+    DiaryError,
+    SessionExpired,
+    UnexpectedResponse,
+    UpstreamUnavailable,
+)
 
-class PetersburgError(Exception):
-    """Base for everything this provider raises."""
+#: The old base name. The same class as :class:`app.providers.diary.errors.DiaryError`.
+PetersburgError = DiaryError
 
-    #: What the client is told. Deliberately short and Russian - these reach a
-    #: phone screen, not a log reader.
-    message = "Электронный дневник недоступен"
-
-    def __init__(self, message: str | None = None) -> None:
-        super().__init__(message or self.message)
-        self.message = message or self.message
-
-
-class BadCredentials(PetersburgError):
-    """The login or the password is wrong. Nothing to retry."""
-
-    message = "Неверный логин или пароль"
-
-
-class SessionExpired(PetersburgError):
-    """The stored session is no longer accepted.
-
-    Distinct from :class:`BadCredentials` because the answer is different: the
-    person has not changed their password, they have simply been away long
-    enough. The client turns this into «войдите снова», not «вы ошиблись».
-    """
-
-    message = "Сессия дневника истекла — войдите заново"
-
-
-class UpstreamUnavailable(PetersburgError):
-    """A timeout, a connection failure, or a 5xx."""
-
-    message = "Электронный дневник не отвечает"
-
-
-class UnexpectedResponse(PetersburgError):
-    """A 200 whose body is not what this provider knows how to read.
-
-    Its own type because it means *this code* needs changing, not the network
-    and not the user's password - and because it is the failure an undocumented
-    API produces when it is quietly redesigned.
-    """
-
-    message = "Электронный дневник ответил непонятно"
+__all__ = [
+    "BadCredentials",
+    "PetersburgError",
+    "SessionExpired",
+    "UnexpectedResponse",
+    "UpstreamUnavailable",
+]

@@ -86,4 +86,13 @@ class JoinErrorTextTest {
         // And does not invent one.
         compose.onNodeWithText("через", substring = true).assertDoesNotExist()
     }
+
+    /** #154: the cure is the row under the button, and the sentence says so, in Russian. */
+    @Test
+    fun `a missing server address points at the address row`() {
+        show(JoinError.NoServer)
+
+        compose.onNodeWithText("Не указан адрес сервера", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("«Адрес сервера»", substring = true).assertIsDisplayed()
+    }
 }

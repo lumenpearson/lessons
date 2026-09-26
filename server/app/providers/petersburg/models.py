@@ -1,141 +1,36 @@
-"""The diary as this project describes it.
+"""Petersburg's model names, which are now the shared diary models.
 
-These are the models the rest of the application and the Android client see.
-They are deliberately not the upstream's shapes: nothing here is called
-``estimate_value_name``, nothing carries ``p_educations``, and no field exists
-only because an undocumented API happened to send it.
+This module pre-dates :mod:`app.providers.diary.models`. Every model it once
+defined lives there now and is re-exported here unchanged — the same classes,
+so ``isinstance`` holds across both spellings and nothing that imports
+``app.providers.petersburg.models`` breaks. New code should import from
+:mod:`app.providers.diary.models`.
 
-That distance is the point of the whole integration. When the upstream renames
-a field, :mod:`app.providers.petersburg.mapper` changes and these do not - so
-neither does the public API, and neither does the phone.
+``DiaryAccount`` used to live here and had no reader; it is gone (#138).
 """
 
 from __future__ import annotations
 
-from datetime import date as Date
-from datetime import datetime
-from datetime import time as Time
-from enum import StrEnum
+from app.providers.diary.models import (
+    AcademicPeriod,
+    AttendanceEvent,
+    DiaryLesson,
+    HomeworkItem,
+    Mark,
+    MarkKind,
+    Student,
+    Subject,
+    Teacher,
+)
 
-from pydantic import BaseModel, Field
-
-
-class MarkKind(StrEnum):
-    """What a mark in the register actually is.
-
-    The upstream mixes four different things into one list - a grade, an
-    absence, a late arrival and a teacher's remark all arrive as "estimates"
-    and are told apart by a numeric code. Naming them here is what stops every
-    consumer from re-learning that code.
-    """
-
-    GRADE = "grade"
-    ABSENCE = "absence"
-    LATE = "late"
-    REMARK = "remark"
-    OTHER = "other"
-
-
-class Student(BaseModel):
-    """One pupil the signed-in account may see."""
-
-    id: int
-    first_name: str
-    last_name: str
-    middle_name: str | None = None
-    school: str | None = None
-    class_name: str | None = None
-    #: Opaque upstream handles. Present because later calls need them and the
-    #: client passes them straight back; never parsed by the phone.
-    education_id: int
-    group_id: int | None = None
-
-    @property
-    def full_name(self) -> str:
-        parts = [self.last_name, self.first_name, self.middle_name]
-        return " ".join(part for part in parts if part)
-
-
-class AcademicPeriod(BaseModel):
-    """A quarter or a term, with the dates it covers."""
-
-    id: int
-    name: str
-    starts_on: Date | None = None
-    ends_on: Date | None = None
-    is_current: bool = False
-
-
-class Subject(BaseModel):
-    id: int | None = None
-    name: str
-
-
-class Teacher(BaseModel):
-    id: int | None = None
-    name: str
-    position: str | None = None
-    subjects: list[str] = Field(default_factory=list)
-
-
-class Mark(BaseModel):
-    """One entry in the register.
-
-    @property value what is written in the cell: «5», «Н», «!» - already
-        normalised, so a client never has to know which code means absent.
-    """
-
-    id: int | None = None
-    subject_id: int | None = None
-    subject_name: str
-    date: Date | None = None
-    value: str
-    kind: MarkKind = MarkKind.OTHER
-    #: The teacher's word for the occasion: «Контрольная работа», «Ответ на уроке».
-    reason: str | None = None
-    comment: str | None = None
-
-
-class DiaryLesson(BaseModel):
-    """A lesson as the diary has it, with whatever was set on it."""
-
-    date: Date
-    number: int | None = None
-    subject: str
-    starts_at: Time | None = None
-    ends_at: Time | None = None
-    room: str | None = None
-    teacher: str | None = None
-    homework: str | None = None
-    topic: str | None = None
-
-
-class HomeworkItem(BaseModel):
-    """Homework, addressed to the day it is due rather than the day it was set."""
-
-    id: int | None = None
-    due_date: Date
-    subject: str
-    text: str
-    teacher: str | None = None
-
-
-class AttendanceEvent(BaseModel):
-    """A turnstile record.
-
-    ``direction`` is ``in``, ``out`` or ``unknown``. The third one is not a
-    parsing failure to be tidied away: the upstream is undocumented, and a
-    spelling this code has not seen must not be rendered as the child leaving
-    the building. Anything reading this has three cases to answer, and the
-    third one is «дневник не сказал, куда».
-    """
-
-    at: datetime
-    direction: str  # "in" | "out" | "unknown"
-
-
-class DiaryAccount(BaseModel):
-    """Who is signed in, for the line that says so."""
-
-    login: str
-    students: list[Student] = Field(default_factory=list)
+__all__ = [
+    "AcademicPeriod",
+    "AttendanceEvent",
+    "DiaryLesson",
+    "HomeworkItem",
+    "Mark",
+    "MarkKind",
+    "Student",
+    "Subject",
+    "Teacher",
+]

@@ -8,6 +8,10 @@
 # Signing: if the four keystore secrets are set the release APK is signed with
 # your key. If they are not, it is signed with the debug key so it still
 # installs; the job summary says which happened. See docs/build.md.
+#
+# Legal links: the APK links the terms and the privacy policy in docs/legal/ of
+# the repository this runs in, unless the LESSONS_LEGAL_BASE_URL repository
+# variable says otherwise; the summary prints which.
 name: APK
 
 on:
@@ -128,6 +132,49 @@ jobs:
           # `export` inside a script as not passed, which is the correct answer
           # for a wire nobody can see from outside the step.
           echo "built_at=$(date -u +'%Y-%m-%dT%H:%MZ')" >> "$GITHUB_OUTPUT"
+
+      # Where the first screen's two links go: docs/legal/ of *this* repository,
+      # so a fork's APK links the fork's documents with nothing configured.
+      # `HEAD` when the payload carries no default branch: GitHub resolves
+      # blob/HEAD/ to the default branch, so the fallback means the same thing -
+      # unlike github.ref_name (a tag freezes the policy at that tag, a deleted
+      # branch 404s on every install for the rest of its life). A repository
+      # *variable*, not a secret, overrides it: the value is public, and a
+      # secret would be masked in the summary below. Checked here, in seconds,
+      # as well as by build.gradle.kts, so a bad value fails before the compile
+      # rather than eight minutes into it; the whitespace check also stops a
+      # newline in the variable from writing extra step outputs.
+      - name: Resolve legal documents
+        id: legal
+        env:
+          OVERRIDE: ${{ vars.LESSONS_LEGAL_BASE_URL }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          PRIVATE_REPO: ${{ github.event.repository.private }}
+          GH_SERVER: ${{ github.server_url }}
+        run: |
+          if [ -n "$OVERRIDE" ]; then
+            URL="${OVERRIDE%/}"
+            SOURCE="repository variable"
+          else
+            URL="$GH_SERVER/$GITHUB_REPOSITORY/blob/${DEFAULT_BRANCH:-HEAD}/docs/legal"
+            SOURCE="docs/legal of this repository"
+            if [ "$PRIVATE_REPO" = "true" ]; then
+              echo "::warning::This repository is private, so the derived address of docs/legal opens for nobody outside it. Set the LESSONS_LEGAL_BASE_URL repository variable; see docs/build.md."
+            fi
+          fi
+          case "$URL" in
+            *[[:space:]]*|*'"'*|*'\'*)
+              echo "::error::LESSONS_LEGAL_BASE_URL contains whitespace, a quote or a backslash."
+              exit 1
+              ;;
+            https://?*) ;;
+            *)
+              echo "::error::LESSONS_LEGAL_BASE_URL must be an https:// address; it is \"$URL\". See docs/build.md."
+              exit 1
+              ;;
+          esac
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
 
       - name: Decode keystore
         id: keystore
@@ -263,6 +310,9 @@ jobs:
           LESSONS_BUILD_COMMIT: ${{ github.sha }}
           LESSONS_BUILD_NUMBER: ${{ github.run_number }}
           LESSONS_BUILD_TIME: ${{ steps.version.outputs.built_at }}
+          # The folder the terms and the privacy policy are linked from, worked
+          # out by the «Resolve legal documents» step above.
+          LESSONS_LEGAL_BASE_URL: ${{ steps.legal.outputs.url }}
           INPUT_BUILD_TYPE: ${{ inputs.build_type || 'release' }}
         run: |
           case "$INPUT_BUILD_TYPE" in
@@ -343,7 +393,16 @@ jobs:
           # button is actually asking.
           GITHUB_CLIENT_ID: ${{ secrets.LESSONS_GITHUB_CLIENT_ID }}
           CONTACT_EMAIL: ${{ secrets.LESSONS_CONTACT_EMAIL }}
+          # Printed in full, because it is public: it is the first link of
+          # every install this run produces.
+          LEGAL_URL: ${{ steps.legal.outputs.url }}
+          LEGAL_SOURCE: ${{ steps.legal.outputs.source }}
         run: |
+          if [ -n "$LEGAL_URL" ]; then
+            LEGAL="\`$LEGAL_URL\` ($LEGAL_SOURCE)"
+          else
+            LEGAL="**not resolved** - see the «Resolve legal documents» step"
+          fi
           if [ -n "$INPUT_VERSION_CODE" ]; then
             CODE_SOURCE=" (given)"
           else
@@ -373,6 +432,7 @@ jobs:
             echo "| APKs produced | ${{ steps.collect.outputs.count }} |"
             echo "| Sign in with GitHub | $SIGN_IN |"
             echo "| Report by email | $EMAIL |"
+            echo "| Terms and privacy policy | $LEGAL |"
             if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
               echo "| Signing | your release keystore |"
             else

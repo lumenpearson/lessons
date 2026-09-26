@@ -134,7 +134,7 @@ def rows_affected(result: Any) -> int:
 #: inside a request. A constant that has to be kept in step by hand would rot,
 #: so ``tests/test_schema_version.py`` pins it to the real head and fails the
 #: build if a new revision lands without updating it.
-EXPECTED_REVISION = "0014"
+EXPECTED_REVISION = "0017"
 
 
 async def current_revision(session: AsyncSession) -> str | None:

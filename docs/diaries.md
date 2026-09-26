@@ -299,6 +299,7 @@ made ЕСИА the only way a family signs in: Дневник.ру per region, «
   and a password, which is what `/diary/signin` was built around. Almost no other region's
   diary does, so a second provider cannot reuse that page as it stands: it would have to accept
   a token a person brought from a browser, or drive ЕСИА, and the second is the fragile one.
+  This project does neither — see the next bullet but one.
 - **The largest single group is «Сетевой город»**, one route set on some fifty regional
   servers; after it come Дневник.ру and the МЭШ family. Any one of those is a provider that
   covers many regions at once. The platforms of one region each — КИАСУО, ЭПОС.Школа, the
@@ -307,13 +308,130 @@ made ЕСИА the only way a family signs in: Дневник.ру per region, «
   routes of «Госуслуги Моя школа» are known from the official app, and a single batched call
   carries the whole diary; but the sign-in is Госуслуги's own, its `client_secret` is signed on
   Госуслуги's side, and the only way a third party has found in is a person signing in inside a
-  WebView. Until that is judged acceptable — technically and under the service's terms — the
-  manual half of this product, the class kept by hand in the bot, is the only half for those
-  regions, which is what #127 already says about every region that is not Петербург.
-- **Three decisions come before any of it, and they are the owner's: #135.** Which platform
-  comes second, how a family signs in to it, and whether ТОР may be used at all. Whichever
-  platform it is, the first step is one real session against it. Not one route in these
-  pages has been seen answering.
+  WebView. **This project has decided not to take it**: a Госуслуги session is a session to the
+  person's whole state-services account, not to a school diary, and an app that captured one
+  would be holding far more than it reads. There is no Госуслуги sign-in, no WebView and no
+  cookie capture anywhere in it; for ТОР, the [region catalog](#the-region-catalog) hands off
+  to `https://www.gosuslugi.ru/school` in the browser, and the class kept by hand in the bot is
+  this project's half for those regions — which is what #127 already says about every region
+  that is not Петербург.
+- **The platform that came second is «Сетевой город» (#135, #139), and its server side is
+  written.** The owner chose it, and `server/app/providers/netschool/` reads it behind the
+  shared diary contract, from [its reference page](diaries/netschool.md). The two questions
+  #135 left open are settled the same way as ТОР: the three regions that take only Госуслуги
+  (Алтайский край, Приморский край, Тульская) are a hand-off to their own server's page, never
+  a sign-in, and ТОР is a hand-off too. The sixteen that still take a password are signed into
+  — by this server with the password, or by a client that signs in itself and registers the
+  session ([api.md](api.md#the-electronic-diary)). And the first step nothing has taken for any
+  platform is one real session against it: not one route in these pages has been seen
+  answering, «Сетевой город» included.
+
+## The region catalog
+
+This survey is also data. «Which region is this family in, and what can it do there» — a
+sign-in, a hand-off to a page in the browser, or only the class code — is answered from it,
+turned into a file once rather than parsed as prose: `server/app/catalog/data/regions.json`,
+**generated** by `python -m scripts.region_catalog` (run from `server/`). The server reads it
+to place a school found in the company register in a region
+([api.md](api.md#which-regions-a-school-is-in-get-apiv1directoryschool-regions)), and the
+app bundles the same file in place: on the phone it is the region search, the list of
+systems a family chooses from, and the allow-list of every host the phone may send a diary
+password to ([architecture.md](architecture.md#the-phones-half)). It is therefore exactly as
+current as the survey — September 2026 — and exactly as tested: nothing in it was read from a
+live diary either.
+
+**Three inputs, each trusted for one thing.**
+
+- [diaries/regions.md](diaries/regions.md) — which systems a region runs, in what role, on
+  which hosts, how sure the survey is. The regions table on this page is read only to
+  cross-check it row by row, because it is a tool's summary and cuts names off with «…»; the
+  month in its header («In use now (September 2026)») is held equal to the overlay's.
+- `server/scripts/region_catalog.toml`, the overlay — what nothing in the repository derives:
+  each region's key, its two-digit subject code, its English name, zone, aliases and a few
+  cities, DaData's spellings of it, the platforms' names, and the phone's search lexicon.
+- The server's allow-list (`app/providers/netschool/regions.py`) and Petersburg's `BASE_URL`
+  — every origin a sign-in may go to, and whether a «Сетевой город» region takes a password.
+  Copied, never retyped: the survey's hosts only have to *agree* with the allow-list, which
+  catches a server that moved in one file and not the other, and the nineteen «Сетевой город»
+  keys are the allow-list's own, byte for byte, because they are already stored in
+  `classes.diary_region`, `diary_sessions.region` and the sealed credential.
+
+**The search lexicon** is the overlay's `[search]` block, copied into the JSON as `search`,
+and it is data rather than Kotlin because nearly every entry is Cyrillic. The phone
+lower-cases a query and applies `fold` (ё, the dashes), cuts it at punctuation and drops
+`stop_words` («область», «край», «республика»…), and tries it three ways besides: through the
+keyboard-layout swap (`latin_layout` / `cyrillic_layout`, «cfvfhf» for «самара»), through
+`translit` for a Latin query, and through `synonyms`. `school_words` are what make a query a
+school's name rather than a place's, for the phone and for the server's directory alike.
+
+- **`translit`** is `[latin, cyrillic]` pairs, **longest first**, and the generator refuses
+  any other order, because the phone takes the first pair that matches at each position. The
+  endings are how English writes the Russian ones — `iya`, `ia`, `iy`, `yy`, `tsk` — so that
+  «Chuvashia», «Bashkiriya», «Khanty-Mansiysk» and «Yakutsk» come out whole rather than as
+  «чувашиа» or «якуцк». It is best effort, not a standard.
+- **`[search.synonyms]`** is optional: a lower-case Latin word mapped to a non-empty list of
+  them, the only shape the generator accepts, because the phone compares words after it has
+  folded case and cut at punctuation and nothing else could ever be typed. A query is also
+  tried with a word swapped for each of its synonyms, and still as typed: `st` is `saint`,
+  and `region` is `oblast` or `krai`, which is how «St Petersburg» and «Moscow region» find
+  their regions. «oblast» is deliberately **not** a stop word the way «область» is: «moscow»
+  would then tie the region with the city, and a tie goes to the list's order rather than to
+  the city somebody meant.
+- **An English spelling goes into a region's `aliases` only when neither `name_en` nor
+  `translit` can produce it** — «Zabaikalye» and «Zabaykalye» for Забайкальский край,
+  «Primorye» for Приморский: no transliteration table brings back a soft sign. `cities` are a
+  few large towns, so that «Тольятти» finds Самарская. Both are search hints, never shown as
+  a region's name.
+
+`test_region_catalog.py` holds the shape — every synonym is a word some `name_en` actually
+contains, «oblast» is not a stop word, and the transliteration spells the endings above — and
+on the phone `RegionSearchTest` requires fifteen common English spellings, from «St.
+Petersburg» to «Khanty-Mansiysk», to land on their region first.
+
+**Never edit the JSON by hand.** A change to a region goes into regions.md or the overlay, and
+the generator is run again. `server/tests/test_region_catalog.py` runs the generator's
+`--check` and fails when the committed file is not what the survey, the overlay and the
+allow-list imply, so a survey edit cannot ship without the catalog it implies. The generator
+refuses rather than guesses — a system bullet it cannot read, a region the overlay and the
+survey do not both have, an allow-listed origin missing from the survey's hosts, this page's
+table disagreeing with regions.md about a region's diary, one DaData spelling claimed by two
+regions — and names the region when it does. An edit to this page's regions table therefore
+has a consequence in code now, and the tests say so.
+
+**What the catalog decides for each system a region runs:**
+
+| `action` | Which systems | What it means |
+| --- | --- | --- |
+| `signin` | «Петербургское образование»; «Сетевой город» in the sixteen allow-listed regions that take a password | a sign-in this project implements, with the session kept by the server ([api.md](api.md#the-electronic-diary)) |
+| `handoff` | ТОР «Моя школа» wherever the survey lists it as in use, alongside or moving to; «Сетевой город» in `altai-krai`, `primorye` and `tula`, which take only Госуслуги | a page opened in the browser: `https://www.gosuslugi.ru/school` for ТОР, the region's own «Сетевой город» origin for the three |
+| `none` | every other system, and any system the survey marks as previous or unclear | nothing to sign in to; the class kept in the bot is what there is |
+
+`test_only_petersburg_and_password_netschool_are_signable` holds that table: exactly those
+seventeen systems are `signin`, every hand-off goes where the table says, and no field or text
+from the survey's WebView era — an in-page sign-in surface, «на странице дневника» — can reach
+the catalog. Where ТОР is not offered at all (Запорожская, Херсонская, and Севастополь with its
+journal suspended), the catalog says `absent` and never recommends it.
+
+**Each region also names one system to put first**, with a reason code. The JSON carries only
+the codes; the sentences are the phone's string resources keyed by them, so each has its
+English twin checked like every other string. First match wins:
+
+| Reason | When | Regions, September 2026 |
+| --- | --- | --- |
+| `primary` | the region's main system is `signin` | 17 — Петербург and the sixteen password «Сетевой город» regions |
+| `tor_primary` | the main system is ТОР «Моя школа» | 20 |
+| `primary` + `esia_only` | the main system is a «Сетевой город» that takes only Госуслуги, handed off to its own origin | 3 |
+| `unreachable` | the main system is a «Сетевой город» the allow-list leaves out — Волгоградская, whose server serves only `http`. Above `front_end` on purpose: that region also has «Госуслуги Моя школа» in front, and the family should first hear why their own diary cannot be opened | 1 |
+| `front_end` | «Госуслуги Моя школа» is offered in front of the regional system, at medium confidence or better | 11 |
+| `moving_to` | the region is moving to ТОР | 1 — Оренбургская |
+| `no_diary` | there is no electronic diary | 1 — Севастополь |
+| `unsupported` | anything else: a diary this project cannot read | 35 |
+
+Two modifiers ride on a reason: `unverified` on every `signin` recommendation, because nobody
+has signed in to any of them for real, and `esia_only` as above. Not verified, beyond the
+survey itself: the subject codes 90, 93, 94 and 95 of the four regions admitted in 2022, which
+the overlay marks as believed rather than checked; every DaData spelling; and whether each
+`web_url` host answers on https.
 
 ## What is not covered
 

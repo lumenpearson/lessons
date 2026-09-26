@@ -20,6 +20,14 @@ class CreateClass(StatesGroup):
     timezone = State()
 
 
+class BindDiary(StatesGroup):
+    # Binding a class to «Сетевой город» after the region is chosen: this one
+    # state holds the region key in its data and takes a school-name query. Kept
+    # apart from CreateClass.school so a typed school name here is never sent off
+    # as a create-a-class query, and the pick payload is its own prefix.
+    school = State()
+
+
 class AddHomework(StatesGroup):
     subject = State()
     text = State()

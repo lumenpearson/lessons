@@ -398,6 +398,7 @@ def render_class_card(
     members: int,
     devices: int,
     pending: int,
+    diary_label: str = "не привязан",
 ) -> str:
     lines = [
         f"<b>⚙️ {escape(school_class.name)}</b>",
@@ -419,7 +420,7 @@ def render_class_card(
             if school_class.join_mode is JoinMode.INVITE
             else "🔓 Подключение телефонов: по коду класса"
         ),
-        f"📒 Дневник: {'Санкт-Петербург' if school_class.diary_provider else 'не привязан'}",
+        f"📒 Дневник: {escape(diary_label)}",
         "",
         f"👥 Участников: {members} · 📱 устройств: {devices}",
     ]

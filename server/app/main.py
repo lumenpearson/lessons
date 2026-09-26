@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from app.api.cron import router as cron_router
 from app.api.diary import router as diary_router
 from app.api.diary_web import router as diary_web_router
+from app.api.directory import router as directory_router
 from app.api.edit import router as edit_router
 from app.api.manage import router as manage_router
 from app.api.public import router as public_router
@@ -90,14 +91,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if bot_task is not None:
             with contextlib.suppress(asyncio.CancelledError):
                 await bot_task
-        # Both providers hold a process-wide pooled HTTP client; closing them
-        # is what returns their sockets rather than leaving them to a
-        # finaliser. Imported here rather than at module scope so neither
-        # lands on the cold-start path of a request that uses neither.
+        # Each provider holds a process-wide pooled HTTP client; closing them
+        # is what returns their sockets rather than leaving them to a finaliser.
+        # Imported in this ``finally`` because that is the only place they are
+        # used. It is not a cold-start saving for Petersburg or DaData — the API
+        # surface (`api/diary.py`, the schools directory) already loads their
+        # clients at module scope — but «Сетевой город»'s client is loaded
+        # lazily through the registry and nothing else imports it, so keeping
+        # this import local does keep it off the path of a process that never
+        # binds a class to it.
         from app.providers.dadata import close_client as close_directory
+        from app.providers.netschool.client import close_client as close_netschool
         from app.providers.petersburg import close_client
 
         await close_client()
+        await close_netschool()
         await close_directory()
         # Last, and after the bot has stopped: a handler still running would
         # otherwise be holding a session out of a container that has shut its
@@ -129,6 +137,11 @@ app.include_router(diary_router)
 # endpoint a client calls, and it is the one HTML this project serves — see
 # app/api/diary_web.py for why a password may not be typed into a chat.
 app.include_router(diary_web_router)
+# The school directory a phone asks before it has a class: anonymous, and
+# metered per caller and per day (app/api/directory.py). Its imports are the
+# school search's own, which `manage_router` already loads, and the region
+# catalog it reads is parsed on the first search, not here.
+app.include_router(directory_router)
 app.include_router(edit_router)
 # The management surface: what the bot's /subjects, /bells, /class, /devices,
 # /log, /stats, /export, /import and access requests do, for a class admin

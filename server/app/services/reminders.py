@@ -287,7 +287,10 @@ async def due_task_reminders(
     )
     due: list[tuple[PersonalTask, SchoolClass]] = []
     for task, school_class in rows:
-        if task.remind_at <= local_now(now_utc, school_class):
+        # The WHERE above already refuses a NULL; SQLAlchemy 2.1 types the
+        # row, so the column's own `datetime | None` reaches here and the
+        # guard is what tells the type checker what the query already knows.
+        if task.remind_at is not None and task.remind_at <= local_now(now_utc, school_class):
             due.append((task, school_class))
             if len(due) >= MAX_PER_TICK:
                 break

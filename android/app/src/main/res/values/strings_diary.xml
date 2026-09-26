@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Электронный дневник Петербурга.
+  Электронный дневник школы — Петербурга или региона «Сетевого города».
 
   Отдельный файл, а не ещё один блок в strings.xml: дневник — отдельный аккаунт
   в чужом сервисе, и его тексты не имеют ничего общего с расписанием класса.
@@ -11,17 +11,17 @@
 
     <!-- The settings section -->
     <string name="diary_title">Дневник</string>
-    <string name="diary_section_summary">Расписание, задания и оценки из электронного дневника Петербурга</string>
+    <string name="diary_section_summary">Расписание, задания и оценки из электронного дневника школы</string>
 
     <!-- Signing in -->
     <string name="diary_sign_in_title">Вход в дневник</string>
-    <string name="diary_sign_in_subtitle">Те же логин и пароль, что на сайте электронного дневника Петербурга</string>
+    <string name="diary_sign_in_subtitle">Те же логин и пароль, что на сайте вашего электронного дневника</string>
     <string name="diary_login_label">Логин</string>
     <string name="diary_password_label">Пароль</string>
     <string name="diary_password_reveal">Показать пароль</string>
     <string name="diary_password_hide">Скрыть пароль</string>
     <string name="diary_sign_in_action">Войти</string>
-    <string name="diary_password_notice">Пароль нигде не сохраняется. Он нужен ровно на один запрос — вход в дневник, — после чего его забывают и телефон, и сервер. Когда сессия дневника всё-таки закончится, приложение спросит пароль ещё раз.</string>
+    <string name="diary_password_notice">Пароль уходит прямо в дневник, по HTTPS, и больше никуда: ни на наш сервер, ни на диск телефона. Серверу телефон передаёт только сессию, которую выдал дневник. Когда она закончится, приложение спросит пароль ещё раз.</string>
 
     <!-- Signing in again, when the diary's session died on their side -->
     <string name="diary_reauth_title">Сессия дневника закончилась</string>
@@ -29,14 +29,15 @@
 
     <!-- Errors -->
     <string name="diary_failure_title">Не получилось</string>
-    <string name="diary_error_credentials">Неверный логин или пароль</string>
-    <string name="diary_error_signed_out">Вход в дневник больше не действует. Войдите заново.</string>
-    <string name="diary_error_unavailable">Дневник не отвечает. Попробуйте позже.</string>
-    <string name="diary_error_unreadable">Дневник ответил непонятно: сервис изменился, и это чинится на сервере, а не в приложении.</string>
-    <string name="diary_error_offline">Нет связи с сервером. Проверьте интернет и адрес сервера в разделе «Синхронизация».</string>
+    <string name="diary_problem_wrong_password">Неверный логин или пароль</string>
+    <string name="diary_problem_signed_out">Вход в дневник больше не действует. Войдите заново.</string>
+    <string name="diary_problem_unavailable">Дневник не отвечает. Попробуйте позже.</string>
+    <string name="diary_problem_unreadable">Дневник ответил непонятно: сервис изменился, и это чинится на сервере, а не в приложении.</string>
+    <string name="diary_problem_offline">Нет связи с сервером. Проверьте интернет и адрес сервера в разделе «Синхронизация».</string>
+    <string name="diary_problem_offline_first_run">Нет связи с сервером. Проверьте интернет и адрес сервера.</string>
     <string name="diary_error_range">Слишком широкий промежуток дат — дневник отдаёт не больше 62 дней за раз.</string>
     <string name="diary_error_student">Этого ученика нет в аккаунте.</string>
-    <string name="diary_error_unknown">Не получилось: %1$s</string>
+    <string name="diary_problem_unknown">Не получилось: %1$s</string>
     <string name="diary_retry">Повторить</string>
 
     <!-- The outcome of a sign-in attempt. A pop-up rather than a line in the
@@ -92,7 +93,7 @@
 
     <string name="diary_error_rejected">Это поле нельзя исправить.</string>
     <string name="diary_edit_title">Исправить</string>
-    <string name="diary_edit_message">Правка меняет только то, что вы видите здесь. В самом дневнике ничего не меняется, и учитель её не увидит.</string>
+    <string name="diary_edit_message">Правки общие: их видит и может изменить каждый, чей дневник в приложении показывает этого ученика, — например, второй родитель, — а сброс убирает их у всех. В самом дневнике ничего не меняется, и учитель их не увидит.</string>
     <string name="diary_edit_field_homework">Домашнее задание</string>
     <string name="diary_edit_field_room">Кабинет</string>
     <string name="diary_edit_field_teacher">Учитель</string>
@@ -107,5 +108,75 @@
     <string name="diary_edited_badge">Исправлено</string>
     <string name="diary_edit_hint">Нажмите на урок или задание, чтобы исправить</string>
     <string name="diary_edit_which">%1$s · урок %2$s</string>
-    <string name="diary_insecure_server">⚠️ Адрес сервера начинается с http:// — пароль пойдёт по сети в открытом виде, и его прочтёт любой в той же сети Wi-Fi. Это пароль от «Дневника», а не от этого приложения. Если можете, настройте на сервере https://.</string>
+    <string name="diary_insecure_server">⚠️ Адрес сервера начинается с http://. Пароля это не касается — он уходит прямо в дневник по HTTPS. Но сессия, которую выдаст дневник, и ключ доступа к нему пойдут на сервер открытым текстом: любой в той же сети Wi-Fi сможет их перехватить и открыть ваш дневник. Если можете, настройте на сервере https://.</string>
+
+    <!-- Where the password goes, said on the form that takes it. The host comes
+         from the catalog bundled with the app, the same list the sign-in is
+         allowed to send to. -->
+    <string name="diary_password_destination">Пароль уйдёт только на %1$s — по HTTPS, прямо в дневник.</string>
+    <string name="diary_sign_in_where">Дневник: %1$s</string>
+
+    <!-- Every way a sign-in or a read can fail, one sentence each
+         (ui/diary/DiaryProblemText.kt is the only place that picks one).
+         Where a sentence names the diary's server, %1$s is its host. -->
+    <string name="diary_problem_upstream_said">Дневник ответил: «%1$s».</string>
+    <string name="diary_problem_gosuslugi_only">В этом регионе дневник впускает только через Госуслуги. Приложение туда не входит — откройте сайт дневника в браузере.</string>
+    <string name="diary_problem_host_down">%1$s не отвечает. Попробуйте позже.</string>
+    <string name="diary_problem_host_refuses_phone">%1$s не пускает этот телефон. Если включён VPN, выключите его и попробуйте ещё раз.</string>
+    <string name="diary_problem_refuses_phone">Дневник не пускает этот телефон. Если включён VPN, выключите его и попробуйте ещё раз.</string>
+    <string name="diary_problem_host_untrusted">Телефон не доверяет сертификату %1$s, и приложение не станет обходить эту проверку.</string>
+    <string name="diary_problem_untrusted">Телефон не доверяет сертификату дневника, и приложение не станет обходить эту проверку.</string>
+    <string name="diary_problem_host_unreadable">%1$s ответил непонятно — скорее всего, у дневника изменилась страница входа. Это чинится обновлением приложения, а не паролем.</string>
+    <string name="diary_problem_host_offline">Не получается связаться с %1$s. Проверьте интернет.</string>
+    <string name="diary_problem_offline_upstream">Не получается связаться с дневником. Проверьте интернет.</string>
+    <string name="diary_problem_host_timeout">%1$s не ответил вовремя. Попробуйте ещё раз.</string>
+    <string name="diary_problem_timeout">Ответа не дождались. Попробуйте ещё раз.</string>
+    <string name="diary_problem_register_unreachable">Дневник вас впустил, но сервер сейчас недоступен. Повторите — пароль вводить заново не нужно.</string>
+    <string name="diary_problem_server_missing">Не указан адрес сервера. Задайте его в разделе «Синхронизация».</string>
+    <string name="diary_problem_server_missing_first_run">Не указан адрес сервера, а без него войти не получится.</string>
+    <string name="diary_problem_server_too_old">Этот сервер не умеет принимать вход, открытый на телефоне. Нужен сервер новее или другой адрес.</string>
+    <string name="diary_problem_server_disabled">Дневник выключен на этом сервере. Включить его может только тот, кто обслуживает сервер.</string>
+    <string name="diary_problem_region_not_served">Этот сервер не работает с дневником вашего региона.</string>
+    <string name="diary_problem_server_refused_session">Дневник вас впустил, но не принял вход с адреса сервера. Пароль тут ни при чём, и повтор не поможет. Можно подключиться к классу по коду.</string>
+    <string name="diary_problem_server_refused_session_in_class">Дневник вас впустил, но не принял вход с адреса сервера. Пароль тут ни при чём, и повтор не поможет.</string>
+    <string name="diary_problem_server_address_refused">Дневник не отвечает серверу: запросы с его адреса он отклоняет. Пароль тут ни при чём.</string>
+    <string name="diary_problem_no_student">Для этого аккаунта дневник не показывает ни одного ученика.</string>
+    <string name="diary_problem_too_many">Слишком много попыток. Подождите немного и попробуйте снова.</string>
+    <plurals name="diary_problem_too_many_wait">
+        <item quantity="one">Слишком много попыток. Попробуйте снова через %1$d минуту.</item>
+        <item quantity="few">Слишком много попыток. Попробуйте снова через %1$d минуты.</item>
+        <item quantity="many">Слишком много попыток. Попробуйте снова через %1$d минут.</item>
+        <item quantity="other">Слишком много попыток. Попробуйте снова через %1$d минуты.</item>
+    </plurals>
+    <string name="diary_problem_session_aged_out">Вход занял слишком много времени, и дневник закрыл сессию. Войдите ещё раз.</string>
+    <string name="diary_problem_login_too_short">Логин слишком короткий — в нём должно быть хотя бы три знака.</string>
+    <string name="diary_problem_reauth">Дневник закрыл сессию. Нужно ввести пароль ещё раз.</string>
+
+    <!-- The diary as the home of a phone in no class -->
+    <string name="diary_offline_saved_at">Нет связи — показано сохранённое на телефоне. %1$s</string>
+    <string name="diary_account_region">Регион</string>
+    <string name="diary_account_system">Система</string>
+    <string name="diary_account_school">Школа</string>
+    <string name="diary_account_join_class">Подключиться к классу по коду</string>
+    <string name="diary_account_class_hint">Если администратор заведёт класс вашей школы в боте, его код добавит расписание класса, виджет и напоминания о звонках.</string>
+    <string name="diary_account_join_class_message">Введите код класса от администратора в боте. Дневник останется — он будет в «Настройки → Дневник».</string>
+    <plurals name="diary_sign_out_home">
+        <item quantity="one">Телефон вернётся к началу. Уроки и оценки, сохранённые на телефоне, удалятся, а сервер удалит свою копию входа. Если телефон сейчас не в сети, сервер удалит её сам через %1$d день после того, как дневником пользовались в последний раз, а сессию «Сетевого города» до тех пор будет держать открытой.</item>
+        <item quantity="few">Телефон вернётся к началу. Уроки и оценки, сохранённые на телефоне, удалятся, а сервер удалит свою копию входа. Если телефон сейчас не в сети, сервер удалит её сам через %1$d дня после того, как дневником пользовались в последний раз, а сессию «Сетевого города» до тех пор будет держать открытой.</item>
+        <item quantity="many">Телефон вернётся к началу. Уроки и оценки, сохранённые на телефоне, удалятся, а сервер удалит свою копию входа. Если телефон сейчас не в сети, сервер удалит её сам через %1$d дней после того, как дневником пользовались в последний раз, а сессию «Сетевого города» до тех пор будет держать открытой.</item>
+        <item quantity="other">Телефон вернётся к началу. Уроки и оценки, сохранённые на телефоне, удалятся, а сервер удалит свою копию входа. Если телефон сейчас не в сети, сервер удалит её сам через %1$d дня после того, как дневником пользовались в последний раз, а сессию «Сетевого города» до тех пор будет держать открытой.</item>
+    </plurals>
+
+    <!-- Choosing which diary to sign in to, when nothing says so yet -->
+    <string name="diary_pick_title">Выбрать дневник</string>
+    <string name="diary_pick_subtitle">Регион и школа — по ним приложение поймёт, в какой дневник входить.</string>
+    <string name="diary_pick_region_search">Регион, город или код</string>
+    <string name="diary_pick_regions_empty">Такого региона нет в списке. Попробуйте название города.</string>
+    <string name="diary_pick_school_search">Название или номер школы</string>
+    <string name="diary_pick_school_hint">Введите хотя бы два знака, и дневник региона покажет подходящие школы.</string>
+    <string name="diary_pick_schools_empty">Школ с таким названием не нашлось.</string>
+    <string name="diary_pick_unsupported">В этом регионе приложение пока не умеет входить в дневник.</string>
+    <string name="diary_pick_handoff">В этом регионе дневник впускает только через Госуслуги или свой сайт. Приложение туда не входит, но сайт можно открыть в браузере.</string>
+    <string name="diary_pick_open_site">Открыть сайт дневника</string>
+    <string name="diary_pick_change">Сменить</string>
 </resources>

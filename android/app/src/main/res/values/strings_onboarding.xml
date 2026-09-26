@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The first run from the chooser on: the two ways in, the region, the school,
+    the diary system and why it is recommended, the sign-in, the import and the
+    summary. The introduction before the chooser keeps its strings in
+    strings.xml, beside the join screen's.
+
+    Region and system names are not here: they live in the bundled catalog
+    (server/app/catalog/data/regions.json) in both languages, and the
+    generator's own test holds the English twin (K16). What is here is keyed by
+    the catalog's reason codes, so a new region needs no new string.
+-->
+<resources>
+
+    <!-- The dots: %1$s is the chapter's name -->
+    <string name="onboarding_step_of_chapter">%1$s: шаг %2$d из %3$d</string>
+    <string name="onboarding_chapter_intro">Знакомство</string>
+    <string name="onboarding_chapter_school">Своя школа</string>
+    <string name="onboarding_chapter_class">Дневник класса</string>
+    <string name="onboarding_chapter_diary">Дневник</string>
+
+    <string name="onboarding_action_proceed">Продолжить</string>
+    <string name="onboarding_action_retry">Повторить</string>
+
+    <!-- The chooser -->
+    <string name="onboarding_way_title">Как подключиться?</string>
+    <string name="onboarding_way_subtitle">Выберите, откуда приложение возьмёт расписание. Второй способ можно подключить и потом.</string>
+    <string name="onboarding_way_code_title">По коду класса</string>
+    <string name="onboarding_way_code_badge">Быстро</string>
+    <string name="onboarding_way_code_text">Код даёт администратор класса в Telegram-боте. Общее расписание, замены и задания класса — и сам бот.</string>
+    <string name="onboarding_way_school_title">Найти свою школу</string>
+    <string name="onboarding_way_school_badge">Самостоятельно</string>
+    <string name="onboarding_way_school_text">Регион, школа и вход в электронный дневник. Только ваши данные из дневника школы, без бота. Пароль уходит прямо в дневник.</string>
+    <string name="onboarding_way_server_unset">Не задан — его спросят, когда он понадобится</string>
+    <string name="onboarding_action_code">Ввести код</string>
+    <string name="onboarding_action_find">Найти школу</string>
+
+    <!-- The region -->
+    <string name="onboarding_region_title">Ваш регион</string>
+    <string name="onboarding_region_subtitle">Название региона, города или школы</string>
+    <string name="onboarding_region_search_label">Регион, город или школа</string>
+    <string name="onboarding_region_clear">Очистить</string>
+    <string name="onboarding_region_all">Все регионы</string>
+    <string name="onboarding_region_found">Регионы</string>
+    <string name="onboarding_region_by_city">Город: %1$s</string>
+    <string name="onboarding_region_by_alias">Ещё называют: %1$s</string>
+    <string name="onboarding_region_by_code">Код региона: %1$s</string>
+    <string name="onboarding_region_sign_in">%1$s · вход в приложении</string>
+    <string name="onboarding_region_gosuslugi">%1$s · только через Госуслуги</string>
+    <string name="onboarding_region_site">%1$s · откроется сайт дневника</string>
+    <string name="onboarding_region_unsupported">%1$s · приложение пока не читает</string>
+    <string name="onboarding_region_paper">Электронного дневника нет</string>
+    <string name="onboarding_region_empty_title">Ничего не нашлось</string>
+    <string name="onboarding_region_empty_text">Попробуйте название региона или крупного города — или школы, если помните его целиком.</string>
+    <string name="onboarding_region_school_section">Где может быть школа «%1$s»</string>
+    <string name="onboarding_region_school_searching">Ищем школу по названию…</string>
+    <plurals name="onboarding_region_school_count">
+        <item quantity="one">%1$d школа</item>
+        <item quantity="few">%1$d школы</item>
+        <item quantity="many">%1$d школ</item>
+        <item quantity="other">%1$d школы</item>
+    </plurals>
+    <!-- %1$s is the count above, %2$s a few of the names -->
+    <string name="onboarding_region_school_group">%1$s: %2$s</string>
+    <string name="onboarding_region_school_truncated">Совпадений больше, чем показано. Если вашего региона здесь нет, выберите его из списка.</string>
+    <string name="onboarding_region_school_generic">Школ с таким названием много по всей стране. Выберите регион из списка.</string>
+    <string name="onboarding_region_school_empty">В реестре организаций такой школы нет. Выберите регион из списка.</string>
+    <plurals name="onboarding_region_school_wait">
+        <item quantity="one">Поиск школ по названию отдыхает ещё %1$d минуту. Выберите регион из списка.</item>
+        <item quantity="few">Поиск школ по названию отдыхает ещё %1$d минуты. Выберите регион из списка.</item>
+        <item quantity="many">Поиск школ по названию отдыхает ещё %1$d минут. Выберите регион из списка.</item>
+        <item quantity="other">Поиск школ по названию отдыхает ещё %1$d минуты. Выберите регион из списка.</item>
+    </plurals>
+    <string name="onboarding_region_school_busy">Поиск школ по названию сейчас отдыхает. Выберите регион из списка.</string>
+    <string name="onboarding_region_school_no_server">Школу по названию ищет сервер, а он не задан. Выберите регион из списка.</string>
+    <string name="onboarding_region_school_offline">Нет связи с сервером, и школу по названию найти не получится. Выберите регион из списка — он работает и без сети.</string>
+    <string name="onboarding_region_school_off">Поиск школ по названию на этом сервере не работает. Выберите регион из списка.</string>
+    <string name="onboarding_region_school_down">Поиск школ по названию сейчас не отвечает. Выберите регион из списка или попробуйте название чуть позже.</string>
+
+    <!-- The school: %1$s is the region, %2$s the diary system -->
+    <string name="onboarding_school_title">Ваша школа</string>
+    <string name="onboarding_school_subtitle">%1$s · %2$s</string>
+    <string name="onboarding_school_search_label">Номер или слово из названия</string>
+    <plurals name="onboarding_school_min_chars">
+        <item quantity="one">Введите хотя бы %1$d символ.</item>
+        <item quantity="few">Введите хотя бы %1$d символа.</item>
+        <item quantity="many">Введите хотя бы %1$d символов.</item>
+        <item quantity="other">Введите хотя бы %1$d символа.</item>
+    </plurals>
+    <string name="onboarding_school_empty">В дневнике региона нет школы с таким названием. Попробуйте только номер.</string>
+    <string name="onboarding_school_missing">Моей школы нет в списке</string>
+    <string name="onboarding_action_pick_school">Выбрать школу</string>
+
+    <!-- The diary system: %1$s is the region -->
+    <string name="onboarding_provider_title">Электронный дневник</string>
+    <string name="onboarding_provider_subtitle">Чем пользуются школы: %1$s</string>
+    <string name="onboarding_provider_recommended">Рекомендуем</string>
+    <string name="onboarding_provider_why">Почему?</string>
+    <string name="onboarding_provider_why_description">Почему рекомендуем «%1$s»</string>
+    <string name="onboarding_provider_role_primary">Основной в регионе</string>
+    <string name="onboarding_provider_role_secondary">Работает рядом с основным</string>
+    <string name="onboarding_provider_role_moving_to">Регион переходит на него</string>
+    <!-- %1$s is the role, %2$s what the app can do there -->
+    <string name="onboarding_provider_line">%1$s · %2$s</string>
+    <string name="onboarding_provider_action_sign_in">вход в приложении</string>
+    <string name="onboarding_provider_action_needs_school">сначала выберите школу</string>
+    <string name="onboarding_provider_action_account">школу дневник возьмёт из аккаунта</string>
+    <string name="onboarding_provider_action_gosuslugi">только через Госуслуги, в браузере</string>
+    <string name="onboarding_provider_action_site">приложение не читает, откроется сайт</string>
+    <string name="onboarding_provider_action_unsupported">приложение пока не читает этот дневник</string>
+    <string name="onboarding_provider_action_paper">электронного дневника нет</string>
+    <string name="onboarding_provider_code_section">Нет вашего дневника?</string>
+    <string name="onboarding_provider_code_title">Войти по коду класса</string>
+    <string name="onboarding_provider_code_text">Если класс ведут в боте, код даст его администратор</string>
+    <string name="onboarding_action_sign_in">Войти</string>
+    <string name="onboarding_action_gosuslugi">Открыть Госуслуги</string>
+    <string name="onboarding_action_open_site">Открыть сайт дневника</string>
+
+    <!-- The handoff: %1$s is the system -->
+    <string name="onboarding_handoff_title">Откроется «%1$s»</string>
+    <string name="onboarding_handoff_gosuslugi">Этот дневник открывается только через Госуслуги. Приложение не просит пароль от Госуслуг и не берёт их вход, поэтому показать этот дневник здесь не может. Страница откроется в браузере — или в приложении, которое телефон предложит для неё. Войдите там, как обычно.</string>
+    <string name="onboarding_handoff_site">Приложение пока не читает этот дневник. Откроется его сайт — войдите там так, как принято в вашей школе. Расписание класса в приложении можно получить по коду класса.</string>
+    <string name="onboarding_handoff_open">Открыть</string>
+    <string name="onboarding_handoff_no_browser">На телефоне нет приложения, которое открыло бы эту ссылку.</string>
+
+    <!--
+        «Почему?», one paragraph per fact. The reason is keyed by the catalog's
+        code: %1$s is the region, %2$s the recommended system, %3$s the school
+        year or, for front_end, the region's own diary.
+    -->
+    <string name="onboarding_why_title">Почему «%1$s»</string>
+    <string name="onboarding_why_primary">В %3$s учебном году основной электронный дневник школ региона «%1$s» — «%2$s».</string>
+    <string name="onboarding_why_tor_primary">Регион «%1$s» ведёт дневник в «%2$s»: он открывается только через Госуслуги.</string>
+    <string name="onboarding_why_front_end">Оценки школ региона «%1$s» видны в «%2$s», а сам дневник — «%3$s». Приложение туда войти не может, поэтому рекомендуем то, что открывается у всех.</string>
+    <string name="onboarding_why_moving_to">Регион «%1$s» переходит на «%2$s» по частям. Если ваша школа уже перешла — выбирайте этот вариант.</string>
+    <!-- unreachable: the recommended system is the region's own diary, the one that cannot be reached, so the sentence names no system -->
+    <string name="onboarding_why_unreachable">Дневник школ региона «%1$s» не принимает защищённые соединения, а приложение без них пароль не отправляет, поэтому войти в него из приложения нельзя. Расписание класса можно получить по коду класса.</string>
+    <string name="onboarding_why_unsupported">Дневник школ региона «%1$s» — «%2$s». Приложение пока не умеет его читать; расписание класса можно получить по коду.</string>
+    <string name="onboarding_why_no_diary">В %2$s учебном году школы региона «%1$s» ведут бумажные журналы — электронного дневника нет.</string>
+    <string name="onboarding_why_confidence_high">Это подтверждает региональный портал, министерство или оператор дневника.</string>
+    <string name="onboarding_why_confidence_medium">Это известно из новостей и сайтов школ; официальной страницы не нашлось.</string>
+    <string name="onboarding_why_confidence_low">Это не подтверждено — возможно, так только в отдельных школах.</string>
+    <string name="onboarding_why_esia_only">В этот дневник пускают только через Госуслуги, а их вход приложение не берёт.</string>
+    <string name="onboarding_why_unverified">Вход в этот дневник ещё ни разу не проверяли на настоящем аккаунте. Если он не получится, код класса работает и так.</string>
+    <string name="onboarding_why_privacy">Пароль вводится здесь, в приложении, и уходит только на %1$s. Наш сервер получает сессию, которую дневник выдаст после входа, — не пароль.</string>
+    <string name="onboarding_why_source">По обзору дневников всех регионов, %1$s.</string>
+
+    <!-- The sign-in -->
+    <string name="onboarding_sign_in_title">Вход в «%1$s»</string>
+    <!-- %1$s is the region, %2$s the school -->
+    <string name="onboarding_sign_in_where">%1$s · %2$s</string>
+    <string name="onboarding_sign_in_account">Школу и класс дневник возьмёт из вашего аккаунта</string>
+    <string name="onboarding_sign_in_class_title">Дневник вашего класса</string>
+    <string name="onboarding_sign_in_class_subtitle">Класс «%1$s» ведёт дневник в «%2$s». Войдите, чтобы видеть в приложении свои оценки и задания оттуда.</string>
+    <string name="onboarding_sign_in_privacy_title">Куда уйдёт пароль</string>
+    <string name="onboarding_sign_in_email">Электронная почта</string>
+    <string name="onboarding_sign_in_stage_checking">Проверяем сервер…</string>
+    <string name="onboarding_sign_in_stage_upstream">Входим в «%1$s»…</string>
+    <string name="onboarding_sign_in_stage_register">Передаём сессию серверу…</string>
+    <string name="onboarding_sign_in_forgot">Забыли пароль? Откройте сайт дневника</string>
+    <string name="onboarding_sign_in_skip">Не сейчас</string>
+    <string name="onboarding_sign_in_retry">Повторить без пароля</string>
+    <string name="onboarding_sign_in_set_server">Указать сервер</string>
+    <string name="onboarding_sign_in_no_target">Непонятно, в какой дневник входить. Вернитесь на шаг назад и выберите его ещё раз.</string>
+    <string name="onboarding_sign_in_needs_server">Чтобы держать вход в дневник и загружать его, приложению нужен сервер. Адрес даёт тот, кто поднял сервер для вашей школы или для вас. Пароль туда не попадёт — только сессия, которую выдаст дневник.</string>
+
+    <!-- The import -->
+    <string name="onboarding_import_title">Загружаем дневник</string>
+    <string name="onboarding_import_subtitle">Это займёт до минуты. Пока идёт загрузка, не закрывайте приложение.</string>
+    <string name="onboarding_import_progress">Загружено %1$d%%</string>
+    <string name="onboarding_import_phase_students">Ученик</string>
+    <string name="onboarding_import_phase_periods">Учебные периоды</string>
+    <string name="onboarding_import_phase_schedule">Расписание на две недели</string>
+    <string name="onboarding_import_phase_homework">Домашние задания</string>
+    <string name="onboarding_import_phase_marks">Оценки</string>
+    <string name="onboarding_import_waiting">В очереди</string>
+    <string name="onboarding_import_running">Загружается…</string>
+    <string name="onboarding_import_done">Готово</string>
+    <string name="onboarding_import_skipped">Не загрузилось — попробуем при следующем обновлении</string>
+    <string name="onboarding_import_stopped">Здесь загрузка остановилась</string>
+    <plurals name="onboarding_import_lessons">
+        <item quantity="one">%1$d урок</item>
+        <item quantity="few">%1$d урока</item>
+        <item quantity="many">%1$d уроков</item>
+        <item quantity="other">%1$d урока</item>
+    </plurals>
+    <plurals name="onboarding_import_assignments">
+        <item quantity="one">%1$d задание</item>
+        <item quantity="few">%1$d задания</item>
+        <item quantity="many">%1$d заданий</item>
+        <item quantity="other">%1$d задания</item>
+    </plurals>
+    <string name="onboarding_import_pick_title">Чей дневник показывать?</string>
+    <string name="onboarding_import_pick_text">В аккаунте несколько учеников, а приложение показывает одного. Сменить можно в настройках.</string>
+    <string name="onboarding_import_failed">Загрузка остановилась: %1$s</string>
+    <string name="onboarding_import_expired">Дневник закрыл вход, пока шла загрузка. Войдите ещё раз — загрузка продолжится с того же места.</string>
+    <string name="onboarding_import_sign_in_again">Войти ещё раз</string>
+    <string name="onboarding_import_restart">Выйти из дневника и начать заново</string>
+
+    <!-- The summary -->
+    <string name="onboarding_summary_title">Всё готово</string>
+    <string name="onboarding_summary_subtitle">Вот что будет в приложении. Всё это меняется в настройках.</string>
+    <string name="onboarding_summary_student">Ученик</string>
+    <string name="onboarding_summary_diary">Дневник</string>
+    <string name="onboarding_summary_class">Класс</string>
+    <string name="onboarding_summary_no_class_title">Без класса</string>
+    <string name="onboarding_summary_no_class_text">Бот о вас не знает: приложение показывает только ваш дневник. Виджет, уведомления и вкладки «Сегодня» и «Календарь» работают от класса. Если администратор заведёт ваш класс в боте, подключитесь по его коду в настройках.</string>
+    <string name="onboarding_summary_keepalive_title">Вход в дневник</string>
+    <plurals name="onboarding_summary_keepalive">
+        <item quantity="one">Вход в дневник держится, пока вы открываете приложение. После %1$d дня без этого войти придётся заново — виджет вход не продлевает.</item>
+        <item quantity="few">Вход в дневник держится, пока вы открываете приложение. После %1$d дней без этого войти придётся заново — виджет вход не продлевает.</item>
+        <item quantity="many">Вход в дневник держится, пока вы открываете приложение. После %1$d дней без этого войти придётся заново — виджет вход не продлевает.</item>
+        <item quantity="other">Вход в дневник держится, пока вы открываете приложение. После %1$d дня без этого войти придётся заново — виджет вход не продлевает.</item>
+    </plurals>
+    <!-- With a class the home is the class's timetable, and only the diary itself reads the diary -->
+    <plurals name="onboarding_summary_keepalive_class">
+        <item quantity="one">Вход в дневник держится, пока вы открываете дневник: «Настройки → Дневник». После %1$d дня без этого войти придётся заново — расписание класса и виджет вход не продлевают.</item>
+        <item quantity="few">Вход в дневник держится, пока вы открываете дневник: «Настройки → Дневник». После %1$d дней без этого войти придётся заново — расписание класса и виджет вход не продлевают.</item>
+        <item quantity="many">Вход в дневник держится, пока вы открываете дневник: «Настройки → Дневник». После %1$d дней без этого войти придётся заново — расписание класса и виджет вход не продлевают.</item>
+        <item quantity="other">Вход в дневник держится, пока вы открываете дневник: «Настройки → Дневник». После %1$d дня без этого войти придётся заново — расписание класса и виджет вход не продлевают.</item>
+    </plurals>
+    <string name="onboarding_summary_petersburg_note">Дневник Петербурга может закончить вход и раньше — тогда приложение попросит пароль ещё раз.</string>
+    <string name="onboarding_summary_settings">Настройки</string>
+    <string name="onboarding_summary_notifications">Уведомления</string>
+    <string name="onboarding_summary_notifications_on">Разрешены</string>
+    <string name="onboarding_summary_notifications_off">Не все разрешены — часть напоминаний не придёт</string>
+    <string name="onboarding_action_open">Открыть приложение</string>
+</resources>

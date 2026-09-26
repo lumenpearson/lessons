@@ -1,0 +1,197 @@
+{
+ "version": 1,
+ "about": "Known answers for the two diary sign-in protocols, read by the server's tests/test_diary_protocol_vectors.py and the phone's DiaryProtocolVectorsTest. The file is the oracle, not either codebase: a change here is a change to both implementations. Bodies are compared as decoded values, never as bytes (OkHttp and httpx encode the same form differently).",
+ "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+ "session": {"idle_days": 30},
+ "petersburg": {
+  "origin": "https://dnevnik2.petersburgedu.ru",
+  "login_path": "/api/user/auth/login",
+  "session_cookie": "X-JWT-Token",
+  "login_fields": {"type": "email", "activation_code": null, "_isEmpty": false},
+  "login_cases": [
+   {"name": "cookie wins over body", "status": 200, "content_type": "application/json", "body": "{\"data\":{\"token\":\"body\"}}", "set_cookie": ["X-JWT-Token=cookie; Path=/"], "expect": {"token": "cookie"}},
+   {"name": "two paths, last wins", "status": 200, "content_type": "application/json", "body": "{\"data\":{\"token\":\"body\"}}", "set_cookie": ["X-JWT-Token=old; Path=/", "X-JWT-Token=new; Path=/api"], "expect": {"token": "new"}},
+   {"name": "deletion is not a session", "status": 200, "content_type": "application/json", "body": "{\"data\":{\"token\":\"body\"}}", "set_cookie": ["X-JWT-Token=; Max-Age=0; Path=/"], "expect": {"token": "body"}},
+   {"name": "an expired cookie is not a session", "status": 200, "content_type": "application/json", "body": "{\"data\":{\"token\":\"body\"}}", "set_cookie": ["X-JWT-Token=gone; Max-Age=0; Path=/"], "expect": {"token": "body"}},
+   {"name": "body token is trimmed", "status": 200, "content_type": "application/json", "body": "{\"data\":{\"token\":\"  body  \"}}", "set_cookie": [], "expect": {"token": "body"}},
+   {"name": "html 200", "status": 200, "content_type": "text/html", "body": "<html>", "set_cookie": [], "expect": {"failure": "unexpected"}},
+   {"name": "json that is not an object", "status": 200, "content_type": "application/json", "body": "[1]", "set_cookie": [], "expect": {"failure": "unexpected"}},
+   {"name": "data null with a message", "status": 200, "content_type": "application/json", "body": "{\"data\":null,\"message\":\"Ошибка\"}", "set_cookie": [], "expect": {"failure": "unexpected"}},
+   {"name": "400", "status": 400, "content_type": "application/json", "body": "{}", "set_cookie": [], "expect": {"failure": "bad_credentials"}},
+   {"name": "401", "status": 401, "content_type": "application/json", "body": "{}", "set_cookie": [], "expect": {"failure": "bad_credentials"}},
+   {"name": "403", "status": 403, "content_type": "application/json", "body": "{}", "set_cookie": [], "expect": {"failure": "bad_credentials"}},
+   {"name": "500", "status": 500, "content_type": "application/json", "body": "{}", "set_cookie": [], "expect": {"failure": "unavailable"}},
+   {"name": "502", "status": 502, "content_type": "text/html", "body": "<html>", "set_cookie": [], "expect": {"failure": "unavailable"}},
+   {"name": "no token", "status": 200, "content_type": "application/json", "body": "{\"data\":{}}", "set_cookie": [], "expect": {"failure": "unexpected"}}
+  ]
+ },
+ "netschool": {
+  "session_cookies": ["NSSESSIONID", "ESRNSec"],
+  "login_form_fields": ["loginType", "scid", "un", "pw", "pw2", "lt", "ver"],
+  "flow": {
+   "about": "What every *_cases row runs inside: logindata, getdata and login answer these unless the row replaces one of them. A login_cases row with tried_role true is answered choose-session-role with a parent role first.",
+   "login": "parent",
+   "password": "hunter2",
+   "school_id": 42,
+   "logindata": {"schoolLogin": true, "cacheVer": "639"},
+   "getdata": {"salt": "333", "lt": "1", "ver": "2"},
+   "role_question": {
+    "entryPoint": "/choose-session-role",
+    "accountInfo": {
+     "userRoles": [
+      {"role": {"id": 12, "name": "Родитель"}}
+     ]
+    }
+   }
+  },
+  "hash": [
+   {"salt": "333", "password": "hunter2", "pw": "3b1ae8b", "pw2": "3b1ae8bcd9069bb33af6092eb0e2c9e7"},
+   {"salt": "1234567890", "password": "Пароль123", "pw": "381d33374", "pw2": "381d333743568b67dec7ba54fa756f3f"},
+   {"salt": "42", "password": "a", "pw": "9", "pw2": "90ec2fd877780695341d79e6369d633e"},
+   {"salt": "42", "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "pw": "22b601dce1fb41876cb70f9a72487045", "pw2": "22b601dce1fb41876cb70f9a72487045"},
+   {"salt": "42", "password": "ё Ё №", "pw": "83b34", "pw2": "83b344855b2ca73f65118b6d5b8af3e9"},
+   {"salt": "42", "password": "ü", "failure": "bad_credentials"},
+   {"salt": "42", "password": "😀", "failure": "bad_credentials"},
+   {"salt": "42", "password": "a\u0098b", "failure": "bad_credentials"}
+  ],
+  "logindata_cases": [
+   {"body": {"schoolLogin": false}, "expect": "sign_in_unsupported"},
+   {"body": {"schoolLogin": null}, "expect": "sign_in_unsupported"},
+   {"body": [1], "expect": "unexpected"},
+   {"body": {"schoolLogin": true, "cacheVer": "639"}, "expect": "ok", "ver": "639"},
+   {"body": {"cacheVer": 639}, "expect": "ok", "ver": "639"},
+   {"body": {}, "expect": "ok", "ver": null},
+   {"body": {"cacheVer": null}, "expect": "ok", "ver": null},
+   {"body": {"cacheVer": true}, "expect": "ok", "ver": null}
+  ],
+  "getdata_cases": [
+   {"body": {"salt": "сол", "lt": "1", "ver": "2"}, "expect": "unavailable"},
+   {"body": {"lt": "1"}, "expect": "unavailable"},
+   {"body": {"salt": null, "lt": "1"}, "expect": "unavailable"},
+   {"body": {"salt": "333"}, "expect": "unavailable"},
+   {"body": [1], "expect": "unavailable"},
+   {"body": {"salt": 333, "lt": 1, "ver": 2}, "expect": "ok", "form": {"lt": "1", "ver": "2", "pw2": "3b1ae8bcd9069bb33af6092eb0e2c9e7"}},
+   {"body": {"salt": "333", "lt": "1", "ver": null}, "expect": "ok", "form": {"lt": "1", "ver": "", "pw2": "3b1ae8bcd9069bb33af6092eb0e2c9e7"}}
+  ],
+  "login_cases": [
+   {"status": 409, "body": {"message": "Неверный пароль"}, "expect": {"failure": "bad_credentials", "message": "Неверный пароль"}},
+   {"status": 409, "body": {"errorMessage": "Пользователь не найден"}, "expect": {"failure": "bad_credentials", "message": "Пользователь не найден"}},
+   {"status": 409, "body": [1], "expect": {"failure": "bad_credentials", "message": null}},
+   {"status": 429, "body": {}, "expect": {"failure": "unavailable"}},
+   {"status": 503, "body": {}, "expect": {"failure": "unavailable"}},
+   {"status": 200, "body": ["x"], "expect": {"failure": "unexpected"}},
+   {"status": 200, "body": {"at": "x", "timeOut": "soon"}, "expect": {"at": "x", "time_out": null}},
+   {"status": 200, "body": {"at": "x", "timeOut": "900000"}, "expect": {"at": "x", "time_out": null}},
+   {"status": 200, "body": {"at": "x", "timeOut": 900000}, "expect": {"at": "x", "time_out": 900000}},
+   {"status": 200, "body": {"at": 123}, "expect": {"failure": "bad_credentials", "message": null}},
+   {"status": 200, "body": {"message": "Неверный пароль"}, "expect": {"failure": "bad_credentials", "message": "Неверный пароль"}},
+   {"status": 200, "body": {"at": "a b"}, "expect": {"failure": "unexpected"}},
+   {"status": 200, "body": {"entryPoint": 5, "at": "x"}, "expect": {"at": "x", "time_out": null}},
+   {"status": 200, "body": {"entryPoint": "/choose-session-role", "accountInfo": {"userRoles": [{"role": {"id": 12, "name": "Родитель"}}]}}, "tried_role": false, "expect": {"needs_role": true, "rolegroup": "12"}},
+   {"status": 200, "body": {"entryPoint": "/choose-session-role"}, "tried_role": false, "expect": {"failure": "unexpected"}},
+   {"status": 200, "body": {"entryPoint": "/choose-session-role"}, "tried_role": true, "expect": {"failure": "bad_credentials", "message": null}}
+  ],
+  "raw_answer_cases_about": "Answers given as the bytes the diary sent, for bodies no JSON value can stand for. The step's answer is replaced and the flow's own answers stand in for the rest. Whatever Python's json.loads refuses is unexpected on both sides, however lenient a parser could be about it: a single unquoted word, a leading zero, a bare word inside an object. NaN and Infinity are JSON to Python, so they are to the phone too. A control character below a space inside a string is refused unless it is escaped; outside one, tab, line feed and carriage return are whitespace.",
+  "raw_answer_cases": [
+   {"step": "logindata", "status": 200, "content_type": "text/html", "body": "<html>", "expect": "unexpected"},
+   {"step": "logindata", "status": 200, "content_type": "application/json", "body": "{\"schoolLogin\": False}", "expect": "unexpected"},
+   {"step": "getdata", "status": 200, "content_type": "text/html", "body": "<html>", "expect": "unexpected"},
+   {"step": "getdata", "status": 200, "content_type": "text/plain", "body": "Error", "expect": "unexpected"},
+   {"step": "getdata", "status": 200, "content_type": "application/json", "body": "01", "expect": "unexpected"},
+   {"step": "getdata", "status": 200, "content_type": "application/json", "body": "{\"salt\": \"333\", \"lt\": 1x}", "expect": "unexpected"},
+   {"step": "getdata", "status": 200, "content_type": "application/json", "body": " {\"salt\": \"333\", \"lt\": \"1\", \"ver\": \"2\"}\n", "expect": "ok"},
+   {"step": "login", "status": 200, "content_type": "text/plain", "body": "OK", "expect": "unexpected"},
+   {"step": "login", "status": 200, "content_type": "application/json", "body": "{\"at\": abc}", "expect": "unexpected"},
+   {"step": "login", "status": 200, "content_type": "application/json", "body": "{\"at\": \"x\", \"timeOut\": NaN}", "expect": "ok"},
+   {"step": "login", "status": 200, "content_type": "application/json", "body": "{\"at\": \"x\", \"timeOut\": -Infinity}", "expect": "ok"},
+   {"step": "login", "status": 200, "content_type": "application/json", "body": "{\"at\": \"x\", \"message\": \"a\tb\"}", "expect": "unexpected"},
+   {"step": "login", "status": 200, "content_type": "application/json", "body": "{\"at\": \"x\", \"message\": \"a\\tb\"}", "expect": "ok"},
+   {"step": "getdata", "status": 200, "content_type": "application/json", "body": "{\"salt\": \"3\u000133\", \"lt\": \"1\", \"ver\": \"2\"}", "expect": "unexpected"},
+   {"step": "getdata", "status": 200, "content_type": "application/json", "body": "{\n\t\"salt\": \"333\",\r\n\t\"lt\": \"1\", \"ver\": \"2\"}", "expect": "ok"}
+  ],
+  "role_pick": [
+   {"body": {"accountInfo": {"userRoles": [{"role": {"id": 7, "name": "Учитель"}}, {"role": {"id": 12, "name": "Родитель"}}]}}, "expect": "12"},
+   {"body": {"userRoles": [{"id": 5, "name": "Администратор"}]}, "expect": "5"},
+   {"body": {}, "expect": null},
+   {"body": {"userRoles": [{"id": true, "name": "Родитель"}, {"id": "9", "name": "Родитель"}]}, "expect": "9"},
+   {"body": {"userRoles": [{"role": {"id": 7.5, "name": "Родитель"}}, {"role": {"id": 7}}]}, "expect": "7"},
+   {"body": {"accountInfo": [1]}, "expect": null},
+   {"body": {"userRoles": "x"}, "expect": null}
+  ],
+  "refusal": {
+   "markers": ["Доступ к сайту", "Request forbidden", "Access denied", "blocked"],
+   "cases": [
+    {"status": 403, "content_type": "application/json", "body": "{}", "refused": true},
+    {"status": 200, "content_type": "text/html", "body": "<h1>Access denied</h1>", "refused": true},
+    {"status": 200, "content_type": "text/plain", "body": "you are blocked", "refused": true},
+    {"status": 200, "content_type": "text/html", "body": "<h1>Доступ к сайту ограничен</h1>", "refused": true},
+    {"status": 200, "content_type": "application/json", "body": "{\"a\":\"Access denied\"}", "refused": false},
+    {"status": 200, "content_type": "text/html", "body": "<p>ok</p>", "refused": false}
+   ]
+  },
+  "schools_search": {
+   "path": "/webapi/schools/search",
+   "query_parameter": "name",
+   "query_cut_code_points": 60,
+   "query_cases": [
+    {"query": "Школа № 5", "sent": "Школа № 5"},
+    {"query": "яяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяя", "sent": "яяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяяя"},
+    {"query": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀", "sent": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"}
+   ],
+   "cases": [
+    {"body": [{"id": 1, "name": "Школа № 5", "addressString": "ул. Ленина, 1"}, {"id": true, "name": "x"}, {"id": "5", "name": "y"}, {"id": 2}], "expect": [{"id": 1, "name": "Школа № 5", "address": "ул. Ленина, 1"}]},
+    {"body": [{"id": 3, "name": "  Лицей № 2  ", "addressString": "  "}, {"id": 4, "name": "   "}, {"id": 5, "name": 7}, {"id": 6.0, "name": "z"}, "row"], "expect": [{"id": 3, "name": "Лицей № 2", "address": null}]},
+    {"body": {"error": 1}, "expect": "unexpected"}
+   ]
+  }
+ },
+ "credential": {
+  "pattern": "^[\\x21\\x23-\\x2B\\x2D-\\x3A\\x3C-\\x5B\\x5D-\\x7E]{1,4096}$",
+  "cases": [
+   {"value": "a;b", "ok": false},
+   {"value": "eyJ.a-b_c", "ok": true},
+   {"value": "a\r\nb", "ok": false},
+   {"value": "", "ok": false},
+   {"value": "a b", "ok": false},
+   {"value": "a\"b", "ok": false},
+   {"value": "a,b", "ok": false},
+   {"value": "a\\b", "ok": false},
+   {"value": "abc=+/", "ok": true},
+   {"value": "ключ", "ok": false}
+  ]
+ },
+ "login": {
+  "about": "The login as both sides clean it before it goes anywhere: the server's schemas._clean_login_value, the phone's DiaryLogin.clean. Every character Python's str.isprintable refuses is dropped (controls, format characters, surrogates, private use, unassigned, and every separator but the plain space), then the ends are trimmed, and fewer than min_code_points code points left is no login. A sent of null is refused before anything is sent anywhere.",
+  "min_code_points": 3,
+  "cases": [
+   {"typed": " parent@example.com ", "sent": "parent@example.com"},
+   {"typed": "⁨parent@example.com⁩", "sent": "parent@example.com"},
+   {"typed": "‎parent", "sent": "parent"},
+   {"typed": "﻿parent", "sent": "parent"},
+   {"typed": "par­ent", "sent": "parent"},
+   {"typed": " parent ", "sent": "parent"},
+   {"typed": "\tparent\r\n", "sent": "parent"},
+   {"typed": "a\u0000bc", "sent": "abc"},
+   {"typed": " abc ", "sent": "abc"},
+   {"typed": "abc", "sent": "abc"},
+   {"typed": "ab͸c", "sent": "abc"},
+   {"typed": "par ent", "sent": "par ent"},
+   {"typed": "Иванов", "sent": "Иванов"},
+   {"typed": "😀ab", "sent": "😀ab"},
+   {"typed": "ab​", "sent": null},
+   {"typed": "  ab  ", "sent": null},
+   {"typed": "​​​", "sent": null}
+  ]
+ },
+ "header_token": {
+  "pattern": "^[A-Za-z0-9._~+/=-]+$",
+  "cases": [
+   {"value": "56574745368264517434263", "ok": true},
+   {"value": "a b", "ok": false},
+   {"value": "a\nb", "ok": false},
+   {"value": "", "ok": false},
+   {"value": "a;b", "ok": false},
+   {"value": "Zm9v+YmFy/=~._-", "ok": true}
+  ]
+ }
+}

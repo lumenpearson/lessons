@@ -68,13 +68,18 @@ internal val ActionHeight: Dp = 56.dp
  * in exactly this row. The shape carries the meaning: the label sits hard left
  * and the glyph hard right, so the button reads as "what this does" on one end
  * and "where it takes you" on the other, and the two ends stay in the same place
- * on all four screens while everything above them changes.
+ * on every step of the first run while everything above them changes.
  *
  * @param onBack `null` on the first step, which has nowhere to go back to. The
  *   square is then dropped rather than disabled — a dead control in the corner
  *   of the very first screen a user sees is worse than no control.
  * @param busy replaces the trailing glyph with a spinner rather than swapping
  *   the whole button, which would move the label out from under the finger.
+ * @param footer drawn under the row, inside the same inset: the welcome step's
+ *   line accepting the terms and the privacy policy. Inside rather than below
+ *   the component, because the row carries the navigation-bar inset, and a
+ *   line placed after it would sit under the gesture bar — or, given an inset
+ *   of its own, count it twice.
  */
 @Composable
 internal fun OnboardingActions(
@@ -85,75 +90,108 @@ internal fun OnboardingActions(
     onBack: (() -> Unit)? = null,
     enabled: Boolean = true,
     busy: Boolean = false,
+    footer: (@Composable () -> Unit)? = null,
 ) {
     val view = rememberHapticView()
 
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(ScreenPadding),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // Dead while [busy]: what is running was sent and will land
+            // whether or not the step is left, and it would land behind the
+            // step before — the class-code step's join under the chooser.
+            if (onBack != null) BackSquare(onBack, enabled = !busy)
+
+            Button(
+                onClick = {
+                    LessonsHaptics.press(view)
+                    onClick()
+                },
+                enabled = enabled && !busy,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(ActionHeight),
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+
+                Spacer(Modifier.weight(1f))
+
+                if (busy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                } else {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
+        }
+        footer?.invoke()
+    }
+}
+
+/**
+ * The first run's bottom row with nothing but the way back, for a step whose
+ * one action lives in its own form — the sign-in's button is the form's,
+ * because the password must not leave the form to reach a button out here.
+ */
+@Composable
+internal fun OnboardingBackRow(onBack: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(ScreenPadding),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (onBack != null) {
-            OutlinedButton(
-                onClick = {
-                    LessonsHaptics.press(view)
-                    onBack()
-                },
-                modifier = Modifier.size(ActionHeight),
-                shape = MaterialTheme.shapes.large,
-                contentPadding = PaddingValues(0.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = correctedString(R.string.action_back),
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-        }
+        BackSquare(onBack, enabled)
+    }
+}
 
-        Button(
-            onClick = {
-                LessonsHaptics.press(view)
-                onClick()
-            },
-            enabled = enabled && !busy,
-            modifier = Modifier
-                .weight(1f)
-                .height(ActionHeight),
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-            )
-
-            Spacer(Modifier.weight(1f))
-
-            if (busy) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
-            } else {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-        }
+/** The square way back, the same on every step. */
+@Composable
+private fun BackSquare(onBack: () -> Unit, enabled: Boolean = true) {
+    val view = rememberHapticView()
+    OutlinedButton(
+        onClick = {
+            LessonsHaptics.press(view)
+            onBack()
+        },
+        enabled = enabled,
+        modifier = Modifier.size(ActionHeight),
+        shape = MaterialTheme.shapes.large,
+        contentPadding = PaddingValues(0.dp),
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+            contentDescription = correctedString(R.string.action_back),
+            modifier = Modifier.size(24.dp),
+        )
     }
 }
 
 /**
  * The big rounded headline every first-run step opens with.
  *
- * One composable rather than four copies of the same `Text` so that the four
- * screens cannot drift apart in size or weight, which is precisely what happened
+ * One composable rather than a copy of the same `Text` per step, so that the
+ * steps cannot drift apart in size or weight, which is precisely what happened
  * to the two that existed before this.
  */
 @Composable

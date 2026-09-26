@@ -836,7 +836,7 @@ async def test_resetting_everything_clears_the_lot(client, upstream, LOGIN_PATH,
 async def test_corrections_survive_signing_out_and_back_in(
     client, upstream, session, LOGIN_PATH, with_token
 ):
-    """The whole point of keying them on the account rather than the session.
+    """The whole point of keying them on the child rather than the session.
 
     The upstream token dies every few days and the row goes with it; a
     correction that went too would already be gone by the time anybody pressed
@@ -929,14 +929,31 @@ async def test_the_correction_endpoints_need_a_bearer(client):
         assert response.status_code == 401, path
 
 
-async def test_corrections_are_private_to_the_account_that_wrote_them(
-    client, upstream, LOGIN_PATH, with_token
+def _one_session_per_account(request: httpx.Request) -> httpx.Response:
+    """The login answer, with a session of the account's own — two parents
+    signing in are two upstream sessions, not one handed round."""
+    body = json.loads(request.content)
+    if body.get("password") != "correct":
+        return httpx.Response(401, json={"message": "Неверный логин или пароль"})
+    response = httpx.Response(200, json={"data": {"token": "body-token"}})
+    account = body["login"].split("@")[0]
+    response.headers["set-cookie"] = f"X-JWT-Token=cookie-{account}; Path=/"
+    return response
+
+
+async def test_corrections_are_shared_by_every_account_that_lists_the_child(
+    client, upstream, session, LOGIN_PATH
 ):
-    """Two parents of one child sign in with their own upstream accounts. The
-    key is (login, student), so each set of corrections is theirs — and the
-    fixture gives both accounts the same child, which is the only way this
-    property can actually be observed."""
-    mine = await signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token)
+    """Two parents of one child sign in with their own upstream accounts.
+    This test used to pin the opposite — each parent's set their own, keyed by
+    the login — and the owner decided otherwise (#165): the corrections are
+    the child's, so whoever's own diary lists the child reads them, overwrites
+    them and resets them, and the other parent sees each of those. The fixture
+    gives both accounts the same child, which is the only way this can be
+    observed."""
+    mine = await sign_in(client, upstream, LOGIN_PATH, _one_session_per_account)
+    upstream.routes["/api/journal/person/related-child-list"] = {"items": [CHILD]}
+    upstream.routes[SCHEDULE_PATH] = {"items": [a_lesson()]}
     target = (await read_schedule(client, mine))[0]["target"]
     await client.put(
         "/api/v1/diary/students/4021/overrides",
@@ -944,24 +961,47 @@ async def test_corrections_are_private_to_the_account_that_wrote_them(
         json={"target": target, "field": "room", "value": "204"},
     )
 
-    theirs = await sign_in(client, upstream, LOGIN_PATH, with_token, login="other@example.com")
+    theirs = await sign_in(
+        client, upstream, LOGIN_PATH, _one_session_per_account, login="other@example.com"
+    )
+    upstream_sessions = {
+        service.upstream_of(row) for row in await session.scalars(select(DiarySession))
+    }
+    assert upstream_sessions == {"cookie-parent", "cookie-other"}
 
     listed = await client.get(
         "/api/v1/diary/students/4021/overrides",
         headers={"Authorization": f"Bearer {theirs}"},
     )
-    assert listed.json() == []
+    assert [row["value"] for row in listed.json()] == ["204"]
+    assert (await read_schedule(client, theirs))[0]["room"] == "204"
+
+    # Either of them edits the one row, and the other sees it…
+    await client.put(
+        "/api/v1/diary/students/4021/overrides",
+        headers={"Authorization": f"Bearer {theirs}"},
+        json={"target": target, "field": "room", "value": "301"},
+    )
+    assert (await read_schedule(client, mine))[0]["room"] == "301"
+
+    # …and a reset by one is a reset for both.
+    reset = await client.post(
+        "/api/v1/diary/students/4021/overrides/reset",
+        headers={"Authorization": f"Bearer {mine}"},
+        json={"target": target, "field": "room"},
+    )
+    assert reset.status_code == 204
     assert (await read_schedule(client, theirs))[0]["room"] == "12"
-    # …and mine are still mine.
-    assert (await read_schedule(client, mine))[0]["room"] == "204"
 
 
 async def test_a_login_typed_with_different_capitals_finds_its_corrections(
     client, upstream, LOGIN_PATH, with_token
 ):
-    """The upstream does not care about the case, so neither may we: a family
-    whose keyboard capitalises the first letter must not find every correction
-    gone, with no reset button because there is nothing left to reset."""
+    """Once the reason was the case-folding of a login-shaped key. Now the
+    login plays no part at all — the corrections are the child's — and a
+    family whose keyboard capitalises the first letter must still not find
+    every correction gone, with no reset button because there is nothing left
+    to reset."""
     first = await signed_in_with_a_lesson(client, upstream, LOGIN_PATH, with_token)
     target = (await read_schedule(client, first))[0]["target"]
     await client.put(

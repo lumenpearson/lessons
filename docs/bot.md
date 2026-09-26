@@ -472,23 +472,56 @@ replaces SQLite's ASCII-only version with Python's on every connection, so
 
 ## The electronic diary — «📒 Мой дневник»
 
-An admin binds the class in **⚙️ Класс → 📒 Привязать дневник**. Binding gives
-the class *nothing*: it puts one button on every member's menu, and behind that
-button is each member's own dnevnik2 account. Nobody in the class sees anybody
-else's child.
+An admin binds the class in **⚙️ Класс → 📒 Привязать дневник**. That is no longer a
+single toggle: with a second diary it opens a chooser. «Петербургское образование»
+binds in one press; «Сетевой город» asks for the **region**, then the **school**. The
+region step probes that region's sign-in options first, so an admin learns once that a
+Госуслуги-only region cannot be bound, rather than every family finding out at sign-in;
+the school step searches the region's own server by name and offers what it found. Binding
+gives the class *nothing*: it puts one button on every member's menu, and behind that button
+is each member's own account with the bound diary. Nobody in the class sees anybody else's
+child. Binding another diary, or another «Сетевой город» region, expires in the same step the
+members' sessions on the one the class left — they would otherwise go on being kept alive on
+a server nobody here reads; another school in the same region keeps them, and unbinding
+expires nothing.
 
 That is enforced rather than asserted. Every lookup in `handlers/diary.py`
 starts from `callback.from_user.id`, and a session is found by
 `(telegram_id, class_id)` and nothing else — so a crafted payload reaches the
 presser's own diary or nothing at all. The class half matters too: a parent in
-two classes must not read one child's diary from the other class's screen.
+two classes must not read one child's diary from the other class's screen. A diary
+session registered from a phone (`POST /api/v1/diary/session`) carries neither, so the bot
+does not see it and a family using both signs in twice; linking the two is deferred (#143).
 
 **The password never enters Telegram.** «🔐 Войти в дневник» hands out a link to
-`/diary/signin/<ticket>`, a page this app serves itself. The password goes from
-that browser straight to dnevnik2 and is written down nowhere — not in the chat
-history, not on Telegram's servers, not in the notification on a locked screen,
-not in the phone's backup. A ticket is worth **one** sign-in for fifteen
-minutes for one Telegram account in one class; a GET checks it without spending
+`/diary/signin/<ticket>`, a page this app serves itself. Its subtitle names the bound
+diary — and, for «Сетевой город», its region and school (the school name escaped, because
+it came from the upstream's search) — so the family can see where the password is going.
+The form posts the password to this server, which passes it to the bound diary (dnevnik2 for
+Петербург, the region's own server for «Сетевой город») for the sign-in and writes it down
+nowhere — not in the chat history, not on Telegram's servers, not in the notification on a
+locked screen, not in the phone's backup, not in this database and not in the log.
+
+The three texts a parent reads before typing it say exactly that. The card with the link:
+«Пароль вводится на странице, а не в чате. Сервер бота передаёт его дневнику для входа и
+нигде не сохраняет — ни у бота, ни в этой базе.» The card of somebody not yet signed in:
+«Бот даст ссылку на страницу входа на своём сервере: сервер передаёт пароль дневнику для
+входа, и пароль нигде не сохраняется.» The page's own note: «Пароль вводится здесь, а не в
+чате. Эта страница — на сервере бота: он передаёт пароль дневнику для входа, и пароль нигде
+не сохраняется…». Until #150 all three said the password went «прямо в дневник» and that the
+bot never saw it, which was never true; a test now fails on the old wording. They make no
+claim about the app either way: an app built before registration still posts the password to
+this server, and the page cannot tell which one the reader holds.
+
+A class unbound since the link was made refuses at the GET and at the submit, before the
+password is sent and without spending the ticket. Rebinding is the harder half, because the
+submit finds a binding and it is the wrong one: re-reading it would send a password typed
+under «Санкт-Петербург» to «Сетевой город», or the other way round. So every change to the
+binding — «📒 Дневник: отвязать», a pick of Petersburg, a pick of a school — drops the class's
+outstanding tickets in the same commit, and a form opened before it answers `410` with no
+upstream call. The family asks the bot for a new link, which names the diary bound now. A ticket is
+worth **one** sign-in for fifteen minutes for one Telegram account in one class; a GET
+checks it without spending
 it (Telegram fetches link previews by itself), a POST spends it before
 attempting the sign-in, and a malformed form does not spend it at all. The one
 failure that hands the ticket back is a diary that did not answer — a transport
@@ -497,7 +530,16 @@ cannot read still costs it: a login form on Yii refuses a password with the
 same "200 with some HTML" a captcha arrives in, so forgiving that would turn the link
 into an unlimited password oracle against the upstream from our address. The
 page says so in words rather than blaming the password, which is what it used
-to do for every failure that was not a plain 401.
+to do for every failure that was not a plain 401, and names the bound diary's own
+address to open in a browser — taken from the allow-list, never from anything typed. It
+used to name dnevnik2 whatever the class was bound to, which sent a «Сетевой город» family
+to Петербург's diary to see whether theirs was down (#158). Two refusals get sentences of
+their own rather than that one. A region that answers it takes only Госуслуги is a `503`
+that keeps the ticket — no password was sent — and points at Госуслуги on the region's own
+server instead of saying «попробуйте ещё раз» under «логин и пароль тут не подойдут». An
+account the diary accepted but that lists no pupil is a `403` that spends it — the password
+was judged — and says «В этой учётной записи нет ученика», with a new link for a parent's or
+a pupil's account, instead of «ответил непонятно» and a link that fails the same way.
 
 The session is stored encrypted (`DIARY_SECRET`, `app/crypto.py`). Without that
 key the whole feature refuses at the door rather than falling back to
@@ -511,8 +553,8 @@ with several children is asked once, in **👥 Ребёнок**, and the answer 
 the session. **Выйти** drops every session this account holds in this class —
 one row is one sign-in and nothing expires an earlier one, so «вышли» that
 dropped only the newest left the next press walking straight back in; the other
-class of a parent with two children is untouched. The upstream is not told,
-because it has no logout that can be called without a browser.
+class of a parent with two children is untouched. The upstream is told goodbye where it
+can be: «Сетевой город» has a logout that works without a browser, Петербург does not.
 
 An empty answer is always said, never drawn as a blank: the upstream returns
 nothing for the holidays, for a day it has no data for, and for a register a teacher
@@ -659,9 +701,10 @@ renderer.
   a row is only a number.
 * **Cut before escaping, never after.** Cutting an escaped string can leave
   «&am», which is a refused message of its own.
-* **Everything from outside is escaped.** Anything the Petersburg diary sends,
-  anything typed into the bot or pasted into the timetable grammar (a subject
-  really can be «Алгебра <7>»), and anything out of the schools registry.
+* **Everything from outside is escaped.** Anything a diary sends — Петербург's or
+  «Сетевого города»'s, down to a school name from its search — anything typed into the bot
+  or pasted into the timetable grammar (a subject really can be «Алгебра <7>»), and
+  anything out of the schools registry.
 * **An alert is not a card.** `answerCallbackQuery` takes no parse mode, so a
   card built for a message shows its own tags in the popup, and Telegram answers
   400 past 200 characters — which means the press answers nothing at all.

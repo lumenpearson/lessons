@@ -31,8 +31,10 @@ class DiaryAction(CallbackData, prefix="dry"):
     """A cursor into somebody's diary.
 
     ``view`` — day | week | homework | marks | students | signin | signout.
-    ``offset`` — days from today for «day», weeks for «week», and the period
-    index for «marks»; one field because only one of them is ever live.
+    ``offset`` — days from today for «day», weeks for «week»; one field because
+    only one of them is ever live. «marks» ignores it and always shows the last
+    thirty days, and «homework» reads a fixed window from today, so neither
+    carries an offset here.
     """
 
     view: str

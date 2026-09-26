@@ -284,3 +284,30 @@ async def test_one_row_of_the_wrong_shape_among_several_is_not_shouted_about(
     assert items == [{"id": 1}, {"id": 3}]
     assert caplog.records == []
 
+
+
+@pytest.mark.parametrize(
+    "stored",
+    ["jwt.part.sig; X-Other=forged", "jwt.part.sig\r\nX-Evil: 1", "jwt part sig"],
+    ids=["semicolon", "line-break", "space"],
+)
+async def test_a_stored_token_that_is_not_a_cookie_value_is_never_sent(monkeypatch, stored):
+    """The phone now hands this server a token it received itself. The route
+    checks it at the door; the client checks again before every call, so a
+    value that would become a second cookie never leaves, whatever wrote it —
+    and reads as the dead session it is."""
+    sent: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(200, json={"data": {"items": []}})
+
+    async def shared():
+        return httpx.AsyncClient(
+            base_url=provider_client.BASE_URL, transport=httpx.MockTransport(handler)
+        )
+
+    monkeypatch.setattr(provider_client, "shared_client", shared)
+    with pytest.raises(SessionExpired):
+        await provider_client.PetersburgClient(stored).children()
+    assert sent == []

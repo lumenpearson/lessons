@@ -1,0 +1,6325 @@
+{
+ "platforms": {
+  "avers": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "Avers",
+   "name_ru": "Аверс",
+   "origin": null,
+   "page": null,
+   "provider": null,
+   "signin": "unknown"
+  },
+  "bars": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "BARS",
+   "name_ru": "БАРС",
+   "origin": null,
+   "page": "bars",
+   "provider": null,
+   "signin": "mixed"
+  },
+  "dnevnik-ru": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "Dnevnik.ru",
+   "name_ru": "Дневник.ру",
+   "origin": null,
+   "page": "dnevnik-ru",
+   "provider": null,
+   "signin": "mixed"
+  },
+  "dnevnik76": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "Dnevnik76",
+   "name_ru": "Дневник76",
+   "origin": null,
+   "page": "dnevnik76",
+   "provider": null,
+   "signin": "retired"
+  },
+  "e-uslugi": {
+   "handoff": null,
+   "kind": "admissions",
+   "name_en": "E-uslugi. Education",
+   "name_ru": "Е-услуги. Образование",
+   "origin": null,
+   "page": null,
+   "provider": null,
+   "signin": "none"
+  },
+  "edu-tatar": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "edu.tatar.ru",
+   "name_ru": "edu.tatar.ru",
+   "origin": null,
+   "page": "edu-tatar",
+   "provider": null,
+   "signin": "retired"
+  },
+  "egov66": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "Sverdlovsk Oblast Unified Digital Platform",
+   "name_ru": "ГИС СО «ЕЦП»",
+   "origin": null,
+   "page": "egov66",
+   "provider": null,
+   "signin": "retired"
+  },
+  "eljur": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "ElJur",
+   "name_ru": "ЭлЖур",
+   "origin": null,
+   "page": "eljur",
+   "provider": null,
+   "signin": "mixed"
+  },
+  "elschool": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "ELSCHOOL",
+   "name_ru": "ELSCHOOL",
+   "origin": null,
+   "page": "elschool",
+   "provider": null,
+   "signin": "mixed"
+  },
+  "epos": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "EPOS.School",
+   "name_ru": "ЭПОС.Школа",
+   "origin": null,
+   "page": "epos",
+   "provider": null,
+   "signin": "esia_only"
+  },
+  "eschool-center": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "eSchool",
+   "name_ru": "eSchool",
+   "origin": null,
+   "page": "eschool-center",
+   "provider": null,
+   "signin": "password"
+  },
+  "fgis-myschool": {
+   "handoff": null,
+   "kind": "portal",
+   "name_en": "My School federal portal",
+   "name_ru": "ФГИС «Моя школа»",
+   "origin": null,
+   "page": "myschool-federal",
+   "provider": null,
+   "signin": "none"
+  },
+  "it-school-penza": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "IT School (Penza)",
+   "name_ru": "АйТи Школа",
+   "origin": null,
+   "page": null,
+   "provider": null,
+   "signin": "mixed"
+  },
+  "kiasuo": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "KIASUO",
+   "name_ru": "КИАСУО",
+   "origin": null,
+   "page": "kiasuo",
+   "provider": null,
+   "signin": "esia_only"
+  },
+  "mesh-moscow": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "Moscow Electronic School",
+   "name_ru": "МЭШ",
+   "origin": null,
+   "page": "mesh-moscow",
+   "provider": null,
+   "signin": "oauth"
+  },
+  "mesh-myschool": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "My School (MESH)",
+   "name_ru": "Моя школа (МЭШ)",
+   "origin": null,
+   "page": "mesh-myschool",
+   "provider": null,
+   "signin": "esia_only"
+  },
+  "mrko": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "MRKO (Moscow)",
+   "name_ru": "МРКО",
+   "origin": null,
+   "page": null,
+   "provider": null,
+   "signin": "retired"
+  },
+  "netschool": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "Setevoy Gorod (NetSchool)",
+   "name_ru": "Сетевой город. Образование",
+   "origin": null,
+   "page": "netschool",
+   "provider": "netschool",
+   "signin": "mixed"
+  },
+  "one-x1": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "one.",
+   "name_ru": "one.",
+   "origin": null,
+   "page": "one-x1",
+   "provider": null,
+   "signin": "mixed"
+  },
+  "paper": {
+   "handoff": null,
+   "kind": "none",
+   "name_en": "Paper registers and diaries",
+   "name_ru": "Бумажные журналы и дневники",
+   "origin": null,
+   "page": null,
+   "provider": null,
+   "signin": "none"
+  },
+  "petersburg": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "Petersburg Education",
+   "name_ru": "Петербургское образование",
+   "origin": "https://dnevnik2.petersburgedu.ru",
+   "page": "petersburg",
+   "provider": "petersburg",
+   "signin": "password"
+  },
+  "ruobr": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "Electronic School 2.0",
+   "name_ru": "Электронная школа 2.0",
+   "origin": null,
+   "page": "ruobr",
+   "provider": null,
+   "signin": "mixed"
+  },
+  "tor-myschool": {
+   "handoff": "https://www.gosuslugi.ru/school",
+   "kind": "diary",
+   "name_en": "Gosuslugi My School",
+   "name_ru": "Госуслуги Моя школа",
+   "origin": null,
+   "page": "myschool-federal",
+   "provider": null,
+   "signin": "esia_only"
+  },
+  "virtual-school": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "Virtual School",
+   "name_ru": "Виртуальная школа",
+   "origin": null,
+   "page": "virtual-school",
+   "provider": null,
+   "signin": "oauth"
+  },
+  "web2edu": {
+   "handoff": null,
+   "kind": "diary",
+   "name_en": "Web2edu",
+   "name_ru": "Web2edu",
+   "origin": null,
+   "page": null,
+   "provider": null,
+   "signin": "unknown"
+  }
+ },
+ "regions": [
+  {
+   "aliases": [
+    "Адыгея",
+    "Республика Адыгея (Адыгея)"
+   ],
+   "cities": [
+    "Майкоп"
+   ],
+   "code": "01",
+   "dadata_names": [
+    "Респ Адыгея",
+    "Адыгея"
+   ],
+   "iso": "RU-AD",
+   "key": "adygea",
+   "mandatory": false,
+   "name_en": "Republic of Adygea",
+   "name_ru": "Республика Адыгея",
+   "order": 1,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "dnevnik-ru",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "login.dnevnik.ru",
+      "schools.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "primary",
+     "web_url": "https://dnevnik.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Горный Алтай",
+    "Алтай"
+   ],
+   "cities": [
+    "Горно-Алтайск"
+   ],
+   "code": "04",
+   "dadata_names": [
+    "Респ Алтай",
+    "Алтай"
+   ],
+   "iso": "RU-AL",
+   "key": "altai-republic",
+   "mandatory": false,
+   "name_en": "Altai Republic",
+   "name_ru": "Республика Алтай",
+   "order": 2,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sgo.altaiobr04.ru",
+      "poo.altaiobr04.ru"
+     ],
+     "netschool": null,
+     "platform": "netschool",
+     "role": "legacy",
+     "web_url": "https://sgo.altaiobr04.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sosh.mon-ra.ru",
+      "spo.mon-ra.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "legacy",
+     "web_url": "https://sosh.mon-ra.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Asia/Barnaul"
+  },
+  {
+   "aliases": [
+    "Башкирия",
+    "Башкортостан"
+   ],
+   "cities": [
+    "Уфа",
+    "Стерлитамак",
+    "Салават",
+    "Нефтекамск"
+   ],
+   "code": "02",
+   "dadata_names": [
+    "Респ Башкортостан",
+    "Башкортостан"
+   ],
+   "iso": "RU-BA",
+   "key": "bashkortostan",
+   "mandatory": true,
+   "name_en": "Republic of Bashkortostan",
+   "name_ru": "Республика Башкортостан",
+   "order": 3,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "mesh-myschool",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.edurb.ru"
+     ],
+     "netschool": null,
+     "platform": "mesh-myschool",
+     "role": "primary",
+     "web_url": "https://dnevnik.edurb.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "elschool.ru",
+      "api.elschool.ru",
+      "file.elschool.ru",
+      "edu.brsc.ru"
+     ],
+     "netschool": null,
+     "platform": "elschool",
+     "role": "secondary",
+     "web_url": "https://elschool.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Asia/Yekaterinburg"
+  },
+  {
+   "aliases": [
+    "Бурятия"
+   ],
+   "cities": [
+    "Улан-Удэ"
+   ],
+   "code": "03",
+   "dadata_names": [
+    "Респ Бурятия",
+    "Бурятия"
+   ],
+   "iso": "RU-BU",
+   "key": "buryatia",
+   "mandatory": false,
+   "name_en": "Republic of Buryatia",
+   "name_ru": "Республика Бурятия",
+   "order": 4,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "deti.obr03.ru"
+     ],
+     "netschool": {
+      "origin": "https://deti.obr03.ru",
+      "password": true,
+      "region": "buryatia",
+      "verified": false,
+      "zone": "Asia/Irkutsk"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://deti.obr03.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "maou-37.eljur.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "secondary",
+     "web_url": "https://maou-37.eljur.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Asia/Irkutsk"
+  },
+  {
+   "aliases": [
+    "Дагестан"
+   ],
+   "cities": [
+    "Махачкала",
+    "Дербент",
+    "Хасавюрт",
+    "Каспийск"
+   ],
+   "code": "05",
+   "dadata_names": [
+    "Респ Дагестан",
+    "Дагестан"
+   ],
+   "iso": "RU-DA",
+   "key": "dagestan",
+   "mandatory": true,
+   "name_en": "Republic of Dagestan",
+   "name_ru": "Республика Дагестан",
+   "order": 5,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "mesh-myschool",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "myschool.05edu.ru",
+      "education.05edu.ru"
+     ],
+     "netschool": null,
+     "platform": "mesh-myschool",
+     "role": "primary",
+     "web_url": "https://myschool.05edu.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "login.dnevnik.ru",
+      "05.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "legacy",
+     "web_url": "https://dnevnik.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "ДНР",
+    "Донецкая республика",
+    "Донбасс"
+   ],
+   "cities": [
+    "Донецк",
+    "Макеевка",
+    "Горловка",
+    "Мариуполь"
+   ],
+   "code": "93",
+   "dadata_names": [
+    "Донецкая Народная Респ",
+    "Донецкая Народная"
+   ],
+   "iso": null,
+   "key": "dnr",
+   "mandatory": false,
+   "name_en": "Donetsk People's Republic",
+   "name_ru": "Донецкая Народная Республика",
+   "order": 6,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "donschool47.eljur.ru",
+      "*.eljur.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "secondary",
+     "web_url": "https://donschool47.eljur.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Ингушетия"
+   ],
+   "cities": [
+    "Магас",
+    "Назрань"
+   ],
+   "code": "06",
+   "dadata_names": [
+    "Респ Ингушетия",
+    "Ингушетия"
+   ],
+   "iso": "RU-IN",
+   "key": "ingushetia",
+   "mandatory": false,
+   "name_en": "Republic of Ingushetia",
+   "name_ru": "Республика Ингушетия",
+   "order": 7,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sgo.edu-ri.ru",
+      "poo.edu-ri.ru",
+      "sad06.ru:82"
+     ],
+     "netschool": {
+      "origin": "https://sgo.edu-ri.ru",
+      "password": true,
+      "region": "ingushetia",
+      "verified": false,
+      "zone": "Europe/Moscow"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://sgo.edu-ri.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "ri-sch2.eljur.ru",
+      "ri-sch3.eljur.ru",
+      "ri-sch11.eljur.ru",
+      "ri-sch15.eljur.ru",
+      "ri-sch22.eljur.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "secondary",
+     "web_url": "https://ri-sch2.eljur.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "КБР",
+    "Кабардино-Балкария",
+    "Кабарда"
+   ],
+   "cities": [
+    "Нальчик"
+   ],
+   "code": "07",
+   "dadata_names": [
+    "Кабардино-Балкарская Респ",
+    "Кабардино-Балкарская"
+   ],
+   "iso": "RU-KB",
+   "key": "kbr",
+   "mandatory": false,
+   "name_en": "Kabardino-Balkarian Republic",
+   "name_ru": "Кабардино-Балкарская Республика",
+   "order": 8,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.07.edu.o7.com"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "legacy",
+     "web_url": "https://school.07.edu.o7.com"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Калмыкия"
+   ],
+   "cities": [
+    "Элиста"
+   ],
+   "code": "08",
+   "dadata_names": [
+    "Респ Калмыкия",
+    "Калмыкия"
+   ],
+   "iso": "RU-KL",
+   "key": "kalmykia",
+   "mandatory": false,
+   "name_en": "Republic of Kalmykia",
+   "name_ru": "Республика Калмыкия",
+   "order": 9,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "dnevnik-ru",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "08.dnevnik.ru",
+      "login.dnevnik.ru/login/esia/kalmykia",
+      "schools.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "primary",
+     "web_url": "https://dnevnik.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sgo.monrk.ru"
+     ],
+     "netschool": null,
+     "platform": "netschool",
+     "role": "legacy",
+     "web_url": "https://sgo.monrk.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "КЧР",
+    "Карачаево-Черкесия"
+   ],
+   "cities": [
+    "Черкесск"
+   ],
+   "code": "09",
+   "dadata_names": [
+    "Карачаево-Черкесская Респ",
+    "Карачаево-Черкесская"
+   ],
+   "iso": "RU-KC",
+   "key": "kchr",
+   "mandatory": false,
+   "name_en": "Karachay-Cherkess Republic",
+   "name_ru": "Карачаево-Черкесская Республика",
+   "order": 10,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sgo.kchgov.ru",
+      "poo.kchgov.ru",
+      "dnevnik-kchr.ru"
+     ],
+     "netschool": {
+      "origin": "https://sgo.kchgov.ru",
+      "password": true,
+      "region": "kchr",
+      "verified": false,
+      "zone": "Europe/Moscow"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://sgo.kchgov.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Карелия"
+   ],
+   "cities": [
+    "Петрозаводск"
+   ],
+   "code": "10",
+   "dadata_names": [
+    "Респ Карелия",
+    "Карелия"
+   ],
+   "iso": "RU-KR",
+   "key": "karelia",
+   "mandatory": true,
+   "name_en": "Republic of Karelia",
+   "name_ru": "Республика Карелия",
+   "order": 11,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "mesh-myschool",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "karelia.minedu.ru"
+     ],
+     "netschool": null,
+     "platform": "mesh-myschool",
+     "role": "primary",
+     "web_url": "https://karelia.minedu.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.karelia.ru",
+      "college.karelia.ru",
+      "contingent.karelia.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "legacy",
+     "web_url": "https://school.karelia.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Коми"
+   ],
+   "cities": [
+    "Сыктывкар",
+    "Ухта",
+    "Воркута"
+   ],
+   "code": "11",
+   "dadata_names": [
+    "Респ Коми",
+    "Коми"
+   ],
+   "iso": "RU-KO",
+   "key": "komi",
+   "mandatory": false,
+   "name_en": "Komi Republic",
+   "name_ru": "Республика Коми",
+   "order": 12,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "giseo.rkomi.ru"
+     ],
+     "netschool": {
+      "origin": "https://giseo.rkomi.ru",
+      "password": true,
+      "region": "komi",
+      "verified": false,
+      "zone": "Europe/Moscow"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://giseo.rkomi.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Крым"
+   ],
+   "cities": [
+    "Симферополь",
+    "Керчь",
+    "Евпатория",
+    "Ялта"
+   ],
+   "code": "91",
+   "dadata_names": [
+    "Респ Крым",
+    "Крым"
+   ],
+   "iso": null,
+   "key": "crimea",
+   "mandatory": false,
+   "name_en": "Republic of Crimea",
+   "name_ru": "Республика Крым",
+   "order": 13,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "eljur",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "edu.rk.gov.ru",
+      "*.eljur.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "primary",
+     "web_url": "https://edu.rk.gov.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Simferopol"
+  },
+  {
+   "aliases": [
+    "ЛНР",
+    "Луганская республика",
+    "Донбасс"
+   ],
+   "cities": [
+    "Луганск",
+    "Алчевск"
+   ],
+   "code": "94",
+   "dadata_names": [
+    "Луганская Народная Респ",
+    "Луганская Народная"
+   ],
+   "iso": null,
+   "key": "lnr",
+   "mandatory": false,
+   "name_en": "Luhansk People's Republic",
+   "name_ru": "Луганская Народная Республика",
+   "order": 14,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "lnr0487.eljur.ru",
+      "lnr0523.eljur.ru",
+      "lnr0488.eljur.ru",
+      "*.eljur.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "legacy",
+     "web_url": "https://lnr0487.eljur.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Марий Эл"
+   ],
+   "cities": [
+    "Йошкар-Ола"
+   ],
+   "code": "12",
+   "dadata_names": [
+    "Респ Марий Эл",
+    "Марий Эл"
+   ],
+   "iso": "RU-ME",
+   "key": "mari-el",
+   "mandatory": false,
+   "name_en": "Mari El Republic",
+   "name_ru": "Республика Марий Эл",
+   "order": 15,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sgo.mari-el.gov.ru"
+     ],
+     "netschool": {
+      "origin": "https://sgo.mari-el.gov.ru",
+      "password": true,
+      "region": "mari-el",
+      "verified": false,
+      "zone": "Europe/Moscow"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://sgo.mari-el.gov.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "myschool.edu.ru"
+     ],
+     "netschool": null,
+     "platform": "fgis-myschool",
+     "role": "secondary",
+     "web_url": "https://myschool.edu.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Мордовия"
+   ],
+   "cities": [
+    "Саранск"
+   ],
+   "code": "13",
+   "dadata_names": [
+    "Респ Мордовия",
+    "Мордовия"
+   ],
+   "iso": "RU-MO",
+   "key": "mordovia",
+   "mandatory": false,
+   "name_en": "Republic of Mordovia",
+   "name_ru": "Республика Мордовия",
+   "order": 16,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sgo.e-mordovia.ru"
+     ],
+     "netschool": {
+      "origin": "https://sgo.e-mordovia.ru",
+      "password": true,
+      "region": "mordovia",
+      "verified": false,
+      "zone": "Europe/Moscow"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://sgo.e-mordovia.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "myschool.edu.ru"
+     ],
+     "netschool": null,
+     "platform": "fgis-myschool",
+     "role": "secondary",
+     "web_url": "https://myschool.edu.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Якутия",
+    "Саха"
+   ],
+   "cities": [
+    "Якутск",
+    "Нерюнгри"
+   ],
+   "code": "14",
+   "dadata_names": [
+    "Респ Саха /Якутия/",
+    "Саха /Якутия/"
+   ],
+   "iso": "RU-SA",
+   "key": "yakutia",
+   "mandatory": false,
+   "name_en": "Sakha (Yakutia) Republic",
+   "name_ru": "Республика Саха (Якутия)",
+   "order": 17,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sgo.e-yakutia.ru"
+     ],
+     "netschool": {
+      "origin": "https://sgo.e-yakutia.ru",
+      "password": true,
+      "region": "yakutia",
+      "verified": false,
+      "zone": "Asia/Yakutsk"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://sgo.e-yakutia.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "myschool.edu.ru"
+     ],
+     "netschool": null,
+     "platform": "fgis-myschool",
+     "role": "secondary",
+     "web_url": "https://myschool.edu.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Asia/Yakutsk"
+  },
+  {
+   "aliases": [
+    "РСО",
+    "РСО-Алания",
+    "Северная Осетия",
+    "Осетия",
+    "Алания"
+   ],
+   "cities": [
+    "Владикавказ"
+   ],
+   "code": "15",
+   "dadata_names": [
+    "Респ Северная Осетия - Алания",
+    "Северная Осетия - Алания"
+   ],
+   "iso": "RU-SE",
+   "key": "north-ossetia",
+   "mandatory": false,
+   "name_en": "Republic of North Ossetia–Alania",
+   "name_ru": "Республика Северная Осетия — Алания",
+   "order": 18,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "dnevnik-ru",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "15.dnevnik.ru",
+      "login.dnevnik.ru/login/esia/rsoa",
+      "dnevnik.ru/v2/soc/r/rsoa"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "primary",
+     "web_url": "https://dnevnik.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Татарстан",
+    "Татария",
+    "Республика Татарстан (Татарстан)"
+   ],
+   "cities": [
+    "Казань",
+    "Набережные Челны",
+    "Нижнекамск",
+    "Альметьевск"
+   ],
+   "code": "16",
+   "dadata_names": [
+    "Респ Татарстан",
+    "Татарстан"
+   ],
+   "iso": "RU-TA",
+   "key": "tatarstan",
+   "mandatory": true,
+   "name_en": "Republic of Tatarstan",
+   "name_ru": "Республика Татарстан",
+   "order": 19,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "front_end",
+    "system": 1
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "ms-edu.tatar.ru",
+      "school-edu.tatar.ru"
+     ],
+     "netschool": null,
+     "platform": "mesh-myschool",
+     "role": "primary",
+     "web_url": "https://ms-edu.tatar.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "edu.tatar.ru"
+     ],
+     "netschool": null,
+     "platform": "edu-tatar",
+     "role": "legacy",
+     "web_url": "https://edu.tatar.ru"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Тыва",
+    "Тува"
+   ],
+   "cities": [
+    "Кызыл"
+   ],
+   "code": "17",
+   "dadata_names": [
+    "Респ Тыва",
+    "Тыва"
+   ],
+   "iso": "RU-TY",
+   "key": "tuva",
+   "mandatory": false,
+   "name_en": "Tuva Republic",
+   "name_ru": "Республика Тыва",
+   "order": 20,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "dnevnik-ru",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "17.dnevnik.ru",
+      "login.dnevnik.ru/login/esia/tuva",
+      "schools.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "primary",
+     "web_url": "https://dnevnik.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.rtyva.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "legacy",
+     "web_url": "https://school.rtyva.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "myschool.edu.ru"
+     ],
+     "netschool": null,
+     "platform": "fgis-myschool",
+     "role": "unclear",
+     "web_url": "https://myschool.edu.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Asia/Krasnoyarsk"
+  },
+  {
+   "aliases": [
+    "Удмуртия"
+   ],
+   "cities": [
+    "Ижевск",
+    "Сарапул",
+    "Глазов",
+    "Воткинск"
+   ],
+   "code": "18",
+   "dadata_names": [
+    "Удмуртская Респ",
+    "Удмуртская"
+   ],
+   "iso": "RU-UD",
+   "key": "udmurtia",
+   "mandatory": false,
+   "name_en": "Udmurt Republic",
+   "name_ru": "Удмуртская Республика",
+   "order": 21,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "es.ciur.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "legacy",
+     "web_url": "https://es.ciur.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Samara"
+  },
+  {
+   "aliases": [
+    "Хакасия"
+   ],
+   "cities": [
+    "Абакан",
+    "Черногорск"
+   ],
+   "code": "19",
+   "dadata_names": [
+    "Респ Хакасия",
+    "Хакасия"
+   ],
+   "iso": "RU-KK",
+   "key": "khakassia",
+   "mandatory": false,
+   "name_en": "Republic of Khakassia",
+   "name_ru": "Республика Хакасия",
+   "order": 22,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "bars",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.r-19.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "primary",
+     "web_url": "https://school.r-19.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "unclear",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "unclear",
+   "zone": "Asia/Krasnoyarsk"
+  },
+  {
+   "aliases": [
+    "Чечня"
+   ],
+   "cities": [
+    "Грозный",
+    "Гудермес"
+   ],
+   "code": "20",
+   "dadata_names": [
+    "Чеченская Респ",
+    "Чеченская"
+   ],
+   "iso": "RU-CE",
+   "key": "chechnya",
+   "mandatory": false,
+   "name_en": "Chechen Republic",
+   "name_ru": "Чеченская Республика",
+   "order": 23,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "dnevnik-ru",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "login.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "primary",
+     "web_url": "https://dnevnik.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "mvd1.eljur.ru",
+      "gimn12.eljur.ru",
+      "chesu.eljur.ru",
+      "sssh1.eljur.ru",
+      "davsosh.eljur.ru",
+      "sosh5.eljur.ru",
+      "chervlen.eljur.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "legacy",
+     "web_url": "https://mvd1.eljur.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.mon95.ru"
+     ],
+     "netschool": null,
+     "platform": "mesh-myschool",
+     "role": "unclear",
+     "web_url": "https://school.mon95.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Чувашия",
+    "Чувашская Республика — Чувашия"
+   ],
+   "cities": [
+    "Чебоксары",
+    "Новочебоксарск"
+   ],
+   "code": "21",
+   "dadata_names": [
+    "Чувашская Республика - Чувашия",
+    "Чувашская Респ",
+    "Чувашская Республика"
+   ],
+   "iso": "RU-CU",
+   "key": "chuvashia",
+   "mandatory": false,
+   "name_en": "Chuvash Republic",
+   "name_ru": "Чувашская Республика",
+   "order": 24,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "net-school.cap.ru"
+     ],
+     "netschool": null,
+     "platform": "netschool",
+     "role": "legacy",
+     "web_url": "https://net-school.cap.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [],
+     "netschool": null,
+     "platform": "e-uslugi",
+     "role": "legacy",
+     "web_url": null
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Барнаул",
+    "Бийск",
+    "Рубцовск"
+   ],
+   "code": "22",
+   "dadata_names": [
+    "Алтайский край",
+    "Алтайский"
+   ],
+   "iso": "RU-ALT",
+   "key": "altai-krai",
+   "mandatory": false,
+   "name_en": "Altai Krai",
+   "name_ru": "Алтайский край",
+   "order": 25,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [
+     "esia_only"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://netschool.edu22.info",
+     "hosts": [
+      "netschool.edu22.info",
+      "neteducation.edu22.info"
+     ],
+     "netschool": {
+      "origin": "https://netschool.edu22.info",
+      "password": false,
+      "region": "altai-krai",
+      "verified": false,
+      "zone": "Asia/Barnaul"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://netschool.edu22.info"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "myschool.edu.ru"
+     ],
+     "netschool": null,
+     "platform": "fgis-myschool",
+     "role": "secondary",
+     "web_url": "https://myschool.edu.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Asia/Barnaul"
+  },
+  {
+   "aliases": [
+    "Забайкалье",
+    "Читинская область",
+    "Zabaikalye",
+    "Zabaykalye"
+   ],
+   "cities": [
+    "Чита",
+    "Краснокаменск"
+   ],
+   "code": "75",
+   "dadata_names": [
+    "Забайкальский край",
+    "Забайкальский"
+   ],
+   "iso": "RU-ZAB",
+   "key": "zabaikalsky",
+   "mandatory": false,
+   "name_en": "Zabaykalsky Krai",
+   "name_ru": "Забайкальский край",
+   "order": 26,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "region.zabedu.ru"
+     ],
+     "netschool": {
+      "origin": "https://region.zabedu.ru",
+      "password": true,
+      "region": "zabaikalsky",
+      "verified": false,
+      "zone": "Asia/Chita"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://region.zabedu.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "es.zabedu.ru"
+     ],
+     "netschool": null,
+     "platform": "e-uslugi",
+     "role": "secondary",
+     "web_url": "https://es.zabedu.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Asia/Chita"
+  },
+  {
+   "aliases": [
+    "Камчатка"
+   ],
+   "cities": [
+    "Петропавловск-Камчатский",
+    "Елизово"
+   ],
+   "code": "41",
+   "dadata_names": [
+    "Камчатский край",
+    "Камчатский"
+   ],
+   "iso": "RU-KAM",
+   "key": "kamchatka",
+   "mandatory": false,
+   "name_en": "Kamchatka Krai",
+   "name_ru": "Камчатский край",
+   "order": 27,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.sgo41.ru",
+      "sgo41.ru"
+     ],
+     "netschool": {
+      "origin": "https://school.sgo41.ru",
+      "password": true,
+      "region": "kamchatka",
+      "verified": false,
+      "zone": "Asia/Kamchatka"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://school.sgo41.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [],
+     "netschool": null,
+     "platform": "e-uslugi",
+     "role": "secondary",
+     "web_url": null
+    },
+    {
+     "action": "handoff",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Asia/Kamchatka"
+  },
+  {
+   "aliases": [
+    "Кубань"
+   ],
+   "cities": [
+    "Краснодар",
+    "Сочи",
+    "Новороссийск",
+    "Армавир"
+   ],
+   "code": "23",
+   "dadata_names": [
+    "Краснодарский край",
+    "Краснодарский"
+   ],
+   "iso": "RU-KDA",
+   "key": "krasnodar",
+   "mandatory": false,
+   "name_en": "Krasnodar Krai",
+   "name_ru": "Краснодарский край",
+   "order": 28,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sgo.rso23.ru"
+     ],
+     "netschool": null,
+     "platform": "netschool",
+     "role": "legacy",
+     "web_url": "https://sgo.rso23.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Красноярье"
+   ],
+   "cities": [
+    "Красноярск",
+    "Норильск",
+    "Ачинск"
+   ],
+   "code": "24",
+   "dadata_names": [
+    "Красноярский край",
+    "Красноярский"
+   ],
+   "iso": "RU-KYA",
+   "key": "krasnoyarsk",
+   "mandatory": false,
+   "name_en": "Krasnoyarsk Krai",
+   "name_ru": "Красноярский край",
+   "order": 29,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "kiasuo",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.kiasuo.ru",
+      "pwa.kiasuo.ru",
+      "diaryapi.kiasuo.ru",
+      "010860.kiasuo.ru",
+      "050760.kiasuo.ru",
+      "support.kiasuo.ru"
+     ],
+     "netschool": null,
+     "platform": "kiasuo",
+     "role": "primary",
+     "web_url": "https://dnevnik.kiasuo.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "*.eljur.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "legacy",
+     "web_url": null
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Asia/Krasnoyarsk"
+  },
+  {
+   "aliases": [
+    "Прикамье",
+    "Пермская область"
+   ],
+   "cities": [
+    "Пермь",
+    "Березники",
+    "Соликамск"
+   ],
+   "code": "59",
+   "dadata_names": [
+    "Пермский край",
+    "Пермский"
+   ],
+   "iso": "RU-PER",
+   "key": "perm",
+   "mandatory": false,
+   "name_en": "Perm Krai",
+   "name_ru": "Пермский край",
+   "order": 30,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "epos",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.permkrai.ru",
+      "epos.permkrai.ru",
+      "cabinet.permkrai.ru"
+     ],
+     "netschool": null,
+     "platform": "epos",
+     "role": "primary",
+     "web_url": "https://school.permkrai.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "web2edu.ru"
+     ],
+     "netschool": null,
+     "platform": "web2edu",
+     "role": "legacy",
+     "web_url": "https://web2edu.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Asia/Yekaterinburg"
+  },
+  {
+   "aliases": [
+    "Приморье",
+    "Primorye"
+   ],
+   "cities": [
+    "Владивосток",
+    "Уссурийск",
+    "Находка"
+   ],
+   "code": "25",
+   "dadata_names": [
+    "Приморский край",
+    "Приморский"
+   ],
+   "iso": "RU-PRI",
+   "key": "primorye",
+   "mandatory": false,
+   "name_en": "Primorsky Krai",
+   "name_ru": "Приморский край",
+   "order": 31,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [
+     "esia_only"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://sgo.prim-edu.ru",
+     "hosts": [
+      "sgo.prim-edu.ru"
+     ],
+     "netschool": {
+      "origin": "https://sgo.prim-edu.ru",
+      "password": false,
+      "region": "primorye",
+      "verified": false,
+      "zone": "Asia/Vladivostok"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://sgo.prim-edu.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Asia/Vladivostok"
+  },
+  {
+   "aliases": [
+    "Ставрополье"
+   ],
+   "cities": [
+    "Ставрополь",
+    "Пятигорск",
+    "Кисловодск",
+    "Невинномысск"
+   ],
+   "code": "26",
+   "dadata_names": [
+    "Ставропольский край",
+    "Ставропольский"
+   ],
+   "iso": "RU-STA",
+   "key": "stavropol",
+   "mandatory": false,
+   "name_en": "Stavropol Krai",
+   "name_ru": "Ставропольский край",
+   "order": 32,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "one-x1",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "one.stavminobr.ru",
+      "portal.stavminobr.ru",
+      "passport.stavminobr.ru"
+     ],
+     "netschool": null,
+     "platform": "one-x1",
+     "role": "primary",
+     "web_url": "https://one.stavminobr.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "login.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "unclear",
+     "web_url": "https://login.dnevnik.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Хабаровск",
+    "Комсомольск-на-Амуре"
+   ],
+   "code": "27",
+   "dadata_names": [
+    "Хабаровский край",
+    "Хабаровский"
+   ],
+   "iso": "RU-KHA",
+   "key": "khabarovsk",
+   "mandatory": false,
+   "name_en": "Khabarovsk Krai",
+   "name_ru": "Хабаровский край",
+   "order": 33,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "dnevnik-ru",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "27.dnevnik.ru",
+      "login.dnevnik.ru/login/esia/khabarovsk",
+      "schools.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "primary",
+     "web_url": "https://dnevnik.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Asia/Vladivostok"
+  },
+  {
+   "aliases": [
+    "Приамурье"
+   ],
+   "cities": [
+    "Благовещенск",
+    "Белогорск",
+    "Свободный"
+   ],
+   "code": "28",
+   "dadata_names": [
+    "Амурская обл",
+    "Амурская"
+   ],
+   "iso": "RU-AMU",
+   "key": "amur",
+   "mandatory": false,
+   "name_en": "Amur Oblast",
+   "name_ru": "Амурская область",
+   "order": 34,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "region.obramur.ru",
+      "portal.obramur.ru"
+     ],
+     "netschool": {
+      "origin": "https://region.obramur.ru",
+      "password": true,
+      "region": "amur",
+      "verified": false,
+      "zone": "Asia/Yakutsk"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://region.obramur.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "login.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "legacy",
+     "web_url": "https://dnevnik.ru"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Asia/Yakutsk"
+  },
+  {
+   "aliases": [
+    "Поморье"
+   ],
+   "cities": [
+    "Архангельск",
+    "Северодвинск",
+    "Котлас"
+   ],
+   "code": "29",
+   "dadata_names": [
+    "Архангельская обл",
+    "Архангельская"
+   ],
+   "iso": "RU-ARK",
+   "key": "arkhangelsk",
+   "mandatory": false,
+   "name_en": "Arkhangelsk Oblast",
+   "name_ru": "Архангельская область",
+   "order": 35,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "dnevnik-ru",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "29.dnevnik.ru",
+      "login.dnevnik.ru/login/esia/dvinaland"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "primary",
+     "web_url": "https://dnevnik.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "3329.eljur.ru",
+      "sulfat51.eljur.ru",
+      "arh26.eljur.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "secondary",
+     "web_url": "https://3329.eljur.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Астрахань"
+   ],
+   "code": "30",
+   "dadata_names": [
+    "Астраханская обл",
+    "Астраханская"
+   ],
+   "iso": "RU-AST",
+   "key": "astrakhan",
+   "mandatory": false,
+   "name_en": "Astrakhan Oblast",
+   "name_ru": "Астраханская область",
+   "order": 36,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "login.dnevnik.ru/login/esia/astrakhan"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "legacy",
+     "web_url": "https://dnevnik.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "one.astrobl.ru",
+      "dnevnik.astrobl.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "legacy",
+     "web_url": "https://one.astrobl.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Astrakhan"
+  },
+  {
+   "aliases": [
+    "Белгородчина"
+   ],
+   "cities": [
+    "Белгород",
+    "Старый Оскол",
+    "Губкин"
+   ],
+   "code": "31",
+   "dadata_names": [
+    "Белгородская обл",
+    "Белгородская"
+   ],
+   "iso": "RU-BEL",
+   "key": "belgorod",
+   "mandatory": false,
+   "name_en": "Belgorod Oblast",
+   "name_ru": "Белгородская область",
+   "order": 37,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "front_end",
+    "system": 1
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "vs.belregion.ru",
+      "belgorod.vsopen.ru",
+      "www.vsopen.ru/app/esia"
+     ],
+     "netschool": null,
+     "platform": "virtual-school",
+     "role": "primary",
+     "web_url": "https://vs.belregion.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Брянщина"
+   ],
+   "cities": [
+    "Брянск"
+   ],
+   "code": "32",
+   "dadata_names": [
+    "Брянская обл",
+    "Брянская"
+   ],
+   "iso": "RU-BRY",
+   "key": "bryansk",
+   "mandatory": false,
+   "name_en": "Bryansk Oblast",
+   "name_ru": "Брянская область",
+   "order": 38,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "bryansk.vsopen.ru",
+      "obr.b-edu.ru"
+     ],
+     "netschool": null,
+     "platform": "virtual-school",
+     "role": "legacy",
+     "web_url": "https://bryansk.vsopen.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Владимир",
+    "Ковров",
+    "Муром"
+   ],
+   "code": "33",
+   "dadata_names": [
+    "Владимирская обл",
+    "Владимирская"
+   ],
+   "iso": "RU-VLA",
+   "key": "vladimir",
+   "mandatory": false,
+   "name_en": "Vladimir Oblast",
+   "name_ru": "Владимирская область",
+   "order": 39,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "bars",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "школа.образование33.рф",
+      "образование33.рф"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "primary",
+     "web_url": "https://xn--80atdl2c.xn--33-6kcadhwnl3cfdx.xn--p1ai"
+    },
+    {
+     "action": "handoff",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Волгоград",
+    "Волжский",
+    "Камышин"
+   ],
+   "code": "34",
+   "dadata_names": [
+    "Волгоградская обл",
+    "Волгоградская"
+   ],
+   "iso": "RU-VGG",
+   "key": "volgograd",
+   "mandatory": false,
+   "name_en": "Volgograd Oblast",
+   "name_ru": "Волгоградская область",
+   "order": 40,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "netschool",
+    "reason": "unreachable",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": "http-only",
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sgo.volganet.ru"
+     ],
+     "netschool": null,
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": null
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Volgograd"
+  },
+  {
+   "aliases": [
+    "Вологодчина"
+   ],
+   "cities": [
+    "Вологда",
+    "Череповец"
+   ],
+   "code": "35",
+   "dadata_names": [
+    "Вологодская обл",
+    "Вологодская"
+   ],
+   "iso": "RU-VLG",
+   "key": "vologda",
+   "mandatory": true,
+   "name_en": "Vologda Oblast",
+   "name_ru": "Вологодская область",
+   "order": 41,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "front_end",
+    "system": 2
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.edu35.ru"
+     ],
+     "netschool": null,
+     "platform": "mesh-myschool",
+     "role": "primary",
+     "web_url": "https://dnevnik.edu35.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "ssuz.vip.edu35.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "secondary",
+     "web_url": "https://ssuz.vip.edu35.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.vip.edu35.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "legacy",
+     "web_url": "https://school.vip.edu35.ru"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Воронеж"
+   ],
+   "code": "36",
+   "dadata_names": [
+    "Воронежская обл",
+    "Воронежская"
+   ],
+   "iso": "RU-VOR",
+   "key": "voronezh",
+   "mandatory": false,
+   "name_en": "Voronezh Oblast",
+   "name_ru": "Воронежская область",
+   "order": 42,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "36.dnevnik.ru",
+      "login.dnevnik.ru/login/esia/voronej"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "legacy",
+     "web_url": "https://dnevnik.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Запорожье"
+   ],
+   "cities": [
+    "Мелитополь",
+    "Бердянск",
+    "Энергодар"
+   ],
+   "code": "90",
+   "dadata_names": [
+    "Запорожская обл",
+    "Запорожская"
+   ],
+   "iso": null,
+   "key": "zaporozhye",
+   "mandatory": false,
+   "name_en": "Zaporozhye Oblast",
+   "name_ru": "Запорожская область",
+   "order": 43,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "one-x1",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "one.umnik-zo.ru",
+      "passport.umnik-zo.ru"
+     ],
+     "netschool": null,
+     "platform": "one-x1",
+     "role": "primary",
+     "web_url": "https://one.umnik-zo.ru"
+    }
+   ],
+   "tor": "absent",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Иваново",
+    "Кинешма"
+   ],
+   "code": "37",
+   "dadata_names": [
+    "Ивановская обл",
+    "Ивановская"
+   ],
+   "iso": "RU-IVA",
+   "key": "ivanovo",
+   "mandatory": false,
+   "name_en": "Ivanovo Oblast",
+   "name_ru": "Ивановская область",
+   "order": 44,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "front_end",
+    "system": 2
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "37.dnevnik.ru",
+      "login.dnevnik.ru/login/esia/ivanovskaya",
+      "schools.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "primary",
+     "web_url": "https://dnevnik.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "iklp.eljur.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "secondary",
+     "web_url": "https://iklp.eljur.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Приангарье"
+   ],
+   "cities": [
+    "Иркутск",
+    "Братск",
+    "Ангарск"
+   ],
+   "code": "38",
+   "dadata_names": [
+    "Иркутская обл",
+    "Иркутская"
+   ],
+   "iso": "RU-IRK",
+   "key": "irkutsk",
+   "mandatory": false,
+   "name_en": "Irkutsk Oblast",
+   "name_ru": "Иркутская область",
+   "order": 45,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "dnevnik-ru",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "login.dnevnik.ru/login/esia/irkutsk",
+      "38.dnevnik.ru",
+      "dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "primary",
+     "web_url": "https://login.dnevnik.ru/login/esia/irkutsk"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "fec.eljur.ru",
+      "sh28irk.eljur.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "secondary",
+     "web_url": "https://fec.eljur.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [],
+     "netschool": null,
+     "platform": "netschool",
+     "role": "unclear",
+     "web_url": null
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Asia/Irkutsk"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Калининград",
+    "Советск"
+   ],
+   "code": "39",
+   "dadata_names": [
+    "Калининградская обл",
+    "Калининградская"
+   ],
+   "iso": "RU-KGD",
+   "key": "kaliningrad",
+   "mandatory": false,
+   "name_en": "Kaliningrad Oblast",
+   "name_ru": "Калининградская область",
+   "order": 46,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "keo.gov39.ru",
+      "klgd.eljur.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "legacy",
+     "web_url": "https://keo.gov39.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Kaliningrad"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Калуга",
+    "Обнинск"
+   ],
+   "code": "40",
+   "dadata_names": [
+    "Калужская обл",
+    "Калужская"
+   ],
+   "iso": "RU-KLU",
+   "key": "kaluga",
+   "mandatory": true,
+   "name_en": "Kaluga Oblast",
+   "name_ru": "Калужская область",
+   "order": 47,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "front_end",
+    "system": 1
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "education.admoblkaluga.ru",
+      "dnevnik.admoblkaluga.ru"
+     ],
+     "netschool": null,
+     "platform": "mesh-myschool",
+     "role": "primary",
+     "web_url": "https://education.admoblkaluga.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "edu.admoblkaluga.ru:444",
+      "es.admoblkaluga.ru"
+     ],
+     "netschool": null,
+     "platform": "netschool",
+     "role": "legacy",
+     "web_url": "https://edu.admoblkaluga.ru:444"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Кузбасс",
+    "Кемеровская область"
+   ],
+   "cities": [
+    "Кемерово",
+    "Новокузнецк",
+    "Прокопьевск"
+   ],
+   "code": "42",
+   "dadata_names": [
+    "Кемеровская область - Кузбасс",
+    "Кемеровская обл - Кузбасс",
+    "Кемеровская обл",
+    "Кемеровская"
+   ],
+   "iso": "RU-KEM",
+   "key": "kemerovo",
+   "mandatory": false,
+   "name_en": "Kemerovo Oblast — Kuzbass",
+   "name_ru": "Кемеровская область — Кузбасс",
+   "order": 48,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "ruobr",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "ruobr.ru",
+      "cabinet.ruobr.ru",
+      "api3d.ruobr.ru",
+      "newapp.ruobr.ru"
+     ],
+     "netschool": null,
+     "platform": "ruobr",
+     "role": "primary",
+     "web_url": "https://ruobr.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Asia/Novokuznetsk"
+  },
+  {
+   "aliases": [
+    "Вятка"
+   ],
+   "cities": [
+    "Киров"
+   ],
+   "code": "43",
+   "dadata_names": [
+    "Кировская обл",
+    "Кировская"
+   ],
+   "iso": "RU-KIR",
+   "key": "kirov",
+   "mandatory": false,
+   "name_en": "Kirov Oblast",
+   "name_ru": "Кировская область",
+   "order": 49,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "front_end",
+    "system": 1
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "one.43edu.ru",
+      "passport.43edu.ru"
+     ],
+     "netschool": null,
+     "platform": "one-x1",
+     "role": "primary",
+     "web_url": "https://one.43edu.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [],
+     "netschool": null,
+     "platform": "avers",
+     "role": "legacy",
+     "web_url": null
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Kirov"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Кострома"
+   ],
+   "code": "44",
+   "dadata_names": [
+    "Костромская обл",
+    "Костромская"
+   ],
+   "iso": "RU-KOS",
+   "key": "kostroma",
+   "mandatory": false,
+   "name_en": "Kostroma Oblast",
+   "name_ru": "Костромская область",
+   "order": 50,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "netschool.eduportal44.ru"
+     ],
+     "netschool": null,
+     "platform": "netschool",
+     "role": "legacy",
+     "web_url": "https://netschool.eduportal44.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Зауралье"
+   ],
+   "cities": [
+    "Курган",
+    "Шадринск"
+   ],
+   "code": "45",
+   "dadata_names": [
+    "Курганская обл",
+    "Курганская"
+   ],
+   "iso": "RU-KGN",
+   "key": "kurgan",
+   "mandatory": false,
+   "name_en": "Kurgan Oblast",
+   "name_ru": "Курганская область",
+   "order": 51,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "eljur",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "eschool.gov45.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "primary",
+     "web_url": "https://eschool.gov45.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Asia/Yekaterinburg"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Курск",
+    "Железногорск"
+   ],
+   "code": "46",
+   "dadata_names": [
+    "Курская обл",
+    "Курская"
+   ],
+   "iso": "RU-KRS",
+   "key": "kursk",
+   "mandatory": false,
+   "name_en": "Kursk Oblast",
+   "name_ru": "Курская область",
+   "order": 52,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "edu.kurskobr.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "legacy",
+     "web_url": "https://edu.kurskobr.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Ленобласть",
+    "ЛО"
+   ],
+   "cities": [
+    "Гатчина",
+    "Всеволожск",
+    "Выборг",
+    "Мурино"
+   ],
+   "code": "47",
+   "dadata_names": [
+    "Ленинградская обл",
+    "Ленинградская"
+   ],
+   "iso": "RU-LEN",
+   "key": "leningrad",
+   "mandatory": false,
+   "name_en": "Leningrad Oblast",
+   "name_ru": "Ленинградская область",
+   "order": 53,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "e-school.obr.lenreg.ru",
+      "obr.lenreg.ru"
+     ],
+     "netschool": {
+      "origin": "https://e-school.obr.lenreg.ru",
+      "password": true,
+      "region": "leningrad",
+      "verified": false,
+      "zone": "Europe/Moscow"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://e-school.obr.lenreg.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "47.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "legacy",
+     "web_url": "https://47.dnevnik.ru"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Липецк",
+    "Елец"
+   ],
+   "code": "48",
+   "dadata_names": [
+    "Липецкая обл",
+    "Липецкая"
+   ],
+   "iso": "RU-LIP",
+   "key": "lipetsk",
+   "mandatory": false,
+   "name_en": "Lipetsk Oblast",
+   "name_ru": "Липецкая область",
+   "order": 54,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "front_end",
+    "system": 1
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "edu.schools48.ru",
+      "schools48.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "primary",
+     "web_url": "https://edu.schools48.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "schools48.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "legacy",
+     "web_url": "https://schools48.ru"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Колыма"
+   ],
+   "cities": [
+    "Магадан"
+   ],
+   "code": "49",
+   "dadata_names": [
+    "Магаданская обл",
+    "Магаданская"
+   ],
+   "iso": "RU-MAG",
+   "key": "magadan",
+   "mandatory": false,
+   "name_en": "Magadan Oblast",
+   "name_ru": "Магаданская область",
+   "order": 55,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "bars",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "eschool.49gov.ru",
+      "openschool.49gov.ru",
+      "eschool.49edu.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "primary",
+     "web_url": "https://eschool.49gov.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Asia/Magadan"
+  },
+  {
+   "aliases": [
+    "Подмосковье",
+    "МО"
+   ],
+   "cities": [
+    "Балашиха",
+    "Подольск",
+    "Химки",
+    "Мытищи",
+    "Королёв"
+   ],
+   "code": "50",
+   "dadata_names": [
+    "Московская обл",
+    "Московская"
+   ],
+   "iso": "RU-MOS",
+   "key": "moscow-oblast",
+   "mandatory": true,
+   "name_en": "Moscow Oblast",
+   "name_ru": "Московская область",
+   "order": 56,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "mesh-myschool",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "authedu.mosreg.ru",
+      "myschool.mosreg.ru",
+      "api.myschool.mosreg.ru",
+      "food.myschool.mosreg.ru",
+      "help.myschool.mosreg.ru"
+     ],
+     "netschool": null,
+     "platform": "mesh-myschool",
+     "role": "primary",
+     "web_url": "https://authedu.mosreg.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.mosreg.ru",
+      "login.school.mosreg.ru",
+      "api.school.mosreg.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "legacy",
+     "web_url": "https://school.mosreg.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Мурманск",
+    "Апатиты",
+    "Североморск"
+   ],
+   "code": "51",
+   "dadata_names": [
+    "Мурманская обл",
+    "Мурманская"
+   ],
+   "iso": "RU-MUR",
+   "key": "murmansk",
+   "mandatory": true,
+   "name_en": "Murmansk Oblast",
+   "name_ru": "Мурманская область",
+   "order": 57,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "mesh-myschool",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "edu.mso51.ru"
+     ],
+     "netschool": null,
+     "platform": "mesh-myschool",
+     "role": "primary",
+     "web_url": "https://edu.mso51.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "s51.edu.o7.com"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "legacy",
+     "web_url": "https://s51.edu.o7.com"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Нижний Новгород",
+    "Дзержинск",
+    "Арзамас"
+   ],
+   "code": "52",
+   "dadata_names": [
+    "Нижегородская обл",
+    "Нижегородская"
+   ],
+   "iso": "RU-NIZ",
+   "key": "nizhny-novgorod",
+   "mandatory": false,
+   "name_en": "Nizhny Novgorod Oblast",
+   "name_ru": "Нижегородская область",
+   "order": 58,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "eljur",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "edu.gounn.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "primary",
+     "web_url": "https://edu.gounn.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "login.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "legacy",
+     "web_url": "https://dnevnik.ru"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Великий Новгород",
+    "Боровичи"
+   ],
+   "code": "53",
+   "dadata_names": [
+    "Новгородская обл",
+    "Новгородская"
+   ],
+   "iso": "RU-NGR",
+   "key": "novgorod",
+   "mandatory": false,
+   "name_en": "Novgorod Oblast",
+   "name_ru": "Новгородская область",
+   "order": 59,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "front_end",
+    "system": 1
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "53.dnevnik.ru",
+      "dnevnik.ru",
+      "login.dnevnik.ru",
+      "schools.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "primary",
+     "web_url": "https://53.dnevnik.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "myschool.edu.ru",
+      "gosuslugi.ru/myschool"
+     ],
+     "netschool": null,
+     "platform": "fgis-myschool",
+     "role": "legacy",
+     "web_url": "https://myschool.edu.ru"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Новосибирск",
+    "Бердск"
+   ],
+   "code": "54",
+   "dadata_names": [
+    "Новосибирская обл",
+    "Новосибирская"
+   ],
+   "iso": "RU-NVS",
+   "key": "novosibirsk",
+   "mandatory": false,
+   "name_en": "Novosibirsk Oblast",
+   "name_ru": "Новосибирская область",
+   "order": 60,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "front_end",
+    "system": 1
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.nso.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "primary",
+     "web_url": "https://school.nso.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "myschool.edu.ru"
+     ],
+     "netschool": null,
+     "platform": "fgis-myschool",
+     "role": "legacy",
+     "web_url": "https://myschool.edu.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "shkola.nso.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "legacy",
+     "web_url": "https://shkola.nso.ru"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Asia/Novosibirsk"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Омск"
+   ],
+   "code": "55",
+   "dadata_names": [
+    "Омская обл",
+    "Омская"
+   ],
+   "iso": "RU-OMS",
+   "key": "omsk",
+   "mandatory": false,
+   "name_en": "Omsk Oblast",
+   "name_ru": "Омская область",
+   "order": 61,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "dnevnik-ru",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "55.dnevnik.ru",
+      "login.dnevnik.ru/login/esia/omsk",
+      "schools.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "primary",
+     "web_url": "https://dnevnik.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Asia/Omsk"
+  },
+  {
+   "aliases": [
+    "Оренбуржье"
+   ],
+   "cities": [
+    "Оренбург",
+    "Орск",
+    "Новотроицк"
+   ],
+   "code": "56",
+   "dadata_names": [
+    "Оренбургская обл",
+    "Оренбургская"
+   ],
+   "iso": "RU-ORE",
+   "key": "orenburg",
+   "mandatory": false,
+   "name_en": "Orenburg Oblast",
+   "name_ru": "Оренбургская область",
+   "order": 62,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "moving_to",
+    "system": 1
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "de.edu.orb.ru",
+      "edu.orb.ru",
+      "profile.de.edu.orb.ru"
+     ],
+     "netschool": null,
+     "platform": "one-x1",
+     "role": "primary",
+     "web_url": "https://de.edu.orb.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "migrating_to",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "moving_to",
+   "zone": "Asia/Yekaterinburg"
+  },
+  {
+   "aliases": [
+    "Орловщина"
+   ],
+   "cities": [
+    "Орёл",
+    "Ливны"
+   ],
+   "code": "57",
+   "dadata_names": [
+    "Орловская обл",
+    "Орловская"
+   ],
+   "iso": "RU-ORL",
+   "key": "oryol",
+   "mandatory": false,
+   "name_en": "Oryol Oblast",
+   "name_ru": "Орловская область",
+   "order": 63,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "one-x1",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "one.obr57.ru",
+      "passport.obr57.ru",
+      "mp2.obr57.ru"
+     ],
+     "netschool": null,
+     "platform": "one-x1",
+     "role": "primary",
+     "web_url": "https://one.obr57.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "vsopen.obr57.ru"
+     ],
+     "netschool": null,
+     "platform": "virtual-school",
+     "role": "legacy",
+     "web_url": "https://vsopen.obr57.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Пенза",
+    "Кузнецк"
+   ],
+   "code": "58",
+   "dadata_names": [
+    "Пензенская обл",
+    "Пензенская"
+   ],
+   "iso": "RU-PNZ",
+   "key": "penza",
+   "mandatory": false,
+   "name_en": "Penza Oblast",
+   "name_ru": "Пензенская область",
+   "order": 64,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "front_end",
+    "system": 1
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.edu-penza.ru",
+      "school.edu-penza.ru/login",
+      "school.edu-penza.ru/esia/auth/login",
+      "dnevnik.edu-penza.ru"
+     ],
+     "netschool": null,
+     "platform": "it-school-penza",
+     "role": "primary",
+     "web_url": "https://school.edu-penza.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "uko.edu-penza.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "legacy",
+     "web_url": "https://uko.edu-penza.ru"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Псковщина"
+   ],
+   "cities": [
+    "Псков",
+    "Великие Луки"
+   ],
+   "code": "60",
+   "dadata_names": [
+    "Псковская обл",
+    "Псковская"
+   ],
+   "iso": "RU-PSK",
+   "key": "pskov",
+   "mandatory": false,
+   "name_en": "Pskov Oblast",
+   "name_ru": "Псковская область",
+   "order": 65,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "one-x1",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "one.pskovedu.ru",
+      "passport.pskovedu.ru",
+      "gosuslugi.pskovedu.ru"
+     ],
+     "netschool": null,
+     "platform": "one-x1",
+     "role": "primary",
+     "web_url": "https://one.pskovedu.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Ростов-на-Дону",
+    "Таганрог",
+    "Шахты",
+    "Волгодонск"
+   ],
+   "code": "61",
+   "dadata_names": [
+    "Ростовская обл",
+    "Ростовская"
+   ],
+   "iso": "RU-ROS",
+   "key": "rostov",
+   "mandatory": false,
+   "name_en": "Rostov Oblast",
+   "name_ru": "Ростовская область",
+   "order": 66,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sh-open.ris61edu.ru",
+      "col-open.ris61edu.ru",
+      "sh-open.rostobr.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "legacy",
+     "web_url": "https://sh-open.ris61edu.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Рязанщина"
+   ],
+   "cities": [
+    "Рязань"
+   ],
+   "code": "62",
+   "dadata_names": [
+    "Рязанская обл",
+    "Рязанская"
+   ],
+   "iso": "RU-RYA",
+   "key": "ryazan",
+   "mandatory": false,
+   "name_en": "Ryazan Oblast",
+   "name_ru": "Рязанская область",
+   "order": 67,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "e-school.ryazan.gov.ru"
+     ],
+     "netschool": {
+      "origin": "https://e-school.ryazan.gov.ru",
+      "password": true,
+      "region": "ryazan",
+      "verified": false,
+      "zone": "Europe/Moscow"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://e-school.ryazan.gov.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "e-school.ryazangov.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "legacy",
+     "web_url": "https://e-school.ryazangov.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Самара",
+    "Тольятти",
+    "Сызрань"
+   ],
+   "code": "63",
+   "dadata_names": [
+    "Самарская обл",
+    "Самарская"
+   ],
+   "iso": "RU-SAM",
+   "key": "samara",
+   "mandatory": false,
+   "name_en": "Samara Oblast",
+   "name_ru": "Самарская область",
+   "order": 68,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "asurso.ru",
+      "spo.asurso.ru"
+     ],
+     "netschool": {
+      "origin": "https://asurso.ru",
+      "password": true,
+      "region": "samara",
+      "verified": false,
+      "zone": "Europe/Samara"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://asurso.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Samara"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Саратов",
+    "Энгельс",
+    "Балаково"
+   ],
+   "code": "64",
+   "dadata_names": [
+    "Саратовская обл",
+    "Саратовская"
+   ],
+   "iso": "RU-SAR",
+   "key": "saratov",
+   "mandatory": false,
+   "name_en": "Saratov Oblast",
+   "name_ru": "Саратовская область",
+   "order": 69,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "dnevnik-ru",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "login.dnevnik.ru",
+      "64.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "primary",
+     "web_url": "https://dnevnik.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "myschool.edu.ru"
+     ],
+     "netschool": null,
+     "platform": "fgis-myschool",
+     "role": "secondary",
+     "web_url": "https://myschool.edu.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Saratov"
+  },
+  {
+   "aliases": [
+    "Сахалин"
+   ],
+   "cities": [
+    "Южно-Сахалинск",
+    "Корсаков"
+   ],
+   "code": "65",
+   "dadata_names": [
+    "Сахалинская обл",
+    "Сахалинская"
+   ],
+   "iso": "RU-SAK",
+   "key": "sakhalin",
+   "mandatory": false,
+   "name_en": "Sakhalin Oblast",
+   "name_ru": "Сахалинская область",
+   "order": 70,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "netcity.admsakhalin.ru:11111",
+      "netcity.admsakhalin.ru"
+     ],
+     "netschool": {
+      "origin": "https://netcity.admsakhalin.ru:11111",
+      "password": true,
+      "region": "sakhalin",
+      "verified": false,
+      "zone": "Asia/Sakhalin"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://netcity.admsakhalin.ru:11111"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Asia/Sakhalin"
+  },
+  {
+   "aliases": [
+    "Средний Урал"
+   ],
+   "cities": [
+    "Екатеринбург",
+    "Нижний Тагил",
+    "Каменск-Уральский"
+   ],
+   "code": "66",
+   "dadata_names": [
+    "Свердловская обл",
+    "Свердловская"
+   ],
+   "iso": "RU-SVE",
+   "key": "sverdlovsk",
+   "mandatory": false,
+   "name_en": "Sverdlovsk Oblast",
+   "name_ru": "Свердловская область",
+   "order": 71,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.egov66.ru",
+      "jurnal.egov66.ru",
+      "lk.ecp.egov66.ru"
+     ],
+     "netschool": null,
+     "platform": "egov66",
+     "role": "legacy",
+     "web_url": "https://dnevnik.egov66.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "netcity.eimc.ru",
+      "sgo.egov66.ru"
+     ],
+     "netschool": null,
+     "platform": "netschool",
+     "role": "legacy",
+     "web_url": "https://netcity.eimc.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "legacy",
+     "web_url": "https://dnevnik.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Asia/Yekaterinburg"
+  },
+  {
+   "aliases": [
+    "Смоленщина"
+   ],
+   "cities": [
+    "Смоленск",
+    "Вязьма"
+   ],
+   "code": "67",
+   "dadata_names": [
+    "Смоленская обл",
+    "Смоленская"
+   ],
+   "iso": "RU-SMO",
+   "key": "smolensk",
+   "mandatory": false,
+   "name_en": "Smolensk Oblast",
+   "name_ru": "Смоленская область",
+   "order": 72,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.admin-smolensk.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "legacy",
+     "web_url": "https://dnevnik.admin-smolensk.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Тамбовщина"
+   ],
+   "cities": [
+    "Тамбов",
+    "Мичуринск"
+   ],
+   "code": "68",
+   "dadata_names": [
+    "Тамбовская обл",
+    "Тамбовская"
+   ],
+   "iso": "RU-TAM",
+   "key": "tambov",
+   "mandatory": false,
+   "name_en": "Tambov Oblast",
+   "name_ru": "Тамбовская область",
+   "order": 73,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "dnevnik-ru",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "login.dnevnik.ru",
+      "schools.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "primary",
+     "web_url": "https://dnevnik.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Тверь",
+    "Ржев"
+   ],
+   "code": "69",
+   "dadata_names": [
+    "Тверская обл",
+    "Тверская"
+   ],
+   "iso": "RU-TVE",
+   "key": "tver",
+   "mandatory": true,
+   "name_en": "Tver Oblast",
+   "name_ru": "Тверская область",
+   "order": 74,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "mesh-myschool",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.tvobr.ru"
+     ],
+     "netschool": null,
+     "platform": "mesh-myschool",
+     "role": "primary",
+     "web_url": "https://dnevnik.tvobr.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sgo.tvobr.ru"
+     ],
+     "netschool": null,
+     "platform": "netschool",
+     "role": "legacy",
+     "web_url": "https://sgo.tvobr.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Томск",
+    "Северск"
+   ],
+   "code": "70",
+   "dadata_names": [
+    "Томская обл",
+    "Томская"
+   ],
+   "iso": "RU-TOM",
+   "key": "tomsk",
+   "mandatory": false,
+   "name_en": "Tomsk Oblast",
+   "name_ru": "Томская область",
+   "order": 75,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sgo.tomedu.ru",
+      "poo.tomedu.ru"
+     ],
+     "netschool": {
+      "origin": "https://sgo.tomedu.ru",
+      "password": true,
+      "region": "tomsk",
+      "verified": false,
+      "zone": "Asia/Tomsk"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://sgo.tomedu.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "login.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "legacy",
+     "web_url": "https://dnevnik.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Asia/Tomsk"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Тула",
+    "Новомосковск"
+   ],
+   "code": "71",
+   "dadata_names": [
+    "Тульская обл",
+    "Тульская"
+   ],
+   "iso": "RU-TUL",
+   "key": "tula",
+   "mandatory": false,
+   "name_en": "Tula Oblast",
+   "name_ru": "Тульская область",
+   "order": 76,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [
+     "esia_only"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://sgo1.edu71.ru",
+     "hosts": [
+      "sgo1.edu71.ru",
+      "sgo.edu71.ru"
+     ],
+     "netschool": {
+      "origin": "https://sgo1.edu71.ru",
+      "password": false,
+      "region": "tula",
+      "verified": false,
+      "zone": "Europe/Moscow"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://sgo1.edu71.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Тюмень",
+    "Тобольск",
+    "Ишим"
+   ],
+   "code": "72",
+   "dadata_names": [
+    "Тюменская обл",
+    "Тюменская"
+   ],
+   "iso": "RU-TYU",
+   "key": "tyumen",
+   "mandatory": true,
+   "name_en": "Tyumen Oblast",
+   "name_ru": "Тюменская область",
+   "order": 77,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "mesh-myschool",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "myschool.72to.ru",
+      "school.72to.ru",
+      "education.72to.ru"
+     ],
+     "netschool": null,
+     "platform": "mesh-myschool",
+     "role": "primary",
+     "web_url": "https://myschool.72to.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "old-school.72to.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "legacy",
+     "web_url": "https://old-school.72to.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Asia/Yekaterinburg"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Ульяновск",
+    "Димитровград"
+   ],
+   "code": "73",
+   "dadata_names": [
+    "Ульяновская обл",
+    "Ульяновская"
+   ],
+   "iso": "RU-ULY",
+   "key": "ulyanovsk",
+   "mandatory": false,
+   "name_en": "Ulyanovsk Oblast",
+   "name_ru": "Ульяновская область",
+   "order": 78,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "netschool",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sgo.cit73.ru",
+      "spo.cit73.ru"
+     ],
+     "netschool": {
+      "origin": "https://sgo.cit73.ru",
+      "password": true,
+      "region": "ulyanovsk",
+      "verified": false,
+      "zone": "Europe/Ulyanovsk"
+     },
+     "platform": "netschool",
+     "role": "primary",
+     "web_url": "https://sgo.cit73.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Europe/Ulyanovsk"
+  },
+  {
+   "aliases": [
+    "Херсонщина"
+   ],
+   "cities": [
+    "Геническ",
+    "Новая Каховка",
+    "Скадовск"
+   ],
+   "code": "95",
+   "dadata_names": [
+    "Херсонская обл",
+    "Херсонская"
+   ],
+   "iso": null,
+   "key": "kherson",
+   "mandatory": false,
+   "name_en": "Kherson Oblast",
+   "name_ru": "Херсонская область",
+   "order": 79,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "one-x1",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "one.edu.khogov.ru",
+      "passport.edu.khogov.ru",
+      "wp.edu.khogov.ru"
+     ],
+     "netschool": null,
+     "platform": "one-x1",
+     "role": "primary",
+     "web_url": "https://one.edu.khogov.ru"
+    }
+   ],
+   "tor": "absent",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Южный Урал"
+   ],
+   "cities": [
+    "Челябинск",
+    "Магнитогорск",
+    "Златоуст",
+    "Миасс"
+   ],
+   "code": "74",
+   "dadata_names": [
+    "Челябинская обл",
+    "Челябинская"
+   ],
+   "iso": "RU-CHE",
+   "key": "chelyabinsk",
+   "mandatory": false,
+   "name_en": "Chelyabinsk Oblast",
+   "name_ru": "Челябинская область",
+   "order": 80,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sgo.edu-74.ru",
+      "es.edu-74.ru",
+      "poo.edu-74.ru"
+     ],
+     "netschool": null,
+     "platform": "netschool",
+     "role": "legacy",
+     "web_url": "https://sgo.edu-74.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Asia/Yekaterinburg"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Ярославль",
+    "Рыбинск"
+   ],
+   "code": "76",
+   "dadata_names": [
+    "Ярославская обл",
+    "Ярославская"
+   ],
+   "iso": "RU-YAR",
+   "key": "yaroslavl",
+   "mandatory": false,
+   "name_en": "Yaroslavl Oblast",
+   "name_ru": "Ярославская область",
+   "order": 81,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.yarcloud.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "legacy",
+     "web_url": "https://school.yarcloud.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "my.dnevnik76.ru",
+      "dnevnik76.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik76",
+     "role": "legacy",
+     "web_url": "https://my.dnevnik76.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Мск"
+   ],
+   "cities": [
+    "Зеленоград"
+   ],
+   "code": "77",
+   "dadata_names": [
+    "г Москва",
+    "Москва"
+   ],
+   "iso": "RU-MOW",
+   "key": "moscow",
+   "mandatory": true,
+   "name_en": "Moscow",
+   "name_ru": "Москва",
+   "order": 82,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "mesh-moscow",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.mos.ru",
+      "dnevnik.mos.ru",
+      "login.mos.ru",
+      "uchebnik.mos.ru",
+      "myschool.mos.ru"
+     ],
+     "netschool": null,
+     "platform": "mesh-moscow",
+     "role": "primary",
+     "web_url": "https://school.mos.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "mrko.mos.ru",
+      "pgu.mos.ru"
+     ],
+     "netschool": null,
+     "platform": "mrko",
+     "role": "legacy",
+     "web_url": "https://mrko.mos.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "Питер",
+    "СПб",
+    "Петербург",
+    "Ленинград"
+   ],
+   "cities": [
+    "Колпино",
+    "Пушкин",
+    "Петергоф",
+    "Кронштадт"
+   ],
+   "code": "78",
+   "dadata_names": [
+    "г Санкт-Петербург",
+    "Санкт-Петербург"
+   ],
+   "iso": "RU-SPE",
+   "key": "saint-petersburg",
+   "mandatory": true,
+   "name_en": "Saint Petersburg",
+   "name_ru": "Санкт-Петербург",
+   "order": 83,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [
+     "unverified"
+    ],
+    "platform": "petersburg",
+    "reason": "primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "signin",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik2.petersburgedu.ru",
+      "petersburgedu.ru"
+     ],
+     "netschool": null,
+     "platform": "petersburg",
+     "role": "primary",
+     "web_url": "https://dnevnik2.petersburgedu.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "app.eschool.center"
+     ],
+     "netschool": null,
+     "platform": "eschool-center",
+     "role": "secondary",
+     "web_url": "https://app.eschool.center"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "netschool.school.ioffe.ru"
+     ],
+     "netschool": null,
+     "platform": "netschool",
+     "role": "secondary",
+     "web_url": "https://netschool.school.ioffe.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "secondary",
+     "web_url": "https://dnevnik.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "petersburgedu.ru"
+     ],
+     "netschool": null,
+     "platform": "petersburg",
+     "role": "legacy",
+     "web_url": "https://dnevnik2.petersburgedu.ru"
+    }
+   ],
+   "tor": "unlisted",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [],
+   "cities": [
+    "Балаклава",
+    "Инкерман"
+   ],
+   "code": "92",
+   "dadata_names": [
+    "г Севастополь",
+    "Севастополь"
+   ],
+   "iso": null,
+   "key": "sevastopol",
+   "mandatory": false,
+   "name_en": "Sevastopol",
+   "name_ru": "Севастополь",
+   "order": 84,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "paper",
+    "reason": "no_diary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [],
+     "netschool": null,
+     "platform": "paper",
+     "role": "primary",
+     "web_url": null
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "riso.sev.gov.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "legacy",
+     "web_url": "https://riso.sev.gov.ru"
+    }
+   ],
+   "tor": "absent",
+   "zone": "Europe/Simferopol"
+  },
+  {
+   "aliases": [
+    "ЕАО"
+   ],
+   "cities": [
+    "Биробиджан"
+   ],
+   "code": "79",
+   "dadata_names": [
+    "Еврейская Аобл",
+    "Еврейская"
+   ],
+   "iso": "RU-YEV",
+   "key": "eao",
+   "mandatory": false,
+   "name_en": "Jewish Autonomous Oblast",
+   "name_ru": "Еврейская автономная область",
+   "order": 85,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school",
+      "edu.gosuslugi.ru"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "dnevnik.ru",
+      "login.dnevnik.ru"
+     ],
+     "netschool": null,
+     "platform": "dnevnik-ru",
+     "role": "legacy",
+     "web_url": "https://dnevnik.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Asia/Vladivostok"
+  },
+  {
+   "aliases": [
+    "НАО"
+   ],
+   "cities": [
+    "Нарьян-Мар"
+   ],
+   "code": "83",
+   "dadata_names": [
+    "Ненецкий АО",
+    "Ненецкий"
+   ],
+   "iso": "RU-NEN",
+   "key": "nao",
+   "mandatory": false,
+   "name_en": "Nenets Autonomous Okrug",
+   "name_ru": "Ненецкий автономный округ",
+   "order": 86,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "tor_primary",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "handoff",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "primary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "edu.adm-nao.ru"
+     ],
+     "netschool": null,
+     "platform": "bars",
+     "role": "legacy",
+     "web_url": "https://edu.adm-nao.ru"
+    }
+   ],
+   "tor": "primary",
+   "zone": "Europe/Moscow"
+  },
+  {
+   "aliases": [
+    "ХМАО",
+    "Югра",
+    "ХМАО — Югра"
+   ],
+   "cities": [
+    "Ханты-Мансийск",
+    "Сургут",
+    "Нижневартовск",
+    "Нефтеюганск"
+   ],
+   "code": "86",
+   "dadata_names": [
+    "Ханты-Мансийский Автономный округ - Югра",
+    "Ханты-Мансийский АО - Югра"
+   ],
+   "iso": "RU-KHM",
+   "key": "khmao",
+   "mandatory": false,
+   "name_en": "Khanty-Mansi Autonomous Okrug — Yugra",
+   "name_ru": "Ханты-Мансийский автономный округ — Югра",
+   "order": 87,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "eljur",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "cop.admhmao.ru",
+      "cop-sh.admhmao.ru",
+      "cop-spo.admhmao.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "primary",
+     "web_url": "https://cop.admhmao.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Asia/Yekaterinburg"
+  },
+  {
+   "aliases": [
+    "Чукотка",
+    "ЧАО"
+   ],
+   "cities": [
+    "Анадырь",
+    "Билибино"
+   ],
+   "code": "87",
+   "dadata_names": [
+    "Чукотский АО",
+    "Чукотский"
+   ],
+   "iso": "RU-CHU",
+   "key": "chukotka",
+   "mandatory": false,
+   "name_en": "Chukotka Autonomous Okrug",
+   "name_ru": "Чукотский автономный округ",
+   "order": 88,
+   "recommended": {
+    "confidence": "high",
+    "modifiers": [],
+    "platform": "one-x1",
+    "reason": "unsupported",
+    "system": 0
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "one.edu87.ru",
+      "passport.edu87.ru"
+     ],
+     "netschool": null,
+     "platform": "one-x1",
+     "role": "primary",
+     "web_url": "https://one.edu87.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Asia/Anadyr"
+  },
+  {
+   "aliases": [
+    "ЯНАО",
+    "Ямал"
+   ],
+   "cities": [
+    "Салехард",
+    "Новый Уренгой",
+    "Ноябрьск"
+   ],
+   "code": "89",
+   "dadata_names": [
+    "Ямало-Ненецкий АО",
+    "Ямало-Ненецкий"
+   ],
+   "iso": "RU-YAN",
+   "key": "yanao",
+   "mandatory": true,
+   "name_en": "Yamalo-Nenets Autonomous Okrug",
+   "name_ru": "Ямало-Ненецкий автономный округ",
+   "order": 89,
+   "recommended": {
+    "confidence": "medium",
+    "modifiers": [],
+    "platform": "tor-myschool",
+    "reason": "front_end",
+    "system": 1
+   },
+   "systems": [
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.yanao.ru"
+     ],
+     "netschool": null,
+     "platform": "mesh-myschool",
+     "role": "primary",
+     "web_url": "https://school.yanao.ru"
+    },
+    {
+     "action": "handoff",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": true,
+     "handoff_url": "https://www.gosuslugi.ru/school",
+     "hosts": [
+      "gosuslugi.ru/school"
+     ],
+     "netschool": null,
+     "platform": "tor-myschool",
+     "role": "secondary",
+     "web_url": "https://www.gosuslugi.ru/school"
+    },
+    {
+     "action": "none",
+     "confidence": "medium",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "myschool.edu.ru"
+     ],
+     "netschool": null,
+     "platform": "fgis-myschool",
+     "role": "secondary",
+     "web_url": "https://myschool.edu.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "high",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "sgo.yanao.ru"
+     ],
+     "netschool": null,
+     "platform": "netschool",
+     "role": "legacy",
+     "web_url": "https://sgo.yanao.ru"
+    },
+    {
+     "action": "none",
+     "confidence": "low",
+     "excluded": null,
+     "front_end": false,
+     "handoff_url": null,
+     "hosts": [
+      "school.yanao.ru"
+     ],
+     "netschool": null,
+     "platform": "eljur",
+     "role": "legacy",
+     "web_url": "https://school.yanao.ru"
+    }
+   ],
+   "tor": "front_end",
+   "zone": "Asia/Yekaterinburg"
+  }
+ ],
+ "schema": 1,
+ "search": {
+  "cyrillic_layout": "ёйцукенгшщзхъфывапролджэячсмитьбю",
+  "fold": {
+   "-": " ",
+   "ё": "е",
+   "‐": " ",
+   "‑": " ",
+   "‒": " ",
+   "–": " ",
+   "—": " ",
+   "−": " "
+  },
+  "latin_layout": "`qwertyuiop[]asdfghjkl;'zxcvbnm,.",
+  "school_words": [
+   "школа",
+   "сош",
+   "оош",
+   "нош",
+   "гимназия",
+   "лицей",
+   "центр",
+   "образования",
+   "мбоу",
+   "маоу",
+   "моу",
+   "мкоу",
+   "гбоу",
+   "гоу",
+   "чоу",
+   "средняя",
+   "основная",
+   "общеобразовательная",
+   "№",
+   "n",
+   "no",
+   "номер"
+  ],
+  "stop_words": [
+   "республика",
+   "респ",
+   "область",
+   "обл",
+   "край",
+   "автономный",
+   "автономная",
+   "автономной",
+   "округ",
+   "ао",
+   "аобл",
+   "город",
+   "г",
+   "федерального",
+   "значения"
+  ],
+  "synonyms": {
+   "region": [
+    "oblast",
+    "krai"
+   ],
+   "st": [
+    "saint"
+   ]
+  },
+  "translit": [
+   [
+    "shch",
+    "щ"
+   ],
+   [
+    "sch",
+    "щ"
+   ],
+   [
+    "iya",
+    "ия"
+   ],
+   [
+    "tsk",
+    "тск"
+   ],
+   [
+    "zh",
+    "ж"
+   ],
+   [
+    "kh",
+    "х"
+   ],
+   [
+    "ts",
+    "ц"
+   ],
+   [
+    "ch",
+    "ч"
+   ],
+   [
+    "sh",
+    "ш"
+   ],
+   [
+    "yo",
+    "ё"
+   ],
+   [
+    "yu",
+    "ю"
+   ],
+   [
+    "ya",
+    "я"
+   ],
+   [
+    "ye",
+    "е"
+   ],
+   [
+    "ia",
+    "ия"
+   ],
+   [
+    "iy",
+    "ий"
+   ],
+   [
+    "yy",
+    "ый"
+   ],
+   [
+    "a",
+    "а"
+   ],
+   [
+    "b",
+    "б"
+   ],
+   [
+    "c",
+    "к"
+   ],
+   [
+    "d",
+    "д"
+   ],
+   [
+    "e",
+    "е"
+   ],
+   [
+    "f",
+    "ф"
+   ],
+   [
+    "g",
+    "г"
+   ],
+   [
+    "h",
+    "х"
+   ],
+   [
+    "i",
+    "и"
+   ],
+   [
+    "j",
+    "й"
+   ],
+   [
+    "k",
+    "к"
+   ],
+   [
+    "l",
+    "л"
+   ],
+   [
+    "m",
+    "м"
+   ],
+   [
+    "n",
+    "н"
+   ],
+   [
+    "o",
+    "о"
+   ],
+   [
+    "p",
+    "п"
+   ],
+   [
+    "q",
+    "к"
+   ],
+   [
+    "r",
+    "р"
+   ],
+   [
+    "s",
+    "с"
+   ],
+   [
+    "t",
+    "т"
+   ],
+   [
+    "u",
+    "у"
+   ],
+   [
+    "v",
+    "в"
+   ],
+   [
+    "w",
+    "в"
+   ],
+   [
+    "x",
+    "кс"
+   ],
+   [
+    "y",
+    "ы"
+   ],
+   [
+    "z",
+    "з"
+   ]
+  ]
+ },
+ "source": "docs/diaries/regions.md",
+ "survey": {
+  "month": "2026-09",
+  "school_year": "2026/27"
+ }
+}

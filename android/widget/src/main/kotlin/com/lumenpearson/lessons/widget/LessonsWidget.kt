@@ -16,6 +16,8 @@ import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.provideContent
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.locale.AppLocale
+import com.lumenpearson.lessons.core.data.repository.ShellMode
+import com.lumenpearson.lessons.core.data.repository.ShellModeSource
 import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.DeepLink
@@ -79,7 +81,7 @@ class LessonsWidget : GlanceAppWidget() {
                 GlanceTheme {
                     LessonsWidgetBody(
                         state = snapshot.state,
-                        signedIn = snapshot.signedIn,
+                        mode = snapshot.mode,
                         today = snapshot.today,
                         homeworkDay = snapshot.homeworkDay,
                         now = snapshot.now,
@@ -103,20 +105,20 @@ class LessonsWidget : GlanceAppWidget() {
     /**
      * What to draw when the read itself failed.
      *
-     * `signedIn = true` on purpose, although nothing was read and nothing is
-     * known. The flag only chooses between two sentences, and the two are not
-     * equally wrong: «откройте приложение и потяните вниз» is harmless advice
-     * for somebody who has not joined a class, while «введите код класса»
-     * sends somebody who has joined one to the single screen that cannot help
-     * them — which is the exact failure [Snapshot.signedIn] was added to
-     * prevent, reintroduced here on the path where it is least visible.
+     * [ShellMode.CLASS] on purpose, although nothing was read and nothing is
+     * known. The mode only chooses a sentence, and the three are not equally
+     * wrong: «откройте приложение и потяните вниз» is harmless advice for
+     * anybody, while the other two tell somebody who has joined a class either
+     * to take a way in they have already taken or that the widget does not
+     * draw their timetable — which is the exact failure [Snapshot.mode] exists
+     * to prevent, reintroduced here on the path where it is least visible.
      */
     internal fun unreadableSnapshot(): Snapshot = Snapshot(
         // device clock: the read failed, so there is no timetable to take a zone
         // from. The empty state this builds names no lesson and no time.
         now = LocalDateTime.now(),
         state = null,
-        signedIn = true,
+        mode = ShellMode.CLASS,
         today = null,
         homeworkDay = null,
         week = emptyList(),
@@ -128,11 +130,12 @@ class LessonsWidget : GlanceAppWidget() {
      * Everything one render needs, gathered off the composition.
      *
      * @property state null whenever there is no cached timetable.
-     * @property signedIn whether a class session exists. Carried separately
-     *   because a null [state] has two very different causes — nobody has
-     *   entered a class code yet, or a class was joined but nothing has synced —
-     *   and the widget used to tell every one of those users to go and enter a
-     *   code they had already entered.
+     * @property mode which way this phone came in, if any. Carried separately
+     *   because a null [state] has three very different causes — nobody has
+     *   come in yet, a class was joined but nothing has synced, or the phone
+     *   reads its own school's diary and has no class timetable at all — and
+     *   one sentence for all of them told the families of the second and the
+     *   third to take a way in they had already taken.
      * @property language the stored language choice, carried here rather than
      *   read again at render time so that one snapshot means one preference
      *   read. It is not a `WidgetOption`: the options decide *what* is drawn and
@@ -141,7 +144,7 @@ class LessonsWidget : GlanceAppWidget() {
     data class Snapshot(
         val now: LocalDateTime,
         val state: DayState?,
-        val signedIn: Boolean,
+        val mode: ShellMode,
         val today: SchoolDay?,
         val homeworkDay: SchoolDay?,
         val week: List<DayLoad>,
@@ -198,9 +201,16 @@ class LessonsWidget : GlanceAppWidget() {
         // across it as the timetable's `nextSchoolDay`. The difference is some
         // two hundred days of lessons, events and homework read off Room on
         // every redraw, and a redraw happens on every tick of a countdown.
-        val timetable: Timetable? = container.timetableRepository.snapshotAroundToday()
+        //
+        // The mode first, and the timetable only in a class. The widget draws
+        // nothing from the diary on purpose (#142): a background read would
+        // count as the family's activity and keep a session alive with nobody
+        // behind it. Outside a class there is no class timetable to read, so
+        // Room is not asked at all.
+        val (mode, timetable) = readModeAndTimetable(container.shellMode) {
+            container.timetableRepository.snapshotAroundToday()
+        }
         val settings = container.settingsRepository.settings.first()
-        val signedIn = container.sessionRepository.current() != null
 
         // The school's wall clock, not the phone's. These differ whenever the
         // device has travelled, and permanently for anyone following a school
@@ -211,7 +221,7 @@ class LessonsWidget : GlanceAppWidget() {
         return snapshotOf(
             timetable = timetable,
             now = now,
-            signedIn = signedIn,
+            mode = mode,
             options = WidgetOptions(
                 showProgress = settings.widgetShowProgress,
                 showTeacher = settings.showTeacher,
@@ -224,4 +234,20 @@ class LessonsWidget : GlanceAppWidget() {
             language = settings.language,
         )
     }
+}
+
+/**
+ * The mode the widget draws for, and the class timetable only in a class.
+ *
+ * Out of [LessonsWidget.loadSnapshot], which reads `Graph` and cannot be handed
+ * anything by a test, because this is the line the diary-only phone depends
+ * on: read from the class session instead, as it once was, a phone signed in
+ * to a diary and in no class drew the sentence sending it to join one.
+ */
+internal suspend fun readModeAndTimetable(
+    shell: ShellModeSource,
+    timetable: suspend () -> Timetable?,
+): Pair<ShellMode, Timetable?> {
+    val mode = shell.current().mode
+    return mode to if (mode == ShellMode.CLASS) timetable() else null
 }

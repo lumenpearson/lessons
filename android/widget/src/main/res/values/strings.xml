@@ -112,12 +112,19 @@
     <!-- %1$s lesson count, %2$s first lesson, %3$s its time. -->
     <string name="widget_next_day_summary">%1$s · %2$s в %3$s</string>
 
-    <!-- Empty / unauthenticated. -->
-    <string name="widget_empty_title">Откройте приложение и введите код класса</string>
-    <string name="widget_empty_short">Введите код класса</string>
+    <!-- Empty states, one pair per way in (emptyTextRes). Nobody in yet: there
+         are two ways in, a class code or the family's own school, so the
+         sentence no longer names only the first. -->
+    <string name="widget_empty_title">Откройте приложение и подключитесь по коду класса или через свою школу</string>
+    <string name="widget_empty_short">Откройте приложение</string>
     <string name="widget_loading">Загружаем расписание…</string>
     <string name="widget_no_data_title">Расписание ещё не загружено — откройте приложение и потяните вниз</string>
     <string name="widget_no_data_short">Расписание не загружено</string>
+    <!-- A phone that reads its own diary and is in no class. The widget draws
+         a class timetable and nothing from the diary, so it says where the
+         diary is rather than promising a timetable no pull will bring. -->
+    <string name="widget_diary_only_title">Виджет показывает расписание класса. Дневник — в приложении</string>
+    <string name="widget_diary_only_short">Дневник — в приложении</string>
 
     <plurals name="widget_subject_count">
         <item quantity="one">%d предмет</item>

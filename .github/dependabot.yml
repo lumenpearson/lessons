@@ -11,6 +11,12 @@ version: 2
 # over from projects that build on them, and the catalog's header names the
 # source of each. That is why updates are grouped and capped — five open pull
 # requests carrying Compose alphas one at a time is a lottery, not an update.
+#
+# The labels are the project's own families, `type:` and `area:`, and each one
+# has to exist already: Dependabot skips a label the repository does not have,
+# without a word. It asked for `dependencies`, `android`, `server`, `vercel`
+# and `ci` for months, none of which existed, and every bump arrived bare
+# (#162).
 updates:
   - package-ecosystem: gradle
     directory: /android
@@ -19,8 +25,8 @@ updates:
       day: monday
     open-pull-requests-limit: 5
     labels:
-      - dependencies
-      - android
+      - type:chore
+      - area:android
     groups:
       androidx:
         patterns:
@@ -58,8 +64,8 @@ updates:
       day: monday
     open-pull-requests-limit: 5
     labels:
-      - dependencies
-      - server
+      - type:chore
+      - area:server
     groups:
       testing:
         patterns:
@@ -87,14 +93,13 @@ updates:
       day: monday
     open-pull-requests-limit: 3
     labels:
-      - dependencies
-      - server
-      - vercel
+      - type:chore
+      - area:server
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
     labels:
-      - dependencies
-      - ci
+      - type:chore
+      - area:ci

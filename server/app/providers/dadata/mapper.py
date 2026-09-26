@@ -81,26 +81,38 @@ def to_school(item: dict[str, Any]) -> School | None:
         address=_text(address, "unrestricted_value") or _text(address, "value"),
         city=_text(address_data, "city") or _text(address_data, "settlement"),
         region=_text(address_data, "region_with_type") or _text(address_data, "region"),
+        region_code=_region_code(address_data),
         active=_status_of(data) == _LIVE_STATUS,
     )
 
 
-def to_schools(items: list[dict[str, Any]]) -> list[School]:
+def to_schools(items: list[dict[str, Any]], *, per_region: bool = False) -> list[School]:
     """The readable ones, in the order the upstream ranked them.
 
     Deduplicated by registration number: a school that has been reorganised can appear twice
     in one answer under two spellings of the same name, and two identical rows
     in a picker is a question with no right answer.
+
+    @param per_region keep one row per registration number **per region**
+        instead of one per number. A branch (филиал) is registered under its
+        head school's OGRN, so the bot's picker, which has always deduplicated
+        on the number, shows the two as one — and is left that way. The
+        directory's question is «which regions is this school in», and folding
+        a branch into its head answers it with one region where there are two. Keyed on the
+        region's code and, for a row without one, on the register's own name
+        for the region: the code is not on every row, and a branch read
+        without it is still in another region.
     """
     schools: list[School] = []
-    seen: set[str] = set()
+    seen: set[tuple[str, str | None]] = set()
     unreadable = 0
     for item in items:
         school = to_school(item)
         if school is None:
             unreadable += 1
             continue
-        key = school.ogrn or school.full_name
+        where = (school.region_code or school.region) if per_region else None
+        key = (school.ogrn or school.full_name, where)
         if key in seen:
             continue
         seen.add(key)
@@ -197,6 +209,20 @@ def _capitalise(word: str) -> str:
         if character.isalpha():
             return lowered[:index] + character.upper() + lowered[index + 1 :]
     return lowered
+
+
+def _region_code(address_data: dict[str, Any]) -> str | None:
+    """The subject code at the front of ``region_kladr_id``, or ``None``.
+
+    A KLADR id is thirteen digits whose first two are the region — «78» for
+    Saint Petersburg, «16» for Tatarstan. Anything else in the field (a code
+    of a new shape, a stray letter) gives ``None`` rather than a guess, and
+    the caller falls back to the region's name. ASCII digits only: ``isdigit``
+    alone accepts «²», which is a digit to Unicode and to nobody else.
+    """
+    kladr = _text(address_data, "region_kladr_id")
+    code = kladr[:2] if kladr else ""
+    return code if len(code) == 2 and code.isascii() and code.isdigit() else None
 
 
 def _status_of(data: dict[str, Any]) -> str:
