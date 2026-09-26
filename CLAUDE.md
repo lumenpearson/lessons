@@ -73,6 +73,9 @@ Android, from `android/`:
 - **`./gradlew assembleDebug`** and **`./gradlew assembleRelease`** — CI builds both on every
   push, because R8 and resource shrinking are where "worked in debug" stops being true
 - `./gradlew lint` runs the AGP Android lint; CI does not, so do not report it as a gate
+- `./gradlew :core:designsystem:connectedDebugAndroidTest` — the one instrumented source set
+  (#110), on a running emulator or a connected phone. Not a CI gate: CI has no device, and a
+  gate that cannot run is worse than none
 
 The app is set in **two** bundled faces, both under
 `core/designsystem/src/main/res/font/` and both carrying one axis, `wght`:
