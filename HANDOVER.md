@@ -14,12 +14,12 @@ fast-forward. **The only thing open is the pull request carrying this paragraph,
 the owner created that milestone on 25 September and renamed the other nine the same day
 (the table, with what each was called before, is under «And before that: nothing on a
 screen is cut off»). Both reviews of its code have finished, and every confirmed finding is
-fixed on the branch but one. That one is **#165**, and it is the owner's to decide. Three
-things now stand between #140 and the merge, in this order:
-1. The owner decides #165, and its fix lands here.
-2. `0015` and `0016` go onto the production database. The owner made them conditional on
-   code with no known defect, and «Schema» below says why they have not run.
-3. The `github-pr` skill's checklist passes on the exact head.
+fixed on the branch. The last one, **#165**, was a product decision. The owner decided it on
+26 September: corrections are shared per child. It is fixed in `e01443d`, with a third
+revision, `0017`. With no known defect left, `0015`, `0016` and `0017` went onto the
+production database on 26 September 2026 at 12:26 UTC, as the owner's condition allowed.
+What stands between #140 and the merge is only the `github-pr` skill's checklist on the
+exact head.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -30,11 +30,10 @@ unchanged. The second (#141, from `17c0473`) is the owner's request of 25 Septem
 run with two ways in — the class code, or the family's own school's diary — on which the
 password goes from the phone to the diary and never to this server, and a phone that reads
 only its diary gets a home of its own. Both halves' gates were run rather than quoted:
-server **1998** tests, Android **1408**.
+server **2024** tests, Android **1408**.
 
-**Once #140 merges, twenty-four issues are meant to close and twenty-five stay open.** Meant to
-close: #136–#139, #141, #145–#155 and #157–#164. Staying open: **#165** until the owner
-decides it; **#156**, whose fix is in
+**Once #140 merges, twenty-five issues are meant to close and twenty-four stay open.** Meant to
+close: #136–#139, #141, #145–#155 and #157–#165. Staying open: **#156**, whose fix is in
 `ce9c749` but which waits for a phone's backup to be read (`needs:device`); **#135**, the
 owner's decision about the second diary, which the code has now answered but which is theirs
 to close; **#142**, **#143** and **#144**, this batch's deliberate follow-ups, on no
@@ -43,13 +42,14 @@ the owner's alone; and #123–#127, `status:someday`. What a merge closes is dec
 `Closes` lines in the pull request body and in the commit messages, not by this paragraph —
 read them against this list before merging.
 
-**The code expects head `0016`; production was read on 25 September at `0014`.**
-`EXPECTED_REVISION` in `app/db.py` is `0016`, pinned to the real head by
+**The code expects head `0017`, and production is at `0017` since 26 September 2026 at 12:26 UTC.**
+`EXPECTED_REVISION` in `app/db.py` is `0017`, pinned to the real head by
 `tests/test_schema_version.py`. `0015` adds the eight nullable columns the second diary
-needs, and `0016` creates `usage_counters`, the anonymous school directory's daily count of
-DaData requests. Both are additive and destroy nothing, so both go on through the Neon
-connector (the project named `lessons`) **before** the merge; «Schema» in the section on #140
-below says when they did and what the database said. The `0014` chapter still holds: #83's
+needs. `0016` creates `usage_counters`, the anonymous school directory's daily count of
+DaData requests. `0017` files the diary corrections under the child rather than a login, and
+it is data only. All three went on through the Neon connector (the project named `lessons`)
+**before** the merge, in one transaction; «Schema» in the section on #140 below says what the
+database said. The `0014` chapter still holds: #83's
 pinned table of the enum column widths fails when a `SAEnum` member's **name** outgrows its
 `VARCHAR`, which SQLite cannot see and production Postgres finds at the moment somebody marks
 a day.
@@ -60,7 +60,7 @@ answered `{"status":"ok","api_version":1,"schema":"0013"}`. **It has not been re
 and #83 found out why.** The deployments sit behind Vercel's Deployment Protection and
 answer a redirect to a login page, so `/api/v1/warmup` cannot be read from a session here at
 all. It still wants reading, by the owner's browser or with a bypass token (#119). Once #140
-has merged and deployed it should answer `"schema":"0016"`; in the window between the
+has merged and deployed it should answer `"schema":"0017"`; in the window between the
 migrations and the merge it answers `degraded` with «База впереди кода…», which is the
 window the correct order creates rather than a fault. That single line is the cheapest check
 that the migrations and the code actually met.
@@ -279,14 +279,16 @@ Twenty-one, on top of part one's three (#136–#138):
 | #162 | Dependabot and the issue templates applied labels the project does not have, so bumps arrived bare and reports outside `type:` and `status:` | `f31e5ed` |
 | #163 | the join and diary sign-in throttles counted before they recorded, so a burst went past them (24 wrong passwords against a limit of 10) | `6b0878f` |
 | #164 | the server's checks assumed SQLAlchemy 2.0 while every fresh install resolves 2.1: one test compared SQL without casts, and mypy failed on `main` | `d208251` |
-| #165 | a session registered from a phone names its own login, unchecked, and that login keys another family's corrections | **not fixed** — waits for the owner (`needs:owner`) |
+| #165 | a session registered from a phone names its own login, unchecked, and that login keys another family's corrections | `e01443d` — corrections are now the child's, by the owner's decision |
 
 Twelve more, from an adversarial review of the new Android data layer, were fixed in
 `9c797a2`, each with a test that failed before its fix. They are listed in that commit's
 body and have no issues of their own: they were in code this branch adds, and none of it
 had reached `main`. The same holds for the thirty findings of the second review of the
 screens (`061a716`, 31 in all, one of them #161) and for twenty of the audit of the server
-half (`6b0878f`, 22 in all: #163 fixed, #165 open).
+half (`6b0878f`, 22 in all: #163 fixed there, #165 in `e01443d`). The change for #165 had a
+review of its own: five lenses, two refuters per finding, 17 of 23 findings confirmed. All 17
+are fixed in the same commit, and its body lists them.
 
 **One commit body is wrong, and the code is right.** `6fa1c6e` says rebinding a class to
 another *school* expires its diary sessions. `services/diary.expire_off_binding` expires them
@@ -296,8 +298,8 @@ school. The documents follow the code.
 
 ### Schema
 
-`EXPECTED_REVISION` is `0016`; production was at `0014` when this was written, two
-revisions behind:
+`EXPECTED_REVISION` is `0017`. Production was at `0014`, three revisions behind, until the
+transaction below:
 
 - **`0015`** (`0015_diary_provider_columns.py`) adds five nullable columns to
   `diary_sessions` — `provider`, `region`, `kept_alive_at`, `keepalive_attempted_at`,
@@ -306,26 +308,39 @@ revisions behind:
   Its downgrade expires every non-Petersburg session before dropping the columns that tell
   one apart.
 - **`0016`** (`0016_usage_counters.py`) creates `usage_counters` and nothing else.
+- **`0017`** (`0017_corrections_per_child.py`) is data only (#165). It rewrites
+  `diary_overrides.login` from a login to the child's scope: `CHILD:petersburg`, or
+  `CHILD:netschool:` and the regional server's host. It deletes the branch-only
+  «Сетевой город» hash-keyed rows, which could no longer be read. Where two rows corrected
+  one field of one child, it keeps the newest. On PostgreSQL it takes a lock first. It is a
+  third shape, «a rewrite of a key»: free where there are no rows, and **after** the merge
+  where there are, for the reasons its docstring and `docs/deploy.md` give.
 
-Both are additive, rewrite no row and destroy none, so both go on **before** the merge,
-together, through the Neon connector: the DDL taken from the model, the database's state read
-first, and `alembic_version` stamped to `0016` in the same transaction. On 25 September
-production read `0014`, with **0** rows in `diary_sessions` and **1** class, so neither
-revision had a row to touch.
+`0015` and `0016` are additive, and rewrite and destroy no row. `0017` would destroy rows
+only where there are corrections, and production had none. So all three went on **before**
+the merge, together, through the Neon connector. The DDL was taken from the revisions
+rendered offline for PostgreSQL, and it matched the models' own DDL statement for statement.
+The database's state was read first, and `alembic_version` was stamped in the same
+transaction, last.
 
-**Not applied, and held on purpose, as of 26 September.** The owner allowed both on one
-condition: that the code they serve is free of defects. The audit of the server half and of
-both revisions has finished since. 22 findings survived two refuters each, and `6b0878f`
-fixed 21 of them. The revisions' PostgreSQL DDL came out of that unchanged, and it still
-matches the models op by op, which `test_quota` and `test_diary_provider_revision` now pin.
-The 22nd finding is **#165**: a session registered from a phone names its own login, and
-the family's corrections are filed under it. Its fix is a product decision. The owner first
-chose to key corrections on the account the diary vouches for, then stopped that
-implementation before it changed a file, so the decision is open (`needs:owner`). Until it
-closes, the condition is not met, so the transaction has not run and #140 does not merge;
-merging without `0015` and `0016` would take the bot down. Neither revision depends on how
-#165 is decided: two of its three answers need no schema, and the third would be an additive
-`0017`. When it runs, this paragraph gets the time and what the database said.
+**Applied on 26 September 2026 at 12:26 UTC, before the merge, as one transaction through
+the Neon connector.** The owner had allowed the migrations on one condition: that the code
+they serve has no known defect. That was met once #165 was decided and fixed in `e01443d`,
+and CI went green on that commit. The database was read twice first, at 11:22 and at 12:25
+UTC. Both reads showed head `0014`, none of the eight columns, no `usage_counters`, **0**
+rows in `diary_overrides` (0 of them legacy «Сетевой город» keys), **0** diary sessions and
+**1** class. The transaction ran the eight `ADD COLUMN`s of `0015` and the `CREATE TABLE` of
+`0016`. Then `0017` ran its lock, its two deletes and its rewrite, and last came the stamp
+`UPDATE alembic_version SET version_num = '0017' WHERE version_num = '0014'`. Every
+statement was taken from the revisions rendered offline for PostgreSQL, which matched the
+models' DDL. Read back afterwards: head `0017`, one stamp, all eight columns nullable with
+the declared types and widths (`VARCHAR(32)`, `BIGINT`, `VARCHAR(300)`, `TIMESTAMP WITHOUT
+TIME ZONE`), and `usage_counters` with primary key `(scope, day)`. There were still 0
+corrections, 0 sessions and 1 class, so nothing was rewritten and nothing was destroyed.
+Until #140 merges and deploys, the running code is older than the database, and
+`/api/v1/warmup` answers «База впереди кода…»: the window the correct order creates. The one
+thing the window could lose is a correction typed through the old `/diary/login` before the
+deploy, which would be filed under a login. No diary session existed to type one.
 
 ### What was deliberately left alone
 
@@ -358,13 +373,15 @@ merging without `0015` and `0016` would take the bot down. Neither revision depe
 
 ### Gates
 
-Run, not quoted. The server was run on the branch at `d208251`, against **SQLAlchemy
+Run, not quoted. The server was run on the branch at `e01443d`, against **SQLAlchemy
 2.1.1**, which is what CI and Vercel install now (#164): `ruff check app tests scripts
-migrations` clean; `pytest -q -n auto` **1998** passed (1634 on `main`); `python -m mypy`
-**Success** across **100** modules (84 on `main`). The Android tests were run at `061a716`,
+migrations` clean; `pytest -q -n auto` **2024** passed (1634 on `main`); `python -m mypy`
+**Success** across **100** modules (84 on `main`). The alembic chain from nothing lands on
+`0017`. The Android tests were run at `061a716`,
 and Gradle found every test task up to date against the sources at `f31e5ed`: `./gradlew
 test` **1408** (968 on `main`), with `:app` 548, `:core:data` 532, `:core:designsystem` 99,
-`:core:model` 125 and `:widget` 104. `assembleDebug` and `assembleRelease` were last run
+`:core:model` 125 and `:widget` 104; they were rerun with `--rerun` after the texts of
+#165's fix changed, with the same counts. `assembleDebug` and `assembleRelease` were last run
 locally at `061a716`, and CI builds both on every push. A checkout set up before 2.1 was
 published keeps SQLAlchemy 2.0.54 until it is upgraded. The suite passes on both, and a
 mypy run on 2.0 does not see what 2.1's typing sees. `b19e6b2` and `c032ff2` report the
@@ -2749,7 +2766,7 @@ curl -s https://<project>.vercel.app/api/v1/warmup   # {"status":"ok","schema":"
 
 A `"degraded"` here would mean the deploy had not arrived; before `0013` was applied, the
 same request honestly called the database behind, because `EXPECTED_REVISION` was already
-`0013`. The head is `0016` today — see the top of this file — and the same request reads it
+`0013`. The head is `0017` today — see the top of this file — and the same request reads it
 the other way round while a revision waits for its merge: the database is *ahead* of the
 code, and `/warmup` says so in as many words, «База впереди кода…».
 
@@ -2772,7 +2789,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 1998 tests, ~4 min (CI runs this)
+cd server  && pytest -q -n auto                          # 2024 tests, ~4 min (CI runs this)
 cd server  && python -m mypy                             # clean, 100 modules
 cd android && ./gradlew test                             # 1408 tests across the five modules
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
@@ -2846,12 +2863,13 @@ parity was computed from the ISO week number, which does not alternate in a 53-w
 from January 2027 the whole denominator of the **current** school year slid by a week,
 simultaneously in the API, the widget, the digests and the calendar.
 
-**Migrations:** the last revision written is `0016`, and production was read at `0014` on
-25 September. `0007`–`0012` were applied **before** their merge through the Neon connector,
-`0013` after it (it adds a `UNIQUE`, and a constraint migrates in the opposite direction
-from a column), and `0014` before it again. `0015` and `0016`, both written on #140 and both
-additive, go on before #140's merge; whether they have is in «Schema» in that batch's section
-at the top of this file. What each earlier revision did is in `CLAUDE.md` and in section 7,
+**Migrations:** the last revision written is `0017`, and production is at `0017`.
+`0007`–`0012` were applied **before** their merge through the Neon connector, `0013` after it
+(it adds a `UNIQUE`, and a constraint migrates in the opposite direction from a column), and
+`0014` before it again. `0015`, `0016` and `0017`, all written on #140, went on before #140's
+merge, in one transaction. `0017` rewrites a key, which on a database holding rows goes on
+after the merge; production held none. «Schema» in that batch's section at the top of this
+file has what the database said. What each earlier revision did is in `CLAUDE.md` and in section 7,
 item 1.
 
 ---
@@ -3304,7 +3322,7 @@ title cannot.
 - **`/api/v1/warmup` has still not been read, and it is now known to be unreachable from a
   session rather than merely not done.** The deployments are behind Vercel's Deployment
   Protection and answer a redirect to a login page, so no `curl` from here can settle
-  whether the schema — `0016` once #140's revisions are on — and the code that needs it
+  whether the schema — `0017` once #140 has deployed — and the code that needs it
   met. It needs the owner's browser or a bypass
   token; it has been outstanding since #61 and it is in section 7 for that reason.
 - **`docker compose up` has never been run.** There is no Docker in this environment, so
@@ -4178,7 +4196,7 @@ and the code that needs it actually met**, and it is outstanding since #61. It c
 closed from a session here at any effort: the deployments are behind Vercel's Deployment
 Protection and answer a redirect to a login page, so this needs the owner's own browser or a
 bypass token. The answer wanted once #140 has merged and deployed is
-`{"status":"ok","api_version":1,"schema":"0016"}`; a
+`{"status":"ok","api_version":1,"schema":"0017"}`; a
 `"degraded"` naming two revisions is the honest report of a migration and a deploy that have
 not met, and which way round it is, is in the `detail`.
 
@@ -4273,7 +4291,7 @@ and that is the thing to decide rather than the ttl.
 ~~1a. **Apply `0013` after PR #45 is merged.**~~ Applied: head `0013`, the constraint in
    place, zero rows deleted (`homework` had none).
 1b. **Open `/api/v1/warmup` and make sure the deploy arrived** — once #140 has merged and
-   deployed that is `{"status":"ok","schema":"0016"}` — and then send the bot `/start`: the
+   deployed that is `{"status":"ok","schema":"0017"}` — and then send the bot `/start`: the
    very first message goes through the middleware that reads a class, and that is the fastest
    check that the schema and the code agree. That is all that is left of item 1; it needs a
    live service, and since the deployments sit behind Deployment Protection it needs a browser

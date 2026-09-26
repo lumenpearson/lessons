@@ -346,8 +346,8 @@ child, and rewrites the rest of the old Petersburg rows to `CHILD:petersburg`. I
 docstring carries the two counts to read before the transaction, one per destructive step.
 On PostgreSQL it first locks the table against writes until it commits, so a correction
 saved while it runs waits instead of making it roll back. On production, read on 26
-September with no correction in it, that is nothing, and it goes on with `0015` and `0016`
-before the merge. On a deployment that holds corrections it is better applied just
+September with no correction in it, that was nothing: it went on with `0015` and `0016`
+before the merge, at 12:26 UTC that day. On a deployment that holds corrections it is better applied just
 **after** the merge — see the third shape below. Its downgrade does nothing, on purpose — a
 login cannot be recovered from a scope, and the old code cannot read or write an
 upper-case scope under any login — but a revert is not lossless: what older code writes
@@ -401,7 +401,7 @@ files it under the child and the value comes back for everyone who sees the chil
 still the smaller loss, so it is the order for a deployment that holds corrections — with
 the window kept to minutes, and with `/api/v1/warmup` saying «База отстала от кода» through
 it, which there is expected. Where there is nothing to rewrite — production, on 26
-September — the order is free, and it goes on with the additive revisions before the merge,
+September — the order is free, and it went on with the additive revisions before the merge,
 which keeps `/api/v1/warmup` level.
 
 That the database really has caught up with the code is shown by `alembic current` — it
@@ -424,8 +424,8 @@ a ping meant to warm things up would keep waking a sleeping Neon.
 ### What to apply them with
 
 In practice this project's migrations are applied **through the Neon connector** rather than
-with the `alembic` command — that is how `0005`–`0014` were applied, and how `0015`,
-`0016` and `0017` are to go on before #140 merges. The Neon project is
+with the `alembic` command — that is how `0005`–`0017` were applied, the last three
+together on 26 September 2026, before #140 merged. The Neon project is
 called `lessons`; its identifier is not kept in the repository — anybody with access sees it
 in the Neon console anyway, and in a public repository it is just the address of somebody
 else's database.

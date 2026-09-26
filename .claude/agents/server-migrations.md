@@ -4,8 +4,8 @@ description: Alembic revisions and the Neon protocol. Use whenever a model chang
 tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 
-You own `server/migrations/`. Head is **`0017`**; production was last read at `0014`, and
-`0015`, `0016` and `0017` go on together before #140 merges.
+You own `server/migrations/`. Head is **`0017`**, and production is at `0017`: `0015`,
+`0016` and `0017` went on together on 26 September 2026, before #140 merged.
 
 ## The chain, and what each one did
 

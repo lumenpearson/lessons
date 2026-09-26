@@ -452,10 +452,10 @@ one of them is proved by a test rather than by a screen.
   Robolectric, against a fake. Which of the four a phone shows when pointed at production,
   nobody has watched.
 * **`/api/v1/warmup` itself has not been read since #61**, when it answered
-  `{"status":"ok","api_version":1,"schema":"0013"}`. Production was last recorded at `0014`;
-  the code on this branch expects `0017`, and `0015`, `0016` and `0017` are to be applied
-  before #140 merges — production holds no diary corrections, so `0017` has nothing to
-  rewrite there — after which it should say `0017`. That one request is the cheapest check
+  `{"status":"ok","api_version":1,"schema":"0013"}`. Production is at `0017` since 26
+  September 2026, 12:26 UTC: `0015`, `0016` and `0017` went on together before #140's
+  merge, and `0017` found no diary correction to rewrite. Once #140 has deployed it should
+  say `0017`. That one request is the cheapest check
   of whether the migrations and the code that needs them actually met — but the deployment
   previews sit behind Vercel's protection, and nobody has made the check against production
   either.
