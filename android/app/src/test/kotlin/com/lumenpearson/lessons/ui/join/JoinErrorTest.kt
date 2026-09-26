@@ -64,16 +64,32 @@ class JoinErrorTest {
     }
 
     /**
-     * Everything else keeps the server's own message under «Не удалось
-     * подключиться: …», which is what this screen did for every failure before
-     * the three above were split out.
+     * What a server said is kept under «Не удалось подключиться: …», which is
+     * what this screen did for every failure before the cases above were split
+     * out.
      */
     @Test
-    fun `anything else is still shown verbatim`() {
-        val error = JoinError.of(JoinFailure.Offline(IOException("airplane mode")))
+    fun `what the server said is still shown verbatim`() {
+        val error = JoinError.of(JoinFailure.Rejected(code = 502, reason = IOException("Bad gateway")))
 
         assertTrue(error is JoinError.Rejected)
-        assertEquals("airplane mode", (error as JoinError.Rejected).detail)
+        assertEquals("Bad gateway", (error as JoinError.Rejected).detail)
+    }
+
+    /**
+     * #177: when nothing answered there is nothing to repeat. This test used to
+     * assert the opposite — that «airplane mode» was shown verbatim — and on a
+     * device the verbatim text was OkHttp's: «Не удалось подключиться: failed
+     * to connect to /10.0.2.2 (port 8000) from /10.0.2.16 …». No message means
+     * the screen's own Russian sentence.
+     */
+    @Test
+    fun `an unreachable server is worded by the screen, not by OkHttp`() {
+        val error = JoinError.of(
+            JoinFailure.Offline(IOException("failed to connect to /10.0.2.2 (port 8000) from /10.0.2.16")),
+        )
+
+        assertEquals(JoinError.Rejected(null), error)
     }
 
     /**

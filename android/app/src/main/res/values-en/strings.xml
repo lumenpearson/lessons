@@ -142,7 +142,6 @@ The phone keeps an access key and copies of the timetable and the diary, so the 
     <string name="interval_hours">%1$d h</string>
     <string name="sync_error_unauthorised">Access to the class was revoked. Join again.</string>
     <string name="sync_error_not_configured">No server address — set one in the settings.</string>
-    <string name="sync_error_failed">Could not update: %1$s</string>
     <string name="sync_error_generic">Could not update the timetable</string>
 
     <!-- Week -->

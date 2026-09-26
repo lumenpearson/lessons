@@ -95,11 +95,16 @@ sealed interface JoinError {
             // unreachable: «Не удалось подключиться: Could not reach the
             // server» went on a Russian screen, and the Russian sentence
             // written for exactly that case was never shown again.
+            // Nothing answered, so there is nothing to repeat: the exception's
+            // own message is OkHttp's, and it reached a Russian screen as
+            // «Не удалось подключиться: failed to connect to /10.0.2.2 (port
+            // 8000) from /10.0.2.16 …» (#177). The screen's own sentence is
+            // the answer to a server that cannot be reached.
             is JoinFailure.Offline ->
                 if (classified.reason.causes().any { it is ServerAddressMissingException }) {
                     NoServer
                 } else {
-                    Rejected(classified.reason.message?.takeIf { it.isNotBlank() })
+                    Rejected(null)
                 }
             is JoinFailure.Rejected ->
                 Rejected(classified.reason?.message?.takeIf { it.isNotBlank() })
