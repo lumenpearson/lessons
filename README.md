@@ -207,9 +207,10 @@ Read this before planning a release.
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 100 modules — asks whether anything reaches for an attribute that does not exist |
 | `pytest -q -n auto` | 2024 tests, green, about four minutes — the command CI runs |
-| `./gradlew test` | 1438 tests, green, all five modules |
+| `./gradlew test` | 1446 tests, green, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
+| `./gradlew :core:designsystem:connectedDebugAndroidTest` | 3 tests, green on an API 37 emulator — on demand only, never in CI, which has no device |
 
 The release build is checked in the same run as the debug one: R8 and resource shrinking
 are the classic source of "it worked in debug and broke in the APK", and catching that on

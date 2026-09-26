@@ -4,51 +4,33 @@ A working document, not part of the reference set in `docs/`. It describes **the
 the moment of handover**, so that a new session — human or agent — continues from the same
 place without reopening or redoing anything.
 
-Last updated: **27 September 2026**, night. **PRs #63 through #85, #128, #129, #133, #134,
-#140 and #166 are merged**; `main` is at `bd7c816`, the merge of #166 (Dependabot's
-`android-actions/setup-android` 4.0.1 → 4.0.4), and #140 went in before it as `4f506c2`.
-`dev` is still at `a43c6e8`, the merge of #129: behind `main`, with nothing `main` lacks, so
-bringing it level is a fast-forward. **The only thing open is the pull request carrying this
-paragraph, #186**, from `agents/uncovered-device-scenarios-c8618d`, on milestone 9,
-`v0.8.0 — On-device checks, 89-region e-diary survey`. It is the first batch made on a
-machine with an emulator: it walked the app on an API 37 emulator against a local server and
-production, with the live bot beside it, found twelve defects, filed each before fixing it
-(#167–#178), fixed nine, and carries the seven things the owner asked for over the evening
-and the night (#179–#185): the tab bar's round highlight, a drop that no longer flashes the
-old order, a tab picked up by the same touch that opens the arranging mode, a tap anywhere to
-close it, a scrolled bar cut by its round end, even gaps in every segmented picker's tray,
-and a Gradle sync without AGP 9.4's deprecation warnings. The section «What the last session added» below is that batch.
+Last updated: **27 September 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
+#166 and #186 are merged**; `main` is at `c26eace`, the merge of #186, and `dev` is level
+with it. **The only thing open is the pull request carrying this paragraph, #187**, from
+`agents/first-android-test`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary
+survey`. It gives the project its first instrumented tests (#110) and fixes three of the four
+defects #186 filed and left open (#171, #175, #176). The section «What the last session
+added» below is that batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**What #186 moves.** Android: the widget picker's preview draws again (#167); the widget
-follows a class switch made inside a live Glance session (#168); a look at another school
-year no longer takes the current year's terms away (#169); a server that cannot be reached
-is worded by the app, not by OkHttp, on the join screen and in the refresh snackbar (#177);
-«Схема unknown» is gone from the about card (#172); the one-line widget sizes say «Ничего не
-задано» rather than «0 предметов» (#173); a toolbar tab's highlight is a circle (#179); a
-dropped tab is drawn where the finger left it, not for a frame where it came from (#180); the
-long press that opens the arranging mode also picks the tab up (#181); a touch anywhere but
-the bar closes the mode and reaches nothing underneath (#182); a section scrolled out of the
-guide's bar goes under the pill's round end instead of a straight cut inside it (#183);
-segments in a picker's tray are as far apart as they are from its edge (#184). The in-app
-guide says how to arrange the tabs (manifest version 6). The build scripts add their six
-extra source folders through `directories` rather than the deprecated `srcDirs` (#185). Server: `tzdata` is declared for Windows, where the server did not start at all (#170).
-Tests: three that failed on a Windows checkout pass there now (#178). Project: shared Gradle
-run configurations in `.run/`, and `docs/build.md` says how to open the repository in
-Android Studio. No schema change; `EXPECTED_REVISION` is still `0017`.
+**What #187 moves.** Android: `:core:designsystem` has an `androidTest` source set, the
+first anywhere in the project, whose three tests drag the tab bar's arranging gesture by
+fractions of a slot at a device's own density (#110) — run on demand, never in CI, which has
+no device; the diary's two sign-in forms say «по HTTPS, прямо в дневник» once rather than
+twice (#175); the join screen drops an error once the server address it was an answer from
+has changed (#176); and two syncs of one class's year that overlap make one request rather
+than two (#171). No server change, no schema change; `EXPECTED_REVISION` is still `0017`.
 
-**Once #186 merges, twenty-one issues are meant to close:** #167, #168, #169, #170, #172,
-#173 and #177–#185 by their fixes; **#156** and **#119** by what the walkthrough read (#156's
-backup through `bmgr`, #119's warmup and `/start`; see «What the last session added»); and,
-of the device epic, **#114**, **#115**, **#116** and **#117**, whose emulator answers are in
-their own threads. Filed and left open, each saying why: **#171** (a join fetches the year
-twice), **#174** (two small widget sizes cut the wrong text), **#175** (the sign-in form
-repeats a sentence) and **#176** (a stale join error, which did not reproduce the second
-time). **#113** and **#111** stay open for what only a phone can say, and **#110** and
-**#112** were not started. What a merge closes is decided by the `Closes`
+**Once #187 merges, four issues are meant to close:** #110, #171, #175 and #176. **#174**
+(two small widget sizes cut the wrong text) stays open and was not started. Of the device
+epic **#109**, **#111** and **#113** stay open for what only a phone can say, and **#112**
+(a macrobenchmark module) was not started. What a merge closes is decided by the `Closes`
 lines in the pull request body and in the commit messages, not by this paragraph — read them
 against this list before merging.
+
+**#186 closed all twenty-one issues it named** — #167–#170, #172, #173, #177–#185, #156,
+#119, #114, #115, #116 and #117 — read back from GitHub on 27 September.
 
 **The code expects head `0017`, and production is at `0017` since 26 September 2026 at 12:26 UTC.**
 `EXPECTED_REVISION` in `app/db.py` is `0017`, pinned to the real head by
@@ -104,12 +86,15 @@ beside them. What that unlocks, in the order it is worth:
 
 1. **Seeing the screen.** `adb exec-out screencap -p` makes a PNG and a local agent reads
    PNGs. Every «nobody has looked at this» item in section 5 becomes answerable.
-2. **Instrumented tests.** There is **no `androidTest` source set anywhere in this
-   project** — not in any of the five modules, and no `espresso`, `uiautomator` or
-   `androidx.test` in the version catalog. It is why the reorder gesture was two touches
-   until #181, which made it one with a Robolectric test driving the pointer under a held
-   clock instead, and why its threshold is asserted in arithmetic rather than under a
-   finger.
+2. **Instrumented tests.** Until #187 there was **no `androidTest` source set anywhere in
+   this project**, which is why the reorder gesture was two touches until #181 and why its
+   threshold was asserted only in arithmetic. There is one now, in `:core:designsystem`
+   (#110): `ToolbarOnDeviceTest` drags the arranging gesture by fractions of a slot at the
+   device's own density, with `./gradlew :core:designsystem:connectedDebugAndroidTest`. The
+   next screen that wants one follows its pattern — the clock held, `settle()` sending the
+   snapshot notification first — and its catalog pins (Espresso 3.7.0, runner 1.7.0,
+   because the Compose BOM's own Espresso fails on API 34 and later). `uiautomator` is still
+   absent: nothing here has needed a second app yet.
 3. **Frame timing.** `dumpsys gfxinfo … framestats` costs nothing and works today; Perfetto
    plus `trace_processor` answers «which composable recomposed» in SQL; Macrobenchmark's
    `FrameTimingMetric` gives P50/P90/P99 and `frameOverrunMs`.
@@ -148,7 +133,126 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: the first walk of the app on a device, and the twelve defects it found
+## What the last session added: the first instrumented tests, and three defects the walkthrough left
+
+Open as #187, from `agents/first-android-test`, on milestone 9. Four commits from the night of
+26–27 September and one from the session that picked them up.
+
+- **#110, the first `androidTest`.** `ToolbarOnDeviceTest` in `:core:designsystem` holds a
+  tab past the device's own long-press timeout and drags it 0.7 and 0.4 of a slot in one
+  touch, in the device's own pixels: the first moves it exactly one place and is not taken
+  for a tap, the second puts it back. A third opens the mode, taps the page and checks that
+  `ArrangingDismissLayer` closes it and passes nothing through. The JVM tests drag ten
+  thousand pixels so that Robolectric's densities cannot move the answer; this is the half
+  that asks where half a slot really is. The Compose BOM's `ui-test-junit4` brings Espresso
+  3.5.0, which reaches for `InputManager.getInstance` by reflection — API 34 removed it and
+  every test failed at its first `onIdle` — so Espresso 3.7.0 and runner 1.7.0 are pinned in
+  the catalog, each the `<release>` in Google Maven's metadata on 27 September. Run with
+  `./gradlew :core:designsystem:connectedDebugAndroidTest`; **not in CI, on purpose**, since
+  CI has no device. `CLAUDE.md`, `docs/build.md`, the README and `docs/architecture.md` say so.
+- **#175, the sign-in forms said «по HTTPS, прямо в дневник» twice.** With the diary's host
+  known, the sentence naming it now also says the password goes nowhere else, and the
+  paragraph under it is only what happens to the session (`diary_password_session`, new, with
+  its English twin). Without a host the general notice stands alone, as before. One function,
+  `passwordPrivacyParagraphs`, decides the paragraphs for both forms — the diary's own and
+  the first run's — so they cannot drift apart again. `PasswordPrivacyTest` counts «HTTPS»
+  across what is drawn, in both languages.
+- **#176, the join screen kept an error about an address it no longer used.**
+  `JoinViewModel` keeps each error with the server address it was an answer from and shows
+  it only while that is still the address, which covers a change from the screen's own link
+  and one made in the settings alike. A code of the wrong length is about the code, not a
+  server, and stays. `JoinErrorAddressTest` fails on the old behaviour. The defect did not
+  reproduce the second time on the emulator, so the fix rests on the code path and the test.
+- **#171, a join fetched the whole school year twice.** The join screen's own refresh and the
+  one-off worker the class switch schedules both asked before either had stored an `ETag`.
+  Syncs of one class's year now go through `SingleFlight`, keyed like the tag by class and
+  year: a second caller while the first is on the wire takes the first one's answer. Nothing
+  is remembered after a run, so a later refresh asks again, and a waiter whose owner was
+  cancelled starts its own instead of inheriting the cancellation. The flight is per
+  repository object, and that is enough: `LessonsContainer.timetable` is one lazy per
+  process, and WorkManager runs the worker in the app's process. `ConcurrentSyncTest` holds
+  all three cases. **One hardening was added at review, before the push:** a run that has
+  ended is never joined, because a waiter retrying after a cancelled owner could otherwise
+  find the same finished run under the key, again and again, until the owner took the lock
+  back. None of the three tests reproduces that window — under the test dispatchers the
+  owner always finishes its cleanup first — so it is argued from the code, not shown red.
+
+### The branch was nearly lost
+
+The session that picked this branch up found `refs/heads/agents/first-android-test` as 41
+NUL bytes, last written in the same second as the fourth commit: `git` printed «ignoring
+broken ref», the worktree under `.claude/worktrees/` reported `0000000 (error)`, and the
+branch existed on no remote. A file of zeros where a write should be is what a write that
+never reached the disk leaves behind, but what interrupted it here is not known. The commits
+themselves were intact as dangling objects. The branch's own reflog,
+`.git/logs/refs/heads/agents/first-android-test`, still named the tip on its last line, and
+writing that SHA back into the ref restored the branch and the worktree whole. **If this
+happens again, read the reflog before anything else** — `git fsck --dangling` finds the
+commits too, but not which of them was the tip.
+
+The session's move between machines left a `Teleport auto-stash` on the stack (`stash@{0}`, over `c26eace`), and it
+is **deliberately not applied**: it holds what the IDE generated, not work — a
+`gradle-daemon-jvm.properties` and the foojay resolver plugin from Studio's «update daemon
+JVM», a root `gradle.properties` with a heap setting, a JVM crash log from a Gradle daemon
+that died after 27 minutes on 26 September, and the spell checker's American spellings over
+five of `models.py`'s comments, which are British on purpose. It is the owner's to drop.
+
+### Gates
+
+On `f787357`, this branch's last commit before the close-out: `./gradlew test` **1446**
+(`:core:model` 125, `:core:data` 540, `:core:designsystem` 112, `:widget` 113, `:app` 556),
+eight more than #186's 1438 — `ConcurrentSyncTest` 3, `JoinErrorAddressTest` 2,
+`PasswordPrivacyTest` 3. `assembleDebug` and `assembleRelease` build (JDK 21; the 18
+Kotlin warnings they print are all in files this branch does not touch).
+`./gradlew :core:designsystem:connectedDebugAndroidTest` on the API 37 emulator: **3 of 3**,
+11.5 s. The server was not touched, so its gates were not run.
+
+Gradle on this machine needs `JAVA_HOME` pointed at `jdk-21.0.11.10-hotspot` for a command
+line: the variable says JDK 17, and `android/.gradle/config.properties`, which names 21, is
+read by Studio alone.
+
+### On the emulator
+
+This branch's debug build, installed over the old one with its data cleared, walked the
+first run in English against a local server seeded with `seed_demo`, and joined «9А» with
+`DEMO24`. The server's log for the join: `POST /api/v1/join` 200, then `GET
+/api/v1/bundle?start=2026-09-01&days=273` **200**, then the same **304**, one after the other
+on one connection. So the year was downloaded once — but the second sync began after the
+first had finished and stored its `ETag`, so this join never produced the overlap the fix
+coalesces, and on a device that half is still shown only by the test.
+
+### What was deliberately left alone
+
+- **#174**, the two small widget sizes, was not started.
+- **`createComposeRule` is deprecated** in the Compose version this project builds with, in
+  favour of `androidx.compose.ui.test.junit4.v2.createComposeRule`, which runs effects on a
+  `StandardTestDispatcher` rather than an unconfined one. The device test uses the old one,
+  as every JVM test here does; moving them is one change for all of them, with the clock
+  rules in `CLAUDE.md` read again first, not something to start in one file.
+
+### What nobody has verified in this batch
+
+That two **overlapping** syncs make one request is shown by `ConcurrentSyncTest` against a
+fake server, not on a device (above). The arranging gesture's device tests have run on one
+emulator, at 480 dpi — a phone at another density is the question they exist to answer and
+has not been asked. #176's defect never reproduced on demand. #175's single sentence was not
+looked at on a screen: reaching a password form needs a region's diary to answer. Nothing
+here changes what #186 could not answer: a thumb, a haptic, a real GPU, a real launcher.
+
+## What the session before it added: the first walk of the app on a device, and the twelve defects it found
+
+Merged as `c26eace`. **What #186 moved.** Android: the widget picker's preview draws again
+(#167); the widget follows a class switch made inside a live Glance session (#168); a look at
+another school year no longer takes the current year's terms away (#169); a server that
+cannot be reached is worded by the app, not by OkHttp (#177); «Схема unknown» is gone from
+the about card (#172); the one-line widget sizes say «Ничего не задано» rather than «0
+предметов» (#173); a toolbar tab's highlight is a circle (#179); a dropped tab is drawn where
+the finger left it (#180); the long press that opens the arranging mode also picks the tab up
+(#181); a touch anywhere but the bar closes the mode and reaches nothing underneath (#182); a
+scrolled section goes under the pill's round end (#183); segments in a picker's tray are as
+far apart as they are from its edge (#184); the build scripts use `directories` rather than
+the deprecated `srcDirs` (#185). Server: `tzdata` for Windows (#170). Tests: three that failed
+on a Windows checkout pass there (#178). Project: shared Gradle run configurations in `.run/`.
 
 **The first batch made on a machine with an emulator (#109).** On 26 September 2026 the owner
 handed the session Android Studio, an emulator and the live Telegram bot, and asked for every
@@ -339,7 +443,7 @@ the release key. The Python SDK and the plugin change in the IDE wait for a rest
 owner's toolbar requests are held by JVM tests and, on the device, only as far as the section
 above says: #180, #182 and #184 were not seen there.
 
-## What the session before it added: «Сетевой город» on the server, and a way in through your own school's diary
+## What the batch before added: «Сетевой город» on the server, and a way in through your own school's diary
 
 Open as PR #140, from `claude/school-diary-api-routes-cc4o1n`, on milestone 10
 (`v0.9.0 — NetSchool e-diary, onboarding via the school's diary`). Twenty-two commits on
@@ -2551,7 +2655,7 @@ titles of their own time, which a search no longer finds; the third column maps 
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186; issues #109–#117, #130–#132, #167–#185 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187; issues #109–#117, #130–#132, #167–#185 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PR #140 (merged); issues #135–#139, #141, #145–#165 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
@@ -2990,7 +3094,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 2024 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 100 modules
-cd android && ./gradlew test                             # 1438 tests across the five modules
+cd android && ./gradlew test                             # 1446 tests across the five modules
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
@@ -3388,8 +3492,8 @@ device on it. #140's additions below belong to #121 where they need a live diary
 merge. The prose here is kept because it says *why* each one is unverifiable, which an issue
 title cannot.
 
-**#186 looked at a good part of this on an emulator** (26–27 September 2026; «What the last
-session added» has the detail). The bullets it answered say so in place, and what an emulator
+**#186 looked at a good part of this on an emulator** (26–27 September 2026; «What the
+session before it added» has the detail). The bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
 - **Not one route in `docs/diaries/` has been seen answering.** #134's 1916 routes
@@ -3558,9 +3662,11 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   it.** The server fix needs no new APK, so the first real check is that class's next sync
   after the deploy, and `/api/v1/warmup` answering `"schema":"0014"` or later is the
   cheapest sign that the migration and the code actually met.
-- **There is still no `androidTest` in the project**, and no emulator is available here: the
-  container has no `/dev/kvm` and no virtualisation flags, so the system could only be
-  started by full software emulation, that is, not at all.
+- **There is one `androidTest` in the project, and it is about one gesture.** Until #187
+  there was none, because until #186 no session had an emulator: the cloud containers have no
+  `/dev/kvm`. `ToolbarOnDeviceTest` (#110) drags the tab bar's arranging gesture at a
+  device's own density, on demand and never in CI; every other screen is still asked on the
+  JVM only.
   **But "nobody has pressed it" is untrue for a good deal of the app by now.** Robolectric
   runs Compose's test harness on the JVM (`:core:designsystem` already lived this way), and
   `:app` has twelve files that compose a real screen and press it: the class group, the
@@ -4319,15 +4425,20 @@ chat, not in the repository. And before that key replaces the one CI signs with:
 signed by a different key does not install over the one already on a phone — #117 showed the
 refusal on the emulator.
 
-**Free some space on C:.** It had about 1.3 GB left on 27 September; the emulator refused to
+**Keep some space on C:.** It had about 1.3 GB left early on 27 September, and 14 GB when #187
+began, the same night; its builds and one emulator boot left 12 GB. The emulator refused to
 start once below 2 GB, and the AVD's Quick Boot image alone is 8.5 GB. The worktrees under
 `.claude/worktrees/` each carry their own Gradle build directories.
+
+**Drop the `Teleport auto-stash` when convenient** (`stash@{0}`, over `c26eace`). It holds
+what the IDE generated rather than work — «What the last session added» lists it — and
+nothing in a session here drops a stash it did not make.
 
 **Restart Android Studio once, when it is free.** Three changes wait for it, because the IDE
 rewrites those files on exit: `server/.venv` as the Python SDK, the root module as a Python
 one (which quiets «Unsupported Modules Detected»), and the third-party «Python Portable»
 plugin disabled, since it fails to load on every start. Everything else in the IDE's set-up
-is already in place (see «What the last session added»).
+is already in place (see «What the session before it added»).
 
 **The tenth milestone exists, and #140 is on it.** The owner created
 `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` on 25 September and renamed
