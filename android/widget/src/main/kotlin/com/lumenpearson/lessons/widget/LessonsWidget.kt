@@ -4,6 +4,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.glance.GlanceId
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
@@ -34,11 +37,14 @@ import kotlinx.coroutines.flow.first
  *
  * Two decisions define this class:
  *
- * **All data is resolved before [provideContent].** The composable below is a
- * pure function of the snapshot it is handed, which means it can be previewed,
- * reasoned about, and unit-tested through [com.lumenpearson.lessons.widget.ui]
- * helpers. Fetching inside the composition — the pattern the reference app uses
- * — recomposes against a moving target and makes the tree impossible to test.
+ * **All data is resolved into one snapshot before it is drawn.** The composable
+ * below is a pure function of the snapshot it is handed, which means it can be
+ * previewed, reasoned about, and unit-tested through
+ * [com.lumenpearson.lessons.widget.ui] helpers. Fetching inside the composition
+ * — the pattern the reference app uses — recomposes against a moving target and
+ * makes the tree impossible to test. The snapshot is read once when a session
+ * starts and again for each redraw asked for while it lives ([WidgetRedraws]);
+ * never piece by piece.
  *
  * **The clock is read exactly once per render.** Reading `LocalDateTime.now()`
  * in several places within one draw can straddle a bell and produce a widget
@@ -64,19 +70,31 @@ class LessonsWidget : GlanceAppWidget() {
     override val sizeMode: SizeMode = SizeMode.Responsive(WidgetSizeClass.breakpoints)
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        // A failed read must not become "Problem loading widget" on somebody's
-        // home screen. Anything thrown out of provideGlance — an uninitialised
-        // graph, a corrupt Room file, a DataStore IO error — makes Glance draw
-        // its error layout, permanently, where the honest empty state would
-        // have told the user what to do and offered them a tap to do it.
-        val snapshot = runCatching { loadSnapshot(context) }.getOrElse { unreadableSnapshot() }
-
-        // Once per render, not once per string: the stored choice came back with
-        // the snapshot above, and localized() hands the context straight back on
-        // API 33+ and on "системный", where there is nothing to override.
-        val localized = AppLocale.localized(context, snapshot.language)
+        // Taken before the read, so a redraw asked for while it runs is still
+        // seen by the composition below; see [rereadsAfter].
+        val readAt = WidgetRedraws.current.value
+        val first = readSafely(context)
 
         provideContent {
+            // Still one snapshot per render — the body below is a pure function
+            // of it — but no longer one per *session*. Glance keeps a session
+            // alive for most of a minute and answers `updateAll` inside it with a
+            // recomposition alone, so the snapshot read above used to be drawn
+            // again for every redraw in that minute: switching classes twice in
+            // quick succession left the widget on the class the phone had just
+            // left (#168). Each redraw bumps [WidgetRedraws], and that re-reads.
+            val snapshot by produceState(first) {
+                rereadsAfter(WidgetRedraws.current, readAt) { readSafely(context) }
+                    .collect { value = it }
+            }
+
+            // Once per snapshot, not once per string: the stored choice came back
+            // with the snapshot, and localized() hands the context straight back
+            // on API 33+ and on "системный", where there is nothing to override.
+            val localized = remember(snapshot.language) {
+                AppLocale.localized(context, snapshot.language)
+            }
+
             CompositionLocalProvider(LocalContext provides localized) {
                 GlanceTheme {
                     LessonsWidgetBody(
@@ -101,6 +119,17 @@ class LessonsWidget : GlanceAppWidget() {
             }
         }
     }
+
+    /**
+     * A failed read must not become "Problem loading widget" on somebody's home
+     * screen. Anything thrown out of provideGlance — an uninitialised graph, a
+     * corrupt Room file, a DataStore IO error — makes Glance draw its error
+     * layout, permanently, where the honest empty state would have told the user
+     * what to do and offered them a tap to do it. A re-read inside a live
+     * session is held to the same rule: a throw there would end the session.
+     */
+    private suspend fun readSafely(context: Context): Snapshot =
+        runCatching { loadSnapshot(context) }.getOrElse { unreadableSnapshot() }
 
     /**
      * What to draw when the read itself failed.

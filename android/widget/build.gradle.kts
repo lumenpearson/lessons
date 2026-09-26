@@ -69,4 +69,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)
+    // The same catalog entry :core:data and :app test with; WidgetRedrawsTest
+    // drives the re-read on a virtual clock.
+    testImplementation(libs.kotlinx.coroutines.test)
 }

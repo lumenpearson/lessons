@@ -169,13 +169,33 @@ better than a receiver that crashes and stops the chain for good.
 Alarms do not survive a reboot, so `WidgetTickReceiver` listens for `BOOT_COMPLETED`,
 `MY_PACKAGE_REPLACED`, `TIME_SET` and `TIMEZONE_CHANGED`.
 
+**A redraw inside a live session reads again.** `LessonsWidget` reads one snapshot and
+draws it — the body is a pure function of that snapshot. Glance, though, keeps a session
+alive for most of a minute after it starts, and answers `updateAll` inside that minute by
+recomposing alone, without running `provideGlance` again. So the snapshot read when the
+session started used to be drawn for every redraw in that minute: two class switches ten
+seconds apart left the widget on the class the phone had just left, and nothing redrew it
+after, because the sync of the class on screen answered `304` (#168, seen on an emulator).
+Every redraw now bumps `WidgetRedraws` before it asks, and a composition that is still alive
+re-reads when the counter moves; a redraw that starts a session reads the counter with its
+first snapshot and does not read twice.
+
+## The picker
+
+`previewLayout` is what the launcher's widget picker draws, from XML, without running a line
+of our code — and RemoteViews inflates only the classes marked `@RemoteView`. A plain
+`<View>` drawing the preview's progress bar made the whole preview «Couldn't add widget.» on
+every launcher from API 31 (#167); it is a `FrameLayout` now, and `RemoteViewsLayoutTest`
+reads every layout in the module for a class the launcher would refuse.
+
 ## Offline
 
 The widget reads only Room and DataStore — there is no network on the drawing path. That is
 exactly why the countdown keeps running in a school basement.
 
 After a successful sync, `SyncWorker` sends the internal broadcast
-`com.lumenpearson.lessons.action.DATA_SYNCED`, which `LessonsWidgetReceiver` subscribes to.
+`com.lumenpearson.lessons.action.DATA_SYNCED`, which `WidgetTickReceiver` receives — not the
+exported `LessonsWidgetReceiver`, which would take the action from any app on the device.
 That is why `:core:data` does not depend on `:widget` — the dependency would otherwise be
 circular.
 

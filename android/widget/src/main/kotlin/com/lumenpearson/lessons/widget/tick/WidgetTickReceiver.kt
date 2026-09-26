@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.glance.appwidget.updateAll
 import com.lumenpearson.lessons.widget.LessonsWidget
+import com.lumenpearson.lessons.widget.WidgetRedraws
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,7 +41,11 @@ class WidgetTickReceiver : BroadcastReceiver() {
         scope.launch {
             try {
                 // Redraw first: the new state is what decides when the next
-                // wake-up should be.
+                // wake-up should be. Bumped before asking, because a session
+                // that is still alive answers `updateAll` by recomposing, and it
+                // is the bump that makes it read again rather than redraw what it
+                // read when it started (#168).
+                WidgetRedraws.ask()
                 LessonsWidget().updateAll(appContext)
             } catch (error: Exception) {
                 android.util.Log.w(TAG, "Tick handling failed", error)
