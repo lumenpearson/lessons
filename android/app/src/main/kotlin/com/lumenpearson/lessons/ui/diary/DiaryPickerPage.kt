@@ -446,6 +446,9 @@ class DiaryPickerViewModel(
     )
 
     companion object {
+        // The one read of `Graph` in this file, and an entry point rather than
+        // a screen reaching past its parameters: the page takes this view model
+        // as an argument, and only its default is built here.
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val container = Graph.container

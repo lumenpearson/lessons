@@ -60,8 +60,12 @@ class DebugReachTest {
      */
     @Test
     fun `the way in is on the page that is not gated on a role`() {
-        val screen = sourceOf("ui/settings/SettingsScreen.kt")
-        val about = screen.substringAfter("private fun LazyListScope.aboutRows(")
+        val screen = sourceOf("ui/settings/AboutRows.kt")
+        val declaration = "internal fun LazyListScope.aboutRows("
+        // `substringAfter` hands back the whole file when the declaration is
+        // not found, and the whole file could pass both checks below.
+        assertTrue("aboutRows is not declared where this test reads it", declaration in screen)
+        val about = screen.substringAfter(declaration)
             .substringBefore("\nprivate fun ")
 
         assertTrue(
