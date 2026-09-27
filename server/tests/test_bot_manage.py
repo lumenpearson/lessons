@@ -2493,7 +2493,7 @@ class _FakeNetSchool:
 def _patch_netschool(monkeypatch, *, login_error=None, schools=None) -> None:
     _FakeNetSchool.login_error = login_error
     _FakeNetSchool.schools = schools or []
-    monkeypatch.setattr("app.bot.handlers.manage.NetSchoolClient", _FakeNetSchool)
+    monkeypatch.setattr("app.bot.handlers.manage.diary_binding.NetSchoolClient", _FakeNetSchool)
 
 
 async def test_choosing_netschool_shows_the_region_list(session, school_class):
@@ -4271,12 +4271,22 @@ def test_the_role_check_above_reaches_every_handler_that_has_one():
     """
     from app.bot.handlers import manage as manage_module
 
-    source = Path(manage_module.__file__).read_text(encoding="utf-8")
-    minimums = _minimum_role_of(source)
+    # A package now, one module per screen, each with a router of its own
+    # under `manage_router`: every module's source, and every router's
+    # handlers, so a screen split off tomorrow is read the day it is split.
+    minimums: dict[str, Role | None] = {}
+    for module in sorted(Path(manage_module.__file__).parent.glob("*.py")):
+        minimums.update(_minimum_role_of(module.read_text(encoding="utf-8")))
+
+    def routers(router):
+        yield router
+        for sub in router.sub_routers:
+            yield from routers(sub)
 
     registered = {
         handler.callback.__name__
-        for observer in (manage_router.callback_query, manage_router.message)
+        for router in routers(manage_router)
+        for observer in (router.callback_query, router.message)
         for handler in observer.handlers
     }
     assert len(registered) > 50, "the router looks empty; this test would prove nothing"
