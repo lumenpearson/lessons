@@ -29,8 +29,15 @@ Narrower while iterating: `python -m pytest -q tests/test_schedule.py -k parity`
 2. `./gradlew assembleDebug`
 3. `./gradlew assembleRelease` — **not optional.** CI builds both on every push, because R8
    and resource shrinking are where "worked in debug" stops being true.
+4. `./gradlew detekt` — static analysis of the Kotlin, all five modules, about half a
+   minute. Neither `test` nor the assembles run it, so it is a gate of its own. It fails on
+   a finding the module's `detekt-baseline.xml` does not hold: fix it, or `@Suppress` it at
+   the declaration with the reason. Do not regenerate a baseline to make a new finding go
+   away — `./gradlew detektBaseline` is for after a merge that moves code between files
+   (`docs/build.md`, "detekt").
 
-Narrower: `./gradlew :core:model:test --tests '*ScheduleEngineTest*'`.
+Narrower: `./gradlew :core:model:test --tests '*ScheduleEngineTest*'`,
+`./gradlew :app:detekt`.
 
 In a sandbox with no network every Gradle invocation needs `--offline`.
 
@@ -39,8 +46,8 @@ gate.**
 
 ## What CI is
 
-`.github/workflows/ci.yml`: ruff, pytest `-n auto`, `./gradlew test`, both assembles.
-Nothing else.
+`.github/workflows/ci.yml`: ruff, pytest `-n auto`, `./gradlew test`, both assembles, and
+`./gradlew detekt` as a step of its own after them. Nothing else.
 
 ## Two rules about evidence
 

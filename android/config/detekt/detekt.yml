@@ -1,0 +1,74 @@
+# detekt, over every Kotlin source set of the five modules (#210).
+#
+# Every module builds upon detekt's own default configuration
+# (`buildUponDefaultConfig = true` in its build file), so this file holds only
+# what differs from it, and what differs is short on purpose: the entries below
+# are the ones that argue with how Compose is written rather than with how
+# this code is written. Everything else is detekt's default, and what the
+# defaults find in the code as it stands is recorded, not fixed, in each
+# module's `detekt-baseline.xml` — so today's findings pass and a new one does
+# not. `./gradlew detektBaseline` rewrites all five; docs/build.md says when.
+#
+# The build runs detekt without type resolution (docs/build.md says why), and
+# in that mode detekt skips every rule that needs the compiler's view of the
+# types: 93 of its 213, among them LongParameterList, UnusedImport and
+# UnusedPrivateFunction. Two entries below are for such rules and change
+# nothing today; they are here so that switching type resolution on does not
+# flood every composable with findings that argue with Compose.
+#
+# Each entry is scoped to an annotation rather than switched off outright, so
+# the rule still holds for every function that is not a composable or a
+# preview. Without type resolution `ignoreAnnotated` matches the simple name,
+# and that is enough: nothing in the tree declares a `Composable` or a
+# `Preview` of its own.
+#
+# The Compose guideline quoted below is androidx's
+# compose/docs/compose-api-guidelines.md.
+
+complexity:
+  # A composable's body is its layout tree, and a screen's tree is longer than
+  # sixty lines without being two things. Where one should be split, that is a
+  # design decision the diff shows, not a line count.
+  LongMethod:
+    ignoreAnnotated: ['Composable']
+  # Compose asks for the state, the callbacks and the `modifier` as parameters
+  # of their own, each defaulted where it can be, rather than folded into a
+  # holder object — which is exactly what this rule would push a composable
+  # towards. Needs type resolution; inert today (see above).
+  LongParameterList:
+    ignoreAnnotated: ['Composable']
+  # Compose splits a screen into many small composables, most of them private
+  # to the screen's file, and that is the advice rather than a smell. Counting
+  # them would push the other way from LongMethod above. Everything that is
+  # not a composable — a DAO, a repository, a Retrofit interface — still
+  # counts.
+  TooManyFunctions:
+    ignoreAnnotatedFunctions: ['Composable', 'Preview']
+
+naming:
+  # A composable that returns Unit is named like a type — `LessonRow`, not
+  # `lessonRow` — which the guideline makes a MUST, and which the compiler
+  # plugin and every Android tool assume.
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
+  # The guideline names a deeply immutable constant in PascalCase —
+  # `ModeFadeMillis` — in place of CAPITALS_AND_UNDERSCORES, and 141 of this
+  # tree's 171 top-level `const val`s are written that way. Both spellings
+  # pass, because the other 30 are the ordinary Kotlin one and the guideline
+  # allows local consistency with it. detekt's own default already lets a
+  # PascalCase constant through inside an object; only the top-level pattern
+  # did not.
+  TopLevelPropertyNaming:
+    constantPattern: '[A-Z][_A-Za-z0-9]*'
+
+style:
+  # A preview is sample data — `LocalTime.of(9, 40)`, `Duration.ofMinutes(30)`,
+  # the fifth accent tone — and naming each of those numbers would add
+  # constants nothing but the preview reads.
+  MagicNumber:
+    ignoreAnnotated: ['Preview']
+  # A preview is private and called by nothing in the source — Android
+  # Studio's tooling finds it by the annotation — so to this rule every one of
+  # them is dead code. Needs type resolution; inert today (see above).
+  UnusedPrivateFunction:
+    ignoreAnnotated: ['Preview']

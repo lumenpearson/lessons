@@ -1,0 +1,19 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:AlertPlanner.kt:AlertPlanner$preferences.morningSummary &amp;&amp; day.hasLessons &amp;&amp; !skipped &amp;&amp; date.dayOfWeek.value in preferences.morningWeekdays</ID>
+    <ID>CyclomaticComplexMethod:AlertPlanner.kt:AlertPlanner$private fun candidates: List&lt;SchoolAlert&gt;</ID>
+    <ID>LongMethod:ScheduleEngine.kt:ScheduleEngine$fun stateAt: DayState</ID>
+    <ID>MagicNumber:AlertPlanner.kt:AlertPlanner$60L</ID>
+    <ID>MagicNumber:SchoolYear.kt:SchoolYear$31</ID>
+    <ID>ReturnCount:AlertPlanner.kt:AlertPreferences$fun isQuiet: Boolean</ID>
+    <ID>ReturnCount:AppVersion.kt:AppVersion.Companion$fun isNewer: Boolean</ID>
+    <ID>ReturnCount:AppVersion.kt:AppVersion.Companion$fun parse: AppVersion?</ID>
+    <ID>ReturnCount:AppVersion.kt:AppVersion.Companion$private fun compareIdentifiers: Int</ID>
+    <ID>ReturnCount:DayFilter.kt:fun SchoolDay?.matches: Boolean</ID>
+    <ID>ReturnCount:DayRibbon.kt:fun progressOf: RibbonProgress</ID>
+    <ID>ReturnCount:ScheduleEngine.kt:ScheduleEngine$fun stateAt: DayState</ID>
+    <ID>ReturnCount:StabilityPromiseTest.kt:StabilityPromiseTest$private fun reasonTypeIsNotPromised: String?</ID>
+  </CurrentIssues>
+</SmellBaseline>

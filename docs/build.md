@@ -112,8 +112,8 @@ call a deployed server.
 Four things about that table are worth more than the table.
 
 **`ci.yml` reads no secret and no variable at all.** The gate — ruff, pytest, `./gradlew
-test` and both assembles — needs nothing configured, which is why a pull request from a fork
-runs the whole of it. The one consequence worth knowing: its APKs are built with the legal
+test`, both assembles and detekt — needs nothing configured, which is why a pull request
+from a fork runs the whole of it. The one consequence worth knowing: its APKs are built with the legal
 link's default, so they link *this* repository's terms, whoever's CI built them.
 
 **`CRON_SECRET` is one value living in two places, and nothing checks that they match.**
@@ -625,6 +625,60 @@ The same four values are read from the environment variables `LESSONS_KEYSTORE_F
 `LESSONS_KEYSTORE_PASSWORD`, `LESSONS_KEY_ALIAS` and `LESSONS_KEY_PASSWORD` — which is what
 CI uses.
 
+## detekt
+
+The Kotlin is read by [detekt](https://detekt.dev) (#210), and CI fails on anything new it
+finds:
+
+```bash
+cd android
+./gradlew detekt           # every module; fails on a finding its baseline does not hold
+./gradlew detektBaseline   # rewrites all five baselines from the code as it stands
+```
+
+**What it reads.** Each module's `src/main` and `src/test`, and `:core:designsystem`'s
+`src/androidTest` as well — the plain task reads the first two and nothing else. Every rule
+is detekt's default except for the handful in `android/config/detekt/detekt.yml`, which
+argue with how Compose is written rather than with how this code is: `FunctionNaming` and
+`LongMethod` do not apply to a `@Composable`, `TooManyFunctions` does not count one,
+`TopLevelPropertyNaming` lets a constant be `ModeFadeMillis` as well as `MODE_FADE_MILLIS`,
+and `MagicNumber` does not look inside a `@Preview`. The file gives the reason for each.
+
+**What it forgives.** Each module has a `detekt-baseline.xml` holding the findings the code
+already had when detekt was switched on — 576 of them under 488 entries, most of them
+`MagicNumber` (292), `ReturnCount` (82) and `MaxLineLength` (65). They pass; a new one does
+not. The baseline is a record of the past rather than a place to put the next finding: fix
+that one, or, if it is right as written, suppress it where it stands —
+`@Suppress("MagicNumber")` on the declaration, with the comment saying why.
+
+**When to regenerate, and how.** `./gradlew detektBaseline` is the whole of it: one command,
+all five files, rewritten from what the code finds now, which also drops the entries for
+findings since fixed. A baseline entry names the rule, the **file** and the declaration, not
+the line, so code that moves within a file stays forgiven and code that moves to *another*
+file comes back as new findings. That is what a branch that splits a file does, and it is
+the one time to run it — after the merge, with nothing else in the diff, so that the review
+of the baseline shows only moved entries.
+
+**Without type resolution, and what that costs.** The build runs the plain `detekt` task,
+which parses each file on its own. The plugin also registers type-resolved tasks
+(`detektMain` and `detektTest`, and on Android one per variant beneath those) that give
+the analysis the compiler's view of the types, but each takes its classpath from its
+variant's compilation, so asking for one compiles every module it depends on, debug and
+release both: the half-minute check becomes a build. The price of not paying it is real and is written down
+rather than hidden — detekt skips every rule that needs types, 93 of its 213, among them
+`LongParameterList`, `UnusedImport`, `UnusedPrivateFunction`, `UnusedPrivateProperty`,
+`UnusedVariable`, `IgnoredReturnValue` and `UnsafeCast`. Switching them on is a change to
+the tasks CI calls and a baseline of its own for what they find, and nobody has measured
+what it would cost on the runner.
+
+**Where it runs.** Not in `test`, `assembleDebug` or `assembleRelease`: the plugin hangs
+`detekt` on `check` and on nothing else, so `./gradlew check` and `./gradlew build` run it
+too. In CI it is a step of its own after the build, not a fourth task in the one invocation
+— that invocation has no `--continue`, detekt's tasks depend on nothing and would run
+first, and a single finding would stop Gradle from scheduling the tests. Measured with
+detekt's own command line and the task's arguments, the five modules take 3 to 8 seconds
+each, about 25 in all, a JVM start included in each.
+
 ## The bundled typeface is two files
 
 The app is set in **Google Sans Flex for Latin and digits and Onest for Cyrillic**, chained
@@ -694,7 +748,7 @@ Gradle project at `$PROJECT_DIR$/android`. Opening `android/` on its own builds 
 as well and shows none of them.
 
 The configurations in `.run/` are Gradle ones only, because they are the only kind that
-assume nothing about the machine: the two CI gates (`test`; `assembleDebug assembleRelease`),
+assume nothing about the machine: two of the CI gates (`test`; `assembleDebug assembleRelease`),
 `:core:model:test`, `:app:installDebug`, and `lint`, which is not a gate. Studio makes its own
 «app» configuration on the first sync. The server's commands stay in the terminal, as the
 README gives them: a Python configuration needs a Python plugin and an interpreter somebody
