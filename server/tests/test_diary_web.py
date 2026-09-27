@@ -596,3 +596,83 @@ async def test_a_region_that_takes_only_gosuslugi_does_not_say_try_again(
     row = await session.scalar(select(DiaryLinkCode))
     await session.refresh(row)
     assert row.used_at is None, "nothing looked at the password"
+
+
+# ---- what a spent ticket tells the reader (#193) ----------------------------
+
+
+def _raises(error: Exception):
+    async def sign_in(*args, **kwargs):
+        raise error
+
+    return sign_in
+
+
+@pytest.mark.parametrize(
+    ("error", "status"),
+    [
+        ("BadCredentials", 401),
+        ("PasswordExpired", 401),
+        ("NoStudents", 403),
+        ("UnexpectedResponse", 502),
+        ("RuntimeError", 500),
+    ],
+)
+async def test_a_page_after_a_spent_ticket_says_it_is_spent_and_where_the_next_one_is(
+    web, ticket, session, monkeypatch, error, status
+):
+    """#193. Every failure that keeps the ticket spent used to end on words a
+    reader could take for «press again» — the crash page said «Попробуйте ещё
+    раз» outright — and the same link then answered 410. The page now says
+    the link is used up, and names the bot's buttons that make a new one."""
+    from app.providers.diary import errors
+
+    raised = RuntimeError("boom") if error == "RuntimeError" else getattr(errors, error)()
+    monkeypatch.setattr(from_app.diary_service, "sign_in", _raises(raised))
+
+    page = await web.post(
+        f"/diary/signin/{ticket}", data={"login": "parent", "password": "correct"}
+    )
+
+    assert page.status_code == status
+    assert "попробуйте ещё раз" not in page.text.casefold()
+    assert "уже израсходована" in page.text
+    assert "«📒 Мой дневник» → «🔐 Войти в дневник»" in page.text
+    # And it is true: the link the page is talking about is gone.
+    again = await web.post(
+        f"/diary/signin/{ticket}", data={"login": "parent", "password": "correct"}
+    )
+    assert again.status_code == 410
+
+
+async def test_a_page_after_a_kept_ticket_does_not_call_it_spent(
+    web, upstream, ticket, LOGIN_PATH
+):
+    """The other half: a diary that did not answer hands the ticket back, and
+    telling that reader to go to the bot would cost a trip for nothing."""
+    upstream.routes[LOGIN_PATH] = _refuses
+
+    page = await web.post(
+        f"/diary/signin/{ticket}", data={"login": "parent", "password": "correct"}
+    )
+
+    assert page.status_code == 503
+    assert "израсходована" not in page.text
+    assert "ещё действует" in page.text
+
+
+def test_the_buttons_the_page_names_are_the_bots_own():
+    """The page quotes the path to a new link, and cannot import it — that
+    would put aiogram on its cold start. So the words are held here: renaming
+    either button without the page would send people looking for one that
+    is not there."""
+    from app.bot.diary_keyboard import signed_out_keyboard
+    from app.bot.keyboards import main_menu
+    from app.models import Role
+
+    def labels(markup) -> set[str]:
+        return {button.text for row in markup.inline_keyboard for button in row}
+
+    assert "📒 Мой дневник" in labels(main_menu(Role.VIEWER, diary_provider="petersburg"))
+    assert "🔐 Войти в дневник" in labels(signed_out_keyboard(can_sign_in=True))
+    assert "«📒 Мой дневник» → «🔐 Войти в дневник»" in from_app._ASK_AGAIN

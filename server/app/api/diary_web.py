@@ -132,8 +132,20 @@ def _page(title: str, body: str, status: int = 200) -> HTMLResponse:
     )
 
 
-#: What to do next when the ticket is gone: there is no way back but the bot.
-_ASK_AGAIN = "Вернитесь в бота и запросите ссылку заново."
+#: Where a new link comes from: there is no way back but the bot. The buttons
+#: are named because «запросите ссылку заново» left the reader to find where,
+#: and the nearest thing to hand — the browser's back button, or the card in
+#: the chat with the old link on it — opens a link that answers 410.
+#: Copied from `bot/keyboards.main_menu` and `bot/diary_keyboard`, not imported:
+#: that would put aiogram on this page's cold start. A test holds the two to
+#: the same words.
+_ASK_AGAIN = "Новую ссылку даст бот: «📒 Мой дневник» → «🔐 Войти в дневник»."
+
+#: What to say when *this attempt* spent the ticket. Every such page used to
+#: end on a sentence a reader could take for «try again» — the crash page said
+#: exactly «Попробуйте ещё раз» — and the same link then answered 410 (#193).
+#: So it says first that the link is used up, and only then where to get one.
+_SPENT = f"Эта ссылка уже израсходована — войти по ней ещё раз не получится. {_ASK_AGAIN}"
 
 #: What to do next when the ticket survived, because the failure was the
 #: diary's. Said out loud, because a page that only reports a problem reads as
@@ -364,18 +376,19 @@ async def sign_in_submit(
         verdict = _why(error, binding)
         if verdict.keep_ticket:
             await _unspend(session, ticket_id)
-        return _closed(
-            verdict.message,
-            status=verdict.status,
-            note=verdict.note or (_TRY_AGAIN if verdict.keep_ticket else _ASK_AGAIN),
-        )
+            note = verdict.note or _TRY_AGAIN
+        else:
+            # Whatever else the verdict advises, a spent ticket always ends on
+            # _SPENT: advice without it reads as «fix that and press again».
+            note = f"{verdict.note} {_SPENT}" if verdict.note else _SPENT
+        return _closed(verdict.message, status=verdict.status, note=note)
     except Exception:  # noqa: BLE001 - never let an upstream shape reach the page
         log.exception("diary sign-in failed")
         # The ticket stays spent. This catches everything, including whatever
         # we might raise *after* the upstream has already judged the password,
         # so it cannot be told apart from an attempt — and an attempt is what
         # the ticket pays for.
-        return _closed("Что-то пошло не так. Попробуйте ещё раз.", status=500)
+        return _closed("Что-то пошло не так.", status=500, note=_SPENT)
 
     opened.class_id = ticket.class_id
     await session.commit()
@@ -397,9 +410,10 @@ class _Verdict(NamedTuple):
     #: True when the failure was the diary's rather than the person's, so the
     #: ticket goes back and the same link still opens the form.
     keep_ticket: bool
-    #: What to do next, when neither «попробуйте ещё раз» nor «запросите
-    #: ссылку заново» is true. Chosen by `keep_ticket` alone, the Госуслуги
-    #: refusal told the family to retry what it had just said cannot work.
+    #: What to do next, beyond what the ticket decides. For a kept ticket it
+    #: replaces «попробуйте ещё раз»: chosen by `keep_ticket` alone, the
+    #: Госуслуги refusal told the family to retry what it had just said cannot
+    #: work. For a spent one it goes *before* `_SPENT`, never instead of it.
     note: str | None = None
 
 
@@ -458,8 +472,7 @@ def _why(error: DiaryError, binding: Binding) -> _Verdict:
             error.message,
             403,
             keep_ticket=False,
-            note="Войдите под учётной записью родителя или ученика — "
-            "попросите у бота новую ссылку.",
+            note="Войдите под учётной записью родителя или ученика.",
         )
     if isinstance(error, BadCredentials):
         # PasswordExpired and any other BadCredentials with its own words keep
@@ -489,7 +502,8 @@ def _why(error: DiaryError, binding: Binding) -> _Verdict:
     return _Verdict(
         "Дневник ответил непонятно — обычно это технические работы или проверка "
         "«я не робот». Пароль, скорее всего, ни при чём: откройте "
-        f"{_site_of(binding)} в браузере, а потом попросите у бота новую ссылку.",
+        f"{_site_of(binding)} в браузере — если дневник открывается, войдите по "
+        "новой ссылке.",
         502,
         keep_ticket=False,
     )

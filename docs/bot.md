@@ -540,6 +540,9 @@ server instead of saying «попробуйте ещё раз» under «логи
 account the diary accepted but that lists no pupil is a `403` that spends it — the password
 was judged — and says «В этой учётной записи нет ученика», with a new link for a parent's or
 a pupil's account, instead of «ответил непонятно» and a link that fails the same way.
+Whatever else it says, a page after a spent ticket ends on «Эта ссылка уже израсходована…»
+and the way to the next one, «📒 Мой дневник» → «🔐 Войти в дневник»; the crash page used to
+say «Попробуйте ещё раз» over a link that then answered `410` (#193).
 
 The session is stored encrypted (`DIARY_SECRET`, `app/crypto.py`). Without that
 key the whole feature refuses at the door rather than falling back to
