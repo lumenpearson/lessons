@@ -87,7 +87,7 @@ fun zoneOptions(current: String?): List<ManagedTimeZone> {
  * Why a form cannot be sent yet.
  *
  * An enum rather than a sentence so that the rule and its wording stay apart:
- * the rule is a mirror of `server/app/schemas.py` and belongs next to the
+ * the rule is a mirror of `server/app/schemas/` and belongs next to the
  * limits it copies, the wording belongs in `strings_admin.xml` in two
  * languages.
  */
@@ -109,7 +109,7 @@ enum class FormProblem {
     NAME_DOES_NOT_MATCH,
 }
 
-/** `Field(max_length=…)` in `server/app/schemas.py`, in one place. */
+/** `Field(max_length=…)` in `server/app/schemas/`, in one place. */
 private object Limits {
     const val CLASS_NAME = 64
     const val SCHOOL = 200
@@ -149,7 +149,7 @@ private fun isColourReadable(raw: String?): Boolean {
     return ColourDigits.matches(text.removePrefix("#"))
 }
 
-/** `_COLOUR_RE` in `server/app/schemas.py`, without its anchors. */
+/** `_COLOUR_RE` in `server/app/schemas/subjects.py`, without its anchors. */
 private val ColourDigits = Regex("[0-9a-fA-F]{6}")
 
 /** The class card's four boxes, as the server would judge them. */

@@ -6,7 +6,7 @@ import kotlinx.serialization.json.JsonElement
 
 /**
  * The wire shapes of `/api/v1/manage`, mirroring every management model in
- * `server/app/schemas.py`.
+ * `server/app/schemas/`.
  *
  * Same rules as [BundleDto] and [DiaryLessonDto]: an explicit `@SerialName` on
  * every field, a default wherever the server may leave one out, and dates and

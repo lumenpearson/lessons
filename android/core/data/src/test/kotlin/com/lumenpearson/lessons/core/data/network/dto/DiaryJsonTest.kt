@@ -16,7 +16,7 @@ import org.junit.Test
  * production [NetworkModule.json] configuration.
  *
  * The `@SerialName` values asserted here are copied from the `Diary*` models in
- * `server/app/schemas.py` rather than from the Kotlin property names, which is
+ * `server/app/schemas/` rather than from the Kotlin property names, which is
  * what makes this the test that fails when a field is renamed on one side of
  * the repository only. Every payload carries at least one explicit `null` and
  * one field the client has never heard of, because both are things the server

@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
 /**
  * Body of `POST /api/v1/join`.
  *
- * Mirrors `JoinRequest` in `server/app/schemas.py`; the field names are the
+ * Mirrors `JoinRequest` in `server/app/schemas/join.py`; the field names are the
  * contract, so every property carries an explicit [SerialName] even where the
  * Kotlin name happens to match.
  */
@@ -35,7 +35,7 @@ internal data class JoinResponseDto(
 )
 
 /**
- * `DiaryBindingOut` in `server/app/schemas.py`: which diary the class reads.
+ * `DiaryBindingOut` in `server/app/schemas/join.py`: which diary the class reads.
  *
  * Every field defaults, so a binding a newer server shapes differently costs
  * the binding and never the join — [toDomain] turns anything it cannot stand

@@ -2,7 +2,7 @@ package com.lumenpearson.lessons.core.data.repository
 
 /**
  * A diary login as the server cleans it — `_clean_login_value` in
- * `server/app/schemas.py`, held to it by the `login` cases of the shared
+ * `server/app/schemas/diary_session.py`, held to it by the `login` cases of the shared
  * vectors.
  *
  * One cleaning, used everywhere a login leaves the phone: the diary's own
