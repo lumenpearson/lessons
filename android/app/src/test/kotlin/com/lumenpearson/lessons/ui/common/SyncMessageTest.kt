@@ -28,6 +28,8 @@ class SyncMessageTest {
     fun `the cases with a remedy keep their own sentences`() {
         assertEquals(SyncMessage.Unauthorised, SyncResult.Unauthorised.toMessageOrNull())
         assertEquals(SyncMessage.NotConfigured, SyncResult.NotConfigured.toMessageOrNull())
+        // An address that is there but http:// is not «no address» (#202).
+        assertEquals(SyncMessage.NeedsHttps, SyncResult.NeedsHttps.toMessageOrNull())
         assertNull(SyncResult.Success.toMessageOrNull())
     }
 }

@@ -24,6 +24,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.network.CleartextPolicy
+import com.lumenpearson.lessons.core.data.network.CleartextVerdict
+import com.lumenpearson.lessons.core.data.network.cleartextVerdict
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
@@ -48,12 +51,22 @@ import com.lumenpearson.lessons.core.designsystem.theme.emphasised
  * to, and a pupil who took that at its word pressed «Подключиться» on a blank
  * address and was shown an English exception message (#154).
  *
+ * A release build refuses a plain `http://` address here, where it is typed,
+ * rather than at the first request (#202): the field says why and «Сохранить»
+ * waits for an https:// one. Every way in to the address — the join screen,
+ * settings, the first run's diary steps — is this sheet, so this is the one
+ * place it has to be said; and because the sheet opens on the stored address,
+ * a phone that kept an http:// one from an older version reads the reason the
+ * moment it opens the sheet to fix it.
+ *
  * @param initialUrl current address; the field starts from it rather than empty
  *   so a small typo is a small edit.
  * @param description the sentence above the field. The first run passes its
  *   own where it asks for the address because the diary's sign-in needs one.
  * @param onConfirm called with the trimmed value; an empty string clears the
  *   address, and the app then has no server until one is set.
+ * @param cleartext which hosts this build may reach over plain http; a test
+ *   says which build it is.
  */
 @Composable
 fun ServerUrlSheet(
@@ -62,9 +75,11 @@ fun ServerUrlSheet(
     onConfirm: (String) -> Unit,
     modifier: Modifier = Modifier,
     description: String = correctedString(R.string.server_dialog_description),
+    cleartext: CleartextPolicy = CleartextPolicy.Platform,
 ) {
     var url by rememberSaveable(initialUrl) { mutableStateOf(initialUrl) }
     val trimmed = remember(url) { url.trim() }
+    val refused = remember(trimmed, cleartext) { cleartextVerdict(trimmed, cleartext) == CleartextVerdict.REFUSED }
     // Held only to know whether the field has focus: the label is bold while
     // it does, which is the one accent a text field gets.
     val interactionSource = remember { MutableInteractionSource() }
@@ -96,6 +111,12 @@ fun ServerUrlSheet(
                 )
             },
             placeholder = { Text(text = correctedString(R.string.server_dialog_placeholder)) },
+            isError = refused,
+            supportingText = if (refused) {
+                { Text(text = correctedString(R.string.server_needs_https)) }
+            } else {
+                null
+            },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Uri,
                 imeAction = ImeAction.Done,
@@ -112,8 +133,9 @@ fun ServerUrlSheet(
             }
             // Enabled on an empty field too: "" clears the address, and with
             // the button disabled there was no way to undo a mistyped address
-            // short of reinstalling.
-            Button(onClick = { onConfirm(trimmed) }) {
+            // short of reinstalling. Only a refused address holds it: saving
+            // one would store an address every request then refuses.
+            Button(onClick = { onConfirm(trimmed) }, enabled = !refused) {
                 Text(text = correctedString(R.string.action_save))
             }
         }

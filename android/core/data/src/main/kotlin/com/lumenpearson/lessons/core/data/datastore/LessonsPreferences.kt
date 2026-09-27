@@ -14,6 +14,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.lumenpearson.lessons.core.data.network.RequestCredentials
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.DiarySession
 import com.lumenpearson.lessons.core.data.repository.DiarySessionStore
@@ -41,12 +42,18 @@ import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.core.model.TodayLayout
 import com.lumenpearson.lessons.core.model.WeekStart
 import java.io.IOException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 /**
  * One preferences file for the whole app. DataStore forbids opening the same
@@ -62,6 +69,9 @@ private val Context.lessonsDataStore: DataStore<Preferences> by preferencesDataS
     // the install. Replacing the file loses what was in it, which is what a
     // corrupt file has already done.
     corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+    // Seals whatever bearer an older install left bare, before the first read
+    // of the process is served; see [TokenSealing].
+    produceMigrations = { listOf(TokenSealing(TokenVault.platform)) },
 )
 
 /**
@@ -70,10 +80,24 @@ private val Context.lessonsDataStore: DataStore<Preferences> by preferencesDataS
  * Session and settings share a file on purpose: they are written from the same
  * screens, they are both tiny, and a single file means a single fsync and a
  * single flow to observe.
+ *
+ * The two bearers in it are sealed ([TokenVault], #201): every write seals the
+ * one it stores, every read that hands out a [Session] or a [DiarySession]
+ * opens them, and nothing else here ever sees one.
+ *
+ * @param dataStore the app's one file on a phone. A test hands in a store of
+ *   its own, which is the only reason this is not built from the context here.
+ * @param vault what seals and opens the bearers — the phone's Keystore, or a
+ *   key held in memory in a test.
+ * @param io where the Keystore is asked; see [opened].
  */
-internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellModeSource, SettingsStore {
+internal class LessonsPreferences(
+    private val dataStore: DataStore<Preferences>,
+    private val vault: TokenVault,
+    private val io: CoroutineDispatcher = Dispatchers.IO,
+) : DiarySessionStore, ShellModeSource, SettingsStore {
 
-    private val dataStore = context.applicationContext.lessonsDataStore
+    constructor(context: Context) : this(context.applicationContext.lessonsDataStore, TokenVault.platform)
 
     /**
      * A corrupt or unreadable file must not take the app down: it degrades to
@@ -84,17 +108,64 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
         if (cause is IOException) emit(emptyPreferences()) else throw cause
     }
 
+    /**
+     * The same emissions with every bearer in them already opened, on [io].
+     *
+     * Everything that reads a token reads through this, and only that: opening
+     * one is a Keystore call, a binder transaction that would otherwise run on
+     * whatever thread collects — the main one, for a screen. Here it runs once
+     * per sealed value per process (the vault remembers), before anything maps
+     * the emission, and the mappings downstream find it remembered. The settings
+     * and the rest of the file hold no token and stay on [preferences].
+     */
+    private val opened: Flow<Preferences> = preferences
+        .onEach { it.openEveryToken(vault) }
+        .flowOn(io)
+
+    /**
+     * What the OkHttp interceptors read — the address and both bearers, held in
+     * memory; see [CredentialsSnapshot]. Every [write] brings it up to date
+     * before returning, and [followCredentials] keeps it there for writes made
+     * through another instance. Its bearers are opened here, when it is
+     * refreshed, and never per request.
+     */
+    val credentials = CredentialsSnapshot { opened.first().requestCredentials() }
+
+    /** Runs for as long as the file can emit; the container launches it once. */
+    suspend fun followCredentials() = credentials.follow(preferences)
+
+    /**
+     * The only way anything here is written: DataStore's `edit`, then the copy
+     * the interceptors read, before the caller moves on.
+     *
+     * Every write rather than the eight that move a credential today, so that a
+     * ninth cannot be added without it. The refresh is not cancellable once the
+     * edit has landed: a caller cancelled between the two would leave the next
+     * request signed for the class it had just left, for as long as the
+     * follower took to hear about it.
+     *
+     * On [io], because DataStore runs the transform in the caller's context and
+     * two of them ask the Keystore: sealing the bearer a join or a sign-in
+     * stores, and the mode [settleColdStart] reads.
+     */
+    private suspend fun write(transform: suspend (MutablePreferences) -> Unit) {
+        withContext(io) {
+            dataStore.edit(transform)
+            withContext(NonCancellable) { credentials.refresh() }
+        }
+    }
+
     /** The class being shown, or `null` when this device is in none. */
-    val session: Flow<Session?> = preferences.map { it.activeMembership() }.distinctUntilChanged()
+    val session: Flow<Session?> = opened.map { it.openActiveMembership(vault) }.distinctUntilChanged()
 
     /** Every class this device has joined, in the order they were joined. */
-    val sessions: Flow<List<Session>> = preferences.map { it.memberships() }.distinctUntilChanged()
+    val sessions: Flow<List<Session>> = opened.map { it.openMemberships(vault) }.distinctUntilChanged()
 
     override val settings: Flow<AppSettings> = preferences.map { it.toSettings() }.distinctUntilChanged()
 
-    suspend fun currentSession(): Session? = preferences.first().activeMembership()
+    suspend fun currentSession(): Session? = opened.first().openActiveMembership(vault)
 
-    suspend fun currentSessions(): List<Session> = preferences.first().memberships()
+    suspend fun currentSessions(): List<Session> = opened.first().openMemberships(vault)
 
     override suspend fun currentSettings(): AppSettings = preferences.first().toSettings()
 
@@ -105,10 +176,14 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
      * rather than appending: the join code is how a pupil recovers from a
      * revoked device, and doing that must not leave the same class listed
      * twice, nor move it to the bottom of a list the user has got used to.
+     *
+     * Only the new token is sealed. The others are carried over as they are
+     * stored, so a join never re-seals — or asks the Keystore about — a class
+     * it is not about.
      */
     suspend fun addSession(value: Session) {
-        dataStore.edit { prefs ->
-            prefs.writeMemberships(prefs.memberships().withMembership(value))
+        write { prefs ->
+            prefs.writeMemberships(prefs.memberships().withMembership(value.copy(token = vault.seal(value.token))))
             prefs.activate(value.classId)
         }
     }
@@ -120,8 +195,8 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
      * memberships still on disk.
      */
     suspend fun selectSession(classId: Long) {
-        dataStore.edit { prefs ->
-            if (prefs.memberships().none { it.classId == classId }) return@edit
+        write { prefs ->
+            if (prefs.memberships().none { it.classId == classId }) return@write
             prefs.activate(classId)
         }
     }
@@ -135,7 +210,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
      * lands on the same keys [clearSession] would leave behind.
      */
     suspend fun removeSession(classId: Long) {
-        dataStore.edit { prefs ->
+        write { prefs ->
             val remaining = prefs.memberships().filterNot { it.classId == classId }
             prefs.writeMemberships(remaining)
             val was = prefs[MembershipKeys.ACTIVE_CLASS_ID]
@@ -167,7 +242,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
      * half, and it is just as narrow.
      */
     suspend fun clearSession() {
-        dataStore.edit { prefs ->
+        write { prefs ->
             // Written on the way out, because the token this is about to remove
             // is what the read side uses to recognise somebody who predates the
             // introduction flag. To be here at all you were in a class, and to
@@ -200,23 +275,23 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
     // is called.
 
     override val diarySession: Flow<DiarySession?> =
-        preferences.map { it.toDiarySession() }.distinctUntilChanged()
+        opened.map { it.openDiarySession(vault) }.distinctUntilChanged()
 
     override suspend fun currentDiarySession(): DiarySession? =
-        preferences.first().toDiarySession()
+        opened.first().openDiarySession(vault)
 
     override suspend fun writeDiarySession(value: DiarySession) {
-        dataStore.edit { it.putDiarySession(value) }
+        write { it.putDiarySession(value.copy(token = vault.seal(value.token))) }
     }
 
     /** A bare `401`; see [dropDiaryToken]. */
     override suspend fun clearDiaryToken() {
-        dataStore.edit { it.dropDiaryToken() }
+        write { it.dropDiaryToken() }
     }
 
     /** Signing out: the diary and only the diary; [clearSession] is its counterpart. */
     override suspend fun forgetDiary() {
-        dataStore.edit { it.dropDiary() }
+        write { it.dropDiary() }
     }
 
     override val diaryTarget: Flow<DiaryTarget?> =
@@ -228,7 +303,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
         preferences.map { it[DiaryKeys.STUDENT_ID] }.distinctUntilChanged()
 
     override suspend fun selectStudent(id: Long?) {
-        dataStore.edit { prefs ->
+        write { prefs ->
             if (id == null) prefs.remove(DiaryKeys.STUDENT_ID) else prefs[DiaryKeys.STUDENT_ID] = id
         }
     }
@@ -241,34 +316,34 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
     // the diary are both in it, so the mode never has to be assembled from two
     // flows that can be caught between a write and its echo.
 
-    override val state: Flow<ShellState> = preferences.map { it.shellState() }.distinctUntilChanged()
+    override val state: Flow<ShellState> = opened.map { it.shellState(vault) }.distinctUntilChanged()
 
-    override suspend fun current(): ShellState = preferences.first().shellState()
+    override suspend fun current(): ShellState = opened.first().shellState(vault)
 
-    override val syncArming: Flow<SyncArming> = preferences
-        .map { prefs -> syncArmingFor(prefs.shellState().mode, prefs.toSettings().syncIntervalMinutes) }
+    override val syncArming: Flow<SyncArming> = opened
+        .map { prefs -> syncArmingFor(prefs.shellState(vault).mode, prefs.toSettings().syncIntervalMinutes) }
         .distinctUntilChanged()
 
     override suspend fun hold() {
-        dataStore.edit { it[ShellKeys.ONBOARDING_HELD] = true }
+        write { it[ShellKeys.ONBOARDING_HELD] = true }
     }
 
     override suspend fun release() {
-        dataStore.edit { it.remove(ShellKeys.ONBOARDING_HELD) }
+        write { it.remove(ShellKeys.ONBOARDING_HELD) }
     }
 
     override suspend fun settleColdStart(): ShellState {
         // Read and written in the one transaction, so a join landing between
         // a separate read and write cannot have its hold taken away.
-        dataStore.edit { prefs ->
-            if (prefs.shellState().mode == ShellMode.NONE) prefs.remove(ShellKeys.ONBOARDING_HELD)
+        write { prefs ->
+            if (prefs.shellState(vault).mode == ShellMode.NONE) prefs.remove(ShellKeys.ONBOARDING_HELD)
         }
         return current()
     }
 
     /** Read-modify-write inside DataStore's transaction, so concurrent edits merge. */
     override suspend fun updateSettings(transform: (AppSettings) -> AppSettings) {
-        dataStore.edit { prefs ->
+        write { prefs ->
             val updated = transform(prefs.toSettings())
             prefs[KEY_BASE_URL] = updated.baseUrl.trim()
             prefs[KEY_THEME_MODE] = updated.themeMode.name
@@ -341,44 +416,6 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
     }
 
     /**
-     * Blocking reads for the OkHttp interceptors, which cannot suspend.
-     *
-     * They run on OkHttp's dispatcher threads, never on the main thread, and
-     * DataStore serves everything after the first read from an in-memory cache,
-     * so the cost is a thread hop rather than disk I/O.
-     */
-    fun tokenBlocking(): String? = runBlocking { currentSession()?.token }
-
-    /**
-     * The diary bearer, for `DiaryAuthInterceptor`.
-     *
-     * A second method rather than a parameter on [tokenBlocking], because the
-     * two tokens are not two values of one thing: one of them can be present
-     * while the other is absent, and a caller that took the wrong one would
-     * send a class token to a family's diary.
-     *
-     * @see tokenBlocking
-     */
-    fun diaryTokenBlocking(): String? = runBlocking { currentDiarySession()?.token }
-
-    /** @see tokenBlocking */
-    fun baseUrlBlocking(): String = runBlocking { currentSettings().baseUrl }
-
-    /**
-     * How often the background refresh should run, for the one caller that
-     * arms it outside the settings screen.
-     *
-     * `SessionEffects.onActiveClassChanged` re-installs the periodic worker
-     * after a sign-out cancelled it, and it is handed a plain `() -> Unit` —
-     * the table of what happens on a session change holds no coroutines, so
-     * the interval is read the way the interceptors read a token. It runs on
-     * the session repository's IO dispatcher, never on the main thread.
-     *
-     * @see tokenBlocking
-     */
-    fun syncIntervalMinutesBlocking(): Int = runBlocking { currentSettings().syncIntervalMinutes }
-
-    /**
      * The stored language, read the only way the caller can read it.
      *
      * `Activity.attachBaseContext` is where a per-app locale has to be applied
@@ -401,7 +438,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
 
     /** @see scheduleFingerprint */
     suspend fun writeScheduleFingerprint(value: String) {
-        dataStore.edit { prefs -> prefs[KEY_SCHEDULE_FINGERPRINT] = value }
+        write { prefs -> prefs[KEY_SCHEDULE_FINGERPRINT] = value }
     }
 
     /**
@@ -425,12 +462,12 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
 
     /** @see bundleTag */
     suspend fun writeBundleTag(signature: String, etag: String) {
-        dataStore.edit { prefs -> prefs[bundleTagKey(signature)] = etag }
+        write { prefs -> prefs[bundleTagKey(signature)] = etag }
     }
 
     /** @see bundleTag */
     suspend fun forgetBundleTag(signature: String) {
-        dataStore.edit { prefs -> prefs.remove(bundleTagKey(signature)) }
+        write { prefs -> prefs.remove(bundleTagKey(signature)) }
     }
 
     /**
@@ -445,7 +482,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
      */
     suspend fun forgetBundleTagsOf(classId: Long) {
         val prefix = bundleTagPrefix(classId)
-        dataStore.edit { prefs -> prefs.removeKeysStartingWith { it.startsWith(prefix) } }
+        write { prefs -> prefs.removeKeysStartingWith { it.startsWith(prefix) } }
     }
 
     /**
@@ -455,7 +492,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
      */
     suspend fun forgetBundleTagsOutside(keep: Collection<Long>) {
         val kept = keep.map { bundleTagPrefix(it) }
-        dataStore.edit { prefs ->
+        write { prefs ->
             prefs.removeKeysStartingWith { name ->
                 name.startsWith(BUNDLE_TAG_PREFIX) && kept.none { name.startsWith(it) }
             }
@@ -488,6 +525,23 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
         this[MembershipKeys.ACTIVE_CLASS_ID] = classId
         remove(KEY_SCHEDULE_FINGERPRINT)
     }
+
+    /**
+     * The same three answers the screens get from [currentSettings],
+     * [currentSession] and [currentDiarySession], from one emission.
+     *
+     * The two bearers stay two fields: one can be present while the other is
+     * absent, and an interceptor that took the wrong one would send a class
+     * token to a family's diary.
+     *
+     * Both opened: what the file holds is sealed, and a sealed value sent as a
+     * bearer is a `401` that signs the phone out of a class it is still in.
+     */
+    private fun Preferences.requestCredentials(): RequestCredentials = RequestCredentials(
+        baseUrl = toSettings().baseUrl,
+        classToken = openActiveMembership(vault)?.token,
+        diaryToken = openDiarySession(vault)?.token,
+    )
 
     /**
      * Enums are stored by name rather than by ordinal, and unknown names fall
@@ -695,9 +749,15 @@ internal object ShellKeys {
     val ONBOARDING_HELD = booleanPreferencesKey("onboarding_held")
 }
 
-/** [shellModeOf] and the hold, from one emission; see [ShellModeSource]. */
-internal fun Preferences.shellState(): ShellState = ShellState(
-    mode = shellModeOf(activeMembership(), toDiaryTarget()),
+/**
+ * [shellModeOf] and the hold, from one emission; see [ShellModeSource].
+ *
+ * The class is the one whose token opens: a phone whose key is gone holds
+ * sealed tokens it cannot use, and is in no class — so it opens on the join
+ * screen, or on the diary's, exactly as a phone that never had the token would.
+ */
+internal fun Preferences.shellState(vault: TokenVault): ShellState = ShellState(
+    mode = shellModeOf(openActiveMembership(vault), toDiaryTarget()),
     held = this[ShellKeys.ONBOARDING_HELD] ?: false,
 )
 
@@ -737,7 +797,11 @@ internal fun Preferences.toDiaryTarget(): DiaryTarget? {
     return DiaryTarget.petersburg(login)
 }
 
-/** Our bearer, the login and the target, in one transaction. */
+/**
+ * Our bearer, the login and the target, in one transaction. The bearer is
+ * written as it is handed in, so the caller seals it first — see
+ * `LessonsPreferences.writeDiarySession`.
+ */
 internal fun MutablePreferences.putDiarySession(value: DiarySession) {
     this[DiaryKeys.TOKEN] = value.token
     this[DiaryKeys.LOGIN] = value.login
@@ -773,6 +837,9 @@ internal fun MutablePreferences.dropDiary() {
  * when its target is one this build cannot read (see [toDiaryTarget]): a bearer
  * sent for an account the app cannot name would be answered for somebody the
  * screens cannot say.
+ *
+ * The token is the one stored, sealed since #201; [openDiarySession] is the
+ * one to read for a bearer.
  */
 internal fun Preferences.toDiarySession(): DiarySession? {
     val token = this[DiaryKeys.TOKEN]?.takeIf { it.isNotBlank() } ?: return null

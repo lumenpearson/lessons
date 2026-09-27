@@ -7,6 +7,7 @@ import com.lumenpearson.lessons.core.data.database.toEntity
 import com.lumenpearson.lessons.core.data.database.toRecord
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
+import com.lumenpearson.lessons.core.data.network.ServerNeedsHttpsException
 import com.lumenpearson.lessons.core.data.network.dto.toDomain
 import com.lumenpearson.lessons.core.model.SchoolYear
 import com.lumenpearson.lessons.core.model.Timetable
@@ -360,6 +361,9 @@ internal class TimetableRepositoryImpl(
             } else {
                 SyncResult.Failed("Server returned HTTP ${http.code()}")
             }
+        } catch (_: ServerNeedsHttpsException) {
+            // Before the «no address» catch, whose kind this is.
+            SyncResult.NeedsHttps
         } catch (missing: ServerAddressMissingException) {
             SyncResult.NotConfigured
         } catch (io: IOException) {

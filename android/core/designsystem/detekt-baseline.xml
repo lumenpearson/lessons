@@ -1,0 +1,79 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:ProgressiveBlur.kt:Build.VERSION.SDK_INT &gt;= Build.VERSION_CODES.TIRAMISU &amp;&amp; blurRadius &gt; 0f &amp;&amp; (topHeight &gt; 0f || bottomHeight &gt; 0f) &amp;&amp; !isPowerSave &amp;&amp; !isBlurProblematicDevice()</ID>
+    <ID>CyclomaticComplexMethod:FloatingToolbar.kt:@Composable private fun ToolbarTab</ID>
+    <ID>LoopWithTooManyJumpStatements:ToolbarArrangeGesture.kt:while</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$0.0001f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$0.0722f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$0.20f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$0.2126f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$0.34f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$0.38f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$0.46f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$0.55f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$0.62f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$0.66f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$0.7152f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$0.72f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$0.74f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$0.90f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$120f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$180f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$240f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$300f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$31</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$360f</ID>
+    <ID>MagicNumber:AccentMath.kt:AccentMath$60f</ID>
+    <ID>MagicNumber:Color.kt:0xFF000000L</ID>
+    <ID>MagicNumber:Color.kt:6</ID>
+    <ID>MagicNumber:Color.kt:8</ID>
+    <ID>MagicNumber:EmptyState.kt:3</ID>
+    <ID>MagicNumber:Formatting.kt:100f</ID>
+    <ID>MagicNumber:LessonsDialog.kt:LessonsDialogTone$3</ID>
+    <ID>MagicNumber:RibbonSheen.kt:RibbonSheenLayer$1000f</ID>
+    <ID>MagicNumber:SchoolBell.kt:0.06f</ID>
+    <ID>MagicNumber:SchoolBell.kt:0.08f</ID>
+    <ID>MagicNumber:SchoolBell.kt:0.10f</ID>
+    <ID>MagicNumber:SchoolBell.kt:0.13f</ID>
+    <ID>MagicNumber:SchoolBell.kt:0.16f</ID>
+    <ID>MagicNumber:SchoolBell.kt:0.44f</ID>
+    <ID>MagicNumber:SchoolBell.kt:0.5f</ID>
+    <ID>MagicNumber:SchoolBell.kt:0.70f</ID>
+    <ID>MagicNumber:SchoolBell.kt:0.88f</ID>
+    <ID>MagicNumber:SchoolBell.kt:0.92f</ID>
+    <ID>MagicNumber:ScrollMotionBlur.kt:0.01f</ID>
+    <ID>MagicNumber:ScrollMotionBlur.kt:0.1f</ID>
+    <ID>MagicNumber:Skeleton.kt:0.2f</ID>
+    <ID>MagicNumber:Type.kt:0.15f</ID>
+    <ID>MagicNumber:Type.kt:0.1f</ID>
+    <ID>MagicNumber:Type.kt:0.25f</ID>
+    <ID>MagicNumber:Type.kt:0.4f</ID>
+    <ID>MagicNumber:Type.kt:0.5f</ID>
+    <ID>MagicNumber:Type.kt:11f</ID>
+    <ID>MagicNumber:Type.kt:12f</ID>
+    <ID>MagicNumber:Type.kt:14f</ID>
+    <ID>MagicNumber:Type.kt:16f</ID>
+    <ID>MagicNumber:Type.kt:20f</ID>
+    <ID>MagicNumber:Type.kt:22f</ID>
+    <ID>MagicNumber:Type.kt:24f</ID>
+    <ID>MagicNumber:Type.kt:28f</ID>
+    <ID>MagicNumber:Type.kt:32f</ID>
+    <ID>MagicNumber:Type.kt:36f</ID>
+    <ID>MagicNumber:Type.kt:40f</ID>
+    <ID>MagicNumber:Type.kt:44f</ID>
+    <ID>MagicNumber:Type.kt:45f</ID>
+    <ID>MagicNumber:Type.kt:52f</ID>
+    <ID>MagicNumber:Type.kt:57f</ID>
+    <ID>MagicNumber:Type.kt:64f</ID>
+    <ID>MatchingDeclarationName:Accents.kt:AccentTone</ID>
+    <ID>MatchingDeclarationName:LiquidRippleHost.kt:LiquidRippleState</ID>
+    <ID>MatchingDeclarationName:Markup.kt:MarkupStyles</ID>
+    <ID>MatchingDeclarationName:RibbonSheen.kt:RibbonDepthLevel</ID>
+    <ID>ReturnCount:Color.kt:fun parseSubjectColor: Color?</ID>
+    <ID>ReturnCount:Corrections.kt:@Composable fun Modifier.correctable: Modifier</ID>
+    <ID>ReturnCount:ToolbarArrangeGesture.kt:private suspend fun AwaitPointerEventScope.awaitSideways: Boolean</ID>
+    <ID>ReturnCount:ToolbarReorder.kt:internal fun &lt;T&gt; moveItem: List&lt;T&gt;</ID>
+  </CurrentIssues>
+</SmellBaseline>

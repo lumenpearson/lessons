@@ -42,6 +42,7 @@ from app.models import AccessRequest, BotUser, JoinMode, PhoneInvite, Role, Scho
 from app.security import normalise_phone
 from app.services import audit, device_invites, diary_link, reminders
 from app.services import diary as diary_service
+from app.services.manage import classes as classes_service
 
 router = Router(name="access")
 
@@ -296,25 +297,20 @@ async def switch_join_mode(
         await callback.answer("Кнопка устарела. Откройте «👥 Доступ» заново.", show_alert=True)
         return
 
-    if school_class.join_mode is wanted:
+    # The same service `PATCH /manage/class` calls, so the log reads as one
+    # history however the switch was flipped.
+    if not await classes_service.set_join_mode(
+        session, school_class, callback.from_user.id, wanted
+    ):
         await callback.message.edit_text(
             f"{JOIN_MODE_TEXT[wanted]}\n\nЭто уже так — ничего не изменилось.",
             reply_markup=back_to_menu(),
         )
         await callback.answer("Уже так")
         return
+    await session.commit()
 
     to_invite = wanted is JoinMode.INVITE
-    school_class.join_mode = wanted
-    note = (
-        "вход только по личным приглашениям"
-        if to_invite
-        else "вход по коду класса снова разрешён"
-    )
-    await audit.record(
-        session, school_class.id, callback.from_user.id, "access.join_mode", note
-    )
-    await session.commit()
 
     if to_invite:
         tail = (
@@ -332,7 +328,7 @@ async def switch_join_mode(
         f"{JOIN_MODE_TEXT[school_class.join_mode]}\n\n{tail}",
         reply_markup=back_to_menu(),
     )
-    await callback.answer(note.capitalize())
+    await callback.answer(classes_service.JOIN_MODE_SUMMARY[wanted].capitalize())
 
 
 @router.callback_query(AccessAction.filter(F.action == "invite"))

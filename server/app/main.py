@@ -1,8 +1,12 @@
-"""Entry point: the read-only client API and the Telegram admin bot in one process.
+"""Entry point: the client API and the Telegram admin bot in one process.
 
-Keeping them together means the bot writes and the API reads the same database
-with no extra deployment moving parts. If the bot ever needs to scale
-separately, split it at ``run_polling`` — nothing else is shared.
+Both write the same database, over the same ``app/services/``: the bot is the
+admin panel, and a phone linked to a Telegram account writes through
+``/api/v1/edit`` and ``/api/v1/manage`` with that account's role, while the
+rest of the API reads, or writes only an account's or a family's own rows.
+Keeping them together means one database and no extra deployment moving parts.
+If the bot ever needs to scale separately, split it at ``run_polling`` —
+nothing else is shared.
 """
 
 from __future__ import annotations
@@ -113,11 +117,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await close_container()
 
 
+# The interactive docs and the schema they are drawn from, locally and never on
+# the production server (#200): nobody there needs them — the app is written
+# against docs/api.md, not against a schema it fetches — and each is surface.
+# The signal is the one `get_settings` refuses to start on, Vercel's own
+# `VERCEL`, never a guess at "this looks like production". A compose or VPS
+# deployment keeps them, as it keeps every other local default.
+_api_docs = not get_settings().behind_vercel
 app = FastAPI(
     title="Lessons",
     version="0.1.0",
     description="School diary API and Telegram admin bot",
     lifespan=lifespan,
+    openapi_url="/openapi.json" if _api_docs else None,
+    docs_url="/docs" if _api_docs else None,
+    redoc_url="/redoc" if _api_docs else None,
 )
 
 # At module scope rather than in the lifespan, because `setup_dishka` installs

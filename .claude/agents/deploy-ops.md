@@ -11,7 +11,9 @@ You diagnose production. Read `docs/deploy.md` first; it is current.
 One process holds the FastAPI app and the aiogram dispatcher. `api/` at the repository root
 is a thin Vercel entry point that re-exports `server/app/main.py`. `requirements.txt` at the
 root exists only because Vercel's Python builder does not read `pyproject.toml` from a
-subdirectory — **and it must stay level with it.**
+subdirectory. It is a lock compiled by `uv pip compile` from `requirements.in` (#192), and
+**`requirements.in` must stay level with `pyproject.toml`**; regenerate the lock with the
+command in its header rather than editing a pin.
 
 Locally the bot long-polls from the `app/main.py` lifespan; on serverless it is a webhook.
 `RUN_BOT=false` starts the API alone.

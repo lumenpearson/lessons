@@ -89,6 +89,7 @@ fun diaryProblemMessage(
     DiarySignInProblem.RegisterUnreachable -> line(R.string.diary_problem_register_unreachable)
     DiarySignInProblem.ServerMissing ->
         line(if (firstRun) R.string.diary_problem_server_missing_first_run else R.string.diary_problem_server_missing)
+    DiarySignInProblem.ServerNeedsHttps -> line(R.string.server_needs_https)
     DiarySignInProblem.ServerTooOld -> line(R.string.diary_problem_server_too_old)
     DiarySignInProblem.ServerDisabled -> line(R.string.diary_problem_server_disabled)
     DiarySignInProblem.RegionNotServed -> line(R.string.diary_problem_region_not_served)

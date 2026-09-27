@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons.ui.join
 
 import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
+import com.lumenpearson.lessons.core.data.network.ServerNeedsHttpsException
 import com.lumenpearson.lessons.core.data.repository.JoinFailure
 import java.io.IOException
 import org.junit.Assert.assertEquals
@@ -23,6 +24,12 @@ class JoinErrorTest {
     @Test
     fun `an invite-only class is not a wrong code`() {
         assertEquals(JoinError.InviteOnly, JoinError.of(JoinFailure.InviteOnly))
+    }
+
+    /** #199: the code is right, so the screen must not say to check it. */
+    @Test
+    fun `a full class is not a wrong code`() {
+        assertEquals(JoinError.ClassFull, JoinError.of(JoinFailure.ClassFull))
     }
 
     @Test
@@ -107,5 +114,22 @@ class JoinErrorTest {
             JoinFailure.Offline(IOException("call failed", ServerAddressMissingException())),
         )
         assertEquals(JoinError.NoServer, wrapped)
+    }
+
+    /**
+     * #202: an http:// address kept from an older version, refused before the
+     * request left. It is a kind of missing address to the interceptor, and
+     * «Не указан адрес сервера» was what the screen said about it — above the
+     * row that shows the address.
+     */
+    @Test
+    fun `an http address this build refuses is not a missing one`() {
+        val refused = JoinError.of(JoinFailure.Offline(ServerNeedsHttpsException("192.168.1.50")))
+        assertEquals(JoinError.NeedsHttps, refused)
+
+        val wrapped = JoinError.of(
+            JoinFailure.Offline(IOException("call failed", ServerNeedsHttpsException("192.168.1.50"))),
+        )
+        assertEquals(JoinError.NeedsHttps, wrapped)
     }
 }

@@ -16,7 +16,7 @@ import java.time.LocalTime
  *
  * This is the test that fails when someone renames a field on one side of the
  * repo only: the `@SerialName` values here are copied from
- * `server/app/schemas.py`, not from the Kotlin property names.
+ * `server/app/schemas/bundle.py`, not from the Kotlin property names.
  */
 class BundleJsonTest {
 

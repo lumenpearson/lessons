@@ -27,6 +27,7 @@
 /.github/                       @lumenpearson
 /vercel.json                    @lumenpearson
 /requirements.txt               @lumenpearson
+/requirements.in                @lumenpearson
 
 # The documents people read.
 /docs/                          @lumenpearson

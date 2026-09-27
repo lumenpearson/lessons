@@ -16,7 +16,7 @@ from datetime import time as Time
 
 from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -111,6 +111,20 @@ CALENDAR_DAYS = 60
 # distinction is the whole point. Only failures are counted, so a classroom
 # joining from one school NAT is never blocked by each other's successes.
 join_limiter = JoinThrottle(limit=30, window=900.0)
+
+# The most live phones the class code will put into one class (#199). The
+# throttle counts only failures, so without this a caller holding a real code
+# could mint read tokens for ever, each one alive until 180 days of silence.
+#
+# Generous on purpose, because the refusal lands on a real family: thirty-odd
+# pupils, each with a phone of their own and up to two parents', and the
+# teachers who read the class, come to about 120 — and a row outlives the phone
+# it was minted for, since a reinstall, a cleared app or a new phone each join
+# again and leave the old token live until `cron.DEVICE_TOKEN_TTL` prunes it.
+# Doubling for that residue gives ~250; 300 is that with room to spare. A class
+# that really does reach it has an admin who can switch old phones off, and a
+# personal code from the bot is not counted against it at all.
+MAX_DEVICES_PER_CLASS = 300
 
 
 def _forwarded_list(request: Request, name: str) -> str:
@@ -331,6 +345,17 @@ def _drift_detail(revision: str | None) -> str:
     return "Схема базы и схема кода расходятся."
 
 
+async def _live_devices(session: AsyncSession, class_id: int) -> int:
+    """Phones that can still read the class. A revoked row is a tombstone kept
+    so its token goes on failing, and holds no phone."""
+    count = await session.scalar(
+        select(func.count())
+        .select_from(DeviceToken)
+        .where(DeviceToken.class_id == class_id, DeviceToken.revoked.is_(False))
+    )
+    return count or 0
+
+
 @router.post("/join", response_model=JoinResponse)
 async def join(
     request: Request,
@@ -390,6 +415,24 @@ async def join(
     if school_class is None:
         # The one answer that stays counted: the attempt `admit` wrote is it.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown join code")
+
+    if invite is None and await _live_devices(session, school_class.id) >= MAX_DEVICES_PER_CLASS:
+        # Only the class code is bounded. A personal code is minted by the bot
+        # for a member it knows, one phone at a time, with a name in the
+        # journal: it is not what the bound is against, and it is the way in
+        # left to a family when somebody has filled the class through the
+        # shared code. Not counted against the throttle, for the reason the
+        # 403 above is not — a real code, not a guess. A burst of joins that
+        # all counted before any committed can pass the bound by its own size,
+        # and no further: after it, every join counts past it.
+        await join_limiter.forgive(session, attempt)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "К классу подключено слишком много телефонов. Возьмите личный код в боте "
+                "(«📱 Подключить телефон») или попросите администратора отключить старые телефоны"
+            ),
+        )
 
     # Spent before the token is minted, not after: the update is what makes
     # "one code, one phone" true against a second request that read the same

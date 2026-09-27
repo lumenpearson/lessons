@@ -77,8 +77,8 @@ matched pull request's body in full.
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | every dependabot bump; deliberately not a version, and open for good |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | PRs #129, #133, #134; issues #109–#117, #130–#132 — **open**, the first whose work needs an emulator or a phone |
-| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | PR #140; issues #135–#139, #141, #145–#160 — **open**, the one being worked on |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | PRs #129, #133, #134, #186, #187, #189; issues #109–#117, #130–#132, #167–#185, #188 — **open**, the first whose work needs an emulator or a phone |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | PRs #140, #214; issues #135–#139, #141, #145–#165, #190–#213 — **open**, the one being worked on |
 
 All ten were renamed on 25 September 2026: every title now names what the version
 delivered, and each description names its pull requests and issues. A title quoted from
@@ -179,13 +179,17 @@ like any other pull request.
 
 ### What a bump needs before it is merged, either way
 
-- **`requirements.txt` and `server/pyproject.toml` hold the same floors, and dependabot
-  edits only the first.** CI installs pyproject and Vercel installs requirements, so a floor
-  raised in one file alone means tests against one version and a deployment on another.
-  `test_requirements_mirror.py` fails and names the packages; raise both.
-- **Install what the bump declares before running the suite.** A floor of `>=2.0.54` proves
-  nothing while the environment still holds 2.0.53 — upgrade first, then `pytest`, or the
-  green is about the old version.
+- **`requirements.in` and `server/pyproject.toml` hold the same floors, and dependabot
+  edits only the first.** `requirements.txt` is the lock compiled from `requirements.in`
+  (#192), and the `uv` entry moves them together: a bump of a package the input names raises
+  its floor there and its pin in the lock. `pyproject.toml` is not in that directory, so
+  `test_requirements_mirror.py` fails and names the package; raise the floor in
+  `pyproject.toml` to match, and touch nothing in the lock — it is regenerated, never
+  edited. A bump of a transitive package changes the lock alone and needs nothing.
+- **Install what the bump declares before running the suite.** For a lock bump that is
+  `pip install -r ../requirements.txt -e ".[dev]"` from `server/`, which is what CI runs; a
+  floor of `>=2.0.54` proves nothing while the environment still holds 2.0.53, and the green
+  is then about the old version.
 - **Both halves of the gates** (`gates` skill). For an AGP or Gradle bump `assembleRelease`
   is the one that matters: R8 and resource shrinking run inside the build being moved.
 - **A bump that turns a test red is held, understood, and only then taken.** compose-bom

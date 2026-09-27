@@ -164,8 +164,8 @@ async def test_both_shells_go_through_the_service(monkeypatch, session, school_c
         return await real(*args, **kwargs)
 
     monkeypatch.setattr(access, "approve_request", watched)
-    monkeypatch.setattr(api_manage, "_tell", lambda *_, **__: _noop())
-    monkeypatch.setattr(bot_manage, "_bot_of", lambda _: None)
+    monkeypatch.setattr(api_manage.requests, "_tell", lambda *_, **__: _noop())
+    monkeypatch.setattr(bot_manage.requests, "_bot_of", lambda _: None)
 
     from_bot = await _request(session, school_class)
     await bot_manage.request_approve(

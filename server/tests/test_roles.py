@@ -3,9 +3,13 @@ the ability to rewrite everyone's timetable, so they are tested directly."""
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
+from sqlalchemy import select
 
 from app.bot.roles import can_grant, claim_phone_invites, get_role, is_env_owner
+from app.db import SessionLocal
 from app.models import BotUser, PhoneInvite, Role
 from app.security import normalise_phone
 
@@ -99,6 +103,61 @@ async def test_an_invite_can_only_be_claimed_once(session, school_class):
     assert len(first) == 1
     assert second == []
     assert await get_role(session, 666, school_class.id) is None
+
+
+@pytest.mark.parametrize(
+    "second_account",
+    [555, 666],
+    ids=["the same update delivered twice", "another account on the number"],
+)
+async def test_two_claims_in_flight_spend_an_invite_once(
+    session, school_class, second_account
+):
+    """Both claims read the invite live; only one of them may spend it.
+
+    A webhook Telegram thinks went unanswered is delivered again, and the two
+    deliveries run side by side. Redeeming as read, assign, commit let both
+    read the invite unused and both write it: here the same account is granted
+    twice, and a second account gets a `BotUser` of its own from an invite
+    worth one. The second claim is held right after its read,
+    in a session of its own, until the first has committed — the one
+    interleaving that decides it, driven deterministically rather than hoped
+    for from two tasks racing.
+    """
+    session.add(
+        PhoneInvite(class_id=school_class.id, phone="79001234567", role=Role.EDITOR)
+    )
+    await session.commit()
+
+    async with SessionLocal() as overlapping:
+        read = asyncio.Event()
+        written = asyncio.Event()
+        real_scalars = overlapping.scalars
+
+        async def read_then_hold(*args, **kwargs):
+            rows = await real_scalars(*args, **kwargs)
+            if not read.is_set():
+                read.set()
+                await written.wait()
+            return rows
+
+        overlapping.scalars = read_then_hold
+        second_claim = asyncio.create_task(
+            claim_phone_invites(overlapping, second_account, "+79001234567", None, None)
+        )
+        await read.wait()
+        first = await claim_phone_invites(session, 555, "+79001234567", None, None)
+        written.set()
+        second = await second_claim
+
+    assert [bool(first), bool(second)] == [True, False], (
+        "one invite, one winner: the claim that lost the race grants nothing"
+    )
+    async with SessionLocal() as after:
+        members = list(await after.scalars(select(BotUser)))
+        invite = await after.scalar(select(PhoneInvite))
+    assert [(m.telegram_id, m.role) for m in members] == [(555, Role.EDITOR)]
+    assert invite is not None and invite.used_by == 555
 
 
 async def test_claiming_never_downgrades_an_existing_role(session, school_class):

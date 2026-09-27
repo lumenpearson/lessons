@@ -11,7 +11,7 @@ it.
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 from sqlalchemy import select
 
@@ -220,7 +220,7 @@ async def seed() -> None:
                 class_id=klass.id,
                 device_name="Демо-телефон",
                 telegram_id=DEMO_EDITOR_ID,
-                linked_at=datetime.utcnow(),
+                linked_at=datetime.now(UTC).replace(tzinfo=None),
             )
         )
 

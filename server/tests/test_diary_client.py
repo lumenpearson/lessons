@@ -121,9 +121,11 @@ async def test_a_call_carries_its_own_session_in_the_request(monkeypatch):
     "path",
     [
         pathlib.Path(__file__).resolve().parents[1] / "pyproject.toml",
-        pathlib.Path(__file__).resolve().parents[2] / "requirements.txt",
+        # The lock's input, not the lock: the lock pins one version, and this
+        # bound is what every regeneration of it obeys.
+        pathlib.Path(__file__).resolve().parents[2] / "requirements.in",
     ],
-    ids=["pyproject", "requirements"],
+    ids=["pyproject", "requirements-in"],
 )
 def test_httpx_is_bounded_above_because_this_client_depends_on_a_deprecation(path):
     """Every diary call is ``request(..., cookies=...)``, which httpx 0.28
@@ -143,13 +145,13 @@ def test_httpx_is_bounded_above_because_this_client_depends_on_a_deprecation(pat
 
 
 def test_the_two_places_httpx_is_pinned_say_the_same_thing():
-    """``requirements.txt`` exists only because Vercel's builder cannot read a
+    """``requirements.in`` exists only because Vercel's builder cannot read a
     pyproject in a subdirectory, so it is a copy — and a copy that drifts is
-    worse than no copy, because the deployed set is the one nobody runs tests
-    against."""
+    worse than no copy, because the lock Vercel installs is compiled from it,
+    not from the file the tests declare."""
     here = pathlib.Path(__file__).resolve()
     assert _httpx_specifier((here.parents[1] / "pyproject.toml").read_text()) == _httpx_specifier(
-        (here.parents[2] / "requirements.txt").read_text()
+        (here.parents[2] / "requirements.in").read_text(encoding="utf-8")
     )
 
 

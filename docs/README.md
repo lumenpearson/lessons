@@ -1,8 +1,8 @@
 # Documentation
 
-Nine documents, the reference pages one of them keeps in a folder of its own, and two folders
-the app itself reads. Each answers its own question, and none retells a neighbour — if the
-answer is not here it is in the code, and there is usually a link to it.
+Nine documents, a history, the reference pages one of them keeps in a folder of its own, and
+two folders the app itself reads. Each answers its own question, and none retells a
+neighbour — if the answer is not here it is in the code, and there is usually a link to it.
 
 ## Where to start
 
@@ -16,6 +16,7 @@ answer is not here it is in the code, and there is usually a link to it.
 | are writing code | [architecture.md](architecture.md), then [CLAUDE.md](../CLAUDE.md) and [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | are writing a client for the API | [api.md](api.md) |
 | want to connect a diary other than Петербург's | [diaries.md](diaries.md) |
+| are picking up the work | [HANDOVER.md](../HANDOVER.md), then [history.md](history.md) for every batch before its last two |
 
 ## Every document
 
@@ -30,6 +31,7 @@ answer is not here it is in the code, and there is usually a link to it.
 | [architecture.md](architecture.md) | why the bot is the backend, the timetable resolution model, the five Android modules, the three homes a phone can have and the first run's state, the service layer, the diary on both sides — the server's providers and the phone's sign-in, `diary.db` and import — the tests |
 | [design.md](design.md) | the design system: what was taken from Essentials, what was fixed, and the reasoning behind every visible decision in the interface |
 | [diaries.md](diaries.md) | which electronic diary every region of Russia runs in September 2026, how a client signs in to each platform, and what that means for a second provider; **not about this project's own code** — the survey a future provider is written from — except for one section, the region catalog the server and the app read, which is generated from this survey |
+| [history.md](history.md) | **not a reference — the record.** Every batch [HANDOVER.md](../HANDOVER.md) no longer carries, newest first, in the words of its close-out, and what `HANDOVER.md`'s numbered sections no longer need. True of the commit each section names and never brought up to date, so it is the one document here that is not checked against today's code |
 | [diaries/](diaries/) | **the reference pages of [diaries.md](diaries.md)**: one page per platform with its hosts, sign-in flows, headers and the full route table read out of the open-source clients, and one page with the evidence for every region. Nothing in them has been tried against a live diary |
 | [legal/](legal/) | **not a document — the terms of use and the privacy policy the app links and bundles.** `*.ru.md` is the source, `*.en.md` the translation, `legal.json` names the edition and the date it applies from. They describe what this code does, and a fork that runs its own server rewrites the passages marked `FORK` — [build.md](build.md#the-terms-and-the-privacy-policy-the-app-links) |
 | [app/](app/) | **not a document — the guide the app draws.** `guide.ru.md` is the source, `guide.en.md` the translation, `manifest.json` says which version they are and which app version they describe. The app fetches these files from this repository and falls back to the copy built into the APK |
@@ -65,8 +67,9 @@ the user will actually see, it quotes it in Russian, because that is what is on 
   [architecture.md](architecture.md#the-phones-half): the app signs in to the diary itself
   and registers only the session, so from the app the password goes to the diary and nowhere
   else; `/diary/login`, kept for older APKs, and the bot's sign-in page pass it through this
-  server once and store it nowhere. What an `http://` server address exposes is in
-  [build.md](build.md#why-http-and-not-https).
+  server once and store it nowhere. What an `http://` server address would expose, and why
+  only a debug build still speaks it, is in
+  [build.md](build.md#why-a-debug-build-speaks-http-and-a-release-build-does-not).
 - **Why there is no Госуслуги sign-in** — [diaries.md](diaries.md#what-it-means-for-this-project):
   a Госуслуги session is the person's whole state-services account.
 - **Who lets a phone into a class** — [api.md](api.md), "Who lets a phone in: the class
@@ -89,7 +92,9 @@ the user will actually see, it quotes it in Russian, because that is what is on 
 
 A document that lies is worse than a missing one. So:
 
-- a statement is checked against the code before it lands here;
+- a statement is checked against the code before it lands here — except in
+  [history.md](history.md), which records what was true at a named commit and is never
+  rewritten to today's;
 - a change that made a document wrong fixes it in the same batch of work —
   [bot.md](bot.md) and [widget.md](widget.md) have each been rewritten over drifting away
   from the code, and that is more expensive than keeping up;

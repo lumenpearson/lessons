@@ -1,9 +1,9 @@
 """The container: what has a lifetime, and who ends it.
 
 This project is deliberately two thin shells over one implementation — the bot
-writes and the API reads, and ``app/services/`` holds the rules both of them
-call, because two implementations of "rename a subject" disagree within a
-month. The shells had no such agreement about the things that are *built* per
+and the phone-facing API both write, and ``app/services/`` holds the rules both
+of them call, because two implementations of "rename a subject" disagree within
+a month. The shells had no such agreement about the things that are *built* per
 unit of work. A session came from :func:`app.db.get_session` in an endpoint,
 from ``SessionLocal()`` in the bot's middleware and from
 :func:`app.db.session_scope` in ``scripts/seed_demo``: three answers to one

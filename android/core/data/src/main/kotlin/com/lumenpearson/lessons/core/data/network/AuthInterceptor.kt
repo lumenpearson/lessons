@@ -10,8 +10,10 @@ import okhttp3.Response
  * only exists after the user joins a class and disappears again on sign-out -
  * the OkHttp client outlives both events.
  *
- * [tokenProvider] is blocking on purpose: OkHttp interceptors cannot suspend,
- * and they run on OkHttp's own dispatcher threads, never on the main thread.
+ * [tokenProvider] is called on every request, on OkHttp's own dispatcher
+ * thread, and cannot suspend — so it answers from memory. It used to read the
+ * preferences through `runBlocking`, which parked a thread per request; see
+ * `CredentialsSnapshot` for what it reads now and how that stays current.
  *
  * It signs the class timetable's calls only; see [DiaryAuthInterceptor] for the
  * diary's own bearer and for why the two are not one.

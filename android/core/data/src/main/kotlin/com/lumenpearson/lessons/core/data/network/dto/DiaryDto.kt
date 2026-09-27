@@ -6,7 +6,7 @@ import kotlinx.serialization.json.JsonObject
 
 /**
  * The wire shapes of `/api/v1/diary`, mirroring every `Diary*` model in
- * `server/app/schemas.py`.
+ * `server/app/schemas/`.
  *
  * Same rules as [BundleDto]: an explicit `@SerialName` on every field so a
  * rename on either side of the repository is a test failure rather than a

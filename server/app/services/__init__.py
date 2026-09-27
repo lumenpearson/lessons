@@ -8,6 +8,14 @@ network hiccup, and import them inside the function that needs them, so the
 API can use the rest of the package without paying aiogram's import time on a
 cold start.
 
+Nor does any module here import ``app.bot``, at any level and by any path:
+the bot is one of the two shells standing on this package, not something
+under it. Four services once reached into ``bot/roles`` and ``bot/render``
+for the role ladder, the day card and the calendar names; those now live in
+``services/roles`` and ``app/wording.py``, the bot imports them back, and
+``tests/test_service_layering.py`` follows every import from here through the
+rest of ``app/`` to keep it that way (#205).
+
 The split exists because a linked phone and the bot write the same facts. A
 homework tick from the app and a tick from an inline button must land in the
 same table with the same rules, and the only way to guarantee that is for

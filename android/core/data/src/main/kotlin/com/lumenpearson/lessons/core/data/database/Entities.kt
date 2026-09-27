@@ -13,7 +13,7 @@ import java.time.LocalTime
  * these tables, and the network's only job is to replace their contents.
  *
  * Column names are snake_case to match the wire format, which makes the exported
- * schema JSON readable next to `server/app/schemas.py` during a migration.
+ * schema JSON readable next to `server/app/schemas/` during a migration.
  */
 
 /**

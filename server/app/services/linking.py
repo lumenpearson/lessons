@@ -16,9 +16,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot.roles import get_role
 from app.models import DeviceToken, Role
 from app.security import new_join_code
+from app.services.roles import get_role
 
 #: Six characters, not the eight of a join code. A link code is single-use,
 #: only ever matched against devices that are not yet linked, and a correct

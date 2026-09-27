@@ -96,6 +96,7 @@ class DiaryProblemTextTest {
             DiarySignInProblem.Offline,
             DiarySignInProblem.RegisterUnreachable,
             DiarySignInProblem.ServerMissing,
+            DiarySignInProblem.ServerNeedsHttps,
             DiarySignInProblem.ServerTooOld,
             DiarySignInProblem.ServerDisabled,
             DiarySignInProblem.RegionNotServed,

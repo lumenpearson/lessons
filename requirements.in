@@ -1,0 +1,48 @@
+# What the Vercel function needs, and nothing else: the input of the lock.
+#
+# Vercel installs requirements.txt from the repository root (vercel.json's
+# installCommand), because its Python builder does not read pyproject.toml
+# from a subdirectory. That file is not written by hand. It is this list
+# resolved to one exact version of every package, transitive ones included,
+# for CPython 3.12 on Linux: .python-version's Python and CI's, on the
+# platform the function runs on. While it held these floors instead, every
+# deploy installed whatever was newest that day: SQLAlchemy 2.1 reached
+# production and CI unannounced, and a checkout set up the week before went
+# on testing 2.0 (#164, #192).
+#
+# After editing this file, regenerate the lock from the repository root with
+# the command written in its header (`pip install uv` if you have no uv). uv
+# rather than pip-compile, because it resolves for a Python and a platform
+# other than the one it runs on, and pip-compile answers for the interpreter
+# that runs it — on the owner's Windows machine, neither Linux nor 3.12.
+# Without `--upgrade` it keeps every pin the edit does not force to move;
+# `--upgrade-package NAME` moves one package, `--upgrade` moves them all.
+# Keep the two names as they are: dependabot pairs the lock with its input by
+# swapping .in for .txt, not by reading the header, whose order it cannot
+# parse.
+#
+# CI installs the lock and the package in one resolve, so the suite runs on
+# the versions the deployment gets, and a lock that no longer satisfies a
+# floor fails CI's install rather than the deployment.
+#
+# The requirements are server/pyproject.toml's, character for character, and
+# server/tests/test_requirements_mirror.py holds both that and the lock.
+#
+# asyncpg only: the serverless database is Postgres, and aiosqlite would be
+# dead weight in the function bundle.
+fastapi>=0.141.1
+aiogram>=3.31.0
+sqlalchemy[asyncio]>=2.0.54
+asyncpg>=0.31.0
+pydantic>=2.13.5
+pydantic-settings>=2.15.0
+# The DI container in server/app/di.py. Pure Python, and 26 ms on top of
+# fastapi and sqlalchemy on a cold start — measured, because this bundle pays
+# for every import on every one of them.
+dishka>=1.10.1
+# Level with server/pyproject.toml, ceiling included: every diary call passes
+# per-request cookies, which httpx 0.28 warns it is removing, and a release
+# that removed them would send every diary call without a session rather than
+# fail. What to check before raising it is written out in pyproject.toml.
+httpx>=0.28.1,<0.29
+cryptography>=50.0.1

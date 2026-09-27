@@ -1,12 +1,28 @@
 # Minimal production-ish deployment: Postgres plus the combined API + bot process.
 # For a single class, dropping the `db` service and keeping the default SQLite
 # URL is perfectly adequate.
+#
+# Every `${...}` below is read from the shell or from `.env` beside this file —
+# the repository root, not `server/` — which is where `docker compose` looks.
+# docs/deploy.md, «Option 2», says what goes in it.
 services:
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: lessons
-      POSTGRES_PASSWORD: lessons
+      # From the environment and never from here: this file is public, so a
+      # password written into it is the password of every deployment that ran it
+      # as written. `:?` refuses to start without one rather than falling back
+      # to anything.
+      #
+      # Letters and digits only. The same value is spliced into DATABASE_URL
+      # below unescaped, and an `@`, `:`, `/` or `%` in it is read as part of
+      # the URL's syntax rather than of the password.
+      #
+      # Postgres reads it once, when the volume is first initialised. A volume
+      # created while this line said `lessons` keeps that password until it is
+      # changed inside the database; docs/deploy.md has the one command.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: lessons
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -31,7 +47,7 @@ services:
     build: ./server
     command: ["alembic", "upgrade", "head"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://lessons:lessons@db:5432/lessons
+      DATABASE_URL: postgresql+asyncpg://lessons:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/lessons
     depends_on:
       db:
         condition: service_healthy
@@ -40,10 +56,31 @@ services:
   server:
     build: ./server
     environment:
-      DATABASE_URL: postgresql+asyncpg://lessons:lessons@db:5432/lessons
+      DATABASE_URL: postgresql+asyncpg://lessons:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/lessons
       BOT_TOKEN: ${BOT_TOKEN:?set BOT_TOKEN in .env}
       OWNER_IDS: ${OWNER_IDS:?set OWNER_IDS in .env}
       TIMEZONE: ${TIMEZONE:-Europe/Moscow}
+      # Every optional setting app/config.py reads. A container sees only what
+      # is listed here, whatever `.env` holds, and none of these was listed: a
+      # compose deployment had no diary, no tick and no calendar link however it
+      # was configured (#191). Unset, each arrives empty, which for every one
+      # of these strings is exactly its default — tests/test_compose.py checks
+      # that, and checks this list against `Settings`.
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+      CRON_SECRET: ${CRON_SECRET:-}
+      BOT_USERNAME: ${BOT_USERNAME:-}
+      DIARY_SECRET: ${DIARY_SECRET:-}
+      DADATA_TOKEN: ${DADATA_TOKEN:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      # Not strings, so not empty when unset: "" is neither a boolean nor a
+      # number to pydantic, and the server would refuse to start over a
+      # variable nobody set. The defaults written here are the settings' own.
+      RUN_BOT: ${RUN_BOT:-true}
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
+      # Deliberately absent: VERCEL is the platform's own, and set here it would
+      # switch on Vercel's refusal to start; HOST and PORT are read only by
+      # `python -m app.main`, while the image's command binds 0.0.0.0:8000
+      # itself; WEBHOOK_PATH is read by nothing.
     depends_on:
       db:
         condition: service_healthy

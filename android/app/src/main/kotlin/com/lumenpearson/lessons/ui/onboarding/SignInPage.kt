@@ -27,6 +27,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.network.CleartextVerdict
+import com.lumenpearson.lessons.core.data.network.cleartextVerdict
 import com.lumenpearson.lessons.core.data.repository.DiaryProviderKey
 import com.lumenpearson.lessons.core.data.repository.DiarySignInProblem
 import com.lumenpearson.lessons.core.designsystem.component.GroupActionItem
@@ -38,7 +40,6 @@ import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
-import com.lumenpearson.lessons.navigation.isInsecure
 import com.lumenpearson.lessons.ui.common.ServerUrlSheet
 import com.lumenpearson.lessons.ui.common.openInBrowser
 import com.lumenpearson.lessons.ui.diary.DiaryCredentialFields
@@ -154,7 +155,14 @@ internal fun SignInPage(
                 NoteCard(passwordPrivacyParagraphs(current.place.host).joinToString("\n\n"))
             }
 
-            if (isInsecure(baseUrl)) NoteCard(correctedString(R.string.diary_insecure_server))
+            // A release build refuses an http:// server before anything is
+            // sent (#202), so there the note is the refusal; a debug build
+            // still sends, and warns about who could read the session.
+            when (cleartextVerdict(baseUrl)) {
+                CleartextVerdict.REFUSED -> NoteCard(correctedString(R.string.server_needs_https))
+                CleartextVerdict.PERMITTED -> NoteCard(correctedString(R.string.diary_insecure_server))
+                CleartextVerdict.NOT_CLEARTEXT -> Unit
+            }
 
             val petersburg = current.provider == DiaryProviderKey.PETERSBURG
             DiaryCredentialFields(

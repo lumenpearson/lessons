@@ -1,10 +1,11 @@
 version: 2
 
-# Three ecosystems and no npm: there is no Node in this repository at all.
+# Four ecosystems and no npm: there is no Node in this repository at all.
 #
 #   gradle  -> android/         (settings.gradle.kts and gradle/libs.versions.toml)
 #   pip     -> server/          (pyproject.toml, the full set including dev)
-#   pip     -> /               (requirements.txt, which is what Vercel installs)
+#   uv      -> /               (requirements.in and its lock, requirements.txt,
+#                               which is what Vercel installs)
 #   actions -> /               (.github/workflows)
 #
 # The Android versions in libs.versions.toml are not invented: they are carried
@@ -82,11 +83,19 @@ updates:
           - asyncpg
           - aiosqlite
 
-  # The same set, a second file: Vercel installs from the root requirements.txt,
-  # because its Python builder does not read pyproject.toml from a subdirectory.
-  # A drift between the two files is the difference between what the tests cover
-  # and what runs in production, so both have to be updated.
-  - package-ecosystem: pip
+  # The lock Vercel installs: requirements.txt, compiled by `uv pip compile`
+  # from requirements.in (#192). `uv` rather than `pip`, because the uv updater
+  # is the one that regenerates a uv-compiled file with uv, and it re-reads
+  # `--python-version` from the lock's header; the pip updater would rerun it
+  # with pip-compile. It does not re-read `--python-platform`, and does not
+  # need to: it runs on Linux, the platform the header names.
+  #
+  # A bump of a package requirements.in names also raises its floor there,
+  # and pyproject.toml is not in this directory — test_requirements_mirror
+  # fails and names it, and the floor is raised in pyproject.toml by hand
+  # (the github-pr skill, "Dependabot's pull requests"). A bump of anything
+  # else touches the lock alone.
+  - package-ecosystem: uv
     directory: /
     schedule:
       interval: weekly

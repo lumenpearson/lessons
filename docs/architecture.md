@@ -4,7 +4,7 @@ Three deliverables, one repository:
 
 ```
 lessons/
-├── server/     FastAPI read API + aiogram admin bot, one process, one database
+├── server/     FastAPI client API + aiogram admin bot, one process, one database
 ├── android/    Kotlin / Compose app, five Gradle modules
 └── docs/
 ```
@@ -12,8 +12,8 @@ lessons/
 ## Why the bot is the backend
 
 The requirement was "admin panel in Telegram". Rather than build a web panel and
-bolt a bot onto it, the bot writes directly to the database and the HTTP API only
-reads. That collapses a whole tier: no admin auth, no session cookies, no CSRF,
+bolt a bot onto it, the bot is the admin panel, and it writes straight to the
+database. That collapses a whole tier: no admin auth, no session cookies, no CSRF,
 no password reset, no second deployment unit. Telegram already knows who someone
 is, and the phone-invite flow uses that identity as proof.
 
@@ -21,17 +21,39 @@ The cost is that anything the bot cannot express does not exist. That is a real
 constraint and it is the reason the timetable editor takes a pasted block of text
 instead of a grid.
 
+**The HTTP API is not read-only, and has not been for a long time.** It began as
+the phone's read side and grew a second way into the same class, so that an admin
+can run it from the app as well as from the chat. What writes, and on whose
+authority:
+
+| Family | Writes | Authority |
+|---|---|---|
+| `/api/v1/edit` | homework, substitutions, events, special days | the device token; the linked account's role, editor or above |
+| `/api/v1/manage` | subjects, bells, the timetable, devices, access requests, terms, the class itself | the device token; the linked account's role — admin, and owner to delete the class |
+| `/api/v1` (`public.py`) | the account's own tasks and ticked-off homework, a phone unlinking itself; `POST /join` mints the token | the device token — linked, any role, for the account's own rows; `/join` takes a code |
+| `/api/v1/diary` | a diary session, a family's corrections over the diary | the diary token; `/login` and `/session` take the diary's own credentials |
+| `/diary/signin`, `/api/v1/cron/tick`, `/api/v1/telegram/webhook` | a sign-in through the web form; the digests' marks and the sweeps; the bot's updates | a one-time link; `X-Cron-Secret`; the webhook secret |
+
+A phone still has no rights of its own: the two families that change the class take
+the role of the Telegram account the device is linked to, looked up per request
+(see [the service layer](#the-service-layer-and-why-the-phone-does-not-log-in)).
+So the rule that replaced «the bot writes, the API reads» is that **two shells
+write, over one set of services**: whatever a class admin can do from a phone, the
+bot can do, by the same function.
+
 ## The server
 
 ```
 app/
 ├── models.py      SQLAlchemy 2.0 ORM — the whole domain in one file
 ├── schedule.py    template + overrides -> concrete days   (no FastAPI, no aiogram)
-├── schemas.py     the wire contract
+├── schemas/       the wire contract, one module per area, all re-exported by the package
 ├── security.py    tokens, join codes, phone normalisation
 ├── di.py          the container both shells take a session from
+├── wording.py     the words both shells print: dates, plurals, a day's card
 ├── catalog/       the region catalog — generated data, never edited by hand
-├── api/           read-only client endpoints
+├── services/      the rules both shells call — pure async functions over a session
+├── api/           the client API: reads, and the writes in the table above
 ├── bot/           aiogram routers, roles, keyboards, renderers
 └── main.py        FastAPI app; its lifespan owns the bot's polling task
 ```
@@ -134,6 +156,7 @@ without dragging the app's entire UI graph into its process.
 
 ```
 Telegram bot ──writes──▶ Postgres/SQLite ──/api/v1/bundle──▶ Room ──▶ UI
+linked phone ──writes──▶ (/api/v1/edit, /api/v1/manage)
                                                               │
                                                               └──▶ Glance widget
 ```
@@ -394,7 +417,7 @@ can swap wholesale.
 
 ## The service layer, and why the phone does not log in
 
-`server/app/services/` is twenty-two modules of pure async functions over a session, and
+`server/app/services/` is thirty-two modules of pure async functions over a session, and
 they exist for exactly one reason: every feature of the product now has two entrances, the
 bot and the app. Homework is added by a command in a chat and by a button on a phone; so
 are a substitution, an event and a special day. Two implementations of one rule would have
@@ -403,6 +426,43 @@ thin shells over it — the change log, device linking, personal tasks, ticking 
 reminders and their idempotence, the broadcast to subscribers, the calendar feed, the
 statistics, the timetable export and import, and granting the role somebody asked for, which
 was forty lines of permission rules carried in both shells until it was not.
+
+**Running a class has one module per screen, three times over.** «⚙️ Класс» in the bot is
+`bot/handlers/manage/`, `/api/v1/manage` is `api/manage/`, and what both of them do is
+`services/manage/` — `subjects`, `bells`, `devices`, `classes`, `requests`, `journal`,
+`terms`, `timetable`, `special_days`, `search` — so the twin of `bot/handlers/manage/bells.py`
+and of `api/manage/bells.py` is `services/manage/bells.py`. Each service function does the
+check, the write and the audit line with its Russian wording; the two shells only translate
+— a callback or a paste in, a message or an alert out; a payload in, JSON out. A refusal
+is an exception carrying facts (how many lessons, which days), never a sentence, so each
+shell keeps its own words for it: «Предмет … уже есть» in a chat, a `409` with an English
+`detail` on the wire. Before the split the shells had each kept a copy of every one of
+these operations, and several copies had drifted — the bot never logged a change of time
+zone, a colour taken off a subject was «убран» in one log and «убрано» in the other, the
+bot logged a second line for a phone that was already switched off, and a bot import never
+said which stored lessons stopped ringing.
+
+**Nothing under `services/` may import `app.bot`**, directly or through another `app/`
+module. A service that needed the bot would be one the API could not call without dragging
+aiogram onto its cold start, and a rule that lives in `bot/` is a rule the phone does not
+get. So the role ladder — who may grant what, a member's role in a class — lives in
+`services/roles.py`, with `bot/roles.py` a shim that re-exports it, and the wording both
+shells print (month and weekday names, `plural`, the message budget, a day rendered as
+text) in `app/wording.py`. `tests/test_service_layering.py` holds the rule by walking the
+imports.
+
+**The bot checks roles with one decorator.** Every handler of «⚙️ Класс» says what it needs
+where it is registered — `@needs(Role.ADMIN)` under `@router.callback_query(...)`, from
+`bot/handlers/manage/_common.py` — instead of opening with its own copy of the check and
+the refusal after it, as seventy-two of them used to. The refusal has three shapes,
+decided in one place: a press is answered with an alert (an unanswered one keeps spinning),
+a command with a sentence, and a step of a form drops the form and says nothing. It is a
+decorator rather than an aiogram filter or a middleware flag because the check has to
+travel with the function: a filter that fails hands the update to the next handler instead
+of refusing it, and a flag is read only on the way in through the dispatcher — while the
+tests that press every step as a наблюдатель call the handlers directly, and are the only
+proof the check exists. The API answers the same question with one dependency per role
+(`api/manage/_common.py`), which is the same rule on the other side of the wire.
 
 **A phone has no rights of its own**, and that is the central decision of this layer. The
 device gets a six-character code from the server, the person sends it to the bot, and from
@@ -723,9 +783,9 @@ with the host.
 
 ## Testing
 
-2024 tests on the server, 1459 on Android; `pytest -q -n auto` and `./gradlew test`, both
-offline, both in CI. On Android that is `:core:model` 125, `:core:data` 543,
-`:core:designsystem` 112, `:widget` 123, `:app` 556.
+2063 tests on the server, 1500 on Android; `pytest -q -n auto` and `./gradlew test`, both
+offline, both in CI. On Android that is `:core:model` 125, `:core:data` 570,
+`:core:designsystem` 112, `:widget` 123, `:app` 570.
 
 The table below is the load-bearing part of that rather than the whole of it:
 

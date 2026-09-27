@@ -21,8 +21,8 @@ import okhttp3.Response
  * so there is still one connection pool, one dispatcher and one set of
  * timeouts for the whole app.
  *
- * [tokenProvider] is blocking for the same reason [AuthInterceptor]'s is:
- * interceptors cannot suspend, and they run on OkHttp's own threads.
+ * [tokenProvider] answers from memory for the same reason [AuthInterceptor]'s
+ * does: it is asked on every request, and an interceptor cannot suspend.
  */
 internal class DiaryAuthInterceptor(
     private val tokenProvider: () -> String?,

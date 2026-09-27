@@ -21,7 +21,8 @@ Three deliverables in one repository:
 android/     Kotlin / Compose / Glance, five Gradle modules
 server/      FastAPI + aiogram in one process, one database, Alembic migrations
 api/         thin Vercel entry point that re-exports server/app/main.py
-docs/        nine documents plus an index (docs/README.md), all current, all English;
+docs/        ten documents plus an index (docs/README.md), all English; nine are current,
+             and history.md is the record of every batch HANDOVER.md has handed on;
              docs/diaries/ holds the per-platform reference pages of diaries.md;
              docs/app/ (the in-app guide) and docs/legal/ (the terms and the privacy
              policy) are product text the APK bundles, Russian source and English twin
@@ -35,7 +36,10 @@ cookie, no build step. Do not grow it into a second admin surface: anything the 
 express belongs in the bot.
 
 `requirements.txt` at the root exists only because Vercel's Python builder does not read
-`pyproject.toml` from a subdirectory — and it must stay level with it.
+`pyproject.toml` from a subdirectory. It is a lock (#192) — every package the function can
+import, at one exact version, for CPython 3.12 on Linux — compiled by `uv pip compile` from
+`requirements.in`, which must stay level with `pyproject.toml`. The lock's header is the
+command; never edit a pin by hand. CI installs the lock too, so the tests run on what deploys.
 
 ## Commands
 
@@ -47,7 +51,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2024 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2063 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -55,10 +59,11 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 100 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 153 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
-  other error code is switched off by name with its count and its reason. Not in CI — the
-  owner has not been asked — but run it before you push server code
+  other error code is switched off by name with its count and its reason. A CI step since
+  27 September 2026, right after ruff, because the owner asked for it through that day's
+  audit (#210) — and still worth running before you push: seconds here, minutes there
 - `python -m pytest -q tests/test_schedule.py -k parity` — one file, one test
 - `python -m uvicorn app.main:app --reload` — run it; add `--host 0.0.0.0` for a phone to
   reach it
@@ -72,6 +77,12 @@ Android, from `android/`:
 - `./gradlew :core:model:test --tests '*ScheduleEngineTest*'` — one module, one class
 - **`./gradlew assembleDebug`** and **`./gradlew assembleRelease`** — CI builds both on every
   push, because R8 and resource shrinking are where "worked in debug" stops being true
+- **`./gradlew detekt`** — static analysis of the Kotlin in all five modules (#210), without
+  type resolution; fails on any finding the module's `detekt-baseline.xml` does not hold.
+  Fix a new finding, or `@Suppress` it in place with the reason — the baseline is the past
+- `./gradlew detektBaseline` — rewrites all five baselines from the code as it stands; run
+  it after a merge that moves code between files, because a baseline entry names the file.
+  `docs/build.md`, "detekt", has the rest
 - `./gradlew lint` runs the AGP Android lint; CI does not, so do not report it as a gate
 - `./gradlew :core:designsystem:connectedDebugAndroidTest` — the one instrumented source set
   (#110), on a running emulator or a connected phone. Not a CI gate: CI has no device, and a
@@ -87,8 +98,8 @@ the second file exists: while it was alone, every Russian word came from the dev
 fallback beside digits from the bundle. `FontAxisTest` holds all three halves — the pair
 draws Russian, neither carries an axis nothing varies, and no file is bundled unnamed.
 
-CI (`.github/workflows/ci.yml`) is: ruff, pytest (`-n auto`), `./gradlew test`, both
-assembles. Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;
+CI (`.github/workflows/ci.yml`) is: ruff, mypy, pytest (`-n auto`), `./gradlew test`, both
+assembles, and `./gradlew detekt` after them. Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;
 `reminders.yml` is a fallback clock, not the clock (see below). The workflows work — do
 not edit them casually. The repository is public, so standard runners cost nothing; what
 the workflows still carry from the months it was private is in `docs/build.md`, "Actions
@@ -104,11 +115,26 @@ quoting the number that had been asked for.
 Read `docs/architecture.md` before any cross-cutting change; it is current and it explains
 the decisions, not just the layout.
 
-**The bot writes, the API reads.** Telegram already solved identity, so there is no admin
-web panel, no session cookies and no password reset. The cost is real and deliberate:
-anything the bot cannot express does not exist. `server/app/services/` holds the rules
-shared by the bot handlers and the `/api/v1/manage` endpoints — two thin shells over one
-implementation, because two implementations of "rename a subject" disagree within a month.
+**Two shells write, over one set of services.** The bot is the admin panel, and a linked
+phone runs the same class through the API: `/api/v1/edit` (homework, substitutions, events,
+special days — editor and above) and `/api/v1/manage` (subjects, bells, the timetable,
+devices, access requests, terms, the class itself — admin, and owner to delete it). Both
+take the **device token** and ask `linking.effective_role` for the linked account's role on
+every request, so an unlinked phone changes nothing of the class's. The rest of what the
+API writes is personal (`public.py`: the linked account's own tasks and ticked-off
+homework, whatever its role, and a phone unlinking itself; `/join` mints the device token)
+and a family's diary (`/api/v1/diary`, with the **diary token**); `docs/architecture.md` has
+the table.
+Telegram already solved identity, so there is still no admin web panel, no session cookies
+and no password reset — a phone has no rights of its own, only its account's — and the cost
+is still real: anything the bot cannot express does not exist. `server/app/services/` holds
+the rules both shells call — two thin shells over one implementation, because two
+implementations of "rename a subject" disagree within a month — and **nothing under
+`services/` may import `app.bot`**, directly or through another `app/` module: a rule that
+lives in the bot is a rule the phone does not get, and a service that pulls aiogram in puts
+it on the API's cold start. The role ladder lives in `services/roles.py` (`bot/roles.py`
+re-exports it) and the wording both shells print in `app/wording.py`;
+`tests/test_service_layering.py` holds the rule.
 
 Server modules:
 
@@ -128,15 +154,33 @@ Server modules:
   shadowing. Do **not** import `dishka.integrations.aiogram` from it — that pulls aiogram
   onto the cold-start path of every request, which is the thing `main.py` and
   `api/telegram.py` already go out of their way to defer
-- `api/` — `public.py` (read), `edit.py` and `manage.py` (write), `diary.py`, `cron.py`,
+- `services/` — the rules, as async functions over a session. Nothing there commits (the
+  caller commits the change together with its audit line), and nothing may import `app.bot`.
+  `services/manage/` is running a class, one module per screen named like the shells'
+  (`subjects`, `bells`, `devices`, `classes`, `requests`, `journal`, `terms`, `timetable`,
+  `special_days`, `search`): each does the check, the write and the audit line with its
+  Russian wording, and a refusal is an exception carrying facts, never a sentence, so each
+  shell keeps its own words — «Предмет … уже есть» in a chat, a `409` on the wire
+- `api/` — `public.py` (the phone's reads and its own writes), `edit.py` (the day-to-day
+  writes), `manage/` (running the class, one module per resource over
+  `services/manage/`, with `_common.py` holding `Actor` and the one role dependency per
+  level), `diary.py`, `cron.py`,
   `telegram.py` (webhook), `deps.py` (device-token auth), `routing.py` (the route class
   every router here is built with: dishka's wrapper carries its own globals, so under
   `from __future__ import annotations` FastAPI could not resolve an endpoint's
   `-> Response` and took the name for a response model — a 204 route made that an
   `AssertionError` at import, and every route without an explicit `response_model=` would
   have had a schema built from a string)
-- `bot/` — aiogram routers, roles, keyboards, renderers. The weekly template has **two**
-  editors and both are wanted: `handlers/timetable.py` pastes a whole weekday (fastest way
+- `bot/` — aiogram routers, roles, keyboards, renderers. «⚙️ Класс» is `handlers/manage/`,
+  one module per screen, each with a router of its own included in one written-down order
+  by the package's `__init__`. Every handler there says what it needs with
+  `@needs(Role.X)` (`handlers/manage/_common.py`) under its `@router…` line — one decorator
+  instead of seventy-two copies of the check, and a decorator rather than a filter or a
+  middleware flag because the check has to travel with the function: a failed filter hands
+  the update on instead of refusing it, and the tests that press every step as a
+  наблюдатель call the handlers directly. A refusal is an alert for a press, a sentence for
+  a command, and a dropped form with no answer for a step (`step=True`).
+  The weekly template has **two** editors and both are wanted: `handlers/timetable.py` pastes a whole weekday (fastest way
   to enter a term), `handlers/editor.py` changes one lesson with buttons. They share one
   grammar (`services/timetable_io.py`) and one set of mutations
   (`services/timetable_edit.py`) — the editor's ‹ › pager and «⏱ Перемены» switch live in
@@ -224,9 +268,10 @@ points Hilt does not inject cleanly.
   inventing a version or leaving the pull request bare. The `github-pr` skill has the
   numbers, the one tool that sets them, and the two ways this was got wrong first. **Two
   version milestones are open:** the ninth, `v0.8.0 — On-device checks, 89-region e-diary
-  survey`, holds issues #109–#117, the first work that needs an emulator or a phone; the
-  tenth, `v0.9.0 — NetSchool e-diary, onboarding via the school's diary`, holds PR #140 and
-  its issues. All ten were renamed on 25 September 2026, so a title quoted from before then
+  survey`, holds #109–#117 and what #186's walk on an emulator found, the first work that
+  needs an emulator or a phone; the tenth, `v0.9.0 — NetSchool e-diary, onboarding via the
+  school's diary`, holds PR #140 and its issues, and the external audit of 27 September
+  (#190–#213). All ten were renamed on 25 September 2026, so a title quoted from before then
   finds nothing when searched.
 - **A defect that is found gets an issue, always, and before it gets a fix.** The rule is
   new and it is not optional: the moment an audit, a review, a CI failure or a reader finds
@@ -251,7 +296,7 @@ points Hilt does not inject cleanly.
 - **There are issues now, and until #85 there were none.** Forty-two were opened in one go
   to give the history and the backlog a shape the milestones alone could not: twenty-three
   closed, describing what was built and what each bug sweep found, and nineteen open, which
-  are the whole of what is left. Read the open ones before planning a batch — several say
+  were then the whole of what was left. Read the open ones before planning a batch — several say
   what was *deliberately* left and why, so that a later session does not re-discover a
   decision as if it were an oversight. The labels are `type:` (feature, bug, chore,
   research, decision, epic), `area:` (android, widget, server, bot, db, ci, docs, design,
@@ -634,7 +679,8 @@ points Hilt does not inject cleanly.
 - **`HANDOVER.md` at the root says where the work stands** — the branches, what the last
   session finished, what it deliberately left alone and what nothing has verified. It is
   working state, not part of `docs/`, so it is stale the moment it stops being updated:
-  re-check the PR and CI before trusting it.
+  re-check the PR and CI before trusting it. It carries the last two batches; every batch
+  before them is in `docs/history.md`, newest first, verbatim.
 - **A pull request of this session's own work is merged without asking.** The owner asked for
   that on 20 September 2026; it is their standing instruction, recorded in the `github-pr`
   skill with the five things to check first — CI green on the exact head, `mergeable_state`
@@ -653,8 +699,9 @@ points Hilt does not inject cleanly.
   batch before. If the batch's own pull request has already merged, the update is its own
   commit and its own pull request — with a milestone, like every other. What drifts every
   time, and is not a judgement call, is listed in the `handover` skill: the opening
-  paragraph, the chain of batch sections, the milestone table, the test counts in their
-  three places, and sections 5 and 7.
+  paragraph, the chain of batch sections — the new one on top, and the one that falls off
+  the last two moved to the top of `docs/history.md` — the milestone table, the test counts
+  in their three places, and sections 5 and 7.
 - **`.claude/` holds the agent configuration, and it describes the shape rather than
   repeating this file.** `.claude/agents/` has one agent per area that has produced a defect
   here, carrying the fact that would have prevented it; `.claude/skills/` has the procedures

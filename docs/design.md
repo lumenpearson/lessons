@@ -109,7 +109,7 @@ does not apply.
 | `ui/modifiers/ProgressiveBlurModifier.kt` | `modifier/ProgressiveBlur.kt` |
 | `ui/components/modifiers/ShimmerModifier.kt` | `modifier/Shimmer.kt` |
 | `utils/ui/HapticUtil.kt` | `haptic/LessonsHaptics.kt` |
-| `MainActivity` (the tab pager) | `navigation/LessonsApp.kt` |
+| `MainActivity` (the tab pager) | `navigation/HomeShell.kt`, under `navigation/LessonsApp.kt` |
 | `ui/activities/SettingsActivity.kt` | `ui/settings/SettingsScreen.kt` |
 | `ui/composables/WelcomeScreen.kt` | `ui/onboarding/` — the introduction of the first run |
 

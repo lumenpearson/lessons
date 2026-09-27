@@ -1,0 +1,27 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:WidgetSizeClass.kt:WidgetSizeClass.Companion$fun of: WidgetSizeClass</ID>
+    <ID>LongMethod:WidgetPresentation.kt:internal fun headlineOf: Headline</ID>
+    <ID>MagicNumber:HomeworkDayLabel.kt:HomeworkDayLabel.Companion$3L</ID>
+    <ID>MagicNumber:LessonsWidgetBody.kt:10</ID>
+    <ID>MagicNumber:LessonsWidgetBody.kt:11</ID>
+    <ID>MagicNumber:LessonsWidgetBody.kt:20</ID>
+    <ID>MagicNumber:LessonsWidgetBody.kt:4</ID>
+    <ID>MagicNumber:LessonsWidgetBody.kt:6</ID>
+    <ID>MagicNumber:LessonsWidgetBody.kt:8</ID>
+    <ID>MagicNumber:WidgetPrimitives.kt:12</ID>
+    <ID>MagicNumber:WidgetPrimitives.kt:14</ID>
+    <ID>MagicNumber:WidgetPrimitives.kt:5</ID>
+    <ID>MagicNumber:WidgetPrimitives.kt:6</ID>
+    <ID>MagicNumber:WidgetPrimitives.kt:8</ID>
+    <ID>MagicNumber:WidgetStrings.kt:WidgetStrings$60L</ID>
+    <ID>MagicNumber:WidgetStrings.kt:WidgetStrings$60_000.0</ID>
+    <ID>TooGenericExceptionCaught:LessonsWidgetReceiver.kt:LessonsWidgetReceiver$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:WidgetTickReceiver.kt:WidgetTickReceiver$error: Exception</ID>
+    <ID>TooManyFunctions:WidgetPresentation.kt:com.lumenpearson.lessons.widget.ui.WidgetPresentation.kt</ID>
+    <ID>TooManyFunctions:WidgetStrings.kt:WidgetStrings</ID>
+    <ID>UnusedParameter:LessonsWidget.kt:LessonsWidget$context: Context</ID>
+  </CurrentIssues>
+</SmellBaseline>

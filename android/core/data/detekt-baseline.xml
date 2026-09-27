@@ -1,0 +1,207 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:DiaryImportImpl.kt:DiaryImportImpl$private suspend fun FlowCollector&lt;DiaryImportProgress&gt;.import</ID>
+    <ID>CyclomaticComplexMethod:DiarySignInProblem.kt:DiarySignInProblem.Companion$private fun ofServer: DiarySignInProblem</ID>
+    <ID>CyclomaticComplexMethod:GithubRepositoryImpl.kt:GithubRepositoryImpl$override suspend fun openTranslationPullRequest: PullRequestResult</ID>
+    <ID>CyclomaticComplexMethod:LessonsPreferences.kt:LessonsPreferences$private fun Preferences.toSettings: AppSettings</ID>
+    <ID>CyclomaticComplexMethod:RegionSearch.kt:RegionSearch$private fun score: RegionMatch?</ID>
+    <ID>CyclomaticComplexMethod:TimetableRepositoryImpl.kt:TimetableRepositoryImpl$private suspend fun fetchYear: SyncResult</ID>
+    <ID>LongMethod:BundleJsonTest.kt:BundleJsonTest$@Test fun serverPayload_decodesAndMapsToDomain</ID>
+    <ID>LongMethod:DiaryImportImpl.kt:DiaryImportImpl$private suspend fun FlowCollector&lt;DiaryImportProgress&gt;.import</ID>
+    <ID>LongMethod:DtoMappersTest.kt:DtoMappersTest$@Test fun normalDay_mapsEveryFieldAndSortsTheTimeline</ID>
+    <ID>LongMethod:LessonsPreferences.kt:LessonsPreferences$override suspend fun updateSettings</ID>
+    <ID>LongMethod:LessonsPreferences.kt:LessonsPreferences$private fun Preferences.toSettings: AppSettings</ID>
+    <ID>LongMethod:TimetableRepositoryImpl.kt:TimetableRepositoryImpl$private suspend fun fetchYear: SyncResult</ID>
+    <ID>LoopWithTooManyJumpStatements:DiaryProtocolVectorsTest.kt:DiaryProtocolVectorsTest$for</ID>
+    <ID>LoopWithTooManyJumpStatements:GithubRepositoryImpl.kt:GithubRepositoryImpl$for</ID>
+    <ID>LoopWithTooManyJumpStatements:UpstreamDirectory.kt:CatalogUpstreamDirectory$for</ID>
+    <ID>MagicNumber:DiaryImport.kt:DiaryImportPhase.HOMEWORK$0.25f</ID>
+    <ID>MagicNumber:DiaryImport.kt:DiaryImportPhase.MARKS$0.25f</ID>
+    <ID>MagicNumber:DiaryImport.kt:DiaryImportPhase.PERIODS$0.10f</ID>
+    <ID>MagicNumber:DiaryImport.kt:DiaryImportPhase.SCHEDULE$0.30f</ID>
+    <ID>MagicNumber:DiaryImport.kt:DiaryImportPhase.STUDENTS$0.10f</ID>
+    <ID>MagicNumber:DiaryModels.kt:DiaryFailure.Companion$401</ID>
+    <ID>MagicNumber:DiaryModels.kt:DiaryFailure.Companion$404</ID>
+    <ID>MagicNumber:DiaryModels.kt:DiaryFailure.Companion$422</ID>
+    <ID>MagicNumber:DiaryModels.kt:DiaryFailure.Companion$429</ID>
+    <ID>MagicNumber:DiaryModels.kt:DiaryFailure.Companion$502</ID>
+    <ID>MagicNumber:DiaryModels.kt:DiaryFailure.Companion$503</ID>
+    <ID>MagicNumber:DiaryModels.kt:DiaryFailure.Companion$504</ID>
+    <ID>MagicNumber:DiarySignInProblem.kt:DiarySignInProblem.Companion$401</ID>
+    <ID>MagicNumber:DiarySignInProblem.kt:DiarySignInProblem.Companion$403</ID>
+    <ID>MagicNumber:DiarySignInProblem.kt:DiarySignInProblem.Companion$409</ID>
+    <ID>MagicNumber:DiarySignInProblem.kt:DiarySignInProblem.Companion$422</ID>
+    <ID>MagicNumber:DiarySignInProblem.kt:DiarySignInProblem.Companion$429</ID>
+    <ID>MagicNumber:DiarySignInProblem.kt:DiarySignInProblem.Companion$502</ID>
+    <ID>MagicNumber:DiarySignInProblem.kt:DiarySignInProblem.Companion$503</ID>
+    <ID>MagicNumber:DiarySignInProblem.kt:DiarySignInProblem.Companion$504</ID>
+    <ID>MagicNumber:DiarySignInProblem.kt:DiarySignInProblem.Companion$8</ID>
+    <ID>MagicNumber:DocsMarkdown.kt:DocsMarkdown$3</ID>
+    <ID>MagicNumber:EntityMappers.kt:3</ID>
+    <ID>MagicNumber:EntityMappers.kt:4</ID>
+    <ID>MagicNumber:GithubRepositoryImpl.kt:1000L</ID>
+    <ID>MagicNumber:LessonsPreferences.kt:LessonsPreferences$7</ID>
+    <ID>MagicNumber:LocaleOverride.kt:33</ID>
+    <ID>MagicNumber:ManageModels.kt:ManageFailure.Companion$401</ID>
+    <ID>MagicNumber:ManageModels.kt:ManageFailure.Companion$403</ID>
+    <ID>MagicNumber:ManageModels.kt:ManageFailure.Companion$404</ID>
+    <ID>MagicNumber:ManageModels.kt:ManageFailure.Companion$409</ID>
+    <ID>MagicNumber:ManageModels.kt:ManageFailure.Companion$422</ID>
+    <ID>MagicNumber:ManageModels.kt:ManageFailure.Companion$503</ID>
+    <ID>MagicNumber:Mappers.kt:11</ID>
+    <ID>MagicNumber:NetSchoolPassword.kt:Cp1251$0x80</ID>
+    <ID>MagicNumber:NetSchoolPassword.kt:NetSchoolPassword$32</ID>
+    <ID>MagicNumber:NetSchoolPassword.kt:NetSchoolPassword$4</ID>
+    <ID>MagicNumber:NetSchoolSignIn.kt:NetSchoolSignIn$0x80</ID>
+    <ID>MagicNumber:NetSchoolSignIn.kt:NetSchoolSignIn.Companion$403</ID>
+    <ID>MagicNumber:NetSchoolSignIn.kt:NetSchoolSignIn.Companion$409</ID>
+    <ID>MagicNumber:NetSchoolSignIn.kt:NetSchoolSignIn.Companion$429</ID>
+    <ID>MagicNumber:NetSchoolSignIn.kt:NetSchoolSignIn.Companion$500</ID>
+    <ID>MagicNumber:NetworkModule.kt:NetworkModule$15</ID>
+    <ID>MagicNumber:NetworkModule.kt:NetworkModule$30</ID>
+    <ID>MagicNumber:NetworkModule.kt:NetworkModule$60</ID>
+    <ID>MagicNumber:PetersburgSignIn.kt:PetersburgSignIn.Companion$400</ID>
+    <ID>MagicNumber:PetersburgSignIn.kt:PetersburgSignIn.Companion$401</ID>
+    <ID>MagicNumber:PetersburgSignIn.kt:PetersburgSignIn.Companion$403</ID>
+    <ID>MagicNumber:PetersburgSignIn.kt:PetersburgSignIn.Companion$500</ID>
+    <ID>MagicNumber:RegionSearch.kt:RegionSearch$3</ID>
+    <ID>MagicNumber:RegionSearch.kt:RegionSearch$4</ID>
+    <ID>MagicNumber:RegionSearch.kt:RegionSearch$6</ID>
+    <ID>MagicNumber:SchoolDirectory.kt:DirectoryProblem.Companion$404</ID>
+    <ID>MagicNumber:SchoolDirectory.kt:DirectoryProblem.Companion$422</ID>
+    <ID>MagicNumber:SchoolDirectory.kt:DirectoryProblem.Companion$429</ID>
+    <ID>MagicNumber:SchoolDirectory.kt:DirectoryProblem.Companion$503</ID>
+    <ID>MagicNumber:SchoolDirectory.kt:DirectoryProblem.Companion$504</ID>
+    <ID>MagicNumber:SchoolDirectory.kt:DirectoryProblem.Companion$8</ID>
+    <ID>MagicNumber:UpstreamFailure.kt:8</ID>
+    <ID>MagicNumber:UpstreamHttp.kt:UpstreamHttp$10</ID>
+    <ID>MagicNumber:UpstreamHttp.kt:UpstreamHttp$20</ID>
+    <ID>MagicNumber:UpstreamHttp.kt:UpstreamHttp$40</ID>
+    <ID>MatchingDeclarationName:BearerTestSupport.kt:BearerHarness</ID>
+    <ID>MatchingDeclarationName:Converters.kt:LessonsTypeConverters</ID>
+    <ID>MaxLineLength:DiaryCache.kt:DiaryCacheWriter$suspend</ID>
+    <ID>MaxLineLength:DiaryCacheTest.kt:DiaryCacheTest$DiaryPeriodDto(id = 11, name = "II", startsOn = "2026-11-05", endsOn = "2026-12-28", isCurrent = true)</ID>
+    <ID>MaxLineLength:DiaryDaoPolicyTest.kt:DiaryDaoPolicyTest.Companion$val TABLES = listOf("diary_student", "diary_week", "diary_period", "diary_lesson", "diary_homework", "diary_mark")</ID>
+    <ID>MaxLineLength:DiaryImportTest.kt:DiaryImportTest$assertTrue(rig.cache.marks(1).first().covers(DiaryWindows.gradeWindow(rig.clock.today(), rig.cache.periods(1).first().periods.single())))</ID>
+    <ID>MaxLineLength:DiaryImportTest.kt:DiaryImportTest$periods = listOf(DiaryPeriodDto(id = 7, name = "I", startsOn = "2026-09-01", endsOn = "2026-10-26", isCurrent = true))</ID>
+    <ID>MaxLineLength:DiaryImportTest.kt:DiaryImportTest.ClearingSignIn$/** A sign-in that does what [com.lumenpearson.lessons.core.data.repository.DiarySignInImpl] does for a new account: empties the cache, then answers. */</ID>
+    <ID>MaxLineLength:DiaryImportTest.kt:DiaryImportTest.ClearingSignIn$override suspend fun register</ID>
+    <ID>MaxLineLength:DiaryImportTest.kt:DiaryImportTest.ClearingSignIn$return Result.success(com.lumenpearson.lessons.core.data.repository.DiaryRegistration(session, listOf(pupil(1))))</ID>
+    <ID>MaxLineLength:DiaryJsonTest.kt:DiaryJsonTest$credential</ID>
+    <ID>MaxLineLength:DiaryProtocolVectorsTest.kt:DiaryProtocolVectorsTest$assertEquals(Vectors.petersburg.getValue("session_cookie").jsonPrimitive.content, PetersburgSignIn.SESSION_COOKIE)</ID>
+    <ID>MaxLineLength:DiaryRepositoryTest.kt:DiaryRepositoryTest.FakeApi$override suspend fun capabilities: DiaryCapabilitiesDto</ID>
+    <ID>MaxLineLength:DiarySignInProblemTest.kt:DiarySignInProblemTest$row("read address refused", DiaryFailure.ServerAddressRefused, DiarySignInProblem.ServerAddressRefused, Action.NONE)</ID>
+    <ID>MaxLineLength:DiarySignInTest.kt:DiarySignInTest$assertEquals("42", script.to(NetSchoolSignIn.LOGIN_PATH).single().body!!.utf8().substringAfter("scid=").substringBefore('&amp;'))</ID>
+    <ID>MaxLineLength:DiarySignInTest.kt:DiarySignInTest$providers = DiaryProvidersDto(petersburg = JsonObject(emptyMap()), netschool = NetSchoolCapabilitiesDto(regions))</ID>
+    <ID>MaxLineLength:DiaryTestSupport.kt:InMemoryDiaryDao$override suspend fun deleteHomeworkOtherThan</ID>
+    <ID>MaxLineLength:DiaryTestSupport.kt:InMemoryDiaryDao$weeks.replaceAll { if (it.studentId == studentId &amp;&amp; it.monday in mondays) it.copy(homeworkSyncedAt = at) else it }</ID>
+    <ID>MaxLineLength:DiaryTestSupport.kt:InMemoryDiaryDao$weeks.replaceAll { if (it.studentId == studentId &amp;&amp; it.monday in mondays) it.copy(lessonsSyncedAt = at) else it }</ID>
+    <ID>MaxLineLength:DiaryTestSupport.kt:internal fun lesson</ID>
+    <ID>MaxLineLength:DiaryTestSupport.kt:internal fun mark</ID>
+    <ID>MaxLineLength:MembershipsTest.kt:MembershipsTest$"""{"classId":3,"className":"5В","token":"t3","diary":{"provider":"netschool","schoolId":"not a number"}}]"""</ID>
+    <ID>MaxLineLength:NetSchoolSignInTest.kt:NetSchoolSignInTest$.</ID>
+    <ID>MaxLineLength:NetSchoolSignInTest.kt:NetSchoolSignInTest$val script = NetSchoolScript(logindata = { jsonAnswer(200, Json.parseToJsonElement("""{"schoolLogin":false}""")) })</ID>
+    <ID>MaxLineLength:PetersburgSignInTest.kt:PetersburgSignInTest$server.enqueue(rawAnswer(200, "application/json", """{"data":{"token":"body"}}""", listOf("X-JWT-Token=cookie.jwt.value; Path=/")))</ID>
+    <ID>MaxLineLength:SchoolDirectory.kt:DirectoryProblem.Companion$if</ID>
+    <ID>MaxLineLength:SyncWorkerSourceTest.kt:SyncWorkerSourceTest$assertTrue("$name is declared, but its source is not at ${file.path}; teach this test where it is", file.isFile)</ID>
+    <ID>MaxLineLength:SyncWorkerSourceTest.kt:SyncWorkerSourceTest.Companion$val</ID>
+    <ID>MaxLineLength:UpstreamDirectoryTest.kt:UpstreamDirectoryTest$assertEquals(setOf("altai-krai", "primorye", "tula"), netschool.filterNot { it.password }.map { it.region }.toSet())</ID>
+    <ID>MaxLineLength:UpstreamDirectoryTest.kt:UpstreamDirectoryTest$assertTrue(UpstreamOrigin("https", "netcity.admsakhalin.ru", 11111) in CatalogUpstreamDirectory(bundled).allowedOrigins())</ID>
+    <ID>MaxLineLength:UpstreamDirectoryTest.kt:UpstreamDirectoryTest$val none = CatalogUpstreamDirectory(RegionCatalog(platforms = mapOf("x" to CatalogPlatform(provider = "netschool"))))</ID>
+    <ID>MaxLineLength:UpstreamFailure.kt:UpstreamNotAllowed$class</ID>
+    <ID>MaxLineLength:UpstreamHttpTest.kt:UpstreamHttpTest$.</ID>
+    <ID>MaxLineLength:UpstreamHttpTest.kt:UpstreamHttpTest$handshake("PKIX path building failed", CertificateException("PKIX", CertPathBuilderException("unable to find path")))</ID>
+    <ID>MaxLineLength:UpstreamHttpTest.kt:UpstreamHttpTest$handshake("Read error: ssl=0x7b: I/O error during system call, Connection reset by peer", SocketException("Connection reset"))</ID>
+    <ID>MaxLineLength:UpstreamTestSupport.kt:NetSchoolScript$jsonAnswer(200, Vectors.flow.getValue("logindata"), "Set-Cookie" to "NSSESSIONID=$SCRIPT_SESSION_COOKIE; Path=/")</ID>
+    <ID>MaxLineLength:UpstreamTestSupport.kt:internal</ID>
+    <ID>ReturnCount:AlertNotifier.kt:AlertNotifier$private fun postIn</ID>
+    <ID>ReturnCount:AppLocale.kt:AppLocale$@SuppressLint("AppBundleLocaleChanges") fun localized: Context</ID>
+    <ID>ReturnCount:AuthInterceptor.kt:AuthInterceptor$override fun intercept: Response</ID>
+    <ID>ReturnCount:CrashReporter.kt:CrashReporter$internal fun reportFile: File</ID>
+    <ID>ReturnCount:DiaryAuthInterceptor.kt:DiaryAuthInterceptor$override fun intercept: Response</ID>
+    <ID>ReturnCount:DiaryCache.kt:DiaryEditsCodec$fun decode: List&lt;DiaryEdit&gt;</ID>
+    <ID>ReturnCount:DiaryImportImpl.kt:DiaryImportImpl$override suspend fun refreshIfStale: Result&lt;Boolean&gt;</ID>
+    <ID>ReturnCount:DiaryImportImpl.kt:DiaryImportImpl$private suspend fun FlowCollector&lt;DiaryImportProgress&gt;.import</ID>
+    <ID>ReturnCount:DiaryMappers.kt:internal fun DiaryHomeworkDto.toDomain: DiaryHomework?</ID>
+    <ID>ReturnCount:DiaryMappers.kt:internal fun DiaryOverrideDto.toDomain: DiaryOverrideRecord?</ID>
+    <ID>ReturnCount:DiarySignInImpl.kt:DiarySignInImpl$override suspend fun signIn: Result&lt;DiaryRegistration&gt;</ID>
+    <ID>ReturnCount:DiarySignInImpl.kt:DiarySignInImpl$private fun requestFor: DiarySessionRequestDto?</ID>
+    <ID>ReturnCount:DiaryTarget.kt:DiaryTargetCodec$fun decode: DiaryTarget?</ID>
+    <ID>ReturnCount:DocsMarkdown.kt:DocsMarkdown$internal fun spans: List&lt;DocsSpan&gt;</ID>
+    <ID>ReturnCount:DocsMarkdown.kt:DocsMarkdown.GuideBuilder$fun read: Boolean</ID>
+    <ID>ReturnCount:DocsRepositoryImpl.kt:DocsRepositoryImpl$private fun bundled: DocsLibrary?</ID>
+    <ID>ReturnCount:DocsRepositoryImpl.kt:DocsRepositoryImpl$private suspend fun fetch: Outcome</ID>
+    <ID>ReturnCount:GithubPreferences.kt:GithubPreferences$private fun Preferences.toAccount: GithubAccount?</ID>
+    <ID>ReturnCount:GithubRepositoryImpl.kt:GithubRepositoryImpl$private suspend fun contents: Pair&lt;String, String&gt;?</ID>
+    <ID>ReturnCount:GithubRepositoryImpl.kt:GithubRepositoryImpl$private suspend fun ensureFork: Boolean</ID>
+    <ID>ReturnCount:GithubRepositoryImpl.kt:internal suspend fun pollUntilDecided: PollVerdict</ID>
+    <ID>ReturnCount:LegalDocuments.kt:internal fun LegalManifest.toEdition: LegalEdition?</ID>
+    <ID>ReturnCount:LegalDocuments.kt:internal fun readLegal: LegalText?</ID>
+    <ID>ReturnCount:LessonsPreferences.kt:internal fun Preferences.toDiarySession: DiarySession?</ID>
+    <ID>ReturnCount:LessonsPreferences.kt:internal fun Preferences.toDiaryTarget: DiaryTarget?</ID>
+    <ID>ReturnCount:LocaleOverride.kt:fun localeOverrideFor: List&lt;String&gt;?</ID>
+    <ID>ReturnCount:ManageMappers.kt:internal fun BellPeriodDto.toDomain: BellPeriod?</ID>
+    <ID>ReturnCount:ManageMappers.kt:private fun wallTime: LocalDateTime?</ID>
+    <ID>ReturnCount:ManageModels.kt:ManageFailure.Companion$fun detailOf: String?</ID>
+    <ID>ReturnCount:Mappers.kt:internal fun EventDto.toDomain: SchoolEvent?</ID>
+    <ID>ReturnCount:Mappers.kt:internal fun LessonDto.toDomain: Lesson?</ID>
+    <ID>ReturnCount:Mappers.kt:internal fun TermDto.toDomain: Term?</ID>
+    <ID>ReturnCount:Memberships.kt:internal fun Preferences.memberships: List&lt;Session&gt;</ID>
+    <ID>ReturnCount:Memberships.kt:private fun storedBinding: DiaryBinding?</ID>
+    <ID>ReturnCount:NetSchoolSignIn.kt:NetSchoolSignIn.Companion$fun loginMessage: String?</ID>
+    <ID>ReturnCount:NetSchoolSignIn.kt:NetSchoolSignIn.Companion$fun looksRefused: Boolean</ID>
+    <ID>ReturnCount:PetersburgSignIn.kt:PetersburgSignIn.Companion$private fun firstError: String?</ID>
+    <ID>ReturnCount:RegionSearch.kt:RegionSearch$fun looksLikeSchool: Boolean</ID>
+    <ID>ReturnCount:RegionSearch.kt:RegionSearch$private fun score: RegionMatch?</ID>
+    <ID>ReturnCount:StringsDocument.kt:StringsDocument$fun replace: String?</ID>
+    <ID>ReturnCount:StringsDocument.kt:StringsDocument$private fun openingTagOf: Int?</ID>
+    <ID>ReturnCount:TimetableRepositoryImpl.kt:TimetableRepositoryImpl$private suspend fun fetchYear: SyncResult</ID>
+    <ID>ReturnCount:UpstreamJson.kt:UpstreamJson$fun integer: BigInteger?</ID>
+    <ID>ReturnCount:UpstreamJson.kt:UpstreamJson$fun parse: JsonElement?</ID>
+    <ID>ReturnCount:UpstreamJson.kt:UpstreamJson$fun scalarText: String</ID>
+    <ID>SwallowedException:GithubRepositoryImpl.kt:unreachable: IOException</ID>
+    <ID>SwallowedException:SingleFlight.kt:SingleFlight$cancelled: CancellationException</ID>
+    <ID>SwallowedException:TimetableRepositoryImpl.kt:TimetableRepositoryImpl$missing: ServerAddressMissingException</ID>
+    <ID>SwallowedException:UpstreamHttpTest.kt:UpstreamHttpTest$refused: UpstreamNotAllowed</ID>
+    <ID>ThrowsCount:DiarySignInImpl.kt:DiarySignInImpl$private fun endpoint: Endpoint</ID>
+    <ID>ThrowsCount:NetSchoolSignIn.kt:NetSchoolSignIn$private suspend fun passwordLogin: Outcome</ID>
+    <ID>ThrowsCount:NetSchoolSignIn.kt:NetSchoolSignIn$suspend fun signIn: UpstreamSession.NetSchool</ID>
+    <ID>ThrowsCount:NetSchoolSignIn.kt:NetSchoolSignIn.Companion$fun consumeLogin: Outcome</ID>
+    <ID>ThrowsCount:PetersburgSignIn.kt:PetersburgSignIn.Companion$fun read: String</ID>
+    <ID>TooGenericExceptionCaught:DeviceLinkRepositoryImpl.kt:DeviceLinkRepositoryImpl$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:DiaryImportImpl.kt:DiaryImportImpl$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:DiaryRepositoryImpl.kt:DiaryRepositoryImpl$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:DiarySignInImpl.kt:DiarySignInImpl$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:GithubApi.kt:GithubApi$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:GithubRepositoryImpl.kt:GithubRepositoryImpl$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:GithubRepositoryImpl.kt:GithubRepositoryImpl$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:ManageRepositoryImpl.kt:ManageRepositoryImpl$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:NetSchoolSchoolSearch.kt:NetSchoolSchoolSearch$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:SchoolAlertReceiver.kt:SchoolAlertReceiver$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:SchoolDirectory.kt:ServerSchoolDirectory$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:SessionRepositoryImpl.kt:SessionRepositoryImpl$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:SingleFlight.kt:SingleFlight$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:TimetableRepositoryImpl.kt:TimetableRepositoryImpl$unexpected: Exception</ID>
+    <ID>TooGenericExceptionCaught:UpdateRepositoryImpl.kt:UpdateRepositoryImpl$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:UpdateRepositoryImpl.kt:UpdateRepositoryImpl$failure: Throwable</ID>
+    <ID>TooManyFunctions:AlertNotifier.kt:AlertNotifier</ID>
+    <ID>TooManyFunctions:CrashReporter.kt:CrashReporter</ID>
+    <ID>TooManyFunctions:DiaryApi.kt:DiaryApi</ID>
+    <ID>TooManyFunctions:DiaryCacheImpl.kt:DiaryCacheImpl : DiaryCacheDiaryCacheWriter</ID>
+    <ID>TooManyFunctions:DiaryDao.kt:DiaryDao</ID>
+    <ID>TooManyFunctions:DiaryRepository.kt:DiaryRepository</ID>
+    <ID>TooManyFunctions:DiaryRepositoryImpl.kt:DiaryRepositoryImpl : DiaryRepository</ID>
+    <ID>TooManyFunctions:GithubRepositoryImpl.kt:GithubRepositoryImpl : GithubRepository</ID>
+    <ID>TooManyFunctions:LessonsPreferences.kt:LessonsPreferences : DiarySessionStoreShellModeSourceSettingsStore</ID>
+    <ID>TooManyFunctions:ManageApi.kt:ManageApi</ID>
+    <ID>TooManyFunctions:ManageMappers.kt:com.lumenpearson.lessons.core.data.repository.ManageMappers.kt</ID>
+    <ID>TooManyFunctions:ManageRepository.kt:ManageRepository</ID>
+    <ID>TooManyFunctions:ManageRepositoryImpl.kt:ManageRepositoryImpl : ManageRepository</ID>
+    <ID>TooManyFunctions:RegionSearch.kt:RegionSearch</ID>
+    <ID>TooManyFunctions:SchoolAlerts.kt:SchoolAlerts</ID>
+    <ID>TooManyFunctions:TimetableDao.kt:TimetableDao</ID>
+    <ID>TooManyFunctions:TimetableRepositoryImpl.kt:TimetableRepositoryImpl : TimetableRepositoryTimetableCache</ID>
+  </CurrentIssues>
+</SmellBaseline>

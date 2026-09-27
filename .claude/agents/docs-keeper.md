@@ -40,4 +40,6 @@ is a legitimate status; a claim that something was verified when it was not is n
 ## Not yours
 
 `HANDOVER.md` is working state, not part of the reference set — that belongs to the
-`handover-keeper` agent.
+`handover-keeper` agent. So does `docs/history.md`, although it sits in `docs/`: it is the
+record of the batches `HANDOVER.md` has handed on, true of the commits it names, and is
+never corrected to today's code.

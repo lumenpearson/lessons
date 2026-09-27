@@ -103,8 +103,11 @@ jobs:
               # test_env_example), `docs/diaries/regions.md` is the region
               # catalog's input and `docs/diaries.md` its table
               # (test_region_catalog), `docs/diaries/netschool.md` is quoted by
-              # test_netschool_mapper.
-              server/*|api/*|requirements.txt|docs/deploy.md|docs/build.md|docs/diaries.md|docs/diaries/*|.github/workflows/*) server=true ;;
+              # test_netschool_mapper. `docker-compose.yml` is read by
+              # test_compose, which is all that checks it: nothing here runs Docker.
+              # `requirements.in` is the input of the lock `requirements.txt`, and
+              # test_requirements_mirror holds the two level with pyproject.toml.
+              server/*|api/*|requirements.txt|requirements.in|docker-compose.yml|docs/deploy.md|docs/build.md|docs/diaries.md|docs/diaries/*|.github/workflows/*) server=true ;;
             esac
           done <<< "$files"
 
@@ -126,11 +129,33 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: server/pyproject.toml
+          cache-dependency-path: |
+            requirements.txt
+            server/pyproject.toml
+      # The lock and the package in one resolve (#192). The lock is what
+      # Vercel installs, so the suite runs on the versions production gets
+      # rather than on whatever was newest the morning CI ran — which is how
+      # SQLAlchemy 2.1 reached the tests and the deployment unannounced
+      # (#164). pyproject.toml adds on top what the function does without:
+      # uvicorn, aiosqlite, alembic and the dev tools, which are not locked
+      # and still float. A lock that no longer satisfies one of its floors
+      # fails here, at the install, rather than in production.
       - name: Install
-        run: pip install -e ".[dev]"
+        run: pip install -r ../requirements.txt -e ".[dev]"
       - name: Lint
         run: ruff check app tests scripts migrations
+      # One question of the whole server: does anything reach for an attribute
+      # its type does not have? «🗓 Четверти» crashed on every press in
+      # production because a card printed `term.days` off a type that has
+      # none, and this reproduces it; every other error code is switched off
+      # by name in pyproject.toml, with its count and its reason. It ran only
+      # when somebody remembered to until the owner asked for it here (#210),
+      # and it runs against the locked versions installed above, which is
+      # where its verdict comes from: SQLAlchemy 2.1 alone made it unclean
+      # once, with no change to the code (#164). Fourteen seconds from cold
+      # on a laptop.
+      - name: Type check
+        run: python -m mypy
       # `-n auto`, because this step was the whole run. It was twelve and a
       # half minutes of a twenty-one minute CI run and is now three and a
       # half: that started as a bill to cut and stayed for the feedback. The
@@ -246,3 +271,22 @@ jobs:
           name: app-release-unsigned-key
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+
+      # Static analysis of the Kotlin (#210): detekt over every module's
+      # sources, without type resolution, failing on any finding that the
+      # module's `detekt-baseline.xml` does not already record. docs/build.md,
+      # "detekt", says what it checks and what it cannot.
+      #
+      # A step of its own rather than a fourth task in the invocation above,
+      # which is where the cost argument would put it. That invocation has no
+      # `--continue`, and detekt's tasks depend on nothing, so they would run
+      # first — and one finding would stop Gradle from scheduling the tests at
+      # all: a style verdict hiding a test verdict. Here it costs the analysis
+      # itself, under half a minute for the five modules on a laptop, and one
+      # configuration on the daemon "Test and assemble" left warm.
+      #
+      # Last, and `success() || failure()`, so that it still answers on a run
+      # whose build failed and can never cost a run its APKs.
+      - name: Detekt
+        if: success() || failure()
+        run: ./gradlew detekt

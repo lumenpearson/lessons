@@ -8,13 +8,15 @@ minimum, not a second copy: **`CLAUDE.md` at the root is the source of truth**, 
 
 «Дневник» (`lessons`): a school diary for Russian schools. Three deliverables in one tree —
 an Android app with a resizable home-screen widget (`android/`, five Gradle modules), a
-FastAPI read API with an aiogram bot in the same process (`server/`), and a thin Vercel entry
+FastAPI client API with an aiogram bot in the same process (`server/`), and a thin Vercel entry
 point (`api/`). Documentation is `docs/`, indexed by `docs/README.md`. There is no npm and no
 web frontend.
 
-**The bot writes, the API reads.** Telegram already solved identity, so there is no admin web
-panel. `server/app/services/` holds the rules the bot handlers and the `/api/v1/manage`
-endpoints share — two thin shells over one implementation.
+**Two shells write, over one set of services.** Telegram already solved identity, so there is
+no admin web panel: the bot is the admin panel, and a phone linked to a Telegram account writes
+through `/api/v1/edit` and `/api/v1/manage` with that account's role. `server/app/services/`
+holds the rules both shells call — two thin shells over one implementation — and nothing under
+it may import `app.bot`.
 
 ## Language
 
@@ -42,8 +44,8 @@ From `android/` (JDK 21, compileSdk 37, wrapper Gradle):
 ./gradlew assembleRelease
 ```
 
-CI is exactly: ruff, pytest `-n auto`, `./gradlew test`, both assembles. `./gradlew lint` is
-**not** a gate. `python -m mypy` is not in CI but is run before server code is pushed.
+CI is exactly: ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`, both assembles.
+`./gradlew lint` is **not** a gate.
 `--offline` is needed for Gradle in a sandbox.
 
 **No commit without lint and tests green.** Touch both halves, run both.

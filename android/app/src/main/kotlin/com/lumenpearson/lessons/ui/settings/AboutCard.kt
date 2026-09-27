@@ -360,6 +360,14 @@ private fun FlowRowScope.ServerBadges(status: ServerStatus) {
         ServerStatus.NotConfigured ->
             PillChip(text = correctedString(R.string.about_badge_server_none))
 
+        // Coloured like an unreachable server: nothing will sync until the
+        // address changes, and that is the thing this card is for saying.
+        ServerStatus.NeedsHttps -> PillChip(
+            text = correctedString(R.string.about_badge_server_needs_https),
+            containerColor = scheme.errorContainer,
+            contentColor = scheme.onErrorContainer,
+        )
+
         ServerStatus.Unreachable -> PillChip(
             text = correctedString(R.string.about_badge_server_unreachable),
             containerColor = scheme.errorContainer,

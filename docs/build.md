@@ -19,6 +19,13 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 cp .env.example .env
 ```
 
+That installs the newest release of everything `pyproject.toml` allows. CI and the
+deployment do not: both install the root `requirements.txt`, a lock of the versions
+production runs (#192), and CI adds the package on top —
+`pip install -r ../requirements.txt -e ".[dev]"`. Do the same when a test passes here and
+fails there, or the other way round; `test_requirements_mirror.py` skips one check, and says
+so, in an environment that is not the lock's.
+
 ### Four steps, and you can stop after any of them
 
 Each is worth doing before the next: everything in a later one depends on the earlier ones
@@ -112,8 +119,8 @@ call a deployed server.
 Four things about that table are worth more than the table.
 
 **`ci.yml` reads no secret and no variable at all.** The gate — ruff, pytest, `./gradlew
-test` and both assembles — needs nothing configured, which is why a pull request from a fork
-runs the whole of it. The one consequence worth knowing: its APKs are built with the legal
+test`, both assembles and detekt — needs nothing configured, which is why a pull request
+from a fork runs the whole of it. The one consequence worth knowing: its APKs are built with the legal
 link's default, so they link *this* repository's terms, whoever's CI built them.
 
 **`CRON_SECRET` is one value living in two places, and nothing checks that they match.**
@@ -625,6 +632,61 @@ The same four values are read from the environment variables `LESSONS_KEYSTORE_F
 `LESSONS_KEYSTORE_PASSWORD`, `LESSONS_KEY_ALIAS` and `LESSONS_KEY_PASSWORD` — which is what
 CI uses.
 
+## detekt
+
+The Kotlin is read by [detekt](https://detekt.dev) (#210), and CI fails on anything new it
+finds:
+
+```bash
+cd android
+./gradlew detekt           # every module; fails on a finding its baseline does not hold
+./gradlew detektBaseline   # rewrites all five baselines from the code as it stands
+```
+
+**What it reads.** Each module's `src/main` and `src/test`, and `:core:designsystem`'s
+`src/androidTest` as well — the plain task reads the first two and nothing else. Every rule
+is detekt's default except for the handful in `android/config/detekt/detekt.yml`, which
+argue with how Compose is written rather than with how this code is: `FunctionNaming` and
+`LongMethod` do not apply to a `@Composable`, `TooManyFunctions` does not count one,
+`TopLevelPropertyNaming` lets a constant be `ModeFadeMillis` as well as `MODE_FADE_MILLIS`,
+and `MagicNumber` does not look inside a `@Preview`. The file gives the reason for each.
+
+**What it forgives.** Each module has a `detekt-baseline.xml` holding the findings the code
+already had when detekt was switched on — 576 of them under 488 entries, most of them
+`MagicNumber` (292), `ReturnCount` (82) and `MaxLineLength` (65). They pass; a new one does
+not. The baseline is a record of the past rather than a place to put the next finding: fix
+that one, or, if it is right as written, suppress it where it stands —
+`@Suppress("MagicNumber")` on the declaration, with the comment saying why.
+
+**When to regenerate, and how.** `./gradlew detektBaseline` is the whole of it: one command,
+all five files, rewritten from what the code finds now, which also drops the entries for
+findings since fixed. A baseline entry names the rule, the **file** and the declaration, not
+the line, so code that moves within a file stays forgiven and code that moves to *another*
+file comes back as new findings. That is what a branch that splits a file does, and it is
+the one time to run it — after the merge, with nothing else in the diff, so that the review
+of the baseline shows only moved entries.
+
+**Without type resolution, and what that costs.** The build runs the plain `detekt` task,
+which parses each file on its own. The plugin also registers type-resolved tasks
+(`detektMain` and `detektTest`, and on Android one per variant beneath those) that give
+the analysis the compiler's view of the types, but each takes its classpath from its
+variant's compilation, so asking for one compiles every module it depends on, debug and
+release both: the half-minute check becomes a build. The price of not paying it is real and is written down
+rather than hidden — detekt skips every rule that needs types, 93 of its 213, among them
+`LongParameterList`, `UnusedImport`, `UnusedPrivateFunction`, `UnusedPrivateProperty`,
+`UnusedVariable`, `IgnoredReturnValue` and `UnsafeCast`. Switching them on is a change to
+the tasks CI calls and a baseline of its own for what they find, and nobody has measured
+what it would cost on the runner.
+
+**Where it runs.** Not in `test`, `assembleDebug` or `assembleRelease`: the plugin hangs
+`detekt` on `check` and on nothing else, so `./gradlew check` and `./gradlew build` run it
+too. In CI it is a step of its own after the build, not a fourth task in the one invocation
+— that invocation has no `--continue`, detekt's tasks depend on nothing and would run
+first, and a single finding would stop Gradle from scheduling the tests. Measured through
+Gradle on a laptop, with no daemon and three workers: `detektBaseline`, the same analysis
+of all five modules, took 15 seconds with the configuration computed from scratch, and the
+first `detekt`, which also downloaded the plugin and detekt's own jars, took 47.
+
 ## The bundled typeface is two files
 
 The app is set in **Google Sans Flex for Latin and digits and Onest for Cyrillic**, chained
@@ -694,7 +756,7 @@ Gradle project at `$PROJECT_DIR$/android`. Opening `android/` on its own builds 
 as well and shows none of them.
 
 The configurations in `.run/` are Gradle ones only, because they are the only kind that
-assume nothing about the machine: the two CI gates (`test`; `assembleDebug assembleRelease`),
+assume nothing about the machine: two of the CI gates (`test`; `assembleDebug assembleRelease`),
 `:core:model:test`, `:app:installDebug`, and `lint`, which is not a gate. Studio makes its own
 «app» configuration on the first sync. The server's commands stay in the terminal, as the
 README gives them: a Python configuration needs a Python plugin and an interpreter somebody
@@ -728,6 +790,13 @@ launcher's own log — which is how #167 was found.
 
 The app needs an address the **phone** can reach, not the computer. `localhost` and
 `127.0.0.1` do not work in the app: to a phone, those are the phone.
+
+**This is the debug build's route.** A release build speaks `https://` to its server and
+nothing else, except to the phone itself (#202, and
+[below](#why-a-debug-build-speaks-http-and-a-release-build-does-not)): it refuses the
+`http://<address>:8000/` of step 4 where it is typed, with a sentence about https. With a
+release build, go through the `adb` tunnel described [on the emulator](#on-the-emulator) —
+it works for a phone on a cable too — or put the server behind TLS.
 
 1. Start the server so that it listens on more than the loopback:
 
@@ -793,13 +862,28 @@ the Compose BOM brings, because the BOM's Espresso 3.5.0 reaches for
 `InputManager.getInstance` by reflection, which API 34 removed, and every test failed at its
 first `onIdle` on the API 37 emulator.
 
-### Why HTTP and not HTTPS
+### Why a debug build speaks HTTP and a release build does not
 
-Since Android 9 the system blocks `http://` by default. The app allows it through
-`network_security_config.xml`, because the real scenario is a server in the same school,
-reachable at a local address, and public CAs do not issue certificates for an IP on a
-private network. If the school has configured TLS, enter `https://` — the configuration does
-not apply to such an address.
+Since Android 9 the system blocks `http://` by default. The app used to allow it to every
+host through `network_security_config.xml`, on the premise that the real scenario was a
+server in the same school, reachable at a local address, for which public CAs issue no
+certificate. The owner decided on 27 September 2026 that what crosses such a wire (the list
+below) is not worth that case (#202), so there are now two files:
+
+- `app/src/main/res/xml/network_security_config.xml` — the release build's: cleartext is
+  refused except to `localhost` and `127.0.0.1`, whose requests never leave the phone. A
+  school server on a LAN over plain `http://` does not work in the release APK, and that is
+  accepted.
+- `app/src/debug/res/xml/network_security_config.xml` — the debug build's, which overrides
+  it by name: cleartext to every host, for development against a server on the same desk.
+  Nothing in Gradle chooses between them; a build type's resources win over `main`'s.
+
+The app asks that configuration before it sends anything (`CleartextPolicy` in
+`:core:data`, through `NetworkSecurityPolicy` — the question OkHttp asks too). The address
+sheet refuses such an address where it is typed and holds «Сохранить»; one kept from an
+older version is refused by the base-URL interceptor before the request leaves, and a sync,
+the server badge, a join and the diary sign-in each say it needs `https://` rather than
+showing a network error. `NetworkSecurityConfigTest` holds both files to the rule.
 
 What travels over a plain `http://` wire is **not** harmless, and this page used to say it
 was — «only a class code and a timetable: no passwords, no personal data». The diary
@@ -821,6 +905,7 @@ Two routes still carry a **password** through the server, and over `http://` the
 in the clear: the older `POST /api/v1/diary/login`, kept for the APKs built before
 registration, and the bot's sign-in page, which posts the password to the server at
 `PUBLIC_BASE_URL` — in the clear if that address is `http://`. Neither is on this app's path.
-Before anything is typed, the app's diary sign-in warns when the server address is `http://`
-(«⚠️ Адрес сервера начинается с http://…»), and the warning is about the session, not the
-password; the configuration file's own comment carries the same list.
+In a debug build, before anything is typed, the app's diary sign-in warns when the server
+address is `http://` («⚠️ Адрес сервера начинается с http://…»), and the warning is about the
+session, not the password; a release build says there that the server needs `https://`
+instead. The configuration file's own comment carries the same list.

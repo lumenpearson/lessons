@@ -430,6 +430,16 @@ sealed interface SyncResult {
      */
     data object NotConfigured : SyncResult
 
+    /**
+     * The address is plain `http://` and this build talks to its server over
+     * https only (#202), so nothing was attempted.
+     *
+     * Its own answer rather than [NotConfigured]: the address is plainly
+     * there, and «set an address» would be a sentence about somebody else's
+     * phone. The remedy is the same screen, and retrying it is as hopeless.
+     */
+    data object NeedsHttps : SyncResult
+
     /** Anything transient - no network, server down, malformed payload. Retry later. */
     data class Failed(val message: String) : SyncResult
 }

@@ -36,7 +36,7 @@ internal interface DirectoryApi {
     }
 }
 
-/** `SchoolRegionsOut` in `server/app/schemas.py`. */
+/** `SchoolRegionsOut` in `server/app/schemas/directory.py`. */
 @Serializable
 internal data class SchoolRegionsDto(
     @SerialName("query") val query: String = "",

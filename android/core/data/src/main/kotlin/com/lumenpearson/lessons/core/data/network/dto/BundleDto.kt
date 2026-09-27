@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 /**
  * The whole offline payload: `GET /api/v1/bundle`.
  *
- * Mirrors `BundleOut` in `server/app/schemas.py`. Every collection has a default
+ * Mirrors `BundleOut` in `server/app/schemas/bundle.py`. Every collection has a default
  * so that a server which drops an empty list still decodes, and every date/time
  * stays a [String] here - parsing happens in the mappers, where a malformed
  * value can be dropped instead of failing the entire sync.

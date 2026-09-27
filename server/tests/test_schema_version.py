@@ -88,18 +88,52 @@ _HEAD_SENTENCES = (
     re.compile(r"expects `(\d{4})`"),
 )
 #: The answer `/warmup` gives when all is well, as the reference documents
-#: print it. Only under docs/: the README quotes an answer from #61 on purpose.
+#: print it. Only under docs/: the README quotes the last answer production
+#: gave, with its date, and a dated answer is a record rather than a claim
+#: about the head — the next revision must not make it say what nobody read.
 _WARMUP_OK = re.compile(r'"status": ?"ok"[^}\n]*"schema": ?"(\d{4})"')
 
 
-def _documents() -> list[Path]:
+#: The record of past batches, moved verbatim out of HANDOVER.md: it quotes the
+#: head of every commit it describes, true of that commit, and is never
+#: brought up to date.
+_HISTORY = Path("docs") / "history.md"
+
+
+def _documents(repository: Path = REPOSITORY) -> list[Path]:
     """Everything a person or an agent reads to learn the head — not
-    HANDOVER.md, which is a history and holds every head there has been."""
-    found = [REPOSITORY / name for name in ("README.md", "CLAUDE.md", "AGENTS.md")]
-    found.append(REPOSITORY / ".github" / "copilot-instructions.md")
-    found += sorted((REPOSITORY / "docs").rglob("*.md"))
-    found += sorted((REPOSITORY / ".claude").rglob("*.md"))
-    return [document for document in found if document.is_file()]
+    HANDOVER.md or docs/history.md, which between them hold every head
+    there has been, and not `.claude/worktrees/`, which holds other
+    branches' checkouts rather than this one's."""
+    found = [repository / name for name in ("README.md", "CLAUDE.md", "AGENTS.md")]
+    found.append(repository / ".github" / "copilot-instructions.md")
+    found += sorted((repository / "docs").rglob("*.md"))
+    worktrees = repository / ".claude" / "worktrees"
+    found += sorted(document for document in (repository / ".claude").rglob("*.md")
+                    if not document.is_relative_to(worktrees))
+    return [document for document in found
+            if document.is_file() and document != repository / _HISTORY]
+
+
+def test_the_documents_are_this_checkouts_and_not_an_agents_worktree(tmp_path):
+    """Claude Code keeps parallel agents' git worktrees under
+    `.claude/worktrees/`, untracked, each with its own branch's HANDOVER.md
+    and docs. Read as part of this checkout, nine of them named a head four
+    revisions old and failed every local run beside them (#213)."""
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "deploy.md").write_text("expects `0017`", "utf-8")
+    skill = tmp_path / ".claude" / "skills" / "migration" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("the head is `0017`", "utf-8")
+    elsewhere = tmp_path / ".claude" / "worktrees" / "agent-a1" / "docs" / "deploy.md"
+    elsewhere.parent.mkdir(parents=True)
+    elsewhere.write_text("expects `0013`", "utf-8")
+
+    found = _documents(tmp_path)
+
+    assert skill in found
+    assert tmp_path / "docs" / "deploy.md" in found
+    assert elsewhere not in found
 
 
 def test_every_document_that_names_the_head_names_this_one():

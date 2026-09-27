@@ -545,13 +545,50 @@ Nothing has to be rewritten — the code already works this way.
 
 ```bash
 git clone https://github.com/lumenpearson/lessons && cd lessons
-cp server/.env.example server/.env    # fill in BOT_TOKEN and OWNER_IDS
+cp server/.env.example .env    # beside docker-compose.yml; fill in BOT_TOKEN and OWNER_IDS
+echo "POSTGRES_PASSWORD=$(python3 -c 'import secrets; print(secrets.token_hex(24))')" >> .env
 docker compose up -d --build
 ```
 
 `docker-compose.yml` brings up Postgres, migrates it, and then starts the app. The bot works
 through polling, so no external address and no webhook are needed at all — the server can sit
 behind NAT with no public IP.
+
+**The `.env` is the one beside `docker-compose.yml`, not `server/.env`.** Compose fills every
+`${...}` in the file from the shell or from `.env` in the directory the file is in, and hands
+the container exactly what the file lists; the image copies no `.env` of its own. This step
+used to say `server/.env`, which compose never reads, so `up` stopped at «set BOT_TOKEN in
+.env» however carefully that file had been filled in.
+
+**Every setting the server reads reaches the container.** Besides `BOT_TOKEN`, `OWNER_IDS`
+and `TIMEZONE`, the file hands it `WEBHOOK_SECRET`, `CRON_SECRET`, `BOT_USERNAME`,
+`DIARY_SECRET`, `DADATA_TOKEN`, `PUBLIC_BASE_URL`, `RUN_BOT` and `TRUSTED_PROXY_HOPS` from the
+same `.env`, each arriving as its own default when unset. Until #191 none of those was
+passed, and a container sees only what the file lists: a compose deployment had no diary,
+no digests and no calendar link whatever `.env` said. What they are for is the table under
+Option 1; here, the digests need `CRON_SECRET` and an external cron exactly as on Vercel
+(«The clock» below), the diary needs `DIARY_SECRET` and, for its sign-in page,
+`PUBLIC_BASE_URL`, and behind a reverse proxy that terminates HTTPS, `TRUSTED_PROXY_HOPS=1`
+is what lets the throttles see the caller rather than the proxy.
+
+**The database password is yours, and letters and digits only.** `POSTGRES_PASSWORD` is
+required — `docker compose up` refuses to start without it. The file used to carry `lessons`
+in plain text, which in a public repository is the password of every deployment that ran it
+as written (#190). The same value is spliced into `DATABASE_URL` unescaped, so an `@`, `:`,
+`/` or `%` in it would be read as the URL's syntax rather than as the password; `token_hex`
+produces none of them.
+
+**A volume created before that keeps its old password.** Postgres reads `POSTGRES_PASSWORD`
+only when it initialises an empty volume, so a deployment that has been up since the file
+said `lessons` still has `lessons`, and `migrate` fails to sign in with the new value. Change
+it inside the database once — the `postgres` image trusts connections from inside its own
+container, so this needs no password of its own:
+
+```bash
+docker compose up -d db
+docker compose exec db psql -U lessons -c "ALTER ROLE lessons PASSWORD '<POSTGRES_PASSWORD from .env>'"
+docker compose up -d --build
+```
 
 **The migration is a service of its own, and the server waits for it.** `migrate` runs
 `alembic upgrade head` once against the same image and the same database and must finish
@@ -584,7 +621,8 @@ Any VPS with 1 GB of memory will do. One class's load is a few hundred requests 
 | --- | --- |
 | `api/index.py` | the entry point; a thin re-export of `app.main:app`, so that serverless and `uvicorn` run the same code |
 | `vercel.json` | the region, the install command and the function's `maxDuration`. **There is no rewrite in it and there must not be:** with `"/(.*)" → "/api/index"` Vercel routes by the *rewritten* path, so FastAPI received a literal `/api/index`, and the health check, the client API and the Telegram webhook all answered 404 at once. Removed in PR #5 (`e99d8ca`); this line described something that was not in the file for a year — whoever puts it back will reproduce the same outage |
-| `requirements.txt` | Vercel does not read `pyproject.toml` from a subdirectory; this holds `asyncpg` only, no `aiosqlite` |
+| `requirements.txt` | what Vercel installs, because its builder does not read `pyproject.toml` from a subdirectory. A lock, not a list (#192): every package the function can import, transitive ones included, at one exact version, resolved for CPython 3.12 on Linux. Not written by hand — its header is the `uv pip compile` command that regenerates it. CI installs the same file together with the package, so the suite runs on the versions production gets; while it held floors, each deploy installed whatever was newest that day |
+| `requirements.in` | the lock's input: `server/pyproject.toml`'s runtime dependencies, character for character, less what the function does without — `asyncpg` only, no `aiosqlite`, and no `uvicorn`, `alembic` or `tzdata`. Edit it with `pyproject.toml`, then regenerate the lock; `test_requirements_mirror.py` holds the three level |
 | `.vercelignore` | keeps `android/`, the tests and the documentation out of the bundle |
 
 ## Which to choose

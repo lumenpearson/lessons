@@ -1,0 +1,190 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:DayPanel.kt:!isToday &amp;&amp; kind == null &amp;&amp; note == null &amp;&amp; holiday == null</ID>
+    <ID>ComplexCondition:SignInPage.kt:!retry &amp;&amp; !server &amp;&amp; !code &amp;&amp; handoff == null</ID>
+    <ID>CyclomaticComplexMethod:CalendarGrids.kt:@Composable private fun MonthCell</ID>
+    <ID>CyclomaticComplexMethod:ClassCardSheet.kt:@Composable private fun SchoolSearchPanel</ID>
+    <ID>CyclomaticComplexMethod:DayRibbonView.kt:@Composable internal fun DayRibbonView</ID>
+    <ID>CyclomaticComplexMethod:DiaryAccountPage.kt:@Composable fun DiaryAccountPage</ID>
+    <ID>CyclomaticComplexMethod:DiaryEditSheet.kt:@Composable internal fun DiaryEditSheet</ID>
+    <ID>CyclomaticComplexMethod:DiaryProblemText.kt:fun diaryProblemMessage: DiaryProblemMessage</ID>
+    <ID>CyclomaticComplexMethod:DiaryScreen.kt:@Composable fun DiaryScreen</ID>
+    <ID>CyclomaticComplexMethod:HomeShell.kt:@Composable internal fun HomeShell</ID>
+    <ID>CyclomaticComplexMethod:ImportPage.kt:@Composable internal fun ImportPage</ID>
+    <ID>CyclomaticComplexMethod:ImportPage.kt:@Composable private fun StageRow</ID>
+    <ID>CyclomaticComplexMethod:ManagementSheets.kt:@Composable fun FormProblem.asText: String</ID>
+    <ID>CyclomaticComplexMethod:ManagementSheets.kt:@Composable fun ManagementNotice.asText: String</ID>
+    <ID>CyclomaticComplexMethod:OnboardingScreen.kt:@Composable fun OnboardingScreen</ID>
+    <ID>CyclomaticComplexMethod:OnboardingViewModel.kt:OnboardingViewModel$private suspend fun entered</ID>
+    <ID>CyclomaticComplexMethod:OnboardingViewModel.kt:OnboardingViewModel$private suspend fun resolveTarget</ID>
+    <ID>CyclomaticComplexMethod:ProviderStep.kt:@Composable internal fun ProviderStep</ID>
+    <ID>CyclomaticComplexMethod:ProviderStep.kt:@Composable private fun ProviderRow</ID>
+    <ID>CyclomaticComplexMethod:ProviderStep.kt:fun whyLines: List&lt;WhyLine&gt;</ID>
+    <ID>CyclomaticComplexMethod:RegionStep.kt:private fun androidx.compose.foundation.lazy.LazyListScope.schoolAnswer</ID>
+    <ID>CyclomaticComplexMethod:ReleaseNotes.kt:internal fun parseReleaseNotes: List&lt;NotesBlock&gt;</ID>
+    <ID>CyclomaticComplexMethod:SettingsScreen.kt:@Composable fun SettingsSectionScreen</ID>
+    <ID>CyclomaticComplexMethod:SignInPage.kt:@Composable internal fun SignInPage</ID>
+    <ID>CyclomaticComplexMethod:TranslationXml.kt:TranslationXml$fun escape: String</ID>
+    <ID>LongMethod:AppearanceRows.kt:internal fun LazyListScope.appearanceRows</ID>
+    <ID>LongMethod:ClassRows.kt:internal fun LazyListScope.classRows</ID>
+    <ID>LongMethod:ContentRows.kt:internal fun LazyListScope.contentRows</ID>
+    <ID>LongMethod:FeelRows.kt:internal fun LazyListScope.feelRows</ID>
+    <ID>LongMethod:NotificationRows.kt:internal fun LazyListScope.notificationRows</ID>
+    <ID>LongMethod:UpdateRows.kt:internal fun LazyListScope.updateRows</ID>
+    <ID>LoopWithTooManyJumpStatements:OnboardingFlow.kt:OnboardingFlow$for</ID>
+    <ID>LoopWithTooManyJumpStatements:ReleaseNotes.kt:for</ID>
+    <ID>LoopWithTooManyJumpStatements:ResourceTranslationTest.kt:ResourceTranslationTest.Companion$for</ID>
+    <ID>MagicNumber:AboutRows.kt:4</ID>
+    <ID>MagicNumber:AppearanceRows.kt:3</ID>
+    <ID>MagicNumber:AppearanceRows.kt:4</ID>
+    <ID>MagicNumber:AppearanceRows.kt:5</ID>
+    <ID>MagicNumber:BellsSheet.kt:24</ID>
+    <ID>MagicNumber:BellsSheet.kt:4</ID>
+    <ID>MagicNumber:BellsSheet.kt:60</ID>
+    <ID>MagicNumber:ClassCardSheet.kt:3</ID>
+    <ID>MagicNumber:ClassCardSheet.kt:4</ID>
+    <ID>MagicNumber:ClassCardSheet.kt:5</ID>
+    <ID>MagicNumber:ContentRows.kt:3</ID>
+    <ID>MagicNumber:ContentRows.kt:4</ID>
+    <ID>MagicNumber:ContentRows.kt:5</ID>
+    <ID>MagicNumber:DayRibbonView.kt:0.25f</ID>
+    <ID>MagicNumber:DayRibbonView.kt:0.35f</ID>
+    <ID>MagicNumber:DayRibbonView.kt:0.5f</ID>
+    <ID>MagicNumber:DaySheets.kt:3</ID>
+    <ID>MagicNumber:DaySheets.kt:5</ID>
+    <ID>MagicNumber:DebugRow.kt:5</ID>
+    <ID>MagicNumber:DebugSheet.kt:1024</ID>
+    <ID>MagicNumber:DebugSheet.kt:4</ID>
+    <ID>MagicNumber:DevicesSheet.kt:4</ID>
+    <ID>MagicNumber:DevicesSheet.kt:5</ID>
+    <ID>MagicNumber:DiaryAccountPage.kt:3</ID>
+    <ID>MagicNumber:DiaryAccountPage.kt:4</ID>
+    <ID>MagicNumber:DiaryPresentation.kt:3</ID>
+    <ID>MagicNumber:DiaryPresentation.kt:4</ID>
+    <ID>MagicNumber:DiaryPresentation.kt:5</ID>
+    <ID>MagicNumber:DiaryScheduleSection.kt:6</ID>
+    <ID>MagicNumber:DiaryScreen.kt:3</ID>
+    <ID>MagicNumber:DiarySignInScreen.kt:4</ID>
+    <ID>MagicNumber:DocsBlocks.kt:5</ID>
+    <ID>MagicNumber:DocsScreen.kt:4</ID>
+    <ID>MagicNumber:FeelRows.kt:3</ID>
+    <ID>MagicNumber:FeelRows.kt:4</ID>
+    <ID>MagicNumber:FeelRows.kt:5</ID>
+    <ID>MagicNumber:Formatting.kt:3</ID>
+    <ID>MagicNumber:Formatting.kt:4</ID>
+    <ID>MagicNumber:Formatting.kt:5</ID>
+    <ID>MagicNumber:Formatting.kt:6</ID>
+    <ID>MagicNumber:Formatting.kt:60</ID>
+    <ID>MagicNumber:ImportPage.kt:100</ID>
+    <ID>MagicNumber:ImportPage.kt:3</ID>
+    <ID>MagicNumber:JoinScreen.kt:3</ID>
+    <ID>MagicNumber:JoinScreen.kt:5</ID>
+    <ID>MagicNumber:JoinViewModel.kt:8</ID>
+    <ID>MagicNumber:JoinViewModel.kt:JoinError.Companion$59</ID>
+    <ID>MagicNumber:JoinViewModel.kt:JoinError.Companion$60</ID>
+    <ID>MagicNumber:ManagementForms.kt:7</ID>
+    <ID>MagicNumber:NotificationRows.kt:3</ID>
+    <ID>MagicNumber:NotificationRows.kt:4</ID>
+    <ID>MagicNumber:NotificationRows.kt:5</ID>
+    <ID>MagicNumber:NotificationRows.kt:6</ID>
+    <ID>MagicNumber:OnboardingScreen.kt:3</ID>
+    <ID>MagicNumber:OnboardingScreen.kt:4</ID>
+    <ID>MagicNumber:OnboardingScreen.kt:5</ID>
+    <ID>MagicNumber:RegionFinder.kt:59</ID>
+    <ID>MagicNumber:RegionFinder.kt:60</ID>
+    <ID>MagicNumber:RegionStep.kt:3</ID>
+    <ID>MagicNumber:RibbonSettingsSheet.kt:4</ID>
+    <ID>MagicNumber:SettingsSection.kt:SettingsSection.ABOUT$5</ID>
+    <ID>MagicNumber:SettingsSection.kt:SettingsSection.ALERTS$5</ID>
+    <ID>MagicNumber:SettingsSection.kt:SettingsSection.APPEARANCE$4</ID>
+    <ID>MagicNumber:SettingsSection.kt:SettingsSection.CONTENT$3</ID>
+    <ID>MagicNumber:SettingsSection.kt:SettingsSection.DIARY$4</ID>
+    <ID>MagicNumber:SettingsSection.kt:SettingsSection.PERMISSIONS$5</ID>
+    <ID>MagicNumber:SummaryPage.kt:3</ID>
+    <ID>MagicNumber:SummaryPage.kt:4</ID>
+    <ID>MagicNumber:SummaryPage.kt:5</ID>
+    <ID>MagicNumber:SyncRows.kt:4</ID>
+    <ID>MagicNumber:TranslationRows.kt:3</ID>
+    <ID>MagicNumber:TranslationRows.kt:4</ID>
+    <ID>MagicNumber:TranslationRows.kt:5</ID>
+    <ID>MagicNumber:UpdateRows.kt:3</ID>
+    <ID>MagicNumber:UpdateRows.kt:4</ID>
+    <ID>MagicNumber:UpdateRows.kt:5</ID>
+    <ID>MagicNumber:WayInStep.kt:3</ID>
+    <ID>MagicNumber:YearPicker.kt:100</ID>
+    <ID>MatchingDeclarationName:AboutProvenance.kt:BuildProvenance</ID>
+    <ID>MatchingDeclarationName:AppPermissions.kt:AppPermission</ID>
+    <ID>MatchingDeclarationName:DiaryProblemText.kt:DiaryProblemMessage</ID>
+    <ID>MatchingDeclarationName:JoinTestSupport.kt:JoinRig</ID>
+    <ID>MatchingDeclarationName:LegalDocumentSheet.kt:LegalLoad</ID>
+    <ID>MatchingDeclarationName:RootGate.kt:RootScreen</ID>
+    <ID>MatchingDeclarationName:SupportSheets.kt:SupportSheetState</ID>
+    <ID>MaxLineLength:AppCorrections.kt:StringTable$/** `settings_title` for `R.string.settings_title`, or null for anything that cannot be exported as one `&lt;string&gt;`. */</ID>
+    <ID>MaxLineLength:DiaryPickerViewModelTest.kt:DiaryPickerViewModelTest$private var answer: Result&lt;List&lt;DiarySchool&gt;&gt; = Result.success(listOf(DiarySchool(77, "Школа № 7", "ул. Ленина, 1")))</ID>
+    <ID>MaxLineLength:DiaryProblemText.kt:if (inClass) R.string.diary_problem_server_refused_session_in_class else R.string.diary_problem_server_refused_session</ID>
+    <ID>MaxLineLength:DiaryProblemTextTest.kt:DiaryProblemTextTest$assertEquals(Line(R.string.diary_problem_host_timeout, listOf(host)), diaryProblemMessage(DiarySignInProblem.Timeout(host)))</ID>
+    <ID>MaxLineLength:DiaryProblemTextTest.kt:DiaryProblemTextTest$assertEquals(Line(R.string.diary_problem_server_disabled), diaryProblemMessage(DiarySignInProblem.ServerDisabled))</ID>
+    <ID>MaxLineLength:DiaryProblemTextTest.kt:DiaryProblemTextTest$assertEquals(Line(R.string.diary_problem_too_many), diaryProblemMessage(DiarySignInProblem.TooManyAttempts(null)))</ID>
+    <ID>MaxLineLength:DiaryProblemTextTest.kt:DiaryProblemTextTest$assertEquals(Line(R.string.diary_problem_wrong_password), diaryProblemMessage(DiarySignInProblem.WrongPassword(null)))</ID>
+    <ID>MaxLineLength:ImportRunner.kt:ImportRunner$it.copy(choosing = students.map { student -&gt; StudentUi(student.id, student.shortName, student.className, student.school) })</ID>
+    <ID>MaxLineLength:ImportRunner.kt:ImportRunner$it.copy(completed = maxOf(it.completed, progress.completed), phase = DiaryImportPhase.CHOOSE_STUDENT)</ID>
+    <ID>MaxLineLength:JoinScreen.kt:JoinError.InvalidCode -&gt; correctedString(R.string.join_error_invalid_code, ClassCodeLengths.first, ClassCodeLengths.last)</ID>
+    <ID>MaxLineLength:JoinScreen.kt:text = errorText ?: correctedString(R.string.join_code_hint, ClassCodeLengths.first, ClassCodeLengths.last)</ID>
+    <ID>MaxLineLength:LegalBuildPropertyTest.kt:LegalBuildPropertyTest$Regex("""assets\.directories \+=\s+rootProject\.layout\.projectDirectory\.dir\("\.\./docs/legal"\)\.asFile\.path""")</ID>
+    <ID>MaxLineLength:OnboardingCatalog.kt:ProviderPage$get</ID>
+    <ID>MaxLineLength:OnboardingCatalogTest.kt:OnboardingCatalogTest$val row = providerPageOf(realCatalog, region("volgograd"), school = null).rows.single { it.platform == "tor-myschool" }</ID>
+    <ID>MaxLineLength:OnboardingFlowTest.kt:OnboardingFlowTest$assertEquals(listOf(IMPORT), OnboardingFlow.resume(ShellMode.DIARY, bindingUsable = false, hasDiarySession = true)?.path)</ID>
+    <ID>MaxLineLength:OnboardingFlowTest.kt:OnboardingFlowTest$listOf(WELCOME, ACKNOWLEDGEMENT, PREFERENCES, PERMISSIONS, WAY_IN, REGION, SCHOOL, PROVIDER, SIGN_IN, IMPORT, SUMMARY)</ID>
+    <ID>MaxLineLength:OnboardingRows.kt:container = if (selected) MaterialTheme.colorScheme.rowSelectedContainer else MaterialTheme.colorScheme.rowContainer</ID>
+    <ID>MaxLineLength:OnboardingViewModel.kt:OnboardingViewModel$set(if (before == OnboardingStep.SCHOOL) OnboardingFlow.back(state) else OnboardingFlow.push(state, OnboardingStep.SCHOOL))</ID>
+    <ID>MaxLineLength:OnboardingViewModelTest.kt:OnboardingViewModelTest$rig.diarySession = DiarySession(login, "bearer", DiaryTarget.netschool("samara", 239L, "Lyceum 239", login, "Europe/Samara"))</ID>
+    <ID>MaxLineLength:ProviderStep.kt:correctedString(R.string.onboarding_provider_subtitle, localized(it.regionRu, it.regionEn).orEmpty())</ID>
+    <ID>MaxLineLength:ProviderStep.kt:val month = surveyMonthText(why.surveyMonth, if (russian) java.util.Locale.forLanguageTag("ru") else java.util.Locale.ENGLISH)</ID>
+    <ID>MaxLineLength:RegionFinder.kt:is DirectoryProblem.Throttled -&gt; SchoolAnswer.Failed(DirectoryFailure.WAIT, minutesOf(problem.retryAfterSeconds))</ID>
+    <ID>MaxLineLength:RegionStep.kt:SectionHeader(title = correctedString(R.string.onboarding_region_school_section, search.query.trim()))</ID>
+    <ID>MaxLineLength:RegionStep.kt:if (search.query.isBlank()) R.string.onboarding_region_all else R.string.onboarding_region_found</ID>
+    <ID>MaxLineLength:RegionStep.kt:pluralStringResource(R.plurals.onboarding_region_school_count, hit.schools, hit.schools)</ID>
+    <ID>MaxLineLength:RegionStep.kt:val collator = Collator.getInstance(if (russian) java.util.Locale.forLanguageTag("ru") else java.util.Locale.ENGLISH)</ID>
+    <ID>MaxLineLength:SignInStep.kt:SignInStep$mutable.update { it.copy(stage = SignInStage.CHECKING, problem = null, dialog = false, sessionHeld = false) }</ID>
+    <ID>MaxLineLength:SummaryPage.kt:if (settings.settings.debugMode) R.string.onboarding_reports_on else R.string.onboarding_reports_off</ID>
+    <ID>MaxLineLength:WayInStep.kt:subtitle = correctedString(if (code) R.string.onboarding_way_code_text else R.string.onboarding_way_school_text)</ID>
+    <ID>MaxLineLength:WayInStep.kt:text = correctedString(if (code) R.string.onboarding_way_code_badge else R.string.onboarding_way_school_badge)</ID>
+    <ID>NestedBlockDepth:PermissionPromptTest.kt:PermissionPromptTest$@Test fun `every combination resolves to exactly one action`</ID>
+    <ID>ReturnCount:AppCorrections.kt:AppCorrections$override fun correctionOf: String</ID>
+    <ID>ReturnCount:BellsSheet.kt:internal fun bellsModeOf: BellsMode</ID>
+    <ID>ReturnCount:BellsSheet.kt:internal fun decodeBellRows: List&lt;Pair&lt;Int, Int&gt;&gt;?</ID>
+    <ID>ReturnCount:DeviceClockTest.kt:DeviceClockTest.Companion$fun isExplained: Boolean</ID>
+    <ID>ReturnCount:DiaryCatalog.kt:internal fun httpsHostOf: String?</ID>
+    <ID>ReturnCount:DiaryScheduleSection.kt:@Composable private fun DiaryLesson.asTimedLesson: Lesson?</ID>
+    <ID>ReturnCount:DiaryViewModel.kt:DiaryViewModel$fun resetEdit</ID>
+    <ID>ReturnCount:DiaryViewModel.kt:DiaryViewModel$fun saveEdit</ID>
+    <ID>ReturnCount:DiaryViewModel.kt:DiaryViewModel$private suspend fun loadGrades</ID>
+    <ID>ReturnCount:DiaryViewModel.kt:DiaryViewModel$private suspend fun loadSchedule</ID>
+    <ID>ReturnCount:DiaryViewModel.kt:DiaryViewModel$private suspend fun loadStudentsNow</ID>
+    <ID>ReturnCount:ImportRunner.kt:fun stageStateOf: StageState</ID>
+    <ID>ReturnCount:JoinViewModel.kt:JoinViewModel$fun submit: String?</ID>
+    <ID>ReturnCount:LinkedSentence.kt:internal fun linkedSentence: AnnotatedString?</ID>
+    <ID>ReturnCount:MainActivity.kt:private fun Intent.requestedDate: LocalDate?</ID>
+    <ID>ReturnCount:ManagementForms.kt:fun bellPeriodsProblem: FormProblem?</ID>
+    <ID>ReturnCount:ManagementForms.kt:fun normaliseSubjectColour: String?</ID>
+    <ID>ReturnCount:OnboardingCatalog.kt:fun schoolQueryFromHint: String</ID>
+    <ID>ReturnCount:OnboardingCatalog.kt:private fun shown: Boolean</ID>
+    <ID>ReturnCount:OnboardingFlow.kt:OnboardingFlow$fun progress: StepProgress?</ID>
+    <ID>ReturnCount:OnboardingFlow.kt:fun onboardingStateOf: OnboardingState?</ID>
+    <ID>ReturnCount:OnboardingViewModel.kt:OnboardingViewModel$fun back</ID>
+    <ID>ReturnCount:SubjectsSheet.kt:internal fun subjectsModeOf: SubjectsMode</ID>
+    <ID>ReturnCount:TranslationKeys.kt:TranslationKeys$fun entryNameOf: String?</ID>
+    <ID>TooManyFunctions:DiaryViewModel.kt:DiaryViewModel : ViewModel</ID>
+    <ID>TooManyFunctions:ManagementForms.kt:com.lumenpearson.lessons.ui.admin.ManagementForms.kt</ID>
+    <ID>TooManyFunctions:ManagementViewModel.kt:ManagementViewModel : ViewModel</ID>
+    <ID>TooManyFunctions:OnboardingCatalog.kt:com.lumenpearson.lessons.ui.onboarding.OnboardingCatalog.kt</ID>
+    <ID>TooManyFunctions:OnboardingFlow.kt:OnboardingFlow</ID>
+    <ID>TooManyFunctions:OnboardingViewModel.kt:OnboardingViewModel : ViewModel</ID>
+    <ID>TooManyFunctions:SettingsViewModel.kt:SettingsViewModel : ViewModel</ID>
+    <ID>TooManyFunctions:WeekViewModel.kt:WeekViewModel : ViewModel</ID>
+    <ID>UnusedParameter:DayPanel.kt:date: LocalDate</ID>
+    <ID>VariableNaming:CorrectionReachTest.kt:CorrectionReachTest$/** * The imports that draw text without asking about corrections. * * `BasicText` is on the classpath, compiles and draws — nothing uses it * today, and nothing stops the next screen from using it either. */ private val OFFENDING_TEXT_IMPORTS = listOf( "import androidx.compose.material3.Text\n", "import androidx.compose.material3.Text as ", "import androidx.compose.foundation.text.BasicText", )</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
+import com.lumenpearson.lessons.core.data.network.ServerNeedsHttpsException
 import com.lumenpearson.lessons.core.data.repository.JoinFailure
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
@@ -49,6 +50,16 @@ sealed interface JoinError {
     data object InviteOnly : JoinError
 
     /**
+     * The code is real and the class already holds as many phones as the class
+     * code will let in (#199).
+     *
+     * Its own case for the reason [InviteOnly] is: the answer is not on this
+     * screen. A personal code from the bot still gets in, and an admin can make
+     * room by switching old phones off; «проверьте код» would help with neither.
+     */
+    data object ClassFull : JoinError
+
+    /**
      * Too many failed attempts from this address; [minutes] is how long the
      * throttle says to wait, rounded up, or null when it would not say.
      *
@@ -69,6 +80,16 @@ sealed interface JoinError {
     data object NoServer : JoinError
 
     /**
+     * The address is plain `http://`, which a release build does not send to
+     * (#202); nothing was asked. Not [NoServer], whose kind it is to the
+     * interceptor: the address is right there under the button, and «Не
+     * указан адрес сервера» sent the reader looking for a field they had
+     * filled. Only an address kept from an older version gets this far — the
+     * sheet that takes a new one refuses it where it is typed.
+     */
+    data object NeedsHttps : JoinError
+
+    /**
      * The server refused the code some other way, or was unreachable.
      *
      * [detail] is what the server said, and it is null when nobody said
@@ -84,6 +105,7 @@ sealed interface JoinError {
         /** What the repository answered, as something the screen can word. */
         fun of(failure: Throwable): JoinError = when (val classified = JoinFailure.of(failure)) {
             JoinFailure.InviteOnly -> InviteOnly
+            JoinFailure.ClassFull -> ClassFull
             JoinFailure.UnknownCode -> UnknownCode
             is JoinFailure.TooManyAttempts -> TooManyAttempts(
                 // Rounded up, and never to zero: «подождите 0 минут» is an
@@ -101,12 +123,12 @@ sealed interface JoinError {
             // «Не удалось подключиться: failed to connect to /10.0.2.2 (port
             // 8000) from /10.0.2.16 …» (#177). The screen's own sentence is
             // the answer to a server that cannot be reached.
-            is JoinFailure.Offline ->
-                if (classified.reason.causes().any { it is ServerAddressMissingException }) {
-                    NoServer
-                } else {
-                    Rejected(null)
-                }
+            // The https refusal is asked first: it is a kind of missing address.
+            is JoinFailure.Offline -> when {
+                classified.reason.causes().any { it is ServerNeedsHttpsException } -> NeedsHttps
+                classified.reason.causes().any { it is ServerAddressMissingException } -> NoServer
+                else -> Rejected(null)
+            }
             is JoinFailure.Rejected ->
                 Rejected(classified.reason?.message?.takeIf { it.isNotBlank() })
         }

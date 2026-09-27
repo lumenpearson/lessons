@@ -322,7 +322,10 @@ internal class DiarySignInImpl(
         val DEFAULT_MAX_AGE: Duration = Duration.ofMinutes(10)
         const val MIN_DECLARED_TIMEOUT_MILLIS = 60_000L
 
-        /** `PetersburgCredentialIn` in `server/app/schemas.py`: a JWT that can be one cookie. */
+        /**
+         * `PetersburgCredentialIn` in `server/app/schemas/diary_session.py`: a JWT that can be
+         * one cookie.
+         */
         val JWT = Regex("[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]*")
         const val MIN_JWT_LENGTH = 16
 
