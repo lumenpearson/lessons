@@ -32,7 +32,11 @@ from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot.render import (
+from app.db import rows_affected
+from app.models import Homework, PersonalTask, ReminderSettings, SchoolClass
+from app.schedule import ResolvedDay, ScheduleResolver
+from app.services.tasks import homework_ticks
+from app.wording import (
     MONTHS_GENITIVE,
     clamp,
     cut,
@@ -40,10 +44,6 @@ from app.bot.render import (
     relative_day_name,
     render_day,
 )
-from app.db import rows_affected
-from app.models import Homework, PersonalTask, ReminderSettings, SchoolClass
-from app.schedule import ResolvedDay, ScheduleResolver
-from app.services.tasks import homework_ticks
 
 log = logging.getLogger(__name__)
 

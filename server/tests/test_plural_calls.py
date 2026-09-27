@@ -7,10 +7,16 @@ about it passes. That is not hypothetical: three call sites shipped this, and
 the test over one of them was green throughout.
 
 This reads the source rather than the output because the output cannot be
-enumerated. Every renderer under ``app/bot/`` would have to be called with a
-count in each of the three Russian forms to find the next one, and the next one
-will be in a branch nobody thought to build a fixture for. The slip has exactly
-one shape in the source, and one shape is what a parser can be certain about.
+enumerated. Every renderer in ``app/`` would have to be called with a count in
+each of the three Russian forms to find the next one, and the next one will be
+in a branch nobody thought to build a fixture for. The slip has exactly one
+shape in the source, and one shape is what a parser can be certain about.
+
+All of ``app/`` rather than ``app/bot/``, which is what this read while every
+renderer lived there. ``plural`` and the day card moved to ``app/wording.py``
+so the digests could share them without importing the bot (#205), and the
+digests themselves are in ``app/services/`` — a scan of the bot alone would
+have gone on passing over both.
 """
 
 from __future__ import annotations
@@ -18,11 +24,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-BOT = Path(__file__).resolve().parents[1] / "app" / "bot"
+APP = Path(__file__).resolve().parents[1] / "app"
 
 
 def _modules() -> list[Path]:
-    return sorted(BOT.rglob("*.py"))
+    return sorted(APP.rglob("*.py"))
 
 
 def _number_before(node: ast.JoinedStr, call: ast.FormattedValue) -> str | None:
