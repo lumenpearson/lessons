@@ -14,7 +14,7 @@ Role ladder (weakest first): VIEWER -> EDITOR -> ADMIN -> OWNER.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -148,7 +148,7 @@ async def claim_phone_invites(
         membership.full_name = full_name
 
         invite.used_by = telegram_id
-        invite.used_at = datetime.utcnow()
+        invite.used_at = datetime.now(UTC).replace(tzinfo=None)
         # The role they now hold, not the one the invite named. The rule above
         # keeps the higher of the two, so an invite below somebody's existing
         # role changes nothing — but the caller draws the main menu from what
