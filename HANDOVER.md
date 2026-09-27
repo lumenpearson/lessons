@@ -5,32 +5,36 @@ the moment of handover**, so that a new session — human or agent — continues
 place without reopening or redoing anything.
 
 Last updated: **27 September 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166 and #186 are merged**; `main` is at `c26eace`, the merge of #186, and `dev` is level
-with it. **The only thing open is the pull request carrying this paragraph, #187**, from
-`agents/first-android-test`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary
-survey`. It gives the project its first instrumented tests (#110) and fixes three of the four
-defects #186 filed and left open (#171, #175, #176). The section «What the last session
-added» below is that batch.
+#166, #186 and #187 are merged**; `main` is at `2a408d8`, the merge of #187, and `dev` is
+level with it. **The only thing open is the pull request carrying this paragraph, #189**,
+from `agents/widget-small-sizes`, on milestone 9, `v0.8.0 — On-device checks, 89-region
+e-diary survey`. It fixes the last defect #186 filed and left open (#174, the widget's two
+smallest sizes) and one found while checking that fix on the emulator (#188, a widget that
+did not follow its own settings). The section «What the last session added» below is that
+batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**What #187 moves.** Android: `:core:designsystem` has an `androidTest` source set, the
-first anywhere in the project, whose three tests drag the tab bar's arranging gesture by
-fractions of a slot at a device's own density (#110) — run on demand, never in CI, which has
-no device; the diary's two sign-in forms say «по HTTPS, прямо в дневник» once rather than
-twice (#175); the join screen drops an error once the server address it was an answer from
-has changed (#176); and two syncs of one class's year that overlap make one request rather
-than two (#171). No server change, no schema change; `EXPECTED_REVISION` is still `0017`.
+**What #189 moves.** Android, all of it in the widget:
+- The next school day's plan keeps its count and its time and shortens the subject: «4 урока
+  · Алгеб… в 08:30», where a phone's 2×2 read «4 урока · Алгебра в 08:…».
+- `SMALL_TALL`, which is what that 2×2 really is, lists three homework subjects after school
+  instead of two.
+- At any font above the default, the 2×1 draws the count as a bare figure, «ДЗ на завтра 3»,
+  where it read «Д… 3 предмета» (#174).
+- Changing the language, «Прогресс в виджете» or the teacher switch redraws the widget at
+  once instead of whenever something else next woke it (#188).
 
-**Once #187 merges, four issues are meant to close:** #110, #171, #175 and #176. **#174**
-(two small widget sizes cut the wrong text) stays open and was not started. Of the device
-epic **#109**, **#111** and **#113** stay open for what only a phone can say, and **#112**
-(a macrobenchmark module) was not started. What a merge closes is decided by the `Closes`
-lines in the pull request body and in the commit messages, not by this paragraph — read them
-against this list before merging.
+No server change, no schema change; `EXPECTED_REVISION` is still `0017`.
 
-**#186 closed all twenty-one issues it named** — #167–#170, #172, #173, #177–#185, #156,
-#119, #114, #115, #116 and #117 — read back from GitHub on 27 September.
+**Once #189 merges, two issues are meant to close:** #174 and #188. That leaves no defect
+open that a session can fix. Of the device epic **#109**, **#111** and **#113** stay open for
+what only a phone can say, and **#112** (a macrobenchmark module) was not started. What a
+merge closes is decided by the `Closes` lines in the pull request body and in the commit
+messages, not by this paragraph — read them against this list before merging.
+
+**#187 closed the four issues it named** (#110, #171, #175, #176), read back from GitHub on
+27 September, as #186 closed its twenty-one.
 
 **The code expects head `0017`, and production is at `0017` since 26 September 2026 at 12:26 UTC.**
 `EXPECTED_REVISION` in `app/db.py` is `0017`, pinned to the real head by
@@ -133,10 +137,76 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: the first instrumented tests, and three defects the walkthrough left
+## What the last session added: the widget's two smallest sizes, and a widget that did not follow its settings
 
-Open as #187, from `agents/first-android-test`, on milestone 9. Four commits from the night of
-26–27 September and one from the session that picked them up.
+Open as #189, from `agents/widget-small-sizes`, on milestone 9. Two commits, one per issue,
+each checked on the API 37 emulator against a local server seeded with `seed_demo`, on a
+Sunday, so on the widget's day-off layout.
+
+- **#174, the diagnosis was corrected before the fix.** The issue said a phone's 2×2 (about
+  195×226 dp) landed on `LARGE`. It cannot: `LARGE` is 250×250 and does not fit inside the
+  box, and both the launcher and `WidgetSizeClass.of` keep only the breakpoints that fit. It
+  is `SMALL_TALL`, and the screen said so twice. «4 урока · Алгебра в 08:00» is 25
+  characters against that rung's budget of 24, cut from the end, so the time was what went.
+  Two homework rows is that rung's count. The correction went into the issue's thread first,
+  and `WidgetSizeClassTest` now pins where that 2×2 lands.
+- **#174, the fix.** `WidgetStrings.dayPlan` spends the budget on the subject and keeps the
+  count and the time; the narrow rungs may give the plan a second line
+  (`dayPlanLines`), because at a true 110 dp Glance would otherwise clip it at the pixel.
+  `SMALL_TALL` lists three subjects after school: about 130 dp of its 190, 175 at the worst.
+  On the 2×1 the label is weighted and the count is not, so at an enlarged font the label
+  lost; `tinyCountOf` draws the bare figure from the first step above the default,
+  «ДЗ на завтра 3» or «ДЗ на завтра нет» (a new string, `widget_homework_none_short`, with
+  its English twin). The step is a choice, not a measurement: Glance measures neither text
+  nor the box.
+- **#188, found while checking #174.** The app was switched to Russian and the widget stayed
+  English. A `304` sync did not redraw it, and only a reinstall (`MY_PACKAGE_REPLACED`) did.
+  Nothing redrew the widget on a settings change at all. Filed, then fixed:
+  `SettingsRepositoryImpl.update` sends `DATA_SYNCED` when `AppSettings.drawnByWidget`
+  moves, beside the alert re-arm it already did the same way, and the widget reads its three
+  settings through that projection only. To test it without a DataStore, the repository reads
+  a small `SettingsStore` interface, which `LessonsPreferences` implements the way it already
+  implements `DiarySessionStore` and `ShellModeSource`.
+
+### On the emulator
+
+The 2×2 read «4 урока · Алгеб… в 08:30» over three subjects, and «4 lessons · Алг… at 08:30»
+in English. The 2×5 column (`NARROW`) read the same plan line. The 2×1 read «ДЗ на завтра ·
+3 предмета» at font scale 1.0 and «ДЗ на завтра 3» at 2.0. For #188, the 2×1 read «ДЗ на
+завтра» before the app was switched to English and «HW for tomorrow 3 subjects» three seconds
+after, with nothing else in between.
+
+**Two things about driving the widget from a shell**, which cost time and will again. First,
+the shell cannot redraw it: `DATA_SYNCED` is filtered by a receiver the shell cannot reach,
+and `APPWIDGET_UPDATE` is a protected broadcast. Second, a pull-to-refresh answered `304` and
+redraws nothing, by design. What does redraw it is reinstalling the same APK, because
+`MY_PACKAGE_REPLACED` is one of the widget's own triggers. The launcher's resize handles take
+`input swipe`: a long press on the widget, then a drag from a handle.
+
+### Gates
+
+On `675cafe`: `./gradlew test` **1459** (`:core:model` 125, `:core:data` 543,
+`:core:designsystem` 112, `:widget` 123, `:app` 556), thirteen more than #187's 1446 —
+`DayPlanTest` 5, `TinyCountTest` 4, one in `WidgetSizeClassTest`, `WidgetSettingsRedrawTest`
+3. `assembleDebug` and `assembleRelease` build. Each new test was run against the old
+behaviour first: five fail for #174 and one for #188. The server was not touched, so its
+gates were not run.
+
+### What nobody has verified in this batch
+
+- The one-line size **during lessons** at a large font («ПЕРЕМЕНА 7 мин», the same weighted
+  label beside a countdown) was not looked at.
+- A change of the **system** font scale is a configuration change, not an app setting.
+  Whether anything redraws the widget after one was not checked: every render here was forced
+  with a reinstall.
+- The `fontScale > 1` step was seen at 2.0 on this one emulator.
+- At 195 dp the whole «4 урока · Алгебра в 08:30» would fit, and the rung's budget shortens
+  it anyway, because the same rung serves 110 dp.
+
+## What the session before it added: the first instrumented tests, and three defects the walkthrough left
+
+Merged as `2a408d8`. Four commits from the night of 26–27 September and one from the
+session that picked them up.
 
 - **#110, the first `androidTest`.** `ToolbarOnDeviceTest` in `:core:designsystem` holds a
   tab past the device's own long-press timeout and drags it 0.7 and 0.4 of a slot in one
@@ -239,7 +309,7 @@ has not been asked. #176's defect never reproduced on demand. #175's single sent
 looked at on a screen: reaching a password form needs a region's diary to answer. Nothing
 here changes what #186 could not answer: a thumb, a haptic, a real GPU, a real launcher.
 
-## What the session before it added: the first walk of the app on a device, and the twelve defects it found
+## What the batch before added: the first walk of the app on a device, and the twelve defects it found
 
 Merged as `c26eace`. **What #186 moved.** Android: the widget picker's preview draws again
 (#167); the widget follows a class switch made inside a live Glance session (#168); a look at
@@ -2655,7 +2725,7 @@ titles of their own time, which a search no longer finds; the third column maps 
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187; issues #109–#117, #130–#132, #167–#185 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189; issues #109–#117, #130–#132, #167–#185, #188 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PR #140 (merged); issues #135–#139, #141, #145–#165 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
@@ -3094,7 +3164,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 2024 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 100 modules
-cd android && ./gradlew test                             # 1446 tests across the five modules
+cd android && ./gradlew test                             # 1459 tests across the five modules
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
 
@@ -3492,8 +3562,8 @@ device on it. #140's additions below belong to #121 where they need a live diary
 merge. The prose here is kept because it says *why* each one is unverifiable, which an issue
 title cannot.
 
-**#186 looked at a good part of this on an emulator** (26–27 September 2026; «What the
-session before it added» has the detail). The bullets it answered say so in place, and what an emulator
+**#186 looked at a good part of this on an emulator** (26–27 September 2026; the section
+«…the first walk of the app on a device» has the detail). The bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
 - **Not one route in `docs/diaries/` has been seen answering.** #134's 1916 routes
@@ -3622,6 +3692,16 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   sits against a launcher's own widget rounding. Below API 31 the question does not arise —
   `cornerRadius` is a no-op there and the launcher supplies square edges — so the check
   needs a phone on 31 or later and a widget resized twice.
+- **#189 was seen on an emulator's launcher, and only as far as the day-off layout goes.**
+  The 2×1, 2×2 and 2×5 after school, at font scale 1.0 and 2.0, in both languages. Not
+  seen:
+  - the one-line size during lessons at a large font, where «ПЕРЕМЕНА» is weighted beside a
+    countdown the same way «ДЗ на завтра» was beside its count;
+  - whether a change of the *system* font scale redraws the widget by itself — it decides
+    the rung and the 2×1's count, it is a configuration change rather than one of the three
+    app settings #188 now redraws on, and every render in that check was forced with a
+    reinstall;
+  - any launcher but the emulator's.
 - **Nothing of #83's widget work has been seen on a launcher either, and that is the surface
   this batch changed most.** The font-scale division, the two weights that stop the trailing
   detail starving the subject, and the outer box that gives the seven day chips their gaps
@@ -4426,19 +4506,20 @@ signed by a different key does not install over the one already on a phone — #
 refusal on the emulator.
 
 **Keep some space on C:.** It had about 1.3 GB left early on 27 September, and 14 GB when #187
-began, the same night; its builds and one emulator boot left 12 GB. The emulator refused to
+began, the same night; its builds and one emulator boot left 12 GB, and #189's left 9.4 GB,
+so each batch with a device in it costs two or three. The emulator refused to
 start once below 2 GB, and the AVD's Quick Boot image alone is 8.5 GB. The worktrees under
 `.claude/worktrees/` each carry their own Gradle build directories.
 
 **Drop the `Teleport auto-stash` when convenient** (`stash@{0}`, over `c26eace`). It holds
-what the IDE generated rather than work — «What the last session added» lists it — and
+what the IDE generated rather than work — «What the session before it added» lists it — and
 nothing in a session here drops a stash it did not make.
 
 **Restart Android Studio once, when it is free.** Three changes wait for it, because the IDE
 rewrites those files on exit: `server/.venv` as the Python SDK, the root module as a Python
 one (which quiets «Unsupported Modules Detected»), and the third-party «Python Portable»
 plugin disabled, since it fails to load on every start. Everything else in the IDE's set-up
-is already in place (see «What the session before it added»).
+is already in place (see «…the first walk of the app on a device», the section on #186).
 
 **The tenth milestone exists, and #140 is on it.** The owner created
 `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` on 25 September and renamed
