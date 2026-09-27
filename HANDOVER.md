@@ -30,9 +30,10 @@ The SHA of its own merge is for the next close-out to write.
   composables (#209).
 - This file kept to where the work stands, its history in `docs/history.md` (#211).
 
-No schema change; `EXPECTED_REVISION` is still `0017`. **The first deploy after the merge is
-the first install of the lock** on Linux and Python 3.12: if Vercel cannot install it, the
-build fails and the deployment before it keeps serving.
+No schema change; `EXPECTED_REVISION` is still `0017`. **The lock has been installed where it
+runs:** #214's CI installed it on Linux and Python 3.12 and passed 2063 tests on it, none
+skipped — so the test that the lock is closed there ran — and Vercel built #214's preview
+from it. Production takes it at the merge.
 
 **Once #214 merges, twenty-three issues are meant to close:** #190–#211 and #213. **#212**
 stays open: a test that fails at random on Windows and passes on CI. Of the device epic
@@ -267,7 +268,9 @@ failed — thirty-nine more than `938e59f`'s 2024; `ruff` clean; `python -m mypy
 forty-one more than #189's 1459; `assembleDebug` and `assembleRelease` build; `./gradlew
 detekt` passes against the regenerated baselines. Every branch ran its own gates before the
 merge, and the merge was checked again as a whole. #201, #202 and #203 were also
-mutation-tested: every mutation of each fix turned a test red.
+mutation-tested: every mutation of each fix turned a test red. On GitHub, #214's CI ran both
+new steps, `Type check` and `Detekt`, green, and its server job passed 2063 on Python 3.12
+in under three minutes.
 
 **The baselines hold only what was already there.** Merged, detekt found twelve things in
 this batch's own Kotlin that no baseline held; `05fc5cf` fixes or suppresses each where it
@@ -295,9 +298,8 @@ nothing else in the diff, so every entry it adds is one it removes under #209's 
 - #201's Keystore key and #202's network configuration have not run on a device: how the
   platform reads the two configuration files is what its documentation says, and the release
   APK has not been pointed at a real server.
-- The lock has not been installed on Linux or on Python 3.12, only resolved for them; the
-  first Vercel deploy after the merge is its first install. Dependabot's `uv` entry has not
-  run, and nothing here runs Docker.
+- Dependabot's `uv` entry has not opened a pull request, and nothing here runs Docker. The
+  lock itself was installed on Linux and Python 3.12 by #214's CI and its Vercel preview.
 - `./gradlew check` and `build` running detekt is read from the plugin's source.
 - Why two background runs could not start child processes (`0xC0000142`) was not found; it
   did not happen from a live shell.
@@ -596,10 +598,10 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   build carries was read out of both packaged APKs with aapt2, and how the platform then
   applies it is its documentation's word. The release APK has not been pointed at a
   real server.
-- **The lock (#192) has been resolved for Linux and Python 3.12, never installed there.**
-  Every run here was on Windows and Python 3.13. The first install of it on the
-  deployment's own platform is the first Vercel deploy after #214, and dependabot's `uv`
-  entry has not opened a pull request yet.
+- **Dependabot's `uv` entry (#192) has not opened a pull request yet**, so the way a bump
+  regenerates the lock is read from dependabot-core rather than seen. The lock itself was
+  installed on Linux and Python 3.12 by #214's CI, which ran the suite on it, and Vercel
+  built #214's preview from it; the local runs were all Windows and Python 3.13.
 - **No Compose test was actually made to hang**, so `MarqueeClockTest` — the guard #83 added
   for the trap that costs a whole Gradle run — is reasoned from `MarqueeText`'s
   `Int.MAX_VALUE` iteration count and from the list of files that call `createComposeRule`.
