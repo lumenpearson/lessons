@@ -31,13 +31,14 @@ One validated push beats three speculative ones.
 
 ## What a CI failure here usually is
 
-`.github/workflows/ci.yml` is ruff, pytest `-n auto`, `./gradlew test`, and **both**
-assembles. If `assembleRelease` is the one that failed and `assembleDebug` passed, look at
+`.github/workflows/ci.yml` is ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`,
+and **both** assembles. If `assembleRelease` is the one that failed and `assembleDebug` passed, look at
 R8 and resource shrinking before anything else — that is what the second assemble exists to
 catch.
 
-`./gradlew lint` is **not** in CI and `python -m mypy` is **not** in CI. A finding from
-either is real, but it is not the thing that turned the check red.
+`./gradlew lint` is **not** in CI. A finding from it is real, but it is not the thing that
+turned the check red. `python -m mypy` **is**, since 27 September 2026 (#210): a red
+`Type check` step in the server job is mypy's.
 
 A failing `ResourceTranslationTest` means a name is missing from a module's `values-en/`, or
 a plural has the wrong forms — see the `strings` skill.

@@ -60,8 +60,9 @@ Server, from `server/`:
   pytest loads by path rather than by import
 - **`python -m mypy`** — one question, of all 100 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
-  other error code is switched off by name with its count and its reason. Not in CI — the
-  owner has not been asked — but run it before you push server code
+  other error code is switched off by name with its count and its reason. A CI step since
+  27 September 2026, right after ruff, because the owner asked for it through that day's
+  audit (#210) — and still worth running before you push: seconds here, minutes there
 - `python -m pytest -q tests/test_schedule.py -k parity` — one file, one test
 - `python -m uvicorn app.main:app --reload` — run it; add `--host 0.0.0.0` for a phone to
   reach it

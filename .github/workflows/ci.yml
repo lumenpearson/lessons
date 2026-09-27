@@ -143,6 +143,18 @@ jobs:
         run: pip install -r ../requirements.txt -e ".[dev]"
       - name: Lint
         run: ruff check app tests scripts migrations
+      # One question of the whole server: does anything reach for an attribute
+      # its type does not have? «🗓 Четверти» crashed on every press in
+      # production because a card printed `term.days` off a type that has
+      # none, and this reproduces it; every other error code is switched off
+      # by name in pyproject.toml, with its count and its reason. It ran only
+      # when somebody remembered to until the owner asked for it here (#210),
+      # and it runs against the locked versions installed above, which is
+      # where its verdict comes from: SQLAlchemy 2.1 alone made it unclean
+      # once, with no change to the code (#164). Fourteen seconds from cold
+      # on a laptop.
+      - name: Type check
+        run: python -m mypy
       # `-n auto`, because this step was the whole run. It was twelve and a
       # half minutes of a twenty-one minute CI run and is now three and a
       # half: that started as a bill to cut and stayed for the feedback. The

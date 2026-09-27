@@ -48,14 +48,15 @@ cp .env.example .env          # BOT_TOKEN and OWNER_IDS are your own
 
 The first six run from `server/`, the rest from `android/`.
 
-CI (`.github/workflows/ci.yml`) runs exactly this: `ruff`, `pytest -n auto`,
-`./gradlew test`, `assembleDebug` and `assembleRelease`. The release build runs on every
-push, not only on a release: R8 and resource shrinking are the classic "it worked in debug
-and broke in the installed APK", and catching that on a pull request is cheaper than
-catching it on people.
+CI (`.github/workflows/ci.yml`) runs exactly this: `ruff`, `python -m mypy`,
+`pytest -n auto`, `./gradlew test`, `assembleDebug` and `assembleRelease`. The release
+build runs on every push, not only on a release: R8 and resource shrinking are the classic
+"it worked in debug and broke in the installed APK", and catching that on a pull request is
+cheaper than catching it on people.
 
-`python -m mypy` is not in CI, but run it before you push server code — it is the only
-thing in this project that answers "is this renderer written against a type that exists?"
+`python -m mypy` is in CI since 27 September 2026 (#210), but run it before you push server
+code anyway — it takes seconds, and it is the only thing in this project that answers "is
+this renderer written against a type that exists?"
 
 ## Rules that may not be broken
 
