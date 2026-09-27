@@ -20,11 +20,13 @@ internal class BearerHarness(
     diaryToken: String? = DIARY_TOKEN,
     basePath: String = "/",
 ) {
-    private val client = NetworkModule.okHttpClient(
-        tokenProvider = { classToken },
-        baseUrlProvider = { server.url(basePath).toString() },
-        diaryTokenProvider = { diaryToken },
-    )
+    private val client = NetworkModule.okHttpClient {
+        RequestCredentials(
+            baseUrl = server.url(basePath).toString(),
+            classToken = classToken,
+            diaryToken = diaryToken,
+        )
+    }
 
     init {
         server.dispatcher = object : Dispatcher() {

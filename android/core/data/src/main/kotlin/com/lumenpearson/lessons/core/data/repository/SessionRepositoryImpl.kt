@@ -53,8 +53,11 @@ internal class SessionRepositoryImpl(
      * the armed alarm both describe a class, and after a switch it is the wrong
      * one until something tells them. The device is still in a class, so they
      * are re-pointed rather than cleared.
+     *
+     * It suspends because one of the things it does reads the preferences, and
+     * it is called from inside this class's own coroutines.
      */
-    private val onActiveClassChanged: () -> Unit = {},
+    private val onActiveClassChanged: suspend () -> Unit = {},
 ) : SessionRepository {
 
     override val session: Flow<Session?> = preferences.session
@@ -70,7 +73,10 @@ internal class SessionRepositoryImpl(
         // request would be sent to the placeholder host the Retrofit instance
         // is built with, fail there, and be reported as «сервер не отвечает» —
         // which is a sentence about a server nobody has named yet.
-        if (preferences.baseUrlBlocking().isBlank()) return@withContext ServerStatus.NotConfigured
+        //
+        // A suspending read: this is a coroutine, and the `runBlocking` read
+        // that stood here parked the dispatcher thread it was running on.
+        if (preferences.currentSettings().baseUrl.isBlank()) return@withContext ServerStatus.NotConfigured
 
         try {
             val body = api.warmup()

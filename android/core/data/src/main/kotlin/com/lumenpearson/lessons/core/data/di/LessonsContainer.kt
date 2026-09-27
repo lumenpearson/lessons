@@ -52,6 +52,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 
@@ -146,7 +147,8 @@ class DefaultLessonsContainer(
 
     /**
      * For work that must outlive whatever screen started it — the GitHub device
-     * flow keeps polling after its sheet is closed. Process-scoped and never
+     * flow keeps polling after its sheet is closed, and the interceptors' copy
+     * of the credentials follows the preferences file. Process-scoped and never
      * cancelled, like the application's own scope, and for the same reason: the
      * process ending is the only thing that should end it.
      */
@@ -173,7 +175,7 @@ class DefaultLessonsContainer(
         // number, and re-arming at the default would quietly undo a user who
         // had asked for a different one the last time the app was open.
         startBackgroundSync = {
-            SyncScheduler.schedulePeriodic(appContext, preferences.syncIntervalMinutesBlocking())
+            SyncScheduler.schedulePeriodic(appContext, preferences.currentSettings().syncIntervalMinutes)
         },
         syncNow = { SyncScheduler.syncNow(appContext, wantsDifferentData = true) },
     )
@@ -183,16 +185,26 @@ class DefaultLessonsContainer(
     /**
      * One client, two interfaces, two bearers.
      *
-     * The diary's token is read through its own provider — see
+     * The diary's token is read into a field of its own — see
      * `DiaryAuthInterceptor` — so that neither account can ever be signed with
      * the other's credentials.
+     *
+     * The interceptors read a copy held in memory, and the follower that keeps
+     * it current is started here, with the client, rather than with the
+     * container, whose construction on the main thread starts nothing. Launching
+     * it reads nothing either, wherever this runs; a request that beats its
+     * first emission reads the store once, on OkHttp's thread — see
+     * `CredentialsSnapshot.current`.
      */
     private val apis: NetworkModule.Apis by lazy {
-        NetworkModule.apis(
-            tokenProvider = { preferences.tokenBlocking() },
-            baseUrlProvider = { preferences.baseUrlBlocking() },
-            diaryTokenProvider = { preferences.diaryTokenBlocking() },
-        )
+        containerScope.launch {
+            // Caught because nothing else would: an exception escaping this
+            // scope ends the process, and a follower that stopped costs only
+            // the writes made through another instance — every write through
+            // this one brings the copy up to date on its own.
+            runCatching { preferences.followCredentials() }
+        }
+        NetworkModule.apis(credentials = preferences.credentials::current)
     }
 
     private val api: LessonsApi by lazy { apis.lessons }

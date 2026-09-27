@@ -14,6 +14,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.lumenpearson.lessons.core.data.network.RequestCredentials
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.DiarySession
 import com.lumenpearson.lessons.core.data.repository.DiarySessionStore
@@ -41,12 +42,14 @@ import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.core.model.TodayLayout
 import com.lumenpearson.lessons.core.model.WeekStart
 import java.io.IOException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 /**
  * One preferences file for the whole app. DataStore forbids opening the same
@@ -70,10 +73,15 @@ private val Context.lessonsDataStore: DataStore<Preferences> by preferencesDataS
  * Session and settings share a file on purpose: they are written from the same
  * screens, they are both tiny, and a single file means a single fsync and a
  * single flow to observe.
+ *
+ * @param dataStore the app's one file on a phone. A test hands in a store of
+ *   its own, which is the only reason this is not built from the context here.
  */
-internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellModeSource, SettingsStore {
+internal class LessonsPreferences(
+    private val dataStore: DataStore<Preferences>,
+) : DiarySessionStore, ShellModeSource, SettingsStore {
 
-    private val dataStore = context.applicationContext.lessonsDataStore
+    constructor(context: Context) : this(context.applicationContext.lessonsDataStore)
 
     /**
      * A corrupt or unreadable file must not take the app down: it degrades to
@@ -82,6 +90,32 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
      */
     private val preferences: Flow<Preferences> = dataStore.data.catch { cause ->
         if (cause is IOException) emit(emptyPreferences()) else throw cause
+    }
+
+    /**
+     * What the OkHttp interceptors read — the address and both bearers, held in
+     * memory; see [CredentialsSnapshot]. Every [write] brings it up to date
+     * before returning, and [followCredentials] keeps it there for writes made
+     * through another instance.
+     */
+    val credentials = CredentialsSnapshot { preferences.first().requestCredentials() }
+
+    /** Runs for as long as the file can emit; the container launches it once. */
+    suspend fun followCredentials() = credentials.follow(preferences)
+
+    /**
+     * The only way anything here is written: DataStore's `edit`, then the copy
+     * the interceptors read, before the caller moves on.
+     *
+     * Every write rather than the eight that move a credential today, so that a
+     * ninth cannot be added without it. The refresh is not cancellable once the
+     * edit has landed: a caller cancelled between the two would leave the next
+     * request signed for the class it had just left, for as long as the
+     * follower took to hear about it.
+     */
+    private suspend fun write(transform: suspend (MutablePreferences) -> Unit) {
+        dataStore.edit(transform)
+        withContext(NonCancellable) { credentials.refresh() }
     }
 
     /** The class being shown, or `null` when this device is in none. */
@@ -107,7 +141,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
      * twice, nor move it to the bottom of a list the user has got used to.
      */
     suspend fun addSession(value: Session) {
-        dataStore.edit { prefs ->
+        write { prefs ->
             prefs.writeMemberships(prefs.memberships().withMembership(value))
             prefs.activate(value.classId)
         }
@@ -120,8 +154,8 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
      * memberships still on disk.
      */
     suspend fun selectSession(classId: Long) {
-        dataStore.edit { prefs ->
-            if (prefs.memberships().none { it.classId == classId }) return@edit
+        write { prefs ->
+            if (prefs.memberships().none { it.classId == classId }) return@write
             prefs.activate(classId)
         }
     }
@@ -135,7 +169,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
      * lands on the same keys [clearSession] would leave behind.
      */
     suspend fun removeSession(classId: Long) {
-        dataStore.edit { prefs ->
+        write { prefs ->
             val remaining = prefs.memberships().filterNot { it.classId == classId }
             prefs.writeMemberships(remaining)
             val was = prefs[MembershipKeys.ACTIVE_CLASS_ID]
@@ -167,7 +201,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
      * half, and it is just as narrow.
      */
     suspend fun clearSession() {
-        dataStore.edit { prefs ->
+        write { prefs ->
             // Written on the way out, because the token this is about to remove
             // is what the read side uses to recognise somebody who predates the
             // introduction flag. To be here at all you were in a class, and to
@@ -206,17 +240,17 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
         preferences.first().toDiarySession()
 
     override suspend fun writeDiarySession(value: DiarySession) {
-        dataStore.edit { it.putDiarySession(value) }
+        write { it.putDiarySession(value) }
     }
 
     /** A bare `401`; see [dropDiaryToken]. */
     override suspend fun clearDiaryToken() {
-        dataStore.edit { it.dropDiaryToken() }
+        write { it.dropDiaryToken() }
     }
 
     /** Signing out: the diary and only the diary; [clearSession] is its counterpart. */
     override suspend fun forgetDiary() {
-        dataStore.edit { it.dropDiary() }
+        write { it.dropDiary() }
     }
 
     override val diaryTarget: Flow<DiaryTarget?> =
@@ -228,7 +262,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
         preferences.map { it[DiaryKeys.STUDENT_ID] }.distinctUntilChanged()
 
     override suspend fun selectStudent(id: Long?) {
-        dataStore.edit { prefs ->
+        write { prefs ->
             if (id == null) prefs.remove(DiaryKeys.STUDENT_ID) else prefs[DiaryKeys.STUDENT_ID] = id
         }
     }
@@ -250,17 +284,17 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
         .distinctUntilChanged()
 
     override suspend fun hold() {
-        dataStore.edit { it[ShellKeys.ONBOARDING_HELD] = true }
+        write { it[ShellKeys.ONBOARDING_HELD] = true }
     }
 
     override suspend fun release() {
-        dataStore.edit { it.remove(ShellKeys.ONBOARDING_HELD) }
+        write { it.remove(ShellKeys.ONBOARDING_HELD) }
     }
 
     override suspend fun settleColdStart(): ShellState {
         // Read and written in the one transaction, so a join landing between
         // a separate read and write cannot have its hold taken away.
-        dataStore.edit { prefs ->
+        write { prefs ->
             if (prefs.shellState().mode == ShellMode.NONE) prefs.remove(ShellKeys.ONBOARDING_HELD)
         }
         return current()
@@ -268,7 +302,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
 
     /** Read-modify-write inside DataStore's transaction, so concurrent edits merge. */
     override suspend fun updateSettings(transform: (AppSettings) -> AppSettings) {
-        dataStore.edit { prefs ->
+        write { prefs ->
             val updated = transform(prefs.toSettings())
             prefs[KEY_BASE_URL] = updated.baseUrl.trim()
             prefs[KEY_THEME_MODE] = updated.themeMode.name
@@ -341,44 +375,6 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
     }
 
     /**
-     * Blocking reads for the OkHttp interceptors, which cannot suspend.
-     *
-     * They run on OkHttp's dispatcher threads, never on the main thread, and
-     * DataStore serves everything after the first read from an in-memory cache,
-     * so the cost is a thread hop rather than disk I/O.
-     */
-    fun tokenBlocking(): String? = runBlocking { currentSession()?.token }
-
-    /**
-     * The diary bearer, for `DiaryAuthInterceptor`.
-     *
-     * A second method rather than a parameter on [tokenBlocking], because the
-     * two tokens are not two values of one thing: one of them can be present
-     * while the other is absent, and a caller that took the wrong one would
-     * send a class token to a family's diary.
-     *
-     * @see tokenBlocking
-     */
-    fun diaryTokenBlocking(): String? = runBlocking { currentDiarySession()?.token }
-
-    /** @see tokenBlocking */
-    fun baseUrlBlocking(): String = runBlocking { currentSettings().baseUrl }
-
-    /**
-     * How often the background refresh should run, for the one caller that
-     * arms it outside the settings screen.
-     *
-     * `SessionEffects.onActiveClassChanged` re-installs the periodic worker
-     * after a sign-out cancelled it, and it is handed a plain `() -> Unit` —
-     * the table of what happens on a session change holds no coroutines, so
-     * the interval is read the way the interceptors read a token. It runs on
-     * the session repository's IO dispatcher, never on the main thread.
-     *
-     * @see tokenBlocking
-     */
-    fun syncIntervalMinutesBlocking(): Int = runBlocking { currentSettings().syncIntervalMinutes }
-
-    /**
      * The stored language, read the only way the caller can read it.
      *
      * `Activity.attachBaseContext` is where a per-app locale has to be applied
@@ -401,7 +397,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
 
     /** @see scheduleFingerprint */
     suspend fun writeScheduleFingerprint(value: String) {
-        dataStore.edit { prefs -> prefs[KEY_SCHEDULE_FINGERPRINT] = value }
+        write { prefs -> prefs[KEY_SCHEDULE_FINGERPRINT] = value }
     }
 
     /**
@@ -425,12 +421,12 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
 
     /** @see bundleTag */
     suspend fun writeBundleTag(signature: String, etag: String) {
-        dataStore.edit { prefs -> prefs[bundleTagKey(signature)] = etag }
+        write { prefs -> prefs[bundleTagKey(signature)] = etag }
     }
 
     /** @see bundleTag */
     suspend fun forgetBundleTag(signature: String) {
-        dataStore.edit { prefs -> prefs.remove(bundleTagKey(signature)) }
+        write { prefs -> prefs.remove(bundleTagKey(signature)) }
     }
 
     /**
@@ -445,7 +441,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
      */
     suspend fun forgetBundleTagsOf(classId: Long) {
         val prefix = bundleTagPrefix(classId)
-        dataStore.edit { prefs -> prefs.removeKeysStartingWith { it.startsWith(prefix) } }
+        write { prefs -> prefs.removeKeysStartingWith { it.startsWith(prefix) } }
     }
 
     /**
@@ -455,7 +451,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
      */
     suspend fun forgetBundleTagsOutside(keep: Collection<Long>) {
         val kept = keep.map { bundleTagPrefix(it) }
-        dataStore.edit { prefs ->
+        write { prefs ->
             prefs.removeKeysStartingWith { name ->
                 name.startsWith(BUNDLE_TAG_PREFIX) && kept.none { name.startsWith(it) }
             }
@@ -488,6 +484,20 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
         this[MembershipKeys.ACTIVE_CLASS_ID] = classId
         remove(KEY_SCHEDULE_FINGERPRINT)
     }
+
+    /**
+     * The same three answers the screens get from [currentSettings],
+     * [currentSession] and [currentDiarySession], from one emission.
+     *
+     * The two bearers stay two fields: one can be present while the other is
+     * absent, and an interceptor that took the wrong one would send a class
+     * token to a family's diary.
+     */
+    private fun Preferences.requestCredentials(): RequestCredentials = RequestCredentials(
+        baseUrl = toSettings().baseUrl,
+        classToken = activeMembership()?.token,
+        diaryToken = toDiarySession()?.token,
+    )
 
     /**
      * Enums are stored by name rather than by ordinal, and unknown names fall
