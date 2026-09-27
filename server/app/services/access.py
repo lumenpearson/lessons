@@ -25,9 +25,9 @@ from html import escape
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot.roles import can_grant
 from app.models import AccessRequest, BotUser, Role, SchoolClass
 from app.services import audit
+from app.services.roles import can_grant
 
 
 class GrantRefused(Exception):

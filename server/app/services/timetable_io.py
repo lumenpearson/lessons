@@ -22,8 +22,8 @@ from __future__ import annotations
 import re
 from datetime import time as Time
 
-from app.bot.render import WEEKDAYS
 from app.models import BellPeriod, TimetableEntry, WeekParity
+from app.wording import WEEKDAYS
 
 #: One parsed lesson line: (index, subject, room, teacher, parity).
 LessonRow = tuple[int, str, str | None, str | None, WeekParity]

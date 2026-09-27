@@ -19,7 +19,7 @@ of :func:`purge_stale`, which the bot calls occasionally rather than on a timer.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from aiogram.fsm.state import State
@@ -80,6 +80,13 @@ def _encode(key: StorageKey) -> str:
     )
 
 
+def _utcnow() -> datetime:
+    """Naive UTC, matching the naive ``updated_at`` column, the way the rest of
+    the server takes it. ``datetime.utcnow()`` gave the same value and is
+    deprecated from Python 3.12, which is what CI and Vercel run."""
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
 class DatabaseStorage(BaseStorage):
     """aiogram storage that survives the process it was created in."""
 
@@ -91,7 +98,7 @@ class DatabaseStorage(BaseStorage):
 
         def apply(record: FsmRecord) -> None:
             record.state = resolved
-            record.updated_at = datetime.utcnow()
+            record.updated_at = _utcnow()
             # Clearing the state ends the conversation, so its data goes too.
             # Leaving it behind is how a later flow picks up a stale key and
             # acts on a date the user chose an hour ago for something else.
@@ -111,7 +118,7 @@ class DatabaseStorage(BaseStorage):
 
         def apply(record: FsmRecord) -> None:
             record.data = encoded
-            record.updated_at = datetime.utcnow()
+            record.updated_at = _utcnow()
 
         # Same rule as set_state's, and for the same reason: a row that holds
         # an empty dict says exactly what no row says. It matters because
@@ -156,7 +163,7 @@ class DatabaseStorage(BaseStorage):
                         key=encoded,
                         state=initial_state,
                         data=initial_data,
-                        updated_at=datetime.utcnow(),
+                        updated_at=_utcnow(),
                     )
                 )
                 try:
@@ -193,7 +200,7 @@ class DatabaseStorage(BaseStorage):
         See [PREFS_DESTINY] - ``_encode`` puts the destiny last, so that is what
         the suffix matches.
         """
-        cutoff = datetime.utcnow() - older_than
+        cutoff = _utcnow() - older_than
         async with self._session_factory() as session:
             stale = await session.scalars(
                 select(FsmRecord.key).where(
