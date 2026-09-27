@@ -47,9 +47,10 @@ bot can do, by the same function.
 app/
 ├── models.py      SQLAlchemy 2.0 ORM — the whole domain in one file
 ├── schedule.py    template + overrides -> concrete days   (no FastAPI, no aiogram)
-├── schemas.py     the wire contract
+├── schemas/       the wire contract, one module per area, all re-exported by the package
 ├── security.py    tokens, join codes, phone normalisation
 ├── di.py          the container both shells take a session from
+├── wording.py     the words both shells print: dates, plurals, a day's card
 ├── catalog/       the region catalog — generated data, never edited by hand
 ├── services/      the rules both shells call — pure async functions over a session
 ├── api/           the client API: reads, and the writes in the table above

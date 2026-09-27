@@ -28,7 +28,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import current_class, current_device
 from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START, _homework_out, _today
 from app.api.routing import DishkaAnnotatedRoute
-from app.bot.render import human_date
 from app.config import get_settings
 from app.models import (
     BellPeriod,
@@ -58,6 +57,7 @@ from app.schemas import (
 from app.services import audit, linking, notify, subjects, timetable_edit
 from app.services import homework as homework_service
 from app.services import tasks as task_service
+from app.wording import human_date
 
 log = logging.getLogger(__name__)
 

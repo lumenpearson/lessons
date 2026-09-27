@@ -4,9 +4,10 @@ Short on purpose: this file is read on every request. The full picture is in `AG
 `CLAUDE.md` at the repository root.
 
 «Дневник» (`lessons`) is a school diary: an Android app (`android/`, five Gradle modules), a
-FastAPI read API with an aiogram bot in one process (`server/`), and a thin Vercel entry
-point (`api/`). No npm, no web frontend. **The bot writes, the API reads**, and the rules
-they share live in `server/app/services/` so the two shells cannot disagree.
+FastAPI API with an aiogram bot in one process (`server/`), and a thin Vercel entry point
+(`api/`). No npm, no web frontend. **Two shells write** — the bot, and a linked phone
+through `/api/v1/edit` and `/api/v1/manage` — over one set of rules in
+`server/app/services/`, so they cannot disagree; nothing there may import `app.bot`.
 
 **Language.** The product speaks Russian: user-facing strings live in `values/` with an
 English twin in the same module's `values-en/`, or `ResourceTranslationTest` fails.
@@ -15,7 +16,7 @@ request descriptions — is English, and a quotation of product text keeps its R
 guillemets.
 
 **Checks.** From `server/`: `ruff check app tests scripts migrations`, `python -m mypy`,
-`python -m pytest -q -n auto`. From `android/`: `./gradlew test`, `./gradlew assembleDebug`,
+`pytest -q -n auto` (not `python -m pytest`, which hides a broken import on CI). From `android/`: `./gradlew test`, `./gradlew assembleDebug`,
 `./gradlew assembleRelease`. CI is exactly those; `./gradlew lint` is not a gate.
 
 **Do not suggest:**

@@ -13,11 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import current_class
 from app.api.manage._common import Actor, admin_actor
 from app.api.routing import DishkaAnnotatedRoute
-from app.bot.render import WEEKDAYS
 from app.models import SchoolClass
 from app.schemas import ImportConflictOut, TimetableExportOut, TimetableImportIn, TimetableImportOut
 from app.services import structure, timetable_io
 from app.services.manage import timetable as timetable_service
+from app.wording import WEEKDAYS
 
 router = APIRouter(route_class=DishkaAnnotatedRoute)
 
