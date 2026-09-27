@@ -77,6 +77,7 @@
     <string name="server_dialog_description">Адрес сервера, через который работают класс и дневник. Встроенного в приложение сервера нет: адрес даёт администратор класса или тот, кто поднял сервер.</string>
     <string name="server_dialog_label">Адрес</string>
     <string name="server_dialog_placeholder">https://…</string>
+    <string name="server_needs_https">Приложение подключается к серверу только по защищённому адресу — он начинается с https://. По адресу с http:// ключ доступа к классу и вход в дневник шли бы по сети открытым текстом. Узнайте адрес с https:// у того, кто поднял сервер.</string>
 
     <!-- The Today tab -->
     <string name="today_title">Сегодня</string>
@@ -132,6 +133,7 @@
     <string name="interval_hours">%1$d ч</string>
     <string name="sync_error_unauthorised">Доступ к классу отозван. Подключитесь заново.</string>
     <string name="sync_error_not_configured">Не указан адрес сервера — задайте его в настройках.</string>
+    <string name="sync_error_needs_https">Адрес сервера начинается с http://, а приложение подключается только по https:// — исправьте адрес в настройках.</string>
     <string name="sync_error_generic">Не удалось обновить расписание</string>
 
     <!-- Week -->
@@ -388,6 +390,7 @@
     <string name="about_badge_server_unreachable">Сервер не отвечает</string>
     <string name="about_badge_server_degraded">Сервер: база и код разошлись</string>
     <string name="about_badge_server_none">Адрес сервера не задан</string>
+    <string name="about_badge_server_needs_https">Нужен адрес https://</string>
     <string name="about_badge_schema">Схема %1$s</string>
     <string name="about_badge_schema_expected">Ожидается %1$s</string>
     <string name="about_badge_api">API v%1$d</string>

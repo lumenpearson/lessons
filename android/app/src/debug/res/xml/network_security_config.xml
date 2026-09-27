@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The debug build's network security configuration: cleartext to every host.
+
+  It overrides src/main/res/xml/network_security_config.xml, which is the
+  release build's and refuses plain http:// except to the phone itself (#202),
+  because a debug build is what runs against uvicorn on the developer's own
+  machine, reached by its LAN address or by the emulator's 10.0.2.2. The app's
+  refusal of an http:// address reads this same answer, so a debug build
+  neither refuses one nor calls it refused.
+
+  Only the cleartext rule differs. Trust stays what it is in release - system
+  CAs only - so a debug build is not the one that learns to trust a proxy's
+  certificate by accident.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

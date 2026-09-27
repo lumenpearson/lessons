@@ -22,7 +22,9 @@ package com.lumenpearson.lessons.core.data.di
  * @param startBackgroundSync install the periodic `SyncWorker` at the stored
  *   interval. Idempotent — `schedulePeriodic` enqueues unique work with
  *   `UPDATE`, so asking again neither stacks a second worker nor pushes the
- *   next run out by a period.
+ *   next run out by a period. It suspends because reading that interval does,
+ *   and it is called from inside the session repository's coroutine: a
+ *   `runBlocking` read here parked the thread that coroutine was running on.
  * @param syncNow ask for one refresh, as soon as the platform allows.
  */
 internal class SessionEffects(
@@ -30,7 +32,7 @@ internal class SessionEffects(
     private val clearAlerts: () -> Unit,
     private val replanAlerts: () -> Unit,
     private val stopBackgroundSync: () -> Unit,
-    private val startBackgroundSync: () -> Unit,
+    private val startBackgroundSync: suspend () -> Unit,
     private val syncNow: () -> Unit,
 ) {
 
@@ -88,7 +90,7 @@ internal class SessionEffects(
      * interval and so reaches the collector not at all. `schedulePeriodic` is
      * idempotent, which is what lets both of them ask.
      */
-    fun onActiveClassChanged() {
+    suspend fun onActiveClassChanged() {
         redrawWidget()
         clearAlerts()
         replanAlerts()

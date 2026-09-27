@@ -21,9 +21,17 @@ internal class BearerHarness(
     basePath: String = "/",
 ) {
     private val client = NetworkModule.okHttpClient(
-        tokenProvider = { classToken },
-        baseUrlProvider = { server.url(basePath).toString() },
-        diaryTokenProvider = { diaryToken },
+        credentials = {
+            RequestCredentials(
+                baseUrl = server.url(basePath).toString(),
+                classToken = classToken,
+                diaryToken = diaryToken,
+            )
+        },
+        // The debug build's answer: the server here is plain http on the
+        // loopback, and which bearer goes where is the question, not which
+        // build refuses what — ServerNeedsHttpsTest asks that.
+        cleartext = { true },
     )
 
     init {

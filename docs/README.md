@@ -67,8 +67,9 @@ the user will actually see, it quotes it in Russian, because that is what is on 
   [architecture.md](architecture.md#the-phones-half): the app signs in to the diary itself
   and registers only the session, so from the app the password goes to the diary and nowhere
   else; `/diary/login`, kept for older APKs, and the bot's sign-in page pass it through this
-  server once and store it nowhere. What an `http://` server address exposes is in
-  [build.md](build.md#why-http-and-not-https).
+  server once and store it nowhere. What an `http://` server address would expose, and why
+  only a debug build still speaks it, is in
+  [build.md](build.md#why-a-debug-build-speaks-http-and-a-release-build-does-not).
 - **Why there is no Госуслуги sign-in** — [diaries.md](diaries.md#what-it-means-for-this-project):
   a Госуслуги session is the person's whole state-services account.
 - **Who lets a phone into a class** — [api.md](api.md), "Who lets a phone in: the class

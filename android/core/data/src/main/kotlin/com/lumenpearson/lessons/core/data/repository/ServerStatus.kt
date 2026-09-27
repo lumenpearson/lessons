@@ -24,6 +24,13 @@ sealed interface ServerStatus {
     /** No address configured, so there is nothing to ask. */
     data object NotConfigured : ServerStatus
 
+    /**
+     * The address is plain `http://`, which this build does not send to
+     * (#202); nothing was asked. Apart from [Unreachable] because nothing about
+     * the server or the network is wrong, and the cure is the address.
+     */
+    data object NeedsHttps : ServerStatus
+
     /** Up, and its database is the one its code expects. */
     data class Ok(val apiVersion: Int, val schema: String?) : ServerStatus
 

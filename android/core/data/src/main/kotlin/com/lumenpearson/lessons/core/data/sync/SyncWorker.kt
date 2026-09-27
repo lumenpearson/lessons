@@ -63,6 +63,11 @@ class SyncWorker(
                 workDataOf(KEY_ERROR to REASON_NOT_CONFIGURED),
             )
 
+            // Nor can it make the server speak https. The same: fail once.
+            is SyncResult.NeedsHttps -> Result.failure(
+                workDataOf(KEY_ERROR to REASON_NEEDS_HTTPS),
+            )
+
             is SyncResult.Failed ->
                 if (runAttemptCount < MAX_ATTEMPTS) {
                     Result.retry()
@@ -81,6 +86,9 @@ class SyncWorker(
 
         /** @see SyncResult.NotConfigured */
         const val REASON_NOT_CONFIGURED: String = "not_configured"
+
+        /** @see SyncResult.NeedsHttps */
+        const val REASON_NEEDS_HTTPS: String = "needs_https"
 
         /**
          * After three tries the next scheduled run will happen sooner than the

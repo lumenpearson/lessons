@@ -39,12 +39,10 @@ internal object NetworkModule {
     }
 
     /**
-     * @param tokenProvider blocking read of the stored class bearer, or `null`
-     * before the device has joined a class.
-     * @param baseUrlProvider blocking read of the configured server address.
-     * @param diaryTokenProvider blocking read of the stored diary bearer, or
-     * `null` while nobody is signed in to a diary. A different token from
-     * [tokenProvider] and never a substitute for it.
+     * @param credentials the address and both bearers, asked by each
+     * interceptor on every request, on OkHttp's own thread. It must answer from
+     * memory — the container hands in `CredentialsSnapshot.current` — because a
+     * read of the store here is a parked thread on every call the app makes.
      *
      * Timeouts are short enough that the widget's sync worker cannot hang on a
      * dead school server for minutes. Whether they are long enough is the half
@@ -55,11 +53,13 @@ internal object NetworkModule {
      * and the one step into another year, on a school's mobile signal. Measure
      * before moving any of these: a number raised on a guess is one nobody can
      * lower again.
+     *
+     * @param cleartext whether a plain `http://` address may be used, asked
+     *   before a request leaves; the container hands in the platform's answer.
      */
     fun okHttpClient(
-        tokenProvider: () -> String?,
-        baseUrlProvider: () -> String,
-        diaryTokenProvider: () -> String? = { null },
+        credentials: () -> RequestCredentials,
+        cleartext: CleartextPolicy,
     ): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -68,7 +68,7 @@ internal object NetworkModule {
         .retryOnConnectionFailure(true)
         // Order matters: the URL is rewritten first so the auth interceptors see
         // the real path when they decide whether the call is theirs to sign.
-        .addInterceptor(BaseUrlInterceptor(baseUrlProvider))
+        .addInterceptor(BaseUrlInterceptor({ credentials().baseUrl }, cleartext))
         // Two bearers, one client. The class token and the diary token are
         // independent — either can exist without the other, and signing out of
         // one must not disturb the other — so each has an interceptor that
@@ -76,8 +76,8 @@ internal object NetworkModule {
         // `/api/v1/diary`, [DiaryAuthInterceptor] touches only it. One client
         // rather than two because they talk to the same host and there is no
         // reason to pay for a second connection pool and dispatcher.
-        .addInterceptor(AuthInterceptor(tokenProvider))
-        .addInterceptor(DiaryAuthInterceptor(diaryTokenProvider))
+        .addInterceptor(AuthInterceptor { credentials().classToken })
+        .addInterceptor(DiaryAuthInterceptor { credentials().diaryToken })
         .build()
 
     /** Retrofit configured for kotlinx.serialization; see [PLACEHOLDER_BASE_URL]. */
@@ -97,13 +97,9 @@ internal object NetworkModule {
      * client is the expensive part and all four interfaces want the same one —
      * the same pool, the same timeouts and the same base-URL rewrite.
      */
-    fun apis(
-        tokenProvider: () -> String?,
-        baseUrlProvider: () -> String,
-        diaryTokenProvider: () -> String?,
-    ): Apis {
+    fun apis(credentials: () -> RequestCredentials, cleartext: CleartextPolicy): Apis {
         val retrofit = retrofit(
-            client = okHttpClient(tokenProvider, baseUrlProvider, diaryTokenProvider),
+            client = okHttpClient(credentials, cleartext),
             json = json(),
         )
         return Apis(

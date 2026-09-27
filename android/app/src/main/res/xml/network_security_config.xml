@@ -1,51 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Cleartext HTTP is permitted on purpose.
+  The release build talks to its server over https:// only (#202).
 
-  Since Android 9 the platform blocks http:// by default, which is the right
-  default for an app talking to one known service over the internet. This app
-  talks to a server the user hosts themselves, and the realistic deployment is
-  uvicorn or docker compose on a machine in the same building, reached by LAN
-  address. Demanding HTTPS there would mean a certificate for an IP address on a
-  private network - which public CAs do not issue - so the practical effect
-  would not be "encrypted", it would be "the app does not work".
-
-  What crosses the wire to that server is NOT harmless, and this comment once
-  said it was ("no credentials, no personal data, nothing that identifies a
-  pupil"). The diary's password is not among it: the app never sends it to our
-  server. It goes only to the diary's own origin, taken from the catalog bundled
-  with the app, https-only - an origin that is not is dropped from the
-  allow-list - and enforced on every request by OriginGuard, with no redirect
-  followed. So the cleartext permitted here never carries it: the allow-list
-  holds https origins only, and there is no http:// address the sign-in may
-  send to.
-
-  What does cross a plain http:// server, readable by anyone on the same school
-  Wi-Fi, is:
-    - the diary session the diary hands back, which the phone registers with
-      our server at POST /api/v1/diary/session - a working credential for the
-      child's diary until it expires;
+  This file used to permit cleartext to every host, on the premise that a
+  school's server would be uvicorn on a machine in the building, reached by a
+  LAN address no public CA will certify. What crossed such a server in the
+  clear, readable by anyone on the same school Wi-Fi, was:
+    - the class bearer, frequently a WRITE token since personal connect codes
+      exist;
     - the diary bearer that opens the child's marks and attendance through us;
-    - the class bearer, which is frequently a WRITE token since personal
-      connect codes exist.
+    - the diary session the phone registers with our server at
+      POST /api/v1/diary/session - a working credential for the child's diary
+      until it expires.
+  The owner decided on 27 September 2026 that this is not worth the LAN case: a
+  school server on plain http:// stops working in the release APK, and that is
+  accepted.
 
-  It is still permitted, because the premise above is real: demanding HTTPS on
-  a LAN address would mean "the app does not work" rather than "encrypted".
-  What changed is that the app says so where it matters: the diary sign-in form
-  warns before anything is typed when the server address is not https://
-  (diary_insecure_server), and the warning is about the session, not the
-  password.
+  Two hosts are still allowed cleartext, because a request to either never
+  leaves the phone: localhost and 127.0.0.1 - a server running on the phone
+  itself, or one reached through `adb reverse`.
 
-  A school that does terminate TLS simply enters an https:// address and this
-  configuration stops applying to it; nothing here downgrades a secure URL.
+  The debug build keeps cleartext for every host, for development against a
+  server on the same desk: src/debug/res/xml/network_security_config.xml has
+  the same name, and a build type's resources override main's. Nothing in
+  Gradle chooses between them.
+
+  The app asks this file before it sends anything (CleartextPolicy in
+  :core:data, through NetworkSecurityPolicy - the same question OkHttp asks),
+  so an http:// address is refused where it is typed and before any request,
+  with a sentence about https rather than a network error. NetworkSecurityConfigTest
+  in :app holds both files to the rule above.
+
+  The diary's password is not affected either way: it goes only to the diary's
+  own https origin, from the catalog bundled with the app, and never to this
+  server.
 -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="true">
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <!-- System CAs only. User-installed CAs stay untrusted, so adding a
-                 certificate to the device cannot silently intercept an https://
-                 server the school did set up properly. -->
+                 certificate to the device cannot silently intercept the
+                 server's https://. -->
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+    <!-- The trust anchors are the base config's: a domain-config inherits what
+         it does not set. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
 </network-security-config>

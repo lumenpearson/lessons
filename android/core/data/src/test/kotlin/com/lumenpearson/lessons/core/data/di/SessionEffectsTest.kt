@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.core.data.di
 
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -50,7 +51,7 @@ class SessionEffectsTest {
      * next cold start, which is the one thing a switch is asking to fix.
      */
     @Test
-    fun `switching class asks for a sync instead of stopping one`() {
+    fun `switching class asks for a sync instead of stopping one`() = runTest {
         effects.onActiveClassChanged()
 
         assertEquals(
@@ -72,7 +73,7 @@ class SessionEffectsTest {
      * again until the app is killed and reopened.
      */
     @Test
-    fun `joining a class again after a sign-out re-arms the background refresh`() {
+    fun `joining a class again after a sign-out re-arms the background refresh`() = runTest {
         effects.onSignedOut()
         done.clear()
 
@@ -92,7 +93,7 @@ class SessionEffectsTest {
      * background sync, and they are one word apart in the container.
      */
     @Test
-    fun `the two answers point the background sync in opposite directions`() {
+    fun `the two answers point the background sync in opposite directions`() = runTest {
         effects.onSignedOut()
         val signedOut = done.toList()
         done.clear()

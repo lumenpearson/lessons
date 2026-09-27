@@ -1,6 +1,6 @@
 {
-  "edition": 1,
-  "effective": "2026-09-25",
+  "edition": 2,
+  "effective": "2026-09-27",
   "files": {
     "terms": {
       "ru": "terms.ru.md",

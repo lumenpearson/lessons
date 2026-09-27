@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
+import com.lumenpearson.lessons.core.data.network.ServerNeedsHttpsException
 import com.lumenpearson.lessons.core.data.repository.JoinFailure
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
@@ -79,6 +80,16 @@ sealed interface JoinError {
     data object NoServer : JoinError
 
     /**
+     * The address is plain `http://`, which a release build does not send to
+     * (#202); nothing was asked. Not [NoServer], whose kind it is to the
+     * interceptor: the address is right there under the button, and «Не
+     * указан адрес сервера» sent the reader looking for a field they had
+     * filled. Only an address kept from an older version gets this far — the
+     * sheet that takes a new one refuses it where it is typed.
+     */
+    data object NeedsHttps : JoinError
+
+    /**
      * The server refused the code some other way, or was unreachable.
      *
      * [detail] is what the server said, and it is null when nobody said
@@ -112,12 +123,12 @@ sealed interface JoinError {
             // «Не удалось подключиться: failed to connect to /10.0.2.2 (port
             // 8000) from /10.0.2.16 …» (#177). The screen's own sentence is
             // the answer to a server that cannot be reached.
-            is JoinFailure.Offline ->
-                if (classified.reason.causes().any { it is ServerAddressMissingException }) {
-                    NoServer
-                } else {
-                    Rejected(null)
-                }
+            // The https refusal is asked first: it is a kind of missing address.
+            is JoinFailure.Offline -> when {
+                classified.reason.causes().any { it is ServerNeedsHttpsException } -> NeedsHttps
+                classified.reason.causes().any { it is ServerAddressMissingException } -> NoServer
+                else -> Rejected(null)
+            }
             is JoinFailure.Rejected ->
                 Rejected(classified.reason?.message?.takeIf { it.isNotBlank() })
         }
