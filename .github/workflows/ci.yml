@@ -103,8 +103,9 @@ jobs:
               # test_env_example), `docs/diaries/regions.md` is the region
               # catalog's input and `docs/diaries.md` its table
               # (test_region_catalog), `docs/diaries/netschool.md` is quoted by
-              # test_netschool_mapper.
-              server/*|api/*|requirements.txt|docs/deploy.md|docs/build.md|docs/diaries.md|docs/diaries/*|.github/workflows/*) server=true ;;
+              # test_netschool_mapper. `docker-compose.yml` is read by
+              # test_compose, which is all that checks it: nothing here runs Docker.
+              server/*|api/*|requirements.txt|docker-compose.yml|docs/deploy.md|docs/build.md|docs/diaries.md|docs/diaries/*|.github/workflows/*) server=true ;;
             esac
           done <<< "$files"
 
