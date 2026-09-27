@@ -47,6 +47,20 @@ class JoinErrorTextTest {
         compose.onNodeWithText("📱 Подключить телефон", substring = true).assertIsDisplayed()
     }
 
+    /**
+     * #199: both ways in that are left, by the bot's own button names — a
+     * personal code, which the bound does not count, and an admin making room.
+     */
+    @Test
+    fun `a full class points at a personal code and at the admin's device list`() {
+        show(JoinError.ClassFull)
+
+        compose.onNodeWithText("код класса больше не пускает", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("«📱 Подключить телефон»", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("«⚙️ Класс» → «📱 Устройства»", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Проверьте", substring = true).assertDoesNotExist()
+    }
+
     @Test
     fun `an unknown code is the one that sends them back to check it`() {
         show(JoinError.UnknownCode)

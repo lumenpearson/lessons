@@ -39,6 +39,17 @@ sealed class JoinFailure(message: String, cause: Throwable? = null) :
     data object UnknownCode : JoinFailure("No class or invite answers to this code")
 
     /**
+     * `409`: a real class code for a class that already holds as many phones
+     * as the class code will let in (#199).
+     *
+     * Its own case for the reason [InviteOnly] is: the code is right, so
+     * «проверьте код» is the wrong advice, and the ways in that are left — a
+     * personal code from the bot, or an admin switching old phones off — are
+     * not on this screen.
+     */
+    data object ClassFull : JoinFailure("This class holds as many phones as its code admits")
+
+    /**
      * `429`: the throttle has stopped counting and started refusing.
      *
      * [retryAfterSeconds] comes from the `Retry-After` header the server sends
@@ -84,14 +95,15 @@ sealed class JoinFailure(message: String, cause: Throwable? = null) :
         /**
          * The rule, over a status alone.
          *
-         * None of the three named codes needs the server's `detail` to be read:
-         * `POST /join` raises exactly one `403`, one `404` and one `429`, so
-         * the status is the whole answer, and a message we would have to match
-         * on is a Russian sentence somebody will reword.
+         * None of the four named codes needs the server's `detail` to be read:
+         * `POST /join` raises exactly one `403`, one `404`, one `409` and one
+         * `429`, so the status is the whole answer, and a message we would have
+         * to match on is a Russian sentence somebody will reword.
          */
         fun ofStatus(code: Int, reason: Throwable? = null): JoinFailure = when (code) {
             403 -> InviteOnly
             404 -> UnknownCode
+            409 -> ClassFull
             429 -> TooManyAttempts(retryAfterSeconds = retryAfterOf(reason))
             else -> Rejected(code = code, reason = reason)
         }

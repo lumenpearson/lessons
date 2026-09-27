@@ -375,7 +375,11 @@ class _DeadConnection:
     credential = ""
 
     def today(self) -> Date:
-        return datetime.now().date()
+        # The routes size their range from this before the first call raises,
+        # so it is a real «today». There is no region to read a zone from, so
+        # it is the zone `NetSchoolProvider.zone` falls back to — never the
+        # host's clock, which on a UTC server is yesterday until 03:00 Moscow.
+        return datetime.now(resolve(None)).date()
 
     async def _dead(self, *a, **k):  # noqa: ANN002, ANN003, ARG002
         raise SessionExpired

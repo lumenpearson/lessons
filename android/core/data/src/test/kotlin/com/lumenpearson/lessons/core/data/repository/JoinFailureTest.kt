@@ -12,8 +12,11 @@ import retrofit2.HttpException
 import retrofit2.Response
 
 /**
- * The three refusals `POST /api/v1/join` can give to a code that was typed in
- * correctly, and why none of them may be the same sentence as another.
+ * The refusals `POST /api/v1/join` can give to a code that was typed in
+ * correctly, and why none of them may be the same sentence as another. The
+ * fourth, a `409` for a class already holding as many phones as its code
+ * admits (#199), is the [InviteOnly][JoinFailure.InviteOnly] shape again: a
+ * right code whose way forward is in the bot.
  *
  * A `404` means no class answers to this code, and the thing to do about it is
  * to check the code with whoever handed it out. A `403` means the code names a
@@ -41,6 +44,20 @@ class JoinFailureTest {
         val failure = JoinFailure.of(httpError(404, """{"detail":"Unknown join code"}"""))
 
         assertEquals(JoinFailure.UnknownCode, failure)
+    }
+
+    /**
+     * #199: the code is right and the class is full. Left as a [JoinFailure.Rejected]
+     * it reached the screen as «Не удалось подключиться: HTTP 409 error» —
+     * English, and silent about the two ways in that are left.
+     */
+    @Test
+    fun `a 409 is a full class, not a wrong code or a server fault`() {
+        val failure = JoinFailure.of(
+            httpError(409, """{"detail":"К классу подключено слишком много телефонов"}"""),
+        )
+
+        assertEquals(JoinFailure.ClassFull, failure)
     }
 
     @Test
