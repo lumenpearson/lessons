@@ -2,17 +2,18 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
+    <ID>ComplexCondition:DayPanel.kt:!isToday &amp;&amp; kind == null &amp;&amp; note == null &amp;&amp; holiday == null</ID>
     <ID>ComplexCondition:SignInPage.kt:!retry &amp;&amp; !server &amp;&amp; !code &amp;&amp; handoff == null</ID>
-    <ID>ComplexCondition:WeekScreen.kt:!isToday &amp;&amp; kind == null &amp;&amp; note == null &amp;&amp; holiday == null</ID>
+    <ID>CyclomaticComplexMethod:CalendarGrids.kt:@Composable private fun MonthCell</ID>
     <ID>CyclomaticComplexMethod:ClassCardSheet.kt:@Composable private fun SchoolSearchPanel</ID>
     <ID>CyclomaticComplexMethod:DayRibbonView.kt:@Composable internal fun DayRibbonView</ID>
     <ID>CyclomaticComplexMethod:DiaryAccountPage.kt:@Composable fun DiaryAccountPage</ID>
     <ID>CyclomaticComplexMethod:DiaryEditSheet.kt:@Composable internal fun DiaryEditSheet</ID>
     <ID>CyclomaticComplexMethod:DiaryProblemText.kt:fun diaryProblemMessage: DiaryProblemMessage</ID>
     <ID>CyclomaticComplexMethod:DiaryScreen.kt:@Composable fun DiaryScreen</ID>
+    <ID>CyclomaticComplexMethod:HomeShell.kt:@Composable internal fun HomeShell</ID>
     <ID>CyclomaticComplexMethod:ImportPage.kt:@Composable internal fun ImportPage</ID>
     <ID>CyclomaticComplexMethod:ImportPage.kt:@Composable private fun StageRow</ID>
-    <ID>CyclomaticComplexMethod:LessonsApp.kt:@Composable private fun HomeShell</ID>
     <ID>CyclomaticComplexMethod:ManagementSheets.kt:@Composable fun FormProblem.asText: String</ID>
     <ID>CyclomaticComplexMethod:ManagementSheets.kt:@Composable fun ManagementNotice.asText: String</ID>
     <ID>CyclomaticComplexMethod:OnboardingScreen.kt:@Composable fun OnboardingScreen</ID>
@@ -26,22 +27,28 @@
     <ID>CyclomaticComplexMethod:SettingsScreen.kt:@Composable fun SettingsSectionScreen</ID>
     <ID>CyclomaticComplexMethod:SignInPage.kt:@Composable internal fun SignInPage</ID>
     <ID>CyclomaticComplexMethod:TranslationXml.kt:TranslationXml$fun escape: String</ID>
-    <ID>CyclomaticComplexMethod:WeekScreen.kt:@Composable private fun MonthCell</ID>
+    <ID>LongMethod:AppearanceRows.kt:internal fun LazyListScope.appearanceRows</ID>
     <ID>LongMethod:ClassRows.kt:internal fun LazyListScope.classRows</ID>
+    <ID>LongMethod:ContentRows.kt:internal fun LazyListScope.contentRows</ID>
+    <ID>LongMethod:FeelRows.kt:internal fun LazyListScope.feelRows</ID>
     <ID>LongMethod:NotificationRows.kt:internal fun LazyListScope.notificationRows</ID>
-    <ID>LongMethod:SettingsScreen.kt:private fun LazyListScope.appearanceRows</ID>
-    <ID>LongMethod:SettingsScreen.kt:private fun LazyListScope.contentRows</ID>
-    <ID>LongMethod:SettingsScreen.kt:private fun LazyListScope.feelRows</ID>
     <ID>LongMethod:UpdateRows.kt:internal fun LazyListScope.updateRows</ID>
     <ID>LoopWithTooManyJumpStatements:OnboardingFlow.kt:OnboardingFlow$for</ID>
     <ID>LoopWithTooManyJumpStatements:ReleaseNotes.kt:for</ID>
     <ID>LoopWithTooManyJumpStatements:ResourceTranslationTest.kt:ResourceTranslationTest.Companion$for</ID>
+    <ID>MagicNumber:AboutRows.kt:4</ID>
+    <ID>MagicNumber:AppearanceRows.kt:3</ID>
+    <ID>MagicNumber:AppearanceRows.kt:4</ID>
+    <ID>MagicNumber:AppearanceRows.kt:5</ID>
     <ID>MagicNumber:BellsSheet.kt:24</ID>
     <ID>MagicNumber:BellsSheet.kt:4</ID>
     <ID>MagicNumber:BellsSheet.kt:60</ID>
     <ID>MagicNumber:ClassCardSheet.kt:3</ID>
     <ID>MagicNumber:ClassCardSheet.kt:4</ID>
     <ID>MagicNumber:ClassCardSheet.kt:5</ID>
+    <ID>MagicNumber:ContentRows.kt:3</ID>
+    <ID>MagicNumber:ContentRows.kt:4</ID>
+    <ID>MagicNumber:ContentRows.kt:5</ID>
     <ID>MagicNumber:DayRibbonView.kt:0.25f</ID>
     <ID>MagicNumber:DayRibbonView.kt:0.35f</ID>
     <ID>MagicNumber:DayRibbonView.kt:0.5f</ID>
@@ -62,6 +69,9 @@
     <ID>MagicNumber:DiarySignInScreen.kt:4</ID>
     <ID>MagicNumber:DocsBlocks.kt:5</ID>
     <ID>MagicNumber:DocsScreen.kt:4</ID>
+    <ID>MagicNumber:FeelRows.kt:3</ID>
+    <ID>MagicNumber:FeelRows.kt:4</ID>
+    <ID>MagicNumber:FeelRows.kt:5</ID>
     <ID>MagicNumber:Formatting.kt:3</ID>
     <ID>MagicNumber:Formatting.kt:4</ID>
     <ID>MagicNumber:Formatting.kt:5</ID>
@@ -86,18 +96,16 @@
     <ID>MagicNumber:RegionFinder.kt:60</ID>
     <ID>MagicNumber:RegionStep.kt:3</ID>
     <ID>MagicNumber:RibbonSettingsSheet.kt:4</ID>
-    <ID>MagicNumber:SettingsScreen.kt:3</ID>
-    <ID>MagicNumber:SettingsScreen.kt:4</ID>
-    <ID>MagicNumber:SettingsScreen.kt:5</ID>
-    <ID>MagicNumber:SettingsScreen.kt:SettingsSection.ABOUT$5</ID>
-    <ID>MagicNumber:SettingsScreen.kt:SettingsSection.ALERTS$5</ID>
-    <ID>MagicNumber:SettingsScreen.kt:SettingsSection.APPEARANCE$4</ID>
-    <ID>MagicNumber:SettingsScreen.kt:SettingsSection.CONTENT$3</ID>
-    <ID>MagicNumber:SettingsScreen.kt:SettingsSection.DIARY$4</ID>
-    <ID>MagicNumber:SettingsScreen.kt:SettingsSection.PERMISSIONS$5</ID>
+    <ID>MagicNumber:SettingsSection.kt:SettingsSection.ABOUT$5</ID>
+    <ID>MagicNumber:SettingsSection.kt:SettingsSection.ALERTS$5</ID>
+    <ID>MagicNumber:SettingsSection.kt:SettingsSection.APPEARANCE$4</ID>
+    <ID>MagicNumber:SettingsSection.kt:SettingsSection.CONTENT$3</ID>
+    <ID>MagicNumber:SettingsSection.kt:SettingsSection.DIARY$4</ID>
+    <ID>MagicNumber:SettingsSection.kt:SettingsSection.PERMISSIONS$5</ID>
     <ID>MagicNumber:SummaryPage.kt:3</ID>
     <ID>MagicNumber:SummaryPage.kt:4</ID>
     <ID>MagicNumber:SummaryPage.kt:5</ID>
+    <ID>MagicNumber:SyncRows.kt:4</ID>
     <ID>MagicNumber:TranslationRows.kt:3</ID>
     <ID>MagicNumber:TranslationRows.kt:4</ID>
     <ID>MagicNumber:TranslationRows.kt:5</ID>
@@ -112,7 +120,6 @@
     <ID>MatchingDeclarationName:JoinTestSupport.kt:JoinRig</ID>
     <ID>MatchingDeclarationName:LegalDocumentSheet.kt:LegalLoad</ID>
     <ID>MatchingDeclarationName:RootGate.kt:RootScreen</ID>
-    <ID>MatchingDeclarationName:SettingsScreen.kt:SettingsSection</ID>
     <ID>MatchingDeclarationName:SupportSheets.kt:SupportSheetState</ID>
     <ID>MaxLineLength:AppCorrections.kt:StringTable$/** `settings_title` for `R.string.settings_title`, or null for anything that cannot be exported as one `&lt;string&gt;`. */</ID>
     <ID>MaxLineLength:DiaryPickerViewModelTest.kt:DiaryPickerViewModelTest$private var answer: Result&lt;List&lt;DiarySchool&gt;&gt; = Result.success(listOf(DiarySchool(77, "Школа № 7", "ул. Ленина, 1")))</ID>
@@ -177,7 +184,7 @@
     <ID>TooManyFunctions:OnboardingViewModel.kt:OnboardingViewModel : ViewModel</ID>
     <ID>TooManyFunctions:SettingsViewModel.kt:SettingsViewModel : ViewModel</ID>
     <ID>TooManyFunctions:WeekViewModel.kt:WeekViewModel : ViewModel</ID>
-    <ID>UnusedParameter:WeekScreen.kt:date: LocalDate</ID>
+    <ID>UnusedParameter:DayPanel.kt:date: LocalDate</ID>
     <ID>VariableNaming:CorrectionReachTest.kt:CorrectionReachTest$/** * The imports that draw text without asking about corrections. * * `BasicText` is on the classpath, compiles and draws — nothing uses it * today, and nothing stops the next screen from using it either. */ private val OFFENDING_TEXT_IMPORTS = listOf( "import androidx.compose.material3.Text\n", "import androidx.compose.material3.Text as ", "import androidx.compose.foundation.text.BasicText", )</ID>
   </CurrentIssues>
 </SmellBaseline>
