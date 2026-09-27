@@ -98,8 +98,8 @@ the second file exists: while it was alone, every Russian word came from the dev
 fallback beside digits from the bundle. `FontAxisTest` holds all three halves — the pair
 draws Russian, neither carries an axis nothing varies, and no file is bundled unnamed.
 
-CI (`.github/workflows/ci.yml`) is: ruff, pytest (`-n auto`), `./gradlew test`, both
-assembles. Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;
+CI (`.github/workflows/ci.yml`) is: ruff, mypy, pytest (`-n auto`), `./gradlew test`, both
+assembles, and `./gradlew detekt` after them. Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;
 `reminders.yml` is a fallback clock, not the clock (see below). The workflows work — do
 not edit them casually. The repository is public, so standard runners cost nothing; what
 the workflows still carry from the months it was private is in `docs/build.md`, "Actions

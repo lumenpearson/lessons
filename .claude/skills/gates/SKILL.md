@@ -49,8 +49,8 @@ gate.**
 
 ## What CI is
 
-`.github/workflows/ci.yml`: ruff, pytest `-n auto`, `./gradlew test`, both assembles, and
-`./gradlew detekt` as a step of its own after them. Nothing else.
+`.github/workflows/ci.yml`: ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`, both
+assembles, and `./gradlew detekt` as a step of its own after them. Nothing else.
 
 ## Two rules about evidence
 
