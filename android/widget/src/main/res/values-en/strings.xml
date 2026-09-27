@@ -42,6 +42,8 @@
     <string name="widget_homework_short_day_after">HW for the day after</string>
     <string name="widget_homework_short_named">HW for %1$s</string>
     <string name="widget_homework_empty">Nothing set</string>
+    <!-- "HW for tomorrow none" on the one-line size at an enlarged font (#174). -->
+    <string name="widget_homework_none_short">none</string>
     <string name="widget_homework_unknown_day">The next school day is not known yet</string>
     <string name="widget_homework_line">%1$s: %2$s</string>
 

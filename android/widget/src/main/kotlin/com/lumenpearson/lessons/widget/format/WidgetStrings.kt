@@ -298,6 +298,22 @@ internal object WidgetStrings {
         }
 
     /**
+     * The same count without its noun: «3», or «нет» when nothing is set.
+     *
+     * For the one-line size at an enlarged font, where the count and the label
+     * share one line and the label is the half that gives way — at the largest
+     * font «ДЗ на завтра · 3 предмета» came out as «Д… 3 предмета» (#174). Read
+     * after «ДЗ на завтра» the figure needs no noun, and «ДЗ на завтра нет» is a
+     * whole Russian sentence, so the day survives and the answer does too.
+     */
+    fun subjectFigure(context: Context, count: Int): String =
+        if (count == 0) {
+            context.resources.getString(R.string.widget_homework_none_short)
+        } else {
+            count.toString()
+        }
+
+    /**
      * The word beside the ticking figure.
      *
      * The `Chronometer` can only draw digits, and "05:57" on its own reads as
@@ -328,14 +344,45 @@ internal object WidgetStrings {
     fun lessonCount(context: Context, count: Int): String =
         context.resources.getQuantityString(R.plurals.widget_lesson_count, count, count)
 
-    /** "6 уроков · Алгебра в 09:00". */
-    fun dayPlan(context: Context, lessons: Int, firstSubject: String, firstAt: LocalTime): String =
-        context.getString(
+    /**
+     * "6 уроков · Алгебра в 09:00", in at most [maxChars] characters.
+     *
+     * When it does not fit, the subject is what gives way. The count and the
+     * time are the facts the line exists for, and the subject is the one part of
+     * it that still reads shortened. Cut from the end as a whole, the line spent
+     * its budget on the subject and lost the time: a 2×2 on a phone, on the rung
+     * whose budget is 24, read «4 урока · Алгебра в 08:…» (#174).
+     *
+     * The subject keeps at least [MIN_PLAN_SUBJECT_CHARS] characters with its
+     * «…». A budget too small even for that is overrun rather than met by
+     * cutting the time, which is why the narrow rungs give this line two lines.
+     */
+    fun dayPlan(
+        context: Context,
+        lessons: Int,
+        firstSubject: String,
+        firstAt: LocalTime,
+        maxChars: Int = Int.MAX_VALUE,
+    ): String {
+        // Through `resources`, as `subjectCount` is: `Context.getString` is
+        // final, and in this module's unit tests a final framework method
+        // answers null instead of reaching a stub's resources.
+        fun line(subject: String) = context.resources.getString(
             R.string.widget_next_day_summary,
             lessonCount(context, lessons),
-            firstSubject,
+            subject,
             time(firstAt),
         )
+
+        val subject = firstSubject.collapseWhitespace()
+        val whole = line(subject)
+        if (whole.length <= maxChars) return whole
+        val room = subject.length - (whole.length - maxChars)
+        return line(subject.ellipsize(room.coerceAtLeast(MIN_PLAN_SUBJECT_CHARS)))
+    }
+
+    /** «Алг…»: three letters and the «…», the shortest a subject still reads as one. */
+    const val MIN_PLAN_SUBJECT_CHARS = 4
 
     /** "каб. 214", or null when the timetable has no room for this lesson. */
     fun room(context: Context, lesson: Lesson): String? =

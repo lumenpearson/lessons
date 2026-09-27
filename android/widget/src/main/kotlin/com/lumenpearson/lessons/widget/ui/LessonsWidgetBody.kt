@@ -236,7 +236,13 @@ private fun TinyBody(
             )
             if (homework.isKnown) {
                 HSpace(6)
-                CaptionText(text = homework.subjectCount, size = size, emphasised = true)
+                CaptionText(
+                    // The configuration the widget is drawn against: LocalContext
+                    // is the localized context LessonsWidget provides.
+                    text = tinyCountOf(homework, context.resources.configuration.fontScale),
+                    size = size,
+                    emphasised = true,
+                )
             }
         } else {
             val headline = headlineOf(context, state)
@@ -632,7 +638,7 @@ private fun AheadBlock(
     withPlan: Boolean,
 ) {
     val context = LocalContext.current
-    val plan = if (withPlan) dayPlanOf(context, nextDay) else null
+    val plan = if (withPlan) dayPlanOf(context, nextDay, size.homeworkChars) else null
 
     WidgetCard(size = size) {
         Column(modifier = GlanceModifier.fillMaxWidth()) {
@@ -642,7 +648,7 @@ private fun AheadBlock(
                     size = size,
                 )
                 VSpace(2)
-                BodyText(text = plan.ellipsize(size.homeworkChars), size = size)
+                BodyText(text = plan, size = size, maxLines = dayPlanLines(size))
                 VSpace(6)
             }
             HomeworkBlock(
@@ -675,7 +681,7 @@ private fun RestDayBody(
     size: WidgetSizeClass,
 ) {
     val context = LocalContext.current
-    val plan = if (size.showsMeta) dayPlanOf(context, nextDay) else null
+    val plan = if (size.showsMeta) dayPlanOf(context, nextDay, size.homeworkChars) else null
 
     Column(modifier = GlanceModifier.fillMaxSize()) {
         Column(modifier = GlanceModifier.fillMaxWidth()) {
@@ -694,7 +700,7 @@ private fun RestDayBody(
             }
             if (plan != null) {
                 VSpace(2)
-                CaptionText(text = plan.ellipsize(size.homeworkChars), size = size)
+                CaptionText(text = plan, size = size, maxLines = dayPlanLines(size))
             }
         }
         VSpace(8)

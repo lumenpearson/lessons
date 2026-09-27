@@ -50,6 +50,10 @@
     <string name="widget_homework_short_day_after">ДЗ на послезавтра</string>
     <string name="widget_homework_short_named">ДЗ на %1$s</string>
     <string name="widget_homework_empty">Ничего не задано</string>
+    <!-- The count beside «ДЗ на завтра» on the one-line size at an enlarged
+         font, when nothing is set: «ДЗ на завтра нет». Anything set is drawn
+         there as the bare figure, without «предмета» (#174). -->
+    <string name="widget_homework_none_short">нет</string>
     <string name="widget_homework_unknown_day">Следующий учебный день пока неизвестен</string>
     <!-- "Математика: §12, № 3–5" -->
     <string name="widget_homework_line">%1$s: %2$s</string>
