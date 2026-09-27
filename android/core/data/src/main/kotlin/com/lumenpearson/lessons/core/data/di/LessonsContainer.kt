@@ -313,6 +313,9 @@ class DefaultLessonsContainer(
             // the one moment that also has to answer for what is already on
             // the shade, and it is the only caller that may — see the KDoc.
             onAlertsChanged = { SchoolAlerts.onAlertsChanged(appContext) },
+            // The same broadcast a sync that changed the data sends: the widget
+            // cannot be called from this module, and it already listens for it.
+            onWidgetSettingsChanged = { DataSyncBroadcast.send(appContext) },
         )
     }
 

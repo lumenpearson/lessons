@@ -20,6 +20,7 @@ import com.lumenpearson.lessons.core.data.repository.DiarySessionStore
 import com.lumenpearson.lessons.core.data.repository.DiaryTarget
 import com.lumenpearson.lessons.core.data.repository.DiaryTargetCodec
 import com.lumenpearson.lessons.core.data.repository.Session
+import com.lumenpearson.lessons.core.data.repository.SettingsStore
 import com.lumenpearson.lessons.core.data.repository.ShellMode
 import com.lumenpearson.lessons.core.data.repository.ShellModeSource
 import com.lumenpearson.lessons.core.data.repository.ShellState
@@ -70,7 +71,7 @@ private val Context.lessonsDataStore: DataStore<Preferences> by preferencesDataS
  * screens, they are both tiny, and a single file means a single fsync and a
  * single flow to observe.
  */
-internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellModeSource {
+internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellModeSource, SettingsStore {
 
     private val dataStore = context.applicationContext.lessonsDataStore
 
@@ -89,13 +90,13 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
     /** Every class this device has joined, in the order they were joined. */
     val sessions: Flow<List<Session>> = preferences.map { it.memberships() }.distinctUntilChanged()
 
-    val settings: Flow<AppSettings> = preferences.map { it.toSettings() }.distinctUntilChanged()
+    override val settings: Flow<AppSettings> = preferences.map { it.toSettings() }.distinctUntilChanged()
 
     suspend fun currentSession(): Session? = preferences.first().activeMembership()
 
     suspend fun currentSessions(): List<Session> = preferences.first().memberships()
 
-    suspend fun currentSettings(): AppSettings = preferences.first().toSettings()
+    override suspend fun currentSettings(): AppSettings = preferences.first().toSettings()
 
     /**
      * Stores a membership and makes it the one being shown.
@@ -266,7 +267,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
     }
 
     /** Read-modify-write inside DataStore's transaction, so concurrent edits merge. */
-    suspend fun updateSettings(transform: (AppSettings) -> AppSettings) {
+    override suspend fun updateSettings(transform: (AppSettings) -> AppSettings) {
         dataStore.edit { prefs ->
             val updated = transform(prefs.toSettings())
             prefs[KEY_BASE_URL] = updated.baseUrl.trim()
@@ -386,7 +387,7 @@ internal class LessonsPreferences(context: Context) : DiarySessionStore, ShellMo
      * few hundred bytes and DataStore serves every read after the first from
      * memory, so this costs one disk read per process.
      */
-    fun languageBlocking(): AppLanguage = runBlocking { currentSettings().language }
+    override fun languageBlocking(): AppLanguage = runBlocking { currentSettings().language }
 
     /**
      * The shape of the cached schedule as of the previous sync.

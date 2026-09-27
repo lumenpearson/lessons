@@ -197,6 +197,13 @@ Every redraw now bumps `WidgetRedraws` before it asks, and a composition that is
 re-reads when the counter moves; a redraw that starts a session reads the counter with its
 first snapshot and does not read twice.
 
+**A settings change the widget draws redraws it** (#188). The widget draws three settings:
+the app's language, «Прогресс в виджете» and the teacher switch. It reads them through
+`AppSettings.drawnByWidget` and nothing wider, and `SettingsRepositoryImpl.update` sends
+`DATA_SYNCED` when that value moves. Before, nothing did: on an emulator switched to Russian
+the app redrew at once and the widget stayed English until a reinstall woke it, because a
+settings change is neither a sync that changed the data nor a tick.
+
 ## The picker
 
 `previewLayout` is what the launcher's widget picker draws, from XML, without running a line
