@@ -12,7 +12,6 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
@@ -23,8 +22,9 @@ from app.bot.keyboards import back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards import BellsAction, bells_list_keyboard
 from app.bot.manage_states import EditBellRows, NewBellSchedule
 from app.bot.render import clamp, more_line, plural
-from app.models import BellSchedule, DayOverride, Role, SchoolClass
-from app.services import audit, structure, timetable_io
+from app.models import BellSchedule, Role, SchoolClass
+from app.services import timetable_io
+from app.services.manage import bells as bells_service
 
 router = Router(name="manage.bells")
 
@@ -58,41 +58,17 @@ def _parse_bells(raw: str):
     return timetable_io.parse_bells_block("== Звонки ==\n" + (raw or ""))
 
 
-async def _schedules_of(session: AsyncSession, class_id: int) -> list[BellSchedule]:
-    return list(
-        await session.scalars(
-            select(BellSchedule)
-            .where(BellSchedule.class_id == class_id)
-            .order_by(BellSchedule.id)
-        )
-    )
-
-
-async def _rung_by_default(session: AsyncSession, school_class: SchoolClass) -> set[int]:
-    """The lesson numbers the class rings today. Empty when it has no default."""
-    if school_class.bell_schedule_id is None:
-        return set()
-    current = await session.scalar(
-        select(BellSchedule).where(BellSchedule.id == school_class.bell_schedule_id)
-    )
-    return {period.index for period in current.periods} if current is not None else set()
-
-
 async def _schedule_by_id(
     session: AsyncSession, school_class: SchoolClass, raw: str
 ) -> BellSchedule | None:
     schedule_id = _int_or_none(raw)
     if schedule_id is None:
         return None
-    return await session.scalar(
-        select(BellSchedule).where(
-            BellSchedule.id == schedule_id, BellSchedule.class_id == school_class.id
-        )
-    )
+    return await bells_service.schedule_of(session, school_class.id, schedule_id)
 
 
 async def _bells_view(session: AsyncSession, school_class: SchoolClass):
-    schedules = await _schedules_of(session, school_class.id)
+    schedules = await bells_service.schedules_of(session, school_class.id)
     return mr.render_bells(schedules, school_class.bell_schedule_id), bells_list_keyboard(
         schedules, school_class.bell_schedule_id
     )
@@ -188,16 +164,8 @@ async def bells_rows_apply(
         )
         return
 
-    orphaned = await structure.write_bell_periods(session, schedule, rows)
-    summary = f"звонки «{schedule.name}»: {len(rows)} уроков"
-    if orphaned:
-        summary += f", перестали звонить уроков: {len(orphaned)}"
-    await audit.record(
-        session,
-        school_class.id,
-        message.from_user.id,
-        "bells.edit",
-        summary,
+    orphaned = await bells_service.replace_rows(
+        session, school_class, message.from_user.id, schedule, rows
     )
     await session.commit()
     await session.refresh(schedule, ["periods"])
@@ -290,16 +258,10 @@ async def bells_new_rows(
         )
         return
 
-    schedule = BellSchedule(class_id=school_class.id, name=name[:64])
-    session.add(schedule)
-    await session.flush()
-    await structure.write_bell_periods(session, schedule, rows)
-    await audit.record(
-        session,
-        school_class.id,
-        message.from_user.id,
-        "bells.create",
-        f"создано расписание звонков «{name}»: {len(rows)} уроков",
+    # The name step already held it to 64 characters; the cut is for a state
+    # written by anything else.
+    schedule = await bells_service.create(
+        session, school_class, message.from_user.id, name[:64], rows
     )
     await session.commit()
     await session.refresh(schedule, ["periods"])
@@ -344,40 +306,20 @@ async def bells_make_default(
         return
 
     # A schedule may be created empty — that is the two-step flow, and the rows
-    # are the next screen. Making an empty one the *class default* is another
-    # thing: every ordinary day rings it, and a day that rings nothing draws
-    # nothing. `/bundle` answers zero lessons, `/now` answers «выходной» on a
-    # Monday, and the phone, the widget, the calendar feed and the morning
-    # digest go blank together with nothing anywhere reporting a problem —
-    # while the class's own timetable sits untouched underneath, which is what
-    # makes it so hard to see. Worse, `rung_indexes` then returns an empty set,
-    # which `can_ring` reads as «this class has not set its bells up yet» and
-    # waves every lesson number through. `api/manage.bells_update` has refused
-    # this since it was written and the «⭐» beside it did not; one rule, two
-    # shells, is the whole reason `services/` exists.
-    if not schedule.periods:
+    # are the next screen — but it may not be the *class default*: see
+    # `ScheduleEmpty`. The «⭐» here refused nothing while the API refused it,
+    # which is how this rule came to live in one place.
+    try:
+        orphaned = await bells_service.make_default(
+            session, school_class, callback.from_user.id, schedule
+        )
+    except bells_service.ScheduleEmpty:
         await callback.answer(
             "В этом расписании звонков нет ни одного урока — сделать его "
             "основным нельзя. Сначала добавьте времена.",
             show_alert=True,
         )
         return
-
-    # Moving the default to a *shorter* schedule takes lessons off every
-    # weekday exactly as shrinking the current one does, and nothing rewrites a
-    # row, so `write_bell_periods` never runs and never counts them. Asked here
-    # through the same function the API asks, so the two answer alike.
-    was = await _rung_by_default(session, school_class)
-    orphaned = await structure.lessons_silenced_by(
-        session, school_class.id, was, {period.index for period in schedule.periods}
-    )
-    school_class.bell_schedule_id = schedule.id
-    summary = f"основное расписание звонков: «{schedule.name}»"
-    if orphaned:
-        summary += f", перестали звонить уроков: {len(orphaned)}"
-    await audit.record(
-        session, school_class.id, callback.from_user.id, "bells.default", summary,
-    )
     await session.commit()
 
     text, keyboard = await _bells_view(session, school_class)
@@ -418,33 +360,19 @@ async def bells_delete(
         await callback.answer("Расписание не найдено", show_alert=True)
         return
 
-    if schedule.id == school_class.bell_schedule_id:
+    try:
+        name = await bells_service.delete(session, school_class, callback.from_user.id, schedule)
+    except bells_service.ScheduleIsDefault:
         await callback.answer(
             "Это основное расписание класса. Сначала сделайте основным другое.",
             show_alert=True,
         )
         return
-
-    used = await session.scalar(
-        select(func.count())
-        .select_from(DayOverride)
-        .where(
-            DayOverride.class_id == school_class.id,
-            DayOverride.bell_schedule_id == schedule.id,
-        )
-    )
-    if used:
+    except bells_service.ScheduleInUse as in_use:
         await callback.answer(
-            f"По нему идут особые дни ({used}). Сначала измените их.", show_alert=True
+            f"По нему идут особые дни ({in_use.days}). Сначала измените их.", show_alert=True
         )
         return
-
-    name = schedule.name
-    await session.delete(schedule)
-    await audit.record(
-        session, school_class.id, callback.from_user.id, "bells.delete",
-        f"удалено расписание звонков «{name}»",
-    )
     await session.commit()
 
     text, keyboard = await _bells_view(session, school_class)

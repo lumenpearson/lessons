@@ -15,7 +15,7 @@ from app.api.manage._common import Actor, _member_names, _wall, admin_actor
 from app.api.routing import DishkaAnnotatedRoute
 from app.models import AuditEntry, SchoolClass
 from app.schemas import AuditEntryOut, AuditPageOut
-from app.services import audit
+from app.services.manage import journal as journal_service
 
 router = APIRouter(route_class=DishkaAnnotatedRoute)
 
@@ -37,15 +37,10 @@ async def audit_log(
     *,
     session: FromDishka[AsyncSession],
 ) -> AuditPageOut:
-    """Who changed what, newest first.
-
-    One row more than ``limit`` is read and thrown away: that is what
-    ``has_more`` is, and it costs one row instead of the count of an
-    append-only table on every page turn.
-    """
-    entries = await audit.recent(session, school_class.id, limit=limit + 1, offset=offset)
-    has_more = len(entries) > limit
-    entries = entries[:limit]
+    """Who changed what, newest first; ``has_more`` says whether a page follows."""
+    entries, has_more = await journal_service.page(
+        session, school_class.id, limit=limit, offset=offset
+    )
     names = await _member_names(session, school_class.id)
 
     def _entry(row: AuditEntry) -> AuditEntryOut:

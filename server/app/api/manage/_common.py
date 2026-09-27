@@ -7,16 +7,15 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
 
 from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import Depends, HTTPException, status
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_device
-from app.models import BotUser, DeviceToken, Role, SchoolClass
+from app.models import DeviceToken, Role, SchoolClass
 from app.services import linking
+from app.services.manage import classes as classes_service
 
 # --------------------------------------------------------------------------
 # Who may manage
@@ -102,15 +101,11 @@ def _person(full_name: str | None, username: str | None, telegram_id: int | None
 
 async def _member_names(session: AsyncSession, class_id: int) -> dict[int, str]:
     """Telegram id -> the name to show. Plain text: this is JSON, not HTML."""
-    members = await session.scalars(select(BotUser).where(BotUser.class_id == class_id))
+    members = await classes_service.members(session, class_id)
     return {
         member.telegram_id: _person(member.full_name, member.username, member.telegram_id)
         for member in members
     }
-
-
-async def _count(session: AsyncSession, model: Any, *where: Any) -> int:
-    return int(await session.scalar(select(func.count()).select_from(model).where(*where)) or 0)
 
 
 def _conflict(detail: str) -> HTTPException:

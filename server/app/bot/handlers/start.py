@@ -53,6 +53,7 @@ from app.security import new_join_code
 from app.services import audit, device_invites, linking
 from app.services import schools as schools_service
 from app.services import terms as terms_service
+from app.services.manage import classes as classes_service
 from app.services.terms import TermError, compose_name, normalise_letter, validate_grade
 from app.timezones import DEFAULT_TIMEZONE, is_supported, label_for
 
@@ -791,11 +792,13 @@ async def change_timezone_apply(
     if school_class is None or role is None or not role.at_least(Role.ADMIN):
         await callback.answer("Только для администраторов", show_alert=True)
         return
-    if not is_supported(callback_data.zone):
+    try:
+        await classes_service.set_timezone(
+            session, school_class, callback.from_user.id, callback_data.zone
+        )
+    except classes_service.UnknownTimezone:
         await callback.answer("Неизвестный часовой пояс", show_alert=True)
         return
-
-    school_class.timezone = callback_data.zone
     await session.commit()
 
     await callback.message.edit_text(

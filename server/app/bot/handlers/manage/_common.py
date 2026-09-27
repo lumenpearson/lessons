@@ -11,11 +11,11 @@ from datetime import date as Date
 from datetime import datetime
 
 from aiogram.types import CallbackQuery, Message
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
-from app.models import AccessRequest, BotUser, DayKind, Role, SchoolClass
+from app.models import DayKind, Role, SchoolClass
+from app.services.manage import classes as classes_service
 
 NO_ACCESS = "Нет доступа. Откройте /start, чтобы получить его."
 NEED_ADMIN = "Только для администраторов"
@@ -125,19 +125,9 @@ def _parse_day(raw: str, today: Date) -> Date | None:
     return result
 
 
-async def _pending_requests(session: AsyncSession, class_id: int) -> list[AccessRequest]:
-    return list(
-        await session.scalars(
-            select(AccessRequest)
-            .where(AccessRequest.class_id == class_id, AccessRequest.status == "pending")
-            .order_by(AccessRequest.id)
-        )
-    )
-
-
 async def _member_names(session: AsyncSession, class_id: int) -> dict[int, str]:
     """Telegram id -> the name to show, already escaped by ``manage_render``."""
-    members = await session.scalars(select(BotUser).where(BotUser.class_id == class_id))
+    members = await classes_service.members(session, class_id)
     return {
         member.telegram_id: mr.person(member.full_name, member.username, member.telegram_id)
         for member in members

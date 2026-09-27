@@ -10,7 +10,6 @@ import logging
 
 from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class
@@ -18,7 +17,8 @@ from app.api.manage._common import Actor, _conflict, _member_names, _wall, admin
 from app.api.routing import DishkaAnnotatedRoute
 from app.models import DeviceToken, Role, SchoolClass
 from app.schemas import ManagedDeviceOut
-from app.services import audit, linking
+from app.services import linking
+from app.services.manage import devices as devices_service
 
 log = logging.getLogger(__name__)
 
@@ -52,11 +52,7 @@ def _device_out(
 async def _device_or_404(
     session: AsyncSession, school_class: SchoolClass, device_id: int
 ) -> DeviceToken:
-    device = await session.scalar(
-        select(DeviceToken).where(
-            DeviceToken.id == device_id, DeviceToken.class_id == school_class.id
-        )
-    )
+    device = await devices_service.device_of(session, school_class.id, device_id)
     if device is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown device")
     return device
@@ -79,14 +75,9 @@ async def devices_list(
     """
     devices = await linking.devices_of(session, school_class.id, include_revoked=include_revoked)
     names = await _member_names(session, school_class.id)
-    # Once per owner, not once per phone: the role hangs off the account, and a
-    # class where everybody joined from their own phone was paying a round trip
-    # a row for an answer already in hand. «📱 Устройства» in the bot resolves
-    # it the same way.
-    roles: dict[int, Role | None] = {}
-    for device in devices:
-        if device.telegram_id is not None and device.telegram_id not in roles:
-            roles[device.telegram_id] = await linking.effective_role(session, device)
+    # Once per owner, not once per phone, through the function «📱 Устройства»
+    # in the bot resolves it with.
+    roles = await devices_service.owner_roles(session, devices)
     return [
         _device_out(device, school_class, names, roles.get(device.telegram_id))
         for device in devices
@@ -113,19 +104,8 @@ async def device_revoke(
     device = await _device_or_404(session, school_class, device_id)
     names = await _member_names(session, school_class.id)
     role = await linking.effective_role(session, device)
-    if device.revoked:
-        return _device_out(device, school_class, names, role)
-
-    device.revoked = True
-    name = device.device_name or f"Устройство {device.id}"
-    await audit.record(
-        session,
-        school_class.id,
-        actor.telegram_id,
-        "device.revoke",
-        f"отключено устройство «{name}»",
-    )
-    await session.commit()
+    if await devices_service.revoke(session, school_class.id, actor.telegram_id, device):
+        await session.commit()
     return _device_out(device, school_class, names, role)
 
 
@@ -145,18 +125,10 @@ async def device_unlink(
     something to change.
     """
     device = await _device_or_404(session, school_class, device_id)
-    if device.telegram_id is None:
-        raise _conflict("device is not linked")
-
-    name = device.device_name or f"Устройство {device.id}"
-    await linking.unlink_device(session, device)
-    await audit.record(
-        session,
-        school_class.id,
-        actor.telegram_id,
-        "device.unlink",
-        f"отвязано устройство «{name}» — снова только чтение",
-    )
+    try:
+        await devices_service.unlink(session, school_class.id, actor.telegram_id, device)
+    except devices_service.DeviceNotLinked as not_linked:
+        raise _conflict("device is not linked") from not_linked
     await session.commit()
     names = await _member_names(session, school_class.id)
     role = await linking.effective_role(session, device)

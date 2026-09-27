@@ -19,8 +19,8 @@ from app.bot.keyboards import back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards import TermAction, terms_menu
 from app.bot.manage_states import EditTerm
 from app.models import Role, SchoolClass, TermKind
-from app.services import audit
 from app.services import terms as terms_service
+from app.services.manage import terms as terms_manage
 
 router = Router(name="manage.terms")
 
@@ -36,18 +36,8 @@ router = Router(name="manage.terms")
 # --------------------------------------------------------------------------
 
 
-def _term_year(school_class: SchoolClass) -> int:
-    """The school year in force *for this class*, in the class's own zone.
-
-    Not the server's: a class in Kamchatka turns the page on 1 September nine
-    hours before a class in Kaliningrad, and the server is in neither.
-    """
-    return terms_service.opening_year_of(datetime.now(school_class.tz).date())
-
-
 async def _terms_card(session: AsyncSession, school_class: SchoolClass):
-    year = _term_year(school_class)
-    rows = await terms_service.ensure(session, school_class, year)
+    year, rows = await terms_manage.current(session, school_class)
     await session.commit()
 
     scheme = terms_service.scheme_of(school_class)
@@ -106,15 +96,7 @@ async def terms_scheme(
         return
 
     wanted = TermKind.SEMESTER if callback_data.value == "semester" else TermKind.QUARTER
-    year = _term_year(school_class)
-    await terms_service.set_scheme(session, school_class, wanted, year)
-    await audit.record(
-        session,
-        school_class.id,
-        callback.from_user.id,
-        "class.term_kind",
-        f"схема: {'полугодия' if wanted is TermKind.SEMESTER else 'четверти'}",
-    )
+    await terms_manage.change_scheme(session, school_class, callback.from_user.id, wanted)
     await session.commit()
     await state.clear()
 
@@ -180,22 +162,14 @@ async def term_edit_apply(
         return
 
     try:
-        await terms_service.set_bounds(
-            session, school_class, _term_year(school_class), index, span[0], span[1]
+        await terms_manage.move_term(
+            session, school_class, message.from_user.id, index, span[0], span[1]
         )
     except terms_service.TermError as error:
         # The message is the rule, in Russian, and the prompt stays open: the
         # admin has one date to correct, not a form to start again.
         await message.answer(str(error))
         return
-
-    await audit.record(
-        session,
-        school_class.id,
-        message.from_user.id,
-        "class.term",
-        f"период {index}: {span[0]:%d.%m.%Y} — {span[1]:%d.%m.%Y}",
-    )
     await session.commit()
     await state.clear()
 

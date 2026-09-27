@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class
@@ -16,8 +15,7 @@ from app.api.manage._common import Actor, _conflict, admin_actor, editor_actor
 from app.api.routing import DishkaAnnotatedRoute
 from app.models import SchoolClass, Subject
 from app.schemas import DeletedOut, ManagedSubjectOut, SubjectIn, SubjectPatch, SubjectSavedOut
-from app.services import audit, structure
-from app.services import subjects as subjects_service
+from app.services.manage import subjects as subjects_service
 
 router = APIRouter(route_class=DishkaAnnotatedRoute)
 
@@ -40,19 +38,10 @@ def _subject_out(subject: Subject) -> ManagedSubjectOut:
 async def _subject_or_404(
     session: AsyncSession, school_class: SchoolClass, subject_id: int
 ) -> Subject:
-    subject = await session.scalar(
-        select(Subject).where(Subject.id == subject_id, Subject.class_id == school_class.id)
-    )
+    subject = await subjects_service.subject_of(session, school_class.id, subject_id)
     if subject is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown subject")
     return subject
-
-
-async def _name_taken(
-    session: AsyncSession, class_id: int, name: str, *, besides: int | None = None
-) -> bool:
-    """Ignores case, because everything downstream of it does."""
-    return await subjects_service.clashing(session, class_id, name, besides=besides) is not None
 
 
 @router.get("/subjects", response_model=list[ManagedSubjectOut])
@@ -77,11 +66,8 @@ async def subjects_list(
     # read, forever. It healed only because `/bundle` commits unconditionally
     # and a phone polls it; the screen that exists to edit this list did the
     # work and threw it away.
-    await subjects_service.sync_from_timetable(session, school_class.id)
+    rows = await subjects_service.listing(session, school_class.id)
     await session.commit()
-    rows = await session.scalars(
-        select(Subject).where(Subject.class_id == school_class.id).order_by(Subject.name)
-    )
     return [_subject_out(row) for row in rows]
 
 
@@ -96,24 +82,18 @@ async def subject_create(
     """Add a subject. The name is unique within the class - that uniqueness is
     the whole point of the dictionary, so a duplicate is a 409, not a silent
     second «Алгебра»."""
-    if await _name_taken(session, school_class.id, payload.name):
-        raise _conflict("a subject with that name is already in this class")
-
-    subject = Subject(
-        class_id=school_class.id,
-        name=payload.name,
-        short_name=payload.short_name,
-        teacher=payload.teacher,
-        color=payload.color,
-    )
-    session.add(subject)
-    await audit.record(
-        session,
-        school_class.id,
-        actor.telegram_id,
-        "subject.add",
-        f"добавлен предмет «{payload.name}»",
-    )
+    try:
+        subject = await subjects_service.create(
+            session,
+            school_class.id,
+            actor.telegram_id,
+            payload.name,
+            short_name=payload.short_name,
+            teacher=payload.teacher,
+            color=payload.color,
+        )
+    except subjects_service.SubjectExists as taken:
+        raise _conflict("a subject with that name is already in this class") from taken
     await session.commit()
     await session.refresh(subject)
     return SubjectSavedOut(subject=_subject_out(subject))
@@ -141,46 +121,22 @@ async def subject_update(
     new_name = changes.pop("name", None)
     moved = 0
 
-    if new_name is not None and new_name != subject.name:
-        if await _name_taken(session, school_class.id, new_name, besides=subject.id):
-            raise _conflict("a subject with that name is already in this class")
-        # The dictionary check above cannot see this one: homework may be
-        # written under a name that is not a dictionary entry, and homework is
-        # unique per subject per day. See `structure.homework_clashing`.
-        clash = await structure.homework_clashing(
-            session, school_class.id, subject.name, new_name
-        )
-        if clash:
-            days = ", ".join(day.isoformat() for day in clash)
-            raise _conflict(
-                f"homework under both names on the same day: {days}"
+    if new_name is not None:
+        try:
+            moved = (
+                await subjects_service.rename(
+                    session, school_class.id, actor.telegram_id, subject, new_name
+                )
+                or 0
             )
-        old_name = subject.name
-        moved = await structure.rename_subject(session, school_class.id, subject, new_name)
-        await audit.record(
-            session,
-            school_class.id,
-            actor.telegram_id,
-            "subject.rename",
-            f"предмет «{old_name}» → «{new_name}», строк обновлено: {moved}",
-        )
+        except subjects_service.SubjectExists as taken:
+            raise _conflict("a subject with that name is already in this class") from taken
+        except subjects_service.HomeworkClash as clash:
+            raise _conflict(f"homework under both names on the same day: {clash}") from clash
 
-    #: Column -> (audit tag, the word the log line uses). The bot writes the
-    #: colour as «цвет», not «color», and the two logs are read side by side.
-    labels = {
-        "short_name": ("subject.short_name", "сокращение"),
-        "teacher": ("subject.teacher", "учитель"),
-        "color": ("subject.colour", "цвет"),
-    }
     for column, value in changes.items():
-        setattr(subject, column, value)
-        action, label = labels[column]
-        await audit.record(
-            session,
-            school_class.id,
-            actor.telegram_id,
-            action,
-            f"{label} предмета «{subject.name}»: {value or 'убрано'}",
+        await subjects_service.set_detail(
+            session, school_class.id, actor.telegram_id, subject, column, value
         )
 
     await session.commit()
@@ -212,17 +168,9 @@ async def subject_delete(
     was really for.
     """
     subject = await _subject_or_404(session, school_class, subject_id)
-    in_use = await subjects_service.lessons_using(session, school_class.id, subject)
-    if in_use:
-        raise _conflict(f"{in_use} lesson(s) still use this subject")
-    name = subject.name
-    await session.delete(subject)
-    await audit.record(
-        session,
-        school_class.id,
-        actor.telegram_id,
-        "subject.delete",
-        f"удалён предмет «{name}»",
-    )
+    try:
+        await subjects_service.delete(session, school_class.id, actor.telegram_id, subject)
+    except subjects_service.SubjectInUse as in_use:
+        raise _conflict(f"{in_use.lessons} lesson(s) still use this subject") from in_use
     await session.commit()
     return DeletedOut(id=subject_id)

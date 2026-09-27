@@ -6,8 +6,6 @@ follows are in that package's docstring.
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,8 +15,8 @@ from app.api.manage._common import Actor, admin_actor
 from app.api.routing import DishkaAnnotatedRoute
 from app.models import SchoolClass, TermKind
 from app.schemas import TermBoundsIn, TermOut, TermSchemeIn, TermsOut
-from app.services import audit
 from app.services import terms as terms_service
+from app.services.manage import terms as terms_manage
 
 router = APIRouter(route_class=DishkaAnnotatedRoute)
 
@@ -48,11 +46,6 @@ def _terms_out(school_class: SchoolClass, year: int, rows) -> TermsOut:
     )
 
 
-def _term_year(school_class: SchoolClass) -> int:
-    """The school year in force for this class, in the class's own zone."""
-    return terms_service.opening_year_of(datetime.now(school_class.tz).date())
-
-
 @router.get("/terms", response_model=TermsOut)
 async def terms_list(
     _: Actor = Depends(admin_actor),
@@ -61,8 +54,7 @@ async def terms_list(
     session: FromDishka[AsyncSession],
 ) -> TermsOut:
     """This class's terms, seeding the conventional set if it has none."""
-    year = _term_year(school_class)
-    rows = await terms_service.ensure(session, school_class, year)
+    year, rows = await terms_manage.current(session, school_class)
     await session.commit()
     return _terms_out(school_class, year, rows)
 
@@ -81,15 +73,9 @@ async def terms_set_scheme(
     onto each other, and a leftover third quarter inside a year that has two is
     not a state worth keeping.
     """
-    year = _term_year(school_class)
-    wanted = TermKind(payload.kind)
-    rows = await terms_service.set_scheme(session, school_class, wanted, year)
-    await audit.record(
-        session,
-        school_class.id,
-        actor.telegram_id,
-        "class.term_kind",
-        f"схема: {'полугодия' if wanted is TermKind.SEMESTER else 'четверти'}",
+    year = terms_manage.current_year(school_class)
+    rows = await terms_manage.change_scheme(
+        session, school_class, actor.telegram_id, TermKind(payload.kind)
     )
     await session.commit()
     return _terms_out(school_class, year, rows)
@@ -111,24 +97,14 @@ async def terms_set_bounds(
     its neighbours, and «конец периода раньше его начала» is the thing worth
     putting on the screen.
     """
-    year = _term_year(school_class)
-    await terms_service.ensure(session, school_class, year)
     try:
-        await terms_service.set_bounds(
-            session, school_class, year, index, payload.starts_on, payload.ends_on
+        year = await terms_manage.move_term(
+            session, school_class, actor.telegram_id, index, payload.starts_on, payload.ends_on
         )
     except terms_service.TermError as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
         ) from error
-
-    await audit.record(
-        session,
-        school_class.id,
-        actor.telegram_id,
-        "class.term",
-        f"период {index}: {payload.starts_on:%d.%m.%Y} — {payload.ends_on:%d.%m.%Y}",
-    )
     await session.commit()
     rows = await terms_service.read(session, school_class.id, year)
     return _terms_out(school_class, year, rows)

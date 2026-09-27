@@ -7,13 +7,10 @@ follows are in that package's docstring.
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
-from html import escape
 from typing import Any
 
 from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class
@@ -23,7 +20,7 @@ from app.config import get_settings
 from app.models import AccessRequest, Role, SchoolClass
 from app.schemas import AccessRequestOut, RequestDecisionIn, RequestDecisionOut
 from app.services import access as access_service
-from app.services import audit
+from app.services.manage import requests as requests_service
 
 log = logging.getLogger(__name__)
 
@@ -72,13 +69,7 @@ async def _request_or_404(
     """Pending, and this class's. A request that has already been answered is
     gone as far as this endpoint is concerned, so two admins tapping «Выдать»
     at once cannot grant twice."""
-    request = await session.scalar(
-        select(AccessRequest).where(
-            AccessRequest.id == request_id,
-            AccessRequest.class_id == school_class.id,
-            AccessRequest.status == "pending",
-        )
-    )
+    request = await requests_service.pending_one(session, school_class.id, request_id)
     if request is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown request")
     return request
@@ -92,13 +83,7 @@ async def requests_list(
     session: FromDishka[AsyncSession],
 ) -> list[AccessRequestOut]:
     """Everybody waiting for a role, oldest first."""
-    rows = list(
-        await session.scalars(
-            select(AccessRequest)
-            .where(AccessRequest.class_id == school_class.id, AccessRequest.status == "pending")
-            .order_by(AccessRequest.id)
-        )
-    )
+    rows = await requests_service.pending(session, school_class.id)
     names = await _member_names(session, school_class.id)
     return [
         AccessRequestOut(
@@ -169,20 +154,8 @@ async def request_decline(
     names = await _member_names(session, school_class.id)
     who = names.get(request.telegram_id, str(request.telegram_id))
 
-    request.status = "declined"
-    request.decided_by = actor.telegram_id
-    request.decided_at = datetime.now(UTC).replace(tzinfo=None)
-    await audit.record(
-        session,
-        school_class.id,
-        actor.telegram_id,
-        "access.decline",
-        f"отклонён запрос доступа от {request.telegram_id}",
-    )
+    await requests_service.decline(session, school_class.id, actor.telegram_id, request)
     await session.commit()
 
-    await _tell(
-        request.telegram_id,
-        f"✖️ Запрос доступа в классе <b>{escape(school_class.name)}</b> отклонён.",
-    )
+    await _tell(request.telegram_id, requests_service.decline_notice(school_class))
     return RequestDecisionOut(id=request_id, status="declined", who=who)

@@ -12,7 +12,6 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
@@ -21,7 +20,6 @@ from app.bot.handlers.manage._common import (
     NO_ACCESS,
     _allowed,
     _int_or_none,
-    _pending_requests,
     _refusal,
 )
 from app.bot.keyboards import Menu, back_to_menu, cancel_keyboard
@@ -31,9 +29,9 @@ from app.bot.middlewares import prefs_key
 from app.bot.roles import list_memberships
 from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
-from app.models import BotUser, DeviceToken, Role, SchoolClass
+from app.models import Role, SchoolClass
 from app.providers.diary.registry import binding as diary_binding
-from app.services import audit
+from app.services.manage import classes as classes_service
 from app.timezones import label_for
 
 router = Router(name="manage.class_card")
@@ -48,29 +46,15 @@ async def _class_card(
     session: AsyncSession, school_class: SchoolClass, role: Role, telegram_id: int
 ):
     memberships = await list_memberships(session, telegram_id)
-    members = int(
-        await session.scalar(
-            select(func.count()).select_from(BotUser).where(BotUser.class_id == school_class.id)
-        )
-        or 0
-    )
-    devices = int(
-        await session.scalar(
-            select(func.count())
-            .select_from(DeviceToken)
-            .where(DeviceToken.class_id == school_class.id, DeviceToken.revoked.is_(False))
-        )
-        or 0
-    )
-    pending = len(await _pending_requests(session, school_class.id))
+    counts = await classes_service.counts(session, school_class.id)
 
     text = mr.render_class_card(
         school_class,
         zone_label=label_for(school_class.timezone_name),
         feed_ready=bool(school_class.calendar_token),
-        members=members,
-        devices=devices,
-        pending=pending,
+        members=counts.members,
+        devices=counts.devices,
+        pending=counts.pending,
         diary_label=_diary_label(school_class),
     )
     keyboard = class_menu(
@@ -78,7 +62,7 @@ async def _class_card(
         # The button only appears for somebody who actually has somewhere to
         # switch to; one membership is the overwhelmingly common case.
         many_classes=len(memberships) > 1,
-        pending=pending,
+        pending=counts.pending,
         diary_bound=bool(school_class.diary_provider),
     )
     return text, keyboard
@@ -205,14 +189,7 @@ async def class_field_apply(
     else:
         value = None if raw in {"-", "—", ""} else raw[:limit]
 
-    setattr(school_class, column, value)
-    await audit.record(
-        session,
-        school_class.id,
-        message.from_user.id,
-        f"class.{column}",
-        f"{column}: {value or 'убрано'}",
-    )
+    await classes_service.set_field(session, school_class, message.from_user.id, column, value)
     await session.commit()
     await state.clear()
 
@@ -345,16 +322,15 @@ async def class_delete_apply(
         await state.clear()
         return
 
-    typed = (message.text or "").strip()
-    if typed != school_class.name:
+    name = school_class.name
+    try:
+        await classes_service.delete(session, school_class, message.text or "")
+    except classes_service.NameMismatch:
         await message.answer(
             "Название не совпало — класс не тронут.\n"
             f"Чтобы удалить, пришлите ровно: <code>{escape(school_class.name)}</code>"
         )
         return
-
-    name = school_class.name
-    await session.delete(school_class)
     await session.commit()
     await state.clear()
     await message.answer(

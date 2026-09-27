@@ -8,16 +8,16 @@ from __future__ import annotations
 
 from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class
 from app.api.manage._common import Actor, admin_actor
 from app.api.routing import DishkaAnnotatedRoute
 from app.bot.render import WEEKDAYS
-from app.models import BellSchedule, SchoolClass, TimetableEntry
+from app.models import SchoolClass
 from app.schemas import ImportConflictOut, TimetableExportOut, TimetableImportIn, TimetableImportOut
-from app.services import audit, structure, timetable_io
+from app.services import structure, timetable_io
+from app.services.manage import timetable as timetable_service
 
 router = APIRouter(route_class=DishkaAnnotatedRoute)
 
@@ -41,21 +41,8 @@ async def timetable_export(
     round. An empty timetable is an empty string, not a 404 - there is nothing
     wrong with a class that has not filled one in yet.
     """
-    entries = list(
-        await session.scalars(
-            select(TimetableEntry)
-            .where(TimetableEntry.class_id == school_class.id)
-            .order_by(TimetableEntry.weekday, TimetableEntry.index)
-        )
-    )
-    periods = []
-    if school_class.bell_schedule_id:
-        schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
-        if schedule is not None:
-            periods = list(schedule.periods)
-    return TimetableExportOut(
-        text=timetable_io.export_timetable(entries, periods), lessons=len(entries)
-    )
+    text, lessons = await timetable_service.export(session, school_class)
+    return TimetableExportOut(text=text, lessons=lessons)
 
 
 @router.post("/timetable/import", response_model=TimetableImportOut)
@@ -103,7 +90,7 @@ async def timetable_import(
             rejected=rejected,
         )
 
-    result = await structure.apply_timetable(session, school_class, days, bells)
+    result = await timetable_service.apply(session, school_class, actor.telegram_id, days, bells)
     total = result.written
     schedule = result.schedule
     # Reported, not silently dropped: a lesson past the last bell has nowhere
@@ -124,16 +111,6 @@ async def timetable_import(
         "больше не звонит — новые звонки короче"
         for weekday, index in result.orphaned
     ]
-    summary = f"импорт расписания: дней {len(days)}, уроков {total}"
-    if bells:
-        summary += f", звонков {len(bells)}"
-    if result.dropped:
-        summary += f", без звонка пропущено {len(result.dropped)}"
-    if result.orphaned:
-        summary += f", перестали звонить {len(result.orphaned)}"
-    await audit.record(
-        session, school_class.id, actor.telegram_id, "timetable.import", summary
-    )
     await session.commit()
     if schedule is not None:
         await session.refresh(schedule, ["periods"])

@@ -16,7 +16,7 @@ from app.bot import manage_render as mr
 from app.bot.handlers.manage._common import _allowed, _int_or_none, _member_names, _refusal
 from app.bot.manage_keyboards import AuditAction, audit_keyboard
 from app.models import Role, SchoolClass
-from app.services import audit
+from app.services.manage import journal as journal_service
 
 router = Router(name="manage.audit_log")
 
@@ -27,9 +27,9 @@ router = Router(name="manage.audit_log")
 
 
 async def _audit_view(session: AsyncSession, school_class: SchoolClass, offset: int):
-    entries = await audit.recent(session, school_class.id, limit=mr.AUDIT_PAGE + 1, offset=offset)
-    more = len(entries) > mr.AUDIT_PAGE
-    entries = entries[:mr.AUDIT_PAGE]
+    entries, more = await journal_service.page(
+        session, school_class.id, limit=mr.AUDIT_PAGE, offset=offset
+    )
     names = await _member_names(session, school_class.id)
     return (
         mr.render_audit(entries, names, school_class.tz, offset),

@@ -13,12 +13,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class
-from app.api.manage._common import Actor, _count, admin_actor, owner_actor
+from app.api.manage._common import Actor, admin_actor, owner_actor
 from app.api.routing import DishkaAnnotatedRoute
-from app.models import AccessRequest, BotUser, DeviceToken, JoinMode, SchoolClass
+from app.models import JoinMode, SchoolClass
 from app.schemas import ClassDeleteIn, ClassPatch, DeletedOut, ManagedClassOut
 from app.services import audit
 from app.services import terms as terms_service
+from app.services.manage import classes as classes_service
 from app.timezones import is_supported, label_for
 
 log = logging.getLogger(__name__)
@@ -32,6 +33,7 @@ router = APIRouter(route_class=DishkaAnnotatedRoute)
 
 
 async def _class_out(session: AsyncSession, school_class: SchoolClass) -> ManagedClassOut:
+    counts = await classes_service.counts(session, school_class.id)
     return ManagedClassOut(
         id=school_class.id,
         name=school_class.name,
@@ -40,19 +42,9 @@ async def _class_out(session: AsyncSession, school_class: SchoolClass) -> Manage
         timezone=school_class.timezone_name,
         timezone_label=label_for(school_class.timezone_name),
         join_code=school_class.join_code,
-        members=await _count(session, BotUser, BotUser.class_id == school_class.id),
-        devices=await _count(
-            session,
-            DeviceToken,
-            DeviceToken.class_id == school_class.id,
-            DeviceToken.revoked.is_(False),
-        ),
-        pending_requests=await _count(
-            session,
-            AccessRequest,
-            AccessRequest.class_id == school_class.id,
-            AccessRequest.status == "pending",
-        ),
+        members=counts.members,
+        devices=counts.devices,
+        pending_requests=counts.pending,
         bell_schedule_id=school_class.bell_schedule_id,
         calendar_ready=bool(school_class.calendar_token),
         # `.value`, so the wire says «open». The column stores the member name
@@ -109,23 +101,9 @@ async def class_update(
         )
 
     for column, value in changes.items():
-        setattr(school_class, column, value)
-        await audit.record(
-            session,
-            school_class.id,
-            actor.telegram_id,
-            f"class.{column}",
-            f"{column}: {value or 'убрано'}",
-        )
+        await classes_service.set_field(session, school_class, actor.telegram_id, column, value)
     if zone is not None:
-        school_class.timezone = zone
-        await audit.record(
-            session,
-            school_class.id,
-            actor.telegram_id,
-            "class.timezone",
-            f"часовой пояс: {zone}",
-        )
+        await classes_service.set_timezone(session, school_class, actor.telegram_id, zone)
     if ("grade" in changes or "letter" in changes) and "name" not in changes:
         # A class moved from 9 to 10 is not called «9А» any more. The name was
         # composed from these two at creation (`bot/handlers/start.py`), and a
@@ -147,19 +125,12 @@ async def class_update(
             )
     if mode is not None:
         # Through the enum rather than by the string, because the attribute is
-        # read back as one by `_class_out` in this same request - and because
-        # the audit line should say what changed rather than echo a wire value.
-        school_class.join_mode = JoinMode(mode)
-        await audit.record(
-            session,
-            school_class.id,
-            actor.telegram_id,
-            # The same action name the bot's own toggle writes, so the log
-            # reads as one history however the switch was flipped.
-            "access.join_mode",
-            "вход только по личным приглашениям"
-            if school_class.join_mode is JoinMode.INVITE
-            else "вход по коду класса снова разрешён",
+        # read back as one by `_class_out` in this same request. The same
+        # service the bot's own switch calls, so the log reads as one history
+        # however the switch was flipped - and a switch to the mode already in
+        # force writes no line from either side.
+        await classes_service.set_join_mode(
+            session, school_class, actor.telegram_id, JoinMode(mode)
         )
 
     await session.commit()
@@ -186,14 +157,15 @@ async def class_delete(
     with it. Every device token goes too, so the caller's own token stops
     working - which is correct, there is nothing left for it to read.
     """
-    if payload.confirm_name.strip() != school_class.name:
+    class_id = school_class.id
+    try:
+        await classes_service.delete(session, school_class, payload.confirm_name)
+    except classes_service.NameMismatch as mismatch:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="confirm_name does not match the class name",
-        )
+        ) from mismatch
 
-    class_id = school_class.id
     log.info("class %s deleted by %s", class_id, actor.telegram_id)
-    await session.delete(school_class)
     await session.commit()
     return DeletedOut(id=class_id)

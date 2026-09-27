@@ -12,7 +12,6 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
@@ -20,8 +19,9 @@ from app.bot.handlers.manage._common import _allowed, _refusal
 from app.bot.keyboards import WEEKDAY_FULL, back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards import ImportAction, import_keyboard
 from app.bot.manage_states import ImportTimetable
-from app.models import BellPeriod, BellSchedule, Role, SchoolClass, TimetableEntry
-from app.services import audit, structure, timetable_io
+from app.models import Role, SchoolClass
+from app.services import timetable_io
+from app.services.manage import timetable as timetable_service
 
 router = Router(name="manage.import_export")
 
@@ -69,20 +69,7 @@ async def cmd_export(
         return
     await state.clear()
 
-    entries = list(
-        await session.scalars(
-            select(TimetableEntry)
-            .where(TimetableEntry.class_id == school_class.id)
-            .order_by(TimetableEntry.weekday, TimetableEntry.index)
-        )
-    )
-    periods: list[BellPeriod] = []
-    if school_class.bell_schedule_id:
-        schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
-        if schedule is not None:
-            periods = list(schedule.periods)
-
-    body = timetable_io.export_timetable(entries, periods)
+    body, _lessons = await timetable_service.export(session, school_class)
     if not body:
         await message.answer("Расписание пустое — экспортировать нечего.")
         return
@@ -194,21 +181,12 @@ async def import_apply(
         await callback.answer("Нечего применять — начните заново: /import", show_alert=True)
         return
 
-    result = await structure.apply_timetable(session, school_class, days, bells)
+    result = await timetable_service.apply(
+        session, school_class, callback.from_user.id, days, bells
+    )
     total = result.written
     schedule = result.schedule
     unrung = result.unrung
-
-    summary = f"импорт расписания: дней {len(days)}, уроков {total}"
-    if bells:
-        summary += f", звонков {len(bells)}"
-    if result.dropped:
-        # Rows, not numbers. «8. Алгебра» under Monday and under Tuesday is two
-        # lessons nobody will see, and this line is the only record of them.
-        summary += f", без звонка пропущено {len(result.dropped)}"
-    await audit.record(
-        session, school_class.id, callback.from_user.id, "timetable.import", summary
-    )
     await session.commit()
     if schedule is not None:
         await session.refresh(schedule, ["periods"])

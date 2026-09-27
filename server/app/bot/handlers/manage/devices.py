@@ -10,14 +10,14 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
 from app.bot.handlers.manage._common import _allowed, _int_or_none, _member_names, _refusal
 from app.bot.manage_keyboards import DeviceAction, device_keyboard
 from app.models import DeviceToken, Role, SchoolClass
-from app.services import audit, linking
+from app.services import linking
+from app.services.manage import devices as devices_service
 
 router = Router(name="manage.devices")
 
@@ -35,15 +35,13 @@ router = Router(name="manage.devices")
 
 async def _device_view(session: AsyncSession, school_class: SchoolClass):
     devices = await linking.devices_of(session, school_class.id)
-    owners: dict[int, tuple[str, Role | None]] = {}
     names = await _member_names(session, school_class.id)
-    for device in devices:
-        if device.telegram_id is None or device.telegram_id in owners:
-            continue
-        owners[device.telegram_id] = (
-            names.get(device.telegram_id, str(device.telegram_id)),
-            await linking.effective_role(session, device),
-        )
+    owners: dict[int, tuple[str, Role | None]] = {
+        telegram_id: (names.get(telegram_id, str(telegram_id)), owner_role)
+        for telegram_id, owner_role in (
+            await devices_service.owner_roles(session, devices)
+        ).items()
+    }
     return mr.render_devices(devices, owners), device_keyboard(devices)
 
 
@@ -53,11 +51,7 @@ async def _device_by_id(
     device_id = _int_or_none(raw)
     if device_id is None:
         return None
-    return await session.scalar(
-        select(DeviceToken).where(
-            DeviceToken.id == device_id, DeviceToken.class_id == school_class.id
-        )
-    )
+    return await devices_service.device_of(session, school_class.id, device_id)
 
 
 @router.message(Command("devices"))
@@ -112,13 +106,10 @@ async def device_revoke(
         await callback.answer("Устройство не найдено", show_alert=True)
         return
 
-    device.revoked = True
-    name = device.device_name or f"Устройство {device.id}"
-    await audit.record(
-        session, school_class.id, callback.from_user.id, "device.revoke",
-        f"отключено устройство «{name}»",
-    )
+    # A phone already off is answered the same and logged once, not again.
+    await devices_service.revoke(session, school_class.id, callback.from_user.id, device)
     await session.commit()
+    name = devices_service.label(device)
 
     text, keyboard = await _device_view(session, school_class)
     await callback.message.edit_text(text, reply_markup=keyboard)
@@ -142,16 +133,11 @@ async def device_unlink(
     if device is None:
         await callback.answer("Устройство не найдено", show_alert=True)
         return
-    if device.telegram_id is None:
+    try:
+        await devices_service.unlink(session, school_class.id, callback.from_user.id, device)
+    except devices_service.DeviceNotLinked:
         await callback.answer("Устройство и так не привязано", show_alert=True)
         return
-
-    name = device.device_name or f"Устройство {device.id}"
-    await linking.unlink_device(session, device)
-    await audit.record(
-        session, school_class.id, callback.from_user.id, "device.unlink",
-        f"отвязано устройство «{name}» — снова только чтение",
-    )
     await session.commit()
 
     text, keyboard = await _device_view(session, school_class)

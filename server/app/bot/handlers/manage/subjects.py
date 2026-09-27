@@ -29,8 +29,8 @@ from app.bot.manage_keyboards import (
 from app.bot.manage_states import EditSubject
 from app.bot.render import plural
 from app.models import Role, SchoolClass, Subject, TimetableEntry
-from app.services import audit, structure
-from app.services import subjects as subjects_service
+from app.services import audit
+from app.services.manage import subjects as subjects_service
 
 router = Router(name="manage.subjects")
 
@@ -64,8 +64,7 @@ async def _subject_view(session: AsyncSession, school_class: SchoolClass, role: 
     # cannot be empty while the class has a full timetable. «Собрать из
     # расписания» stays: it is now the button for "I have just pasted a day and
     # want to see its subjects without leaving", and it is still free to press.
-    await subjects_service.sync_from_timetable(session, school_class.id)
-    subjects = await _subjects_of(session, school_class.id)
+    subjects = await subjects_service.listing(session, school_class.id)
     return mr.render_subjects(subjects), subject_list_keyboard(
         subjects,
         can_edit=role.at_least(Role.ADMIN),
@@ -81,9 +80,7 @@ async def _subject_by_id(
     subject_id = _int_or_none(raw)
     if subject_id is None:
         return None
-    return await session.scalar(
-        select(Subject).where(Subject.id == subject_id, Subject.class_id == school_class.id)
-    )
+    return await subjects_service.subject_of(session, school_class.id, subject_id)
 
 
 @router.message(Command("subjects"))
@@ -228,21 +225,19 @@ async def subject_rename(
         await state.clear()
         await message.answer("Предмет уже удалён.", reply_markup=back_to_menu())
         return
-    if name == subject.name:
-        await state.clear()
-        await message.answer("Название не изменилось.", reply_markup=back_to_menu())
-        return
 
-    clash = await subjects_service.clashing(session, school_class.id, name, besides=subject.id)
-    if clash is not None:
+    old_name = subject.name
+    try:
+        moved = await subjects_service.rename(
+            session, school_class.id, message.from_user.id, subject, name
+        )
+    except subjects_service.SubjectExists:
         await message.answer(
             f"Предмет <b>{escape(name)}</b> уже есть. Придумайте другое название:"
         )
         return
-
-    days = await structure.homework_clashing(session, school_class.id, subject.name, name)
-    if days:
-        listed = ", ".join(f"{day:%d.%m}" for day in days[:5])
+    except subjects_service.HomeworkClash as clash:
+        listed = ", ".join(f"{day:%d.%m}" for day in clash.days[:5])
         await message.answer(
             f"На эти дни уже есть задания и по <b>{escape(subject.name)}</b>, и по "
             f"<b>{escape(name)}</b>: {listed}. Уберите одно из них и повторите — "
@@ -251,16 +246,10 @@ async def subject_rename(
         )
         await state.clear()
         return
-
-    old_name = subject.name
-    moved = await structure.rename_subject(session, school_class.id, subject, name)
-    await audit.record(
-        session,
-        school_class.id,
-        message.from_user.id,
-        "subject.rename",
-        f"предмет «{old_name}» → «{name}», строк обновлено: {moved}",
-    )
+    if moved is None:
+        await state.clear()
+        await message.answer("Название не изменилось.", reply_markup=back_to_menu())
+        return
     await session.commit()
     await state.clear()
 
@@ -278,7 +267,6 @@ async def _save_subject_text(
     school_class: SchoolClass,
     field: str,
     limit: int,
-    label: str,
 ) -> None:
     """The short-name and teacher steps: same shape, different column."""
     raw = " ".join((message.text or "").split())
@@ -289,13 +277,8 @@ async def _save_subject_text(
         return
 
     value = None if raw in {"-", "—", ""} else raw[:limit]
-    setattr(subject, field, value)
-    await audit.record(
-        session,
-        school_class.id,
-        message.from_user.id,
-        f"subject.{field}",
-        f"{label} предмета «{subject.name}»: {value or 'убрано'}",
+    await subjects_service.set_detail(
+        session, school_class.id, message.from_user.id, subject, field, value
     )
     await session.commit()
     await state.clear()
@@ -315,9 +298,7 @@ async def subject_short_name(
     if not _allowed(school_class, role, Role.ADMIN):
         await state.clear()
         return
-    await _save_subject_text(
-        message, state, session, school_class, "short_name", SHORT_NAME_MAX, "сокращение"
-    )
+    await _save_subject_text(message, state, session, school_class, "short_name", SHORT_NAME_MAX)
 
 
 @router.message(EditSubject.teacher)
@@ -331,9 +312,7 @@ async def subject_teacher(
     if not _allowed(school_class, role, Role.ADMIN):
         await state.clear()
         return
-    await _save_subject_text(
-        message, state, session, school_class, "teacher", TEACHER_MAX, "учитель"
-    )
+    await _save_subject_text(message, state, session, school_class, "teacher", TEACHER_MAX)
 
 
 async def _apply_colour(
@@ -343,13 +322,8 @@ async def _apply_colour(
     telegram_id: int,
     colour: str | None,
 ) -> None:
-    subject.color = colour
-    await audit.record(
-        session,
-        school_class.id,
-        telegram_id,
-        "subject.colour",
-        f"цвет предмета «{subject.name}»: {colour or 'убран'}",
+    await subjects_service.set_detail(
+        session, school_class.id, telegram_id, subject, "color", colour
     )
     await session.commit()
 
@@ -465,20 +439,17 @@ async def subject_create(
 
     # Ignores case, so «физика» opens the class's «Физика» instead of founding
     # a second row beside it.
-    existing = await subjects_service.find(session, school_class.id, name)
-    if existing is not None:
+    try:
+        subject = await subjects_service.create(
+            session, school_class.id, message.from_user.id, name
+        )
+    except subjects_service.SubjectExists as taken:
         await state.clear()
         await message.answer(
-            f"Предмет <b>{escape(existing.name)}</b> уже есть.",
-            reply_markup=subject_card_keyboard(existing.id),
+            f"Предмет <b>{escape(taken.existing.name)}</b> уже есть.",
+            reply_markup=subject_card_keyboard(taken.existing.id),
         )
         return
-
-    subject = Subject(class_id=school_class.id, name=name)
-    session.add(subject)
-    await audit.record(
-        session, school_class.id, message.from_user.id, "subject.add", f"добавлен предмет «{name}»"
-    )
     await session.commit()
     await state.clear()
     await message.answer(
@@ -516,24 +487,20 @@ async def subject_delete(
         await callback.answer("Предмет уже удалён", show_alert=True)
         return
 
-    in_use = await subjects_service.lessons_using(session, school_class.id, subject)
-    if in_use:
+    try:
+        name = await subjects_service.delete(
+            session, school_class.id, callback.from_user.id, subject
+        )
+    except subjects_service.SubjectInUse as in_use:
         await callback.answer(
             # ``plural`` carries the number itself — printing it again beside
             # the call produced «стоит в расписании: 1 1 урок».
             f"«{subject.name}» стоит в расписании: "
-            f"{plural(in_use, 'урок', 'урока', 'уроков')}. "
+            f"{plural(in_use.lessons, 'урок', 'урока', 'уроков')}. "
             "Сначала уберите их из расписания.",
             show_alert=True,
         )
         return
-
-    name = subject.name
-    await session.delete(subject)
-    await audit.record(
-        session, school_class.id, callback.from_user.id, "subject.delete",
-        f"удалён предмет «{name}»",
-    )
     await session.commit()
     await state.clear()
 

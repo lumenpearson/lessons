@@ -7,7 +7,6 @@ follows are in that package's docstring.
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
 from html import escape
 
 from aiogram import F, Router
@@ -25,6 +24,7 @@ from app.bot.manage_states import RequestAccess
 from app.models import AccessRequest, BotUser, Role, SchoolClass
 from app.services import access as access_service
 from app.services import audit, linking
+from app.services.manage import requests as requests_service
 
 log = logging.getLogger(__name__)
 
@@ -243,13 +243,7 @@ async def _request_by_id(
     request_id = _int_or_none(raw)
     if request_id is None:
         return None
-    return await session.scalar(
-        select(AccessRequest).where(
-            AccessRequest.id == request_id,
-            AccessRequest.class_id == school_class.id,
-            AccessRequest.status == "pending",
-        )
-    )
+    return await requests_service.pending_one(session, school_class.id, request_id)
 
 
 @router.callback_query(RequestAction.filter(F.action == "approve"))
@@ -321,22 +315,11 @@ async def request_decline(
         await callback.answer("Запрос уже закрыт", show_alert=True)
         return
 
-    request.status = "declined"
-    request.decided_by = callback.from_user.id
-    request.decided_at = datetime.now(UTC).replace(tzinfo=None)
-    await audit.record(
-        session,
-        school_class.id,
-        callback.from_user.id,
-        "access.decline",
-        f"отклонён запрос доступа от {request.telegram_id}",
-    )
+    await requests_service.decline(session, school_class.id, callback.from_user.id, request)
     await session.commit()
 
     await _tell_requester(
-        _bot_of(callback),
-        request.telegram_id,
-        f"✖️ Запрос доступа в классе <b>{escape(school_class.name)}</b> отклонён.",
+        _bot_of(callback), request.telegram_id, requests_service.decline_notice(school_class)
     )
     await callback.message.edit_text("✖️ Запрос отклонён.", reply_markup=back_to_menu())
     await callback.answer("Отклонено")
