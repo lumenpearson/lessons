@@ -730,10 +730,11 @@ The app needs an address the **phone** can reach, not the computer. `localhost` 
 `127.0.0.1` do not work in the app: to a phone, those are the phone.
 
 **This is the debug build's route.** A release build speaks `https://` to its server and
-nothing else, except to the phone itself (#202, and [below](#why-a-debug-build-speaks-http-and-a-release-build-does-not)):
-it refuses the `http://<address>:8000/` of step 4 where it is typed, with a sentence about
-https. With a release build, go through the `adb` tunnel described under «On the
-emulator» — it works for a phone on a cable too — or put the server behind TLS.
+nothing else, except to the phone itself (#202, and
+[below](#why-a-debug-build-speaks-http-and-a-release-build-does-not)): it refuses the
+`http://<address>:8000/` of step 4 where it is typed, with a sentence about https. With a
+release build, go through the `adb` tunnel described [on the emulator](#on-the-emulator) —
+it works for a phone on a cable too — or put the server behind TLS.
 
 1. Start the server so that it listens on more than the loopback:
 
@@ -817,10 +818,10 @@ below) is not worth that case (#202), so there are now two files:
 
 The app asks that configuration before it sends anything (`CleartextPolicy` in
 `:core:data`, through `NetworkSecurityPolicy` — the question OkHttp asks too). The address
-sheet refuses a refused `http://` address where it is typed; one kept from an older version
-is refused by the base-URL interceptor before the request leaves, and a sync, the server
-badge and the diary sign-in each say it needs `https://` rather than showing a network
-error. `NetworkSecurityConfigTest` holds both files to the rule.
+sheet refuses such an address where it is typed and holds «Сохранить»; one kept from an
+older version is refused by the base-URL interceptor before the request leaves, and a sync,
+the server badge, a join and the diary sign-in each say it needs `https://` rather than
+showing a network error. `NetworkSecurityConfigTest` holds both files to the rule.
 
 What travels over a plain `http://` wire is **not** harmless, and this page used to say it
 was — «only a class code and a timetable: no passwords, no personal data». The diary

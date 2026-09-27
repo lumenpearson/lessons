@@ -354,6 +354,7 @@ internal fun JoinError?.asText(): String? = when (this) {
     JoinError.InvalidCode -> correctedString(R.string.join_error_invalid_code, ClassCodeLengths.first, ClassCodeLengths.last)
     JoinError.UnknownCode -> correctedString(R.string.join_error_unknown_code)
     JoinError.NoServer -> correctedString(R.string.join_error_no_server)
+    JoinError.NeedsHttps -> correctedString(R.string.server_needs_https)
     JoinError.InviteOnly -> correctedString(R.string.join_error_invite_only)
     is JoinError.TooManyAttempts -> minutes
         ?.let { pluralStringResource(R.plurals.join_error_too_many_wait, it, it) }

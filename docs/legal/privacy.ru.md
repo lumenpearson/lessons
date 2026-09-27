@@ -22,8 +22,9 @@
   not in Russia; the operator holds the key and can read the diary; leaving a class deletes
   nothing on the server; the phone encrypts the two access keys and nothing else, and keeps
   them bare where its Keystore does not work; a debug build still sends everything in the
-  clear to an http:// server address, and a release build to one on the phone itself; the keep-alive runs for up to 30 days after the last
-  use, not only while somebody is active; a correction to the diary is the child's rather
+  clear to an http:// server address, and a release build to one on the phone itself; the
+  keep-alive runs for up to 30 days after the last use, not only while somebody is active; a
+  correction to the diary is the child's rather
   than the account's, so every account whose diary lists that pupil reads, changes and
   resets it, and no row says who wrote it, so the operator cannot pick out one adult's
   corrections: a request to delete "mine" is met for the whole child, or for the particular

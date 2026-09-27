@@ -95,4 +95,13 @@ class JoinErrorTextTest {
         compose.onNodeWithText("Не указан адрес сервера", substring = true).assertIsDisplayed()
         compose.onNodeWithText("«Адрес сервера»", substring = true).assertIsDisplayed()
     }
+
+    /** #202: the address is there, and the sentence is about what it starts with. */
+    @Test
+    fun `a refused http address asks for the https one`() {
+        show(JoinError.NeedsHttps)
+
+        compose.onNodeWithText("начинается с https://", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Не указан адрес сервера", substring = true).assertDoesNotExist()
+    }
 }
