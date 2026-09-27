@@ -9,8 +9,8 @@ import org.junit.Test
 /**
  * Rearranging the bar, and the reader who must not be moved by it.
  *
- * The shell cannot be composed from a JVM test — `HomeShell` is private and
- * builds three view models off `Graph`, which wants DataStore, Room and
+ * The shell cannot be composed from a JVM test — `HomeShell` builds its view
+ * models from their factories, off `Graph`, which wants DataStore, Room and
  * Retrofit — so what is held here is the half that can be wrong quietly: which
  * way round the permutation goes, and that it is still a permutation
  * afterwards. The gesture that produces it has its own tests in

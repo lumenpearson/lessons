@@ -40,7 +40,6 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
-import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.ShellMode
 import com.lumenpearson.lessons.core.designsystem.component.LessonsFloatingToolbar
@@ -207,10 +206,12 @@ internal fun HomeShell(
     // home comes to the front, the week is read again if the saved copy is
     // stale. Here and nowhere else — not in the application, a receiver or the
     // worker — because a read is what keeps the server's copy of the session
-    // alive, and that has to mean somebody opened the app (G4).
+    // alive, and that has to mean somebody opened the app (G4). What does the
+    // reading is handed to the view model by its factory, which is where
+    // `Graph` is read: the shell is a screen, not an entry point.
     if (diaryViewModel != null) {
         LifecycleStartEffect(diaryViewModel) {
-            diaryViewModel.refreshOnStart { Graph.container.diaryImport.refreshIfStale() }
+            diaryViewModel.refreshOnStart()
             onStopOrDispose { }
         }
     }

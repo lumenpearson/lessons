@@ -67,6 +67,13 @@ class DiaryViewModel(
     private val clock: Clock = Clock.systemUTC(),
     /** The shell's hold: the first run owns the screen; see [Heard.onboarding]. */
     held: Flow<Boolean> = flowOf(false),
+    /**
+     * What [refreshOnStart] runs when it is handed nothing:
+     * `DiaryImport.refreshIfStale`, from the factory. A parameter rather than
+     * something the diary home reads for itself, so that `Graph` is read where
+     * view models are built and not from inside a composable.
+     */
+    private val refreshIfStale: suspend () -> Result<Boolean> = { Result.success(false) },
 ) : ViewModel() {
 
     private val state = MutableStateFlow(
@@ -333,7 +340,7 @@ class DiaryViewModel(
      * the week the refresh just saved is fresh, and the load finds it so. Rows
      * already on screen are redrawn from the save when it lands.
      */
-    fun refreshOnStart(refresh: suspend () -> Result<Boolean>) {
+    fun refreshOnStart(refresh: suspend () -> Result<Boolean> = refreshIfStale) {
         if (startRefresh.running != null) return
         val job = startRefresh.launch { runCatching { refresh() } }
         viewModelScope.launch {
@@ -762,6 +769,7 @@ class DiaryViewModel(
                     binding = container.sessionRepository.session.map { it?.diary },
                     describe = { target -> diaryPlaceOf(container.regionLookup.catalog(), target) },
                     held = container.shellMode.state.map { it.held },
+                    refreshIfStale = { container.diaryImport.refreshIfStale() },
                 )
             }
         }
