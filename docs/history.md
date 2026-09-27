@@ -27,6 +27,112 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the first instrumented tests, and three defects the walkthrough left
+
+Merged as `2a408d8`. Four commits from the night of 26–27 September and one from the
+session that picked them up.
+
+- **#110, the first `androidTest`.** `ToolbarOnDeviceTest` in `:core:designsystem` holds a
+  tab past the device's own long-press timeout and drags it 0.7 and 0.4 of a slot in one
+  touch, in the device's own pixels: the first moves it exactly one place and is not taken
+  for a tap, the second puts it back. A third opens the mode, taps the page and checks that
+  `ArrangingDismissLayer` closes it and passes nothing through. The JVM tests drag ten
+  thousand pixels so that Robolectric's densities cannot move the answer; this is the half
+  that asks where half a slot really is. The Compose BOM's `ui-test-junit4` brings Espresso
+  3.5.0, which reaches for `InputManager.getInstance` by reflection — API 34 removed it and
+  every test failed at its first `onIdle` — so Espresso 3.7.0 and runner 1.7.0 are pinned in
+  the catalog, each the `<release>` in Google Maven's metadata on 27 September. Run with
+  `./gradlew :core:designsystem:connectedDebugAndroidTest`; **not in CI, on purpose**, since
+  CI has no device. `CLAUDE.md`, `docs/build.md`, the README and `docs/architecture.md` say so.
+- **#175, the sign-in forms said «по HTTPS, прямо в дневник» twice.** With the diary's host
+  known, the sentence naming it now also says the password goes nowhere else, and the
+  paragraph under it is only what happens to the session (`diary_password_session`, new, with
+  its English twin). Without a host the general notice stands alone, as before. One function,
+  `passwordPrivacyParagraphs`, decides the paragraphs for both forms — the diary's own and
+  the first run's — so they cannot drift apart again. `PasswordPrivacyTest` counts «HTTPS»
+  across what is drawn, in both languages.
+- **#176, the join screen kept an error about an address it no longer used.**
+  `JoinViewModel` keeps each error with the server address it was an answer from and shows
+  it only while that is still the address, which covers a change from the screen's own link
+  and one made in the settings alike. A code of the wrong length is about the code, not a
+  server, and stays. `JoinErrorAddressTest` fails on the old behaviour. The defect did not
+  reproduce the second time on the emulator, so the fix rests on the code path and the test.
+- **#171, a join fetched the whole school year twice.** The join screen's own refresh and the
+  one-off worker the class switch schedules both asked before either had stored an `ETag`.
+  Syncs of one class's year now go through `SingleFlight`, keyed like the tag by class and
+  year: a second caller while the first is on the wire takes the first one's answer. Nothing
+  is remembered after a run, so a later refresh asks again, and a waiter whose owner was
+  cancelled starts its own instead of inheriting the cancellation. The flight is per
+  repository object, and that is enough: `LessonsContainer.timetable` is one lazy per
+  process, and WorkManager runs the worker in the app's process. `ConcurrentSyncTest` holds
+  all three cases. **One hardening was added at review, before the push:** a run that has
+  ended is never joined, because a waiter retrying after a cancelled owner could otherwise
+  find the same finished run under the key, again and again, until the owner took the lock
+  back. None of the three tests reproduces that window — under the test dispatchers the
+  owner always finishes its cleanup first — so it is argued from the code, not shown red.
+
+### The branch was nearly lost
+
+The session that picked this branch up found `refs/heads/agents/first-android-test` as 41
+NUL bytes, last written in the same second as the fourth commit: `git` printed «ignoring
+broken ref», the worktree under `.claude/worktrees/` reported `0000000 (error)`, and the
+branch existed on no remote. A file of zeros where a write should be is what a write that
+never reached the disk leaves behind, but what interrupted it here is not known. The commits
+themselves were intact as dangling objects. The branch's own reflog,
+`.git/logs/refs/heads/agents/first-android-test`, still named the tip on its last line, and
+writing that SHA back into the ref restored the branch and the worktree whole. **If this
+happens again, read the reflog before anything else** — `git fsck --dangling` finds the
+commits too, but not which of them was the tip.
+
+The session's move between machines left a `Teleport auto-stash` on the stack (`stash@{0}`, over `c26eace`), and it
+is **deliberately not applied**: it holds what the IDE generated, not work — a
+`gradle-daemon-jvm.properties` and the foojay resolver plugin from Studio's «update daemon
+JVM», a root `gradle.properties` with a heap setting, a JVM crash log from a Gradle daemon
+that died after 27 minutes on 26 September, and the spell checker's American spellings over
+five of `models.py`'s comments, which are British on purpose. It is the owner's to drop.
+
+### Gates
+
+On `f787357`, this branch's last commit before the close-out: `./gradlew test` **1446**
+(`:core:model` 125, `:core:data` 540, `:core:designsystem` 112, `:widget` 113, `:app` 556),
+eight more than #186's 1438 — `ConcurrentSyncTest` 3, `JoinErrorAddressTest` 2,
+`PasswordPrivacyTest` 3. `assembleDebug` and `assembleRelease` build (JDK 21; the 18
+Kotlin warnings they print are all in files this branch does not touch).
+`./gradlew :core:designsystem:connectedDebugAndroidTest` on the API 37 emulator: **3 of 3**,
+11.5 s. The server was not touched, so its gates were not run.
+
+Gradle on this machine needs `JAVA_HOME` pointed at `jdk-21.0.11.10-hotspot` for a command
+line: the variable says JDK 17, and `android/.gradle/config.properties`, which names 21, is
+read by Studio alone.
+
+### On the emulator
+
+This branch's debug build, installed over the old one with its data cleared, walked the
+first run in English against a local server seeded with `seed_demo`, and joined «9А» with
+`DEMO24`. The server's log for the join: `POST /api/v1/join` 200, then `GET
+/api/v1/bundle?start=2026-09-01&days=273` **200**, then the same **304**, one after the other
+on one connection. So the year was downloaded once — but the second sync began after the
+first had finished and stored its `ETag`, so this join never produced the overlap the fix
+coalesces, and on a device that half is still shown only by the test.
+
+### What was deliberately left alone
+
+- **#174**, the two small widget sizes, was not started.
+- **`createComposeRule` is deprecated** in the Compose version this project builds with, in
+  favour of `androidx.compose.ui.test.junit4.v2.createComposeRule`, which runs effects on a
+  `StandardTestDispatcher` rather than an unconfined one. The device test uses the old one,
+  as every JVM test here does; moving them is one change for all of them, with the clock
+  rules in `CLAUDE.md` read again first, not something to start in one file.
+
+### What nobody has verified in this batch
+
+That two **overlapping** syncs make one request is shown by `ConcurrentSyncTest` against a
+fake server, not on a device (above). The arranging gesture's device tests have run on one
+emulator, at 480 dpi — a phone at another density is the question they exist to answer and
+has not been asked. #176's defect never reproduced on demand. #175's single sentence was not
+looked at on a screen: reaching a password form needs a region's diary to answer. Nothing
+here changes what #186 could not answer: a thumb, a haptic, a real GPU, a real launcher.
+
 ## What the batch before added: the first walk of the app on a device, and the twelve defects it found
 
 Merged as `c26eace`. **What #186 moved.** Android: the widget picker's preview draws again

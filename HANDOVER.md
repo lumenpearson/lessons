@@ -7,36 +7,41 @@ What every batch before the last two added is in [docs/history.md](docs/history.
 newest first.
 
 Last updated: **27 September 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166, #186 and #187 are merged**; `main` is at `2a408d8`, the merge of #187, and `dev` is
-level with it. **The only thing open is the pull request carrying this paragraph, #189**,
-from `agents/widget-small-sizes`, on milestone 9, `v0.8.0 — On-device checks, 89-region
-e-diary survey`. It fixes the last defect #186 filed and left open (#174, the widget's two
-smallest sizes) and one found while checking that fix on the emulator (#188, a widget that
-did not follow its own settings). The section «What the last session added» below is that
-batch.
+#166, #186, #187 and #189 are merged**; `main` is at `938e59f`, the merge of #189, and `dev`
+is level with it. **The only thing open is the pull request carrying this paragraph, #214**,
+from `agents/audit-batch-190-211`, on milestone 10, `v0.9.0 — NetSchool e-diary, onboarding
+via the school's diary`. It fixes the twenty-two issues an external audit filed on 27
+September (#190–#211) and one found while merging the nine branches that fixed them (#213).
+The section «What the last session added» below is that batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**What #189 moves.** Android, all of it in the widget:
-- The next school day's plan keeps its count and its time and shortens the subject: «4 урока
-  · Алгеб… в 08:30», where a phone's 2×2 read «4 урока · Алгебра в 08:…».
-- `SMALL_TALL`, which is what that 2×2 really is, lists three homework subjects after school
-  instead of two.
-- At any font above the default, the 2×1 draws the count as a bare figure, «ДЗ на завтра 3»,
-  where it read «Д… 3 предмета» (#174).
-- Changing the language, «Прогресс в виджете» or the teacher switch redraws the widget at
-  once instead of whenever something else next woke it (#188).
+**What #214 moves.**
+- The server: the compose file and its container (#190, #191, #195), the diary sign-in page
+  (#193, #196), «Сетевой город»'s «today» (#198), a cap on the phones one class code mints
+  (#199), no interactive API docs on Vercel (#200), one way to take naive UTC (#197), and a
+  phone invite that cannot be redeemed twice (#194).
+- The server's shape: services below the bot (#205), the three largest files split (#208),
+  one implementation of every operation both shells perform (#206), one role gate for
+  «⚙️ Класс» (#207), and documents that say two shells write (#204).
+- The build: `requirements.txt` is a lock (#192), and CI runs mypy and detekt (#210).
+- Android: requests signed from memory (#203), bearers sealed by the Keystore (#201), https
+  only in a release build (#202), and four files split with the `Graph` kept out of
+  composables (#209).
+- This file kept to where the work stands, its history in `docs/history.md` (#211).
 
-No server change, no schema change; `EXPECTED_REVISION` is still `0017`.
+No schema change; `EXPECTED_REVISION` is still `0017`. **The first deploy after the merge is
+the first install of the lock** on Linux and Python 3.12: if Vercel cannot install it, the
+build fails and the deployment before it keeps serving.
 
-**Once #189 merges, two issues are meant to close:** #174 and #188. That leaves no defect
-open that a session can fix. Of the device epic **#109**, **#111** and **#113** stay open for
-what only a phone can say, and **#112** (a macrobenchmark module) was not started. What a
-merge closes is decided by the `Closes` lines in the pull request body and in the commit
-messages, not by this paragraph — read them against this list before merging.
+**Once #214 merges, twenty-three issues are meant to close:** #190–#211 and #213. **#212**
+stays open: a test that fails at random on Windows and passes on CI. Of the device epic
+**#109**, **#111** and **#113** stay open for what only a phone can say, and **#112** (a
+macrobenchmark module) was not started. What a merge closes is decided by the `Closes` lines
+in the pull request body and in the commit messages, not by this paragraph — read them
+against this list before merging.
 
-**#187 closed the four issues it named** (#110, #171, #175, #176), read back from GitHub on
-27 September, as #186 closed its twenty-one.
+**#189 closed the two issues it named** (#174, #188), read back from GitHub on 27 September.
 
 **The code expects head `0017`, and production is at `0017` since 26 September 2026 at 12:26 UTC.**
 `EXPECTED_REVISION` in `app/db.py` is `0017`, pinned to the real head by
@@ -132,22 +137,174 @@ section describes, **#118–#122** are the owner's alone, and **#126** collects 
 things carried deliberately, so that a later session does not re-discover a decision as if
 it were an oversight.
 
-**Seventy-five have been filed since.** #130 was the survey #134 closed, and #131 and #132
+**Seventy-seven have been filed since.** #130 was the survey #134 closed, and #131 and #132
 the two defects #133 closed. #135 is the owner's decision about the second diary; #136–#139
 and #141 are the work #140 carries; #142–#144 are its deliberate follow-ups, on no
 milestone; and #145–#165 are the defects found on its branch, each filed before its fix.
 #167–#185 are what #186's walk on an emulator found and what the owner asked for that
 night, and #188 what #189 found; all twenty are closed. #190–#211 are the external audit of
-27 September 2026, on milestone 10.
+27 September 2026, on milestone 10, and #212 and #213 what merging its fixes found.
 
 Labels are `type:` (feature, bug, chore, research, decision, epic), `area:`, `status:` (now,
 next, someday, done) and `needs:` (device, owner). **A session cannot create a GitHub
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: the widget's two smallest sizes, and a widget that did not follow its settings
+## What the last session added: the external audit of 27 September, #190–#211
 
-Open as #189, from `agents/widget-small-sizes`, on milestone 9. Two commits, one per issue,
+Open as #214, from `agents/audit-batch-190-211`, on milestone 10. An external audit of the
+repository filed twenty-two issues on 27 September 2026. Nine agents fixed them in parallel,
+each on a branch of its own in a worktree of its own, and this branch merges the nine and
+adds four commits found while merging them. Every defect was fixed test-first — the new
+test run red against the old code, then green — and every refactor changes no behaviour,
+with the existing tests as its proof and, for the three server splits, an OpenAPI dump and
+the aiogram handler order compared before and after.
+
+### The server
+
+- **#190.** `docker-compose.yml` takes the Postgres password from `POSTGRES_PASSWORD` and
+  refuses to start without one, where it carried the literal `lessons` in a public
+  repository. `docs/deploy.md` says where the value goes, that it is spliced into a URL
+  unescaped, and that a volume made under the old password keeps it.
+- **#191.** A compose deployment hands the server every setting it reads, so the diary, the
+  tick and the calendar links work there; before, the list stopped at `TIMEZONE`.
+- **#195.** The server container runs as an unprivileged user, and its package is installed
+  after its code is copied, so it is whole in site-packages rather than found by accident on
+  the working directory.
+- **#196.** `/diary/signin` sends `frame-ancestors 'none'` and `X-Frame-Options: DENY` on all
+  seven answers it draws, so no other site can frame the one page that takes a password.
+- **#193.** Every page after a spent sign-in ticket says the link is spent and names the
+  bot's buttons that make the next one, where it said «Попробуйте ещё раз».
+- **#198.** A «Сетевой город» session that will not open reads «today» in Moscow, not on the
+  host's clock, which on Vercel was yesterday from midnight to three.
+- **#199.** A class code stops minting phones at 300 live devices and answers `409` with a
+  Russian `detail`, which the join screen words as «class full»; the throttle forgives it,
+  as it does the invite-only `403`.
+- **#200.** `/docs`, `/redoc` and `/openapi.json` are served locally and not on Vercel.
+- **#197.** Naive UTC is taken one way everywhere, and never through the deprecated
+  `datetime.utcnow()`.
+- **#194.** A phone invite from the bot is spent with one conditional `UPDATE … WHERE used_at
+  IS NULL`, so a retried update cannot redeem it twice.
+- **#205.** Nothing under `app/services/` imports `app.bot`, directly or through another
+  module. The role ladder moved to `services/roles.py` and the words both shells print to
+  `app/wording.py`; `bot/roles.py` and `bot/render.py` re-export them, and
+  `tests/test_service_layering.py` follows every import chain to hold the rule.
+- **#208, #206, #207.** The three server files one reader could no longer hold are
+  packages: `schemas.py` (1573 lines) is seventeen modules behind the same import;
+  `bot/handlers/manage.py` (3434) and `api/manage.py` (1516) are one module per screen, over
+  a new `services/manage/` that holds the one implementation of every operation both shells
+  perform (#206). Where the two copies had drifted, one rule now answers for both: the bot's
+  time-zone picker writes its audit line, a removed colour is «убран» from both sides, the
+  bot no longer logs a second revoke, its import log says «перестали звонить N», and a
+  switch to the value already in force logs nothing. `@needs(Role.X)` gates the 72
+  «⚙️ Класс» handlers that each carried their own copy of the role check (#207), and no
+  `select(` is left in them.
+- **#204.** `CLAUDE.md`, `docs/architecture.md`, `docs/bot.md`, `AGENTS.md` and the Copilot
+  instructions say that two shells write over one set of services, where they said the API
+  only reads.
+- **#192.** `requirements.txt` is a lock: 34 exact pins, transitive ones included, compiled by
+  uv for CPython 3.12 on Linux from a new `requirements.in` that mirrors pyproject's runtime
+  dependencies. CI installs from it, `test_requirements_mirror.py` holds the two level, and
+  dependabot's root entry is `uv`.
+- **#210, the server half.** `python -m mypy` is a CI step between ruff and the tests.
+
+### Android
+
+- **#203.** Every request is signed from credentials held in memory and refreshed on IO, so
+  no interceptor blocks on DataStore and no coroutine calls `runBlocking`.
+- **#201.** The class and diary bearers are sealed in the preferences file with an
+  AES-256-GCM key the Android Keystore holds. A DataStore migration seals what an older
+  install left in plain text, once; a token that will not open — a restore onto another
+  phone, a wiped Keystore — reads as no token, and the phone lands on the join screen or the
+  diary's sign-in form.
+- **#202.** A release build talks to the server over https only, except to `localhost` and
+  `127.0.0.1`; a `src/debug` override keeps cleartext for development. An `http://` address
+  is refused where it is typed, and one kept from an older version is named as needing https
+  on the join screen, the sync message and the diary's forms. The packaged release APK was
+  read back with aapt2 to confirm which file it carries.
+- **#209.** The four Android files one reader could no longer hold — the settings pages, the
+  calendar, the home shell and the diary — are split, and composables no longer reach the
+  `Graph`: the diary home's first refresh belongs to its view model.
+- **#210, the Kotlin half.** detekt 2.0.0-alpha.6 reads all five modules and fails CI on any
+  finding the module's `detekt-baseline.xml` does not hold. The baselines were regenerated
+  on this branch after the merge, because #209 moved code between files.
+
+### The documents
+
+- **#211.** `HANDOVER.md` went from 337 KB to about 95 KB: what every batch before the last
+  two added moved verbatim to `docs/history.md`, and a line check found none of the 4,077
+  lost. The README and this file stopped contradicting GitHub and #186's walk.
+
+### Found while merging
+
+- **#213.** The test that every document names the schema head walked `.claude/` into the
+  agents' worktrees and read nine stale copies of this file; it failed every local run beside
+  them, and never on CI. It reads only this checkout's documents now.
+- **#212**, filed and **not** fixed: `test_a_parallel_burst_from_one_address_cannot_pass_the_limit`
+  fails at random on Windows with SQLite's «database is locked», two runs in three when run
+  alone. It passes on CI's Linux.
+- The Android comments that named `server/app/schemas.py` name the module each model lives in
+  now, the architecture tree shows the package and `app/wording.py`, and the API takes the
+  shared words from `app.wording` rather than from the bot.
+
+### The machine crashed under the batch
+
+The machine running the agents blue-screened five times on 26–27 September. Each crash
+zero-filled whatever was being written: a git index, a source file in the middle of a
+mutation test, Kotlin incremental caches, fifty-five units of `~/.gradle` (the detekt plugin
+among them) and one file of a rebuilt venv. Every worktree was checked before work resumed:
+no source file was damaged, the mutated files matched their backups byte for byte, and what
+was zero-filled was deleted and rebuilt. Two runs of the suite gave false failures of their
+own — every test that spawns `python.exe` exited `0xC0000142` — from a run that outlived the
+agent that started it; they were run again from a live shell and passed.
+
+### Gates
+
+On `1b0ed1c` with this close-out's documents on top: `pytest -q -n 3` **2063** passed, none
+failed — thirty-nine more than `938e59f`'s 2024; `ruff` clean; `python -m mypy` clean over
+153 source files, where it was 100 before the three splits. `./gradlew test` **1500**
+(`:core:model` 125, `:core:data` 570, `:core:designsystem` 112, `:widget` 123, `:app` 570),
+forty-one more than #189's 1459; `assembleDebug` and `assembleRelease` build; `./gradlew
+detekt` passes against the regenerated baselines. Every branch ran its own gates before the
+merge, and the merge was checked again as a whole. #201, #202 and #203 were also
+mutation-tested: every mutation of each fix turned a test red.
+
+**The baselines hold only what was already there.** Merged, detekt found twelve things in
+this batch's own Kotlin that no baseline held; `05fc5cf` fixes or suppresses each where it
+stands, with the reason on the annotation, and `1b0ed1c` regenerates the baselines with
+nothing else in the diff, so every entry it adds is one it removes under #209's new file.
+
+### What was deliberately left alone
+
+- `server/Dockerfile` still runs `pip install .`, so a container gets pyproject's floors, not
+  the lock. The dev tools, uvicorn, aiosqlite and alembic are not locked either, so a new ruff
+  or mypy can still turn CI red on its own.
+- `/api/v1/edit` and the bot's day-to-day handlers still write different audit actions for the
+  same change (`day.set` against `dayoverride.set`); #206 was «⚙️ Класс» and `/manage` only.
+- The API and `main.py` still import `app.bot.bot` inside functions, to build a bot on demand.
+  The layer rule binds the services; the API is a shell.
+- The first run's school search still words a kept `http://` address as «no server is set»,
+  and the diary's sign-in form in a release build refuses `http://127.0.0.1` although the
+  request would go through; both sit in screens another branch was splitting.
+- `9181796`'s message says detekt was never run through Gradle; `44d49e2` records that it
+  has been.
+- The six drifts #206 unified are named in its commit body and carry no issues of their own.
+
+### What nobody has verified in this batch
+
+- #201's Keystore key and #202's network configuration have not run on a device: how the
+  platform reads the two configuration files is what its documentation says, and the release
+  APK has not been pointed at a real server.
+- The lock has not been installed on Linux or on Python 3.12, only resolved for them; the
+  first Vercel deploy after the merge is its first install. Dependabot's `uv` entry has not
+  run, and nothing here runs Docker.
+- `./gradlew check` and `build` running detekt is read from the plugin's source.
+- Why two background runs could not start child processes (`0xC0000142`) was not found; it
+  did not happen from a live shell.
+
+## What the session before it added: the widget's two smallest sizes, and a widget that did not follow its settings
+
+Merged as `938e59f`, #189 from `agents/widget-small-sizes`, on milestone 9. Two commits, one per issue,
 each checked on the API 37 emulator against a local server seeded with `seed_demo`, on a
 Sunday, so on the widget's day-off layout.
 
@@ -211,112 +368,6 @@ gates were not run.
 - At 195 dp the whole «4 урока · Алгебра в 08:30» would fit, and the rung's budget shortens
   it anyway, because the same rung serves 110 dp.
 
-## What the session before it added: the first instrumented tests, and three defects the walkthrough left
-
-Merged as `2a408d8`. Four commits from the night of 26–27 September and one from the
-session that picked them up.
-
-- **#110, the first `androidTest`.** `ToolbarOnDeviceTest` in `:core:designsystem` holds a
-  tab past the device's own long-press timeout and drags it 0.7 and 0.4 of a slot in one
-  touch, in the device's own pixels: the first moves it exactly one place and is not taken
-  for a tap, the second puts it back. A third opens the mode, taps the page and checks that
-  `ArrangingDismissLayer` closes it and passes nothing through. The JVM tests drag ten
-  thousand pixels so that Robolectric's densities cannot move the answer; this is the half
-  that asks where half a slot really is. The Compose BOM's `ui-test-junit4` brings Espresso
-  3.5.0, which reaches for `InputManager.getInstance` by reflection — API 34 removed it and
-  every test failed at its first `onIdle` — so Espresso 3.7.0 and runner 1.7.0 are pinned in
-  the catalog, each the `<release>` in Google Maven's metadata on 27 September. Run with
-  `./gradlew :core:designsystem:connectedDebugAndroidTest`; **not in CI, on purpose**, since
-  CI has no device. `CLAUDE.md`, `docs/build.md`, the README and `docs/architecture.md` say so.
-- **#175, the sign-in forms said «по HTTPS, прямо в дневник» twice.** With the diary's host
-  known, the sentence naming it now also says the password goes nowhere else, and the
-  paragraph under it is only what happens to the session (`diary_password_session`, new, with
-  its English twin). Without a host the general notice stands alone, as before. One function,
-  `passwordPrivacyParagraphs`, decides the paragraphs for both forms — the diary's own and
-  the first run's — so they cannot drift apart again. `PasswordPrivacyTest` counts «HTTPS»
-  across what is drawn, in both languages.
-- **#176, the join screen kept an error about an address it no longer used.**
-  `JoinViewModel` keeps each error with the server address it was an answer from and shows
-  it only while that is still the address, which covers a change from the screen's own link
-  and one made in the settings alike. A code of the wrong length is about the code, not a
-  server, and stays. `JoinErrorAddressTest` fails on the old behaviour. The defect did not
-  reproduce the second time on the emulator, so the fix rests on the code path and the test.
-- **#171, a join fetched the whole school year twice.** The join screen's own refresh and the
-  one-off worker the class switch schedules both asked before either had stored an `ETag`.
-  Syncs of one class's year now go through `SingleFlight`, keyed like the tag by class and
-  year: a second caller while the first is on the wire takes the first one's answer. Nothing
-  is remembered after a run, so a later refresh asks again, and a waiter whose owner was
-  cancelled starts its own instead of inheriting the cancellation. The flight is per
-  repository object, and that is enough: `LessonsContainer.timetable` is one lazy per
-  process, and WorkManager runs the worker in the app's process. `ConcurrentSyncTest` holds
-  all three cases. **One hardening was added at review, before the push:** a run that has
-  ended is never joined, because a waiter retrying after a cancelled owner could otherwise
-  find the same finished run under the key, again and again, until the owner took the lock
-  back. None of the three tests reproduces that window — under the test dispatchers the
-  owner always finishes its cleanup first — so it is argued from the code, not shown red.
-
-### The branch was nearly lost
-
-The session that picked this branch up found `refs/heads/agents/first-android-test` as 41
-NUL bytes, last written in the same second as the fourth commit: `git` printed «ignoring
-broken ref», the worktree under `.claude/worktrees/` reported `0000000 (error)`, and the
-branch existed on no remote. A file of zeros where a write should be is what a write that
-never reached the disk leaves behind, but what interrupted it here is not known. The commits
-themselves were intact as dangling objects. The branch's own reflog,
-`.git/logs/refs/heads/agents/first-android-test`, still named the tip on its last line, and
-writing that SHA back into the ref restored the branch and the worktree whole. **If this
-happens again, read the reflog before anything else** — `git fsck --dangling` finds the
-commits too, but not which of them was the tip.
-
-The session's move between machines left a `Teleport auto-stash` on the stack (`stash@{0}`, over `c26eace`), and it
-is **deliberately not applied**: it holds what the IDE generated, not work — a
-`gradle-daemon-jvm.properties` and the foojay resolver plugin from Studio's «update daemon
-JVM», a root `gradle.properties` with a heap setting, a JVM crash log from a Gradle daemon
-that died after 27 minutes on 26 September, and the spell checker's American spellings over
-five of `models.py`'s comments, which are British on purpose. It is the owner's to drop.
-
-### Gates
-
-On `f787357`, this branch's last commit before the close-out: `./gradlew test` **1446**
-(`:core:model` 125, `:core:data` 540, `:core:designsystem` 112, `:widget` 113, `:app` 556),
-eight more than #186's 1438 — `ConcurrentSyncTest` 3, `JoinErrorAddressTest` 2,
-`PasswordPrivacyTest` 3. `assembleDebug` and `assembleRelease` build (JDK 21; the 18
-Kotlin warnings they print are all in files this branch does not touch).
-`./gradlew :core:designsystem:connectedDebugAndroidTest` on the API 37 emulator: **3 of 3**,
-11.5 s. The server was not touched, so its gates were not run.
-
-Gradle on this machine needs `JAVA_HOME` pointed at `jdk-21.0.11.10-hotspot` for a command
-line: the variable says JDK 17, and `android/.gradle/config.properties`, which names 21, is
-read by Studio alone.
-
-### On the emulator
-
-This branch's debug build, installed over the old one with its data cleared, walked the
-first run in English against a local server seeded with `seed_demo`, and joined «9А» with
-`DEMO24`. The server's log for the join: `POST /api/v1/join` 200, then `GET
-/api/v1/bundle?start=2026-09-01&days=273` **200**, then the same **304**, one after the other
-on one connection. So the year was downloaded once — but the second sync began after the
-first had finished and stored its `ETag`, so this join never produced the overlap the fix
-coalesces, and on a device that half is still shown only by the test.
-
-### What was deliberately left alone
-
-- **#174**, the two small widget sizes, was not started.
-- **`createComposeRule` is deprecated** in the Compose version this project builds with, in
-  favour of `androidx.compose.ui.test.junit4.v2.createComposeRule`, which runs effects on a
-  `StandardTestDispatcher` rather than an unconfined one. The device test uses the old one,
-  as every JVM test here does; moving them is one change for all of them, with the clock
-  rules in `CLAUDE.md` read again first, not something to start in one file.
-
-### What nobody has verified in this batch
-
-That two **overlapping** syncs make one request is shown by `ConcurrentSyncTest` against a
-fake server, not on a device (above). The arranging gesture's device tests have run on one
-emulator, at 480 dpi — a phone at another density is the question they exist to answer and
-has not been asked. #176's defect never reproduced on demand. #175's single sentence was not
-looked at on a screen: reaching a password form needs a region's diary to answer. Nothing
-here changes what #186 could not answer: a thumb, a haptic, a real GPU, a real launcher.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -337,7 +388,7 @@ maps them. The
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189; issues #109–#117, #130–#132, #167–#185, #188 — the first whose work needs an emulator or a phone, and #186 the first done on one |
-| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PR #140 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September) |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140 (merged), #214; issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
 #140 left alone on purpose, which belong to whichever version takes them up.
@@ -533,7 +584,22 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   its dependency conditions are what they claim — `service_completed_successfully` before
   the API starts. Nobody has watched the stack come up, nobody has seen
   `alembic upgrade head` run inside the image, and nobody has confirmed that the revisions
-  the Dockerfile now copies are the ones it needs.
+  the Dockerfile now copies are the ones it needs. #190, #191 and #195 changed the file and
+  the image again — a password the stack refuses to start without, every setting passed
+  through, a non-root user — and are read by `test_compose.py` and `test_dockerfile.py`,
+  not by a container.
+- **#201's Keystore seal and #202's https-only release have never run on a device.** The
+  key is made and used through `AndroidKeystoreKeys`, which `SealedTokensTest` replaces
+  with a key held in memory under the same `AesGcmTokenCipher`; the migration that seals
+  an older install's plain-text tokens is tested that way too, and nobody has upgraded a
+  phone that held one. Which network configuration a
+  build carries was read out of both packaged APKs with aapt2, and how the platform then
+  applies it is its documentation's word. The release APK has not been pointed at a
+  real server.
+- **The lock (#192) has been resolved for Linux and Python 3.12, never installed there.**
+  Every run here was on Windows and Python 3.13. The first install of it on the
+  deployment's own platform is the first Vercel deploy after #214, and dependabot's `uv`
+  entry has not opened a pull request yet.
 - **No Compose test was actually made to hang**, so `MarqueeClockTest` — the guard #83 added
   for the trap that costs a whole Gradle run — is reasoned from `MarqueeText`'s
   `Int.MAX_VALUE` iteration count and from the list of files that call `createComposeRule`.
@@ -986,13 +1052,17 @@ already shipped twice. The tabs are still removed from the composition rather th
 
 ### The dependency mirror
 
-The root `requirements.txt` and `server/pyproject.toml` have to carry the same floors.
-Dependabot edits **the root file only** — which is how `main` drifted
-(`sqlalchemy>=2.0.52` against `>=2.0.30`, `pydantic-settings>=2.15.0` against `>=2.4`). Tests
-hold this now rather than attentiveness: `tests/test_requirements_mirror.py` checks both
-directions and the versions themselves, and the three packages deliberately absent from the
-bundle (`uvicorn`, `aiosqlite`, `alembic`) are listed there with their reasons. A floor
-raised in one file only is green CI and a function that installs the old one.
+The root `requirements.txt` is a **lock** since #192: exact pins for the whole tree,
+compiled by uv for CPython 3.12 on Linux from the root `requirements.in`, whose header names
+the command. `requirements.in` and `server/pyproject.toml` have to carry the same floors.
+Dependabot edits **the root files only** — which is how `main` once drifted
+(`sqlalchemy>=2.0.52` against `>=2.0.30`, `pydantic-settings>=2.15.0` against `>=2.4`) — and
+its `uv` entry raises the floor in `requirements.in` and recompiles the lock, so pyproject is
+still raised by hand. Tests hold this rather than attentiveness:
+`tests/test_requirements_mirror.py` checks the input against pyproject in both directions,
+that every lock line is one pin inside its floor, that the lock was regenerated after the
+input changed, and that it is closed on Linux/3.12; the three packages deliberately absent
+from the bundle (`uvicorn`, `aiosqlite`, `alembic`) are listed there with their reasons.
 
 ### Week parity
 
@@ -1286,8 +1356,9 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 2024 tests, ~4 min on CI, ~10 on Windows
-cd server  && python -m mypy                             # clean, 100 modules
-cd android && ./gradlew test                             # 1459 tests across the five modules
+cd server  && pytest -q -n auto                          # 2063 tests, ~4 min on CI, ~10 on Windows
+cd server  && python -m mypy                             # clean, 153 modules
+cd android && ./gradlew test                             # 1500 tests across the five modules
+cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

@@ -205,9 +205,10 @@ Read this before planning a release.
 | Check | Result |
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
-| `python -m mypy` | clean, 100 modules — asks whether anything reaches for an attribute that does not exist |
-| `pytest -q -n auto` | 2024 tests, green, about four minutes — the command CI runs |
-| `./gradlew test` | 1459 tests, green, all five modules |
+| `python -m mypy` | clean, 153 modules — asks whether anything reaches for an attribute that does not exist |
+| `pytest -q -n auto` | 2063 tests, green, about four minutes — the command CI runs |
+| `./gradlew test` | 1500 tests, green, all five modules |
+| `./gradlew detekt` | no finding beyond each module's baseline, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
 | `./gradlew :core:designsystem:connectedDebugAndroidTest` | 3 tests, green on an API 37 emulator — on demand only, never in CI, which has no device |

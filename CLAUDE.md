@@ -51,7 +51,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2024 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2063 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -59,7 +59,7 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 100 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 153 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. A CI step since
   27 September 2026, right after ruff, because the owner asked for it through that day's
@@ -268,9 +268,10 @@ points Hilt does not inject cleanly.
   inventing a version or leaving the pull request bare. The `github-pr` skill has the
   numbers, the one tool that sets them, and the two ways this was got wrong first. **Two
   version milestones are open:** the ninth, `v0.8.0 — On-device checks, 89-region e-diary
-  survey`, holds issues #109–#117, the first work that needs an emulator or a phone; the
-  tenth, `v0.9.0 — NetSchool e-diary, onboarding via the school's diary`, holds PR #140 and
-  its issues. All ten were renamed on 25 September 2026, so a title quoted from before then
+  survey`, holds #109–#117 and what #186's walk on an emulator found, the first work that
+  needs an emulator or a phone; the tenth, `v0.9.0 — NetSchool e-diary, onboarding via the
+  school's diary`, holds PR #140 and its issues, and the external audit of 27 September
+  (#190–#213). All ten were renamed on 25 September 2026, so a title quoted from before then
   finds nothing when searched.
 - **A defect that is found gets an issue, always, and before it gets a fix.** The rule is
   new and it is not optional: the moment an audit, a review, a CI failure or a reader finds
@@ -295,7 +296,7 @@ points Hilt does not inject cleanly.
 - **There are issues now, and until #85 there were none.** Forty-two were opened in one go
   to give the history and the backlog a shape the milestones alone could not: twenty-three
   closed, describing what was built and what each bug sweep found, and nineteen open, which
-  are the whole of what is left. Read the open ones before planning a batch — several say
+  were then the whole of what was left. Read the open ones before planning a batch — several say
   what was *deliberately* left and why, so that a later session does not re-discover a
   decision as if it were an oversight. The labels are `type:` (feature, bug, chore,
   research, decision, epic), `area:` (android, widget, server, bot, db, ci, docs, design,

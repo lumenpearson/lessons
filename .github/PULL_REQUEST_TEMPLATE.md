@@ -25,7 +25,7 @@ Tick what you checked. If something is broken deliberately, say why.
 - [ ] The rule did not appear in two places: the bot and `/api/v1/manage` call one
       function from `app/services/`, not two copies of one decision
 - [ ] A model change comes with an Alembic revision (the head of the chain is
-      `app/db.py:EXPECTED_REVISION`, currently `0014`; no `create_all` after `0001`)
+      `app/db.py:EXPECTED_REVISION`, currently `0017`; no `create_all` after `0001`)
 - [ ] Nothing is scheduled "in process" on the server: nothing runs between requests on
       Vercel, and everything on a clock goes through `/api/v1/cron/tick`
 - [ ] "Now" is taken in the class's time zone — `school_class.tz` on the server,
@@ -43,8 +43,10 @@ The summary lines with the numbers are enough.
 
 ```text
 cd server && ruff check app tests scripts migrations →
-cd server && python -m pytest -q                      →
-cd android && ./gradlew test                          →
+cd server && python -m mypy                          →
+cd server && pytest -q -n auto                       →
+cd android && ./gradlew test                         →
+cd android && ./gradlew detekt                       →
 ```
 
 If `android/` changed:
