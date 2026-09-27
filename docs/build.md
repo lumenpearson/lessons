@@ -675,9 +675,10 @@ what it would cost on the runner.
 `detekt` on `check` and on nothing else, so `./gradlew check` and `./gradlew build` run it
 too. In CI it is a step of its own after the build, not a fourth task in the one invocation
 — that invocation has no `--continue`, detekt's tasks depend on nothing and would run
-first, and a single finding would stop Gradle from scheduling the tests. Measured with
-detekt's own command line and the task's arguments, the five modules take 3 to 8 seconds
-each, about 25 in all, a JVM start included in each.
+first, and a single finding would stop Gradle from scheduling the tests. Measured through
+Gradle on a laptop, with no daemon and three workers: `detektBaseline`, the same analysis
+of all five modules, took 15 seconds with the configuration computed from scratch, and the
+first `detekt`, which also downloaded the plugin and detekt's own jars, took 47.
 
 ## The bundled typeface is two files
 
