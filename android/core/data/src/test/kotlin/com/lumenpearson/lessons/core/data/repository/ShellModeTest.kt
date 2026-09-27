@@ -4,6 +4,7 @@ import androidx.datastore.preferences.core.mutablePreferencesOf
 import com.lumenpearson.lessons.core.data.datastore.DiaryKeys
 import com.lumenpearson.lessons.core.data.datastore.ShellKeys
 import com.lumenpearson.lessons.core.data.datastore.shellState
+import com.lumenpearson.lessons.core.data.datastore.testVault
 import com.lumenpearson.lessons.core.data.datastore.writeMemberships
 import com.lumenpearson.lessons.core.data.diary.MemoryDiaryStore
 import kotlinx.coroutines.test.runTest
@@ -23,6 +24,7 @@ class ShellModeTest {
 
     private val session = Session(classId = 7, className = "7A", school = null, token = "class-token")
     private val samara = DiaryTarget.netschool("samara", 1234, "School 5", "ivanova", "Europe/Samara")
+    private val vault = testVault()
 
     @Test
     fun `a class outranks a diary`() {
@@ -38,7 +40,7 @@ class ShellModeTest {
     @Test
     fun `nothing stored is none`() {
         assertEquals(ShellMode.NONE, shellModeOf(null, null))
-        assertEquals(ShellState(ShellMode.NONE, held = false), mutablePreferencesOf().shellState())
+        assertEquals(ShellState(ShellMode.NONE, held = false), mutablePreferencesOf().shellState(vault))
     }
 
     /** A bare `401` drops the bearer and keeps the target: the family belongs on their diary's form. */
@@ -47,7 +49,7 @@ class ShellModeTest {
         val prefs = mutablePreferencesOf(
             DiaryKeys.TARGET to DiaryTargetCodec.encode(samara),
         )
-        assertEquals(ShellMode.DIARY, prefs.shellState().mode)
+        assertEquals(ShellMode.DIARY, prefs.shellState(vault).mode)
     }
 
     @Test
@@ -56,7 +58,7 @@ class ShellModeTest {
             DiaryKeys.TOKEN to "diary-token",
             DiaryKeys.LOGIN to "parent@example.com",
         )
-        assertEquals(ShellMode.DIARY, prefs.shellState().mode)
+        assertEquals(ShellMode.DIARY, prefs.shellState(vault).mode)
     }
 
     /** #151: leaving the last class with a diary signed in lands on the diary, where its sign-out is. */
@@ -64,11 +66,11 @@ class ShellModeTest {
     fun `leaving the last class with a diary signed in is diary mode`() {
         val prefs = mutablePreferencesOf(DiaryKeys.TARGET to DiaryTargetCodec.encode(samara))
         prefs.writeMemberships(listOf(session))
-        assertEquals(ShellMode.CLASS, prefs.shellState().mode)
+        assertEquals(ShellMode.CLASS, prefs.shellState(vault).mode)
 
         prefs.writeMemberships(emptyList())
 
-        assertEquals(ShellMode.DIARY, prefs.shellState().mode)
+        assertEquals(ShellMode.DIARY, prefs.shellState(vault).mode)
     }
 
     @Test
@@ -76,7 +78,7 @@ class ShellModeTest {
         val prefs = mutablePreferencesOf(ShellKeys.ONBOARDING_HELD to true)
         prefs.writeMemberships(listOf(session))
 
-        assertEquals(ShellState(ShellMode.CLASS, held = true), prefs.shellState())
+        assertEquals(ShellState(ShellMode.CLASS, held = true), prefs.shellState(vault))
     }
 
     /** #152: a cold start in no class must not arm the periodic class sync again. */

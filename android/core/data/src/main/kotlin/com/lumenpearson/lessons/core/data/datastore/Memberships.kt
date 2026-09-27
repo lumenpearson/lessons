@@ -9,8 +9,11 @@ import com.lumenpearson.lessons.core.data.repository.DiaryProviderKey
 import com.lumenpearson.lessons.core.data.repository.Session
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonArray
 
@@ -92,7 +95,10 @@ private val membershipJson = Json {
 }
 
 /**
- * Every membership, in the order they were joined.
+ * Every membership, in the order they were joined — **with each token as it is
+ * stored**, which since #201 is sealed. This is the view the writes work on, so
+ * that re-joining one class rewrites nothing about the others' tokens; anything
+ * that needs a bearer reads [openMemberships] instead.
  *
  * Decoded **one record at a time**, which is the whole point of the list being
  * an array of small objects. Decoding it as a list would make any single
@@ -132,11 +138,69 @@ internal fun Preferences.memberships(): List<Session> {
  * which is the state a half-finished write or a hand-edited file can leave: the
  * phone is in classes, so it shows one, rather than claiming to be in none.
  */
-internal fun Preferences.activeMembership(): Session? {
-    val all = memberships()
+internal fun Preferences.activeMembership(): Session? = activeAmong(memberships())
+
+/** Which of [all] is on screen, by the rule [activeMembership] describes. */
+private fun Preferences.activeAmong(all: List<Session>): Session? {
     val active = this[MembershipKeys.ACTIVE_CLASS_ID]
     return all.firstOrNull { it.classId == active } ?: all.firstOrNull()
 }
+
+/**
+ * Every membership whose token this phone can open, with the token as the
+ * bearer it is.
+ *
+ * One that will not open is left out, exactly as a record with no token is:
+ * its key is gone — restored onto another phone, a wiped Keystore — and the
+ * only cure is the join code, which is what a phone in no class is shown. It is
+ * not deleted from the file here; the next write of the list, which that join
+ * is, replaces it by class.
+ */
+internal fun Preferences.openMemberships(vault: TokenVault): List<Session> =
+    memberships().mapNotNull { stored -> vault.open(stored.token)?.let { stored.copy(token = it) } }
+
+/**
+ * [activeMembership] among the ones that open, so a class whose token is lost
+ * is never the one on screen: the next class is, or none.
+ */
+internal fun Preferences.openActiveMembership(vault: TokenVault): Session? = activeAmong(openMemberships(vault))
+
+/**
+ * The list [raw] with every token still stored bare sealed through [vault], or
+ * `null` when there is nothing to seal — or nothing readable to seal it in.
+ *
+ * Record by record, on the JSON itself rather than through [memberships]: a
+ * record this build cannot decode, or one carrying fields a newer build wrote,
+ * is rewritten with its token sealed and everything else exactly as it was.
+ * Decoding and re-encoding would drop what this build does not know, and the
+ * migration that calls this runs on every install.
+ */
+internal fun sealedMembershipList(raw: String, vault: TokenVault): String? {
+    val array = runCatching { membershipJson.parseToJsonElement(raw).jsonArray }.getOrNull() ?: return null
+    var changed = false
+    val sealed = array.map { element ->
+        val record = element as? JsonObject ?: return@map element
+        val token = (record["token"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+        if (token == null || !isBare(token)) return@map element
+        val stored = vault.seal(token)
+        if (stored == token) return@map element
+        changed = true
+        JsonObject(record + ("token" to JsonPrimitive(stored)))
+    }
+    return if (changed) JsonArray(sealed).toString() else null
+}
+
+/** Whether [raw] holds a record whose token is still stored bare; see [sealedMembershipList]. */
+internal fun membershipListHoldsBareToken(raw: String): Boolean {
+    val array = runCatching { membershipJson.parseToJsonElement(raw).jsonArray }.getOrNull() ?: return false
+    return array.any { element ->
+        val token = ((element as? JsonObject)?.get("token") as? JsonPrimitive)?.takeIf { it.isString }?.content
+        token != null && isBare(token)
+    }
+}
+
+/** A token written before #201: present, and not sealed. */
+internal fun isBare(token: String?): Boolean = !token.isNullOrBlank() && !TokenVault.isSealed(token)
 
 /**
  * The one membership the app used to hold, in four flat keys.

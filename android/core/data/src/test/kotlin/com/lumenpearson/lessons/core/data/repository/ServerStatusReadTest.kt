@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
+import com.lumenpearson.lessons.core.data.datastore.testVault
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.network.dto.BundleDto
 import com.lumenpearson.lessons.core.data.network.dto.DeviceMeDto
@@ -43,7 +44,7 @@ class ServerStatusReadTest {
     fun `asking for the server's status suspends on the preferences instead of blocking`() = runTest {
         val answer = CompletableDeferred<Unit>()
         val repository = SessionRepositoryImpl(
-            preferences = LessonsPreferences(SlowStore(answer)),
+            preferences = LessonsPreferences(SlowStore(answer), testVault()),
             api = NoCallsApi,
             cache = NoCache,
             ioDispatcher = StandardTestDispatcher(testScheduler),

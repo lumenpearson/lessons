@@ -1,26 +1,16 @@
 package com.lumenpearson.lessons.core.data.datastore
 
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.emptyPreferences
 import com.lumenpearson.lessons.core.data.network.NetworkModule
 import com.lumenpearson.lessons.core.data.repository.DiarySession
 import com.lumenpearson.lessons.core.data.repository.Session
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
@@ -54,6 +44,8 @@ import org.junit.Test
 class RequestCredentialsTest {
 
     private lateinit var server: MockWebServer
+    private val keys = MemoryKeys()
+    private val vault = testVault(keys)
     private val scopes = mutableListOf<CoroutineScope>()
 
     @Before
@@ -71,7 +63,7 @@ class RequestCredentialsTest {
     @Test
     fun `requests are signed from memory, not from the preferences`() = runBlocking {
         val store = MemoryStore()
-        val preferences = LessonsPreferences(store)
+        val preferences = LessonsPreferences(store, vault)
         preferences.updateSettings { it.copy(baseUrl = server.url("/").toString()) }
         preferences.addSession(session(7, "token-7"))
         val client = NetworkModule.okHttpClient(preferences.credentials::current)
@@ -98,13 +90,13 @@ class RequestCredentialsTest {
     @Test
     fun `the first request after a cold start carries what was stored before it`() = runBlocking {
         val lastProcess = MemoryStore()
-        LessonsPreferences(lastProcess).apply {
+        LessonsPreferences(lastProcess, vault).apply {
             updateSettings { it.copy(baseUrl = server.url("/").toString()) }
             addSession(session(7, "token-7"))
             writeDiarySession(DiarySession(login = "parent", token = "diary-1"))
         }
 
-        val preferences = LessonsPreferences(MemoryStore(lastProcess.value))
+        val preferences = LessonsPreferences(MemoryStore(lastProcess.value), testVault(keys))
         val client = NetworkModule.okHttpClient(preferences.credentials::current)
 
         assertEquals("Bearer token-7", authorizationOn(client, "/api/v1/bundle"))
@@ -118,7 +110,7 @@ class RequestCredentialsTest {
      */
     @Test
     fun `a switch of class signs the very next request`() = runBlocking {
-        val preferences = LessonsPreferences(MemoryStore())
+        val preferences = LessonsPreferences(MemoryStore(), vault)
         preferences.updateSettings { it.copy(baseUrl = server.url("/").toString()) }
         preferences.addSession(session(1, "token-1"))
         preferences.addSession(session(2, "token-2"))
@@ -142,7 +134,7 @@ class RequestCredentialsTest {
     @Test
     fun `a new server address takes the very next request`() = runBlocking {
         answering(MockWebServer()).use { other ->
-            val preferences = LessonsPreferences(MemoryStore())
+            val preferences = LessonsPreferences(MemoryStore(), vault)
             preferences.updateSettings { it.copy(baseUrl = server.url("/").toString()) }
             val client = NetworkModule.okHttpClient(preferences.credentials::current)
             authorizationOn(client, "/api/v1/warmup")
@@ -159,7 +151,7 @@ class RequestCredentialsTest {
     /** Two accounts, two bearers: signing out of one leaves the other signing. */
     @Test
     fun `the diary bearer follows its own sign-in and sign-out, and only its own`() = runBlocking {
-        val preferences = LessonsPreferences(MemoryStore())
+        val preferences = LessonsPreferences(MemoryStore(), vault)
         preferences.updateSettings { it.copy(baseUrl = server.url("/").toString()) }
         preferences.addSession(session(7, "token-7"))
         val client = NetworkModule.okHttpClient(preferences.credentials::current)
@@ -181,8 +173,8 @@ class RequestCredentialsTest {
     @Test
     fun `a write through another instance reaches the copy through the store`() = runBlocking {
         val store = MemoryStore()
-        val preferences = LessonsPreferences(store)
-        val elsewhere = LessonsPreferences(store)
+        val preferences = LessonsPreferences(store, vault)
+        val elsewhere = LessonsPreferences(store, vault)
         preferences.addSession(session(1, "token-1"))
         preferences.addSession(session(2, "token-2"))
         assertEquals("token-2", preferences.credentials.current().classToken)
@@ -219,25 +211,5 @@ class RequestCredentialsTest {
                 MockResponse.Builder().code(200).addHeader("Content-Type", "application/json").body("{}").build()
         }
         start()
-    }
-
-    /**
-     * DataStore's contract without its file — one value, edits one at a time,
-     * every change emitted — counting each time anybody starts reading it.
-     */
-    private class MemoryStore(initial: Preferences = emptyPreferences()) : DataStore<Preferences> {
-        private val state = MutableStateFlow(initial)
-        private val turn = Mutex()
-        val reads = AtomicInteger()
-
-        val value: Preferences get() = state.value
-
-        override val data: Flow<Preferences> = flow {
-            reads.incrementAndGet()
-            emitAll(state)
-        }
-
-        override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences =
-            turn.withLock { transform(state.value).toPreferences().also { state.value = it } }
     }
 }

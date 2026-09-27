@@ -41,7 +41,7 @@ You type the server's address into the app yourself. If it leads to a server som
 - The server's address, the app's settings and, if you signed in to GitHub from the app, the GitHub key and your account name there.
 - Crash reports, only if you turned them on: up to five files with the phone's model, the Android and app versions, a description of the error and the app's latest log lines.
 
-The keys, the login and the settings sit in the app's settings files **unencrypted**. The databases, the settings files and the crash reports are excluded from Google backup and from transfer to a new phone: a report stays on this phone until you send it yourself. That crash reports really are kept out of the backup has not yet been checked on a device.
+The app keeps the class and diary access keys encrypted, with a key that Android holds in its protected store (the Android Keystore) and never hands out. If that key is lost — after the app's data is moved to another phone, say, or the store is reset — you will have to join the class and sign in to the diary again. The login, the GitHub key and the settings sit in the app's settings files **unencrypted**. The databases, the settings files and the crash reports are excluded from Google backup and from transfer to a new phone: a report stays on this phone until you send it yourself. That crash reports really are kept out of the backup has not yet been checked on a device.
 
 The phone never stores the diary password. The session the diary hands out after sign-in is held only in memory, never written down, and forgotten as soon as the phone has handed it to the server or the sign-in is abandoned.
 
@@ -110,7 +110,7 @@ The app does not sign in to Gosuslugi or to My School: it opens the system's pag
 - **The diary's system**, after sign-in, sees the server's address using your session, not your phone's.
 - **The operator** holds the key the sessions are encrypted with, and so can technically open your diary. The encryption protects against whoever gets the database without the key, not against the operator.
 - **Telegram** keeps in the chat history whatever the bot sent you from the diary — marks, homework, timetable.
-- **Whoever holds your phone:** the diary access key sits on it unencrypted, and the app opens the diary without a password until you sign out.
+- **Whoever holds your phone:** the diary access key on it is encrypted, but the app decrypts it itself and opens the diary without a password until you sign out.
 - **Everyone whose diary account shows the same pupil** — the other parent, the pupil in their own account, and any other account in which the diary shows that pupil — sees in the app the corrections made for that pupil, whoever made them, and can change or reset them. Beyond the corrections, they see only what the diary shows their own account.
 
 ## Keeping the session open
@@ -193,7 +193,7 @@ A parent who wants the server to delete their child's data can write to the oper
 
 - The access keys of phones and diaries and the one-time codes — for signing in from the bot and for connecting a phone — are kept by the server only as SHA-256 hashes. The class code is kept as it is: the bot shows it to admins.
 - The server encrypts the diary session (Fernet: AES-128-CBC with HMAC) with a key the operator sets. Without that key the diary does not run on the server at all, rather than keeping sessions unencrypted.
-- The app itself encrypts nothing on the phone: there, the data is protected only by whatever protects the phone itself.
+- On the phone the app encrypts only the class and diary access keys (AES-256-GCM, with a key from the Android Keystore). If the phone's key store does not work, it keeps them unencrypted, as it used to, and tries again to encrypt them at every start. Everything else — the copies of the timetable and the diary, the login, the settings — is protected only by whatever protects the phone itself. The encryption of the keys has not yet been checked on a device.
 
 **HTTPS depends on the address you typed.** The app also accepts `http://` addresses, for servers on a school's local network. At such an address everything between the phone and the server travels in the clear: the class and diary access keys, the phone's name, the timetable, and the diary session the phone hands to the server when you sign in. Anybody on the same network can intercept it and open your diary. The app warns you about this before you sign in to a diary, but does not forbid it.
 
