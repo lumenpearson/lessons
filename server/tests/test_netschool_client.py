@@ -182,6 +182,41 @@ async def test_a_dead_session_answers_session_expired(monkeypatch):
     assert region is not None
 
 
+@pytest.mark.parametrize(
+    "credential",
+    [
+        "not json at all",
+        json.dumps({"v": 1, "region": "atlantis", "school_id": 1, "at": "a", "cookies": {}}),
+    ],
+)
+def test_a_dead_session_reads_today_in_moscow_not_on_the_servers_clock(
+    monkeypatch, credential
+):
+    """#198. A credential that will not parse, or names a region no longer
+    served, still answers «today» — and it read the server's naive clock,
+    which on a UTC host is yesterday from 00:00 to 03:00 Moscow time. It has
+    no region to take a zone from, so it takes the one `NetSchoolProvider.zone`
+    falls back to for exactly that case."""
+    from datetime import UTC, date, datetime
+
+    from app.providers.netschool import provider as nsprovider
+
+    class Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            # 00:30 on 8 September in Moscow; the naive answer is a UTC host's.
+            moment = datetime(2026, 9, 7, 21, 30, tzinfo=UTC)
+            return moment.astimezone(tz) if tz is not None else moment.replace(tzinfo=None)
+
+    monkeypatch.setattr(nsprovider, "datetime", Frozen)
+
+    connection = NetSchoolProvider().open(credential)
+
+    assert type(connection).__name__ == "_DeadConnection"
+    assert NetSchoolProvider().zone(None) == "Europe/Moscow"
+    assert connection.today() == date(2026, 9, 8)
+
+
 async def test_two_families_cookies_never_meet_on_the_shared_client(monkeypatch):
     cookies_seen: list[str | None] = []
 
