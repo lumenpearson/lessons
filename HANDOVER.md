@@ -454,23 +454,27 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   batch: a drag of ten thousand pixels parks at the end under any density, which is what
   `ToolbarDragTest` does and what caught it. Anything *between* two slots is still not asked
   of a composition, and `ToolbarReorderTest` asks it in pixels instead.
-- **Nothing of the year scrolling has been looked at either.** What the tests prove is
-  which year is asked for and when, which one is dropped, and that a request made while
-  another was in flight comes back. What nobody has seen: the year chip, the picker, how
-  long a school year takes to arrive over a school's wifi, and what three years of day
-  rows cost a `LazyColumn` that re-reads them on every write. The cap of three is a guess.
-- **Nothing of the calendar or the day screen has been looked at.** What the tests prove is
+- **The year scrolling has been looked at once, on an emulator** (#186): the year picker,
+  and 2025/26 fetched on demand under «Загружаю год» from a server on the same machine.
+  What the tests prove is which year is asked for and when, which one is dropped, and that
+  a request made while another was in flight comes back. What nobody has seen: how long a
+  school year takes to arrive over a school's wifi, and what three years of day rows cost a
+  `LazyColumn` that re-reads them on every write. The cap of three is a guess.
+- **The calendar and the day screen have been looked at on an emulator only** (#186): the
+  week, the month, the day's ribbon and its list, and «Подробно». What the tests prove is
   which accent a day resolves to, where a band of one reason ends, which row
   «вернуться к текущему» lands on, and which of three depth levels a given API level gets.
-  What nobody has seen: the four accents beside one another, whether the summer's tint is
+  What nobody has judged: the four accents beside one another, whether the summer's tint is
   faint enough across sixty cells, whether the perspective tilt reads as depth or as a
   wobble, and whether the AGSL band reads as light rather than as a smear. **What it costs
-  is unmeasured too** — one shader layer and a per-frame clock on a mid-range phone is a
-  frame budget nobody has looked at.
+  on a phone is unmeasured too** — one shader layer and a per-frame clock on a mid-range
+  phone is a frame budget nobody has looked at. #111's flings on the emulator put the shader
+  below that emulator's own floor, which is relative only, and #111 stays open for a phone.
   **One qualification, earned in #79:** the ribbon *has* now been run on a real phone, and
   it crashed on opening. What that proves is that the three defects #79 fixes were the ones
   reported, and the bugreport says so in the platform's own words. It proves nothing about
-  how any of it looks, because nobody got far enough to see it.
+  how any of it looks, because nobody got far enough to see it. #186 got that far on the
+  emulator, and the ribbon opened without the crash.
 - **No rule stops another composable reading `BuildConfig` directly**, which is how #81
   happened. Three tests hold `AboutCard`; nothing holds the next one. Such a defect is
   invisible on a pull request by construction — `ci.yml` does not set the build properties
@@ -483,11 +487,13 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   a phone on a school's wifi resolves into `Ok`, `Degraded` or `Unreachable` as intended,
   and how long it takes to say so. It is also the first thing in this app that makes a
   network request from the settings page, so it is the first that can make that page wait.
-- **Nothing of #80 has been looked at either.** The tests compose the about card, the
-  calendar header and both link buttons and assert their text is *displayed*. What nobody
-  has seen: whether the concentric corner reads as concentric, whether a marquee that never
-  stops is pleasant rather than merely readable, and whether stepping a month with the
-  arrows surprises somebody who has just switched «День» into its list mode.
+- **#80's screens have been on an emulator, and nobody judged what this bullet asks.** #186
+  opened the about card — «Схема unknown» on it was #172 — and the calendar. The tests
+  compose the about card, the calendar header and both link buttons and assert their text
+  is *displayed*. What nobody has judged: whether the concentric corner reads as
+  concentric, whether a marquee that never stops is pleasant rather than merely readable,
+  and whether stepping a month with the arrows surprises somebody who has just switched
+  «День» into its list mode.
 - **The widget's new corners have been on a launcher only on an emulator's, and nobody judged
   them there**: #186 and #189 had the widget on the Pixel launcher at a few sizes, and #113
   stays open for the corner radii. A launcher is the only place they exist. #82 derives every
@@ -566,8 +572,9 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
 - **Every card in the bot is now drawn**, and that found eight defects in one pass
   (section 4, in `docs/history.md` now). The hole that is left is exactly where it was: the
   tests assert what is
-  written on a card rather than how it looks in a client, and nobody has opened a live
-  Telegram with these changes.
+  written on a card rather than how it looks in a client. A live Telegram has shown these
+  cards once, in #186's walk — `/start`, «📱 Подключить телефон» and the class «11А» driven
+  from the owner's chat — which recorded what the bot did and not how a card looked.
   **Nobody draws the widget.** Glance has `glance-appwidget-testing` at the same version as
   the Glance in this project (`1.3.0-alpha02`) — the twelve rungs of the size ladder could be
   rendered and compared with no device. Not done.
@@ -598,11 +605,11 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   writes nothing, and restoring the class code writes straight away. It is covered lower down
   the stack too: the class code's refusal in `invite`, a personal code for one phone, a race
   between two requests for one code, a stale button, the sweeping, a `PATCH` in both
-  directions, the log line, and that the column holds `OPEN` rather than `open`. **Not one
-  test presses the button.** #186 saw «📱 Подключить телефон» in the live bot, its code link
-  a phone as «Владелец», the spent code answer `404`, and the invite-only class's own code
-  refused in words; nobody has flipped the switch on a live class or seen the confirmation
-  in the app.
+  directions, the log line, and that the column holds `OPEN` rather than `open`. The presses
+  are `ClassJoinModeScreenTest`'s. #186 saw «📱 Подключить телефон» in the live bot, its
+  code link a phone as «Владелец», the spent code answer `404`, and the invite-only class's
+  own code refused in words; nobody has flipped the switch on a live class or seen the
+  confirmation in the app.
 - **The `429` on the code screen was seen once, on an emulator (#186):** «Слишком много
   попыток. Попробуйте через 15 минут.», with `Retry-After: 866`.
 - **The upgrade path has been installed over once, on an emulator (#117)**: a build of
@@ -612,14 +619,18 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   is found and the "introduction shown" flag is not reset. Nobody has upgraded a real
   installation of the previous version. If that is broken, the user sees the code field
   instead of their class — and nothing in the logs.
-- **Nobody has looked at the build-chain bumps.** AGP 9.3.1 → 9.4.0 → 9.4.1, Gradle
-  9.5.0 → 9.7.1 and compose-bom 2026.06.01 → 2026.09.00 are proved by every test passing and
-  both assembles building — locally and on the runner. The same goes for the two Python
-  floors raised the same way, sqlalchemy 2.0.54 and pydantic 2.13.5: the suite passes on
-  them and nobody read either changelog. The compose-bom is **the app's entire
-  rendering**, and one of its effects already surfaced by itself (`OverlayLayerTest`,
-  section 6); what it changed where there is no test, nobody knows. That is the first reason
-  on the list to open the APK.
+- **The build-chain bumps have been looked at only as far as #186's walk goes.** AGP
+  9.3.1 → 9.4.0 → 9.4.1, Gradle 9.5.0 → 9.7.1 and compose-bom 2026.06.01 → 2026.09.00 are
+  proved by every test passing and both assembles building — locally and on the runner.
+  The same goes for the two Python floors raised the same way, sqlalchemy 2.0.54 and
+  pydantic 2.13.5: the suite passes on them and nobody read either changelog. The
+  compose-bom is **the app's entire rendering**, and one of its effects already surfaced by
+  itself (`OverlayLayerTest`, section 6). Both builds #186 walked on an emulator —
+  `bd7c816`'s release and its own branch's debug — are on all three, and the one defect it
+  filed that names any of them is #185, AGP 9.4's warnings about `srcDirs`: a build
+  message, not a screen. Nobody has set a screen beside one from a build before them, so
+  what the compose-bom changed where there is no test, nobody knows. On a phone, that is
+  the first reason on the list to open the APK.
 - **Both alarm fixes are unverifiable without a device, in principle.** They are inferred
   from the platform's contract and from neighbouring code that had already taken the same
   decision (`SchoolAlerts.arm` refused `setWindow` and explained why).
@@ -633,13 +644,13 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   claiming twice on one date, but nobody has run two ticks at once; the export's round trip
   is verified by computing both sides, which is all it claims.
 
-- **Nothing from #62, the batch that stopped text being cut off, has been seen moving, or
-  wrapping.** Robolectric composes the marquee but advances no animation and reads no
-  frame, so what is proven is that a line
-  which fits is laid out exactly as before, that a line which does not stays inside its box
-  rather than pushing the row apart, and that the whole string is present either way. That it
-  actually scrolls — and reads well doing so — needs the APK. The same for the other
-  direction: nobody has seen what an uncapped block does with a long string. **A five-line
+- **#62, the batch that stopped text being cut off, has been seen moving only in the reports
+  #80 answered**: on a phone, a line that scrolled beside one that had spent its three passes
+  and parked, which #80 made endless. Robolectric composes the marquee but advances no
+  animation and reads no frame, so what is proven is that a line which fits is laid out
+  exactly as before, that a line which does not stays inside its box rather than pushing
+  the row apart, and that the whole string is present either way. Whether it reads well
+  scrolling needs the APK. The same for the other direction: nobody has seen what an uncapped block does with a long string. **A five-line
   lesson note now makes a five-line row**, and whether an uncapped heading pushes a sheet's
   first control too far down is a question only a screen can answer.
 - **The fade widths are chosen, not measured.** 8 dp at each end, narrower on a segment
@@ -659,7 +670,10 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   `raw.githubusercontent.com` are written and have never run. Nor has the bundled fallback
   been read at runtime — the assets are proven only by listing the built APK, because
   `:core:data`'s tests have no `Context`. The pager, the loader on the guide, the banner
-  naming its version and the arrow that leaves it have been seen by nobody.
+  naming its version and the arrow that leaves it have been looked at by nobody: one of
+  #186's screenshots caught the guide open, where the owner had left it on the shared
+  emulator, and what it showed — or whether it had come from GitHub or from the APK — was
+  not recorded.
 
 **The most useful next action is to install the APK on a phone and live with it for one
 school day.** After that the only questions left are about runtime and layout, and those are
@@ -1222,7 +1236,10 @@ which #186 made on an emulator (#115). All four are in [docs/history.md](docs/hi
    not shown again; and sign into a real diary, press a lesson, correct the room and reset
    it. And a fourth: put a class into "invitation only", make sure a connected phone goes on
    working, take a personal code with the «📱 Подключить телефон» button and connect a second
-   phone with it.
+   phone with it. #186 did the first and the second on an emulator (#116, #117), and the
+   fourth on a class that was invite-only already, so the switch itself is still unflipped
+   (section 5). On a phone those are a thumb's check rather than an open question; the diary
+   is still nobody's (#121).
 3. **Make sure `DADATA_TOKEN` really works** on Vercel (Production and Preview; it is the API
    key, not the secret one).
 4. **Open «Настройки → О приложении → Лицензии» in the app** and look at the eighth row —

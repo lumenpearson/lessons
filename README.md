@@ -244,7 +244,7 @@ under its button, the diary home, the crash-report sheet, the calendar's header,
 sheets, its year picker and its day list, and the rest — are
 composed in JVM tests under Robolectric, with a Russian locale and a phone's width, and
 those are real presses and real rotations on real strings; the design system's components
-are exercised the same way. Nobody has pressed the
+are exercised the same way. No test presses the
 rest of the interface or the widget: compilation proves that the types line up and says
 nothing about what happens on the screen. Covered by nothing:
 
@@ -419,8 +419,9 @@ through the ORM — checking the default specifically — and the third reads th
 and demands `server_default="OPEN"` in it.
 
 The bot's coloured buttons (`app/bot/button_style.py`) are checked only by tests: they
-assert which style sits on which button and say nothing about how it looks. Nobody has
-opened a live client with those keyboards, and on a client older than Bot API 9.3 a button
+assert which style sits on which button and say nothing about how it looks. A live client
+has shown those keyboards once — the walkthrough drove a class from the bot in the owner's
+chat — and nothing recorded how they looked. On a client older than Bot API 9.3 a button
 is drawn plain — the colour carries no meaning that is not in the caption anyway, but it is
 worth checking with your eyes on the first run.
 
