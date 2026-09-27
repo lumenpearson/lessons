@@ -28,3 +28,7 @@ project — and say four things:
 
 Name the branches, the PR numbers, the test counts and the schema head. Numbers are what a
 new session can check cheaply.
+
+Keep two batch sections and no more. The new one goes on top; the one that falls off the
+last two moves, verbatim, to the top of `docs/history.md`, which is where every older batch
+already is, newest first. The `handover` skill has the order and the references to fix.

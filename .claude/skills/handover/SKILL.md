@@ -72,17 +72,29 @@ remembering them:
 - **The opening paragraph** — which pull requests merged, the SHA `main` is at, what is open
   (and «nothing is open» is an answer), whether `dev` is level, the schema head, and whether
   `EXPECTED_REVISION` moved.
-- **The chain of batch sections.** The new one goes on top; the one that was «What the last
-  session added» becomes «What the session before it added», and so on down. Two sections
-  both claiming to be the last is the commonest mess here.
-- **The milestone table**, whose last row grows with every pull request the milestone takes.
-- **The test counts, which live in three places** — this file's cheat-sheet, the README's
-  «Honest status» table and `docs/architecture.md`. Take them from a real run, not from the
-  last document that mentioned them: `docs/architecture.md` once carried a corrected total
-  over a per-module breakdown that still summed to the old one, and the total hid it.
+- **The chain of batch sections, which is two long.** The new one goes on top as «What the
+  last session added»; the one that was last becomes «What the session before it added»;
+  and the one that was before it leaves this file — verbatim, retitled «What the batch
+  before added: …» — for the top of `docs/history.md`, directly under that file's
+  introduction, so the history stays newest first. Two sections both claiming to be the
+  last is the commonest mess here. The file grew to 331 KB before this rule existed (#211),
+  because every batch stayed.
+- **References across the two files.** A sentence that moves to `docs/history.md` and says
+  «section 5» or «above» now points into another file: name `HANDOVER.md` in it. Sections
+  5 to 8 keep their numbers for exactly that reason. When a paragraph of section 5 or 7
+  stops being true — somebody verified it, or the owner did it — it moves to the matching
+  «Moved out of section …» part at the end of `docs/history.md` rather than being deleted.
+- **The milestone table**, under «The milestones», whose last row grows with every pull
+  request the milestone takes.
+- **The test counts, which live in three places** — this file's cheat-sheet («How to
+  continue», at the end of section 8), the README's «Honest status» table and
+  `docs/architecture.md`. Take them from a real run, not from the last document that
+  mentioned them: `docs/architecture.md` once carried a corrected total over a per-module
+  breakdown that still summed to the old one, and the total hid it.
 - **Section 5, what nobody has verified**, which grows with every path that shipped without
   a test able to reach it.
 - **Section 7, what is left to the owner**, which shrinks when they do one of them.
 
-A number written against a named commit is a record, not a claim, and is not rewritten: this
-file reports the gates «at `d330d68`», and at that commit the count really was what it says.
+A number written against a named commit is a record, not a claim, and is not rewritten: a
+batch section reports the gates «at `d330d68`», and at that commit the count really was what
+it says. That is also why `docs/history.md` is never brought up to date.

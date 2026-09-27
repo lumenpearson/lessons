@@ -88,18 +88,27 @@ _HEAD_SENTENCES = (
     re.compile(r"expects `(\d{4})`"),
 )
 #: The answer `/warmup` gives when all is well, as the reference documents
-#: print it. Only under docs/: the README quotes an answer from #61 on purpose.
+#: print it. Only under docs/: the README quotes the last answer production
+#: gave, with its date, and a dated answer is a record rather than a claim
+#: about the head — the next revision must not make it say what nobody read.
 _WARMUP_OK = re.compile(r'"status": ?"ok"[^}\n]*"schema": ?"(\d{4})"')
+
+
+#: The record of past batches, moved verbatim out of HANDOVER.md: it quotes the
+#: head of every commit it describes, true of that commit, and is never
+#: brought up to date.
+_HISTORY = REPOSITORY / "docs" / "history.md"
 
 
 def _documents() -> list[Path]:
     """Everything a person or an agent reads to learn the head — not
-    HANDOVER.md, which is a history and holds every head there has been."""
+    HANDOVER.md or docs/history.md, which between them hold every head
+    there has been."""
     found = [REPOSITORY / name for name in ("README.md", "CLAUDE.md", "AGENTS.md")]
     found.append(REPOSITORY / ".github" / "copilot-instructions.md")
     found += sorted((REPOSITORY / "docs").rglob("*.md"))
     found += sorted((REPOSITORY / ".claude").rglob("*.md"))
-    return [document for document in found if document.is_file()]
+    return [document for document in found if document.is_file() and document != _HISTORY]
 
 
 def test_every_document_that_names_the_head_names_this_one():

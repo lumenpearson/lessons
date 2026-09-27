@@ -244,7 +244,7 @@ under its button, the diary home, the crash-report sheet, the calendar's header,
 sheets, its year picker and its day list, and the rest — are
 composed in JVM tests under Robolectric, with a Russian locale and a phone's width, and
 those are real presses and real rotations on real strings; the design system's components
-are exercised the same way. Nobody has pressed the
+are exercised the same way. No test presses the
 rest of the interface or the widget: compilation proves that the types line up and says
 nothing about what happens on the screen. Covered by nothing:
 
@@ -419,8 +419,9 @@ through the ORM — checking the default specifically — and the third reads th
 and demands `server_default="OPEN"` in it.
 
 The bot's coloured buttons (`app/bot/button_style.py`) are checked only by tests: they
-assert which style sits on which button and say nothing about how it looks. Nobody has
-opened a live client with those keyboards, and on a client older than Bot API 9.3 a button
+assert which style sits on which button and say nothing about how it looks. A live client
+has shown those keyboards once — the walkthrough drove a class from the bot in the owner's
+chat — and nothing recorded how they looked. On a client older than Bot API 9.3 a button
 is drawn plain — the colour carries no meaning that is not in the caption anyway, but it is
 worth checking with your eyes on the first run.
 
@@ -464,25 +465,30 @@ answer there is «off».
 server, the sync layer, the calendar, the widget and the self-hosted deployment, and every
 one of them is proved by a test rather than by a screen.
 
-* **None of the widget's fixes has been seen on a launcher.** The three defects behind them
-  were read off one build on a phone, which is the only pixel evidence in this section; the
-  fixes themselves — the height divided by the font scale, the two weights that stop a room
-  number starving the subject, the week strip's gaps — are held by tests that reproduce the
-  arithmetic, not the rendering. The two claims about what Glance does with a modifier chain
-  come from reading its translator.
-* **The server badge on Настройки → О приложении has never been drawn against a real
-  server.** It reads `GET /api/v1/warmup` and tells «Сервер на связи», «Сервер: база
-  и код разошлись», «Сервер не отвечает» and «Адрес сервера не задан» apart in
-  Robolectric, against a fake. Which of the four a phone shows when pointed at production,
-  nobody has watched.
-* **`/api/v1/warmup` itself has not been read since #61**, when it answered
-  `{"status":"ok","api_version":1,"schema":"0013"}`. Production is at `0017` since 26
-  September 2026, 12:26 UTC: `0015`, `0016` and `0017` went on together before #140's
-  merge, and `0017` found no diary correction to rewrite. Once #140 has deployed it should
-  say `0017`. That one request is the cheapest check
-  of whether the migrations and the code that needs them actually met — but the deployment
-  previews sit behind Vercel's protection, and nobody has made the check against production
-  either.
+* **The widget's fixes have been on a launcher only on an emulator's.** The three defects
+  behind them were read off one build on a phone, which is the only pixel evidence from a
+  phone in this section. #186 put the widget on the emulator's Pixel launcher at four sizes
+  and two font scales, where the 2×2 and, at the larger scale, the 2×1 still cut their text
+  (#174, fixed in #189 and looked at again there). The fixes themselves — the height
+  divided by the font scale, the two weights that stop a room number starving the subject,
+  the week strip's gaps — are held by tests that reproduce the arithmetic, not the
+  rendering. The two claims about what Glance does with a modifier chain come from reading
+  its translator.
+* **The server badge on Настройки → О приложении has been drawn against a real server
+  once, on an emulator** (#186): «Сервер: база и код разошлись», correctly, from a local
+  server whose database `create_all` had built. It reads `GET /api/v1/warmup` and tells
+  «Сервер на связи», «Сервер: база и код разошлись», «Сервер не отвечает» and «Адрес
+  сервера не задан» apart in Robolectric, against a fake. Which of the four a phone shows
+  when pointed at production, nobody has watched.
+* **`/api/v1/warmup` was last read on 26 September 2026**, at 17:05 UTC, after #140 had
+  deployed: the production deployment of `bd7c816` answered
+  `{"status":"ok","api_version":1,"schema":"0017"}`, so the migrations and the code that
+  needs them met. Production is at `0017` since 12:26 UTC that day: `0015`, `0016` and
+  `0017` went on together before #140's merge, and `0017` found no diary correction to
+  rewrite. The per-deployment URLs sit behind Vercel's protection, so the request went
+  through the Vercel connector, which carries the owner's access; the production alias is
+  not behind it. It is one request, not a measurement, and the next migration needs it read
+  again.
 * **`docker compose up` has not been run.** There is no Docker in this environment: the
   compose file was parsed and its dependency conditions asserted. The `migrate` service and
   the revisions now in the image are written and never watched coming up.

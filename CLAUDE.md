@@ -21,7 +21,8 @@ Three deliverables in one repository:
 android/     Kotlin / Compose / Glance, five Gradle modules
 server/      FastAPI + aiogram in one process, one database, Alembic migrations
 api/         thin Vercel entry point that re-exports server/app/main.py
-docs/        nine documents plus an index (docs/README.md), all current, all English;
+docs/        ten documents plus an index (docs/README.md), all English; nine are current,
+             and history.md is the record of every batch HANDOVER.md has handed on;
              docs/diaries/ holds the per-platform reference pages of diaries.md;
              docs/app/ (the in-app guide) and docs/legal/ (the terms and the privacy
              policy) are product text the APK bundles, Russian source and English twin
@@ -671,7 +672,8 @@ points Hilt does not inject cleanly.
 - **`HANDOVER.md` at the root says where the work stands** — the branches, what the last
   session finished, what it deliberately left alone and what nothing has verified. It is
   working state, not part of `docs/`, so it is stale the moment it stops being updated:
-  re-check the PR and CI before trusting it.
+  re-check the PR and CI before trusting it. It carries the last two batches; every batch
+  before them is in `docs/history.md`, newest first, verbatim.
 - **A pull request of this session's own work is merged without asking.** The owner asked for
   that on 20 September 2026; it is their standing instruction, recorded in the `github-pr`
   skill with the five things to check first — CI green on the exact head, `mergeable_state`
@@ -690,8 +692,9 @@ points Hilt does not inject cleanly.
   batch before. If the batch's own pull request has already merged, the update is its own
   commit and its own pull request — with a milestone, like every other. What drifts every
   time, and is not a judgement call, is listed in the `handover` skill: the opening
-  paragraph, the chain of batch sections, the milestone table, the test counts in their
-  three places, and sections 5 and 7.
+  paragraph, the chain of batch sections — the new one on top, and the one that falls off
+  the last two moved to the top of `docs/history.md` — the milestone table, the test counts
+  in their three places, and sections 5 and 7.
 - **`.claude/` holds the agent configuration, and it describes the shape rather than
   repeating this file.** `.claude/agents/` has one agent per area that has produced a defect
   here, carrying the fact that would have prevented it; `.claude/skills/` has the procedures

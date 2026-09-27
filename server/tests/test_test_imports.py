@@ -6,21 +6,25 @@ resolves when a person runs the command `CLAUDE.md` documents — and fails at
 *collection* on CI, which runs the bare `pytest`. The whole file errors, and it
 errors on a line that has nothing to do with what the file tests.
 
-That shipped, in this repository, on the commit this test arrived with. The
-import looked ordinary, the suite was green locally, and the failure said
-«ModuleNotFoundError: No module named 'tests'» about a directory that is
-plainly there.
+That shipped, in this repository, on 21 September 2026: `test_holidays.py`
+borrowed `_token` that way, CI went red, and this test arrived seventeen
+minutes later with the fix. The import looked ordinary, the suite was green
+locally, and the failure said «ModuleNotFoundError: No module named 'tests'»
+about a directory that is plainly there.
 
 **And then this test went on saying «no test module may import another one»
 while five of them did.** It matched only the `tests.`-prefixed spelling; the
-bare `from test_bot_handlers import FakeState` was invisible to it, and six
-such lines lived here for months under a guard that reported them green. They
+bare `from test_bot_handlers import FakeState` was invisible to it. Six such
+lines, in five files, had been here since 12 and 13 September, and for the
+last thirteen hours of that — until the fakes they borrowed moved into
+`conftest.py` on 22 September — under a guard that reported them green. They
 worked, which is what made them invisible: under the default `prepend` import
 mode pytest puts *this directory* on `sys.path` before importing a test
 module, so a sibling resolves by bare name. Under `--import-mode=importlib`,
 which pytest now recommends and which is one line of `pyproject.toml` away,
-nothing is added to `sys.path` at all and all six die at collection with the
-very message quoted above. The rule was right; the matcher was narrower than
+nothing is added to `sys.path` at all, and each of the five files dies at
+collection with the same `ModuleNotFoundError`, naming the sibling where the
+one above named `tests`. The rule was right; the matcher was narrower than
 the sentence describing it, which is the same defect as a test asserting a
 substring of the line it means to pin.
 
