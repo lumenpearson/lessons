@@ -103,8 +103,10 @@ jobs:
               # test_env_example), `docs/diaries/regions.md` is the region
               # catalog's input and `docs/diaries.md` its table
               # (test_region_catalog), `docs/diaries/netschool.md` is quoted by
-              # test_netschool_mapper.
-              server/*|api/*|requirements.txt|docs/deploy.md|docs/build.md|docs/diaries.md|docs/diaries/*|.github/workflows/*) server=true ;;
+              # test_netschool_mapper. `requirements.in` is the input of the
+              # lock `requirements.txt`, and test_requirements_mirror holds the
+              # two level with pyproject.toml.
+              server/*|api/*|requirements.txt|requirements.in|docs/deploy.md|docs/build.md|docs/diaries.md|docs/diaries/*|.github/workflows/*) server=true ;;
             esac
           done <<< "$files"
 
@@ -126,9 +128,19 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: server/pyproject.toml
+          cache-dependency-path: |
+            requirements.txt
+            server/pyproject.toml
+      # The lock and the package in one resolve (#192). The lock is what
+      # Vercel installs, so the suite runs on the versions production gets
+      # rather than on whatever was newest the morning CI ran — which is how
+      # SQLAlchemy 2.1 reached the tests and the deployment unannounced
+      # (#164). pyproject.toml adds on top what the function does without:
+      # uvicorn, aiosqlite, alembic and the dev tools, which are not locked
+      # and still float. A lock that no longer satisfies one of its floors
+      # fails here, at the install, rather than in production.
       - name: Install
-        run: pip install -e ".[dev]"
+        run: pip install -r ../requirements.txt -e ".[dev]"
       - name: Lint
         run: ruff check app tests scripts migrations
       # `-n auto`, because this step was the whole run. It was twelve and a

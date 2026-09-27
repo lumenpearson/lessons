@@ -35,7 +35,10 @@ cookie, no build step. Do not grow it into a second admin surface: anything the 
 express belongs in the bot.
 
 `requirements.txt` at the root exists only because Vercel's Python builder does not read
-`pyproject.toml` from a subdirectory — and it must stay level with it.
+`pyproject.toml` from a subdirectory. It is a lock (#192) — every package the function can
+import, at one exact version, for CPython 3.12 on Linux — compiled by `uv pip compile` from
+`requirements.in`, which must stay level with `pyproject.toml`. The lock's header is the
+command; never edit a pin by hand. CI installs the lock too, so the tests run on what deploys.
 
 ## Commands
 

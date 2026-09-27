@@ -9,7 +9,9 @@ description: Run the checks this project actually gates on, in the right order, 
 
 ## Server, from `server/`
 
-Setup once: `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"`
+Setup once: `python3 -m venv .venv && .venv/bin/pip install -r ../requirements.txt -e ".[dev]"`
+— the lock Vercel installs, then the package, which is exactly CI's install (#192). Without
+the `-r` you test on whatever is newest today, which production does not run.
 
 1. `ruff check app tests scripts migrations` — exactly what CI lints. `ruff check .` from
    `server/` covers the same tree.
