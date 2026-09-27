@@ -10,6 +10,7 @@ import com.lumenpearson.lessons.core.model.SchoolDay
 import com.lumenpearson.lessons.core.model.SchoolEvent
 import com.lumenpearson.lessons.core.model.ribbonOf
 import com.lumenpearson.lessons.widget.R
+import com.lumenpearson.lessons.widget.WidgetSizeClass
 import com.lumenpearson.lessons.widget.format.HomeworkDayLabel
 import com.lumenpearson.lessons.widget.format.WidgetStrings
 import java.time.Duration
@@ -190,12 +191,27 @@ private fun minutesBetween(from: java.time.LocalTime, to: java.time.LocalTime): 
  * Drawn under the timeline on the tallest size, where the rest of today is one
  * row or none by the middle of the afternoon — which is exactly the hour a pupil
  * is deciding what to put in a bag for tomorrow.
+ *
+ * @param maxChars the rung's budget, spent on the subject rather than on the
+ *   time; see [WidgetStrings.dayPlan].
  */
-internal fun dayPlanOf(context: Context, day: SchoolDay?): String? {
+internal fun dayPlanOf(context: Context, day: SchoolDay?, maxChars: Int): String? {
     val lessons = day?.activeLessons.orEmpty()
     val first = lessons.firstOrNull() ?: return null
-    return WidgetStrings.dayPlan(context, lessons.size, first.subject, first.startsAt)
+    return WidgetStrings.dayPlan(context, lessons.size, first.subject, first.startsAt, maxChars)
 }
+
+/**
+ * How many lines the day plan may take on [size].
+ *
+ * Two on the narrow rungs. Their budget is a count of characters, and Glance
+ * clips a line that runs out of width at the pixel, with no «…»: in a column
+ * that really is 110 dp wide the plan's first line ends around «4 урока ·
+ * Алгебра», and on one line the time would be the part clipped — the same loss
+ * [WidgetStrings.dayPlan] exists to prevent, arriving by width instead of by
+ * count. A 2×2 on a phone is nearer 190 dp and still takes one line.
+ */
+internal fun dayPlanLines(size: WidgetSizeClass): Int = if (size.isNarrow) 2 else 1
 
 /**
  * The after-school half of the product: which day the homework is for, and the
@@ -206,6 +222,8 @@ internal fun dayPlanOf(context: Context, day: SchoolDay?): String? {
  * @property items homework for that day, already sorted by subject so the list
  *   does not reshuffle between redraws.
  * @property subjectCount worded count for the TINY layout.
+ * @property subjectFigure the same count without its noun, for the TINY layout
+ *   at an enlarged font; see [tinyCountOf].
  * @property isKnown false when there is no next school day at all (end of the
  *   cached window, or a holiday longer than the sync horizon).
  */
@@ -214,8 +232,26 @@ internal data class HomeworkPresentation(
     val shortHeader: String,
     val items: List<HomeworkItem>,
     val subjectCount: String,
+    val subjectFigure: String,
     val isKnown: Boolean,
 )
+
+/**
+ * The count the one-line size draws beside «ДЗ на завтра».
+ *
+ * That line is a label with `defaultWeight()` and a count with its own width, so
+ * whatever the count takes the label loses. The worded count was sized at the
+ * default font, where «ДЗ на послезавтра · 3 предмета» was seen whole on a
+ * phone's 2×1. Any enlargement spends that width, and at the largest font the
+ * label came out as «Д…» beside an intact «3 предмета» (#174): the answer with
+ * no question. The noun is the part that can go without taking the sense with
+ * it, so from the first step above the default the figure stands alone.
+ *
+ * A step, not a measurement: Glance cannot ask how wide text is, and a widget
+ * box's real width is not handed to the composition either.
+ */
+internal fun tinyCountOf(homework: HomeworkPresentation, fontScale: Float): String =
+    if (fontScale > 1f) homework.subjectFigure else homework.subjectCount
 
 /**
  * True when the homework block *is* the widget, rather than a footnote under a
@@ -253,6 +289,7 @@ internal fun homeworkOf(
             shortHeader = unknown,
             items = emptyList(),
             subjectCount = WidgetStrings.subjectCount(context, 0),
+            subjectFigure = WidgetStrings.subjectFigure(context, 0),
             isKnown = false,
         )
     }
@@ -268,6 +305,7 @@ internal fun homeworkOf(
         shortHeader = WidgetStrings.homeworkHeader(context, label, short = true),
         items = items,
         subjectCount = WidgetStrings.subjectCount(context, subjectsIn(items)),
+        subjectFigure = WidgetStrings.subjectFigure(context, subjectsIn(items)),
         isKnown = true,
     )
 }

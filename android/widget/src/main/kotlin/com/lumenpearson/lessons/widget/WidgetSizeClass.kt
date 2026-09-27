@@ -174,11 +174,19 @@ enum class WidgetSizeClass(
      * It used to match [SMALL] and leave a third of itself empty. The height
      * buys the two lines a pupil asks for next: what comes after this, and
      * whether anything is set for the next school day.
+     *
+     * Three homework rows, not [SMALL]'s two. The list is drawn only after
+     * school, under the state, the plan and the header, and in 190 dp that
+     * comes to about 130 with three one-line rows — 175 at the worst, with a
+     * note on the day off and the plan and the header each on two lines. With
+     * two, a 2×2 on a phone, which is this rung, drew two of three subjects over
+     * an empty lower half (#174). [NARROW], the only rung above this one at the
+     * same width, has three as well.
      */
     SMALL_TALL(
         breakpoint = DpSize(110.dp, 190.dp),
         timelineRows = 0,
-        homeworkItems = 2,
+        homeworkItems = 3,
         homeworkChars = 24,
         showsSubject = true,
         showsMeta = true,

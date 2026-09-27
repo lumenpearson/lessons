@@ -86,6 +86,27 @@ class WidgetSizeClassTest {
         }
     }
 
+    /**
+     * A 2×2 on a Pixel 10 Pro XL, about 195 × 226 dp, is [WidgetSizeClass.SMALL_TALL].
+     *
+     * #174 said it landed on `LARGE` and blamed the rung for the start time cut
+     * off the plan line. `LARGE` does not fit inside the box, so neither the
+     * launcher nor [WidgetSizeClass.of] can choose it. The cut was
+     * `SMALL_TALL`'s character budget, and the half-empty widget under two
+     * homework rows was its row count. Pinned so that the next reading of that
+     * screen starts from the rung it is.
+     */
+    @Test
+    fun `a phone's 2x2 is the tall small rung, and it lists three homework rows`() {
+        val phone2x2 = DpSize(195.dp, 226.dp)
+        assertEquals(WidgetSizeClass.SMALL_TALL, launcherPicks(phone2x2))
+        assertEquals(WidgetSizeClass.SMALL_TALL, WidgetSizeClass.of(phone2x2))
+        assertTrue(
+            "the 2×2 of a phone draws two homework rows over an empty lower half",
+            WidgetSizeClass.SMALL_TALL.homeworkItems >= 3,
+        )
+    }
+
     /** And a genuinely narrow one still gets the column it was written for. */
     @Test
     fun `a two-cell-wide widget still lands on the narrow column`() {

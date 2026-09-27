@@ -21,6 +21,7 @@ import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.locale.AppLocale
 import com.lumenpearson.lessons.core.data.repository.ShellMode
 import com.lumenpearson.lessons.core.data.repository.ShellModeSource
+import com.lumenpearson.lessons.core.data.repository.drawnByWidget
 import com.lumenpearson.lessons.core.model.AppLanguage
 import com.lumenpearson.lessons.core.model.DayState
 import com.lumenpearson.lessons.core.model.DeepLink
@@ -239,7 +240,10 @@ class LessonsWidget : GlanceAppWidget() {
         val (mode, timetable) = readModeAndTimetable(container.shellMode) {
             container.timetableRepository.snapshotAroundToday()
         }
-        val settings = container.settingsRepository.settings.first()
+        // Through `drawnByWidget` and nothing wider: it is also what decides
+        // whether a settings change asks this widget to redraw (#188), so a
+        // setting read here from anywhere else would be drawn and never updated.
+        val settings = container.settingsRepository.settings.first().drawnByWidget
 
         // The school's wall clock, not the phone's. These differ whenever the
         // device has travelled, and permanently for anyone following a school
@@ -252,7 +256,7 @@ class LessonsWidget : GlanceAppWidget() {
             now = now,
             mode = mode,
             options = WidgetOptions(
-                showProgress = settings.widgetShowProgress,
+                showProgress = settings.showProgress,
                 showTeacher = settings.showTeacher,
                 // Only one trailing detail fits a phone-width row, and the room
                 // outranks the teacher — so with both on, the teacher never

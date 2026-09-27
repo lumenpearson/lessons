@@ -384,6 +384,29 @@ data class AppSettings(
 }
 
 /**
+ * The settings the home-screen widget draws, and nothing else.
+ *
+ * One value that both sides read. The widget takes its language and its options
+ * from here and from nowhere else in [AppSettings], and a settings change asks
+ * it to redraw when this, and only this, has moved (#188). A setting the widget
+ * starts to draw belongs here, or the widget will draw it and not be told when
+ * it changes.
+ */
+data class WidgetSettings(
+    val language: AppLanguage,
+    val showProgress: Boolean,
+    val showTeacher: Boolean,
+)
+
+/** @see WidgetSettings */
+val AppSettings.drawnByWidget: WidgetSettings
+    get() = WidgetSettings(
+        language = language,
+        showProgress = widgetShowProgress,
+        showTeacher = showTeacher,
+    )
+
+/**
  * Outcome of a sync attempt.
  *
  * [Unauthorised] is separate from [Failed] because it is the one failure the

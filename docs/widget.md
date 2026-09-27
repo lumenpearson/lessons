@@ -61,6 +61,23 @@ who had asked for bigger type lost the rest of their school day. The floor of th
 a widget that says nothing is a worse answer than one whose last row is clipped.
 `WidgetFontScaleTest` walks it.
 
+**On the smallest sizes, what gives way is decided rather than left to the pixel** (#174).
+Glance cannot ellipsize and cannot measure, so a line that runs out of room is cut wherever
+the width ends. Two lines were being cut at their most useful end:
+
+- The next day's plan, «4 урока · Алгебра в 08:30», was cut to the rung's character budget
+  from the end, which is the time. `WidgetStrings.dayPlan` now spends the budget on the
+  subject («4 урока · Алгеб… в 08:30»), and the narrow rungs let it take a second line
+  rather than be clipped at 110 dp.
+- On the 2×1, «ДЗ на завтра» is weighted and the count beside it is not, so at the largest
+  font the label came out as «Д…» beside an intact «3 предмета». From the first step above
+  the default font the count is drawn as the bare figure — «ДЗ на завтра 3», or «ДЗ на
+  завтра нет» — and the day survives.
+
+A 2×2 on a Pixel 10 Pro XL is about 195×226 dp, which is `SMALL_TALL`, not `LARGE`: `LARGE`
+does not fit inside it. `SMALL_TALL` lists three homework subjects after school, where it
+used to list two over an empty lower half.
+
 Every block drawn inside the widget takes its corner from the rung's own padding rather than
 from a constant — `WidgetSizeClass.innerCorner()`, the surface's 24 dp less that padding.
 The rule and the four places that deliberately do not follow it are in
@@ -179,6 +196,13 @@ after, because the sync of the class on screen answered `304` (#168, seen on an 
 Every redraw now bumps `WidgetRedraws` before it asks, and a composition that is still alive
 re-reads when the counter moves; a redraw that starts a session reads the counter with its
 first snapshot and does not read twice.
+
+**A settings change the widget draws redraws it** (#188). The widget draws three settings:
+the app's language, «Прогресс в виджете» and the teacher switch. It reads them through
+`AppSettings.drawnByWidget` and nothing wider, and `SettingsRepositoryImpl.update` sends
+`DATA_SYNCED` when that value moves. Before, nothing did: on an emulator switched to Russian
+the app redrew at once and the widget stayed English until a reinstall woke it, because a
+settings change is neither a sync that changed the data nor a tick.
 
 ## The picker
 
