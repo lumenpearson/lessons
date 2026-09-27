@@ -19,6 +19,21 @@
 #       InputManager.getInstance by reflection, which API 34 removed: every
 #       test failed at its first Espresso.onIdle on the API 37 emulator.
 #
+#   detekt -> the maven-metadata.xml of dev.detekt:detekt-gradle-plugin on
+#       Maven Central and of the dev.detekt plugin marker on the Gradle Plugin
+#       Portal, both read on 27 September 2026, where 2.0.0-alpha.6 (released
+#       4 August 2026) is the <release> and no 2.0.0 exists yet. Its release
+#       notes (GitHub, detekt/detekt, v2.0.0-alpha.6) say it is built against
+#       Kotlin 2.4.10, Gradle 9.6.1 and AGP 9.3.1. Of the alphas before it,
+#       alpha.3 is the first to support AGP 9's built-in Kotlin without it
+#       being switched off in gradle.properties, and alpha.4 the first built
+#       against Kotlin 2.4. The 1.x line (io.gitlab.arturbosch.detekt) ends at
+#       1.23.8, built against Kotlin 2.0.21 and AGP 8.8. detekt runs on the
+#       compiler it was built with — detekt-cli's own kotlin-compiler 2.4.10,
+#       in a configuration of its own — and refuses to start on any other, so
+#       this build's 2.4.20 never reaches it unless something aligns Kotlin
+#       versions across every configuration, which nothing here does.
+#
 # The first CI run failed on invented versions (room 2.9.2, navigation 2.9.6,
 # okhttp 5.2.0, kotlinx-serialization-json 1.9.1) that do not exist in any
 # repository. Verify a version against its repository before adding it here.
@@ -51,6 +66,8 @@ junit = "4.13.2"
 robolectric = "4.17"
 espresso = "3.7.0"
 androidxTestRunner = "1.7.0"
+
+detekt = "2.0.0-alpha.6"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -104,3 +121,4 @@ kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+detekt = { id = "dev.detekt", version.ref = "detekt" }

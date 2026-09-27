@@ -77,6 +77,12 @@ Android, from `android/`:
 - `./gradlew :core:model:test --tests '*ScheduleEngineTest*'` — one module, one class
 - **`./gradlew assembleDebug`** and **`./gradlew assembleRelease`** — CI builds both on every
   push, because R8 and resource shrinking are where "worked in debug" stops being true
+- **`./gradlew detekt`** — static analysis of the Kotlin in all five modules (#210), without
+  type resolution; fails on any finding the module's `detekt-baseline.xml` does not hold.
+  Fix a new finding, or `@Suppress` it in place with the reason — the baseline is the past
+- `./gradlew detektBaseline` — rewrites all five baselines from the code as it stands; run
+  it after a merge that moves code between files, because a baseline entry names the file.
+  `docs/build.md`, "detekt", has the rest
 - `./gradlew lint` runs the AGP Android lint; CI does not, so do not report it as a gate
 - `./gradlew :core:designsystem:connectedDebugAndroidTest` — the one instrumented source set
   (#110), on a running emulator or a connected phone. Not a CI gate: CI has no device, and a

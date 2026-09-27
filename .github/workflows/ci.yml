@@ -271,3 +271,22 @@ jobs:
           name: app-release-unsigned-key
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+
+      # Static analysis of the Kotlin (#210): detekt over every module's
+      # sources, without type resolution, failing on any finding that the
+      # module's `detekt-baseline.xml` does not already record. docs/build.md,
+      # "detekt", says what it checks and what it cannot.
+      #
+      # A step of its own rather than a fourth task in the invocation above,
+      # which is where the cost argument would put it. That invocation has no
+      # `--continue`, and detekt's tasks depend on nothing, so they would run
+      # first — and one finding would stop Gradle from scheduling the tests at
+      # all: a style verdict hiding a test verdict. Here it costs the analysis
+      # itself, under half a minute for the five modules on a laptop, and one
+      # configuration on the daemon "Test and assemble" left warm.
+      #
+      # Last, and `success() || failure()`, so that it still answers on a run
+      # whose build failed and can never cost a run its APKs.
+      - name: Detekt
+        if: success() || failure()
+        run: ./gradlew detekt
