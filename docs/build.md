@@ -729,6 +729,12 @@ launcher's own log — which is how #167 was found.
 The app needs an address the **phone** can reach, not the computer. `localhost` and
 `127.0.0.1` do not work in the app: to a phone, those are the phone.
 
+**This is the debug build's route.** A release build speaks `https://` to its server and
+nothing else, except to the phone itself (#202, and [below](#why-a-debug-build-speaks-http-and-a-release-build-does-not)):
+it refuses the `http://<address>:8000/` of step 4 where it is typed, with a sentence about
+https. With a release build, go through the `adb` tunnel described under «On the
+emulator» — it works for a phone on a cable too — or put the server behind TLS.
+
 1. Start the server so that it listens on more than the loopback:
 
    ```bash
@@ -793,13 +799,28 @@ the Compose BOM brings, because the BOM's Espresso 3.5.0 reaches for
 `InputManager.getInstance` by reflection, which API 34 removed, and every test failed at its
 first `onIdle` on the API 37 emulator.
 
-### Why HTTP and not HTTPS
+### Why a debug build speaks HTTP and a release build does not
 
-Since Android 9 the system blocks `http://` by default. The app allows it through
-`network_security_config.xml`, because the real scenario is a server in the same school,
-reachable at a local address, and public CAs do not issue certificates for an IP on a
-private network. If the school has configured TLS, enter `https://` — the configuration does
-not apply to such an address.
+Since Android 9 the system blocks `http://` by default. The app used to allow it to every
+host through `network_security_config.xml`, on the premise that the real scenario was a
+server in the same school, reachable at a local address, for which public CAs issue no
+certificate. The owner decided on 27 September 2026 that what crosses such a wire (the list
+below) is not worth that case (#202), so there are now two files:
+
+- `app/src/main/res/xml/network_security_config.xml` — the release build's: cleartext is
+  refused except to `localhost` and `127.0.0.1`, whose requests never leave the phone. A
+  school server on a LAN over plain `http://` does not work in the release APK, and that is
+  accepted.
+- `app/src/debug/res/xml/network_security_config.xml` — the debug build's, which overrides
+  it by name: cleartext to every host, for development against a server on the same desk.
+  Nothing in Gradle chooses between them; a build type's resources win over `main`'s.
+
+The app asks that configuration before it sends anything (`CleartextPolicy` in
+`:core:data`, through `NetworkSecurityPolicy` — the question OkHttp asks too). The address
+sheet refuses a refused `http://` address where it is typed; one kept from an older version
+is refused by the base-URL interceptor before the request leaves, and a sync, the server
+badge and the diary sign-in each say it needs `https://` rather than showing a network
+error. `NetworkSecurityConfigTest` holds both files to the rule.
 
 What travels over a plain `http://` wire is **not** harmless, and this page used to say it
 was — «only a class code and a timetable: no passwords, no personal data». The diary
@@ -821,6 +842,7 @@ Two routes still carry a **password** through the server, and over `http://` the
 in the clear: the older `POST /api/v1/diary/login`, kept for the APKs built before
 registration, and the bot's sign-in page, which posts the password to the server at
 `PUBLIC_BASE_URL` — in the clear if that address is `http://`. Neither is on this app's path.
-Before anything is typed, the app's diary sign-in warns when the server address is `http://`
-(«⚠️ Адрес сервера начинается с http://…»), and the warning is about the session, not the
-password; the configuration file's own comment carries the same list.
+In a debug build, before anything is typed, the app's diary sign-in warns when the server
+address is `http://` («⚠️ Адрес сервера начинается с http://…»), and the warning is about the
+session, not the password; a release build says there that the server needs `https://`
+instead. The configuration file's own comment carries the same list.

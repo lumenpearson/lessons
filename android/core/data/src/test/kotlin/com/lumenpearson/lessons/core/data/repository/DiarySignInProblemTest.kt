@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
+import com.lumenpearson.lessons.core.data.network.ServerNeedsHttpsException
 import com.lumenpearson.lessons.core.data.repository.DiarySignInProblem.Action
 import com.lumenpearson.lessons.core.data.upstream.UpstreamFailure
 import com.lumenpearson.lessons.core.data.upstream.UpstreamNotAllowed
@@ -53,6 +54,8 @@ class DiarySignInProblemTest {
                 DiarySignInProblem.ProviderUnreadable(host), Action.NONE),
             // Our server.
             row("no address", ServerAddressMissingException(), DiarySignInProblem.ServerMissing, Action.SET_SERVER),
+            row("http:// refused by the build (#202)", ServerNeedsHttpsException("192.168.1.50"),
+                DiarySignInProblem.ServerNeedsHttps, Action.SET_SERVER),
             row("no network", IOException("unreachable"), DiarySignInProblem.Offline, Action.RETRY),
             row("socket timeout", SocketTimeoutException("timeout"), DiarySignInProblem.Timeout(null), Action.RETRY),
             row("call timeout", InterruptedIOException("timeout"), DiarySignInProblem.Timeout(null), Action.RETRY),
@@ -81,6 +84,8 @@ class DiarySignInProblemTest {
             row("read offline", DiaryFailure.Offline(IOException("x")), DiarySignInProblem.Offline, Action.RETRY),
             row("read offline, no address", DiaryFailure.Offline(ServerAddressMissingException()),
                 DiarySignInProblem.ServerMissing, Action.SET_SERVER),
+            row("read offline, http:// refused", DiaryFailure.Offline(ServerNeedsHttpsException("192.168.1.50")),
+                DiarySignInProblem.ServerNeedsHttps, Action.SET_SERVER),
         )
         for ((label, thrown, expected) in table) {
             val problem = DiarySignInProblem.of(thrown, host = if (thrown is UpstreamFailure) host else null)

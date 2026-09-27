@@ -88,6 +88,7 @@ The phone keeps an access key and copies of the timetable and the diary, so the 
     <string name="server_dialog_description">The address of the server the class and the diary go through. No server is built into the app: the class admin, or whoever set the server up, has the address.</string>
     <string name="server_dialog_label">Address</string>
     <string name="server_dialog_placeholder">https://…</string>
+    <string name="server_needs_https">The app connects to the server only at a secure address — one that starts with https://. At an http:// address the class access key and the diary sign-in would cross the network in the clear. Ask whoever runs the server for its https:// address.</string>
 
     <!-- Today -->
     <string name="today_title">Today</string>
@@ -142,6 +143,7 @@ The phone keeps an access key and copies of the timetable and the diary, so the 
     <string name="interval_hours">%1$d h</string>
     <string name="sync_error_unauthorised">Access to the class was revoked. Join again.</string>
     <string name="sync_error_not_configured">No server address — set one in the settings.</string>
+    <string name="sync_error_needs_https">The server address starts with http://, and the app connects only over https:// — correct the address in the settings.</string>
     <string name="sync_error_generic">Could not update the timetable</string>
 
     <!-- Week -->
@@ -387,6 +389,7 @@ The phone keeps an access key and copies of the timetable and the diary, so the 
     <string name="about_badge_server_unreachable">Server is not answering</string>
     <string name="about_badge_server_degraded">Server: database and code disagree</string>
     <string name="about_badge_server_none">No server address set</string>
+    <string name="about_badge_server_needs_https">Needs an https:// address</string>
     <string name="about_badge_schema">Schema %1$s</string>
     <string name="about_badge_schema_expected">Expected %1$s</string>
     <string name="about_badge_api">API v%1$d</string>

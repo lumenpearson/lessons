@@ -80,11 +80,13 @@ code.
 **The app has no server of its own**: the address comes from the class's administrator,
 or from whoever set a server up for the school. It goes into the **«Адрес сервера»** row
 under «Сервер» — on the «Как подключиться?» screen, at the bottom of the class-code screen,
-or in «Настройки → Синхронизация» — as a whole address, `http://192.168.1.50:8000/` or
-`https://lessons.example.com/`. On the way through the school's diary it is asked for when
-it is first needed. The address has to be the one the **phone** can see the server at: to a
-phone, `localhost` means itself. The details, and how to check from a browser, are in
-[build.md](build.md#pointing-the-app-at-a-server).
+or in «Настройки → Синхронизация» — as a whole address, `https://lessons.example.com/`. On
+the way through the school's diary it is asked for when it is first needed. The address has
+to be the one the **phone** can see the server at: to a phone, `localhost` means itself. A
+released app talks to its server over `https://` only and refuses a plain `http://` address
+where it is typed, saying so; a debug build, made for development, also takes one on the
+local network, such as `http://192.168.1.50:8000/`. The details, and how to check from a
+browser, are in [build.md](build.md#pointing-the-app-at-a-server).
 
 ### Several classes on one phone
 

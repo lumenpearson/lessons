@@ -181,6 +181,14 @@ class AboutCardTest {
         assertShows("Адрес сервера не задан")
     }
 
+    /** #202: the server was never asked, so it is not «не отвечает» — the address is the problem. */
+    @Test
+    fun `an http address this build refuses is a sentence about the address`() {
+        show(ServerStatus.NeedsHttps)
+
+        assertShows("Нужен адрес https://")
+    }
+
     @Test
     fun `a build that was told nothing about itself says that rather than nothing`() {
         // What a fresh clone with no configuration produces. A page with no

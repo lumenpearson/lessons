@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.network.LessonsApi
+import com.lumenpearson.lessons.core.data.network.ServerNeedsHttpsException
 import com.lumenpearson.lessons.core.data.network.dto.JoinRequestDto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -97,6 +98,10 @@ internal class SessionRepositoryImpl(
             // scope, and turning a cancellation into «сервер не отвечает» would
             // leave a badge accusing the server of a screen that was closed.
             throw e
+        } catch (_: ServerNeedsHttpsException) {
+            // Refused before it was sent, so the server was never asked and
+            // must not be called unreachable.
+            ServerStatus.NeedsHttps
         } catch (_: Exception) {
             // Everything else is one answer on purpose. A reader cannot act on
             // the difference between an unresolved host, a refused connection

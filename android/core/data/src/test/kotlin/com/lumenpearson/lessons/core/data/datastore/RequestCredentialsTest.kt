@@ -66,7 +66,7 @@ class RequestCredentialsTest {
         val preferences = LessonsPreferences(store, vault)
         preferences.updateSettings { it.copy(baseUrl = server.url("/").toString()) }
         preferences.addSession(session(7, "token-7"))
-        val client = NetworkModule.okHttpClient(preferences.credentials::current)
+        val client = NetworkModule.okHttpClient(preferences.credentials::current, cleartext = { true })
         val readsBefore = store.reads.get()
 
         repeat(20) {
@@ -97,7 +97,7 @@ class RequestCredentialsTest {
         }
 
         val preferences = LessonsPreferences(MemoryStore(lastProcess.value), testVault(keys))
-        val client = NetworkModule.okHttpClient(preferences.credentials::current)
+        val client = NetworkModule.okHttpClient(preferences.credentials::current, cleartext = { true })
 
         assertEquals("Bearer token-7", authorizationOn(client, "/api/v1/bundle"))
         assertEquals("Bearer diary-1", authorizationOn(client, "/api/v1/diary/days"))
@@ -114,7 +114,7 @@ class RequestCredentialsTest {
         preferences.updateSettings { it.copy(baseUrl = server.url("/").toString()) }
         preferences.addSession(session(1, "token-1"))
         preferences.addSession(session(2, "token-2"))
-        val client = NetworkModule.okHttpClient(preferences.credentials::current)
+        val client = NetworkModule.okHttpClient(preferences.credentials::current, cleartext = { true })
         assertEquals("Bearer token-2", authorizationOn(client, "/api/v1/bundle"))
 
         preferences.selectSession(1)
@@ -136,7 +136,7 @@ class RequestCredentialsTest {
         answering(MockWebServer()).use { other ->
             val preferences = LessonsPreferences(MemoryStore(), vault)
             preferences.updateSettings { it.copy(baseUrl = server.url("/").toString()) }
-            val client = NetworkModule.okHttpClient(preferences.credentials::current)
+            val client = NetworkModule.okHttpClient(preferences.credentials::current, cleartext = { true })
             authorizationOn(client, "/api/v1/warmup")
             assertEquals(1, server.requestCount)
 
@@ -154,7 +154,7 @@ class RequestCredentialsTest {
         val preferences = LessonsPreferences(MemoryStore(), vault)
         preferences.updateSettings { it.copy(baseUrl = server.url("/").toString()) }
         preferences.addSession(session(7, "token-7"))
-        val client = NetworkModule.okHttpClient(preferences.credentials::current)
+        val client = NetworkModule.okHttpClient(preferences.credentials::current, cleartext = { true })
         assertNull(authorizationOn(client, "/api/v1/diary/days"))
 
         preferences.writeDiarySession(DiarySession(login = "parent", token = "diary-1"))

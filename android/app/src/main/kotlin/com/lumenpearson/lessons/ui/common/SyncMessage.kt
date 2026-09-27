@@ -27,6 +27,13 @@ sealed interface SyncMessage {
     data object NotConfigured : SyncMessage
 
     /**
+     * The address is plain `http://` and this build speaks https only (#202).
+     * Not [NotConfigured]: the address is there, and a sentence saying it is
+     * not would send the reader looking for a field they have already filled.
+     */
+    data object NeedsHttps : SyncMessage
+
+    /**
      * Anything else: no network, a 5xx, a malformed payload.
      *
      * No detail, on purpose. This carried one, documented as the server's own
@@ -52,6 +59,7 @@ fun SyncResult.toMessageOrNull(): SyncMessage? = when (this) {
     SyncResult.Success -> null
     SyncResult.Unauthorised -> SyncMessage.Unauthorised
     SyncResult.NotConfigured -> SyncMessage.NotConfigured
+    SyncResult.NeedsHttps -> SyncMessage.NeedsHttps
     is SyncResult.Failed -> SyncMessage.Failed
 }
 
@@ -60,6 +68,7 @@ fun SyncResult.toMessageOrNull(): SyncMessage? = when (this) {
 fun SyncMessage.asText(): String = when (this) {
     SyncMessage.Unauthorised -> correctedString(R.string.sync_error_unauthorised)
     SyncMessage.NotConfigured -> correctedString(R.string.sync_error_not_configured)
+    SyncMessage.NeedsHttps -> correctedString(R.string.sync_error_needs_https)
     SyncMessage.Failed -> correctedString(R.string.sync_error_generic)
     SyncMessage.IssueFailed -> correctedString(R.string.issue_error_failed)
 }

@@ -21,8 +21,8 @@
   password does cross the server on the bot's sign-in page and from older apps; the data is
   not in Russia; the operator holds the key and can read the diary; leaving a class deletes
   nothing on the server; the phone encrypts the two access keys and nothing else, and keeps
-  them bare where its Keystore does not work; an http:// server address
-  carries everything in the clear; the keep-alive runs for up to 30 days after the last
+  them bare where its Keystore does not work; a debug build still sends everything in the
+  clear to an http:// server address, and a release build to one on the phone itself; the keep-alive runs for up to 30 days after the last
   use, not only while somebody is active; a correction to the diary is the child's rather
   than the account's, so every account whose diary lists that pupil reads, changes and
   resets it, and no row says who wrote it, so the operator cannot pick out one adult's
@@ -221,7 +221,7 @@
 - Сессию дневника сервер шифрует (Fernet: AES-128-CBC с HMAC) ключом, который задаёт оператор. Без ключа дневник на сервере не работает вовсе, а не хранит сессии открыто.
 - На телефоне приложение шифрует только ключи доступа к классам и к дневнику (AES-256-GCM, ключом из Android Keystore). Если хранилище ключей на телефоне не работает, оно хранит их без шифрования, как раньше, и пробует зашифровать при каждом запуске. Всё остальное — копии расписания и дневника, логин, настройки — защищено лишь тем, чем защищён сам телефон. Шифрование ключей на устройстве пока не проверялось.
 
-**HTTPS зависит от адреса, который вы ввели.** Приложение принимает и адреса `http://` — ради серверов в локальной сети школы. По такому адресу всё, что идёт между телефоном и сервером, передаётся открытым текстом: ключи доступа к классу и к дневнику, название телефона, расписание и сессия дневника, которую телефон передаёт серверу при входе. Любой в той же сети может её перехватить и открыть ваш дневник. Приложение предупреждает об этом перед входом в дневник, но не запрещает.
+**С сервером приложение говорит только по HTTPS.** Адрес, который начинается с `http://`, приложение не принимает и ничего по нему не отправляет: по такому адресу всё, что идёт между телефоном и сервером, — ключи доступа к классу и к дневнику, название телефона, расписание и сессия дневника, которую телефон передаёт серверу при входе, — шло бы открытым текстом, и любой в той же сети мог бы это перехватить и открыть ваш дневник. Исключение — сервер на самом телефоне (`localhost`, `127.0.0.1`): запросы к нему телефон не покидают. Отладочная сборка приложения, которую собирают для разработки, адреса `http://` принимает и передаёт по ним всё открытым текстом.
 
 В приложении пароль от дневника при любом адресе сервера уходит только в систему дневника и только по HTTPS.
 

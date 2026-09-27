@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
+import com.lumenpearson.lessons.core.data.network.ServerNeedsHttpsException
 import com.lumenpearson.lessons.core.data.upstream.UpstreamFailure
 import com.lumenpearson.lessons.core.data.upstream.UpstreamNotAllowed
 import com.lumenpearson.lessons.core.data.upstream.isTimeout
@@ -169,6 +170,15 @@ sealed class DiarySignInProblem(message: String, cause: Throwable? = null) :
 
     /** No server address is set yet; nothing was sent anywhere. */
     data object ServerMissing : DiarySignInProblem("No server address is set") {
+        override val action get() = Action.SET_SERVER
+    }
+
+    /**
+     * The server address is plain `http://`, which this build does not send
+     * to (#202). Found out at the first question to our server, before a
+     * password was taken, and nothing was sent anywhere.
+     */
+    data object ServerNeedsHttps : DiarySignInProblem("The server address needs https://") {
         override val action get() = Action.SET_SERVER
     }
 
@@ -356,6 +366,9 @@ sealed class DiarySignInProblem(message: String, cause: Throwable? = null) :
 
         /** No answer from our server at all. */
         private fun ofTransport(failure: Throwable, registering: Boolean): DiarySignInProblem = when {
+            // First: it is a kind of the next one, and the more useful to say.
+            generateSequence(failure) { it.cause }.take(8).any { it is ServerNeedsHttpsException } ->
+                ServerNeedsHttps
             generateSequence(failure) { it.cause }.take(8).any { it is ServerAddressMissingException } ->
                 ServerMissing
             failure.isTimeout() -> Timeout(host = null)

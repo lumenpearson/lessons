@@ -14,6 +14,7 @@ import com.lumenpearson.lessons.core.data.diary.DiaryImport
 import com.lumenpearson.lessons.core.data.diary.DiaryImportImpl
 import com.lumenpearson.lessons.core.data.diary.SeedingDiarySignIn
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
+import com.lumenpearson.lessons.core.data.network.CleartextPolicy
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.notifications.SchoolAlerts
 import com.lumenpearson.lessons.core.data.network.NetworkModule
@@ -204,7 +205,7 @@ class DefaultLessonsContainer(
             // this one brings the copy up to date on its own.
             runCatching { preferences.followCredentials() }
         }
-        NetworkModule.apis(credentials = preferences.credentials::current)
+        NetworkModule.apis(credentials = preferences.credentials::current, cleartext = CleartextPolicy.Platform)
     }
 
     private val api: LessonsApi by lazy { apis.lessons }

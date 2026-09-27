@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.network.cleartextLeavesThePhone
 import com.lumenpearson.lessons.core.designsystem.component.AccentIconTile
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupLinkItem
@@ -116,19 +117,26 @@ fun DiarySignInScreen(
 
         // Said before the password is typed, not after it has been sent.
         //
-        // `network_security_config.xml` permits cleartext for every host on
-        // purpose — the realistic deployment is uvicorn on a machine in the
-        // school, reached by LAN address, and no public CA issues a
-        // certificate for one of those. The password is not what that
-        // costs: it goes over https to the diary's own origin and nowhere
-        // else. What crosses an http:// server is what the diary hands back —
+        // A release build sends nothing to an http:// server (#202): the
+        // request is refused before it leaves, so what this says there is
+        // that, and what to do about it. A debug build, whose
+        // `network_security_config.xml` still permits cleartext for
+        // development, warns instead. The password is not what http:// costs
+        // — it goes over https to the diary's own origin and nowhere else.
+        // What would cross an http:// server is what the diary hands back —
         // the session this form registers with our server, and the key to it
         // — and on http:// anybody on the same Wi-Fi can take either.
+        //
+        // Asked of the build rather than of the address, which this screen is
+        // not given; so a release build pointed at a server on the phone
+        // itself — the one http:// it allows — reads the refusal too.
         if (insecureServer) {
             RoundedCardContainer {
                 GroupRow {
                     Text(
-                        text = correctedString(R.string.diary_insecure_server),
+                        text = correctedString(
+                            if (cleartextLeavesThePhone()) R.string.diary_insecure_server else R.string.server_needs_https,
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                     )

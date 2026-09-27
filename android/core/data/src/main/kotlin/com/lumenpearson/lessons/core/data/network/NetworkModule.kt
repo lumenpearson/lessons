@@ -53,8 +53,14 @@ internal object NetworkModule {
      * and the one step into another year, on a school's mobile signal. Measure
      * before moving any of these: a number raised on a guess is one nobody can
      * lower again.
+     *
+     * @param cleartext whether a plain `http://` address may be used, asked
+     *   before a request leaves; the container hands in the platform's answer.
      */
-    fun okHttpClient(credentials: () -> RequestCredentials): OkHttpClient = OkHttpClient.Builder()
+    fun okHttpClient(
+        credentials: () -> RequestCredentials,
+        cleartext: CleartextPolicy,
+    ): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
@@ -62,7 +68,7 @@ internal object NetworkModule {
         .retryOnConnectionFailure(true)
         // Order matters: the URL is rewritten first so the auth interceptors see
         // the real path when they decide whether the call is theirs to sign.
-        .addInterceptor(BaseUrlInterceptor { credentials().baseUrl })
+        .addInterceptor(BaseUrlInterceptor({ credentials().baseUrl }, cleartext))
         // Two bearers, one client. The class token and the diary token are
         // independent — either can exist without the other, and signing out of
         // one must not disturb the other — so each has an interceptor that
@@ -91,9 +97,9 @@ internal object NetworkModule {
      * client is the expensive part and all four interfaces want the same one —
      * the same pool, the same timeouts and the same base-URL rewrite.
      */
-    fun apis(credentials: () -> RequestCredentials): Apis {
+    fun apis(credentials: () -> RequestCredentials, cleartext: CleartextPolicy): Apis {
         val retrofit = retrofit(
-            client = okHttpClient(credentials),
+            client = okHttpClient(credentials, cleartext),
             json = json(),
         )
         return Apis(
