@@ -23,7 +23,7 @@ the diary being unreachable, where nothing ever looked at the password and so
 no guess was made (see ``_unspend``, which says why that line is drawn there
 and not further along).
 
-Three headers do the rest of the work, and each answers a specific leak:
+Headers do the rest of the work, and each answers a specific leak:
 
 ``Referrer-Policy: no-referrer``
     The ticket is in the URL. Any link or image the browser fetched from this
@@ -35,6 +35,11 @@ Three headers do the rest of the work, and each answers a specific leak:
 ``X-Robots-Tag: noindex``
     A ticket URL pasted somewhere public is worth fifteen minutes; it should
     not also be worth a search result.
+``frame-ancestors 'none'`` and ``X-Frame-Options: DENY``
+    The one page here that takes a password must not be drawn inside somebody
+    else's: framed out of sight, a click aimed at their page lands on «Войти»
+    and a password manager's fill lands in our fields (#196). The CSP directive
+    is the standard; the older header is for the browsers that predate it.
 """
 
 from __future__ import annotations
@@ -78,7 +83,12 @@ _HEADERS = {
     "X-Content-Type-Options": "nosniff",
     # No inline script, no external anything. Written down rather than assumed,
     # so that an added <script> fails visibly instead of running.
-    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'",
+    # `frame-ancestors` is not covered by `default-src` and has to be named.
+    "Content-Security-Policy": (
+        "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; "
+        "frame-ancestors 'none'"
+    ),
+    "X-Frame-Options": "DENY",
 }
 
 _STYLE = """

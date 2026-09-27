@@ -74,6 +74,47 @@ async def test_the_headers_that_keep_the_ticket_out_of_the_world_are_sent(web, t
     assert "default-src 'none'" in response.headers["content-security-policy"]
 
 
+async def test_no_page_this_router_draws_can_be_framed(
+    web, ticket, upstream, session, school_class, monkeypatch
+):
+    """#196. The page takes a password, and `default-src` does not cover
+    framing: drawn invisibly inside another site, a click aimed at that site
+    lands on «Войти». Every answer is checked, not only the form, because a
+    refusal page framed over a real one is the same trick with other words."""
+    answers = [
+        await web.get(f"/diary/signin/{ticket}"),
+        await web.get("/diary/signin/never-minted-this"),
+        await web.post(f"/diary/signin/{ticket}", data={"login": "", "password": ""}),
+        await web.post(
+            f"/diary/signin/{ticket}",
+            data={"login": "parent@example.com", "password": "wrong"},
+        ),
+        # The same ticket, now spent: the POST's own 410.
+        await web.post(
+            f"/diary/signin/{ticket}",
+            data={"login": "parent@example.com", "password": "correct"},
+        ),
+    ]
+    fresh = await diary_link.mint(session, telegram_id=42, class_id=school_class.id)
+    answers.append(
+        await web.post(
+            f"/diary/signin/{fresh}",
+            data={"login": "parent@example.com", "password": "correct"},
+        )
+    )
+    monkeypatch.setattr(get_settings(), "diary_secret", "", raising=False)
+    try:
+        answers.append(await web.get(f"/diary/signin/{fresh}"))
+    finally:
+        get_settings.cache_clear()
+
+    assert [answer.status_code for answer in answers] == [200, 410, 400, 401, 410, 200, 503]
+    for answer in answers:
+        assert answer.headers["content-type"].startswith("text/html")
+        assert "frame-ancestors 'none'" in answer.headers["content-security-policy"]
+        assert answer.headers["x-frame-options"] == "DENY"
+
+
 async def test_a_get_does_not_spend_the_ticket(web, ticket, session):
     """A link preview or a prefetch would otherwise burn it before anybody had
     typed anything — and Telegram fetches link previews by itself."""
