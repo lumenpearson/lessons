@@ -1,8 +1,12 @@
-"""Entry point: the read-only client API and the Telegram admin bot in one process.
+"""Entry point: the client API and the Telegram admin bot in one process.
 
-Keeping them together means the bot writes and the API reads the same database
-with no extra deployment moving parts. If the bot ever needs to scale
-separately, split it at ``run_polling`` — nothing else is shared.
+Both write the same database, over the same ``app/services/``: the bot is the
+admin panel, and a phone linked to a Telegram account writes through
+``/api/v1/edit`` and ``/api/v1/manage`` with that account's role, while the
+rest of the API reads, or writes only an account's or a family's own rows.
+Keeping them together means one database and no extra deployment moving parts.
+If the bot ever needs to scale separately, split it at ``run_polling`` —
+nothing else is shared.
 """
 
 from __future__ import annotations

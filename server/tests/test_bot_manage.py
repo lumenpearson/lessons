@@ -2493,7 +2493,7 @@ class _FakeNetSchool:
 def _patch_netschool(monkeypatch, *, login_error=None, schools=None) -> None:
     _FakeNetSchool.login_error = login_error
     _FakeNetSchool.schools = schools or []
-    monkeypatch.setattr("app.bot.handlers.manage.NetSchoolClient", _FakeNetSchool)
+    monkeypatch.setattr("app.bot.handlers.manage.diary_binding.NetSchoolClient", _FakeNetSchool)
 
 
 async def test_choosing_netschool_shows_the_region_list(session, school_class):
@@ -4224,13 +4224,16 @@ NOT_A_ROLE_GATE = {
 
 
 def _minimum_role_of(source: str) -> dict[str, Role | None]:
-    """What each function in ``handlers/manage`` demands, read off its own body.
+    """What each function in ``handlers/manage`` demands, read off its own source.
 
-    Two spellings, because the module uses two. ``_allowed(school_class, role,
-    Role.X)`` is the shared check — its own docstring says it exists so that no
-    handler invents a version of its own — and ``role.at_least(Role.X)`` is the
-    one place that checks inline. Reading them beats keeping a second copy of
-    the table in this file, which is the mistake that made the list above
+    Three spellings, because the package uses three. ``@needs(Role.X)`` over
+    the handler is the one role check (#207): the decorator that runs
+    ``_allowed`` before the body. ``_allowed(school_class, role, Role.X)`` is
+    that check called by hand, and ``role.at_least(Role.X)`` is the one place
+    that checks inline - the diary binding's last step, whose class comes out
+    of the form's state. The decorator is part of the function's node, so it
+    is read with the body. Reading them beats keeping a second copy of the
+    table in this file, which is the mistake that made the list above
     fifty-seven names long and nine names short.
 
     The *weakest* role mentioned wins, not the first one found: a guard reading
@@ -4250,12 +4253,38 @@ def _minimum_role_of(source: str) -> dict[str, Role | None]:
             argument: ast.expr | None = None
             if getattr(call.func, "id", "") == "_allowed" and len(call.args) == 3:
                 argument = call.args[2]
+            elif getattr(call.func, "id", "") == "needs" and call.args:
+                argument = call.args[0]
             elif getattr(call.func, "attr", "") == "at_least" and len(call.args) == 1:
                 argument = call.args[0]
             if isinstance(argument, ast.Attribute) and argument.attr in Role.__members__:
                 named.append(Role[argument.attr])
         found[node.name] = min(named, key=lambda role: role.rank) if named else None
     return found
+
+
+def test_a_handler_that_cannot_show_its_role_cannot_be_gated():
+    """`@needs` reads the role and the class off the handler's own arguments,
+    and a step's form off its state. A handler that declares none of them
+    would be gated by nothing, so it is refused when the module is imported
+    rather than on the first press."""
+    from app.bot.handlers.manage._common import needs
+
+    async def no_role(callback, school_class) -> None:  # pragma: no cover - never called
+        return None
+
+    async def step_without_state(message, school_class, role) -> None:  # pragma: no cover
+        return None
+
+    async def event_not_first(session, callback, school_class, role) -> None:  # pragma: no cover
+        return None
+
+    with pytest.raises(TypeError):
+        needs(Role.ADMIN)(no_role)
+    with pytest.raises(TypeError):
+        needs(Role.ADMIN, step=True)(step_without_state)
+    with pytest.raises(TypeError):
+        needs(Role.ADMIN)(event_not_first)
 
 
 def test_the_role_check_above_reaches_every_handler_that_has_one():
@@ -4271,12 +4300,22 @@ def test_the_role_check_above_reaches_every_handler_that_has_one():
     """
     from app.bot.handlers import manage as manage_module
 
-    source = Path(manage_module.__file__).read_text(encoding="utf-8")
-    minimums = _minimum_role_of(source)
+    # A package now, one module per screen, each with a router of its own
+    # under `manage_router`: every module's source, and every router's
+    # handlers, so a screen split off tomorrow is read the day it is split.
+    minimums: dict[str, Role | None] = {}
+    for module in sorted(Path(manage_module.__file__).parent.glob("*.py")):
+        minimums.update(_minimum_role_of(module.read_text(encoding="utf-8")))
+
+    def routers(router):
+        yield router
+        for sub in router.sub_routers:
+            yield from routers(sub)
 
     registered = {
         handler.callback.__name__
-        for observer in (manage_router.callback_query, manage_router.message)
+        for router in routers(manage_router)
+        for observer in (router.callback_query, router.message)
         for handler in observer.handlers
     }
     assert len(registered) > 50, "the router looks empty; this test would prove nothing"
@@ -4295,7 +4334,7 @@ def test_the_role_check_above_reaches_every_handler_that_has_one():
         if minimums.get(name) is None and name not in NOT_A_ROLE_GATE
     )
     assert not ungated, (
-        "these are registered on the management router and never call `_allowed`; "
+        "these are registered on the management router and demand no role; "
         f"decide what they demand before exempting them: {ungated}"
     )
 

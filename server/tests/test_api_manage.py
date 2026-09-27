@@ -43,7 +43,7 @@ from app.models import (
     Subject,
     TimetableEntry,
 )
-from app.services import linking
+from app.services import audit, linking
 
 MONDAY = date(2026, 9, 7)
 
@@ -84,7 +84,7 @@ def recording_bot(monkeypatch):
     """Give the decision endpoints a bot, and record what it sends."""
     bot = FakeBot()
     monkeypatch.setattr(get_settings(), "bot_token", "123456:TEST")
-    monkeypatch.setattr(manage, "_build_bot", lambda: bot)
+    monkeypatch.setattr(manage.requests, "_build_bot", lambda: bot)
     return bot
 
 
@@ -1710,7 +1710,7 @@ async def test_a_failed_log_line_leaves_the_phone_linked(
     async def explode(*args: Any, **kwargs: Any) -> None:
         raise RuntimeError("the log is full")
 
-    monkeypatch.setattr(manage.audit, "record", explode)
+    monkeypatch.setattr(audit, "record", explode)
     with pytest.raises(RuntimeError):
         await client.post(
             f"/api/v1/manage/devices/{device.id}/unlink", headers=_auth(admin_token)

@@ -1,6 +1,6 @@
 ---
 name: server-api
-description: FastAPI surface of the server — public.py, edit.py, manage.py, diary.py, diary_web.py, cron.py, telegram.py and deps.py. Use when an endpoint is added, its auth changes, or a response shape moves. Knows which of the two bearer tokens an endpoint family depends on.
+description: FastAPI surface of the server — public.py, edit.py, manage/, diary.py, diary_web.py, cron.py, telegram.py and deps.py. Use when an endpoint is added, its auth changes, or a response shape moves. Knows which of the two bearer tokens an endpoint family depends on.
 tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 
@@ -9,7 +9,8 @@ every caller before you change a signature.
 
 ## What is actually here
 
-- `public.py` reads, `edit.py` and `manage.py` write, `diary.py` is the electronic diary,
+- `public.py` reads (and writes an account's own tasks and ticks), `edit.py` and `manage/` write — the
+  latter one module per resource over `services/manage/` — `diary.py` is the electronic diary,
   `diary_web.py` is the one server-rendered page in the project, `cron.py` is the clock the
   server does not have, `telegram.py` is the webhook, `deps.py` is device-token auth.
 - The write endpoints are a thin shell over `app/services/`. The bot handlers are the other

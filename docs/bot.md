@@ -5,9 +5,10 @@ Telegram already solved identity, and a class timetable does not deserve its own
 password reset flow.
 
 Everything below is what the code in `server/app/bot/` actually does. Handlers
-live in `handlers/`, the structural half of them in `handlers/manage.py`; the
-wording lives in `render.py` and `manage_render.py`; the buttons in
-`keyboards.py`, `manage_keyboards.py` and `calendar_keyboard.py`.
+live in `handlers/`, the structural half of them in `handlers/manage/` — one
+module per screen of «⚙️ Класс», over `services/manage/`, each handler gated by
+`@needs(Role.X)`; the wording lives in `render.py` and `manage_render.py`; the
+buttons in `keyboards.py`, `manage_keyboards.py` and `calendar_keyboard.py`.
 
 ## Button colours
 
