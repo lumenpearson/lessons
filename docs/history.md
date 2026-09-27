@@ -3562,8 +3562,9 @@ index. The sweep changed no code and ran no gate — there was nothing to run.
 What `HANDOVER.md`'s «Left to the owner» asked for and got, or recorded as already decided:
 the warmup request, answered on 26 September 2026 together with the bot's `/start`, which
 closed #119; the report from #79; the calendar's year scroll, decided and built in #78; the
-milestones' tidy-up; items 1, 1a and 1b of its numbered list; and item 5, the correction
-mode's walk, which #186 made on an emulator and which closed #115.
+milestones' tidy-up; items 1, 1a and 1b of its numbered list; item 5, the correction
+mode's walk, which #186 made on an emulator and which closed #115; and, at the end, the
+stash it asked the owner to drop, which was gone by the afternoon.
 
 **Open `/api/v1/warmup` in a browser — it is the one thing that settles whether the schema
 and the code that needs it actually met**, and it is outstanding since #61. It cannot be
@@ -3623,3 +3624,11 @@ and there is no `gh` CLI.
    this); that pressing a sentence with a number in it — «12,4 МБ» under updates — shows the
    pattern `%1$s МБ` in the editor rather than the sum; and that inside the editor itself a
    long press does nothing.
+
+*Later the same day the stash was gone — `git stash list` empty, no `refs/stash` in the
+repository — so the request to drop it moved here too. Who dropped it is not recorded.*
+
+**Drop the `Teleport auto-stash` when convenient** (`stash@{0}`, over `c26eace`). It holds
+what the IDE generated rather than work — #187's section, «…the first instrumented tests…»,
+lists it — and
+nothing in a session here drops a stash it did not make.

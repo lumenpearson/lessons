@@ -88,7 +88,9 @@ _HEAD_SENTENCES = (
     re.compile(r"expects `(\d{4})`"),
 )
 #: The answer `/warmup` gives when all is well, as the reference documents
-#: print it. Only under docs/: the README quotes an answer from #61 on purpose.
+#: print it. Only under docs/: the README quotes the last answer production
+#: gave, with its date, and a dated answer is a record rather than a claim
+#: about the head — the next revision must not make it say what nobody read.
 _WARMUP_OK = re.compile(r'"status": ?"ok"[^}\n]*"schema": ?"(\d{4})"')
 
 

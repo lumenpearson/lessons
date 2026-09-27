@@ -123,17 +123,22 @@ Vercel can go in one.
 **Until #128 there were no issues in this repository at all** — the milestones were
 the only grouping the history had, and everything else lived in this document's prose.
 Forty-two issues were opened in one go: **#86–#108 closed**, describing what was built and
-what each bug sweep found, and **#109–#127 open**, which are the whole of what is left.
+what each bug sweep found, and **#109–#127 open**, which were then the whole of what was
+left. Six of those have closed since: #114–#117 and #119 at #186's merge, and #110 at
+#187's.
 
 The forward half is worth reading before planning anything: **#109** is the epic this
 section describes, **#118–#122** are the owner's alone, and **#126** collects the four small
 things carried deliberately, so that a later session does not re-discover a decision as if
 it were an oversight.
 
-**Thirty-three have been filed since.** #130 was the survey #134 closed, and #131 and #132
+**Seventy-five have been filed since.** #130 was the survey #134 closed, and #131 and #132
 the two defects #133 closed. #135 is the owner's decision about the second diary; #136–#139
 and #141 are the work #140 carries; #142–#144 are its deliberate follow-ups, on no
 milestone; and #145–#165 are the defects found on its branch, each filed before its fix.
+#167–#185 are what #186's walk on an emulator found and what the owner asked for that
+night, and #188 what #189 found; all twenty are closed. #190–#211 are the external audit of
+27 September 2026, on milestone 10.
 
 Labels are `type:` (feature, bug, chore, research, decision, epic), `area:`, `status:` (now,
 next, someday, done) and `needs:` (device, owner). **A session cannot create a GitHub
@@ -332,7 +337,7 @@ maps them. The
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189; issues #109–#117, #130–#132, #167–#185, #188 — the first whose work needs an emulator or a phone, and #186 the first done on one |
-| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PR #140 (merged); issues #135–#139, #141, #145–#165 |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PR #140 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September) |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
 #140 left alone on purpose, which belong to whichever version takes them up.
@@ -356,13 +361,14 @@ This is the main thing worth knowing: **all of this work is proved by tests and 
 else.**
 
 **Most of this section is now also an issue**, which is where it should be worked from:
-#113 the widget's sizes, #114 the arranging gesture, #115 the correction mode, #116 two
-classes on one phone, #117 the upgrade path, #111 what the ribbon's shader costs, #121 the
-real diary. They are children of **#109**, the epic for moving this work to a machine with a
-device on it. #140's additions below belong to #121 where they need a live diary and to
-#156 where they need a phone's backup; the rest wait for the first APK built after its
-merge. The prose here is kept because it says *why* each one is unverifiable, which an issue
-title cannot.
+#113 the widget's sizes, #111 what the ribbon's shader costs and #121 the real diary are
+open; #114 the arranging gesture, #115 the correction mode, #116 two classes on one phone
+and #117 the upgrade path were closed by #186's walk on an emulator, and what only a phone
+can add to them stays below. They are children of **#109**, the epic for moving this work to
+a machine with a device on it. #140's additions below belong to #121 where they need a live
+diary; #156, the backup, closed on the same emulator walk, and a phone's own backup is its
+bullet below. The rest wait for an APK on a phone. The prose here is kept because it says
+*why* each one is unverifiable, which an issue title cannot.
 
 **#186 looked at a good part of this on an emulator** (26–27 September 2026; its section,
 «…the first walk of the app on a device», in `docs/history.md` now, has the detail). The
@@ -440,7 +446,8 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   has felt: whether the wobble is plausible, whether half a slot is the right threshold
   under a real thumb, whether a hold that picks the tab up at once is too eager for someone
   who only meant to look, and whether the haptic lands where the mode opens. **The APK built for #84 predates the fix and does not
-  rearrange anything**; the first install worth an evening is one built after #85 merges.
+  rearrange anything**; the first install worth an evening is one built after #186, as
+  section 7 says, because #181 made the gesture one touch.
 - **The drag is driven from a test now, and how far it goes is the whole reason it can be.**
   #84 left it undriven on the ground that Robolectric reports its own densities, so a
   synthetic swipe of «half a slot» measures the environment. True, and it hid a defect for a
@@ -481,9 +488,11 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   has seen: whether the concentric corner reads as concentric, whether a marquee that never
   stops is pleasant rather than merely readable, and whether stepping a month with the
   arrows surprises somebody who has just switched «День» into its list mode.
-- **The widget's new corners have never been on a launcher**, which is the only place they
-  exist. #82 derives every inner radius from the size class's own padding, and the five
-  tests reproduce that arithmetic and nothing else — no test draws a widget. What nobody has
+- **The widget's new corners have been on a launcher only on an emulator's, and nobody judged
+  them there**: #186 and #189 had the widget on the Pixel launcher at a few sizes, and #113
+  stays open for the corner radii. A launcher is the only place they exist. #82 derives every
+  inner radius from the size class's own padding, and the five tests reproduce that
+  arithmetic and nothing else — no test draws a widget. What nobody has
   seen: whether the gap now reads as even at 8 dp of padding *and* at 16, whether the 6 dp
   floor is tight enough to still look like a corner on the widest rungs, and how any of it
   sits against a launcher's own widget rounding. Below API 31 the question does not arise —
@@ -499,15 +508,18 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
     app settings #188 now redraws on, and every render in that check was forced with a
     reinstall;
   - any launcher but the emulator's.
-- **Nothing of #83's widget work has been seen on a launcher either, and that is the surface
-  this batch changed most.** The font-scale division, the two weights that stop the trailing
+- **#83's widget work has been on a launcher only on an emulator's, and that is the surface
+  #83 changed most.** #186 put the widget there at four sizes and two font scales, where the
+  2×2 and, at the larger scale, the 2×1 still cut their text (#174, fixed by #189 and seen
+  again there, above). The font-scale division, the two weights that stop the trailing
   detail starving the subject, and the outer box that gives the seven day chips their gaps
   are all proved by tests that reproduce the arithmetic and the budgets — no test draws a
   widget. Worse for confidence: **two of the claims are about what Glance does with a
   modifier chain, and they come from reading its translator rather than from pixels** — that
   `applyModifiers` folds every padding into one `setViewPadding` on the background's own
   view, and that a container keeps ten children. What nobody has seen: whether the largest
-  system font now fits the rung it lands on, whether the chips read as seven days, and
+  system font fits the rung it lands on at the sizes #186 did not use, whether the chips read
+  as seven days, and
   whether the subject keeps its width beside a long teacher's name. Below API 31 the corner
   half of this does not arise at all — `cornerRadius` is a no-op there.
 - **`docker compose up` has never been run.** There is no Docker in this environment, so
@@ -530,8 +542,9 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   would not compile normally throws in-process instead of logging from the render thread.
 - **The reported term defect is fixed against tests, not against the class that reported
   it.** The server fix needs no new APK, so the first real check is that class's next sync
-  after the deploy, and `/api/v1/warmup` answering `"schema":"0014"` or later is the
-  cheapest sign that the migration and the code actually met.
+  after the deploy, and no batch since has recorded one. The cheapest sign that the
+  migration and the code met is in: production's `/api/v1/warmup` answered
+  `"schema":"0017"` on 26 September 2026, read through the Vercel connector.
 - **There is one `androidTest` in the project, and it is about one gesture.** Until #187
   there was none, because until #186 no session had an emulator: the cloud containers have no
   `/dev/kvm`. `ToolbarOnDeviceTest` (#110) drags the tab bar's arranging gesture at a
@@ -620,8 +633,9 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   claiming twice on one date, but nobody has run two ticks at once; the export's round trip
   is verified by computing both sides, which is all it claims.
 
-- **Nothing from the last batch has been seen moving, or wrapping.** Robolectric composes
-  the marquee but advances no animation and reads no frame, so what is proven is that a line
+- **Nothing from #62, the batch that stopped text being cut off, has been seen moving, or
+  wrapping.** Robolectric composes the marquee but advances no animation and reads no
+  frame, so what is proven is that a line
   which fits is laid out exactly as before, that a line which does not stays inside its box
   rather than pushing the row apart, and that the whole string is present either way. That it
   actually scrolls — and reads well doing so — needs the APK. The same for the other
@@ -1017,7 +1031,8 @@ All of this is beyond an agent's reach: it needs a phone, a key or a live servic
 environment, #120 the external cron and `DADATA_TOKEN`, #121 the real diary, #122 the
 widget's tick cadence and the diary credential's bound, #135 the second diary, #144 a default
 server for a fresh install. Each carries the label `needs:owner`. #119 (`/api/v1/warmup` and
-`/start`) and #156 (the backup) were answered by #186 and close with it.
+`/start`) and #156 (the backup) were answered by #186 and closed at its merge on 26 September
+2026.
 
 **Give the release keystore its passwords, on your machine and nowhere else.** The keystore
 handed over during #186 is PKCS12 and came without them, so nothing was signed
@@ -1034,11 +1049,6 @@ so each batch with a device in it costs two or three. The emulator refused to
 start once below 2 GB, and the AVD's Quick Boot image alone is 8.5 GB. The worktrees under
 `.claude/worktrees/` each carry their own Gradle build directories.
 
-**Drop the `Teleport auto-stash` when convenient** (`stash@{0}`, over `c26eace`). It holds
-what the IDE generated rather than work — #187's section, «…the first instrumented tests…»,
-lists it — and
-nothing in a session here drops a stash it did not make.
-
 **Restart Android Studio once, when it is free.** Three changes wait for it, because the IDE
 rewrites those files on exit: `server/.venv` as the Python SDK, the root module as a Python
 one (which quiets «Unsupported Modules Detected»), and the third-party «Python Portable»
@@ -1048,16 +1058,17 @@ is already in place (see «…the first walk of the app on a device», the secti
 
 **The tenth milestone exists, and #140 is on it.** The owner created
 `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` on 25 September and renamed
-the other nine the same day. One line of it is behind: its description names issues
-#145–#159, and #160 is on it too. A milestone's description is the owner's to edit; nothing
-in a session here can.
+the other nine the same day. Its description is behind: it names issues #145–#159, and
+#160–#165 are on it too, as are the external audit's #190–#211 of 27 September. The ninth's
+is further behind — it names PRs #129, #133 and #134 only. A milestone's description is the
+owner's to edit; nothing in a session here can.
 
 **Sign in once, for real, from a phone — it is the one question #140 cannot answer about
-itself.** Build an APK from `main` after #140 merges, install it on a phone in no class, and
-take the diary path twice: a «Сетевой город» region that takes a password, and Петербург.
-Whether the import arrives, or the phone says the diary refused the session from our
-server's address — the `409` — decides whether the phone-registered path works for that
-diary at all. It is #121's first live session, for both diaries at once.
+itself.** Build an APK from `main`, which has carried #140 since 26 September, install it on
+a phone in no class, and take the diary path twice: a «Сетевой город» region that takes a
+password, and Петербург. Whether the import arrives, or the phone says the diary refused the
+session from our server's address — the `409` — decides whether the phone-registered path
+works for that diary at all. It is #121's first live session, for both diaries at once.
 
 **Then walk the rest of the first run on that phone.** The class code as the other way in;
 leaving the last class with a diary signed in, which should land on the diary as the home
