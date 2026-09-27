@@ -61,6 +61,14 @@ data class DiaryUiState(
     val signInTarget: DiaryTarget = DiaryTarget.petersburg(""),
     val place: DiaryPlace? = null,
     val picking: Boolean = false,
+    /**
+     * The diary picked on this screen, until a sign-in to it lands — the first
+     * of [signInTarget]'s sources. Here rather than beside the view model's
+     * other bookkeeping because it is the screen's own and lives exactly as
+     * long as the rest of this state: a sign-out forgets it with everything
+     * else.
+     */
+    val chosen: DiaryTarget? = null,
     val signingOut: Boolean = false,
     val students: List<DiaryStudent> = emptyList(),
     val studentsLoading: Boolean = false,
