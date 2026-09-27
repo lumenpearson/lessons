@@ -60,6 +60,27 @@ services:
       BOT_TOKEN: ${BOT_TOKEN:?set BOT_TOKEN in .env}
       OWNER_IDS: ${OWNER_IDS:?set OWNER_IDS in .env}
       TIMEZONE: ${TIMEZONE:-Europe/Moscow}
+      # Every optional setting app/config.py reads. A container sees only what
+      # is listed here, whatever `.env` holds, and none of these was listed: a
+      # compose deployment had no diary, no tick and no calendar link however it
+      # was configured (#191). Unset, each arrives empty, which for every one
+      # of these strings is exactly its default — tests/test_compose.py checks
+      # that, and checks this list against `Settings`.
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+      CRON_SECRET: ${CRON_SECRET:-}
+      BOT_USERNAME: ${BOT_USERNAME:-}
+      DIARY_SECRET: ${DIARY_SECRET:-}
+      DADATA_TOKEN: ${DADATA_TOKEN:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      # Not strings, so not empty when unset: "" is neither a boolean nor a
+      # number to pydantic, and the server would refuse to start over a
+      # variable nobody set. The defaults written here are the settings' own.
+      RUN_BOT: ${RUN_BOT:-true}
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
+      # Deliberately absent: VERCEL is the platform's own, and set here it would
+      # switch on Vercel's refusal to start; HOST and PORT are read only by
+      # `python -m app.main`, while the image's command binds 0.0.0.0:8000
+      # itself; WEBHOOK_PATH is read by nothing.
     depends_on:
       db:
         condition: service_healthy

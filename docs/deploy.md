@@ -560,6 +560,17 @@ the container exactly what the file lists; the image copies no `.env` of its own
 used to say `server/.env`, which compose never reads, so `up` stopped at «set BOT_TOKEN in
 .env» however carefully that file had been filled in.
 
+**Every setting the server reads reaches the container.** Besides `BOT_TOKEN`, `OWNER_IDS`
+and `TIMEZONE`, the file hands it `WEBHOOK_SECRET`, `CRON_SECRET`, `BOT_USERNAME`,
+`DIARY_SECRET`, `DADATA_TOKEN`, `PUBLIC_BASE_URL`, `RUN_BOT` and `TRUSTED_PROXY_HOPS` from the
+same `.env`, each arriving as its own default when unset. Until #191 none of those was
+passed, and a container sees only what the file lists: a compose deployment had no diary,
+no digests and no calendar link whatever `.env` said. What they are for is the table under
+Option 1; here, the digests need `CRON_SECRET` and an external cron exactly as on Vercel
+(«The clock» below), the diary needs `DIARY_SECRET` and, for its sign-in page,
+`PUBLIC_BASE_URL`, and behind a reverse proxy that terminates HTTPS, `TRUSTED_PROXY_HOPS=1`
+is what lets the throttles see the caller rather than the proxy.
+
 **The database password is yours, and letters and digits only.** `POSTGRES_PASSWORD` is
 required — `docker compose up` refuses to start without it. The file used to carry `lessons`
 in plain text, which in a public repository is the password of every deployment that ran it
