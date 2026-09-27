@@ -25,6 +25,12 @@ class JoinErrorTest {
         assertEquals(JoinError.InviteOnly, JoinError.of(JoinFailure.InviteOnly))
     }
 
+    /** #199: the code is right, so the screen must not say to check it. */
+    @Test
+    fun `a full class is not a wrong code`() {
+        assertEquals(JoinError.ClassFull, JoinError.of(JoinFailure.ClassFull))
+    }
+
     @Test
     fun `an unknown code still is one`() {
         assertEquals(JoinError.UnknownCode, JoinError.of(JoinFailure.UnknownCode))

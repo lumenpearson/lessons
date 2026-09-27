@@ -49,6 +49,16 @@ sealed interface JoinError {
     data object InviteOnly : JoinError
 
     /**
+     * The code is real and the class already holds as many phones as the class
+     * code will let in (#199).
+     *
+     * Its own case for the reason [InviteOnly] is: the answer is not on this
+     * screen. A personal code from the bot still gets in, and an admin can make
+     * room by switching old phones off; «проверьте код» would help with neither.
+     */
+    data object ClassFull : JoinError
+
+    /**
      * Too many failed attempts from this address; [minutes] is how long the
      * throttle says to wait, rounded up, or null when it would not say.
      *
@@ -84,6 +94,7 @@ sealed interface JoinError {
         /** What the repository answered, as something the screen can word. */
         fun of(failure: Throwable): JoinError = when (val classified = JoinFailure.of(failure)) {
             JoinFailure.InviteOnly -> InviteOnly
+            JoinFailure.ClassFull -> ClassFull
             JoinFailure.UnknownCode -> UnknownCode
             is JoinFailure.TooManyAttempts -> TooManyAttempts(
                 // Rounded up, and never to zero: «подождите 0 минут» is an

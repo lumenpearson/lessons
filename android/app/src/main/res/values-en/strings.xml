@@ -62,12 +62,13 @@ The phone keeps an access key and copies of the timetable and the diary, so the 
     <string name="join_error_generic">Could not join. Check the code and your network connection.</string>
     <string name="join_error_unknown_code">No such code. Check it with whoever gave it to you.</string>
     <!--
-      The bot's button label stays in Russian here and in strings_admin.xml,
-      and it is the only Cyrillic in values-en/ on purpose: the bot has no
+      The bot's button labels stay in Russian here and in strings_admin.xml,
+      and they are the only Cyrillic in values-en/ on purpose: the bot has no
       English interface, so a translated label would name a button that does
       not exist on the screen the reader is being sent to.
     -->
     <string name="join_error_invite_only">This class admits phones by personal invite only. Take your own code from the bot: menu → “📱 Подключить телефон”.</string>
+    <string name="join_error_class_full">Too many phones are connected to this class for its code to admit another. Take your own code from the bot: menu → “📱 Подключить телефон” — or ask the class admin to switch old phones off under “⚙️ Класс” → “📱 Устройства”.</string>
     <string name="join_error_too_many">Too many attempts. Wait a little and try again.</string>
     <plurals name="join_error_too_many_wait">
         <item quantity="one">Too many attempts. Try again in %1$d minute.</item>

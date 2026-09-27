@@ -60,6 +60,15 @@ Failed joins are rate-limited per client address (thirty per fifteen minutes,
 counted in the database so the limit survives serverless cold starts); a
 blocked client gets `429` with `Retry-After`.
 
+Successful joins are not counted, so it is the class that bounds them: once a class holds
+300 live devices — a revoked one is a tombstone and does not count — its class code is
+answered with `409` and a Russian sentence in `detail`, and mints nothing. That `409` is not
+a failed attempt for the limiter either, for the reason the invite-only `403` below is not.
+A personal code from the bot still joins a full class: it is minted one phone at a time for
+a member the bot knows, and it is the way in left to a family if somebody has used the
+class code to fill the class. The number is generous on purpose — `MAX_DEVICES_PER_CLASS`
+in `api/public.py` says how it was reached — and an admin makes room by revoking old phones.
+
 ### Who lets a phone in: the class code or the bot
 
 A class has a join mode — `join_mode`, either `open` or `invite` — and it decides what the
@@ -99,6 +108,7 @@ to the log.
 | `401` | Missing, malformed, unknown or revoked token — **the client must drop its session**, not merely report it |
 | `403` | The device is not linked, or its account lacks the role (`detail` says which). On `/join` it is the one refusal below that is not about the code being wrong: the class takes personal invites only |
 | `404` | Join code, class, homework, task or event does not exist - or is not this class's |
+| `409` | On `/join`: the class already holds as many live phones as its class code admits. The code is right; a personal code from the bot still joins |
 | `422` | Parameter out of range or body invalid |
 | `429` | Too many failed join attempts |
 
