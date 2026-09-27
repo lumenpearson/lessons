@@ -56,6 +56,7 @@ internal class TokenVault(private val cipher: TokenCipher) {
      * what every install held before this existed, and [TokenSealing] tries
      * again on the next start. It is the one plaintext this class ever writes.
      */
+    @Suppress("ReturnCount") // Each early answer is a case the paragraph above names.
     fun seal(token: String): String {
         if (isSealed(token)) return token
         val sealed = try {
@@ -76,6 +77,7 @@ internal class TokenVault(private val cipher: TokenCipher) {
      * way it reads a token that was never written, which is what makes a lost
      * key a sign-in rather than a crash.
      */
+    @Suppress("ReturnCount") // A bare value, one opened before, and the first of two racing readers.
     fun open(stored: String): String? {
         if (!isSealed(stored)) return stored
         opened[stored]?.let { return it.token }
@@ -162,10 +164,11 @@ internal class AesGcmTokenCipher(private val keys: Keys) : TokenCipher {
         return byteArrayOf(iv.size.toByte()) + iv + cipher.doFinal(plaintext)
     }
 
+    @Suppress("ThrowsCount") // One refusal per way a value can fail to be sealed; each reads as «no token».
     override fun open(sealed: ByteArray): ByteArray {
         val key = keys.existing() ?: throw GeneralSecurityException("No key to open a sealed token with")
         val ivSize = sealed.firstOrNull()?.toInt() ?: throw GeneralSecurityException("Empty sealed token")
-        if (ivSize !in IV_SIZES || sealed.size < 1 + ivSize + TAG_BITS / 8) {
+        if (ivSize !in IV_SIZES || sealed.size < 1 + ivSize + TAG_BITS / Byte.SIZE_BITS) {
             throw GeneralSecurityException("Not a sealed token")
         }
         val cipher = Cipher.getInstance(TRANSFORMATION)

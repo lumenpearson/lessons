@@ -51,7 +51,7 @@ internal class AndroidKeystoreKeys(private val alias: String) : AesGcmTokenCiphe
             KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .setKeySize(256)
+                .setKeySize(KEY_BITS)
                 .build(),
         )
         return generator.generateKey()
@@ -59,5 +59,6 @@ internal class AndroidKeystoreKeys(private val alias: String) : AesGcmTokenCiphe
 
     private companion object {
         const val PROVIDER = "AndroidKeyStore"
+        const val KEY_BITS = 256
     }
 }

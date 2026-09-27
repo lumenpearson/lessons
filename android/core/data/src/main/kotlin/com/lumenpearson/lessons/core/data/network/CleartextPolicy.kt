@@ -61,7 +61,10 @@ enum class CleartextVerdict {
  * is left to the «no address» answer that interceptor already gives.
  */
 fun cleartextVerdict(address: String, policy: CleartextPolicy = CleartextPolicy.Platform): CleartextVerdict {
-    val url = address.trim().toHttpUrlOrNull() ?: return CleartextVerdict.NOT_CLEARTEXT
-    if (url.isHttps) return CleartextVerdict.NOT_CLEARTEXT
-    return if (policy.permits(url.host)) CleartextVerdict.PERMITTED else CleartextVerdict.REFUSED
+    val url = address.trim().toHttpUrlOrNull()
+    return when {
+        url == null || url.isHttps -> CleartextVerdict.NOT_CLEARTEXT
+        policy.permits(url.host) -> CleartextVerdict.PERMITTED
+        else -> CleartextVerdict.REFUSED
+    }
 }

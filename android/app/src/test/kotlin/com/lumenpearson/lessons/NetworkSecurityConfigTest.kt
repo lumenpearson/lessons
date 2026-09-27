@@ -60,7 +60,11 @@ class NetworkSecurityConfigTest {
     fun `neither build trusts a certificate the user installed`() {
         for ((name, config) in listOf("release" to release, "debug" to debug)) {
             val anchors = config.single("base-config").children("trust-anchors").single().children("certificates")
-            assertEquals("$name trusts the system's CAs and nothing else", listOf("system"), anchors.map { it.getAttribute("src") })
+            assertEquals(
+                "$name trusts the system's CAs and nothing else",
+                listOf("system"),
+                anchors.map { it.getAttribute("src") },
+            )
         }
     }
 

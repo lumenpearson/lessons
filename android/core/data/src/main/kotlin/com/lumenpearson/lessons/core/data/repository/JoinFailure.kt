@@ -100,6 +100,7 @@ sealed class JoinFailure(message: String, cause: Throwable? = null) :
          * `429`, so the status is the whole answer, and a message we would have
          * to match on is a Russian sentence somebody will reword.
          */
+        @Suppress("MagicNumber") // A status is its own name; a constant would only rename it.
         fun ofStatus(code: Int, reason: Throwable? = null): JoinFailure = when (code) {
             403 -> InviteOnly
             404 -> UnknownCode

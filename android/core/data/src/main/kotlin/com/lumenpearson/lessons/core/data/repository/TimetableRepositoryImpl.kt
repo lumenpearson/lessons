@@ -361,7 +361,7 @@ internal class TimetableRepositoryImpl(
             } else {
                 SyncResult.Failed("Server returned HTTP ${http.code()}")
             }
-        } catch (cleartext: ServerNeedsHttpsException) {
+        } catch (_: ServerNeedsHttpsException) {
             // Before the «no address» catch, whose kind this is.
             SyncResult.NeedsHttps
         } catch (missing: ServerAddressMissingException) {

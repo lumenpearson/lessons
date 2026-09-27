@@ -1,3 +1,7 @@
+// One concern — how the memberships are written down — in small functions over the
+// stored keys; splitting them by count would scatter one format across files.
+@file:Suppress("TooManyFunctions")
+
 package com.lumenpearson.lessons.core.data.datastore
 
 import androidx.datastore.preferences.core.MutablePreferences

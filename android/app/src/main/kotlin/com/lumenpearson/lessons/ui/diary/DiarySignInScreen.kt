@@ -135,7 +135,11 @@ fun DiarySignInScreen(
                 GroupRow {
                     Text(
                         text = correctedString(
-                            if (cleartextLeavesThePhone()) R.string.diary_insecure_server else R.string.server_needs_https,
+                            if (cleartextLeavesThePhone()) {
+                                R.string.diary_insecure_server
+                            } else {
+                                R.string.server_needs_https
+                            },
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
