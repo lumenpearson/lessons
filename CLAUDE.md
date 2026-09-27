@@ -104,11 +104,26 @@ quoting the number that had been asked for.
 Read `docs/architecture.md` before any cross-cutting change; it is current and it explains
 the decisions, not just the layout.
 
-**The bot writes, the API reads.** Telegram already solved identity, so there is no admin
-web panel, no session cookies and no password reset. The cost is real and deliberate:
-anything the bot cannot express does not exist. `server/app/services/` holds the rules
-shared by the bot handlers and the `/api/v1/manage` endpoints — two thin shells over one
-implementation, because two implementations of "rename a subject" disagree within a month.
+**Two shells write, over one set of services.** The bot is the admin panel, and a linked
+phone runs the same class through the API: `/api/v1/edit` (homework, substitutions, events,
+special days — editor and above) and `/api/v1/manage` (subjects, bells, the timetable,
+devices, access requests, terms, the class itself — admin, and owner to delete it). Both
+take the **device token** and ask `linking.effective_role` for the linked account's role on
+every request, so an unlinked phone changes nothing of the class's. The rest of what the
+API writes is personal (`public.py`: the linked account's own tasks and ticked-off
+homework, whatever its role, and a phone unlinking itself; `/join` mints the device token)
+and a family's diary (`/api/v1/diary`, with the **diary token**); `docs/architecture.md` has
+the table.
+Telegram already solved identity, so there is still no admin web panel, no session cookies
+and no password reset — a phone has no rights of its own, only its account's — and the cost
+is still real: anything the bot cannot express does not exist. `server/app/services/` holds
+the rules both shells call — two thin shells over one implementation, because two
+implementations of "rename a subject" disagree within a month — and **nothing under
+`services/` may import `app.bot`**, directly or through another `app/` module: a rule that
+lives in the bot is a rule the phone does not get, and a service that pulls aiogram in puts
+it on the API's cold start. The role ladder lives in `services/roles.py` (`bot/roles.py`
+re-exports it) and the wording both shells print in `app/wording.py`;
+`tests/test_service_layering.py` holds the rule.
 
 Server modules:
 
@@ -128,15 +143,33 @@ Server modules:
   shadowing. Do **not** import `dishka.integrations.aiogram` from it — that pulls aiogram
   onto the cold-start path of every request, which is the thing `main.py` and
   `api/telegram.py` already go out of their way to defer
-- `api/` — `public.py` (read), `edit.py` and `manage.py` (write), `diary.py`, `cron.py`,
+- `services/` — the rules, as async functions over a session. Nothing there commits (the
+  caller commits the change together with its audit line), and nothing may import `app.bot`.
+  `services/manage/` is running a class, one module per screen named like the shells'
+  (`subjects`, `bells`, `devices`, `classes`, `requests`, `journal`, `terms`, `timetable`,
+  `special_days`, `search`): each does the check, the write and the audit line with its
+  Russian wording, and a refusal is an exception carrying facts, never a sentence, so each
+  shell keeps its own words — «Предмет … уже есть» in a chat, a `409` on the wire
+- `api/` — `public.py` (the phone's reads and its own writes), `edit.py` (the day-to-day
+  writes), `manage/` (running the class, one module per resource over
+  `services/manage/`, with `_common.py` holding `Actor` and the one role dependency per
+  level), `diary.py`, `cron.py`,
   `telegram.py` (webhook), `deps.py` (device-token auth), `routing.py` (the route class
   every router here is built with: dishka's wrapper carries its own globals, so under
   `from __future__ import annotations` FastAPI could not resolve an endpoint's
   `-> Response` and took the name for a response model — a 204 route made that an
   `AssertionError` at import, and every route without an explicit `response_model=` would
   have had a schema built from a string)
-- `bot/` — aiogram routers, roles, keyboards, renderers. The weekly template has **two**
-  editors and both are wanted: `handlers/timetable.py` pastes a whole weekday (fastest way
+- `bot/` — aiogram routers, roles, keyboards, renderers. «⚙️ Класс» is `handlers/manage/`,
+  one module per screen, each with a router of its own included in one written-down order
+  by the package's `__init__`. Every handler there says what it needs with
+  `@needs(Role.X)` (`handlers/manage/_common.py`) under its `@router…` line — one decorator
+  instead of seventy-two copies of the check, and a decorator rather than a filter or a
+  middleware flag because the check has to travel with the function: a failed filter hands
+  the update on instead of refusing it, and the tests that press every step as a
+  наблюдатель call the handlers directly. A refusal is an alert for a press, a sentence for
+  a command, and a dropped form with no answer for a step (`step=True`).
+  The weekly template has **two** editors and both are wanted: `handlers/timetable.py` pastes a whole weekday (fastest way
   to enter a term), `handlers/editor.py` changes one lesson with buttons. They share one
   grammar (`services/timetable_io.py`) and one set of mutations
   (`services/timetable_edit.py`) — the editor's ‹ › pager and «⏱ Перемены» switch live in
