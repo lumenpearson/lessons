@@ -92,14 +92,21 @@ _HEAD_SENTENCES = (
 _WARMUP_OK = re.compile(r'"status": ?"ok"[^}\n]*"schema": ?"(\d{4})"')
 
 
+#: The record of past batches, moved verbatim out of HANDOVER.md: it quotes the
+#: head of every commit it describes, true of that commit, and is never
+#: brought up to date.
+_HISTORY = REPOSITORY / "docs" / "history.md"
+
+
 def _documents() -> list[Path]:
     """Everything a person or an agent reads to learn the head — not
-    HANDOVER.md, which is a history and holds every head there has been."""
+    HANDOVER.md or docs/history.md, which between them hold every head
+    there has been."""
     found = [REPOSITORY / name for name in ("README.md", "CLAUDE.md", "AGENTS.md")]
     found.append(REPOSITORY / ".github" / "copilot-instructions.md")
     found += sorted((REPOSITORY / "docs").rglob("*.md"))
     found += sorted((REPOSITORY / ".claude").rglob("*.md"))
-    return [document for document in found if document.is_file()]
+    return [document for document in found if document.is_file() and document != _HISTORY]
 
 
 def test_every_document_that_names_the_head_names_this_one():
