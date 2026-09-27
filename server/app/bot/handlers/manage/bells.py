@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
 from app.bot import render
-from app.bot.handlers.manage._common import _allowed, _int_or_none, _refusal
+from app.bot.handlers.manage._common import _int_or_none, needs
 from app.bot.handlers.timetable import REJECTED_MAX
 from app.bot.keyboards import back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards import BellsAction, bells_list_keyboard
@@ -75,32 +75,28 @@ async def _bells_view(session: AsyncSession, school_class: SchoolClass):
 
 
 @router.message(Command("bells"))
+@needs(Role.ADMIN)
 async def cmd_bells(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await message.answer(_refusal(role, Role.ADMIN))
-        return
     await state.clear()
     text, keyboard = await _bells_view(session, school_class)
     await message.answer(text, reply_markup=keyboard)
 
 
 @router.callback_query(BellsAction.filter(F.action == "list"))
+@needs(Role.ADMIN)
 async def bells_list(
     callback: CallbackQuery,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
     await state.clear()
     text, keyboard = await _bells_view(session, school_class)
     await callback.message.edit_text(text, reply_markup=keyboard)
@@ -108,18 +104,15 @@ async def bells_list(
 
 
 @router.callback_query(BellsAction.filter(F.action == "edit"))
+@needs(Role.ADMIN)
 async def bells_edit(
     callback: CallbackQuery,
     callback_data: BellsAction,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     schedule = await _schedule_by_id(session, school_class, callback_data.value)
     if schedule is None:
         await callback.answer("Расписание не найдено", show_alert=True)
@@ -136,17 +129,14 @@ async def bells_edit(
 
 
 @router.message(EditBellRows.rows)
+@needs(Role.ADMIN, step=True)
 async def bells_rows_apply(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await state.clear()
-        return
-
     data = await state.get_data()
     schedule = await _schedule_by_id(session, school_class, str(data.get("schedule_id", "")))
     if schedule is None:
@@ -191,15 +181,13 @@ async def bells_rows_apply(
 
 
 @router.callback_query(BellsAction.filter(F.action == "create"))
+@needs(Role.ADMIN)
 async def bells_create(
     callback: CallbackQuery,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
     await state.set_state(NewBellSchedule.name)
     await callback.message.edit_text(
         "Название нового расписания звонков, например <code>Сокращённое</code>:",
@@ -209,16 +197,13 @@ async def bells_create(
 
 
 @router.message(NewBellSchedule.name)
+@needs(Role.ADMIN, step=True)
 async def bells_new_name(
     message: Message,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await state.clear()
-        return
-
     name = " ".join((message.text or "").split())
     if not 1 <= len(name) <= 64:
         await message.answer("Название от 1 до 64 символов. Ещё раз:")
@@ -232,17 +217,14 @@ async def bells_new_name(
 
 
 @router.message(NewBellSchedule.rows)
+@needs(Role.ADMIN, step=True)
 async def bells_new_rows(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await state.clear()
-        return
-
     data = await state.get_data()
     name = str(data.get("name", "")).strip()
     if not name:
@@ -289,17 +271,14 @@ async def bells_new_rows(
 
 
 @router.callback_query(BellsAction.filter(F.action == "default"))
+@needs(Role.ADMIN)
 async def bells_make_default(
     callback: CallbackQuery,
     callback_data: BellsAction,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     schedule = await _schedule_by_id(session, school_class, callback_data.value)
     if schedule is None:
         await callback.answer("Расписание не найдено", show_alert=True)
@@ -338,12 +317,13 @@ async def bells_make_default(
 
 
 @router.callback_query(BellsAction.filter(F.action == "delete"))
+@needs(Role.ADMIN)
 async def bells_delete(
     callback: CallbackQuery,
     callback_data: BellsAction,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Refused for the class default and for anything a day still points at.
 
@@ -351,10 +331,6 @@ async def bells_delete(
     those days onto the default schedule — a change nobody asked for, on dates
     an admin is not looking at.
     """
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     schedule = await _schedule_by_id(session, school_class, callback_data.value)
     if schedule is None:
         await callback.answer("Расписание не найдено", show_alert=True)

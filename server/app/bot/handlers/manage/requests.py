@@ -13,15 +13,18 @@ from aiogram import F, Router
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
-from app.bot.handlers.manage._common import NO_ACCESS, _allowed, _bot_of, _int_or_none, _refusal
+from app.bot.handlers.manage._common import (
+    _bot_of,
+    _int_or_none,
+    needs,
+)
 from app.bot.keyboards import back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards import RequestAction, request_keyboard
 from app.bot.manage_states import RequestAccess
-from app.models import AccessRequest, BotUser, Role, SchoolClass
+from app.models import AccessRequest, Role, SchoolClass
 from app.services import access as access_service
 from app.services import audit, linking
 from app.services.manage import requests as requests_service
@@ -37,22 +40,19 @@ router = Router(name="manage.requests")
 
 
 @router.message(Command("link"))
+@needs(Role.VIEWER)
 async def cmd_link(
     message: Message,
     command: CommandObject,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Attach the phone showing ``code`` to this account.
 
     No role check beyond membership: linking gives the phone *this* account's
     role, whatever it is, so it can never be more than the person already has.
     """
-    if not _allowed(school_class, role, Role.VIEWER):
-        await message.answer(NO_ACCESS)
-        return
-
     code = (command.args or "").strip()
     if not 1 <= len(code) <= 16:
         await message.answer(
@@ -91,35 +91,6 @@ async def cmd_link(
     await message.answer(f"📱 Устройство «{name}» привязано. {tail}")
 
 
-async def _create_request(
-    session: AsyncSession, school_class: SchoolClass, telegram_id: int, text: str | None
-) -> AccessRequest:
-    """One open request per person per class — a second one replaces the first,
-    so a nervous requester cannot fill an admin's screen."""
-    existing = await session.scalar(
-        select(AccessRequest).where(
-            AccessRequest.class_id == school_class.id,
-            AccessRequest.telegram_id == telegram_id,
-            AccessRequest.status == "pending",
-        )
-    )
-    if existing is None:
-        existing = AccessRequest(
-            class_id=school_class.id,
-            telegram_id=telegram_id,
-            requested_role=Role.EDITOR,
-            status="pending",
-        )
-        session.add(existing)
-    existing.requested_role = Role.EDITOR
-    existing.status = "pending"
-    existing.message = (text or None) and text[:300]
-    existing.decided_by = None
-    existing.decided_at = None
-    await session.flush()
-    return existing
-
-
 async def _notify_admins(
     session: AsyncSession,
     bot,
@@ -131,12 +102,7 @@ async def _notify_admins(
     if bot is None:
         return
 
-    admins = await session.scalars(
-        select(BotUser).where(
-            BotUser.class_id == school_class.id,
-            BotUser.role.in_([Role.ADMIN, Role.OWNER]),
-        )
-    )
+    admins = await requests_service.admins(session, school_class.id)
     body = (
         f"🙋 <b>Запрос доступа</b>\n\n"
         f"{who} просит роль <b>{Role.EDITOR.title_ru}</b> "
@@ -155,17 +121,15 @@ async def _notify_admins(
 
 
 @router.message(Command("request"))
+@needs(Role.VIEWER)
 async def cmd_request(
     message: Message,
     command: CommandObject,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.VIEWER):
-        await message.answer(NO_ACCESS)
-        return
     if role.at_least(Role.EDITOR):
         await message.answer(
             f"У вас уже роль <b>{role.title_ru}</b> — запрашивать нечего."
@@ -187,14 +151,15 @@ async def cmd_request(
 
 
 @router.message(RequestAccess.message)
+@needs(Role.VIEWER, step=True)
 async def request_message(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.VIEWER) or role.at_least(Role.EDITOR):
+    if role.at_least(Role.EDITOR):
         await state.clear()
         return
     raw = " ".join((message.text or "").split())
@@ -210,7 +175,9 @@ async def _submit_request(
     school_class: SchoolClass,
     text: str | None,
 ) -> None:
-    request = await _create_request(session, school_class, message.from_user.id, text)
+    request = await requests_service.submit(
+        session, school_class.id, message.from_user.id, text
+    )
     who = mr.person(message.from_user.full_name, message.from_user.username, message.from_user.id)
     await audit.record(
         session,
@@ -247,12 +214,13 @@ async def _request_by_id(
 
 
 @router.callback_query(RequestAction.filter(F.action == "approve"))
+@needs(Role.ADMIN)
 async def request_approve(
     callback: CallbackQuery,
     callback_data: RequestAction,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Grant the requested role through the same rules as «👥 Доступ».
 
@@ -261,10 +229,6 @@ async def request_approve(
     button cannot come to different answers. The refusal it raises carries the
     Russian sentence this alert shows.
     """
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     request = await _request_by_id(session, school_class, callback_data.value)
     if request is None:
         await callback.answer("Запрос уже закрыт", show_alert=True)
@@ -299,17 +263,14 @@ async def request_approve(
 
 
 @router.callback_query(RequestAction.filter(F.action == "decline"))
+@needs(Role.ADMIN)
 async def request_decline(
     callback: CallbackQuery,
     callback_data: RequestAction,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     request = await _request_by_id(session, school_class, callback_data.value)
     if request is None:
         await callback.answer("Запрос уже закрыт", show_alert=True)

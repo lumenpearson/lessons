@@ -13,7 +13,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
-from app.bot.handlers.manage._common import _allowed, _int_or_none, _member_names, _refusal
+from app.bot.handlers.manage._common import _int_or_none, _member_names, needs
 from app.bot.manage_keyboards import AuditAction, audit_keyboard
 from app.models import Role, SchoolClass
 from app.services.manage import journal as journal_service
@@ -38,34 +38,29 @@ async def _audit_view(session: AsyncSession, school_class: SchoolClass, offset: 
 
 
 @router.message(Command("log"))
+@needs(Role.ADMIN)
 async def cmd_log(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await message.answer(_refusal(role, Role.ADMIN))
-        return
     await state.clear()
     text, keyboard = await _audit_view(session, school_class, 0)
     await message.answer(text, reply_markup=keyboard)
 
 
 @router.callback_query(AuditAction.filter(F.action == "page"))
+@needs(Role.ADMIN)
 async def audit_page(
     callback: CallbackQuery,
     callback_data: AuditAction,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     offset = _int_or_none(callback_data.value) or 0
     # A negative offset is not a page; SQL would take it as "no offset" and
     # quietly show page one under a heading that says otherwise.

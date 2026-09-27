@@ -14,7 +14,7 @@ from datetime import date as Date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Subject
+from app.models import Subject, TimetableEntry
 from app.services import audit, structure
 from app.services import subjects as dictionary
 
@@ -81,6 +81,41 @@ async def subject_of(session: AsyncSession, class_id: int, subject_id: int) -> S
     return await session.scalar(
         select(Subject).where(Subject.id == subject_id, Subject.class_id == class_id)
     )
+
+
+async def collect(session: AsyncSession, class_id: int, actor_id: int | None) -> int:
+    """Write down every name the timetable uses that the dictionary lacks.
+
+    «Собрать из расписания» in the bot. It invents nothing, which is why an
+    editor may press it. Exact spellings, unlike :func:`listing`'s adoption:
+    this is the button for "I have just pasted a day and want to see its
+    subjects", and it was written before the adoption folded case.
+
+    @return how many entries it added; nothing is logged when that is none.
+    """
+    names = list(
+        await session.scalars(
+            select(TimetableEntry.subject_name)
+            .where(TimetableEntry.class_id == class_id)
+            .distinct()
+        )
+    )
+    known = {
+        subject.name
+        for subject in await session.scalars(select(Subject).where(Subject.class_id == class_id))
+    }
+    created = [name for name in sorted(names) if name and name not in known]
+    for name in created:
+        session.add(Subject(class_id=class_id, name=name[: dictionary.MAX_NAME]))
+    if created:
+        await audit.record(
+            session,
+            class_id,
+            actor_id,
+            "subject.collect",
+            f"собрано предметов из расписания: {len(created)}",
+        )
+    return len(created)
 
 
 async def create(

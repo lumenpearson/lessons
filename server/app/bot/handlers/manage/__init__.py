@@ -6,14 +6,16 @@ day-to-day flows in ``content.py`` and ``timetable.py`` are allowed to say.
 Three rules hold everywhere in this package, and each of them is the answer to
 a way the previous shape of this code could be abused:
 
-* **A role check at the top of every handler, including every FSM step.**
-  FSM state is per-user and therefore attacker-controlled: a client can set
+* **A role check on every handler, including every FSM step** - the
+  ``@needs(Role.X)`` under its ``@router…`` line (``_common.needs``). FSM
+  state is per-user and therefore attacker-controlled: a client can set
   itself into ``EditSubject.name`` and send a message, so a step that trusted
   the step before it would be a rename with no permission check at all.
 * **Every id arrives as text and is re-scoped by the query that reads it.**
   Callback data is user-supplied. A subject is never fetched by id alone but
   by ``(id, class_id)``, so a crafted payload naming another class's row finds
-  nothing rather than editing it.
+  nothing rather than editing it. The queries are ``app.services.manage``'s;
+  no handler here runs SQL of its own.
 * **No state in the process.** Every Vercel invocation is a fresh Python
   process, so anything that has to survive a step lives in FSM storage (the
   database) or in the callback payload - never in a module-level dict.

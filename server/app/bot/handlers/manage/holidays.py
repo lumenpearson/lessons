@@ -7,26 +7,23 @@ follows are in that package's docstring.
 from __future__ import annotations
 
 from datetime import date as Date
-from datetime import timedelta
 from html import escape
 
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
 from app.bot.handlers.calendar import open_month
 from app.bot.handlers.manage._common import (
-    _allowed,
     _date_or_none,
     _day_kind_or_none,
     _int_or_none,
     _parse_day,
-    _refusal,
     _today,
+    needs,
 )
 from app.bot.keyboards import back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards import (
@@ -38,8 +35,10 @@ from app.bot.manage_keyboards import (
     period_kind_keyboard,
 )
 from app.bot.manage_states import AddHoliday
-from app.models import BellPeriod, BellSchedule, DayKind, DayOverride, Role, SchoolClass
+from app.models import DayKind, Role, SchoolClass
 from app.services import audit
+from app.services.manage import bells as bells_service
+from app.services.manage import special_days
 
 router = Router(name="manage.holidays")
 
@@ -103,20 +102,8 @@ async def _holiday_view(
     Carried in the payload, the card *is* its own filter.
     """
     today = _today(school_class)
-    query = (
-        select(DayOverride)
-        .where(DayOverride.class_id == school_class.id, DayOverride.date >= today)
-        .order_by(DayOverride.date)
-    )
-    if only is not None:
-        query = query.where(DayOverride.kind == only)
-    overrides = list(await session.scalars(query))
-    schedules = {
-        schedule.id: schedule.name
-        for schedule in await session.scalars(
-            select(BellSchedule).where(BellSchedule.class_id == school_class.id)
-        )
-    }
+    overrides = await special_days.upcoming(session, school_class.id, today, only)
+    schedules = await special_days.schedule_names(session, school_class.id)
     return mr.render_holidays(overrides, schedules, today, only), holiday_list_keyboard(
         overrides,
         only=only,
@@ -125,67 +112,30 @@ async def _holiday_view(
     )
 
 
-async def _override_for(
-    session: AsyncSession, class_id: int, day: Date
-) -> DayOverride | None:
-    return await session.scalar(
-        select(DayOverride).where(DayOverride.class_id == class_id, DayOverride.date == day)
-    )
-
-
-async def _upsert_override(
-    session: AsyncSession, school_class: SchoolClass, day: Date, kind: DayKind
-) -> DayOverride:
-    override = await _override_for(session, school_class.id, day)
-    if override is None:
-        override = DayOverride(class_id=school_class.id, date=day, kind=kind)
-        session.add(override)
-    override.kind = kind
-    if kind is not DayKind.SHORTENED:
-        # A bell schedule only means anything on a shortened day; leaving a
-        # stale one on a holiday would surface in the day view as a
-        # schedule nobody chose.
-        override.bell_schedule_id = None
-    elif override.bell_schedule_id is None:
-        # Never null on a shortened day. The picker opens next and is where
-        # the real answer comes from, but the row is committed before it is
-        # asked — so walking away used to leave «⏱ Сокращённые уроки» over a
-        # day that names no schedule, which `api/edit.day_put` refuses with a
-        # 422 and the resolver silently draws as a normal day. The class
-        # default is the honest starting value: it is what the day would ring
-        # anyway, and now it says so on the card.
-        override.bell_schedule_id = school_class.bell_schedule_id
-    return override
-
-
 @router.message(Command("holidays"))
+@needs(Role.EDITOR)
 async def cmd_holidays(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.EDITOR):
-        await message.answer(_refusal(role, Role.EDITOR))
-        return
     await state.clear()
     text, keyboard = await _holiday_view(session, school_class, role)
     await message.answer(text, reply_markup=keyboard)
 
 
 @router.callback_query(DayKindAction.filter(F.action == "list"))
+@needs(Role.EDITOR)
 async def holidays_list(
     callback: CallbackQuery,
     callback_data: DayKindAction,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.EDITOR):
-        await callback.answer(_refusal(role, Role.EDITOR), show_alert=True)
-        return
     await state.clear()
     # An unreadable filter narrows to nothing rather than raising: the value is
     # whatever the client sent, and `DayKind(raw)` out of a callback handler
@@ -197,16 +147,13 @@ async def holidays_list(
 
 
 @router.callback_query(DayKindAction.filter(F.action == "add"))
+@needs(Role.EDITOR)
 async def holiday_add(
     callback: CallbackQuery,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.EDITOR):
-        await callback.answer(_refusal(role, Role.EDITOR), show_alert=True)
-        return
-
     await state.set_state(AddHoliday.date)
     await callback.message.edit_text(
         f"🏖 <b>Особый день</b>\n\n{HOLIDAY_DATE_HELP}",
@@ -223,17 +170,14 @@ async def _ask_kind(editable, day: Date) -> None:
 
 
 @router.callback_query(DayKindAction.filter(F.action == "pick_date"))
+@needs(Role.EDITOR)
 async def holiday_pick_date(
     callback: CallbackQuery,
     callback_data: DayKindAction,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.EDITOR):
-        await callback.answer(_refusal(role, Role.EDITOR), show_alert=True)
-        return
-
     day = _date_or_none(callback_data.value)
     if day is None:
         await callback.answer("Непонятная дата", show_alert=True)
@@ -247,16 +191,13 @@ async def holiday_pick_date(
 
 
 @router.message(AddHoliday.date)
+@needs(Role.EDITOR, step=True)
 async def holiday_typed_date(
     message: Message,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.EDITOR):
-        await state.clear()
-        return
-
     day = _parse_day(message.text or "", _today(school_class))
     if day is None:
         await message.answer(f"Не понял дату. {HOLIDAY_DATE_HELP}")
@@ -270,18 +211,15 @@ async def holiday_typed_date(
 
 
 @router.callback_query(DayKindAction.filter(F.action == "kind"))
+@needs(Role.EDITOR)
 async def holiday_kind(
     callback: CallbackQuery,
     callback_data: DayKindAction,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.EDITOR):
-        await callback.answer(_refusal(role, Role.EDITOR), show_alert=True)
-        return
-
     raw_date, _, tag = callback_data.value.partition(":")
     day = _date_or_none(raw_date)
     if day is None:
@@ -289,7 +227,7 @@ async def holiday_kind(
         return
 
     if tag == "normal":
-        override = await _override_for(session, school_class.id, day)
+        override = await special_days.mark_on(session, school_class.id, day)
         if override is not None:
             await session.delete(override)
             await audit.record(
@@ -308,7 +246,7 @@ async def holiday_kind(
         await callback.answer("Неизвестный тип дня", show_alert=True)
         return
 
-    await _upsert_override(session, school_class, day, kind)
+    await special_days.mark(session, school_class, day, kind)
     await audit.record(
         session, school_class.id, callback.from_user.id, "dayoverride.set",
         f"{day:%d.%m}: {_KIND_SUMMARY[kind]}",
@@ -316,13 +254,7 @@ async def holiday_kind(
     await session.commit()
 
     if kind is DayKind.SHORTENED:
-        schedules = list(
-            await session.scalars(
-                select(BellSchedule)
-                .where(BellSchedule.class_id == school_class.id)
-                .order_by(BellSchedule.id)
-            )
-        )
+        schedules = await bells_service.schedules_of(session, school_class.id)
         await state.clear()
         await callback.message.edit_text(
             f"<b>{day:%d.%m}</b> — сокращённые уроки.\n\nПо какому расписанию звонков?",
@@ -347,36 +279,29 @@ async def _ask_note(editable, state: FSMContext, day: Date, kind: DayKind) -> No
 
 
 @router.callback_query(DayKindAction.filter(F.action == "bells"))
+@needs(Role.EDITOR)
 async def holiday_bells(
     callback: CallbackQuery,
     callback_data: DayKindAction,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.EDITOR):
-        await callback.answer(_refusal(role, Role.EDITOR), show_alert=True)
-        return
-
     raw_date, _, raw_id = callback_data.value.partition(":")
     day = _date_or_none(raw_date)
     if day is None:
         await callback.answer("Непонятная дата", show_alert=True)
         return
 
-    override = await _override_for(session, school_class.id, day)
+    override = await special_days.mark_on(session, school_class.id, day)
     if override is None:
         await callback.answer("День уже не отмечен", show_alert=True)
         return
 
     schedule_id = _int_or_none(raw_id)
     if schedule_id:
-        schedule = await session.scalar(
-            select(BellSchedule).where(
-                BellSchedule.id == schedule_id, BellSchedule.class_id == school_class.id
-            )
-        )
+        schedule = await bells_service.schedule_of(session, school_class.id, schedule_id)
         if schedule is None:
             await callback.answer("Расписание звонков не найдено", show_alert=True)
             return
@@ -387,10 +312,7 @@ async def holiday_bells(
         # уроки» over an empty day on every phone, in the widget and in the
         # calendar feed, and nothing would be logged. `api/edit.day_put` refuses
         # the same thing for the same reason.
-        rings = await session.scalar(
-            select(BellPeriod.id).where(BellPeriod.schedule_id == schedule.id).limit(1)
-        )
-        if rings is None:
+        if not await bells_service.rings_anything(session, schedule):
             await callback.answer(
                 f"В «{schedule.name}» ещё нет ни одного урока — "
                 "заполните звонки, иначе день будет пустым.",
@@ -418,17 +340,14 @@ async def holiday_bells(
 
 
 @router.message(AddHoliday.note)
+@needs(Role.EDITOR, step=True)
 async def holiday_note(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.EDITOR):
-        await state.clear()
-        return
-
     data = await state.get_data()
     day = _date_or_none(str(data.get("date", "")))
     if day is None:
@@ -436,7 +355,7 @@ async def holiday_note(
         await message.answer("Начните заново: /holidays", reply_markup=back_to_menu())
         return
 
-    override = await _override_for(session, school_class.id, day)
+    override = await special_days.mark_on(session, school_class.id, day)
     if override is None:
         await state.clear()
         await message.answer("День уже не отмечен.", reply_markup=back_to_menu())
@@ -457,24 +376,21 @@ async def holiday_note(
 
 
 @router.callback_query(DayKindAction.filter(F.action == "delete"))
+@needs(Role.EDITOR)
 async def holiday_delete(
     callback: CallbackQuery,
     callback_data: DayKindAction,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.EDITOR):
-        await callback.answer(_refusal(role, Role.EDITOR), show_alert=True)
-        return
-
     day = _date_or_none(callback_data.value)
     if day is None:
         await callback.answer("Непонятная дата", show_alert=True)
         return
 
-    override = await _override_for(session, school_class.id, day)
+    override = await special_days.mark_on(session, school_class.id, day)
     if override is not None:
         await session.delete(override)
         await audit.record(
@@ -490,18 +406,15 @@ async def holiday_delete(
 
 
 @router.callback_query(DayKindAction.filter(F.action == "period"))
+@needs(Role.ADMIN)
 async def holiday_period_start(
     callback: CallbackQuery,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """A whole range of holiday days is admin-only: it rewrites weeks of the
     class's calendar from one message."""
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     # Which kind first, dates second. The flow used to mark holidays and
     # nothing else, so «самоподготовка с 12 по 16» meant marking five days one
     # at a time — and a week of remote teaching, which is the shape this is
@@ -516,19 +429,16 @@ async def holiday_period_start(
 
 
 @router.callback_query(DayKindAction.filter(F.action == "period_kind"))
+@needs(Role.ADMIN)
 async def holiday_period_kind(
     callback: CallbackQuery,
     callback_data: DayKindAction,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """The kind is picked, now the dates. Re-checked here, not trusted from the
     press that got this far: a card can sit on a screen after a role changes."""
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     kind = _day_kind_or_none(callback_data.value)
     if kind is None or kind not in {chosen for chosen, _ in PERIOD_KINDS}:
         # Not an exception. Callback data is whatever the client sent, and a
@@ -551,17 +461,14 @@ async def holiday_period_kind(
 
 
 @router.message(AddHoliday.period)
+@needs(Role.ADMIN, step=True)
 async def holiday_period_apply(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await state.clear()
-        return
-
     today = _today(school_class)
     raw = (message.text or "").replace("—", "-").replace("–", "-")
     parts = [part for part in raw.split("-") if part.strip()]
@@ -587,8 +494,7 @@ async def holiday_period_apply(
     data = await state.get_data()
     kind = _day_kind_or_none(str(data.get("period_kind", ""))) or DayKind.HOLIDAY
 
-    for offset in range(span):
-        await _upsert_override(session, school_class, first + timedelta(days=offset), kind)
+    await special_days.mark_period(session, school_class, first, span, kind)
     await audit.record(
         session,
         school_class.id,

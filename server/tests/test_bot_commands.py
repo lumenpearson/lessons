@@ -28,13 +28,15 @@ from sqlalchemy import select
 
 from app.bot import states
 from app.bot.bot import COMMANDS, build_dispatcher
+from app.bot.handlers.manage import NEED_ADMIN
 from app.bot.handlers.unknown import STALE_CARD, UNKNOWN_COMMAND
 from app.bot.keyboards import WeekNav
+from app.bot.manage_keyboards import BellsAction
 from app.bot.manage_states import EditSubject
 from app.bot.middlewares import FORM_DROPPED
 from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
-from app.models import BotUser, DayEvent, Homework, Role, SchoolClass
+from app.models import AuditEntry, BotUser, DayEvent, Homework, Role, SchoolClass
 
 USER_ID = 4242
 
@@ -397,3 +399,54 @@ async def test_a_press_a_handler_owns_never_reaches_the_catch_all(bot, sent):
     answers = [m for m in sent.sent if type(m).__name__ == "AnswerCallbackQuery"]
     assert answers, "the press was not answered at all"
     assert STALE_CARD not in [a.text for a in answers]
+
+
+@pytest.mark.parametrize(
+    ("role", "drawn"), [(Role.VIEWER, False), (Role.ADMIN, True)], ids=["viewer", "admin"]
+)
+async def test_the_role_decorator_answers_through_the_dispatcher(
+    bot, sent, session, school_class, role, drawn
+):
+    """«⚙️ Класс» checks roles with `@needs` on each handler (#207), and the
+    handler tests call the handlers directly, so this is the half they cannot
+    see: aiogram reads what to inject off the function the decorator wraps,
+    and a refusal has to be answered by the handler that matched rather than
+    handed on to the catch-all. An admin gets the page, which is proof the
+    wrapped handler received its session, class, role and state; a наблюдатель
+    gets the refusal as an alert, and nothing drawn.
+    """
+    session.add(BotUser(telegram_id=USER_ID, class_id=school_class.id, role=role))
+    await session.commit()
+
+    result = await dispatcher().feed_update(bot, _press(BellsAction(action="list").pack()))
+
+    assert result is not UNHANDLED
+    answers = [m for m in sent.sent if type(m).__name__ == "AnswerCallbackQuery"]
+    assert len(answers) == 1, "the press was answered more than once, or not at all"
+    edits = [m for m in sent.sent if type(m).__name__ == "EditMessageText"]
+    if drawn:
+        assert edits and "Расписания звонков" in edits[0].text
+        assert not answers[0].show_alert
+    else:
+        assert edits == []
+        assert answers[0].text == NEED_ADMIN
+        assert answers[0].show_alert is True
+
+
+async def test_a_refused_form_step_through_the_dispatcher_drops_the_form_quietly(
+    bot, sent, session, school_class
+):
+    """The other shape of the same refusal: text typed into a form this person
+    has no right to have open. FSM state is per-user, so a client can put
+    itself into «Новое название предмета» - and the answer is to drop the form
+    and say nothing, exactly as the check at the top of the step did by hand."""
+    session.add(BotUser(telegram_id=USER_ID, class_id=school_class.id, role=Role.VIEWER))
+    await session.commit()
+    await _set_state(bot, EditSubject.create)
+
+    await dispatcher().feed_update(bot, _message("Физика"))
+
+    assert await _state_of(bot) is None
+    assert sent.texts == []
+    async with SessionLocal() as db:
+        assert (await db.scalars(select(AuditEntry))).all() == []

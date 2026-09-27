@@ -15,7 +15,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
-from app.bot.handlers.manage._common import _allowed, _refusal
+from app.bot.handlers.manage._common import needs
 from app.bot.keyboards import WEEKDAY_FULL, back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards import ImportAction, import_keyboard
 from app.bot.manage_states import ImportTimetable
@@ -52,21 +52,19 @@ router = Router(name="manage.import_export")
 
 
 @router.message(Command("export"))
+@needs(Role.ADMIN)
 async def cmd_export(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """The whole template as text — which doubles as the backup.
 
     It is sent in ``<code>`` blocks so Telegram offers a copy button, split at
     4000 characters because the limit is 4096 and the header counts.
     """
-    if not _allowed(school_class, role, Role.ADMIN):
-        await message.answer(_refusal(role, Role.ADMIN))
-        return
     await state.clear()
 
     body, _lessons = await timetable_service.export(session, school_class)
@@ -96,35 +94,30 @@ IMPORT_HELP = (
 
 
 @router.message(Command("import"))
+@needs(Role.ADMIN)
 async def cmd_import(
     message: Message,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await message.answer(_refusal(role, Role.ADMIN))
-        return
     await state.set_state(ImportTimetable.paste)
     await message.answer(f"📥 <b>Импорт расписания</b>\n\n{IMPORT_HELP}")
 
 
 @router.message(ImportTimetable.paste)
+@needs(Role.ADMIN, step=True)
 async def import_preview(
     message: Message,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Parse and show what would happen; nothing is written yet.
 
     The paste is kept in FSM storage rather than parsed twice into a process
     variable: «Применить» may well arrive at a different instance.
     """
-    if not _allowed(school_class, role, Role.ADMIN):
-        await state.clear()
-        return
-
     raw = message.text or ""
     days, rejected = timetable_io.parse_timetable_block(raw)
     bells, _ = timetable_io.parse_bells_block(raw)
@@ -140,27 +133,26 @@ async def import_preview(
 
 
 @router.callback_query(ImportAction.filter(F.action == "cancel"))
+@needs(Role.ADMIN)
 async def import_cancel(
     callback: CallbackQuery,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
     await state.clear()
     await callback.message.edit_text("Импорт отменён — ничего не изменилось.")
     await callback.answer()
 
 
 @router.callback_query(ImportAction.filter(F.action == "apply"))
+@needs(Role.ADMIN)
 async def import_apply(
     callback: CallbackQuery,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Replace exactly the weekdays the paste named, in one transaction.
 
@@ -168,10 +160,6 @@ async def import_apply(
     block is a legitimate thing to do. A day that appears with no lessons under
     it is emptied — that is how a paste says «в четверг уроков нет».
     """
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     data = await state.get_data()
     raw = str(data.get("raw", ""))
     days, _ = timetable_io.parse_timetable_block(raw)

@@ -17,10 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot import manage_render as mr
 from app.bot.handlers.manage._common import (
     NEED_OWNER,
-    NO_ACCESS,
-    _allowed,
     _int_or_none,
-    _refusal,
+    needs,
 )
 from app.bot.keyboards import Menu, back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards import ManageAction, class_menu, switch_keyboard
@@ -89,16 +87,14 @@ def _diary_label(school_class: SchoolClass) -> str:
 
 
 @router.message(Command("class"))
+@needs(Role.ADMIN)
 async def cmd_class(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await message.answer(_refusal(role, Role.ADMIN))
-        return
     await state.clear()
     text, keyboard = await _class_card(session, school_class, role, message.from_user.id)
     await message.answer(text, reply_markup=keyboard)
@@ -109,16 +105,14 @@ async def cmd_class(
 # were on whichever card you had not opened.
 @router.callback_query(Menu.filter(F.action == "class"))
 @router.callback_query(ManageAction.filter(F.action == "root"))
+@needs(Role.ADMIN)
 async def class_root(
     callback: CallbackQuery,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
     await state.clear()
     text, keyboard = await _class_card(session, school_class, role, callback.from_user.id)
     await callback.message.edit_text(text, reply_markup=keyboard)
@@ -135,17 +129,14 @@ _CLASS_FIELDS = {
 
 
 @router.callback_query(ManageAction.filter(F.action.in_({"rename", "school", "city"})))
+@needs(Role.ADMIN)
 async def class_field_prompt(
     callback: CallbackQuery,
     callback_data: ManageAction,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     target = _CLASS_FIELDS.get(callback_data.action)
     if target is None:  # pragma: no cover - the filter already narrowed it
         await callback.answer("Неизвестное поле", show_alert=True)
@@ -159,17 +150,14 @@ async def class_field_prompt(
 
 
 @router.message(EditClassField.value)
+@needs(Role.ADMIN, step=True)
 async def class_field_apply(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await state.clear()
-        return
-
     data = await state.get_data()
     target = _CLASS_FIELDS.get(str(data.get("field", "")))
     if target is None:
@@ -203,22 +191,16 @@ async def class_field_apply(
 
 
 @router.callback_query(ManageAction.filter(F.action == "switch"))
+@needs(Role.VIEWER)
 async def class_switch(
     callback: CallbackQuery,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.VIEWER):
-        await callback.answer(NO_ACCESS, show_alert=True)
-        return
-
-    memberships = await list_memberships(session, callback.from_user.id)
-    classes: list[SchoolClass] = []
-    for member in memberships:
-        found = await session.get(SchoolClass, member.class_id)
-        if found is not None:
-            classes.append(found)
+    classes = await classes_service.classes_of(
+        session, await list_memberships(session, callback.from_user.id)
+    )
     if len(classes) < 2:
         await callback.answer("Вы состоите только в одном классе", show_alert=True)
         return
@@ -231,13 +213,14 @@ async def class_switch(
 
 
 @router.callback_query(ManageAction.filter(F.action == "switch_to"))
+@needs(Role.VIEWER)
 async def class_switch_to(
     callback: CallbackQuery,
     callback_data: ManageAction,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Remember which class this person is working in.
 
@@ -249,17 +232,13 @@ async def class_switch_to(
     time it reads the preference, so a class somebody is later removed from
     stops being their default by itself.
     """
-    if school_class is None or role is None:
-        await callback.answer(NO_ACCESS, show_alert=True)
-        return
-
     class_id = _int_or_none(callback_data.value)
     memberships = await list_memberships(session, callback.from_user.id)
     if class_id is None or not any(member.class_id == class_id for member in memberships):
         await callback.answer("Вы не состоите в этом классе", show_alert=True)
         return
 
-    target = await session.get(SchoolClass, class_id)
+    target = await classes_service.class_of(session, class_id)
     if target is None:
         await callback.answer("Класс не найден", show_alert=True)
         return
@@ -282,16 +261,13 @@ async def class_switch_to(
 
 
 @router.callback_query(ManageAction.filter(F.action == "delete"))
+@needs(Role.OWNER, refusal=NEED_OWNER)
 async def class_delete_prompt(
     callback: CallbackQuery,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.OWNER):
-        await callback.answer(NEED_OWNER, show_alert=True)
-        return
-
     await state.set_state(DeleteClass.confirm)
     await callback.message.edit_text(
         f"🗑 <b>Удалить класс {escape(school_class.name)}?</b>\n\n"
@@ -305,12 +281,13 @@ async def class_delete_prompt(
 
 
 @router.message(DeleteClass.confirm)
+@needs(Role.OWNER, step=True)
 async def class_delete_apply(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Typing the name back is the confirmation, and the only one.
 
@@ -318,10 +295,6 @@ async def class_delete_apply(
     before it. Nothing here writes an audit line: the log lives in the class
     and goes with it.
     """
-    if not _allowed(school_class, role, Role.OWNER):
-        await state.clear()
-        return
-
     name = school_class.name
     try:
         await classes_service.delete(session, school_class, message.text or "")

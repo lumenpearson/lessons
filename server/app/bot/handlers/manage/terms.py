@@ -14,7 +14,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot.handlers.manage._common import _allowed, _int_or_none, _refusal
+from app.bot.handlers.manage._common import _int_or_none, needs
 from app.bot.keyboards import back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards import TermAction, terms_menu
 from app.bot.manage_states import EditTerm
@@ -66,16 +66,14 @@ async def _terms_card(session: AsyncSession, school_class: SchoolClass):
 
 
 @router.callback_query(TermAction.filter(F.action == "list"))
+@needs(Role.ADMIN)
 async def terms_list(
     callback: CallbackQuery,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
     await state.clear()
     text, keyboard = await _terms_card(session, school_class)
     await callback.message.edit_text(text, reply_markup=keyboard)
@@ -83,18 +81,15 @@ async def terms_list(
 
 
 @router.callback_query(TermAction.filter(F.action == "scheme"))
+@needs(Role.ADMIN)
 async def terms_scheme(
     callback: CallbackQuery,
     callback_data: TermAction,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     wanted = TermKind.SEMESTER if callback_data.value == "semester" else TermKind.QUARTER
     await terms_manage.change_scheme(session, school_class, callback.from_user.id, wanted)
     await session.commit()
@@ -106,17 +101,14 @@ async def terms_scheme(
 
 
 @router.callback_query(TermAction.filter(F.action == "edit"))
+@needs(Role.ADMIN)
 async def term_edit_prompt(
     callback: CallbackQuery,
     callback_data: TermAction,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     # ``_int_or_none``, not ``isdigit`` and ``int``: those two do not ask the
     # same question, so «²» passed the check and raised inside the conversion
     # — out of the handler, before ``callback.answer`` was ever reached.
@@ -136,17 +128,14 @@ async def term_edit_prompt(
 
 
 @router.message(EditTerm.span)
+@needs(Role.ADMIN, step=True)
 async def term_edit_apply(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await state.clear()
-        return
-
     data = await state.get_data()
     index = int(data.get("term_index", 0))
     if index < 1:

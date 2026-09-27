@@ -13,7 +13,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot.handlers.manage._common import _allowed
+from app.bot.handlers.manage._common import NEED_ADMIN, needs
 from app.bot.handlers.manage.class_card import _class_card
 from app.bot.keyboards import DiarySchoolPick
 from app.bot.manage_keyboards import (
@@ -31,16 +31,18 @@ from app.providers.netschool import regions as ns_regions
 from app.providers.netschool.client import NetSchoolClient
 from app.services import audit, diary_link
 from app.services import diary as diary_service
+from app.services.manage import classes as classes_service
 
 router = Router(name="manage.diary_binding")
 
 
 @router.callback_query(ManageAction.filter(F.action == "diary_bind"))
+@needs(Role.ADMIN, refusal=NEED_ADMIN)
 async def class_diary_bind(
     callback: CallbackQuery,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Bind or unbind the class's electronic diary.
 
@@ -49,10 +51,6 @@ async def class_diary_bind(
     account. Unbinding likewise only removes the door — the sessions people
     opened stay theirs until they sign out, and are dropped with the class.
     """
-    if school_class is None or role is None or not role.at_least(Role.ADMIN):
-        await callback.answer("Только для администраторов", show_alert=True)
-        return
-
     if school_class.diary_provider:
         # Bound → unbind. The door goes; the sessions people opened stay theirs
         # until they sign out or the class is deleted, as three screens promise.
@@ -86,17 +84,15 @@ async def class_diary_bind(
 
 
 @router.callback_query(ManageAction.filter(F.action == "diary_prov"))
+@needs(Role.ADMIN, refusal=NEED_ADMIN)
 async def class_diary_provider(
     callback: CallbackQuery,
     callback_data: ManageAction,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Second step of binding: the provider was picked."""
-    if school_class is None or role is None or not role.at_least(Role.ADMIN):
-        await callback.answer("Только для администраторов", show_alert=True)
-        return
     if callback_data.value == PETERSBURG:
         school_class.diary_provider = PETERSBURG
         school_class.diary_region = None
@@ -126,20 +122,18 @@ async def class_diary_provider(
 
 
 @router.callback_query(ManageAction.filter(F.action == "diary_reg"))
+@needs(Role.ADMIN, refusal=NEED_ADMIN)
 async def class_diary_region(
     callback: CallbackQuery,
     callback_data: ManageAction,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
     state: FSMContext,
 ) -> None:
     """Third step: the «Сетевой город» region was picked. Check the region
     accepts a password from us before asking for the school, so the admin
     learns once rather than every family finding out at sign-in."""
-    if school_class is None or role is None or not role.at_least(Role.ADMIN):
-        await callback.answer("Только для администраторов", show_alert=True)
-        return
     region = ns_regions.get(callback_data.value)
     if region is None or not region.password:
         await callback.answer("Этот регион недоступен", show_alert=True)
@@ -172,12 +166,13 @@ async def _probe_region(region) -> tuple[bool, str]:  # noqa: ANN001
 
 
 @router.message(BindDiary.school)
+@needs(Role.ADMIN, step=True)
 async def class_diary_search(
     message: Message,
     session: AsyncSession,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Fourth step: a school-name query. Show what the region's search found.
 
@@ -186,9 +181,6 @@ async def class_diary_search(
     otherwise turn the class card into an outbound search against a region
     server.
     """
-    if not _allowed(school_class, role, Role.ADMIN):
-        await state.clear()
-        return
     data = await state.get_data()
     region = ns_regions.get(data.get("diary_region"))
     class_id = data.get("diary_class_id")
@@ -216,21 +208,18 @@ async def class_diary_search(
     await message.answer(caption, reply_markup=diary_school_menu(shown, more=more))
 
 
+# A role check like every other step: the callback payload is whatever the
+# client sent, and this one redraws the (admin-only) class card, so a
+# наблюдатель who pressed it would otherwise be shown it.
 @router.callback_query(DiarySchoolPick.filter(F.action == "cancel"))
+@needs(Role.ADMIN, step=True, refusal=NEED_ADMIN)
 async def class_diary_cancel(
     callback: CallbackQuery,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
     state: FSMContext,
 ) -> None:
-    # A role check like every other step: the callback payload is whatever the
-    # client sent, and this one redraws the (admin-only) class card, so a
-    # наблюдатель who pressed it would otherwise be shown it.
-    if school_class is None or role is None or not role.at_least(Role.ADMIN):
-        await state.clear()
-        await callback.answer("Только для администраторов", show_alert=True)
-        return
     await state.clear()
     await _redraw_class(callback, session, school_class, role)
     await callback.answer("Отменено")
@@ -254,7 +243,11 @@ async def class_diary_school(
         await state.clear()
         await callback.answer("Список устарел — начните заново.", show_alert=True)
         return
-    school_class = await session.get(SchoolClass, class_id)
+    # Not `@needs`: the class this binds is the one the form started in,
+    # carried in the state, and it is that class which has to exist. The role
+    # is the member's in the class they are in now, as for every other step -
+    # switching class drops the form, so the two are the same class.
+    school_class = await classes_service.class_of(session, class_id)
     if school_class is None or role is None or not role.at_least(Role.ADMIN):
         await state.clear()
         await callback.answer("Только для администраторов", show_alert=True)

@@ -13,11 +13,10 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
-from app.bot.handlers.manage._common import _allowed, _int_or_none, _refusal
+from app.bot.handlers.manage._common import _int_or_none, needs
 from app.bot.keyboards import back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards import (
     COLOUR_PRESETS,
@@ -28,8 +27,7 @@ from app.bot.manage_keyboards import (
 )
 from app.bot.manage_states import EditSubject
 from app.bot.render import plural
-from app.models import Role, SchoolClass, Subject, TimetableEntry
-from app.services import audit
+from app.models import Role, SchoolClass, Subject
 from app.services.manage import subjects as subjects_service
 
 router = Router(name="manage.subjects")
@@ -49,14 +47,6 @@ TEACHER_MAX = 120
 # being three different subjects in the timetable, the homework and the app's
 # colour scheme. Renaming one therefore has to move every row that spells the
 # old name, in the same transaction - see :func:`_rename_subject`.
-
-
-async def _subjects_of(session: AsyncSession, class_id: int) -> list[Subject]:
-    return list(
-        await session.scalars(
-            select(Subject).where(Subject.class_id == class_id).order_by(Subject.name)
-        )
-    )
 
 
 async def _subject_view(session: AsyncSession, school_class: SchoolClass, role: Role):
@@ -84,32 +74,28 @@ async def _subject_by_id(
 
 
 @router.message(Command("subjects"))
+@needs(Role.EDITOR)
 async def cmd_subjects(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.EDITOR):
-        await message.answer(_refusal(role, Role.EDITOR))
-        return
     await state.clear()
     text, keyboard = await _subject_view(session, school_class, role)
     await message.answer(text, reply_markup=keyboard)
 
 
 @router.callback_query(SubjectAction.filter(F.action == "list"))
+@needs(Role.EDITOR)
 async def subjects_list(
     callback: CallbackQuery,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.EDITOR):
-        await callback.answer(_refusal(role, Role.EDITOR), show_alert=True)
-        return
     await state.clear()
     text, keyboard = await _subject_view(session, school_class, role)
     await callback.message.edit_text(text, reply_markup=keyboard)
@@ -117,18 +103,15 @@ async def subjects_list(
 
 
 @router.callback_query(SubjectAction.filter(F.action == "open"))
+@needs(Role.ADMIN)
 async def subject_open(
     callback: CallbackQuery,
     callback_data: SubjectAction,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     subject = await _subject_by_id(session, school_class, callback_data.value)
     if subject is None:
         await callback.answer("Предмет уже удалён", show_alert=True)
@@ -154,18 +137,15 @@ _SUBJECT_FIELDS = {
 
 
 @router.callback_query(SubjectAction.filter(F.action == "field"))
+@needs(Role.ADMIN)
 async def subject_field(
     callback: CallbackQuery,
     callback_data: SubjectAction,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     field, _, raw_id = callback_data.value.partition(":")
     subject = await _subject_by_id(session, school_class, raw_id)
     if subject is None:
@@ -204,17 +184,14 @@ async def _subject_from_state(
 
 
 @router.message(EditSubject.name)
+@needs(Role.ADMIN, step=True)
 async def subject_rename(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await state.clear()
-        return
-
     name = " ".join((message.text or "").split())
     if not 1 <= len(name) <= SUBJECT_NAME_MAX:
         await message.answer(f"Название от 1 до {SUBJECT_NAME_MAX} символов. Ещё раз:")
@@ -288,30 +265,26 @@ async def _save_subject_text(
 
 
 @router.message(EditSubject.short_name)
+@needs(Role.ADMIN, step=True)
 async def subject_short_name(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await state.clear()
-        return
     await _save_subject_text(message, state, session, school_class, "short_name", SHORT_NAME_MAX)
 
 
 @router.message(EditSubject.teacher)
+@needs(Role.ADMIN, step=True)
 async def subject_teacher(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await state.clear()
-        return
     await _save_subject_text(message, state, session, school_class, "teacher", TEACHER_MAX)
 
 
@@ -329,18 +302,15 @@ async def _apply_colour(
 
 
 @router.callback_query(SubjectAction.filter(F.action == "colour"))
+@needs(Role.ADMIN)
 async def subject_colour_pick(
     callback: CallbackQuery,
     callback_data: SubjectAction,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     raw_id, _, raw_colour = callback_data.value.partition(":")
     subject = await _subject_by_id(session, school_class, raw_id)
     if subject is None:
@@ -365,17 +335,14 @@ async def subject_colour_pick(
 
 
 @router.message(EditSubject.colour)
+@needs(Role.ADMIN, step=True)
 async def subject_colour_typed(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await state.clear()
-        return
-
     raw = (message.text or "").strip()
     subject = await _subject_from_state(state, session, school_class)
     if subject is None:
@@ -404,15 +371,13 @@ async def subject_colour_typed(
 
 
 @router.callback_query(SubjectAction.filter(F.action == "add"))
+@needs(Role.ADMIN)
 async def subject_add(
     callback: CallbackQuery,
     state: FSMContext,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
     await state.set_state(EditSubject.create)
     await callback.message.edit_text(
         "Название нового предмета:", reply_markup=cancel_keyboard()
@@ -421,17 +386,14 @@ async def subject_add(
 
 
 @router.message(EditSubject.create)
+@needs(Role.ADMIN, step=True)
 async def subject_create(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await state.clear()
-        return
-
     name = " ".join((message.text or "").split())
     if not 1 <= len(name) <= SUBJECT_NAME_MAX:
         await message.answer(f"Название от 1 до {SUBJECT_NAME_MAX} символов. Ещё раз:")
@@ -458,13 +420,14 @@ async def subject_create(
 
 
 @router.callback_query(SubjectAction.filter(F.action == "delete"))
+@needs(Role.ADMIN)
 async def subject_delete(
     callback: CallbackQuery,
     callback_data: SubjectAction,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Deleting a subject the timetable still uses is refused.
 
@@ -478,10 +441,6 @@ async def subject_delete(
     The order is now stated instead: out of the timetable first, out of the
     dictionary second. A subject nothing teaches still goes in one tap.
     """
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     subject = await _subject_by_id(session, school_class, callback_data.value)
     if subject is None:
         await callback.answer("Предмет уже удалён", show_alert=True)
@@ -510,47 +469,26 @@ async def subject_delete(
 
 
 @router.callback_query(SubjectAction.filter(F.action == "collect"))
+@needs(Role.EDITOR)
 async def subjects_collect(
     callback: CallbackQuery,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Create a Subject row for every name the timetable already uses.
 
     An editor may run this: it invents nothing, it only writes down the names
     that are already in the class's timetable.
     """
-    if not _allowed(school_class, role, Role.EDITOR):
-        await callback.answer(_refusal(role, Role.EDITOR), show_alert=True)
-        return
-
-    names = list(
-        await session.scalars(
-            select(TimetableEntry.subject_name)
-            .where(TimetableEntry.class_id == school_class.id)
-            .distinct()
-        )
-    )
-    known = {subject.name for subject in await _subjects_of(session, school_class.id)}
-    created = [name for name in sorted(names) if name and name not in known]
-    for name in created:
-        session.add(Subject(class_id=school_class.id, name=name[:SUBJECT_NAME_MAX]))
-
+    created = await subjects_service.collect(session, school_class.id, callback.from_user.id)
     if created:
-        await audit.record(
-            session,
-            school_class.id,
-            callback.from_user.id,
-            "subject.collect",
-            f"собрано предметов из расписания: {len(created)}",
-        )
         await session.commit()
 
     await state.clear()
     text, keyboard = await _subject_view(session, school_class, role)
     await callback.message.edit_text(text, reply_markup=keyboard)
     await callback.answer(
-        f"Добавлено: {len(created)}" if created else "Все предметы расписания уже в списке"
+        f"Добавлено: {created}" if created else "Все предметы расписания уже в списке"
     )

@@ -12,7 +12,7 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import BellSchedule, DayOverride, SchoolClass
+from app.models import BellPeriod, BellSchedule, DayOverride, SchoolClass
 from app.services import audit, structure
 from app.services.structure import BellRow
 
@@ -61,6 +61,16 @@ async def schedule_of(
         select(BellSchedule).where(
             BellSchedule.id == schedule_id, BellSchedule.class_id == class_id
         )
+    )
+
+
+async def rings_anything(session: AsyncSession, schedule: BellSchedule) -> bool:
+    """Whether the schedule has one row at all - one row, not the count."""
+    return (
+        await session.scalar(
+            select(BellPeriod.id).where(BellPeriod.schedule_id == schedule.id).limit(1)
+        )
+        is not None
     )
 
 

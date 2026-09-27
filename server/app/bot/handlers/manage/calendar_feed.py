@@ -13,7 +13,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
-from app.bot.handlers.manage._common import NO_ACCESS, _allowed, _refusal
+from app.bot.handlers.manage._common import needs
 from app.bot.keyboards import back_to_menu
 from app.bot.manage_keyboards import ManageAction, back_to
 from app.config import get_settings
@@ -56,18 +56,16 @@ def _calendar_keyboard(role: Role):
 
 
 @router.message(Command("calendar"))
+@needs(Role.VIEWER)
 async def cmd_calendar(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Any member may subscribe: the feed is read-only and its secret is not
     the join code, so a calendar URL cannot be turned into write access."""
-    if not _allowed(school_class, role, Role.VIEWER):
-        await message.answer(NO_ACCESS)
-        return
     await state.clear()
     await message.answer(
         await _calendar_text(session, school_class, rotated=False),
@@ -76,15 +74,13 @@ async def cmd_calendar(
 
 
 @router.callback_query(ManageAction.filter(F.action == "calendar"))
+@needs(Role.VIEWER)
 async def calendar_card(
     callback: CallbackQuery,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.VIEWER):
-        await callback.answer(NO_ACCESS, show_alert=True)
-        return
     await callback.message.edit_text(
         await _calendar_text(session, school_class, rotated=False),
         reply_markup=_calendar_keyboard(role),
@@ -93,17 +89,14 @@ async def calendar_card(
 
 
 @router.callback_query(ManageAction.filter(F.action == "rotate_feed"))
+@needs(Role.ADMIN)
 async def calendar_rotate(
     callback: CallbackQuery,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Every existing subscription stops updating — that is the point."""
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     text = await _calendar_text(session, school_class, rotated=True)
     await audit.record(
         session, school_class.id, callback.from_user.id, "calendar.rotate",

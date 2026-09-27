@@ -2,7 +2,8 @@
 
 Granting is :func:`app.services.access.approve_request`, which both shells
 already shared; this is the rest of what they wrote twice - finding a request
-that is still open, and saying no.
+that is still open, and saying no - and what only the bot does, because only
+Telegram can be asked in: raising a request, and finding who to tell.
 """
 
 from __future__ import annotations
@@ -13,8 +14,55 @@ from html import escape
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AccessRequest, SchoolClass
+from app.models import AccessRequest, BotUser, Role, SchoolClass
 from app.services import audit
+
+#: The note a requester may leave, in characters; the column is as wide.
+NOTE_MAX = 300
+
+
+async def submit(
+    session: AsyncSession, class_id: int, telegram_id: int, note: str | None
+) -> AccessRequest:
+    """Ask for the editor's role.
+
+    One open request per person per class - a second one replaces the first,
+    so a nervous requester cannot fill an admin's screen.
+    """
+    request = await session.scalar(
+        select(AccessRequest).where(
+            AccessRequest.class_id == class_id,
+            AccessRequest.telegram_id == telegram_id,
+            AccessRequest.status == "pending",
+        )
+    )
+    if request is None:
+        request = AccessRequest(
+            class_id=class_id,
+            telegram_id=telegram_id,
+            requested_role=Role.EDITOR,
+            status="pending",
+        )
+        session.add(request)
+    request.requested_role = Role.EDITOR
+    request.status = "pending"
+    request.message = (note or None) and note[:NOTE_MAX]
+    request.decided_by = None
+    request.decided_at = None
+    await session.flush()
+    return request
+
+
+async def admins(session: AsyncSession, class_id: int) -> list[BotUser]:
+    """Everybody who may answer a request: the admins and the owner."""
+    return list(
+        await session.scalars(
+            select(BotUser).where(
+                BotUser.class_id == class_id,
+                BotUser.role.in_([Role.ADMIN, Role.OWNER]),
+            )
+        )
+    )
 
 
 async def pending(session: AsyncSession, class_id: int) -> list[AccessRequest]:

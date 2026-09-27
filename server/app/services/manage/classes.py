@@ -66,6 +66,25 @@ async def counts(session: AsyncSession, class_id: int) -> Counts:
     )
 
 
+async def class_of(session: AsyncSession, class_id: int) -> SchoolClass | None:
+    """A class by id, for a screen that already knows the person is in it."""
+    return await session.get(SchoolClass, class_id)
+
+
+async def classes_of(session: AsyncSession, memberships: list[BotUser]) -> list[SchoolClass]:
+    """The classes behind a person's memberships, in the memberships' order.
+
+    The order is the one «🔀 Сменить класс» draws its buttons in; a membership
+    whose class has gone is skipped rather than drawn as a dead button.
+    """
+    found: list[SchoolClass] = []
+    for member in memberships:
+        school_class = await session.get(SchoolClass, member.class_id)
+        if school_class is not None:
+            found.append(school_class)
+    return found
+
+
 async def members(session: AsyncSession, class_id: int) -> list[BotUser]:
     """Everybody with a role in the class, for a shell to put names to ids."""
     return list(await session.scalars(select(BotUser).where(BotUser.class_id == class_id)))

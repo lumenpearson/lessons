@@ -13,7 +13,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import manage_render as mr
-from app.bot.handlers.manage._common import _allowed, _int_or_none, _member_names, _refusal
+from app.bot.handlers.manage._common import _int_or_none, _member_names, needs
 from app.bot.manage_keyboards import DeviceAction, device_keyboard
 from app.models import DeviceToken, Role, SchoolClass
 from app.services import linking
@@ -55,32 +55,28 @@ async def _device_by_id(
 
 
 @router.message(Command("devices"))
+@needs(Role.ADMIN)
 async def cmd_devices(
     message: Message,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await message.answer(_refusal(role, Role.ADMIN))
-        return
     await state.clear()
     text, keyboard = await _device_view(session, school_class)
     await message.answer(text, reply_markup=keyboard)
 
 
 @router.callback_query(DeviceAction.filter(F.action == "list"))
+@needs(Role.ADMIN)
 async def devices_list(
     callback: CallbackQuery,
     state: FSMContext,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
     await state.clear()
     text, keyboard = await _device_view(session, school_class)
     await callback.message.edit_text(text, reply_markup=keyboard)
@@ -88,19 +84,16 @@ async def devices_list(
 
 
 @router.callback_query(DeviceAction.filter(F.action == "revoke"))
+@needs(Role.ADMIN)
 async def device_revoke(
     callback: CallbackQuery,
     callback_data: DeviceAction,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Revoked, not deleted: the row is what the API checks a token against,
     and keeping it is what makes the refusal instant and permanent."""
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     device = await _device_by_id(session, school_class, callback_data.value)
     if device is None:
         await callback.answer("Устройство не найдено", show_alert=True)
@@ -117,18 +110,15 @@ async def device_revoke(
 
 
 @router.callback_query(DeviceAction.filter(F.action == "unlink"))
+@needs(Role.ADMIN)
 async def device_unlink(
     callback: CallbackQuery,
     callback_data: DeviceAction,
     session: AsyncSession,
-    school_class: SchoolClass | None,
-    role: Role | None,
+    school_class: SchoolClass,
+    role: Role,
 ) -> None:
     """Back to read-only without taking the phone off the class."""
-    if not _allowed(school_class, role, Role.ADMIN):
-        await callback.answer(_refusal(role, Role.ADMIN), show_alert=True)
-        return
-
     device = await _device_by_id(session, school_class, callback_data.value)
     if device is None:
         await callback.answer("Устройство не найдено", show_alert=True)
