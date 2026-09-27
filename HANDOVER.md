@@ -44,8 +44,9 @@ messages, not by this paragraph — read them against this list before merging.
 needs. `0016` creates `usage_counters`, the anonymous school directory's daily count of
 DaData requests. `0017` files the diary corrections under the child rather than a login, and
 it is data only. All three went on through the Neon connector (the project named `lessons`)
-**before** #140's merge, in one transaction; «Schema» in the section on #140 below says what
-the database said. The `0014` chapter still holds: #83's pinned table of the enum column
+**before** #140's merge, in one transaction; «Schema» in the section on #140, in
+[docs/history.md](docs/history.md) now, says what the database said. The `0014` chapter
+still holds: #83's pinned table of the enum column
 widths fails when a `SAEnum` member's **name** outgrows its `VARCHAR`, which SQLite cannot
 see and production Postgres finds at the moment somebody marks a day.
 
@@ -315,8 +316,9 @@ here changes what #186 could not answer: a thumb, a haptic, a real GPU, a real l
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
 every title names what its version delivered and every description names its pull requests
-and issues, and created the tenth the same day. The older sections of this file quote the
-titles of their own time, which a search no longer finds; the third column maps them. The
+and issues, and created the tenth the same day. The older batch sections, in `docs/history.md`
+now, quote the titles of their own time, which a search no longer finds; the third column
+maps them. The
 `github-pr` skill carries the same table.
 
 | # | Title | Called before 25 September | State | Covers |
@@ -362,8 +364,9 @@ device on it. #140's additions below belong to #121 where they need a live diary
 merge. The prose here is kept because it says *why* each one is unverifiable, which an issue
 title cannot.
 
-**#186 looked at a good part of this on an emulator** (26–27 September 2026; the section
-«…the first walk of the app on a device» has the detail). The bullets it answered say so in place, and what an emulator
+**#186 looked at a good part of this on an emulator** (26–27 September 2026; its section,
+«…the first walk of the app on a device», in `docs/history.md` now, has the detail). The
+bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
 - **Not one route in `docs/diaries/` has been seen answering.** #134's 1916 routes
@@ -548,7 +551,8 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   animations, not dynamic colours, and not the widget — about which what is proved is exactly
   that the size ladder is monotonic over real sizes.
 - **Every card in the bot is now drawn**, and that found eight defects in one pass
-  (section 4). The hole that is left is exactly where it was: the tests assert what is
+  (section 4, in `docs/history.md` now). The hole that is left is exactly where it was: the
+  tests assert what is
   written on a card rather than how it looks in a client, and nobody has opened a live
   Telegram with these changes.
   **Nobody draws the widget.** Glance has `glance-appwidget-testing` at the same version as
@@ -992,9 +996,11 @@ written parses as it did before.
   bodies. Rewriting them means rewriting every hash from the first affected commit and force
   pushing `main` and `dev`: every existing clone breaks, the merge references in the pull
   requests stop resolving, and the release tags move. The owner decided not to. So a `git log`
-  older than this batch reads in two languages, and that is expected rather than missed.
+  older than #51's move into English reads in two languages, and that is expected rather
+  than missed.
 
-**One thing it found and did not touch.** Five test functions on the server carry a Russian
+**One thing the documents' sweep of 19 September 2026 found and did not touch.** Five test
+functions on the server carry a Russian
 word in their names — `test_a_day_with_one_maximum_length_задание_still_sends` and four like
 it, in `test_bot_message_limits.py` and `test_bot_manage.py`. The rule says identifiers are
 English; it also says a quotation of what the user sees keeps its Russian, and an identifier
@@ -1029,14 +1035,16 @@ start once below 2 GB, and the AVD's Quick Boot image alone is 8.5 GB. The workt
 `.claude/worktrees/` each carry their own Gradle build directories.
 
 **Drop the `Teleport auto-stash` when convenient** (`stash@{0}`, over `c26eace`). It holds
-what the IDE generated rather than work — «What the session before it added» lists it — and
+what the IDE generated rather than work — #187's section, «…the first instrumented tests…»,
+lists it — and
 nothing in a session here drops a stash it did not make.
 
 **Restart Android Studio once, when it is free.** Three changes wait for it, because the IDE
 rewrites those files on exit: `server/.venv` as the Python SDK, the root module as a Python
 one (which quiets «Unsupported Modules Detected»), and the third-party «Python Portable»
 plugin disabled, since it fails to load on every start. Everything else in the IDE's set-up
-is already in place (see «…the first walk of the app on a device», the section on #186).
+is already in place (see «…the first walk of the app on a device», the section on #186, in
+`docs/history.md` now).
 
 **The tenth milestone exists, and #140 is on it.** The owner created
 `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` on 25 September and renamed

@@ -18,7 +18,8 @@ The text was moved verbatim out of `HANDOVER.md` on 27 September 2026 (#211), so
 the conventions of the file it was written in:
 
 - «this file» and «this document» mean `HANDOVER.md` as it was when the sentence was
-  written;
+  written; a reference that would now lead into the wrong one of the two files names
+  the file;
 - sections 5 to 8 are `HANDOVER.md`'s, which kept their numbers; sections 1 to 4 are here,
   after the oldest batch;
 - the last three sections hold what was taken out of `HANDOVER.md`'s sections 5, 6 and 7 the
@@ -58,7 +59,9 @@ the release build the APK workflow made from `bd7c816`, already installed and jo
   deleted, `bmgr restore`: a probe file in `files/` and one in the `external` domain came back,
   the report did not. Again with the transport flagged `is_device_transfer=true`: the same.
   The Google transport was put back afterwards. The issue closes on this.
-- **#119, warmup and `/start` — read.** See the opening paragraph. Closes.
+- **#119, warmup and `/start` — read.** On 26 September production's `/api/v1/warmup`
+  answered `"schema":"0017"`, read through the Vercel connector, and the bot answered
+  `/start` in the owner's chat. Closes.
 - **#114, arranging the tabs.** The long press opens the mode (labels fold, the icons wobble);
   a second touch dragging «Задания» to the first slot lands there; the reader stays on
   «Календарь», which moves with its tab; back leaves the mode, not the app; the order
@@ -481,7 +484,7 @@ changed since `061a716`.
 
 ### What nobody has verified in this batch
 
-Section 5 carries each of these with the reason it is unverifiable. In short:
+`HANDOVER.md`'s section 5 carries each of these with the reason it is unverifiable. In short:
 
 - **Nothing has met a live diary.** «Сетевой город» has never been signed in to for real, on
   the server or through the phone's port, and Петербург never through the phone.
@@ -570,7 +573,7 @@ that exist nowhere else. A later correction is an edit to the Markdown.
 
 - **Provider code.** #130 asked for the map and nothing else. Which provider comes second,
   and how it signs in, is the owner's decision. It is filed as #135 and set out in
-  section 7.
+  `HANDOVER.md`'s section 7.
 - **The teacher's side, and a parent with several children.** The open clients barely touch
   either, and the overview says so rather than guessing.
 - **The generator**, for the reason above.
@@ -594,7 +597,7 @@ where #85 measured them.
 - **#128** opened the issue tracker: forty-two issues, #86–#108 closed and #109–#127 open,
   labelled `type:`, `area:`, `status:` and `needs:`. It also moved the work to a local
   machine with an emulator and a phone, and wrote down what that unlocks and what it still
-  cannot do. That is the section «Where the work happens from here» above.
+  cannot do. That is the section «Where the work happens from here» in `HANDOVER.md`.
 - **#129** made it a standing rule that a found defect becomes an issue before it becomes a
   fix, with one issue per finding, `Closes #NN` in the pull request and both numbers in the
   release notes. The rule is in `CLAUDE.md` and in the `audit`, `github-pr` and `release`
@@ -612,7 +615,8 @@ where #85 measured them.
   it is: the `Commands` line is the only count in `CLAUDE.md`, and one more place to remember
   is what this issue now records.
 
-**Nothing new has been verified.** Everything in sections 5 and 7 still stands, and both
+**Nothing new has been verified.** Everything in `HANDOVER.md`'s sections 5 and 7 still
+stands, and both
 already point at their issues. `/api/v1/warmup` has still not been read since #61 (#119).
 
 ## What the batch before added: the gesture #84 shipped did nothing, and the variables nobody could find
@@ -1671,7 +1675,7 @@ None of these is closed; all are verified enough to act on.
 - **`DATABASE_URL` set to blank or with a leading space** walks past `deployment_problems()`.
 - Four rotation defects in `:app` (correction editor, diary correction sheet), the widget's
   narrow-column labels, `docs/widget.md`'s size ladder disagreeing with `docs/design.md`,
-  stale counts in `docs/architecture.md` and sections 1, 5 and 7 of this file, `docs/app/`
+  stale counts in `docs/architecture.md` and sections 1, 5 and 7 of `HANDOVER.md`, `docs/app/`
   missing from the CI path filter, and a dozen string findings — three names for the app,
   two Russian names for `VIEWER`, a nominative weekday where the sentence needs accusative.
 
@@ -2596,7 +2600,8 @@ The ones that would actually have been felt, one line each:
 * the widget's «Дальше» column listed the lesson an assembly on screen had replaced.
 
 **What only the owner can do.** Three decisions were deliberately left rather than taken, two
-of them in section 7 — the widget's tick cadence, and whether the diary credential should
+of them in `HANDOVER.md`'s section 7 — the widget's tick cadence, and whether the diary
+credential should
 carry a bound — and the third named in the merged pull request: whether the four API
 announcements that interpolate a person's text should carry `shorten`, which is a decision
 about what a notification ought to say rather than a defect. Beyond those, an APK on a real
@@ -2622,7 +2627,7 @@ classes and 0 failures. CI was green on that head and on the four before it.
   adding `testFixtures` to another module's surface for one test. It is reproduced locally
   the way `WidgetSizeClassTest` reproduces the launcher's rule; `CachedWindowTest` owns the
   other half — that the repository implements that bound against the real DAO.
-* **The dishka wiring has now run on Vercel** — see the warmup read above, which is one
+* **The dishka wiring has now run on Vercel** — see the warmup read after #61, which is one
   request and not a measurement. The 26 ms it adds to a cold start is still measured on a
   development machine rather than there, and that the webhook path still defers aiogram is
   read off the imports rather than timed there.
@@ -2633,8 +2638,9 @@ classes and 0 failures. CI was green on that head and on the four before it.
 
 Before this batch, after PRs #47, #48, #49, #50 and #51 were merged. The
 last of them is the agent configuration in `.claude/` and the whole written layer of the
-project moved into English (see "Everything written about the project is English" in
-section 6). It landed as `85064cd`, and `main` and `dev` are level. The database is at
+project moved into English (see "Everything written about the project is English", in
+«Moved out of section 6» below). It landed as `85064cd`, and `main` and `dev` are level. The
+database is at
 head `0013` and `EXPECTED_REVISION` did not move, so that merge needed no migration. The
 production deployment it triggered is `READY` on `85064cd`, and `/api/v1/warmup` was read
 after it: `{"status":"ok","api_version":1,"schema":"0013"}`. That endpoint opens a
@@ -2642,7 +2648,8 @@ connection, so it answers for the database too, not only for the code.
 
 After that batch, two small ones: #55 and #56 corrected this file's own header — it said
 PR #51 was open minutes after it had been merged — and a sweep over every document
-re-measured the numbers they quote. What that sweep found is at the end of section 6.
+re-measured the numbers they quote. What that sweep found is in «Moved out of section 6»,
+below.
 
 Two batches earlier: publishing the repository and everything that followed from it (the
 history reviewed for secrets, `pytest` in CI spread across cores, artifacts living a
@@ -2654,7 +2661,8 @@ what is claimed and what lies beside it cannot drift apart.
 
 **PR #50 is merged**, five commits; it needed no migration — the model did not change and the
 head stayed `0013`. The first two commits are the translation-correction mode across all of
-the app's text (see "The correction mode knows about all the text" in section 6 and the new
+the app's text (see "The correction mode knows about all the text" in `HANDOVER.md`'s
+section 6 and the new
 section of `docs/design.md`). The other three are **an audit of the whole project by nine
 subagents, split by area**: the API, the bot, `services` + `schedule` + `models`, the
 providers + config + migrations, `:core:model` + `:core:data`, the design system + the
@@ -2700,8 +2708,9 @@ What is still open:
    it for Preview too, or do not look at preview deployments.
 
 If you are an agent: `CLAUDE.md` first (the project's rules), then this file (what is already
-done and what is left), and the agent configuration is in `.claude/` (see section 6, "The
-agent configuration lives in `.claude/`"). Treat everything below as verified fact as of the
+done and what is left), and the agent configuration is in `.claude/` (see "The
+agent configuration lives in `.claude/`", in «Moved out of section 6» below). Treat
+everything below as verified fact as of the
 date above, but **re-check the branches and CI before your first action** — they live their
 own lives, and this file goes stale the moment it stops being updated.
 
@@ -2801,15 +2810,15 @@ The sixth pass — both of the owner's decisions taken and done:
 
 **Section 3.1 was closed entirely when this was written.** One requested item has been
 added since and is open: scrolling the calendar by years, which is a decision rather than
-work — see section 7.
+work — see «Moved out of section 7», below, where it is made.
 
 The block below is **the state on the day this section was written**, kept because the
 migration order it records is the thing worth reading twice. It is not today's: the
 branches, the open pull request and the two test counts have all moved since, and the
-paragraph at the very top of this file is the one that is kept current.
+paragraph at the very top of `HANDOVER.md` is the one that is kept current.
 
 ```
-As of PR #51 — not current; see the top of this file
+As of PR #51 — not current; see the top of HANDOVER.md
 Merged:  PR #43, PR #44, PR #45 (six passes, 38 commits, merge 26ad184),
          then PR #47, #48, #49 and #50 — main at 22399e9
 Open:    PR #51 (dev → main) — the agent configuration, and this translation
@@ -2833,8 +2842,8 @@ curl -s https://<project>.vercel.app/api/v1/warmup   # {"status":"ok","schema":"
 
 A `"degraded"` here would mean the deploy had not arrived; before `0013` was applied, the
 same request honestly called the database behind, because `EXPECTED_REVISION` was already
-`0013`. The head is `0017` today — see the top of this file — and the same request reads it
-the other way round while a revision waits for its merge: the database is *ahead* of the
+`0013`. The head is `0017` today — see the top of `HANDOVER.md` — and the same request
+reads it the other way round while a revision waits for its merge: the database is *ahead* of the
 code, and `/warmup` says so in as many words, «База впереди кода…».
 
 **The five dependabot pull requests can now be closed without regret** — their bumps arrived
@@ -2917,9 +2926,9 @@ simultaneously in the API, the widget, the digests and the calendar.
 (it adds a `UNIQUE`, and a constraint migrates in the opposite direction from a column), and
 `0014` before it again. `0015`, `0016` and `0017`, all written on #140, went on before #140's
 merge, in one transaction. `0017` rewrites a key, which on a database holding rows goes on
-after the merge; production held none. «Schema» in that batch's section at the top of this
-file has what the database said. What each earlier revision did is in `CLAUDE.md` and in section 7,
-item 1.
+after the merge; production held none. «Schema» in #140's batch section, above, has
+what the database said. What each earlier revision did is in `CLAUDE.md` and in «Moved out of
+section 7», item 1, below.
 
 ---
 
@@ -2936,20 +2945,24 @@ and what it turned out to be.
 **One request has come in since, and it is on #140.** On 25 September the owner asked for a
 way in through the family's own school's diary, with the password never reaching our server
 (#141). It is built — the first run, the diary-only home, the legal line, the catalog and the
-directory — and closes when #140 merges; what nobody has verified about it is in section 5.
+directory — and closes when #140 merges; what nobody has verified about it is in
+`HANDOVER.md`'s section 5.
 
 ~~1. **A pupil choosing their own class.**~~ Done in `8ec2e31`. The phone keeps a list of
    memberships, shows one of them and switches instantly; the cache is split by class, so
-   switching works with no network too. What exactly is unverified is in section 5.
+   switching works with no network too. What exactly is unverified is in `HANDOVER.md`'s
+   section 5.
 ~~2. **Corrections over dnevnik2's data, with a reset.**~~ Done in `ce02348`. Pressing a
    lesson or an assignment opens a window where the fields can be rewritten; under each it
    says what the diary actually holds. Nothing goes upstream, marks and the turnstile cannot
-   be corrected, and the bot does not show corrections (section 6).
+   be corrected, and the bot does not show corrections (`HANDOVER.md`'s
+   section 6).
 ~~3. **Two modes on invitation, and a reversible switch between them.**~~ The statement was
    clarified with the owner: this is the **class's join mode**. Done — `join_mode` on a
    class, `open` or `invite`; in `invite` the class code lets nobody in and a phone joins
    with a personal one-time code from the bot. The switch is reversible and disconnects not
-   one already-connected phone. The details are in section 6, "Who lets a phone in".
+   one already-connected phone. The details are in `HANDOVER.md`'s section 6,
+   "Who lets a phone in".
 
 ### 3.2. What does not exist at all (long-standing gaps, not regressions)
 
@@ -2993,8 +3006,8 @@ trademark stays a trademark: bundling is allowed, naming a product after it is n
 ## 4. Open defects: none that #140 does not fix, and one fix that waits for a phone
 
 **The defects open as this is written are the ones #140 fixes.** #136–#138 and #145–#160 are
-all fixed on its branch and meant to close with its merge — the table is in that batch's
-section at the top of this file. The exception is **#156**: crash reports are now excluded
+all fixed on its branch and meant to close with its merge — the table is in #140's batch
+section, above. The exception is **#156**: crash reports are now excluded
 from every backup path in the rule files and a test reads both, but whether a phone's backup
 really leaves them out takes a phone and `bmgr`, so the issue stays open, `needs:device`.
 Everything below is the record from before the tracker, and it still holds.
@@ -3020,7 +3033,7 @@ below again, check the code first for whether it is already closed:
 - `LARGE` hid the homework → the `LARGE_TALL` threshold lowered from 400 to 300 dp;
 - `OverlayLayerTest` "failing" on the intercepting layer → **not a defect**: the test was
   rewritten for compose-bom 2026.09.00, which changed Compose's behaviour. It was red exactly
-  once, at the merge; see section 6.
+  once, at the merge; see `HANDOVER.md`'s section 6.
 
 The six multi-class findings closed in `569bab8` — do not file those again either:
 
@@ -3040,7 +3053,7 @@ The findings of the last three audits are closed too, and these are the ones eas
 a second time:
 
 - an enum's `server_default` written through `.value` → now `.name`; the column holds `OPEN`,
-  and three tests check it (section 6);
+  and three tests check it (`HANDOVER.md`'s section 6);
 - `burn` assigned an attribute → now a conditional `UPDATE`, and `/join` burns the code
   before it issues a token;
 - the mode button was a toggle → it now carries the mode it wants;
@@ -3242,7 +3255,8 @@ production on 26 September 2026.
   Protection and answer a redirect to a login page, so no `curl` from here can settle
   whether the schema — `0017` once #140 has deployed — and the code that needs it
   met. It needs the owner's browser or a bypass
-  token; it has been outstanding since #61 and it is in section 7 for that reason.
+  token; it has been outstanding since #61 and it was in section 7 for that reason —
+  «Moved out of section 7», below, since it was read.
 
 ## Moved out of section 6 on 27 September 2026
 
@@ -3581,7 +3595,7 @@ purpose: number 9, `v0.8.0 — On-device checks, 89-region e-diary survey`, whos
 is still to do; number 10, `v0.9.0 — NetSchool e-diary, onboarding via the school's
 diary`, which #140 is on; and number 7, `Dependencies — dependabot bumps`, which takes every
 future bump. The ten titles, and what each was called before the owner renamed them on
-25 September, are in the table under «And before that: nothing on a screen is cut off». The
+25 September, are in the table under «The milestones» in `HANDOVER.md`. The
 reason a new one has to be asked for stands for next time: no tool in a session here changes
 a milestone's state or creates one — `issue_write` only assigns an existing one by number —
 and there is no `gh` CLI.
