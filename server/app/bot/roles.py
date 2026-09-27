@@ -17,9 +17,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from sqlalchemy import select
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.db import rows_affected
 from app.models import BotUser, PhoneInvite, Role, SchoolClass
 from app.security import normalise_phone
 
@@ -125,10 +127,29 @@ async def claim_phone_invites(
         )
     )
 
+    now = datetime.now(UTC).replace(tzinfo=None)
     granted: list[tuple[SchoolClass, Role]] = []
     for invite in invites:
         school_class = await session.get(SchoolClass, invite.class_id)
         if school_class is None:
+            continue
+
+        # Spent before anything is granted, by one conditional UPDATE, exactly
+        # as `device_invites.burn` spends a phone's code: the read above is not
+        # a claim. A webhook Telegram believes went unanswered is delivered
+        # again, and the two deliveries both read this invite unused; assigning
+        # `used_by` and committing let both through. The same account was then
+        # answered «Доступ выдан» twice, or the slower delivery died on the
+        # membership's unique key, and a second account on the number got a
+        # membership of its own from an invite worth one. Here the later
+        # statement waits on the earlier's lock, re-checks the row after it,
+        # and matches nothing, so that delivery grants nothing.
+        spent = await session.execute(
+            sa_update(PhoneInvite)
+            .where(PhoneInvite.id == invite.id, PhoneInvite.used_by.is_(None))
+            .values(used_by=telegram_id, used_at=now)
+        )
+        if rows_affected(spent) != 1:
             continue
 
         membership = await get_membership(session, telegram_id, invite.class_id)
@@ -147,8 +168,6 @@ async def claim_phone_invites(
         membership.username = username
         membership.full_name = full_name
 
-        invite.used_by = telegram_id
-        invite.used_at = datetime.now(UTC).replace(tzinfo=None)
         # The role they now hold, not the one the invite named. The rule above
         # keeps the higher of the two, so an invite below somebody's existing
         # role changes nothing — but the caller draws the main menu from what
