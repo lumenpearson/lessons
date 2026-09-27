@@ -621,7 +621,8 @@ Any VPS with 1 GB of memory will do. One class's load is a few hundred requests 
 | --- | --- |
 | `api/index.py` | the entry point; a thin re-export of `app.main:app`, so that serverless and `uvicorn` run the same code |
 | `vercel.json` | the region, the install command and the function's `maxDuration`. **There is no rewrite in it and there must not be:** with `"/(.*)" → "/api/index"` Vercel routes by the *rewritten* path, so FastAPI received a literal `/api/index`, and the health check, the client API and the Telegram webhook all answered 404 at once. Removed in PR #5 (`e99d8ca`); this line described something that was not in the file for a year — whoever puts it back will reproduce the same outage |
-| `requirements.txt` | Vercel does not read `pyproject.toml` from a subdirectory; this holds `asyncpg` only, no `aiosqlite` |
+| `requirements.txt` | what Vercel installs, because its builder does not read `pyproject.toml` from a subdirectory. A lock, not a list (#192): every package the function can import, transitive ones included, at one exact version, resolved for CPython 3.12 on Linux. Not written by hand — its header is the `uv pip compile` command that regenerates it. CI installs the same file together with the package, so the suite runs on the versions production gets; while it held floors, each deploy installed whatever was newest that day |
+| `requirements.in` | the lock's input: `server/pyproject.toml`'s runtime dependencies, character for character, less what the function does without — `asyncpg` only, no `aiosqlite`, and no `uvicorn`, `alembic` or `tzdata`. Edit it with `pyproject.toml`, then regenerate the lock; `test_requirements_mirror.py` holds the three level |
 | `.vercelignore` | keeps `android/`, the tests and the documentation out of the bundle |
 
 ## Which to choose

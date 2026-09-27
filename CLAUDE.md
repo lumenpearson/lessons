@@ -35,7 +35,10 @@ cookie, no build step. Do not grow it into a second admin surface: anything the 
 express belongs in the bot.
 
 `requirements.txt` at the root exists only because Vercel's Python builder does not read
-`pyproject.toml` from a subdirectory — and it must stay level with it.
+`pyproject.toml` from a subdirectory. It is a lock (#192) — every package the function can
+import, at one exact version, for CPython 3.12 on Linux — compiled by `uv pip compile` from
+`requirements.in`, which must stay level with `pyproject.toml`. The lock's header is the
+command; never edit a pin by hand. CI installs the lock too, so the tests run on what deploys.
 
 ## Commands
 
@@ -57,8 +60,9 @@ Server, from `server/`:
   pytest loads by path rather than by import
 - **`python -m mypy`** — one question, of all 100 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
-  other error code is switched off by name with its count and its reason. Not in CI — the
-  owner has not been asked — but run it before you push server code
+  other error code is switched off by name with its count and its reason. A CI step since
+  27 September 2026, right after ruff, because the owner asked for it through that day's
+  audit (#210) — and still worth running before you push: seconds here, minutes there
 - `python -m pytest -q tests/test_schedule.py -k parity` — one file, one test
 - `python -m uvicorn app.main:app --reload` — run it; add `--host 0.0.0.0` for a phone to
   reach it

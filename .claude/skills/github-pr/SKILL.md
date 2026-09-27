@@ -179,13 +179,17 @@ like any other pull request.
 
 ### What a bump needs before it is merged, either way
 
-- **`requirements.txt` and `server/pyproject.toml` hold the same floors, and dependabot
-  edits only the first.** CI installs pyproject and Vercel installs requirements, so a floor
-  raised in one file alone means tests against one version and a deployment on another.
-  `test_requirements_mirror.py` fails and names the packages; raise both.
-- **Install what the bump declares before running the suite.** A floor of `>=2.0.54` proves
-  nothing while the environment still holds 2.0.53 — upgrade first, then `pytest`, or the
-  green is about the old version.
+- **`requirements.in` and `server/pyproject.toml` hold the same floors, and dependabot
+  edits only the first.** `requirements.txt` is the lock compiled from `requirements.in`
+  (#192), and the `uv` entry moves them together: a bump of a package the input names raises
+  its floor there and its pin in the lock. `pyproject.toml` is not in that directory, so
+  `test_requirements_mirror.py` fails and names the package; raise the floor in
+  `pyproject.toml` to match, and touch nothing in the lock — it is regenerated, never
+  edited. A bump of a transitive package changes the lock alone and needs nothing.
+- **Install what the bump declares before running the suite.** For a lock bump that is
+  `pip install -r ../requirements.txt -e ".[dev]"` from `server/`, which is what CI runs; a
+  floor of `>=2.0.54` proves nothing while the environment still holds 2.0.53, and the green
+  is then about the old version.
 - **Both halves of the gates** (`gates` skill). For an AGP or Gradle bump `assembleRelease`
   is the one that matters: R8 and resource shrinking run inside the build being moved.
 - **A bump that turns a test red is held, understood, and only then taken.** compose-bom

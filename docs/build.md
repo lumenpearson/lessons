@@ -19,6 +19,13 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 cp .env.example .env
 ```
 
+That installs the newest release of everything `pyproject.toml` allows. CI and the
+deployment do not: both install the root `requirements.txt`, a lock of the versions
+production runs (#192), and CI adds the package on top —
+`pip install -r ../requirements.txt -e ".[dev]"`. Do the same when a test passes here and
+fails there, or the other way round; `test_requirements_mirror.py` skips one check, and says
+so, in an environment that is not the lock's.
+
 ### Four steps, and you can stop after any of them
 
 Each is worth doing before the next: everything in a later one depends on the earlier ones

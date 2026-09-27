@@ -9,14 +9,17 @@ description: Run the checks this project actually gates on, in the right order, 
 
 ## Server, from `server/`
 
-Setup once: `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"`
+Setup once: `python3 -m venv .venv && .venv/bin/pip install -r ../requirements.txt -e ".[dev]"`
+— the lock Vercel installs, then the package, which is exactly CI's install (#192). Without
+the `-r` you test on whatever is newest today, which production does not run.
 
 1. `ruff check app tests scripts migrations` — exactly what CI lints. `ruff check .` from
    `server/` covers the same tree.
-2. `python -m mypy` — one question of all 81 modules, in seconds: does anything reach for an
+2. `python -m mypy` — one question of all 100 modules, in seconds: does anything reach for an
    attribute its type does not have? Every other error code is switched off by name in
-   `pyproject.toml`, with its count and its reason. **Not in CI** — the owner has not been
-   asked — but run it before you push server code. It is the thing that reproduces the
+   `pyproject.toml`, with its count and its reason. **In CI** since 27 September 2026, right
+   after ruff — the owner asked for it through that day's audit (#210) — and still worth
+   running before a push: seconds here, minutes there. It is the thing that reproduces the
    «🗓 Четверти» crash.
 3. `python -m pytest -q -n auto` — 1559 tests today. Serial takes about five minutes;
    `-n auto` finishes in a third of that and is what CI runs.
