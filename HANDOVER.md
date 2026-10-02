@@ -12,12 +12,13 @@ Last updated: **2 October 2026**. **PRs #63 through #85, #128, #129, #133, #134,
 for this batch. **The only thing open is the pull request carrying this paragraph, #252**,
 from `dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary survey`. It holds a
 one-line header's own words still and scrolls only the data in it — the day, the time, the
-lesson, whatever the server fills in (#251), as the owner asked that night. The section «What
-the last session added» below is that batch.
+lesson, whatever the server fills in (#251), as the owner asked that night — and makes
+`CorrectionReachTest` check anything at all on a Windows checkout, which it did not (#253).
+The section «What the last session added» below is that batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#250 closed #249**, read back from GitHub on 2 October. **#252 closes #251.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
+**#250 closed #249**, read back from GitHub on 2 October. **#252 closes #251 and #253.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
 nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
 Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
@@ -155,6 +156,15 @@ lesson, the teacher, whatever the server fills in.
   - the signed-in rows, and the class and developer screens.
 - **Seen on the API 37 emulator**: «Домашнее задание на» still while «понедельник, 5
   октября» scrolls beside it, filmed at two frames a second for eight seconds.
+- **#253, found by CI on this pull request — filed, then fixed.** `correctedLine` first read
+  its pattern with `stringResource` in `DataLine.kt`. That import is allowed in
+  `Corrections.kt` alone, and CI's `CorrectionReachTest` said so. Locally the full suite had
+  passed, because on a Windows checkout the test inspected no file at all. It stripped the
+  root's absolute path and a `/` from backslashed paths, so no file had `/src/main/` in it,
+  and it matched imports ending in a bare line feed, which a CRLF working copy does not
+  have. The paths are invariant-separator relative now and the text is CRLF-normalised.
+  With the import planted again, the test fails on Windows too. `correctedLine` moved beside
+  `correctedString`.
 
 ### Gates
 
@@ -163,8 +173,9 @@ On `8d31fbf`: `./gradlew test assembleDebug assembleRelease detekt` pass; `./gra
 604), five more than #250's 1611, all `DataLineTest`'s. Its pixel case — the lead's columns
 unchanged and the data's changed, two moments apart while the data scrolls, in native
 graphics — was red with the line drawn whole, as before: 217 of the lead's columns moved. One
-Gradle daemon died mid-run with `EXCEPTION_ACCESS_VIOLATION` in `jvm.dll`; the rerun was
-clean. The server was not touched.
+Gradle daemon died mid-run with `EXCEPTION_ACCESS_VIOLATION` in `jvm.dll`, leaving two test
+workers holding a jar until they were stopped; the rerun was clean. After #253, on
+`8679cef`, the same gates pass again with the same 1616. The server was not touched.
 
 ### What was deliberately left alone
 
@@ -245,7 +256,7 @@ maps them. The
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
