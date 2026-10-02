@@ -7,20 +7,18 @@ What every batch before the last two added is in [docs/history.md](docs/history.
 newest first.
 
 Last updated: **2 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166, #186, #187, #189, #214, #218, #234, #238, #239, #241 and #245 are merged**; `main` is
-at `2ae3b37`, the merge of #245, on 2 October 2026, and `dev` was restarted from it for this
-batch. **The only thing open is the pull request carrying this paragraph, #248**, from
-`dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary survey`. It stops the
-selected tab's label flashing a gradient while its pill opens (#246), puts every animation
-the app draws under «Анимации» and the motion speed — five of them ignored the switch — and
-adds animation to rows and list items appearing, leaving and moving (#247), as the owner
-asked that evening. The section «What the last session added» below is that batch; the one
-under it is #245, made earlier by the same session.
+#166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245 and #248 are merged**;
+`main` is at `a54f1f0`, the merge of #248, on 2 October 2026, and `dev` was restarted from it
+for this batch. **The only thing open is the pull request carrying this paragraph, #250**,
+from `dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary survey`. It makes a
+tab's disc fade with the selection, so the tab losing it no longer leaves a hole in the bar
+(#249), from the owner's own recording; and it records that the owner's other report that
+evening — tabs «always highlighted», animations «broken» — was the session's own slowed
+emulator, not the code. The section «What the last session added» below is that batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#245 closed #243 and #244**, read back from GitHub on 2 October. **#248 closes #246 and
-#247.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
+**#248 closed #246 and #247**, read back from GitHub on 2 October. **#250 closes #249.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
 nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
 Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
@@ -133,9 +131,53 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: a tab's label revealed rather than squeezed, and every animation under «Анимации» (#246, #247)
+## What the last session added: a tab's disc that fades with the selection (#249), and a slowed emulator that looked like a regression
 
-Open as #248, from `dev`, on milestone 9. The same session as #241 and #245, on the owner's
+Open as #250, from `dev`, on milestone 9. The same session as #241, #245 and #248, on two
+more reports from the owner that evening.
+
+- **«ты сломал кнопки и анимации на главном экране … они всегда подсвечиваются» — not the
+  code.** To film #248's frames the session had set the emulator's
+  `animator_duration_scale` to 10 and then removed the setting with `settings delete`, which
+  leaves the window manager on its cached value. Everything on the emulator ran ten times
+  slower, and a tap's ripple lived about three seconds: a grey disc lingered on every tab just
+  deselected. A build of `2ae3b37` (before #248), filmed the same way, did the same, and both
+  were clean once the scale was put back with `settings put global animator_duration_scale
+  1.0`. No code changed for it; the owner was told what it was.
+- **#249, the tab losing the selection dropped its disc in one frame — filed, then fixed.**
+  The owner's own recording, in the dark theme, showed the old tab still as wide as its label
+  with nothing behind it for the length of the spring: its icon alone at the left of an empty
+  stretch that closed as the new tab opened. The disc and content colours now fade with the
+  selection (260 ms at the reader's speed, instant with «Анимации» off); the carried tab in the
+  arranging mode still takes its body at once (#226). Filmed at 30 fps on the emulator at scale
+  1.0: the old pill fades as it narrows, the new fades in as it opens, no empty frame.
+- **How the bar was filmed**, for whoever needs it next: `adb shell screenrecord` (with
+  `MSYS_NO_PATHCONV=1` in Git Bash, or `/sdcard` becomes a Windows path), then `ffmpeg -vf
+  "fps=20,crop=…,tile=4x22"` into one sheet of frames. ffmpeg is on the PATH through WinGet.
+  This replaces slowing the system, which is what caused the first report.
+
+### Gates
+
+On `98e7248`: `./gradlew test assembleDebug assembleRelease detekt` pass; `./gradlew test`
+**1611** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 141, `:widget` 126, `:app`
+604), two more than #248's 1609 — `ToolbarDiscFadeTest`, the first test here that captures
+pixels, in Robolectric's native graphics. Its first case was red against the toolbar without
+the change. The server was not touched.
+
+### What was deliberately left alone
+
+- For a frame or two mid-transition the leaving tab's icon is low in contrast, as its colour
+  and its disc both pass through the bar's — the shape of any colour cross-fade, Material's
+  navigation bar included.
+
+### What nobody has verified in this batch
+
+- The fade on a phone, and in the light theme on a device: the emulator was in the dark theme
+  for the recording.
+
+## What the session before it added: a tab's label revealed rather than squeezed, and every animation under «Анимации» (#246, #247)
+
+Merged as #248 (`a54f1f0`, 2 October 2026), from `dev`, on milestone 9. The same session as #241 and #245, on the owner's
 next request of 2 October 2026: no gradient over the selected tab's label while it animates,
 more animation of transitions and of elements appearing and leaving, and all of it still
 controlled from the settings.
@@ -183,61 +225,6 @@ those labels are Latin. The server was not touched.
   cross-fade, on any device.
 - A phone's GPU under the extra fades; the emulator's says nothing about a cheap phone.
 
-## What the session before it added: back one settings page at a time, and a back pill that names where it goes (#243, #244)
-
-Merged as #245 (`2ae3b37`, 2 October 2026), from `dev`, on milestone 9. The same session as #241, after its merge, on the
-owner's next two requests from the emulator that afternoon.
-
-- **#243, back skipped the page a page was opened from — filed, then fixed.** The shell kept
-  one open section (`openSectionName`), so «Разрешения», opened from «Уведомления»,
-  overwrote it and back landed on the root; and `docsBack()` closed the whole settings tree
-  on purpose, so the guide, opened from «О приложении», returned to the tabs. The shell now
-  keeps the path of pages open over the root (`navigation/SettingsTrail.kt`, saved as their
-  names): a page is opened *from* a page, back closes exactly the last one, and the guide's
-  back returns to the page it came from. A row tapped on a page still sliding away opens from
-  that page. A section's depth grows with its level, so the slide's direction follows; the
-  guide is deeper than any. Each page's saved state is held by a `SaveableStateHolder` while
-  another is over it and forgotten when it closes, so back lands where the page was left, and
-  each section has its own scroll-offset holder now that two are composed during a slide.
-- **#244, the back pill names where back goes.** It named the page on screen, under that
-  page's own heading; the owner asked for the page before. A section opened from the root
-  reads «← Настройки», «Разрешения» reads «← Уведомления», and the root reads the tab it was
-  opened from — «← Сегодня», or the diary's tab on the diary home. `backLabel` is the rule.
-- **Seen on the API 37 emulator** (`Release_Check`, 420 dpi, the debug build of `4b9b9f7`):
-  every label above; back from «Разрешения» onto «Уведомления»; the guide's arrow onto
-  «О приложении»; the root back scrolled rather than at its top.
-- **C: was given room**, because it had fallen to 3.0 GB with more builds to come. Moved to
-  `F:\MovedFromC`, where they can be put back: 3.0 GB of Visual Studio installer payloads
-  left in `%TEMP%\bousvcyu` on 27 September, 0.46 GB of program crash dumps
-  (`%LOCALAPPDATA%\CrashDumps`), and 0.21 GB of Android Studio 2024.1's caches. Deleted,
-  because their programs rebuild them: NVIDIA's shader caches (0.92 GB), two Robolectric
-  native runtimes and five PyInstaller leftovers in `%TEMP%` (0.6 GB), and Gradle 9.7.1's
-  distribution and caches (3.1 GB) once its idle daemon was stopped — the project builds
-  with 9.8.0 since #239. Nothing of a browser's or a messenger's was touched. C: had 11.3 GB
-  free after.
-
-### Gates
-
-On `4b9b9f7`: `./gradlew test assembleDebug assembleRelease detekt` BUILD SUCCESSFUL;
-`./gradlew test` **1600** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 130,
-`:widget` 126, `:app` 604), thirteen more than #241's 1587, all `SettingsTrailTest`'s. They
-ask the path and the label as pure rules, so none of them could be run red against the old
-shell — it had no path to ask; what the old shell did is the failure scenario in #243, and
-the walk above is what checks the wiring. The server was not touched.
-
-### What was deliberately left alone
-
-- The guide still opens only from «О приложении», and is one destination: its sections stay
-  peers on a pager, and back from any of them is back out of the guide.
-- `F:\MovedFromC` was not deleted: it is the owner's to keep, put back or remove.
-
-### What nobody has verified in this batch
-
-- A rotation or a process death in the middle of a path: the path is saved by name and its
-  decoding is tested, the restore is not seen.
-- The diary home's root pill, which names the diary's tab.
-- Any composition of the shell in a test: `HomeShell` still has none.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -257,7 +244,7 @@ maps them. The
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
@@ -1261,7 +1248,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 2065 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 153 modules
-cd android && ./gradlew test                             # 1609 tests across the five modules
+cd android && ./gradlew test                             # 1611 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

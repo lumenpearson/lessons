@@ -28,6 +28,61 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: back one settings page at a time, and a back pill that names where it goes (#243, #244)
+
+Merged as #245 (`2ae3b37`, 2 October 2026), from `dev`, on milestone 9. The same session as #241, after its merge, on the
+owner's next two requests from the emulator that afternoon.
+
+- **#243, back skipped the page a page was opened from — filed, then fixed.** The shell kept
+  one open section (`openSectionName`), so «Разрешения», opened from «Уведомления»,
+  overwrote it and back landed on the root; and `docsBack()` closed the whole settings tree
+  on purpose, so the guide, opened from «О приложении», returned to the tabs. The shell now
+  keeps the path of pages open over the root (`navigation/SettingsTrail.kt`, saved as their
+  names): a page is opened *from* a page, back closes exactly the last one, and the guide's
+  back returns to the page it came from. A row tapped on a page still sliding away opens from
+  that page. A section's depth grows with its level, so the slide's direction follows; the
+  guide is deeper than any. Each page's saved state is held by a `SaveableStateHolder` while
+  another is over it and forgotten when it closes, so back lands where the page was left, and
+  each section has its own scroll-offset holder now that two are composed during a slide.
+- **#244, the back pill names where back goes.** It named the page on screen, under that
+  page's own heading; the owner asked for the page before. A section opened from the root
+  reads «← Настройки», «Разрешения» reads «← Уведомления», and the root reads the tab it was
+  opened from — «← Сегодня», or the diary's tab on the diary home. `backLabel` is the rule.
+- **Seen on the API 37 emulator** (`Release_Check`, 420 dpi, the debug build of `4b9b9f7`):
+  every label above; back from «Разрешения» onto «Уведомления»; the guide's arrow onto
+  «О приложении»; the root back scrolled rather than at its top.
+- **C: was given room**, because it had fallen to 3.0 GB with more builds to come. Moved to
+  `F:\MovedFromC`, where they can be put back: 3.0 GB of Visual Studio installer payloads
+  left in `%TEMP%\bousvcyu` on 27 September, 0.46 GB of program crash dumps
+  (`%LOCALAPPDATA%\CrashDumps`), and 0.21 GB of Android Studio 2024.1's caches. Deleted,
+  because their programs rebuild them: NVIDIA's shader caches (0.92 GB), two Robolectric
+  native runtimes and five PyInstaller leftovers in `%TEMP%` (0.6 GB), and Gradle 9.7.1's
+  distribution and caches (3.1 GB) once its idle daemon was stopped — the project builds
+  with 9.8.0 since #239. Nothing of a browser's or a messenger's was touched. C: had 11.3 GB
+  free after.
+
+### Gates
+
+On `4b9b9f7`: `./gradlew test assembleDebug assembleRelease detekt` BUILD SUCCESSFUL;
+`./gradlew test` **1600** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 130,
+`:widget` 126, `:app` 604), thirteen more than #241's 1587, all `SettingsTrailTest`'s. They
+ask the path and the label as pure rules, so none of them could be run red against the old
+shell — it had no path to ask; what the old shell did is the failure scenario in #243, and
+the walk above is what checks the wiring. The server was not touched.
+
+### What was deliberately left alone
+
+- The guide still opens only from «О приложении», and is one destination: its sections stay
+  peers on a pager, and back from any of them is back out of the guide.
+- `F:\MovedFromC` was not deleted: it is the owner's to keep, put back or remove.
+
+### What nobody has verified in this batch
+
+- A rotation or a process death in the middle of a path: the path is saved by name and its
+  decoding is tested, the restore is not seen.
+- The diary home's root pill, which names the diary's tab.
+- Any composition of the shell in a test: `HomeShell` still has none.
+
 ## What the batch before added: #201 and #202 on two emulators, and a bottom bar that follows its text (#240, #242)
 
 Merged as #241 (`c21f601`, 2 October 2026), from `dev`, on milestone 9. Made on the owner's machine on 2 October 2026, with
