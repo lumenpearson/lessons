@@ -28,6 +28,109 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: a developer mode (#237) with a request console, and the Petersburg diary out of the server's reach (#235)
+
+Merged as #239 (`4d792df`, 2 October 2026), from `dev`, on milestone 9; #238, from
+`agents/dazzling-davinci-qtw4n8`, is its first two commits and was marked merged with it. Made by two cloud sessions on 2 October 2026. The first began as a
+scheduled status check, turned into the owner's report that the real diary would not open,
+and ended with a developer mode to find out why next time. The second, asked by the owner for
+«отправки конкретных запросов с разными заголовками на разные эндпоинты», «ограничь нашим
+сервером и дневниками», found the mode already pushed and added the console to it rather
+than writing a second one.
+
+- **The production server cannot reach Petersburg's diary (#235), measured rather than
+  assumed.** `POST /api/v1/diary/login` on `lessons-ruddy-zeta.vercel.app` with a made-up
+  login answered `503`, `X-Diary-Unavailable: upstream`, «Дневник не ответил вовремя», in
+  5.9 s: the 5-second connect timeout, before any password was judged. From a cloud
+  container outside Russia, `dnevnik2.petersburgedu.ru`, `petersburgedu.ru` and `www.spb.ru`
+  all hang at TLS, while `www.gosuslugi.ru` and `ya.ru` answer. The city's network does not
+  answer foreign addresses, and Vercel is in Frankfurt. The phone's own sign-in does not get
+  around it, because registration's `adopt` and every diary read are made from the server.
+  No code was changed for it. The options and the recommendation, a Russian egress for diary
+  traffic only, are in the issue.
+- **A phone's sign-in that showed nothing for over a minute (#236)** was filed, then closed
+  as a duplicate of #233. #234 had merged that morning with a 25-second deadline over the
+  whole exchange; the phone almost certainly ran an older APK.
+- **A hidden developer mode (#237).** Seven quick taps on the version in «О приложении» list
+  «Для разработчиков». Its tools open only for a GitHub account with `admin`, `maintain` or
+  `push` on this repository, asked through `GET /repos/lumenpearson/lessons` with the
+  existing device-flow token. The verdict stands a day, for that login, in its own
+  preferences file. **The gate is not a lock**, and `CLAUDE.md` says so. Behind it:
+  - a network record on all three clients, with masked paths, query names only, an allow
+    list of headers, and requests in flight with a running clock;
+  - an activity record of lifecycle, pages, sign-in steps, sync and widget redraws;
+  - checks from the phone's network, each bounded at 20 s: server, diary hosts, GitHub,
+    Keystore round trip, transports (VPN warns), notifications, exact alarms, the periodic
+    sync, widgets, build;
+  - a layout grid, text at twice the scale, and stretched strings through `AppCorrections`;
+  - a plain-text report to copy or share;
+  - **a request console** (`RequestConsole`, second session): any method, path, headers and
+    body, to our server or a diary origin the catalog allow-lists, and nowhere else.
+    `planConsole` judges the resolved URL, so no spelling of a path leaves the origin; its
+    own client keeps no cookie, follows no redirect and guards the origin again; a bearer
+    («Устройство» or «Дневник») goes to our server only, chosen rather than typed, read as
+    the request leaves. The answer is on the page only, never in the report.
+
+  `docs/architecture.md` has the section «The developer mode, and why its gate is not a lock».
+
+  **The documentation was brought level before the merge**, at the owner's request:
+  `docs/build.md` gains «Putting the client id into a build» — the Actions secret, the line
+  for `~/.gradle/gradle.properties`, how to tell from the phone whether a build carries it,
+  and what the developer mode needs beyond it; `docs/guide.md` gains «For the project's own
+  developers» (the in-app guide does not mention the section, on purpose); `docs/design.md`'s
+  «Signing in through GitHub is for one thing» is now «… for reports, corrections and
+  developers»; the README's honest status says the mode has never run on a device; and the
+  index in `docs/README.md` names the console and the client id.
+
+### Gates
+
+The first session could not install the Android SDK, and ran detekt-cli and 27 pure-JVM tests
+by hand under kotlinc, with three mutations caught; its commit message has the detail. The
+second ran the project's gates on `30c5938`, the console on top of #238:
+
+```text
+./gradlew test assembleDebug assembleRelease detekt   → BUILD SUCCESSFUL
+tests: 1579, 0 failures (:core:model 125, :core:data 615, :core:designsystem 122,
+       :widget 126, :app 591) — 1523 before the batch, 44 from #238 and 12 from the console
+RequestConsoleTest's 12, with the diary allow-list check in planConsole disabled → 1 red
+```
+
+The first run of `detekt` found three findings in the console and two more after them, all
+fixed rather than baselined. The server was not touched.
+
+### What was deliberately left alone
+
+- **#235 has no code.** A Russian egress is a setting, `DIARY_PROXY_URL`, plus a VPS, and
+  which host to rent is the owner's decision.
+- **The developer page has no composed screen test.** Its network group ticks a clock while a
+  request is in flight, which is the kind of composition `MarqueeClockTest` makes a test
+  argue for; what is tested is everything under it — the gate, the records, the report, the
+  stretched strings, the taps, the listing.
+- **The console has no composed screen test either**, and no history: one request at a time,
+  the last answer only. A settings change between planning and sending is refused by the
+  client's guard rather than planned again.
+- **The checks ask Petersburg's host and the signed-in region's, not every region in the
+  catalog.** A developer's check is no reason to knock on sixteen regional servers.
+
+### What nobody has verified in this batch
+
+- **None of the developer mode has run on a device** (it has now been built and tested
+  locally, not run):
+  - the reveal gesture and the toast;
+  - the page;
+  - the grid, the large text and the stretched strings over real screens;
+  - the Keystore round trip;
+  - the connectivity, notification and alarm checks;
+  - the widget count;
+  - the request console, against the real server or any diary.
+- The GitHub permission call has never been made against a real account. A build without
+  `LESSONS_GITHUB_CLIENT_ID` cannot open the mode at all.
+- The in-flight row relies on the recorder sitting inside OkHttp's call. A sign-in stuck
+  before the request leaves, in a coroutine, shows on the activity record as a step that never
+  ended, and not as a row.
+- #235's measurement is from Frankfurt and from a cloud container. Whether the city's network
+  answers a Russian VPS — the fix's premise — is unasked.
+
 ## What the batch before added: fifteen defects from the owner's phone, #219–#233
 
 Merged as #234 (`f2cebbd`, 2 October 2026), from `dev`, on milestone 9. The owner sent twenty screenshots from their phone

@@ -24,8 +24,19 @@ internal sealed interface ShellPage {
         override val depth: Int = 1
     }
 
-    data class Section(val section: SettingsSection) : ShellPage {
-        override val depth: Int = 2
+    /**
+     * A settings page, [level] pages above the root: 0 for one opened from the
+     * root, 1 for one opened from that, and so on (#243). [parent] is the page
+     * under it, null when that is the root — which is what the back pill names
+     * (#244). Deeper by its level, so a page opened from a page slides forward
+     * and back from it slides back.
+     */
+    data class Section(
+        val section: SettingsSection,
+        val parent: SettingsSection? = null,
+        val level: Int = 0,
+    ) : ShellPage {
+        override val depth: Int = 2 + level
     }
 
     /**
@@ -38,11 +49,11 @@ internal sealed interface ShellPage {
      * the finger; a pager does that itself, in the same gesture the home tabs
      * use, and without a history to walk back out of.
      *
-     * Deeper than a settings section, so opening the guide still slides forward
-     * and leaving it slides back.
+     * Deeper than any settings section can be, so opening the guide still slides
+     * forward and leaving it slides back, from whichever page it was opened.
      */
     data object Docs : ShellPage {
-        override val depth: Int = 3
+        override val depth: Int = Int.MAX_VALUE
     }
 }
 
