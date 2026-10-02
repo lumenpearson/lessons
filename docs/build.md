@@ -110,7 +110,7 @@ call a deployed server.
 | `KEYSTORE_PASSWORD` | `apk.yml` | as above: all four are needed together, and Gradle treats three of four as no key at all |
 | `KEY_ALIAS` | `apk.yml` | as above |
 | `KEY_PASSWORD` | `apk.yml` | as above |
-| `LESSONS_GITHUB_CLIENT_ID` | `apk.yml` | «Войти через GitHub» is hidden, and with it the only way to file a bug report from inside the app |
+| `LESSONS_GITHUB_CLIENT_ID` | `apk.yml` | «Войти через GitHub» is hidden, and with it the only way to file a bug report from inside the app — and the developer mode, whose gate is that sign-in, cannot be opened |
 | `LESSONS_CONTACT_EMAIL` | `apk.yml` | «Отправить письмом» is hidden |
 | `SERVER_URL` | `reminders.yml` | the fallback tick skips with a notice rather than failing — see [deploy.md](deploy.md), "The clock" |
 | `CRON_SECRET` | `reminders.yml` | the same skip |
@@ -535,6 +535,43 @@ The client id is *not* a secret by the same argument — it ships in every APK. 
 repository's secrets because it is the builder's to give, not because it has to be hidden.
 `public_repo` is the whole scope the app asks for: enough to open an issue or a pull request
 on a public repository, and nothing else.
+
+### Putting the client id into a build
+
+The id is read when Gradle configures `:app` — from the environment variable
+`LESSONS_GITHUB_CLIENT_ID` first, then from the Gradle property `lessons.github.clientId` —
+and written into `BuildConfig.GITHUB_CLIENT_ID`, for the debug and the release build alike.
+An APK that was built without it cannot be given one afterwards; it has to be built again.
+
+- **An APK from Actions.** Put the id into the repository secret `LESSONS_GITHUB_CLIENT_ID`
+  (**Settings → Secrets and variables → Actions → New repository secret**), then run
+  **Actions → APK → Run workflow**, or push a `v*` tag. The run's summary says «on» or
+  «off» for the sign-in; «off» means the secret was empty or named differently.
+- **A build on your own machine.** One line in `~/.gradle/gradle.properties` — the file in
+  your home directory, not the one in `android/`, which is in the repository and is the
+  same for every fork:
+
+  ```properties
+  lessons.github.clientId=Ov23li…
+  ```
+
+  or, for one build only, `LESSONS_GITHUB_CLIENT_ID=Ov23li… ./gradlew assembleDebug`.
+  Android Studio reads the same file, so a build from its Run button carries it too.
+
+To see whether a build carries it, open «Настройки → О приложении»: the row «Войти через
+GitHub» is there or it is not. Nothing else on the phone says so, by the decision above.
+
+**The developer mode needs the same sign-in, and one thing more.** Seven quick taps on the
+version in «О приложении» list «Для разработчиков» in the settings; its tools open only for
+an account that GitHub says has `admin`, `maintain` or `push` on this repository, which the
+app asks with one `GET /repos/lumenpearson/lessons` under the token the device flow gave it
+(`docs/architecture.md`, "The developer mode, and why its gate is not a lock"). So a
+developer of this project signs in from that page, and anybody else who signs in is told no.
+`public_repo` is enough for that question: GitHub answers the `permissions` of the caller to
+any authenticated request. On a repository owned by an organisation that restricts OAuth
+Apps, the organisation would first have to approve this one; this repository belongs to a
+user, so there is nothing to approve. A fork that keeps the developer mode changes the owner
+and the name in `GithubApi`, because the question is about this repository, not the fork.
 
 ### The address for «Отправить письмом»
 

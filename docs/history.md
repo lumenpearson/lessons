@@ -27,6 +27,53 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: three dependabot bumps, a lock SQLite writers wait for, and #214's close-out
+
+Merged as #218 (`c2f1e94`, 2 October 2026), from `ccr-b537fbdd-oi5djs`, on milestone 10. Made in a cloud session on 2
+October 2026, continuing from where the local session that built #214 stopped.
+
+- **Dependabot's three open pull requests are folded in by merging their branches**, so
+  each closes as Merged at this merge: the androidx group (#215 — core-ktx 1.19.1,
+  navigation 2.10.2, work 2.12.0), the Gradle wrapper 9.7.1 → 9.8.0 (#216), and SQLAlchemy's
+  floor in `requirements.in` 2.0.54 → 2.1.1 (#217). The lock already pinned 2.1.1 and
+  recompiling it from the new input moved nothing; `server/pyproject.toml`'s floor was
+  raised to match, which `test_requirements_mirror.py` asks for. `CONTRIBUTING.md` and
+  `docs/build.md` name the new wrapper.
+- **A writer waits thirty seconds for SQLite's lock rather than five (#212).** The directory
+  limiter's burst test sends a hundred writers at once, and over aiosqlite a transaction
+  keeps SQLite's one write lock across every await to its commit; a writer the event loop
+  reached late waited past the driver's five-second busy timeout and failed on «database is
+  locked» rather than on the limit. Reproduced here by cutting the timeout to twenty
+  milliseconds — the test then fails on every run with the issue's exact error — and fixed
+  in `app/db.py`, for SQLite only. A new test reads `PRAGMA busy_timeout` through the
+  suite's engine and fails on the old code, which answers 5000.
+- **This file**: the opening, this section, the batch before it retitled, the widget batch
+  (#189) moved to the top of `docs/history.md`, the milestone table, and the server test
+  count in its three places.
+
+### Gates
+
+On `f23ae3a`: `ruff` clean; `python -m mypy` clean over 153 source files; `pytest -q -n
+auto` **2064** passed, one more than #214's 2063, on Python 3.12 with the lock installed.
+`./gradlew test` **1500** (`:core:model` 125, `:core:data` 570, `:core:designsystem` 112,
+`:widget` 123, `:app` 570), the same as #214's, on Gradle 9.8.0 and the bumped androidx
+libraries; `assembleDebug` and `assembleRelease` build; `./gradlew detekt` passes. Run in
+the cloud container against a downloaded SDK, where Maven Central answered 429 often enough
+that it took several attempts to fetch everything; no attempt failed on anything but a
+download. On GitHub, #218's CI ran both jobs green on `f23ae3a`.
+
+### What was deliberately left alone
+
+- The bumps were taken as dependabot wrote them; nothing else was upgraded alongside.
+- The `dev` branch was not moved: this session was given its own branch, and `dev` is level
+  with `main` at `eb0ab94`, so the next session fast-forwards it after this merge.
+
+### What nobody has verified in this batch
+
+- #212's fix has not run on the Windows machine where the failure was seen; what was
+  verified is the mechanism, on Linux, by shrinking the timeout until it fails.
+- The three bumps have not run on a device or an emulator.
+
 ## What the batch before added: the external audit of 27 September, #190–#211
 
 Merged as #214 (`eb0ab94`, 27 September 2026), from `agents/audit-batch-190-211`, on milestone 10. An external audit of the

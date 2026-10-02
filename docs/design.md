@@ -923,9 +923,14 @@ arrives in (the far corners first) and the direction the pixels are displaced. T
 separate window, so the button's centre is measured in screen coordinates and the shell
 translates it into its own.
 
-## Signing in through GitHub is for one thing
+## Signing in through GitHub is for reports, corrections and developers
 
-Reporting a bug without leaving the app. Signing in is the device flow: a code on the screen,
+It started as one thing — reporting a bug without leaving the app — and now carries two
+more that each need the same account: a correction to the app's strings leaves as a pull
+request in the reader's name, and the developer mode (#237) asks GitHub whether that
+account may push to this repository before it opens its tools
+([architecture.md](architecture.md), "The developer mode, and why its gate is not a lock").
+None of them asks for more than `public_repo`. Signing in is the device flow: a code on the screen,
 a GitHub page in a browser, and the app polling for a token at the interval GitHub named plus
 a second of slack. It is the only OAuth grant that works with no server and no secret — and
 there is no secret here deliberately: an APK cannot keep one, and a leaked client secret

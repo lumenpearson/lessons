@@ -1,5 +1,7 @@
 package com.lumenpearson.lessons.core.data.network
 
+import com.lumenpearson.lessons.core.data.diagnostics.NetworkLog
+import com.lumenpearson.lessons.core.data.diagnostics.NetworkSource
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -69,6 +71,10 @@ internal object NetworkModule {
         // Order matters: the URL is rewritten first so the auth interceptors see
         // the real path when they decide whether the call is theirs to sign.
         .addInterceptor(BaseUrlInterceptor({ credentials().baseUrl }, cleartext))
+        // The developer mode's recorder, after the rewrite so it records the
+        // server the request really went to, and before the bearers, which it
+        // would not read anyway. Off, it is one volatile read (#237).
+        .addInterceptor(NetworkLog.interceptor(NetworkSource.SERVER))
         // Two bearers, one client. The class token and the diary token are
         // independent — either can exist without the other, and signing out of
         // one must not disturb the other — so each has an interceptor that

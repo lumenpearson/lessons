@@ -1,9 +1,11 @@
 package com.lumenpearson.lessons.ui.settings
 
+import android.widget.Toast
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.ui.platform.LocalContext
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.GroupLinkItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupSwitchItem
@@ -62,6 +64,14 @@ internal fun LazyListScope.aboutRows(
         // 32 dp narrower on each side than every group above it — which is
         // most of why its two link buttons were breaking «Essentials» into
         // «Essent / ials».
-        AboutCard(serverStatus = state.serverStatus)
+        val context = LocalContext.current
+        val revealed = correctedString(R.string.developer_revealed)
+        AboutCard(
+            serverStatus = state.serverStatus,
+            onVersionTapped = {
+                viewModel.revealDeveloper()
+                Toast.makeText(context, revealed, Toast.LENGTH_SHORT).show()
+            },
+        )
     }
 }

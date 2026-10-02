@@ -377,3 +377,15 @@ let it happen once more. The row under the switch opens the last five reports an
 one you choose — it is there for everybody, not only for an administrator, because the
 reports are written into a folder Android no longer lets a file manager open, and the crash
 worth reporting is often the one that leaves no time to reach anything else.
+
+### For the project's own developers
+
+Seven quick taps on the version in «Настройки → О приложении» list a section «Для
+разработчиков». It opens for a GitHub account that can push to this repository, signed in
+from that page, and holds a record of every request the app makes, a record of what it did,
+checks run from the phone's own network, a request console for our server and the diaries in
+the catalog, and visual tools for clipped text. Anybody else who finds it can sign in and is told
+that the tools are not for this account; «Скрыть» puts the section away again. The in-app guide does not mention
+it, on purpose: a parent has no use for it. What it is and why its gate is not a lock is in
+[architecture.md](architecture.md); what a build needs for the sign-in is in
+[build.md](build.md), "Putting the client id into a build".

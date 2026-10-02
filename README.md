@@ -207,7 +207,7 @@ Read this before planning a release.
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 153 modules — asks whether anything reaches for an attribute that does not exist |
 | `pytest -q -n auto` | 2065 tests, green, about four minutes — the command CI runs |
-| `./gradlew test` | 1523 tests, green, all five modules |
+| `./gradlew test` | 1579 tests, green, all five modules |
 | `./gradlew detekt` | no finding beyond each module's baseline, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
@@ -281,6 +281,12 @@ design, and the password routes — the bot's page and the older `/diary/login`,
 still pass the password through this server — are what is left. The four calls «Сетевой
 город» registration makes have not been timed against Vercel's 30-second ceiling, and a
 session registered from a phone is invisible to the bot (#143).
+
+**The developer mode (#237) and its request console are built, JVM-tested and run through
+the full gates, and nothing more.** Nobody has yet tapped the version seven times on a phone,
+asked GitHub for a real account's permissions, run its checks from a phone's network or sent
+a console request to the deployed server. An APK built without `LESSONS_GITHUB_CLIENT_ID`
+cannot open it at all ([build.md](docs/build.md), "Putting the client id into a build").
 
 **The first run's second way in, and the diary as a home, are written and JVM-tested and
 nothing more.** The app now signs in to the diary itself and registers the session; keeps

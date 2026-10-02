@@ -75,4 +75,21 @@ class SettingsSectionListingTest {
             assertTrue(SettingsSection.PERMISSIONS !in listed(mode, manager = true))
         }
     }
+
+    /**
+     * #237: the developer section is listed once found, on every home, and
+     * last; found or not, nothing else on the list moves.
+     */
+    @Test
+    fun `the developer section is listed once found, last, on every home`() {
+        for (mode in ShellMode.entries) {
+            for (manager in listOf(false, true)) {
+                val hidden = SettingsSection.entries.filter { it.listedOn(mode, manager, developer = false) }
+                val found = SettingsSection.entries.filter { it.listedOn(mode, manager, developer = true) }
+
+                assertTrue(SettingsSection.DEVELOPER !in hidden)
+                assertEquals(hidden + SettingsSection.DEVELOPER, found)
+            }
+        }
+    }
 }

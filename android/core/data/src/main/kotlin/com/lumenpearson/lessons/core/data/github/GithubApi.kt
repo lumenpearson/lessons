@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
+import com.lumenpearson.lessons.core.data.diagnostics.NetworkLog
+import com.lumenpearson.lessons.core.data.diagnostics.NetworkSource
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType
@@ -69,6 +71,8 @@ internal object GithubApi {
         OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
+            // The developer mode's recorder; one volatile read while it is off (#237).
+            .addInterceptor(NetworkLog.interceptor(NetworkSource.GITHUB))
             .build()
     }
 

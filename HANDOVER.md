@@ -7,20 +7,29 @@ What every batch before the last two added is in [docs/history.md](docs/history.
 newest first.
 
 Last updated: **2 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166, #186, #187, #189, #214 and #218 are merged**; `main` is at `c2f1e94`, the merge of
-#218, on 2 October 2026, and #215, #216 and #217 closed as Merged with it. **The only thing
-open is the pull request carrying this paragraph, #234**, from `dev`, on milestone 9,
-`v0.8.0 — On-device checks, 89-region e-diary survey`. It fixes the fifteen defects the owner
-reported from a phone on 2 October 2026, #219–#233, each filed before its fix, each on a
-branch of its own merged into `dev` with `--no-ff`. The section «What the last session added»
-below is that batch.
+#166, #186, #187, #189, #214, #218 and #234 are merged**; `main` is at `f2cebbd`, the merge
+of #234, on 2 October 2026, and `dev` is level with it. **The only thing open is the pull
+request carrying this paragraph, #239**, from `dev`, on milestone 9, `v0.8.0 — On-device
+checks, 89-region e-diary survey`. It carries #238's two commits unchanged — a hidden
+developer mode (#237), written by a scheduled cloud session, and what that session found
+about the Petersburg diary the same day (#235) — and a request console on top, which the
+owner asked for in another session the same afternoon. #238 is marked merged by GitHub the
+moment #239's merge puts its head in `main`. The section «What the last session added» below
+is that batch, both sessions' halves.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#218 closed #212** and the three dependabot pull requests it carried; read back from
-GitHub on 2 October. **#234 is meant to close #219–#233.** Of the device epic **#109**,
-**#111** and **#113** stay open for what only a phone can say, and **#112** (a macrobenchmark
-module) was not started.
+**#238 was held as a draft because its session could not install the Android SDK**, so the
+third of the `github-pr` skill's five conditions — gates run locally before the push — was
+unmet for its code. The session that wrote the console had the SDK and ran the full Android
+gates over the combined tree, which is what lets #239 merge on the standing authorisation.
+
+**#234 closed #219–#233**, read back from GitHub on 2 October. **#239 closes
+#237.** **#235** is open: the production server cannot reach Petersburg's diary at all, and
+the fix is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in
+showing nothing for over a minute, was filed the same day and closed as a duplicate of #233,
+which #234 had already fixed. Of the device epic **#109**, **#111** and **#113** stay open
+for what only a phone can say, and **#112** (a macrobenchmark module) was not started.
 
 **The code expects head `0017`, and production is at `0017` since 26 September 2026 at 12:26 UTC.**
 `EXPECTED_REVISION` in `app/db.py` is `0017`, pinned to the real head by
@@ -129,9 +138,112 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: fifteen defects from the owner's phone, #219–#233
+## What the last session added: a developer mode (#237) with a request console, and the Petersburg diary out of the server's reach (#235)
 
-Open as #234, from `dev`, on milestone 9. The owner sent twenty screenshots from their phone
+Open as #239, from `dev`, on milestone 9; #238, from `agents/dazzling-davinci-qtw4n8`, is
+its first two commits. Made by two cloud sessions on 2 October 2026. The first began as a
+scheduled status check, turned into the owner's report that the real diary would not open,
+and ended with a developer mode to find out why next time. The second, asked by the owner for
+«отправки конкретных запросов с разными заголовками на разные эндпоинты», «ограничь нашим
+сервером и дневниками», found the mode already pushed and added the console to it rather
+than writing a second one.
+
+- **The production server cannot reach Petersburg's diary (#235), measured rather than
+  assumed.** `POST /api/v1/diary/login` on `lessons-ruddy-zeta.vercel.app` with a made-up
+  login answered `503`, `X-Diary-Unavailable: upstream`, «Дневник не ответил вовремя», in
+  5.9 s: the 5-second connect timeout, before any password was judged. From a cloud
+  container outside Russia, `dnevnik2.petersburgedu.ru`, `petersburgedu.ru` and `www.spb.ru`
+  all hang at TLS, while `www.gosuslugi.ru` and `ya.ru` answer. The city's network does not
+  answer foreign addresses, and Vercel is in Frankfurt. The phone's own sign-in does not get
+  around it, because registration's `adopt` and every diary read are made from the server.
+  No code was changed for it. The options and the recommendation, a Russian egress for diary
+  traffic only, are in the issue.
+- **A phone's sign-in that showed nothing for over a minute (#236)** was filed, then closed
+  as a duplicate of #233. #234 had merged that morning with a 25-second deadline over the
+  whole exchange; the phone almost certainly ran an older APK.
+- **A hidden developer mode (#237).** Seven quick taps on the version in «О приложении» list
+  «Для разработчиков». Its tools open only for a GitHub account with `admin`, `maintain` or
+  `push` on this repository, asked through `GET /repos/lumenpearson/lessons` with the
+  existing device-flow token. The verdict stands a day, for that login, in its own
+  preferences file. **The gate is not a lock**, and `CLAUDE.md` says so. Behind it:
+  - a network record on all three clients, with masked paths, query names only, an allow
+    list of headers, and requests in flight with a running clock;
+  - an activity record of lifecycle, pages, sign-in steps, sync and widget redraws;
+  - checks from the phone's network, each bounded at 20 s: server, diary hosts, GitHub,
+    Keystore round trip, transports (VPN warns), notifications, exact alarms, the periodic
+    sync, widgets, build;
+  - a layout grid, text at twice the scale, and stretched strings through `AppCorrections`;
+  - a plain-text report to copy or share;
+  - **a request console** (`RequestConsole`, second session): any method, path, headers and
+    body, to our server or a diary origin the catalog allow-lists, and nowhere else.
+    `planConsole` judges the resolved URL, so no spelling of a path leaves the origin; its
+    own client keeps no cookie, follows no redirect and guards the origin again; a bearer
+    («Устройство» or «Дневник») goes to our server only, chosen rather than typed, read as
+    the request leaves. The answer is on the page only, never in the report.
+
+  `docs/architecture.md` has the section «The developer mode, and why its gate is not a lock».
+
+  **The documentation was brought level before the merge**, at the owner's request:
+  `docs/build.md` gains «Putting the client id into a build» — the Actions secret, the line
+  for `~/.gradle/gradle.properties`, how to tell from the phone whether a build carries it,
+  and what the developer mode needs beyond it; `docs/guide.md` gains «For the project's own
+  developers» (the in-app guide does not mention the section, on purpose); `docs/design.md`'s
+  «Signing in through GitHub is for one thing» is now «… for reports, corrections and
+  developers»; the README's honest status says the mode has never run on a device; and the
+  index in `docs/README.md` names the console and the client id.
+
+### Gates
+
+The first session could not install the Android SDK, and ran detekt-cli and 27 pure-JVM tests
+by hand under kotlinc, with three mutations caught; its commit message has the detail. The
+second ran the project's gates on `30c5938`, the console on top of #238:
+
+```text
+./gradlew test assembleDebug assembleRelease detekt   → BUILD SUCCESSFUL
+tests: 1579, 0 failures (:core:model 125, :core:data 615, :core:designsystem 122,
+       :widget 126, :app 591) — 1523 before the batch, 44 from #238 and 12 from the console
+RequestConsoleTest's 12, with the diary allow-list check in planConsole disabled → 1 red
+```
+
+The first run of `detekt` found three findings in the console and two more after them, all
+fixed rather than baselined. The server was not touched.
+
+### What was deliberately left alone
+
+- **#235 has no code.** A Russian egress is a setting, `DIARY_PROXY_URL`, plus a VPS, and
+  which host to rent is the owner's decision.
+- **The developer page has no composed screen test.** Its network group ticks a clock while a
+  request is in flight, which is the kind of composition `MarqueeClockTest` makes a test
+  argue for; what is tested is everything under it — the gate, the records, the report, the
+  stretched strings, the taps, the listing.
+- **The console has no composed screen test either**, and no history: one request at a time,
+  the last answer only. A settings change between planning and sending is refused by the
+  client's guard rather than planned again.
+- **The checks ask Petersburg's host and the signed-in region's, not every region in the
+  catalog.** A developer's check is no reason to knock on sixteen regional servers.
+
+### What nobody has verified in this batch
+
+- **None of the developer mode has run on a device** (it has now been built and tested
+  locally, not run):
+  - the reveal gesture and the toast;
+  - the page;
+  - the grid, the large text and the stretched strings over real screens;
+  - the Keystore round trip;
+  - the connectivity, notification and alarm checks;
+  - the widget count;
+  - the request console, against the real server or any diary.
+- The GitHub permission call has never been made against a real account. A build without
+  `LESSONS_GITHUB_CLIENT_ID` cannot open the mode at all.
+- The in-flight row relies on the recorder sitting inside OkHttp's call. A sign-in stuck
+  before the request leaves, in a coroutine, shows on the activity record as a step that never
+  ended, and not as a row.
+- #235's measurement is from Frankfurt and from a cloud container. Whether the city's network
+  answers a Russian VPS — the fix's premise — is unasked.
+
+## What the session before it added: fifteen defects from the owner's phone, #219–#233
+
+Merged as #234 (`f2cebbd`, 2 October 2026), from `dev`, on milestone 9. The owner sent twenty screenshots from their phone
 on 2 October 2026, marked up in red, and asked for every defect to be fixed, merged into `dev`
 fix by fix, then into `main`, and tested synthetically before they check it by eye. Four
 read-only agents traced the causes in parallel; every fix was written and tested here, one
@@ -200,53 +312,6 @@ compose tests silent about the clock — and `f0c434e` writes the reasons where 
 - #233: a deadline landing just after the diary accepted the login leaves a session open on
   the diary's side to idle out.
 
-## What the session before it added: three dependabot bumps, a lock SQLite writers wait for, and #214's close-out
-
-Merged as #218 (`c2f1e94`, 2 October 2026), from `ccr-b537fbdd-oi5djs`, on milestone 10. Made in a cloud session on 2
-October 2026, continuing from where the local session that built #214 stopped.
-
-- **Dependabot's three open pull requests are folded in by merging their branches**, so
-  each closes as Merged at this merge: the androidx group (#215 — core-ktx 1.19.1,
-  navigation 2.10.2, work 2.12.0), the Gradle wrapper 9.7.1 → 9.8.0 (#216), and SQLAlchemy's
-  floor in `requirements.in` 2.0.54 → 2.1.1 (#217). The lock already pinned 2.1.1 and
-  recompiling it from the new input moved nothing; `server/pyproject.toml`'s floor was
-  raised to match, which `test_requirements_mirror.py` asks for. `CONTRIBUTING.md` and
-  `docs/build.md` name the new wrapper.
-- **A writer waits thirty seconds for SQLite's lock rather than five (#212).** The directory
-  limiter's burst test sends a hundred writers at once, and over aiosqlite a transaction
-  keeps SQLite's one write lock across every await to its commit; a writer the event loop
-  reached late waited past the driver's five-second busy timeout and failed on «database is
-  locked» rather than on the limit. Reproduced here by cutting the timeout to twenty
-  milliseconds — the test then fails on every run with the issue's exact error — and fixed
-  in `app/db.py`, for SQLite only. A new test reads `PRAGMA busy_timeout` through the
-  suite's engine and fails on the old code, which answers 5000.
-- **This file**: the opening, this section, the batch before it retitled, the widget batch
-  (#189) moved to the top of `docs/history.md`, the milestone table, and the server test
-  count in its three places.
-
-### Gates
-
-On `f23ae3a`: `ruff` clean; `python -m mypy` clean over 153 source files; `pytest -q -n
-auto` **2064** passed, one more than #214's 2063, on Python 3.12 with the lock installed.
-`./gradlew test` **1500** (`:core:model` 125, `:core:data` 570, `:core:designsystem` 112,
-`:widget` 123, `:app` 570), the same as #214's, on Gradle 9.8.0 and the bumped androidx
-libraries; `assembleDebug` and `assembleRelease` build; `./gradlew detekt` passes. Run in
-the cloud container against a downloaded SDK, where Maven Central answered 429 often enough
-that it took several attempts to fetch everything; no attempt failed on anything but a
-download. On GitHub, #218's CI ran both jobs green on `f23ae3a`.
-
-### What was deliberately left alone
-
-- The bumps were taken as dependabot wrote them; nothing else was upgraded alongside.
-- The `dev` branch was not moved: this session was given its own branch, and `dev` is level
-  with `main` at `eb0ab94`, so the next session fast-forwards it after this merge.
-
-### What nobody has verified in this batch
-
-- #212's fix has not run on the Windows machine where the failure was seen; what was
-  verified is the mechanism, on Linux, by shrinking the timeout until it fails.
-- The three bumps have not run on a device or an emulator.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -266,8 +331,8 @@ maps them. The
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234; issues #109–#117, #130–#132, #167–#185, #188, #219–#233 — the first whose work needs an emulator or a phone, and #186 the first done on one |
-| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213 |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
 #140 left alone on purpose, which belong to whichever version takes them up.
@@ -305,6 +370,14 @@ bullet below. The rest wait for an APK on a phone. The prose here is kept becaus
 bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
+- **The developer mode (#237) has run nowhere but CI and has not been compiled anywhere
+  else.** The gate, the network and activity records and their tests ran on the JVM here;
+  everything that needs Android — the page, the reveal, the Keystore round trip, the
+  connectivity, notification, alarm and widget checks, the grid, the large text, the
+  stretched strings — has been seen by nobody. The GitHub permission call has not met a real
+  account, and an APK built without `LESSONS_GITHUB_CLIENT_ID` cannot open the mode at all.
+  It is also the first tool for most of this section: its checks run from the phone's own
+  network, and its records name the leg a sign-in is stuck on.
 - **Not one route in `docs/diaries/` has been seen answering.** #134's 1916 routes
   were read from client code and two official apps, and cross-checked against each other.
   No diary host answers a cloud session, so none was ever called. A route marked *current*
@@ -333,7 +406,12 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   `409`, meaning the diary refused the session from our address — by design, with no automatic
   retry. If that is what the first live session gets, the phone-registered path does not work
   for that diary and only the password routes remain. Whether «Сетевой город»'s four bootstrap
-  calls fit inside Vercel's 30-second ceiling is unmeasured too.
+  calls fit inside Vercel's 30-second ceiling is unmeasured too. **For Петербург it is worse
+  than a refusal, and it was measured on 2 October 2026 (#235):** the city's network does not
+  answer Frankfurt at all, so the read never gets as far as judging the session. The server's
+  connect timeout turns it into a `503` «upstream» in about six seconds — which the phone
+  words as «Дневник не отвечает» — for every family, every time, until the diary traffic
+  leaves from a Russian address. «Сетевой город»'s regions were not asked from Frankfurt.
 - **#140's phone half has run on an emulator, and only as far as a diary without a
   password goes.** Nothing composes `LessonsApp` in a test, so the gate between the three
   homes, the hold on the first run and the resume after the process dies are still proved by
@@ -1026,12 +1104,28 @@ the other nine the same day. Its description is behind: it names issues #145–#
 is further behind — it names PRs #129, #133 and #134 only. A milestone's description is the
 owner's to edit; nothing in a session here can.
 
+**Decide #235: where the Petersburg diary's traffic leaves from.** The city's network does not
+answer the server in Frankfurt (section 5), so no family can use Петербург's diary through
+this project until the server's diary requests leave from a Russian address. The smallest fix
+is a password-protected HTTP proxy on a small Russian VPS and an optional `DIARY_PROXY_URL`
+that only the diary clients use; the code is a session's work once a host exists, and the
+host is the owner's to rent. Moving the whole server to Russian hosting would also settle the
+152-ФЗ question below. The issue has the three options.
+
+**Give the APK a GitHub client id, or the developer mode stays shut.** The mode (#237) opens
+through «Войти через GitHub», which a build without `LESSONS_GITHUB_CLIENT_ID` hides
+(`docs/build.md`). Then, on a phone: seven taps on the version, sign in as an account with
+push to this repository, and run the checks once from a phone's own network — the first
+answer to whether Petersburg's host answers a Russian mobile network at all.
+
 **Sign in once, for real, from a phone — it is the one question #140 cannot answer about
 itself.** Build an APK from `main`, which has carried #140 since 26 September, install it on
 a phone in no class, and take the diary path twice: a «Сетевой город» region that takes a
 password, and Петербург. Whether the import arrives, or the phone says the diary refused the
 session from our server's address — the `409` — decides whether the phone-registered path
-works for that diary at all. It is #121's first live session, for both diaries at once.
+works for that diary at all. It is #121's first live session, for both diaries at once. For
+Петербург the answer is known before the phone is picked up: «Дневник не отвечает», from the
+server, until #235 is fixed.
 
 **Then walk the rest of the first run on that phone.** The class code as the other way in;
 leaving the last class with a diary signed in, which should land on the diary as the home
@@ -1237,7 +1331,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 2065 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 153 modules
-cd android && ./gradlew test                             # 1523 tests across the five modules
+cd android && ./gradlew test                             # 1579 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

@@ -14,6 +14,18 @@ import com.lumenpearson.lessons.core.data.diary.DiaryImport
 import com.lumenpearson.lessons.core.data.diary.DiaryImportImpl
 import com.lumenpearson.lessons.core.data.diary.SeedingDiarySignIn
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
+import com.lumenpearson.lessons.core.data.developer.AccountFacts
+import com.lumenpearson.lessons.core.data.developer.ConsoleCredentials
+import com.lumenpearson.lessons.core.data.developer.DeveloperChecks
+import com.lumenpearson.lessons.core.data.developer.DeveloperMode
+import com.lumenpearson.lessons.core.data.developer.DeveloperModeImpl
+import com.lumenpearson.lessons.core.data.developer.DeveloperPreferences
+import com.lumenpearson.lessons.core.data.developer.DeveloperState
+import com.lumenpearson.lessons.core.data.developer.DeveloperTool
+import com.lumenpearson.lessons.core.data.developer.DeviceChecks
+import com.lumenpearson.lessons.core.data.developer.RequestConsole
+import com.lumenpearson.lessons.core.data.diagnostics.ActivityLog
+import com.lumenpearson.lessons.core.data.diagnostics.NetworkLog
 import com.lumenpearson.lessons.core.data.network.CleartextPolicy
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.notifications.SchoolAlerts
@@ -31,6 +43,7 @@ import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.DiaryRepository
 import com.lumenpearson.lessons.core.data.repository.DocsRepository
+import com.lumenpearson.lessons.core.data.repository.DiaryProviderKey
 import com.lumenpearson.lessons.core.data.repository.DiaryRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.DiarySessionStore
 import com.lumenpearson.lessons.core.data.repository.DiarySignIn
@@ -52,9 +65,12 @@ import com.lumenpearson.lessons.core.data.upstream.UpstreamHttp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 
 /**
@@ -124,6 +140,19 @@ interface LessonsContainer {
      * the role is looked up per request from the linked Telegram account.
      */
     val manageRepository: ManageRepository
+
+    /**
+     * The hidden developer section (#237): found or not, whose GitHub account
+     * may open it, which tools are on. Its switches drive the network and
+     * activity records, which is why it is built at application start.
+     */
+    val developerMode: DeveloperMode
+
+    /** The developer section's checks, run from the phone's own network. */
+    val developerChecks: DeveloperChecks
+
+    /** The developer section's request console: our server and the catalog's diaries, nothing else. */
+    val requestConsole: RequestConsole
 }
 
 /**
@@ -476,5 +505,72 @@ class DefaultLessonsContainer(
             clientId = githubClientId,
             scope = containerScope,
         )
+    }
+
+    /**
+     * The mode, and the one follower that turns the records on and off.
+     *
+     * The records follow [DeveloperState.tools], not the switches: that set is
+     * empty whenever the access does not stand, so losing the GitHub permission
+     * — or signing out of GitHub — stops the recording and empties both lists
+     * without anything having to remember to.
+     */
+    override val developerMode: DeveloperMode by lazy {
+        DeveloperModeImpl(
+            store = DeveloperPreferences(appContext),
+            github = githubRepository,
+            scope = containerScope,
+        ).also { mode ->
+            containerScope.launch {
+                // Caught for the reason the credentials follower is: an
+                // exception escaping this scope ends the process, and a record
+                // that stops following its switch costs only the record.
+                runCatching {
+                    mode.state.map { it.tools }.distinctUntilChanged().collect { tools ->
+                        NetworkLog.setRecording(DeveloperTool.NETWORK_LOG in tools)
+                        ActivityLog.setRecording(DeveloperTool.ACTIVITY_LOG in tools)
+                    }
+                }
+            }
+        }
+    }
+
+    override val developerChecks: DeveloperChecks by lazy {
+        DeveloperChecks(
+            serverStatus = { sessionRepository.serverStatus() },
+            diaryOrigins = ::diaryOriginsToCheck,
+            accounts = {
+                AccountFacts(
+                    classes = sessionRepository.currentAll().size,
+                    diary = diaryRepository.target.first(),
+                    mode = shellMode.current().mode,
+                )
+            },
+            device = DeviceChecks(context = appContext, diaryClient = { upstreamClient }),
+        )
+    }
+
+    override val requestConsole: RequestConsole by lazy {
+        RequestConsole(
+            credentials = {
+                val held = preferences.credentials.current()
+                ConsoleCredentials(held.baseUrl, held.classToken, held.diaryToken)
+            },
+            diaryOrigins = { upstreamDirectory.allowedOrigins() },
+            cleartextPermitted = CleartextPolicy.Platform::permits,
+        )
+    }
+
+    /**
+     * Petersburg's host, and the region of the diary this phone is signed in
+     * to when that is another — the two a phone here would ever talk to. Not
+     * every region in the catalog: a developer's check is no reason to knock
+     * on sixteen regional servers.
+     */
+    private suspend fun diaryOriginsToCheck(): List<HttpUrl> {
+        val signedIn = diaryRepository.target.first()
+            ?.takeIf { it.provider == DiaryProviderKey.NETSCHOOL }
+            ?.let { upstreamDirectory.netschool(it.region)?.origin }
+        return listOfNotNull(upstreamDirectory.petersburg, signedIn).distinct()
     }
 }

@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.CloudSync
+import androidx.compose.material.icons.rounded.DeveloperMode
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Palette
@@ -140,6 +141,20 @@ enum class SettingsSection(
         Icons.Rounded.Shield,
         5,
     ),
+
+    /**
+     * The developer mode (#237), listed once seven taps on the version have
+     * found it. Last, under everything a reader came for, and a page of its own
+     * like [DIARY]: its tools are lists that grow while it is open, and none of
+     * them is a preference. Whether its tools open is the GitHub gate's
+     * question, asked on the page — listing it grants nothing.
+     */
+    DEVELOPER(
+        R.string.developer_section,
+        R.string.developer_section_summary,
+        Icons.Rounded.DeveloperMode,
+        tone = 3,
+    ),
     ;
 
     /**
@@ -155,12 +170,16 @@ enum class SettingsSection(
      * need a class token this phone does not have. What stays is what is about
      * the phone ([APPEARANCE], [FEEL], [UPDATES], [ABOUT]), the server address
      * every diary read goes through ([SYNC]), and the diary.
+     *
+     * [developer] is whether the developer section has been found; it is about
+     * the phone, so it is listed on every home alike.
      */
-    fun listedOn(mode: ShellMode, manager: Boolean): Boolean = when (this) {
+    fun listedOn(mode: ShellMode, manager: Boolean, developer: Boolean = false): Boolean = when (this) {
         PERMISSIONS -> false
         ADMIN -> mode == ShellMode.CLASS && manager
         CONTENT, ALERTS, ACCOUNT -> mode != ShellMode.DIARY
         APPEARANCE, FEEL, SYNC, DIARY, UPDATES, ABOUT -> true
+        DEVELOPER -> developer
     }
 
     companion object {
