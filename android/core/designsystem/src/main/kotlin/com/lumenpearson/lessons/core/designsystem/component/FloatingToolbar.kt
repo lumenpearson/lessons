@@ -42,6 +42,7 @@ import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.CalendarViewWeek
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Today
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.FloatingToolbarDefaults
@@ -50,6 +51,7 @@ import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.ripple
@@ -68,6 +70,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onLongClick
@@ -510,7 +513,16 @@ private fun ToolbarItems(
                         held = slot
                         dragPx = 0f
                     },
-                    onDrag = { delta -> dragPx += delta },
+                    // Not past either end of the row. dropIndex parks a finger
+                    // that has left the bar on the end slot anyway, so anything
+                    // further was only the tab drawn out under the pill's round
+                    // end, cut in half there (#226).
+                    onDrag = { delta ->
+                        dragPx = (dragPx + delta).coerceIn(
+                            -held * slotPx,
+                            (working.lastIndex - held) * slotPx,
+                        )
+                    },
                     onDragEnd = {
                         val from = held
                         val to = landing
@@ -530,6 +542,26 @@ private fun ToolbarItems(
             if (slot < working.lastIndex) key(GapKey to slot) { ToolbarGap(expanded) }
         }
     }
+}
+
+/**
+ * A tab's disc. Unselected it is transparent: it used to be the pill's own
+ * colour, invisible everywhere except where a carried tab, drawn above its
+ * neighbours and scaled up, passed over the selected tab's white disc — and
+ * there it showed as a dark bite out of it (#226). Carried, it gets a body of
+ * its own, the action button's pair, so it can be seen over the white disc.
+ */
+internal fun tabContainerColor(selected: Boolean, held: Boolean, scheme: ColorScheme): Color = when {
+    selected -> scheme.background
+    held -> scheme.primaryContainer
+    else -> Color.Transparent
+}
+
+/** @see tabContainerColor */
+internal fun tabContentColor(selected: Boolean, held: Boolean, scheme: ColorScheme): Color = when {
+    selected -> scheme.primary
+    held -> scheme.onPrimaryContainer
+    else -> scheme.background
 }
 
 /** Keeps a gap's key from ever equalling a tab's, which is its label. */
@@ -725,8 +757,8 @@ private fun ToolbarTab(
     // selected tab wears, and the same two colour pairs.
     Surface(
         shape = CircleShape,
-        color = if (selected) scheme.background else scheme.primary,
-        contentColor = if (selected) scheme.primary else scheme.background,
+        color = tabContainerColor(selected = selected, held = held, scheme = scheme),
+        contentColor = tabContentColor(selected = selected, held = held, scheme = scheme),
         modifier = Modifier
             // First in the chain, outside the layer that moves and scales the
             // tab: the finger is measured in the row's coordinates, so the held
@@ -806,7 +838,7 @@ private fun ToolbarTab(
                 Icon(
                     imageVector = item.icon,
                     contentDescription = item.label,
-                    tint = if (selected) scheme.primary else scheme.background,
+                    tint = LocalContentColor.current,
                     modifier = Modifier.size(24.dp),
                 )
                 if (item.badge) {
