@@ -183,6 +183,15 @@ than writing a second one.
 
   `docs/architecture.md` has the section «The developer mode, and why its gate is not a lock».
 
+  **The documentation was brought level before the merge**, at the owner's request:
+  `docs/build.md` gains «Putting the client id into a build» — the Actions secret, the line
+  for `~/.gradle/gradle.properties`, how to tell from the phone whether a build carries it,
+  and what the developer mode needs beyond it; `docs/guide.md` gains «For the project's own
+  developers» (the in-app guide does not mention the section, on purpose); `docs/design.md`'s
+  «Signing in through GitHub is for one thing» is now «… for reports, corrections and
+  developers»; the README's honest status says the mode has never run on a device; and the
+  index in `docs/README.md` names the console and the client id.
+
 ### Gates
 
 The first session could not install the Android SDK, and ran detekt-cli and 27 pure-JVM tests
