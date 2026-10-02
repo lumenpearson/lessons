@@ -66,6 +66,10 @@ internal fun ListStepScaffold(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
+                // The same dissolve under the hero as [StepScaffold]'s (#230).
+                .fadeUnderHero(
+                    active = { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0 },
+                )
                 .appScrollMotionBlur(listState),
             contentPadding = PaddingValues(horizontal = ScreenPadding, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(GroupSpacing),
