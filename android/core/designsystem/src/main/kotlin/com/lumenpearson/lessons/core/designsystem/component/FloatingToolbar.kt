@@ -728,6 +728,7 @@ private fun ToolbarTab(
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val labelFits = remember(item.label, labelStyle, density, labelMax) {
+        // A measurement, not a line on screen: one line is what the label is drawn on.
         val px = measurer.measure(item.label, labelStyle, maxLines = 1, softWrap = false).size.width
         // A pixel of slack for the round trip through dp.
         with(density) { (px + 1).toDp() }.coerceIn(LabelWidth, labelMax.coerceAtLeast(LabelWidth))

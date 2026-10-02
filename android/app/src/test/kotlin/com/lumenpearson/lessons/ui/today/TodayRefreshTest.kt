@@ -61,14 +61,15 @@ class TodayRefreshTest {
     fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun `a cancelled refresh lowers the indicator and the next pull still runs`() = runTest(UnconfinedTestDispatcher()) {
-        val viewModel = TodayViewModel(timetableRepository = timetables, settingsRepository = settings)
-        backgroundScope.launch { viewModel.uiState.collect { } }
+    fun `a cancelled refresh lowers the indicator and the next pull still runs`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val viewModel = TodayViewModel(timetableRepository = timetables, settingsRepository = settings)
+            backgroundScope.launch { viewModel.uiState.collect { } }
 
-        viewModel.refresh()
-        assertFalse("the indicator is still up", viewModel.uiState.value.isRefreshing)
+            viewModel.refresh()
+            assertFalse("the indicator is still up", viewModel.uiState.value.isRefreshing)
 
-        viewModel.refresh()
-        assertEquals("the second pull was refused", 2, calls)
-    }
+            viewModel.refresh()
+            assertEquals("the second pull was refused", 2, calls)
+        }
 }

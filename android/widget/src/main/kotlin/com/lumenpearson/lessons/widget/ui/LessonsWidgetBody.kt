@@ -713,7 +713,7 @@ private fun RestDayBody(
     val context = LocalContext.current
     val plan = if (size.showsMeta) dayPlanOf(context, nextDay, size.homeworkChars) else null
     val nextLessons = restDayLessons(size, nextDay, homework)
-    val showsWeek = size.showsWeekStrip && onDayClick != null && week.isNotEmpty()
+    val openDay = onDayClick?.takeIf { size.showsWeekStrip && week.isNotEmpty() }
 
     // Header, homework, the next day and the week, with a spacer before each of
     // the last three: seven children, under CHILD_LIMIT.
@@ -771,9 +771,9 @@ private fun RestDayBody(
                 }
             }
         }
-        if (showsWeek && onDayClick != null) {
+        if (openDay != null) {
             VSpace(8)
-            WeekStrip(week = week, today = today, size = size, openDay = onDayClick)
+            WeekStrip(week = week, today = today, size = size, openDay = openDay)
         }
     }
 }

@@ -23,6 +23,7 @@ import org.robolectric.RobolectricTestRunner
  * is drawn — in the row it was in before, it sat on the row's own line, and
  * every assertion about «is there a now» would still have passed.
  */
+// marquee clock: the subjects and times here fit their rows at this width, so no line scrolls.
 @RunWith(RobolectricTestRunner::class)
 class LessonGroupNowTest {
 

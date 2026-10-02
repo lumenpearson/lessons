@@ -40,6 +40,8 @@ import org.robolectric.annotation.GraphicsMode
  * cut along a line under the hero, and a gap before «Сервер» half as large
  * again as every other one.
  */
+// marquee clock: it reads bounds and one pixel row after an idle frame; the sign-in page's only
+// marquee is the server row, whose address fits at this width.
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "ru-rRU-w411dp-h1200dp")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
