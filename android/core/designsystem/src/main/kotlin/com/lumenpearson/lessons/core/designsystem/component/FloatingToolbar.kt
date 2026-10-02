@@ -134,7 +134,11 @@ internal const val ToolbarPillTag = "lessons_toolbar_pill"
 /** Width of an icon-only item, and the height of every item. */
 private val ItemSize: Dp = 48.dp
 
-/** Extra width the selected item grows by to fit its label. */
+/**
+ * What a label is counted as when deciding whether labels fit on the row at
+ * all — see [CompactScreenWidthDp] — and the least the row's spare width is
+ * taken to be. Not the width a label is drawn at: that is its own (#242).
+ */
 private val LabelWidth: Dp = 80.dp
 
 /** Gap between two items while the toolbar is expanded. */
@@ -162,8 +166,24 @@ private const val CompactScreenWidthDp = 330
 /** Diameter of the badge dot. */
 private val BadgeSize: Dp = 8.dp
 
-/** Longest a title may be in the toolbar's standard mode before it marquees. */
-private val TitleWidthRange = 100.dp..250.dp
+/** The padding on either side of a title in the toolbar's standard mode. */
+private val TitlePadding: Dp = 8.dp
+
+/**
+ * From this smallest width the window is a tablet's — Material's medium window
+ * class, and the usual line between a phone and a tablet.
+ */
+private const val TabletSmallestWidthDp = 600
+
+/**
+ * How much of a tablet's window a label or a title may take before it scrolls.
+ *
+ * The owner's rule (#242): every button is as wide as its text, and the text
+ * stops growing at 30 % of a tablet's window; on a phone it may take whatever
+ * the row leaves it, so that the page's name is read rather than scrolled
+ * wherever there is room for it.
+ */
+private const val TabletLabelShare = 0.3f
 
 /**
  * The bar at the bottom: a vibrant pill floating over the content, where the
@@ -251,6 +271,7 @@ fun LessonsFloatingToolbar(
     val slots = items.size + if (actionButton != null) 1 else 0
     val hideLabel = fontScale > LabelFontScaleLimit ||
         (screenWidth < CompactScreenWidthDp && slots > 3)
+    val tablet = LocalConfiguration.current.smallestScreenWidthDp >= TabletSmallestWidthDp
 
     val colors = FloatingToolbarDefaults.vibrantFloatingToolbarColors(
         toolbarContentColor = scheme.onSurface,
@@ -313,7 +334,15 @@ fun LessonsFloatingToolbar(
                         modifier = Modifier.padding(PillPadding),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        BackAndTitle(title = title, onBackClick = onBackClick ?: {})
+                        BackAndTitle(
+                            title = title,
+                            onBackClick = onBackClick ?: {},
+                            titleMax = textCap(
+                                screenWidth = screenWidth.dp,
+                                tablet = tablet,
+                                spare = spareTitleWidth(screenWidth.dp, actionButton != null),
+                            ),
+                        )
                     }
                 } else {
                     ToolbarItems(
@@ -334,11 +363,15 @@ fun LessonsFloatingToolbar(
                         reordering = reordering,
                         onReorderingChange = onReorderingChange,
                         onReorder = onReorder,
-                        labelMax = if (scrollableItems) {
-                            LabelWidth
-                        } else {
-                            spareLabelWidth(screenWidth.dp, items.size, actionButton != null)
-                        },
+                        labelMax = textCap(
+                            screenWidth = screenWidth.dp,
+                            tablet = tablet,
+                            spare = if (scrollableItems) {
+                                scrollingItemsMaxWidth(actionButton != null) - PillPadding * 2 - ItemSize
+                            } else {
+                                spareLabelWidth(screenWidth.dp, items.size, actionButton != null)
+                            },
+                        ),
                     )
                 }
             }
@@ -574,6 +607,25 @@ internal fun spareLabelWidth(screenWidth: Dp, items: Int, hasAction: Boolean): D
 }
 
 /**
+ * The widest a title's text may grow in the standard mode: the window less the
+ * margins, the pill's ends, the back button and the gap after it, the title's
+ * own padding, and the button beside the pill if there is one.
+ */
+internal fun spareTitleWidth(screenWidth: Dp, hasAction: Boolean): Dp {
+    val rest = ToolbarSideMargin * 2 + PillPadding * 2 + ItemSize + ItemGap + TitlePadding * 2 +
+        if (hasAction) ItemSize + ItemGap * 2 else 0.dp
+    return (screenWidth - rest).coerceAtLeast(0.dp)
+}
+
+/**
+ * The widest a label or a title is drawn before it scrolls (#242): what the row
+ * can [spare] on a phone, and on a tablet no more than [TabletLabelShare] of the
+ * window either.
+ */
+internal fun textCap(screenWidth: Dp, tablet: Boolean, spare: Dp): Dp =
+    if (tablet) minOf(screenWidth * TabletLabelShare, spare) else spare
+
+/**
  * A tab's disc. Unselected it is transparent: it used to be the pill's own
  * colour, invisible everywhere except where a carried tab, drawn above its
  * neighbours and scaled up, passed over the selected tab's white disc — and
@@ -749,9 +801,9 @@ private fun ToolbarTab(
     // As wide as the label, not a fixed 80 dp: «Календарь» in bold is wider
     // than that at the app's larger text scales and at a system font scale
     // from about 1.1, and a label that does not fit is a marquee that never
-    // stops — mid-lap it read «› Кален…» (#227). Never narrower than 80 dp, so
-    // the short labels and the tests' geometry are as they were, and never
-    // wider than the row can spare.
+    // stops — mid-lap it read «› Кален…» (#227). Not held to 80 dp either, the
+    // floor #227 kept: «Today» sat in a pill twice its width (#242). Never
+    // wider than [labelMax], past which it scrolls.
     val labelStyle = MaterialTheme.typography.labelLarge.emphasised(active = true)
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -759,7 +811,7 @@ private fun ToolbarTab(
         // A measurement, not a line on screen: one line is what the label is drawn on.
         val px = measurer.measure(item.label, labelStyle, maxLines = 1, softWrap = false).size.width
         // A pixel of slack for the round trip through dp.
-        with(density) { (px + 1).toDp() }.coerceIn(LabelWidth, labelMax.coerceAtLeast(LabelWidth))
+        with(density) { (px + 1).toDp() }.coerceAtMost(labelMax)
     }
     val labelWidth by animateDpAsState(
         targetValue = if (selected && !hideLabel) labelFits else 0.dp,
@@ -1000,6 +1052,7 @@ private fun ToolbarActionButton(action: ToolbarAction) {
 private fun BackAndTitle(
     title: String?,
     onBackClick: () -> Unit,
+    titleMax: Dp,
 ) {
     val scheme = MaterialTheme.colorScheme
     val view = rememberHapticView()
@@ -1025,17 +1078,18 @@ private fun BackAndTitle(
     }
     if (title != null) {
         Spacer(Modifier.width(ItemGap))
-        // The width range and the padding go on the box, so the title is
-        // measured against the room it will actually be drawn in rather than
-        // against the toolbar. Same reason as the label above: a title that
-        // fits should sit still.
+        // The cap and the padding go on the box, so the title is measured
+        // against the room it will actually be drawn in rather than against
+        // the toolbar. Same reason as the label above: a title that fits
+        // should sit still. No floor: a short title used to sit in at least
+        // 100 dp, and «← Sync» was as wide a pill as «← Settings» (#242).
         MarqueeText(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = scheme.background,
             modifier = Modifier
-                .widthIn(min = TitleWidthRange.start, max = TitleWidthRange.endInclusive)
-                .padding(horizontal = 8.dp),
+                .widthIn(max = titleMax + TitlePadding * 2)
+                .padding(horizontal = TitlePadding),
         )
     }
 }
