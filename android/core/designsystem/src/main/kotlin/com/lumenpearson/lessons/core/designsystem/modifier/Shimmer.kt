@@ -13,6 +13,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
 
 /** One sweep of the highlight, in milliseconds. Essentials' own timing. */
 private const val SweepMillis = 1000
@@ -35,16 +36,23 @@ private const val BandLength = 500f
  * it; that is dead code, and it is not carried over here.
  */
 fun Modifier.shimmer(): Modifier = composed {
+    // A sweep that never stops is movement the «Анимации» switch is for; off,
+    // the placeholder keeps its band where the sweep starts (#246).
+    val motion = LocalMotion.current
     val transition = rememberInfiniteTransition(label = "shimmer")
-    val offset by transition.animateFloat(
+    val sweep by transition.animateFloat(
         initialValue = 0f,
         targetValue = SweepDistance,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = SweepMillis, easing = FastOutSlowInEasing),
+            animation = tween(
+                durationMillis = motion.durationMillis(SweepMillis).coerceAtLeast(1),
+                easing = FastOutSlowInEasing,
+            ),
             repeatMode = RepeatMode.Restart,
         ),
         label = "shimmer_translate",
     )
+    val offset = if (motion.enabled) sweep else SweepDistance / 2
 
     val colors = listOf(
         MaterialTheme.colorScheme.surfaceContainerHighest,

@@ -2,7 +2,6 @@ package com.lumenpearson.lessons.ui.onboarding
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -55,6 +54,8 @@ import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.round
 import kotlinx.coroutines.launch
+import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
+import com.lumenpearson.lessons.core.designsystem.theme.springSpec
 
 /** Height of a first-run action, straight from the Essentials onboarding. */
 internal val ActionHeight: Dp = 56.dp
@@ -254,6 +255,8 @@ internal fun SpinnableAppMark(
     val view = rememberHapticView()
     val scope = rememberCoroutineScope()
     val rotation = remember { Animatable(0f) }
+    // The spring back at the reader's pace, and a snap with animations off (#246).
+    val motion = LocalMotion.current
     var centre by remember { mutableStateOf(Offset.Zero) }
 
     Box(
@@ -306,7 +309,7 @@ internal fun SpinnableAppMark(
                         scope.launch {
                             rotation.animateTo(
                                 targetValue = 0f,
-                                animationSpec = spring(
+                                animationSpec = motion.springSpec(
                                     dampingRatio = Spring.DampingRatioMediumBouncy,
                                     stiffness = Spring.StiffnessLow,
                                 ),

@@ -1,7 +1,6 @@
 package com.lumenpearson.lessons.ui.week
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -49,6 +48,8 @@ import com.lumenpearson.lessons.ui.common.asMonthYear
 import com.lumenpearson.lessons.ui.day.DayRibbonView
 import com.lumenpearson.lessons.ui.day.RibbonSettingsSheet
 import java.time.LocalDate
+import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
+import com.lumenpearson.lessons.core.designsystem.theme.tweenSpec
 
 /**
  * The calendar tab: the same timetable at three scales.
@@ -157,16 +158,18 @@ fun WeekScreen(
 
         // Keyed on the period as well as the view, so stepping a week slides the
         // new one in from the side the arrow pointed at.
+        // At the reader's pace, and a cut with animations off (#246).
+        val motion = LocalMotion.current
         AnimatedContent(
             targetState = state.view to state.periodStart,
             transitionSpec = {
                 val forward = targetState.second >= initialState.second
-                val enter = slideInHorizontally(tween(PeriodTransitionMillis)) { width ->
+                val enter = slideInHorizontally(motion.tweenSpec(PeriodTransitionMillis)) { width ->
                     if (forward) width / 6 else -width / 6
-                } + fadeIn(tween(PeriodTransitionMillis))
-                val exit = slideOutHorizontally(tween(PeriodTransitionMillis)) { width ->
+                } + fadeIn(motion.tweenSpec(PeriodTransitionMillis))
+                val exit = slideOutHorizontally(motion.tweenSpec(PeriodTransitionMillis)) { width ->
                     if (forward) -width / 6 else width / 6
-                } + fadeOut(tween(PeriodTransitionMillis))
+                } + fadeOut(motion.tweenSpec(PeriodTransitionMillis))
                 enter togetherWith exit
             },
             label = "schedule_period",

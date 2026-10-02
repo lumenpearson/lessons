@@ -35,6 +35,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
+import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
 
 /**
  * The school bell, swinging, for the tile of the hero card during a break.
@@ -63,23 +64,28 @@ fun SchoolBell(
     ringing: Boolean = true,
 ) {
     val transition = rememberInfiniteTransition(label = "school_bell")
+    // At the reader's pace, and still with animations off: a bell that swings
+    // for ever is exactly the movement that switch is for (#246).
+    val motion = LocalMotion.current
+    val period = motion.durationMillis(SwingMillis).coerceAtLeast(1)
 
     val swing by transition.animateFloat(
         initialValue = -1f,
         targetValue = 1f,
-        animationSpec = beat(),
+        animationSpec = beat(period),
         label = "bell_swing",
     )
     // A quarter of a period behind the dome. The lag is what reads as weight.
     val clapper by transition.animateFloat(
         initialValue = -1f,
         targetValue = 1f,
-        animationSpec = beat(offsetMillis = SwingMillis / 4),
+        animationSpec = beat(period, offsetMillis = period / 4),
         label = "bell_clapper",
     )
 
-    val angle = if (ringing) swing * SwingDegrees else 0f
-    val clapperShift = if (ringing) clapper else 0f
+    val moving = ringing && motion.enabled
+    val angle = if (moving) swing * SwingDegrees else 0f
+    val clapperShift = if (moving) clapper else 0f
 
     Box(
         modifier = modifier
@@ -108,8 +114,8 @@ fun SchoolBell(
 }
 
 /** One swing, there and back, easing at both ends the way a pendulum does. */
-private fun beat(offsetMillis: Int = 0): InfiniteRepeatableSpec<Float> = infiniteRepeatable(
-    animation = tween(durationMillis = SwingMillis, easing = FastOutSlowInEasing),
+private fun beat(periodMillis: Int, offsetMillis: Int = 0): InfiniteRepeatableSpec<Float> = infiniteRepeatable(
+    animation = tween(durationMillis = periodMillis, easing = FastOutSlowInEasing),
     repeatMode = RepeatMode.Reverse,
     initialStartOffset = StartOffset(offsetMillis),
 )

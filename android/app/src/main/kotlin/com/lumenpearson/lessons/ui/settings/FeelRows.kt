@@ -25,6 +25,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.model.HapticStrength
 import com.lumenpearson.lessons.navigation.labelRes
+import com.lumenpearson.lessons.core.designsystem.theme.Reveal
 
 /**
  * @param tabs whether the phone has the class tabs these rows are about — the
@@ -45,7 +46,7 @@ internal fun LazyListScope.feelRows(
                 checked = state.settings.hapticsEnabled,
                 onCheckedChange = viewModel::setHapticsEnabled,
             )
-            if (state.settings.hapticsEnabled) {
+            Reveal(visible = state.settings.hapticsEnabled) {
                 GroupSegmentedItem(
                     title = correctedString(R.string.settings_haptic_strength),
                     icon = Icons.Rounded.Vibration,
@@ -104,7 +105,7 @@ internal fun LazyListScope.feelRows(
             // Hidden rather than disabled when animations are off: a speed for
             // something that does not move is not a dimmed control, it is a
             // question with no answer.
-            if (state.settings.animations) {
+            Reveal(visible = state.settings.animations) {
                 GroupSliderItem(
                     title = correctedString(R.string.settings_motion_speed),
                     subtitle = correctedString(R.string.settings_motion_speed_description),
@@ -140,7 +141,7 @@ internal fun LazyListScope.feelRows(
                 checked = state.settings.motionBlur && SupportsShaders,
                 onCheckedChange = viewModel::setMotionBlur,
             )
-            if (state.settings.motionBlur && SupportsShaders) {
+            Reveal(visible = state.settings.motionBlur && SupportsShaders) {
                 GroupSliderItem(
                     title = correctedString(R.string.settings_motion_blur_amount),
                     icon = Icons.Rounded.MotionPhotosOn,
