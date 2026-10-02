@@ -1,9 +1,6 @@
 package com.lumenpearson.lessons.core.designsystem.text
 
-import androidx.annotation.StringRes
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.ui.res.stringResource
 
 /**
  * A line in two parts: the app's own words and the data they introduce.
@@ -27,20 +24,6 @@ data class DataLine(val lead: String, val data: String) {
         /** A line that is data from its first character — a subject, a name, a day. */
         fun of(text: String): DataLine = DataLine(lead = "", data = text)
     }
-}
-
-/**
- * [correctedString] with arguments, split where the first argument begins.
- *
- * The whole sentence is still what is corrected and registered, so the
- * correction mode finds it as before; the split is read from the pattern the
- * sentence was formatted from — the corrected one, if there is a correction.
- */
-@Composable
-fun correctedLine(@StringRes id: Int, vararg formatArgs: Any): DataLine {
-    val whole = correctedString(id, *formatArgs)
-    val pattern = LocalCorrections.current.correctionOf(id, stringResource(id))
-    return splitLine(pattern = pattern, whole = whole)
 }
 
 /**
