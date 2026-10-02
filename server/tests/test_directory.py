@@ -27,7 +27,7 @@ from pathlib import Path
 import httpx
 import pytest
 from httpx import ASGITransport
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from app.api import cron, diary, directory, public
 from app.config import get_settings
@@ -580,3 +580,18 @@ async def test_a_parallel_burst_from_one_address_cannot_pass_the_limit(
     assert len(let_through) <= directory.directory_limiter.limit
     assert await _attempts(session) <= directory.directory_limiter.limit
     assert len(upstream.requests) <= directory.directory_limiter.limit
+
+
+async def test_the_burst_waits_for_sqlites_write_lock_rather_than_failing_on_it(session):
+    """The burst above is a hundred writers on one SQLite file, and SQLite
+    hands its one write lock out in turn: a writer that waits longer than the
+    busy timeout raises «database is locked» instead of reaching the limiter.
+    At the driver's five seconds that happened about one run in two on a slow
+    Windows checkout (#212), and with the timeout cut to twenty milliseconds it
+    happens on every run here. The test is about what the limiter answers, so
+    the wait must be long enough never to be the answer."""
+    from app.db import SQLITE_BUSY_TIMEOUT_SECONDS
+
+    busy_ms = await session.scalar(text("PRAGMA busy_timeout"))
+    assert busy_ms == int(SQLITE_BUSY_TIMEOUT_SECONDS * 1000)
+    assert SQLITE_BUSY_TIMEOUT_SECONDS >= 30
