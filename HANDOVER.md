@@ -9,19 +9,22 @@ newest first.
 Last updated: **2 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218 and #234 are merged**; `main` is at `f2cebbd`, the merge
 of #234, on 2 October 2026, and `dev` is level with it. **The only thing open is the pull
-request carrying this paragraph, #238**, from `agents/dazzling-davinci-qtw4n8`, on milestone
-9, `v0.8.0 — On-device checks, 89-region e-diary survey`, as a draft. It adds a hidden
-developer mode (#237) and records what a session found about the Petersburg diary the same
-day (#235). The section «What the last session added» below is that batch.
+request carrying this paragraph, #239**, from `dev`, on milestone 9, `v0.8.0 — On-device
+checks, 89-region e-diary survey`. It carries #238's two commits unchanged — a hidden
+developer mode (#237), written by a scheduled cloud session, and what that session found
+about the Petersburg diary the same day (#235) — and a request console on top, which the
+owner asked for in another session the same afternoon. #238 is marked merged by GitHub the
+moment #239's merge puts its head in `main`. The section «What the last session added» below
+is that batch, both sessions' halves.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#238 is not mergeable on the standing authorisation.** The session that wrote it could not
-install the Android SDK, so `./gradlew test` and both assembles ran on CI only; the third of
-the `github-pr` skill's five conditions — gates run locally before the push — is unmet. The
-owner merges it, or a session with the SDK runs the gates first.
+**#238 was held as a draft because its session could not install the Android SDK**, so the
+third of the `github-pr` skill's five conditions — gates run locally before the push — was
+unmet for its code. The session that wrote the console had the SDK and ran the full Android
+gates over the combined tree, which is what lets #239 merge on the standing authorisation.
 
-**#234 closed #219–#233**, read back from GitHub on 2 October. **#238 is meant to close
+**#234 closed #219–#233**, read back from GitHub on 2 October. **#239 closes
 #237.** **#235** is open: the production server cannot reach Petersburg's diary at all, and
 the fix is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in
 showing nothing for over a minute, was filed the same day and closed as a duplicate of #233,
@@ -135,12 +138,15 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: a developer mode (#237), and the Petersburg diary out of the server's reach (#235)
+## What the last session added: a developer mode (#237) with a request console, and the Petersburg diary out of the server's reach (#235)
 
-Open as #238, from `agents/dazzling-davinci-qtw4n8`, on milestone 9, as a draft. Made in a
-cloud session on 2 October 2026 that began as a scheduled status check, turned into the
-owner's report that the real diary would not open, and ended with the owner asking for a
-developer mode to find out why next time.
+Open as #239, from `dev`, on milestone 9; #238, from `agents/dazzling-davinci-qtw4n8`, is
+its first two commits. Made by two cloud sessions on 2 October 2026. The first began as a
+scheduled status check, turned into the owner's report that the real diary would not open,
+and ended with a developer mode to find out why next time. The second, asked by the owner for
+«отправки конкретных запросов с разными заголовками на разные эндпоинты», «ограничь нашим
+сервером и дневниками», found the mode already pushed and added the console to it rather
+than writing a second one.
 
 - **The production server cannot reach Petersburg's diary (#235), measured rather than
   assumed.** `POST /api/v1/diary/login` on `lessons-ruddy-zeta.vercel.app` with a made-up
@@ -167,26 +173,31 @@ developer mode to find out why next time.
     Keystore round trip, transports (VPN warns), notifications, exact alarms, the periodic
     sync, widgets, build;
   - a layout grid, text at twice the scale, and stretched strings through `AppCorrections`;
-  - a plain-text report to copy or share.
+  - a plain-text report to copy or share;
+  - **a request console** (`RequestConsole`, second session): any method, path, headers and
+    body, to our server or a diary origin the catalog allow-lists, and nowhere else.
+    `planConsole` judges the resolved URL, so no spelling of a path leaves the origin; its
+    own client keeps no cookie, follows no redirect and guards the origin again; a bearer
+    («Устройство» or «Дневник») goes to our server only, chosen rather than typed, read as
+    the request leaves. The answer is on the page only, never in the report.
 
   `docs/architecture.md` has the section «The developer mode, and why its gate is not a lock».
 
 ### Gates
 
-**Not the project's gates, and that is the point of this paragraph.** The Android SDK install
-was declined in this session, so on `08d2860` nothing ran `./gradlew test`, `detekt` through
-Gradle, or either assemble here; CI did. What ran here:
+The first session could not install the Android SDK, and ran detekt-cli and 27 pure-JVM tests
+by hand under kotlinc, with three mutations caught; its commit message has the detail. The
+second ran the project's gates on `30c5938`, the console on top of #238:
 
-- detekt-cli 2.0.0-alpha.6 over `:core:data` and `:app`, main and test, with each module's
-  baseline: no findings.
-- kotlinc 2.4.20 and JUnit 4.13.2 over the pure-JVM half of `:core:data` and its four test
-  classes: 27 passed. Three mutations each turned two or three of them red: `Set-Cookie`
-  kept, tools on without access, read access counted as a developer.
-- A parity script over `strings_developer.xml`: 70 and 70, arguments equal.
+```text
+./gradlew test assembleDebug assembleRelease detekt   → BUILD SUCCESSFUL
+tests: 1579, 0 failures (:core:model 125, :core:data 615, :core:designsystem 122,
+       :widget 126, :app 591) — 1523 before the batch, 44 from #238 and 12 from the console
+RequestConsoleTest's 12, with the diary allow-list check in planConsole disabled → 1 red
+```
 
-The Android count is **1567 by arithmetic**, 1523 plus the 44 tests this batch adds:
-`:core:data` 603, `:app` 591, the other three as before. It is written in its three places as
-the number CI is expected to run, not one this session saw. The server was not touched.
+The first run of `detekt` found three findings in the console and two more after them, all
+fixed rather than baselined. The server was not touched.
 
 ### What was deliberately left alone
 
@@ -196,18 +207,23 @@ the number CI is expected to run, not one this session saw. The server was not t
   request is in flight, which is the kind of composition `MarqueeClockTest` makes a test
   argue for; what is tested is everything under it — the gate, the records, the report, the
   stretched strings, the taps, the listing.
+- **The console has no composed screen test either**, and no history: one request at a time,
+  the last answer only. A settings change between planning and sending is refused by the
+  client's guard rather than planned again.
 - **The checks ask Petersburg's host and the signed-in region's, not every region in the
   catalog.** A developer's check is no reason to knock on sixteen regional servers.
 
 ### What nobody has verified in this batch
 
-- **None of the developer mode has run on a device**, or been compiled outside CI:
+- **None of the developer mode has run on a device** (it has now been built and tested
+  locally, not run):
   - the reveal gesture and the toast;
   - the page;
   - the grid, the large text and the stretched strings over real screens;
   - the Keystore round trip;
   - the connectivity, notification and alarm checks;
-  - the widget count.
+  - the widget count;
+  - the request console, against the real server or any diary.
 - The GitHub permission call has never been made against a real account. A build without
   `LESSONS_GITHUB_CLIENT_ID` cannot open the mode at all.
 - The in-flight row relies on the recorder sitting inside OkHttp's call. A sign-in stuck
@@ -306,7 +322,7 @@ maps them. The
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
