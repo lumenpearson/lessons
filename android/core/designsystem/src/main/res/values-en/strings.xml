@@ -56,5 +56,7 @@
     <string name="ds_action_save">Save</string>
     <string name="ds_slider_decrease">Decrease</string>
     <string name="ds_slider_increase">Increase</string>
+    <string name="ds_sheet_drag_handle">Drag handle</string>
+    <string name="ds_sheet_dismiss">Close</string>
 
 </resources>

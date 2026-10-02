@@ -1,6 +1,8 @@
 package com.lumenpearson.lessons.core.designsystem.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
@@ -8,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -20,11 +23,20 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
+import kotlinx.coroutines.launch
 
 /**
  * Every bottom sheet in the app.
@@ -48,18 +60,30 @@ fun LessonsBottomSheet(
     sheetState: SheetState = rememberFullSheetState(),
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
     scrimColor: Color = BottomSheetDefaults.ScrimColor,
-    dragHandle: @Composable (() -> Unit)? = { BottomSheetDefaults.DragHandle() },
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         containerColor = containerColor,
         scrimColor = scrimColor,
-        dragHandle = dragHandle,
+        // Never Material's slot. This build wraps whatever is put there in a
+        // TooltipBox and a rippling clickable, so a long press on the handle
+        // opened a «Маркер перемещения» tooltip over a grey rectangle — on
+        // every sheet in the app (#222). The handle is drawn below instead,
+        // as the first thing in the sheet; dragging is the sheet surface's,
+        // not the handle's, and is unchanged.
+        dragHandle = null,
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         modifier = modifier.statusBarsPadding(),
     ) {
+        SheetDragHandle(
+            onDismiss = {
+                scope.launch { sheetState.hide() }
+                    .invokeOnCompletion { if (!sheetState.isVisible) onDismissRequest() }
+            },
+        )
         Column(
             // The sheet declares zero content insets so that it owns its own
             // bottom spacing — which also means nothing else is handling the
@@ -93,6 +117,41 @@ fun LessonsBottomSheet(
             }
             content()
         }
+    }
+}
+
+/**
+ * Material's handle — a 32 × 4 dp pill with 22 dp above and below — without the
+ * tooltip and the ripple Material adds around it.
+ *
+ * Semantics rather than a click: a screen reader still finds the handle and can
+ * close the sheet from it, and with no `clickable` there is no indication to
+ * draw and nothing for a long press to open.
+ */
+@Composable
+private fun SheetDragHandle(onDismiss: () -> Unit) {
+    val description = correctedString(R.string.ds_sheet_drag_handle)
+    val dismiss = correctedString(R.string.ds_sheet_dismiss)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                contentDescription = description
+                customActions = listOf(
+                    CustomAccessibilityAction(dismiss) {
+                        onDismiss()
+                        true
+                    },
+                )
+            }
+            .padding(vertical = 22.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(width = 32.dp, height = 4.dp)
+                .background(MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.shapes.extraLarge),
+        )
     }
 }
 
