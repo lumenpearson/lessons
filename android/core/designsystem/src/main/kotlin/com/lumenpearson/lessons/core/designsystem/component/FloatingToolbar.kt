@@ -494,16 +494,19 @@ private fun ToolbarItems(
                     slotPx = slotPx,
                     offsetPx = if (slot == held) dragPx else shift * slotPx,
                     arrangeable = reorderable,
-                    onOpenArranging = {
-                        // The press that opens the mode, and the only haptic in
-                        // it: `tap` rather than `press`, because this is a state
-                        // change and not a button, and the two should not feel
-                        // the same.
-                        LessonsHaptics.tap(view)
-                        onReorderingChange(true)
-                    },
+                    onOpenArranging = { onReorderingChange(true) },
                     onExitReorder = { onReorderingChange(false) },
                     onDragStart = {
+                        // Every pick-up, of every tab. This used to be played
+                        // only by the long press that opens the mode, and inside
+                        // the mode a tab is picked up by a sideways move that
+                        // nothing was felt for — so carrying any tab but the
+                        // selected one was silent, the selected one being felt
+                        // only through the shell's page-change tap on the drop
+                        // (#225). The long press runs onOpen and then this in
+                        // the same event, so it is still felt exactly once.
+                        // `tap` rather than `press`: a state change, not a button.
+                        LessonsHaptics.tap(view)
                         held = slot
                         dragPx = 0f
                     },
@@ -745,6 +748,9 @@ private fun ToolbarTab(
                         .semantics {
                             if (!reordering) {
                                 onLongClick {
+                                    // What the pick-up plays for a finger; a
+                                    // screen reader's long press picks nothing up.
+                                    LessonsHaptics.tap(view)
                                     currentOpenArranging()
                                     true
                                 }
