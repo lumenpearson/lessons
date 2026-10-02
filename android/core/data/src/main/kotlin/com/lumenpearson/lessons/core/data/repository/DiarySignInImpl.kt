@@ -18,6 +18,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.encodeToJsonElement
@@ -47,6 +48,8 @@ internal class DiarySignInImpl(
     private val forgetLocal: suspend () -> Unit = {},
     private val clock: Clock = Clock.systemUTC(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val upstreamBudgetMillis: Long = UPSTREAM_BUDGET_MILLIS,
+    private val preflightBudgetMillis: Long = PREFLIGHT_BUDGET_MILLIS,
 ) : DiarySignIn {
 
     /** Where a target's sign-in goes, resolved from the catalog and nothing else. */
@@ -65,7 +68,11 @@ internal class DiarySignInImpl(
         // phone would refuse to talk to is not worth asking the server about.
         endpoint(target)
         val capabilities = try {
-            api.capabilities()
+            // Its own short deadline: a server that does not answer this
+            // answers nothing else either, and saying so in ten seconds beats
+            // the client's sixty (#233).
+            withTimeoutOrNull(preflightBudgetMillis) { api.capabilities() }
+                ?: throw DiarySignInProblem.Timeout(host = null)
         } catch (failure: HttpException) {
             // A server from before registration has no such route. It could
             // not keep a session opened here, so it is found out now — before
@@ -101,12 +108,21 @@ internal class DiarySignInImpl(
             val login = DiaryLogin.clean(target.login) ?: throw DiarySignInProblem.LoginTooShort
             if (password.isEmpty()) throw DiarySignInProblem.WrongPassword(upstreamMessage = null)
             val cleaned = target.copy(login = login)
-            val session = when (endpoint) {
-                is Endpoint.Petersburg ->
-                    PetersburgSignIn(client(), endpoint.origin, clock).signIn(cleaned, password)
-                is Endpoint.NetSchool ->
-                    NetSchoolSignIn(client(), clock).signIn(endpoint.region, cleaned, password)
-            }
+            // One deadline over the whole exchange. The client's call timeout
+            // bounds a call, and «Сетевой город» is three to five of them in a
+            // row, so a slow region could keep «Войти» busy for minutes with
+            // no single call ever timing out (#233). OrNull and never
+            // withTimeout: its exception is a CancellationException, which is
+            // rethrown below and taken by the step for a cancelled step — the
+            // spinner would stay up for ever.
+            val session = withTimeoutOrNull(upstreamBudgetMillis) {
+                when (endpoint) {
+                    is Endpoint.Petersburg ->
+                        PetersburgSignIn(client(), endpoint.origin, clock).signIn(cleaned, password)
+                    is Endpoint.NetSchool ->
+                        NetSchoolSignIn(client(), clock).signIn(endpoint.region, cleaned, password)
+                }
+            } ?: throw DiarySignInProblem.Timeout(host)
             Result.success(session)
         } catch (cancellation: CancellationException) {
             throw cancellation
@@ -319,6 +335,17 @@ internal class DiarySignInImpl(
     }
 
     private companion object {
+        /**
+         * The whole sign-in to the diary, every request of it: long enough
+         * for «Сетевой город»'s three calls on a slow regional server, short
+         * enough that a hung one answers «не ответил вовремя» while somebody
+         * is still holding the phone.
+         */
+        const val UPSTREAM_BUDGET_MILLIS = 25_000L
+
+        /** `/capabilities` on our own server; see [preflight]. */
+        const val PREFLIGHT_BUDGET_MILLIS = 10_000L
+
         val DEFAULT_MAX_AGE: Duration = Duration.ofMinutes(10)
         const val MIN_DECLARED_TIMEOUT_MILLIS = 60_000L
 

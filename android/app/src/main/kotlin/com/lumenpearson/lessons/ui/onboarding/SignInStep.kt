@@ -141,9 +141,12 @@ class SignInStep(
         val stale = held
         held = null
         job = scope.launch {
-            stale?.let { signIn.discard(it) }
             val withLogin = target.copy(login = mutable.value.login)
             mutable.update { it.copy(stage = SignInStage.CHECKING, problem = null, dialog = false, sessionHeld = false) }
+            // After the spinner, not before it: saying goodbye to a held
+            // «Сетевой город» session is a call of its own, and it ran with
+            // nothing on screen to say anything was happening (#233).
+            stale?.let { signIn.discard(it) }
             signIn.preflight(withLogin).onFailure { fail(it); return@launch }
             mutable.update { it.copy(stage = SignInStage.UPSTREAM) }
             val step = currentCoroutineContext().job
