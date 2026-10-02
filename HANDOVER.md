@@ -7,21 +7,22 @@ What every batch before the last two added is in [docs/history.md](docs/history.
 newest first.
 
 Last updated: **2 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250 and #252 are
-merged**; `main` is at `2caf480`, the merge of #252, on 2 October 2026, and `dev` was
+#166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252 and #257
+are merged**; `main` is at `446cc13`, the merge of #257, on 2 October 2026, and `dev` was
 restarted from it for this batch. **The only thing open is the pull request carrying this
-paragraph, #257**, from `dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary
-survey`. It is what a walk of a fresh build found:
-- the bottom bar's discs passing through grey in the light theme (#254);
-- two English strings of the developer mode still quoting the Russian way (#255);
-- the developer page's two explanations drawn as one-line titles that scroll (#256).
+paragraph, #261**, from `dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary
+survey`. It reworks how the bottom bar moves, on the owner's reports and recordings that
+night:
+- a change of tab no longer cross-fades the two inverted tabs (#258);
+- a tab making room in the arranging mode no longer slides out of sight (#259);
+- a tap two tabs away no longer selects the tab between (#260).
 
 The section «What the last session added» below is that batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#252 closed #251 and #253**, read back from GitHub on 2 October. **#257 closes #254, #255
-and #256.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
+**#257 closed #254, #255 and #256**, read back from GitHub on 2 October. **#261 closes #258,
+#259 and #260.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
 nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
 Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
@@ -134,9 +135,107 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: a fresh build walked in the light theme and in English, and the three defects it found (#254, #255, #256)
+## What the last session added: the selection slides as one pill, a carried tab is glass, and the bar no longer flinches (#258, #259, #260)
 
-Open as #257, from `dev`, on milestone 9. The same session as #241–#252, on the owner's
+Open as #261, from `dev`, on milestone 9. The same session as #241–#257, on four more reports
+from the owner on the night of 2–3 October 2026:
+1. The first asked to take on the pale icon that #249 had left alone: «значок уходящей
+   вкладки бледнеет … сделано? если нет, то займись этим».
+2. The second came with a recording: «всё ещё телепортируется иконки при смене вкладок, всё
+   записал».
+3. A second recording: «прошлая вкладка и затрагиваемая вкладка — дергаются и
+   телепортируются».
+4. A last word on the build after it: «теперь дергает один раз, а не несколько как раньше».
+
+- **#258: halfway through a change of tab, both icons faded into their own discs. Filed, then
+  fixed, at the third attempt.**
+  - **The cause.** A selected tab is an unselected one inverted, the bar's colour on white
+    against white on the bar's colour. A cross-fade of both pairs meets in the middle whatever
+    the easing; the new test measured the icon's contrast falling to 1.14.
+  - **First attempt: a disc grown from the middle.** It kept the contrast, but its last
+    pixels sat inside the leaving icon as a white spot for the slow end of the easing.
+  - **Second attempt: a straight wipe across each tab.** It cut both pills with a hard edge.
+    The owner: «стало хуже».
+  - **What shipped.** Asked, the owner chose a sliding pill. One white pill (`SelectionPill`)
+    is drawn behind the row and slides from the tab left to the tab chosen, heading for that
+    tab's bounds as they are on each frame. Every tab it passes over is drawn the selected way
+    only where it is covered (`inkedUnder`), the tabs in between included. At rest the
+    selected tab wears its own disc as before.
+- **The pill's state is snapshot state, written in composition.** The first build had plain
+  fields there. The tabs learned of a slide from their recomposition, but nothing invalidated
+  the row's drawing until the effect moved the pill. On the emulator that was four frames of
+  icons inked the bar's colour over a pill not yet drawn. No unit test saw it, because a test
+  steps its frames together with the effect.
+- **#259: a tab making room for the carried one seemed to teleport. Filed, then fixed.**
+  - **What the recording shows.** Frames 342–352: «Сегодня» stood still while the carried
+    «Календарь» slid over it, vanished, and was back a slot away two frames later.
+  - **The cause.** The carried tab is about 53 dp on a 56 dp pitch, drawn above its
+    neighbours on an opaque body. The neighbour's whole slide happened beneath it.
+  - **The fix.** Its body, and the white disc when the selected tab is the one carried, is
+    now glass at `HeldBodyAlpha` 0.6. Filmed on the emulator, «Календарь» is seen passing
+    beneath the carried «Задания».
+- **The bar's springs no longer bounce.** The owner's second recording showed neighbours
+  overshooting their places and coming back as the pill arrived: «Сегодня» went from 215 to
+  342 px and back to 322. `toolbarSpring` was `DampingRatioMediumBouncy` on purpose, to give
+  the selected tab a flourish. It is `DampingRatioNoBouncy` at `StiffnessMediumLow` now. The
+  pill's own spring stops at a thousandth of the way rather than a hundredth, which on a slide
+  two tabs long was a three-pixel snap on its last frame.
+- **#260: a tap two tabs away selected the tab between, for part of the scroll. Filed, then
+  fixed.**
+  - **The cause.** The bar read `pagerState.currentPage`, and `animateScrollToPage` passes
+    through the page between. That was the one flinch left after the bounce went.
+  - **The fix.** The bar reads `targetPage` now, and so does the guide's bar. The pill also
+    sets off on the tap instead of when the page is halfway across.
+  - **The test.** `BarSelectionTest` holds the two facts this rests on: during
+    `animateScrollToPage(2)` the page in front passes through 1, and the target never does.
+- **Two things measured on the way, so nobody re-measures them.**
+  - **The emulator's own frame pacing is the same with or without the pill.** Eight changes
+    of tab gave a 90th-percentile frame of 27–29 ms on this branch and 30 ms on `main`'s build.
+  - **`adb shell screenrecord` on this emulator drops whole runs of frames.** It showed the
+    pill arriving in one step while `dumpsys gfxinfo framestats` had the app drawing a frame
+    every 16.7 ms. The owner's own screen recordings are what show motion here.
+- **#249 may have been this same report.** In #249 the owner's words were «поведение
+  соседних кнопок при анимации выбора». They were read as the selection's fade, and #249
+  fixed a real defect that was visible in that recording. «Всё ещё» now suggests the
+  arranging mode was what was meant then too.
+
+### Gates
+
+On `2388684`: `./gradlew test assembleDebug assembleRelease detekt` pass; `./gradlew test`
+**1628** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 154, `:widget` 126, `:app`
+608), eight more than #257's 1620. Of the seven new toolbar tests, every one was red on
+`main`'s toolbar:
+- the two contrast cases, which fell to 1.14;
+- the two direction cases;
+- the pill passing over the tab between;
+- the glass rule and the bar showing through the carried tab.
+
+The eighth, `BarSelectionTest`, pins the behaviour of Compose's pager rather than the bar.
+
+This machine's RAM showed up again (`EXCEPTION_ACCESS_VIOLATION` in `jvm.dll`):
+- two test JVMs and one Gradle daemon died, and their `hs_err` reports were moved out of the
+  tree;
+- the run after the daemon's death failed once inside R8 with a `NoSuchElementException`, and
+  `assembleRelease` on its own then built clean.
+
+The server was not touched.
+
+### What was deliberately left alone
+
+- **A badge would take the bar's colour under the passing pill,** because the tint is
+  all-or-nothing. No tab carries a badge today.
+- **Two tabs that swap on a line still cross.** The neighbour now passes beneath glass rather
+  than beneath an opaque disc, and over the white disc the carried body is faint. 0.6 was
+  chosen by eye on the emulator.
+
+### What nobody has verified in this batch
+
+- The pill and the glass on a phone.
+- The pill in the dark theme on a device: the two contrast tests cover it, and the emulator
+  was in the light theme.
+## What the session before it added: a fresh build walked in the light theme and in English, and the three defects it found (#254, #255, #256)
+
+Merged as #257 (`446cc13`, 2 October 2026), from `dev`, on milestone 9. The same session as #241–#252, on the owner's
 «собери новую сборку и тестируй уже ее». It built `main` at `2caf480` and installed the build
 on an API 37 emulator whose data had been wiped. It went through onboarding in English, in the
 light theme, and walked what the last batches had left unverified.
@@ -210,69 +309,6 @@ touched.
 - The fades and the developer page on a phone.
 - The developer page past sign-in, which needs an APK with `LESSONS_GITHUB_CLIENT_ID`.
 
-## What the session before it added: a header's words held still while only its data scrolls (#251)
-
-Merged as #252 (`2caf480`, 2 October 2026), from `dev`, on milestone 9. The same session as #241–#250, on the owner's next
-request: the headers should not scroll whole, only the data in them — the day, the time, the
-lesson, the teacher, whatever the server fills in.
-
-- **`DataLine`** in `:core:designsystem` (`text/DataLine.kt`) is a line in two parts.
-  **`correctedLine(id, args)`** makes one from a string resource: it formats and registers
-  the sentence as `correctedString` does. It splits at the length of the pattern's words
-  before its first argument, reading the corrected pattern when there is a correction. It
-  does not split when the line starts with its data, or when the formatted words no longer
-  match.
-- **`MarqueeText`, `SectionHeader`, `GroupItem` and `PillChip` take a `DataLine`.** Their
-  String forms are now the same layout with no lead. The lead is laid out at its own width,
-  the data takes the rest and scrolls, and a space's width sits between them. The pair is
-  described as the whole sentence (`clearAndSetSemantics`), so TalkBack reads it once and
-  the seven `:app` tests that find «Ветка main», «Выйти из класса «9Б»» or «Урок 2» by their
-  whole text pass as before.
-- **Twenty-seven places draw such a line and now pass `correctedLine`:**
-  - the «Сегодня» homework header and «ещё N»;
-  - the diary's marks range and the region step's school list;
-  - the about card's badges and a lesson's index chip;
-  - the signed-in rows, and the class and developer screens.
-- **Seen on the API 37 emulator**: «Домашнее задание на» still while «понедельник, 5
-  октября» scrolls beside it, filmed at two frames a second for eight seconds.
-- **#253, found by CI on this pull request — filed, then fixed.** `correctedLine` first read
-  its pattern with `stringResource` in `DataLine.kt`. That import is allowed in
-  `Corrections.kt` alone, and CI's `CorrectionReachTest` said so. Locally the full suite had
-  passed, because on a Windows checkout the test inspected no file at all. It stripped the
-  root's absolute path and a `/` from backslashed paths, so no file had `/src/main/` in it,
-  and it matched imports ending in a bare line feed, which a CRLF working copy does not
-  have. The paths are invariant-separator relative now and the text is CRLF-normalised.
-  With the import planted again, the test fails on Windows too. `correctedLine` moved beside
-  `correctedString`.
-
-### Gates
-
-On `8d31fbf`: `./gradlew test assembleDebug assembleRelease detekt` pass; `./gradlew test`
-**1616** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 146, `:widget` 126, `:app`
-604), five more than #250's 1611, all `DataLineTest`'s. Its pixel case — the lead's columns
-unchanged and the data's changed, two moments apart while the data scrolls, in native
-graphics — was red with the line drawn whole, as before: 217 of the lead's columns moved. One
-Gradle daemon died mid-run with `EXCEPTION_ACCESS_VIOLATION` in `jvm.dll`, leaving two test
-workers holding a jar until they were stopped; the rerun was clean. After #253, on
-`8679cef`, the same gates pass again with the same 1616. The server was not touched.
-
-### What was deliberately left alone
-
-- Only the words *before* the first argument are held. In a line with words between or after
-  its arguments, everything from the first argument on scrolls together, because those words
-  belong to the data they join.
-- The state card's detail line («Далее — Алгебра») wraps rather than scrolls, so it was not
-  split.
-- `C:\Program Files\Git\tmp_ml.kt` is a stray copy of `MarqueeText.kt` written by a slip of a
-  path during the work; the session's safety check refused to delete a file there, and it is
-  the owner's to remove.
-
-### What nobody has verified in this batch
-
-- The split lines on a phone, in English, and with the correction mode on: its outline over
-  a split line is seen by no test that composes the mode. *(The next batch saw the English
-  and the correction mode on the emulator; a phone still has not.)*
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -292,7 +328,7 @@ maps them. The
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#260 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
@@ -1297,7 +1333,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 2065 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 153 modules
-cd android && ./gradlew test                             # 1620 tests across the five modules
+cd android && ./gradlew test                             # 1628 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
