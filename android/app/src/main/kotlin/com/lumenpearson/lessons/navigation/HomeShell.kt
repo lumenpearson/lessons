@@ -73,7 +73,7 @@ import com.lumenpearson.lessons.ui.settings.SettingsSection
 import com.lumenpearson.lessons.ui.settings.SettingsSectionScreen
 import com.lumenpearson.lessons.ui.settings.UpdateHost
 import com.lumenpearson.lessons.ui.settings.SettingsViewModel
-import com.lumenpearson.lessons.ui.settings.role
+import com.lumenpearson.lessons.ui.settings.effectiveRole
 import com.lumenpearson.lessons.ui.today.TodayScreen
 import com.lumenpearson.lessons.ui.week.ScheduleView
 import com.lumenpearson.lessons.ui.week.WeekScreen
@@ -214,6 +214,13 @@ internal fun HomeShell(
             diaryViewModel.refreshOnStart()
             onStopOrDispose { }
         }
+    }
+
+    // `/me` with the shell rather than with the settings page, so that the
+    // role the bar is drawn with is usually confirmed before the gear is
+    // pressed; the remembered one covers the launch until then (#228).
+    if (home == ShellHome.TIMETABLE) {
+        LaunchedEffect(Unit) { settingsViewModel.refreshDeviceLink() }
     }
 
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
@@ -659,7 +666,7 @@ internal fun HomeShell(
                             // page it shortcuts to — never on the diary home,
                             // where there is no class to manage.
                             manager = home == ShellHome.TIMETABLE &&
-                                isClassManager(settingsState.deviceLink.role),
+                                isClassManager(settingsState.effectiveRole),
                             onOpenSettings = {
                                 settingsOpen = true
                                 stopArranging()

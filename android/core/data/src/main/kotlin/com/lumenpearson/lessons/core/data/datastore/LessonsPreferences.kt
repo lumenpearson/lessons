@@ -16,6 +16,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lumenpearson.lessons.core.data.network.RequestCredentials
 import com.lumenpearson.lessons.core.data.repository.AppSettings
+import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.DiarySession
 import com.lumenpearson.lessons.core.data.repository.DiarySessionStore
 import com.lumenpearson.lessons.core.data.repository.DiaryTarget
@@ -213,6 +214,7 @@ internal class LessonsPreferences(
         write { prefs ->
             val remaining = prefs.memberships().filterNot { it.classId == classId }
             prefs.writeMemberships(remaining)
+            prefs.remove(roleKey(classId))
             val was = prefs[MembershipKeys.ACTIVE_CLASS_ID]
             val next = remaining.firstOrNull { it.classId == was } ?: remaining.firstOrNull()
             when {
@@ -253,6 +255,7 @@ internal class LessonsPreferences(
             // leaving them would sign the user back in to that one class on the
             // next launch.
             prefs.clearMemberships()
+            prefs.removeKeysStartingWith { it.startsWith(ROLE_PREFIX) }
             // The fingerprint describes the shape of *that* class's schedule, so
             // keeping it means the first sync after joining a different one
             // compares two unrelated timetables, finds them different, and
@@ -459,6 +462,27 @@ internal class LessonsPreferences(
      */
     suspend fun bundleTag(signature: String): String? =
         preferences.first()[bundleTagKey(signature)]
+
+    /**
+     * The role the server last gave this phone in [classId], kept across
+     * launches.
+     *
+     * The server is still the only judge — `/me` is asked again and its answer
+     * replaces this — but a role known only in memory started every launch as
+     * «unknown», and the settings root drew its bar without the debug button
+     * until the answer came, or for good when it did not (#228). A stale role
+     * can only show a manager's button to somebody who has just lost the role,
+     * and every write behind that button is checked by the server per request.
+     */
+    fun lastRole(classId: Long): Flow<ClassRole?> =
+        preferences.map { ClassRole.fromWire(it[roleKey(classId)]) }.distinctUntilChanged()
+
+    /** @see lastRole; `null` forgets it. */
+    suspend fun rememberRole(classId: Long, role: ClassRole?) {
+        write { prefs ->
+            if (role == null) prefs.remove(roleKey(classId)) else prefs[roleKey(classId)] = role.name
+        }
+    }
 
     /** @see bundleTag */
     suspend fun writeBundleTag(signature: String, etag: String) {
@@ -686,6 +710,12 @@ internal class LessonsPreferences(
          * are left where they are, which costs two strings.
          */
         fun bundleTagKey(signature: String) = stringPreferencesKey("bundle_etag|$signature")
+
+        /** @see LessonsPreferences.lastRole */
+        fun roleKey(classId: Long) = stringPreferencesKey("$ROLE_PREFIX$classId")
+
+        /** What every remembered role's key starts with. */
+        const val ROLE_PREFIX = "device_role|"
 
         /**
          * What every one of this class's tags starts with.
