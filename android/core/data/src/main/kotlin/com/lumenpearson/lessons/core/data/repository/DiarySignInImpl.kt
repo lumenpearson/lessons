@@ -1,5 +1,7 @@
 package com.lumenpearson.lessons.core.data.repository
 
+import com.lumenpearson.lessons.core.data.diagnostics.ActivityKind
+import com.lumenpearson.lessons.core.data.diagnostics.ActivityLog
 import com.lumenpearson.lessons.core.data.network.DiaryApi
 import com.lumenpearson.lessons.core.data.network.dto.DiarySessionRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.DiarySessionResponseDto
@@ -63,83 +65,87 @@ internal class DiarySignInImpl(
         }
     }
 
-    override suspend fun preflight(target: DiaryTarget): Result<Unit> = attempt {
-        // The phone's own catalog first: it costs no request, and a region the
-        // phone would refuse to talk to is not worth asking the server about.
-        endpoint(target)
-        val capabilities = try {
-            // Its own short deadline: a server that does not answer this
-            // answers nothing else either, and saying so in ten seconds beats
-            // the client's sixty (#233).
-            withTimeoutOrNull(preflightBudgetMillis) { api.capabilities() }
-                ?: throw DiarySignInProblem.Timeout(host = null)
-        } catch (failure: HttpException) {
-            // A server from before registration has no such route. It could
-            // not keep a session opened here, so it is found out now — before
-            // a password is typed, never after one was sent to the diary.
-            if (failure.code() == 404) throw DiarySignInProblem.ServerTooOld
-            throw failure
+    override suspend fun preflight(target: DiaryTarget): Result<Unit> = logged("preflight") {
+        attempt {
+            // The phone's own catalog first: it costs no request, and a region the
+            // phone would refuse to talk to is not worth asking the server about.
+            endpoint(target)
+            val capabilities = try {
+                // Its own short deadline: a server that does not answer this
+                // answers nothing else either, and saying so in ten seconds beats
+                // the client's sixty (#233).
+                withTimeoutOrNull(preflightBudgetMillis) { api.capabilities() }
+                    ?: throw DiarySignInProblem.Timeout(host = null)
+            } catch (failure: HttpException) {
+                // A server from before registration has no such route. It could
+                // not keep a session opened here, so it is found out now — before
+                // a password is typed, never after one was sent to the diary.
+                if (failure.code() == 404) throw DiarySignInProblem.ServerTooOld
+                throw failure
+            }
+            if (!capabilities.registration) throw DiarySignInProblem.ServerTooOld
+            if (!capabilities.enabled) throw DiarySignInProblem.ServerDisabled
+            val served = when (target.provider) {
+                DiaryProviderKey.PETERSBURG -> capabilities.providers.petersburg != null
+                DiaryProviderKey.NETSCHOOL ->
+                    target.region in capabilities.providers.netschool?.regions.orEmpty()
+            }
+            if (!served) throw DiarySignInProblem.RegionNotServed
         }
-        if (!capabilities.registration) throw DiarySignInProblem.ServerTooOld
-        if (!capabilities.enabled) throw DiarySignInProblem.ServerDisabled
-        val served = when (target.provider) {
-            DiaryProviderKey.PETERSBURG -> capabilities.providers.petersburg != null
-            DiaryProviderKey.NETSCHOOL ->
-                target.region in capabilities.providers.netschool?.regions.orEmpty()
-        }
-        if (!served) throw DiarySignInProblem.RegionNotServed
     }
 
     override suspend fun openUpstream(
         target: DiaryTarget,
         password: String,
-    ): Result<UpstreamSession> = withContext(ioDispatcher) {
-        val endpoint = try {
-            endpoint(target)
-        } catch (problem: DiarySignInProblem) {
-            return@withContext Result.failure(problem)
-        }
-        val host = endpoint.origin.host
-        try {
-            // The server's own rule for a login, whole — the cleaning as well
-            // as the length — applied before anything is sent: a typo costs a
-            // sentence rather than an attempt, and what the diary is sent is
-            // what the registration will carry.
-            val login = DiaryLogin.clean(target.login) ?: throw DiarySignInProblem.LoginTooShort
-            if (password.isEmpty()) throw DiarySignInProblem.WrongPassword(upstreamMessage = null)
-            val cleaned = target.copy(login = login)
-            // One deadline over the whole exchange. The client's call timeout
-            // bounds a call, and «Сетевой город» is three to five of them in a
-            // row, so a slow region could keep «Войти» busy for minutes with
-            // no single call ever timing out (#233). OrNull and never
-            // withTimeout: its exception is a CancellationException, which is
-            // rethrown below and taken by the step for a cancelled step — the
-            // spinner would stay up for ever.
-            val session = withTimeoutOrNull(upstreamBudgetMillis) {
-                when (endpoint) {
-                    is Endpoint.Petersburg ->
-                        PetersburgSignIn(client(), endpoint.origin, clock).signIn(cleaned, password)
-                    is Endpoint.NetSchool ->
-                        NetSchoolSignIn(client(), clock).signIn(endpoint.region, cleaned, password)
-                }
-            } ?: throw DiarySignInProblem.Timeout(host)
-            Result.success(session)
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (failure: Exception) {
-            val problem = DiarySignInProblem.of(failure, host = host)
-            // `logindata` saying «Госуслуги only» names no site; the catalog does.
-            Result.failure(
-                if (problem is DiarySignInProblem.GosuslugiOnly && endpoint is Endpoint.NetSchool) {
-                    DiarySignInProblem.GosuslugiOnly(endpoint.region.handoffUrl)
-                } else {
-                    problem
-                },
-            )
+    ): Result<UpstreamSession> = logged("diary ${target.provider}") {
+        withContext(ioDispatcher) {
+            val endpoint = try {
+                endpoint(target)
+            } catch (problem: DiarySignInProblem) {
+                return@withContext Result.failure(problem)
+            }
+            val host = endpoint.origin.host
+            try {
+                // The server's own rule for a login, whole — the cleaning as well
+                // as the length — applied before anything is sent: a typo costs a
+                // sentence rather than an attempt, and what the diary is sent is
+                // what the registration will carry.
+                val login = DiaryLogin.clean(target.login) ?: throw DiarySignInProblem.LoginTooShort
+                if (password.isEmpty()) throw DiarySignInProblem.WrongPassword(upstreamMessage = null)
+                val cleaned = target.copy(login = login)
+                // One deadline over the whole exchange. The client's call timeout
+                // bounds a call, and «Сетевой город» is three to five of them in a
+                // row, so a slow region could keep «Войти» busy for minutes with
+                // no single call ever timing out (#233). OrNull and never
+                // withTimeout: its exception is a CancellationException, which is
+                // rethrown below and taken by the step for a cancelled step — the
+                // spinner would stay up for ever.
+                val session = withTimeoutOrNull(upstreamBudgetMillis) {
+                    when (endpoint) {
+                        is Endpoint.Petersburg ->
+                            PetersburgSignIn(client(), endpoint.origin, clock).signIn(cleaned, password)
+                        is Endpoint.NetSchool ->
+                            NetSchoolSignIn(client(), clock).signIn(endpoint.region, cleaned, password)
+                    }
+                } ?: throw DiarySignInProblem.Timeout(host)
+                Result.success(session)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (failure: Exception) {
+                val problem = DiarySignInProblem.of(failure, host = host)
+                // `logindata` saying «Госуслуги only» names no site; the catalog does.
+                Result.failure(
+                    if (problem is DiarySignInProblem.GosuslugiOnly && endpoint is Endpoint.NetSchool) {
+                        DiarySignInProblem.GosuslugiOnly(endpoint.region.handoffUrl)
+                    } else {
+                        problem
+                    },
+                )
+            }
         }
     }
 
-    override suspend fun register(upstream: UpstreamSession): Result<DiaryRegistration> =
+    override suspend fun register(upstream: UpstreamSession): Result<DiaryRegistration> = logged("register") {
         withContext(ioDispatcher) {
             if (upstream.spent) {
                 // Registered or discarded already: a second row, or a session
@@ -188,6 +194,7 @@ internal class DiarySignInImpl(
             }
             Result.success(DiaryRegistration(session, response.students.map { it.toDomain() }))
         }
+    }
 
     override suspend fun discard(upstream: UpstreamSession) {
         if (upstream.spent) return
@@ -368,4 +375,16 @@ internal class DiarySignInImpl(
         /** Nulls left out: `ver` and `ESRNSec` are absent, not `null`, when there are none. */
         val credentialJson = Json { explicitNulls = false }
     }
+}
+
+/**
+ * One step on the developer mode's activity record: its name, how it ended
+ * and how long it took — the record that says which leg a sign-in showing
+ * nothing is on (#236, #237). A no-op unless that record is switched on.
+ */
+private inline fun <T> logged(step: String, block: () -> Result<T>): Result<T> {
+    val started = System.nanoTime()
+    val result = block()
+    ActivityLog.record(ActivityKind.SIGN_IN, ActivityLog.outcome(step, result.exceptionOrNull(), started))
+    return result
 }

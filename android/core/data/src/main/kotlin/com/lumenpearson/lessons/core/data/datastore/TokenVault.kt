@@ -108,8 +108,12 @@ internal class TokenVault(private val cipher: TokenCipher) {
          */
         val platform: TokenVault by lazy { TokenVault(AesGcmTokenCipher(AndroidKeystoreKeys(KEY_ALIAS))) }
 
-        /** The Keystore entry's name. A new one would orphan every sealed token. */
-        private const val KEY_ALIAS = "lessons.bearers"
+        /**
+         * The Keystore entry's name. A new one would orphan every sealed token.
+         * Internal for the developer mode's round trip, which has to go through
+         * the real key to say anything about it (#201, #237).
+         */
+        internal const val KEY_ALIAS = "lessons.bearers"
     }
 }
 

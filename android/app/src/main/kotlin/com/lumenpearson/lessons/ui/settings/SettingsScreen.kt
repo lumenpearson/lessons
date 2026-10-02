@@ -51,6 +51,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.ui.common.ServerUrlSheet
+import com.lumenpearson.lessons.ui.developer.DeveloperScreen
 import com.lumenpearson.lessons.ui.diary.DiaryAccountPage
 import com.lumenpearson.lessons.ui.diary.DiaryScreen
 import com.lumenpearson.lessons.ui.diary.DiaryViewModel
@@ -87,6 +88,7 @@ fun SettingsRootScreen(
     }
 
     val manager = isClassManager(state.effectiveRole)
+    val developer by viewModel.developerRevealed.collectAsStateWithLifecycle()
 
     SettingsPage(
         modifier = modifier,
@@ -111,7 +113,7 @@ fun SettingsRootScreen(
             Column(modifier = Modifier.fillMaxWidth()) {
                 SectionHeader(title = correctedString(R.string.settings_sections))
                 RoundedCardContainer {
-                    val sections = SettingsSection.entries.filter { it.listedOn(mode, manager) }
+                    val sections = SettingsSection.entries.filter { it.listedOn(mode, manager, developer) }
                     sections.forEach { section ->
                         GroupLinkItem(
                             title = correctedString(section.titleRes),
@@ -142,6 +144,14 @@ fun SettingsSectionScreen(
     onOpenDocs: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
 ) {
+    // The developer mode is a page of its own too, with a view model of its
+    // own: records that grow while it is open, and nothing that is a
+    // preference (#237).
+    if (section == SettingsSection.DEVELOPER) {
+        DeveloperScreen(modifier = modifier)
+        return
+    }
+
     // The diary is a whole screen of its own rather than a list of rows: it has
     // a sign-in, a week of a timetable and a register in it, and none of that
     // is a preference. It still arrives as a section so that it inherits the
@@ -312,7 +322,7 @@ fun SettingsSectionScreen(
             )
             SettingsSection.PERMISSIONS -> permissionRows()
             // Handled above, before this page's scaffold exists.
-            SettingsSection.DIARY -> Unit
+            SettingsSection.DIARY, SettingsSection.DEVELOPER -> Unit
         }
     }
 }

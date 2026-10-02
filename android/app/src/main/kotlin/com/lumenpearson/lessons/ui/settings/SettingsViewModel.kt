@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.lumenpearson.lessons.core.data.developer.DeveloperMode
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.DeviceFlow
@@ -112,7 +113,26 @@ class SettingsViewModel(
     private val updateRepository: UpdateRepository,
     private val githubRepository: GithubRepository,
     private val deviceLinkRepository: DeviceLinkRepository,
+    private val developerMode: DeveloperMode,
 ) : ViewModel() {
+
+    /**
+     * Whether the developer section has been found, for the root's list (#237).
+     * Apart from [uiState], which is already two combines at their limit, and
+     * started from the mode's own current answer so the row does not blink.
+     */
+    val developerRevealed: StateFlow<Boolean> = developerMode.state
+        .map { it.revealed }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = developerMode.state.value.revealed,
+        )
+
+    /** Seven taps on the version: lists the developer section. Grants nothing. */
+    fun revealDeveloper() {
+        viewModelScope.launch { developerMode.reveal() }
+    }
 
     private val refreshing = MutableStateFlow(false)
     private val message = MutableStateFlow<SyncMessage?>(null)
@@ -611,6 +631,7 @@ class SettingsViewModel(
                     updateRepository = Graph.container.updateRepository,
                     githubRepository = Graph.container.githubRepository,
                     deviceLinkRepository = Graph.container.deviceLinkRepository,
+                    developerMode = Graph.container.developerMode,
                 )
             }
         }

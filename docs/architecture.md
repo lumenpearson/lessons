@@ -395,6 +395,81 @@ cannot be long-pressed and corrected like every other string in the app. A corre
 documentation is a pull request against `docs/app/`, which is the same place the app reads
 it from.
 
+### The developer mode, and why its gate is not a lock
+
+A hidden section of the settings, «Для разработчиков» (#237), lets a developer holding the
+phone ask the phone what a cable and a laptop used to be needed for. It is found the way
+Android's own developer options are: seven quick taps on the version in «О приложении», a
+pause of more than three seconds starting the count again (`RevealTaps`). Finding it grants
+nothing. Its tools open only for a GitHub account, signed in through the device flow the
+translation mode already uses, that has `admin`, `maintain` or `push` on this repository —
+the people who can deploy, since a merge to `main` deploys the server and `apk.yml` needs
+write access to run. The app asks with one `GET /repos/lumenpearson/lessons`, whose
+`permissions` object describes the caller, so no collaborator list is ever fetched
+(`GithubRepository.repositoryPermissions`). The verdict is kept in its own preferences file,
+stands for a day and for that login only, and is asked again at most once a day, at launch or
+when the page opens. A failure to ask leaves a standing yes standing. GitHub being down for an
+hour must not switch the tools off in the middle of the investigation they were switched on
+for (`DeveloperModeImpl`).
+
+**The gate is not a security boundary, and nothing behind it may need one.** An APK can be
+patched past any check made on the phone. So the mode unlocks nothing the server would
+refuse, holds no secret, and shows the phone only what it already knows about itself. The
+gate keeps the tools out of everybody else's way, which is all a client-side gate can do. A
+tool that would need more than that does not belong here.
+
+What it switches on, all of it off until chosen, and all of it off whenever the access does
+not stand:
+
+- **The network record** (`NetworkLog`): one interceptor on each of the three clients — our
+  server's, the diaries' and GitHub's. On our server's client it sits after
+  `BaseUrlInterceptor`, so it records where a request really went. It keeps the method, the
+  host, the path with any token-like or long numeric segment masked, the *names* of the query
+  parameters, the status, the duration and the failure's class. Of the response headers it
+  keeps only a short list that explains an answer: `Retry-After`, `X-Diary-*`, `X-Vercel-Id`.
+  It never keeps a body, a request header or a query value. The rule is a list of what is
+  kept rather than of what is dropped (`NetworkRedaction`), so a new header that carries a
+  credential stays out without anybody having to remember it. A request still in flight is on
+  the record with a running clock, which is what tells a sign-in that shows nothing apart from
+  one that is waiting on a leg (#233, #236).
+- **The activity record** (`ActivityLog`): the activities starting and stopping, every page
+  and tab of the shell, each step of a diary sign-in with how it ended and how long it took,
+  background sync runs and widget redraw requests.
+- **Visual tools**, process-wide snapshot state in `:app` (`VisualTools`), written from the
+  application's scope:
+  - an 8 dp grid over the whole window;
+  - text at twice the designed scale;
+  - stretched strings. Every string comes out of `AppCorrections.correctionOf`, the one
+    place every string of the app already passes through, two fifths longer and between ⟦
+    and ⟧. A missing bracket is clipped text, and a pattern is stretched before it is
+    formatted, so every placeholder still works.
+
+The page also runs a battery of checks from the phone's own network: our server's
+`/warmup`, Petersburg's host and the signed-in region's, GitHub, a seal-and-open round trip
+through the real Keystore key (#201), the network's transports (a VPN is a warning), the
+notifications, exact alarms, the periodic sync, the widgets placed, and the build. Every
+check has its own 20-second deadline (`checked`), so the battery answers whatever hangs. The
+diaries' hosts are asked for their front page with no session, so a developer looking keeps
+nobody's session alive. All of it can be copied or shared as one plain-text report.
+
+And it has a **request console** (`RequestConsole`): any method, path, headers and body, to
+our server or to a diary the catalog allow-lists — and to nothing else. The rule is one pure
+function (`planConsole`) that judges the URL as OkHttp resolves it rather than the text
+typed, so `//elsewhere.example/` or a path of `..` is refused or stays put by comparison of
+the origin it would really reach. The console sends through a client of its own: the
+server's rewrites every host and signs by path, so it could not send an unsigned request or
+reach a diary, and the diaries' sends a browser's headers and keeps nothing past 2 MiB. This
+one keeps no cookie, follows no redirect — a 302 is an answer to look at, and following it
+is how a request ends up where the planner never approved — and refuses every other origin a
+second time through the same `OriginGuard` the diaries' client has. A bearer goes only to our
+server, only when «Устройство» or «Дневник» is chosen, and it is read when the request
+leaves: no plan, state or log holds it, and the network record shows a console request like
+any other, without its headers. That stays inside the rule above. The console sends what the
+phone could already send with the bearers it already holds, and the server judges the role
+on every request as it always does. The answer — status, every header, the body cut at
+64 KiB and indented when it is JSON — is drawn on the page only. The report leaves it out,
+because an answer signed with this phone's bearer is the class's data.
+
 ## What we took from Essentials, and what we changed
 
 The design language is modelled on
@@ -787,9 +862,9 @@ with the host.
 
 ## Testing
 
-2065 tests on the server, 1523 on Android; `pytest -q -n auto` and `./gradlew test`, both
-offline, both in CI. On Android that is `:core:model` 125, `:core:data` 571,
-`:core:designsystem` 122, `:widget` 126, `:app` 579.
+2065 tests on the server, 1579 on Android; `pytest -q -n auto` and `./gradlew test`, both
+offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
+`:core:designsystem` 122, `:widget` 126, `:app` 591.
 
 The table below is the load-bearing part of that rather than the whole of it:
 

@@ -40,6 +40,8 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.diagnostics.ActivityKind
+import com.lumenpearson.lessons.core.data.diagnostics.ActivityLog
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.ShellMode
 import com.lumenpearson.lessons.core.designsystem.component.LessonsFloatingToolbar
@@ -272,6 +274,14 @@ internal fun HomeShell(
             settingsOpen -> ShellPage.SettingsRoot
             else -> ShellPage.Tabs
         }
+    }
+
+    // The developer mode's activity record of what is on screen (#237): one
+    // line per page, and per tab while the tabs are in front. A no-op unless
+    // that record is switched on.
+    val shownTab = tabs.getOrNull(pagerState.currentPage)
+    LaunchedEffect(destination, shownTab) {
+        ActivityLog.record(ActivityKind.SCREEN, screenName(destination, shownTab))
     }
 
     // Keeps each tab's scroll position while the tabs are out of the tree.

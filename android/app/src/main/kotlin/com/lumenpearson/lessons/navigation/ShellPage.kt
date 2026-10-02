@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons.navigation
 
 import androidx.compose.runtime.Immutable
+import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.ui.settings.SettingsSection
 
 /**
@@ -43,6 +44,14 @@ internal sealed interface ShellPage {
     data object Docs : ShellPage {
         override val depth: Int = 3
     }
+}
+
+/** The page as the developer mode's activity record names it: technical, and never shown to anybody else. */
+internal fun screenName(page: ShellPage, tab: HomeTab?): String = when (page) {
+    ShellPage.Tabs -> "tab ${tab?.name ?: "none"}"
+    ShellPage.SettingsRoot -> "settings"
+    is ShellPage.Section -> "settings/${page.section.name}"
+    ShellPage.Docs -> "guide"
 }
 
 /** As much of the page as the toolbar's action button needs to know. */

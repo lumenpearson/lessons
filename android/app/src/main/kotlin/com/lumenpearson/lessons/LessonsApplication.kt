@@ -2,9 +2,11 @@ package com.lumenpearson.lessons
 
 import android.app.Application
 import com.lumenpearson.lessons.core.data.di.Graph
+import com.lumenpearson.lessons.core.data.diagnostics.LifecycleRecorder
 import com.lumenpearson.lessons.core.data.notifications.SchoolAlerts
 import com.lumenpearson.lessons.core.data.repository.SyncArming
 import com.lumenpearson.lessons.core.data.sync.SyncScheduler
+import com.lumenpearson.lessons.ui.developer.VisualTools
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -14,7 +16,7 @@ import kotlinx.coroutines.launch
 /**
  * Process entry point.
  *
- * It exists for exactly two reasons, and deliberately does no more:
+ * It exists for exactly three reasons, and deliberately does no more:
  *
  *  1. [Graph.init] has to run before anything can reach a repository. There is
  *     no Hilt in this project — the widget and the sync worker are woken by the
@@ -25,6 +27,9 @@ import kotlinx.coroutines.launch
  *     opens the settings screen again keeps the old cadence forever. The
  *     notification alarm is re-armed here for the same reason, and because a
  *     missed boot broadcast should cost one launch rather than a reinstall.
+ *  3. The developer mode's records have to be following their switches before
+ *     anything they would record happens — a sign-in, a sync, an activity
+ *     starting — which is only true if they start with the process.
  *
  * What it does **not** do is read the diary. The diary is refreshed only while
  * somebody is looking at it — `HomeShell`'s start effect, in the diary mode —
@@ -49,6 +54,29 @@ class LessonsApplication : Application() {
         // arm for, and Application.onCreate is on the critical path of every
         // cold start, including the one a widget update triggers.
         applicationScope.launch { SchoolAlerts.onAppStart(this@LessonsApplication) }
+        startDeveloperMode()
+    }
+
+    /**
+     * The developer mode's process-wide half (#237): the activities on its
+     * activity record, and the re-check of the GitHub permission that keeps its
+     * tools on from one day to the next. Building the mode is also what starts
+     * the records following its switches.
+     *
+     * On an install where nobody has found the section this reads two small
+     * preferences files off the main thread and asks nothing of GitHub —
+     * `verifyIfStale` asks only once the section has been revealed. Caught,
+     * because an exception escaping this scope ends the process.
+     */
+    private fun startDeveloperMode() {
+        registerActivityLifecycleCallbacks(LifecycleRecorder)
+        applicationScope.launch { runCatching { Graph.container.developerMode.verifyIfStale() } }
+        // The grid, the stretched strings and the large text are snapshot
+        // state the whole window reads; written from here, off the main
+        // thread, which the snapshot system takes care of.
+        applicationScope.launch {
+            runCatching { Graph.container.developerMode.state.collect { VisualTools.follow(it.tools) } }
+        }
     }
 
     /**

@@ -110,7 +110,7 @@ call a deployed server.
 | `KEYSTORE_PASSWORD` | `apk.yml` | as above: all four are needed together, and Gradle treats three of four as no key at all |
 | `KEY_ALIAS` | `apk.yml` | as above |
 | `KEY_PASSWORD` | `apk.yml` | as above |
-| `LESSONS_GITHUB_CLIENT_ID` | `apk.yml` | «Войти через GitHub» is hidden, and with it the only way to file a bug report from inside the app |
+| `LESSONS_GITHUB_CLIENT_ID` | `apk.yml` | «Войти через GitHub» is hidden, and with it the only way to file a bug report from inside the app — and the developer mode, whose gate is that sign-in, cannot be opened |
 | `LESSONS_CONTACT_EMAIL` | `apk.yml` | «Отправить письмом» is hidden |
 | `SERVER_URL` | `reminders.yml` | the fallback tick skips with a notice rather than failing — see [deploy.md](deploy.md), "The clock" |
 | `CRON_SECRET` | `reminders.yml` | the same skip |

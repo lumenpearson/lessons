@@ -5,6 +5,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.lumenpearson.lessons.core.data.di.Graph
+import com.lumenpearson.lessons.core.data.diagnostics.ActivityKind
+import com.lumenpearson.lessons.core.data.diagnostics.ActivityLog
 import com.lumenpearson.lessons.core.data.repository.SyncResult
 
 /**
@@ -48,7 +50,12 @@ class SyncWorker(
             )
         }
 
-        return when (val result = container.timetableRepository.refresh()) {
+        val result = container.timetableRepository.refresh()
+        ActivityLog.record(
+            ActivityKind.SYNC,
+            "background sync, attempt ${runAttemptCount + 1}: ${result::class.java.simpleName}",
+        )
+        return when (result) {
             // The repository broadcasts on its own now, so that an in-app
             // refresh reaches the widget too; this path needs nothing extra.
             is SyncResult.Success -> Result.success()
