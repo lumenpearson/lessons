@@ -27,6 +27,72 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the widget's two smallest sizes, and a widget that did not follow its settings
+
+Merged as `938e59f`, #189 from `agents/widget-small-sizes`, on milestone 9. Two commits, one per issue,
+each checked on the API 37 emulator against a local server seeded with `seed_demo`, on a
+Sunday, so on the widget's day-off layout.
+
+- **#174, the diagnosis was corrected before the fix.** The issue said a phone's 2×2 (about
+  195×226 dp) landed on `LARGE`. It cannot: `LARGE` is 250×250 and does not fit inside the
+  box, and both the launcher and `WidgetSizeClass.of` keep only the breakpoints that fit. It
+  is `SMALL_TALL`, and the screen said so twice. «4 урока · Алгебра в 08:00» is 25
+  characters against that rung's budget of 24, cut from the end, so the time was what went.
+  Two homework rows is that rung's count. The correction went into the issue's thread first,
+  and `WidgetSizeClassTest` now pins where that 2×2 lands.
+- **#174, the fix.** `WidgetStrings.dayPlan` spends the budget on the subject and keeps the
+  count and the time; the narrow rungs may give the plan a second line
+  (`dayPlanLines`), because at a true 110 dp Glance would otherwise clip it at the pixel.
+  `SMALL_TALL` lists three subjects after school: about 130 dp of its 190, 175 at the worst.
+  On the 2×1 the label is weighted and the count is not, so at an enlarged font the label
+  lost; `tinyCountOf` draws the bare figure from the first step above the default,
+  «ДЗ на завтра 3» or «ДЗ на завтра нет» (a new string, `widget_homework_none_short`, with
+  its English twin). The step is a choice, not a measurement: Glance measures neither text
+  nor the box.
+- **#188, found while checking #174.** The app was switched to Russian and the widget stayed
+  English. A `304` sync did not redraw it, and only a reinstall (`MY_PACKAGE_REPLACED`) did.
+  Nothing redrew the widget on a settings change at all. Filed, then fixed:
+  `SettingsRepositoryImpl.update` sends `DATA_SYNCED` when `AppSettings.drawnByWidget`
+  moves, beside the alert re-arm it already did the same way, and the widget reads its three
+  settings through that projection only. To test it without a DataStore, the repository reads
+  a small `SettingsStore` interface, which `LessonsPreferences` implements the way it already
+  implements `DiarySessionStore` and `ShellModeSource`.
+
+### On the emulator
+
+The 2×2 read «4 урока · Алгеб… в 08:30» over three subjects, and «4 lessons · Алг… at 08:30»
+in English. The 2×5 column (`NARROW`) read the same plan line. The 2×1 read «ДЗ на завтра ·
+3 предмета» at font scale 1.0 and «ДЗ на завтра 3» at 2.0. For #188, the 2×1 read «ДЗ на
+завтра» before the app was switched to English and «HW for tomorrow 3 subjects» three seconds
+after, with nothing else in between.
+
+**Two things about driving the widget from a shell**, which cost time and will again. First,
+the shell cannot redraw it: `DATA_SYNCED` is filtered by a receiver the shell cannot reach,
+and `APPWIDGET_UPDATE` is a protected broadcast. Second, a pull-to-refresh answered `304` and
+redraws nothing, by design. What does redraw it is reinstalling the same APK, because
+`MY_PACKAGE_REPLACED` is one of the widget's own triggers. The launcher's resize handles take
+`input swipe`: a long press on the widget, then a drag from a handle.
+
+### Gates
+
+On `675cafe`: `./gradlew test` **1459** (`:core:model` 125, `:core:data` 543,
+`:core:designsystem` 112, `:widget` 123, `:app` 556), thirteen more than #187's 1446 —
+`DayPlanTest` 5, `TinyCountTest` 4, one in `WidgetSizeClassTest`, `WidgetSettingsRedrawTest`
+3. `assembleDebug` and `assembleRelease` build. Each new test was run against the old
+behaviour first: five fail for #174 and one for #188. The server was not touched, so its
+gates were not run.
+
+### What nobody has verified in this batch
+
+- The one-line size **during lessons** at a large font («ПЕРЕМЕНА 7 мин», the same weighted
+  label beside a countdown) was not looked at.
+- A change of the **system** font scale is a configuration change, not an app setting.
+  Whether anything redraws the widget after one was not checked: every render here was forced
+  with a reinstall.
+- The `fontScale > 1` step was seen at 2.0 on this one emulator.
+- At 195 dp the whole «4 урока · Алгебра в 08:30» would fit, and the rung's budget shortens
+  it anyway, because the same rung serves 110 dp.
+
 ## What the batch before added: the first instrumented tests, and three defects the walkthrough left
 
 Merged as `2a408d8`. Four commits from the night of 26–27 September and one from the

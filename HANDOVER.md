@@ -6,43 +6,22 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **27 September 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166, #186, #187 and #189 are merged**; `main` is at `938e59f`, the merge of #189, and `dev`
-is level with it. **The only thing open is the pull request carrying this paragraph, #214**,
-from `agents/audit-batch-190-211`, on milestone 10, `v0.9.0 — NetSchool e-diary, onboarding
-via the school's diary`. It fixes the twenty-two issues an external audit filed on 27
-September (#190–#211) and one found while merging the nine branches that fixed them (#213).
-The section «What the last session added» below is that batch.
+Last updated: **2 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
+#166, #186, #187, #189 and #214 are merged**; `main` is at `eb0ab94`, the merge of #214, on
+27 September 2026. **The only thing open is the pull request carrying this paragraph, #218**,
+from `ccr-b537fbdd-oi5djs`, on milestone 10, `v0.9.0 — NetSchool e-diary, onboarding via the
+school's diary`. It takes dependabot's three open bumps (#215, #216, #217) by merging their
+branches, fixes #212, and is this close-out of #214. The section «What the last session
+added» below is that batch. `dev` is still at `eb0ab94`, level with `main`; this batch was
+made on the branch its cloud session was given rather than on `dev`.
 
 The SHA of its own merge is for the next close-out to write.
 
-**What #214 moves.**
-- The server: the compose file and its container (#190, #191, #195), the diary sign-in page
-  (#193, #196), «Сетевой город»'s «today» (#198), a cap on the phones one class code mints
-  (#199), no interactive API docs on Vercel (#200), one way to take naive UTC (#197), and a
-  phone invite that cannot be redeemed twice (#194).
-- The server's shape: services below the bot (#205), the three largest files split (#208),
-  one implementation of every operation both shells perform (#206), one role gate for
-  «⚙️ Класс» (#207), and documents that say two shells write (#204).
-- The build: `requirements.txt` is a lock (#192), and CI runs mypy and detekt (#210).
-- Android: requests signed from memory (#203), bearers sealed by the Keystore (#201), https
-  only in a release build (#202), and four files split with the `Graph` kept out of
-  composables (#209).
-- This file kept to where the work stands, its history in `docs/history.md` (#211).
-
-No schema change; `EXPECTED_REVISION` is still `0017`. **The lock has been installed where it
-runs:** #214's CI installed it on Linux and Python 3.12 and passed 2063 tests on it, none
-skipped — so the test that the lock is closed there ran — and Vercel built #214's preview
-from it. Production takes it at the merge.
-
-**Once #214 merges, twenty-three issues are meant to close:** #190–#211 and #213. **#212**
-stays open: a test that fails at random on Windows and passes on CI. Of the device epic
-**#109**, **#111** and **#113** stay open for what only a phone can say, and **#112** (a
-macrobenchmark module) was not started. What a merge closes is decided by the `Closes` lines
-in the pull request body and in the commit messages, not by this paragraph — read them
-against this list before merging.
-
-**#189 closed the two issues it named** (#174, #188), read back from GitHub on 27 September.
+**#214 closed the twenty-three issues it named**, #190–#211 and #213: none of them is in the
+open list read back from GitHub on 2 October. **#218 is meant to close #212**, and its merge
+closes #215, #216 and #217 as **Merged** by itself, because their own commits are ancestors
+of its head. Of the device epic **#109**, **#111** and **#113** stay open for what only a
+phone can say, and **#112** (a macrobenchmark module) was not started.
 
 **The code expects head `0017`, and production is at `0017` since 26 September 2026 at 12:26 UTC.**
 `EXPECTED_REVISION` in `app/db.py` is `0017`, pinned to the real head by
@@ -151,9 +130,51 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: the external audit of 27 September, #190–#211
+## What the last session added: three dependabot bumps, a lock SQLite writers wait for, and #214's close-out
 
-Open as #214, from `agents/audit-batch-190-211`, on milestone 10. An external audit of the
+Open as #218, from `ccr-b537fbdd-oi5djs`, on milestone 10. Made in a cloud session on 2
+October 2026, continuing from where the local session that built #214 stopped.
+
+- **Dependabot's three open pull requests are folded in by merging their branches**, so
+  each closes as Merged at this merge: the androidx group (#215 — core-ktx 1.19.1,
+  navigation 2.10.2, work 2.12.0), the Gradle wrapper 9.7.1 → 9.8.0 (#216), and SQLAlchemy's
+  floor in `requirements.in` 2.0.54 → 2.1.1 (#217). The lock already pinned 2.1.1 and
+  recompiling it from the new input moved nothing; `server/pyproject.toml`'s floor was
+  raised to match, which `test_requirements_mirror.py` asks for. `CONTRIBUTING.md` and
+  `docs/build.md` name the new wrapper.
+- **A writer waits thirty seconds for SQLite's lock rather than five (#212).** The directory
+  limiter's burst test sends a hundred writers at once, and over aiosqlite a transaction
+  keeps SQLite's one write lock across every await to its commit; a writer the event loop
+  reached late waited past the driver's five-second busy timeout and failed on «database is
+  locked» rather than on the limit. Reproduced here by cutting the timeout to twenty
+  milliseconds — the test then fails on every run with the issue's exact error — and fixed
+  in `app/db.py`, for SQLite only. A new test reads `PRAGMA busy_timeout` through the
+  suite's engine and fails on the old code, which answers 5000.
+- **This file**: the opening, this section, the batch before it retitled, the widget batch
+  (#189) moved to the top of `docs/history.md`, the milestone table, and the server test
+  count in its three places.
+
+### Gates
+
+On this branch: `ruff` clean; `python -m mypy` clean over 153 source files; `pytest -q -n
+auto` **2064** passed, one more than #214's 2063, on Python 3.12 with the lock installed.
+The Android gates (`./gradlew test`, `assembleDebug`, `assembleRelease`, `detekt`) were still running when this was committed; the next commit replaces this sentence with their result.
+
+### What was deliberately left alone
+
+- The bumps were taken as dependabot wrote them; nothing else was upgraded alongside.
+- The `dev` branch was not moved: this session was given its own branch, and `dev` is level
+  with `main` at `eb0ab94`, so the next session fast-forwards it after this merge.
+
+### What nobody has verified in this batch
+
+- #212's fix has not run on the Windows machine where the failure was seen; what was
+  verified is the mechanism, on Linux, by shrinking the timeout until it fails.
+- The three bumps have not run on a device or an emulator.
+
+## What the session before it added: the external audit of 27 September, #190–#211
+
+Merged as #214 (`eb0ab94`, 27 September 2026), from `agents/audit-batch-190-211`, on milestone 10. An external audit of the
 repository filed twenty-two issues on 27 September 2026. Nine agents fixed them in parallel,
 each on a branch of its own in a worktree of its own, and this branch merges the nine and
 adds four commits found while merging them. Every defect was fixed test-first — the new
@@ -304,72 +325,6 @@ nothing else in the diff, so every entry it adds is one it removes under #209's 
 - Why two background runs could not start child processes (`0xC0000142`) was not found; it
   did not happen from a live shell.
 
-## What the session before it added: the widget's two smallest sizes, and a widget that did not follow its settings
-
-Merged as `938e59f`, #189 from `agents/widget-small-sizes`, on milestone 9. Two commits, one per issue,
-each checked on the API 37 emulator against a local server seeded with `seed_demo`, on a
-Sunday, so on the widget's day-off layout.
-
-- **#174, the diagnosis was corrected before the fix.** The issue said a phone's 2×2 (about
-  195×226 dp) landed on `LARGE`. It cannot: `LARGE` is 250×250 and does not fit inside the
-  box, and both the launcher and `WidgetSizeClass.of` keep only the breakpoints that fit. It
-  is `SMALL_TALL`, and the screen said so twice. «4 урока · Алгебра в 08:00» is 25
-  characters against that rung's budget of 24, cut from the end, so the time was what went.
-  Two homework rows is that rung's count. The correction went into the issue's thread first,
-  and `WidgetSizeClassTest` now pins where that 2×2 lands.
-- **#174, the fix.** `WidgetStrings.dayPlan` spends the budget on the subject and keeps the
-  count and the time; the narrow rungs may give the plan a second line
-  (`dayPlanLines`), because at a true 110 dp Glance would otherwise clip it at the pixel.
-  `SMALL_TALL` lists three subjects after school: about 130 dp of its 190, 175 at the worst.
-  On the 2×1 the label is weighted and the count is not, so at an enlarged font the label
-  lost; `tinyCountOf` draws the bare figure from the first step above the default,
-  «ДЗ на завтра 3» or «ДЗ на завтра нет» (a new string, `widget_homework_none_short`, with
-  its English twin). The step is a choice, not a measurement: Glance measures neither text
-  nor the box.
-- **#188, found while checking #174.** The app was switched to Russian and the widget stayed
-  English. A `304` sync did not redraw it, and only a reinstall (`MY_PACKAGE_REPLACED`) did.
-  Nothing redrew the widget on a settings change at all. Filed, then fixed:
-  `SettingsRepositoryImpl.update` sends `DATA_SYNCED` when `AppSettings.drawnByWidget`
-  moves, beside the alert re-arm it already did the same way, and the widget reads its three
-  settings through that projection only. To test it without a DataStore, the repository reads
-  a small `SettingsStore` interface, which `LessonsPreferences` implements the way it already
-  implements `DiarySessionStore` and `ShellModeSource`.
-
-### On the emulator
-
-The 2×2 read «4 урока · Алгеб… в 08:30» over three subjects, and «4 lessons · Алг… at 08:30»
-in English. The 2×5 column (`NARROW`) read the same plan line. The 2×1 read «ДЗ на завтра ·
-3 предмета» at font scale 1.0 and «ДЗ на завтра 3» at 2.0. For #188, the 2×1 read «ДЗ на
-завтра» before the app was switched to English and «HW for tomorrow 3 subjects» three seconds
-after, with nothing else in between.
-
-**Two things about driving the widget from a shell**, which cost time and will again. First,
-the shell cannot redraw it: `DATA_SYNCED` is filtered by a receiver the shell cannot reach,
-and `APPWIDGET_UPDATE` is a protected broadcast. Second, a pull-to-refresh answered `304` and
-redraws nothing, by design. What does redraw it is reinstalling the same APK, because
-`MY_PACKAGE_REPLACED` is one of the widget's own triggers. The launcher's resize handles take
-`input swipe`: a long press on the widget, then a drag from a handle.
-
-### Gates
-
-On `675cafe`: `./gradlew test` **1459** (`:core:model` 125, `:core:data` 543,
-`:core:designsystem` 112, `:widget` 123, `:app` 556), thirteen more than #187's 1446 —
-`DayPlanTest` 5, `TinyCountTest` 4, one in `WidgetSizeClassTest`, `WidgetSettingsRedrawTest`
-3. `assembleDebug` and `assembleRelease` build. Each new test was run against the old
-behaviour first: five fail for #174 and one for #188. The server was not touched, so its
-gates were not run.
-
-### What nobody has verified in this batch
-
-- The one-line size **during lessons** at a large font («ПЕРЕМЕНА 7 мин», the same weighted
-  label beside a countdown) was not looked at.
-- A change of the **system** font scale is a configuration change, not an app setting.
-  Whether anything redraws the widget after one was not checked: every render here was forced
-  with a reinstall.
-- The `fontScale > 1` step was seen at 2.0 on this one emulator.
-- At 195 dp the whole «4 урока · Алгебра в 08:30» would fit, and the rung's budget shortens
-  it anyway, because the same rung serves 110 dp.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -390,7 +345,7 @@ maps them. The
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189; issues #109–#117, #130–#132, #167–#185, #188 — the first whose work needs an emulator or a phone, and #186 the first done on one |
-| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140 (merged), #214; issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213 |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140 and #214 (merged), #218; issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
 #140 left alone on purpose, which belong to whichever version takes them up.
@@ -1358,7 +1313,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 2063 tests, ~4 min on CI, ~10 on Windows
+cd server  && pytest -q -n auto                          # 2064 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 153 modules
 cd android && ./gradlew test                             # 1500 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

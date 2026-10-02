@@ -783,7 +783,7 @@ with the host.
 
 ## Testing
 
-2063 tests on the server, 1500 on Android; `pytest -q -n auto` and `./gradlew test`, both
+2064 tests on the server, 1500 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 570,
 `:core:designsystem` 112, `:widget` 123, `:app` 570.
 

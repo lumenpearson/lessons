@@ -206,7 +206,7 @@ Read this before planning a release.
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 153 modules — asks whether anything reaches for an attribute that does not exist |
-| `pytest -q -n auto` | 2063 tests, green, about four minutes — the command CI runs |
+| `pytest -q -n auto` | 2064 tests, green, about four minutes — the command CI runs |
 | `./gradlew test` | 1500 tests, green, all five modules |
 | `./gradlew detekt` | no finding beyond each module's baseline, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
