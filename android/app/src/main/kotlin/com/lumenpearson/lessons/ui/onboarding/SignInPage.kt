@@ -202,26 +202,30 @@ internal fun SignInPage(
                 )
             }
 
-            current.forgotUrl?.let { url ->
-                TextButton(onClick = { links.open(url) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(correctedString(R.string.onboarding_sign_in_forgot))
-                }
-            }
-            // The handoff sheet's own sentence: a tap that opened nothing
-            // must not read as a button that does nothing.
-            if (links.failed) {
-                Text(
-                    text = correctedString(R.string.onboarding_handoff_no_browser),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-
             if (exit == SignInExit.START_OVER) StartOverButton(enabled = !ui.busy, onClick = viewModel::startOver)
 
             // The server that will hold the session, named where the session is
-            // about to be sent to it.
+            // about to be sent to it — with «Забыли пароль?» at the head of the
+            // block rather than a block of its own. A TextButton's 48 dp box
+            // already leaves about 14 dp under its label, and the page's
+            // GroupSpacing and the header's own 8 dp on top of that put about
+            // 40 dp before «Сервер», where every other section on these steps
+            // has 24 (#232).
             Column(modifier = Modifier.fillMaxWidth()) {
+                current.forgotUrl?.let { url ->
+                    TextButton(onClick = { links.open(url) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(correctedString(R.string.onboarding_sign_in_forgot))
+                    }
+                }
+                // The handoff sheet's own sentence: a tap that opened nothing
+                // must not read as a button that does nothing.
+                if (links.failed) {
+                    Text(
+                        text = correctedString(R.string.onboarding_handoff_no_browser),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 SectionHeader(title = correctedString(R.string.join_server_section))
                 RoundedCardContainer {
                     GroupLinkItem(
