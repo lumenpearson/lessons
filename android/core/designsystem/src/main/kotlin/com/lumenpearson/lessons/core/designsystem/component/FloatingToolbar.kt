@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -77,6 +78,7 @@ import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -122,6 +124,12 @@ data class ToolbarAction(
     val badge: Boolean = false,
     val onClick: (at: Offset) -> Unit,
 )
+
+/**
+ * The pill's test tag. The pill draws no text of its own, so its height — the
+ * one thing #240 got wrong — cannot be asked of any node but this one.
+ */
+internal const val ToolbarPillTag = "lessons_toolbar_pill"
 
 /** Width of an icon-only item, and the height of every item. */
 private val ItemSize: Dp = 48.dp
@@ -255,7 +263,8 @@ fun LessonsFloatingToolbar(
         modifier = modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .heightIn(min = ActionSlotHeight),
         contentAlignment = Alignment.Center,
     ) {
         // The two modes cross-fade into each other and the pill resizes with a
@@ -299,9 +308,9 @@ fun LessonsFloatingToolbar(
             ) { backMode ->
                 if (backMode) {
                     Row(
-                        // Material's horizontal padding, moved in here; see
-                        // [PillContentPadding].
-                        modifier = Modifier.padding(horizontal = PillEndPadding),
+                        // Material's padding, all four sides of it, moved in
+                        // here; see [PillContentPadding].
+                        modifier = Modifier.padding(PillPadding),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         BackAndTitle(title = title, onBackClick = onBackClick ?: {})
@@ -335,10 +344,10 @@ fun LessonsFloatingToolbar(
             }
         }
 
-        // Nothing here: the mode morph is animated by the size transform above,
-        // and within a mode the pill's width already follows its tabs, which
-        // animate their own widths on a spring.
-        val pillModifier = Modifier
+        // Nothing but the tag: the mode morph is animated by the size transform
+        // above, and within a mode the pill's width already follows its tabs,
+        // which animate their own widths on a spring.
+        val pillModifier = Modifier.testTag(ToolbarPillTag)
 
         // Two call sites rather than one with a nullable argument: the overload
         // without the slot is what keeps a toolbar with no action button centred.
@@ -469,9 +478,9 @@ private fun ToolbarItems(
                 // padded and the window it scrolls in reaches the pill's edge:
                 // a section scrolled half out of view goes under the pill's
                 // round end rather than being cut off 8 dp inside it (#183).
-                .padding(horizontal = PillEndPadding)
+                .padding(PillPadding)
         } else {
-            Modifier.padding(horizontal = PillEndPadding)
+            Modifier.padding(PillPadding)
         },
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -558,7 +567,7 @@ private fun ToolbarItems(
  * action button with its own gap. The terms are [scrollingItemsMaxWidth]'s.
  */
 internal fun spareLabelWidth(screenWidth: Dp, items: Int, hasAction: Boolean): Dp {
-    val rest = ToolbarSideMargin * 2 + PillEndPadding * 2 + ItemSize * items +
+    val rest = ToolbarSideMargin * 2 + PillPadding * 2 + ItemSize * items +
         ItemGap * (items - 1).coerceAtLeast(0) +
         if (hasAction) ItemSize + ItemGap * 2 else 0.dp
     return (screenWidth - rest).coerceAtLeast(LabelWidth)
@@ -610,7 +619,19 @@ private fun scrollingItemsMaxWidth(hasAction: Boolean): Dp {
 private val ToolbarSideMargin: Dp = 16.dp
 
 /**
- * Material's padding inside the pill, less its two ends (#183).
+ * How tall Material makes the bar when a button sits beside the pill: the
+ * button's slot, sized for a medium FAB (`FloatingToolbarDefaults.FabSizeRange`,
+ * internal to Material), with the 64 dp pill centred in it.
+ *
+ * A bar without a button keeps the same height, so the pill stands at one
+ * height on every page. Wrapping the pill alone made that bar 16 dp shorter,
+ * and, sitting on the bottom of the screen, it carried its pill 8 dp lower —
+ * the pill dropped as settings opened and rose as they closed (#240).
+ */
+private val ActionSlotHeight: Dp = 80.dp
+
+/**
+ * Material's padding inside the pill: none, because all of it is in the rows.
  *
  * `FloatingToolbarDefaults.ContentPadding` is 8 dp all round, and in the layout
  * with a button beside the pill Material scrolls its content inside it. A
@@ -618,19 +639,26 @@ private val ToolbarSideMargin: Dp = 16.dp
  * an end — a documentation section scrolled half out of view, a held tab drawn
  * larger, a jiggling one — was cut off by a straight edge 8 dp in from the
  * pill's curve, and the round end the pill clips itself to was never reached.
- * The ends' padding is [PillEndPadding] instead, inside every row, so the rows
- * sit exactly where they did and everything that leaves them goes under the
- * pill's own round end.
+ * So the ends' padding moved inside every row (#183), and everything that
+ * leaves a row goes under the pill's own round end.
+ *
+ * The top and bottom moved with them, because half of it inside is worse than
+ * either whole (#240). Without a button beside the pill Material balances the
+ * pill's padding against the interactive insets it reads off the content's
+ * alignment lines, and the back button's line said 8 dp in from the side and
+ * nothing from the top — so Material padded the pill by twice the difference,
+ * and every page without a button was 80 dp tall where it is 64 dp with one.
+ * With [PillPadding] on all four sides the insets agree and nothing is added.
  */
-private val PillContentPadding = PaddingValues(vertical = 8.dp)
+private val PillContentPadding = PaddingValues(0.dp)
 
-/** The two ends of Material's padding, drawn inside the rows; see above. */
-private val PillEndPadding: Dp = 8.dp
+/** Material's padding, drawn inside every row on all four sides; see above. */
+private val PillPadding: Dp = 8.dp
 
 /**
  * What the cap on the scrolling row keeps back on each side of it beyond the
  * margins. It was a generous 16 dp estimate of Material's padding, when that
- * sat outside the row; [PillEndPadding] is now inside, so this is only what
+ * sat outside the row; [PillPadding] is now inside, so this is only what
  * the estimate had to spare, and the pill is exactly as wide as it was.
  */
 private val PillSlack: Dp = 8.dp
