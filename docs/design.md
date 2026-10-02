@@ -759,6 +759,14 @@ the motion blur keep switches of their own, under «Эффекты», because th
 rather than movement the reader needs. A new animation that takes `tween(…)` or `spring(…)`
 directly is one the switch does not reach.
 
+A colour that fades out fades to **its own** transparent: `colour.copy(alpha = 0f)`, never
+`Color.Transparent`. `animateColorAsState` moves lightness and alpha apart, and
+`Color.Transparent` is black at zero alpha, so a white disc fading to it goes through a
+half-transparent grey on the way. That is what the bottom bar's tabs did in the light theme
+until #254, a grey pill under the label leaving and a dark disc under the one arriving. The
+dark theme hid it, because its background is nearly black already. `ToolbarDiscFadeTest`
+asks each frame of the fade to lie on the line between the two colours it joins.
+
 ## How much the widget says at each size
 
 The size ladder is twelve rungs, and each declares its own portion with flags right on

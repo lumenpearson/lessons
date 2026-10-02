@@ -114,6 +114,27 @@ class ResourceTranslationTest {
         )
     }
 
+    /**
+     * English quotes a name with “ ”, and a guillemet in an English line has
+     * been the mark of Russian copy left standing (#255): the developer mode
+     * sent an English reader to «О приложении», a section the English calls
+     * “About”. The Russian names English quotes on purpose — the bot's
+     * buttons, which are Russian on that screen too — already use “ ”.
+     */
+    @Test
+    fun `no English string quotes in guillemets`() {
+        val russianQuoting = modules.flatMap { module ->
+            module.englishFiles.flatMap(::elementsOf)
+                .filter { it.tagName == "string" || it.tagName == "plurals" }
+                .filter { '«' in it.textContent || '»' in it.textContent }
+                .map { "${module.module}/${it.getAttribute("name")}" }
+        }.sorted()
+        assertTrue(
+            "These English strings quote in guillemets, the way Russian does: $russianQuoting",
+            russianQuoting.isEmpty(),
+        )
+    }
+
     /** The mirror is per file, not just per name; a stray file would be invisible above. */
     @Test
     fun `every Russian strings file has an English file beside it`() {

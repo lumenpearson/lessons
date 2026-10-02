@@ -28,6 +28,50 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: a tab's disc that fades with the selection (#249), and a slowed emulator that looked like a regression
+
+Merged as #250 (`66801c1`, 2 October 2026), from `dev`, on milestone 9. The same session as #241, #245 and #248, on two
+more reports from the owner that evening.
+
+- **«ты сломал кнопки и анимации на главном экране … они всегда подсвечиваются» — not the
+  code.** To film #248's frames the session had set the emulator's
+  `animator_duration_scale` to 10 and then removed the setting with `settings delete`, which
+  leaves the window manager on its cached value. Everything on the emulator ran ten times
+  slower, and a tap's ripple lived about three seconds: a grey disc lingered on every tab just
+  deselected. A build of `2ae3b37` (before #248), filmed the same way, did the same, and both
+  were clean once the scale was put back with `settings put global animator_duration_scale
+  1.0`. No code changed for it; the owner was told what it was.
+- **#249, the tab losing the selection dropped its disc in one frame — filed, then fixed.**
+  The owner's own recording, in the dark theme, showed the old tab still as wide as its label
+  with nothing behind it for the length of the spring: its icon alone at the left of an empty
+  stretch that closed as the new tab opened. The disc and content colours now fade with the
+  selection (260 ms at the reader's speed, instant with «Анимации» off); the carried tab in the
+  arranging mode still takes its body at once (#226). Filmed at 30 fps on the emulator at scale
+  1.0: the old pill fades as it narrows, the new fades in as it opens, no empty frame.
+- **How the bar was filmed**, for whoever needs it next: `adb shell screenrecord` (with
+  `MSYS_NO_PATHCONV=1` in Git Bash, or `/sdcard` becomes a Windows path), then `ffmpeg -vf
+  "fps=20,crop=…,tile=4x22"` into one sheet of frames. ffmpeg is on the PATH through WinGet.
+  This replaces slowing the system, which is what caused the first report.
+
+### Gates
+
+On `98e7248`: `./gradlew test assembleDebug assembleRelease detekt` pass; `./gradlew test`
+**1611** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 141, `:widget` 126, `:app`
+604), two more than #248's 1609 — `ToolbarDiscFadeTest`, the first test here that captures
+pixels, in Robolectric's native graphics. Its first case was red against the toolbar without
+the change. The server was not touched.
+
+### What was deliberately left alone
+
+- For a frame or two mid-transition the leaving tab's icon is low in contrast, as its colour
+  and its disc both pass through the bar's — the shape of any colour cross-fade, Material's
+  navigation bar included.
+
+### What nobody has verified in this batch
+
+- The fade on a phone, and in the light theme on a device: the emulator was in the dark theme
+  for the recording.
+
 ## What the batch before added: a tab's label revealed rather than squeezed, and every animation under «Анимации» (#246, #247)
 
 Merged as #248 (`a54f1f0`, 2 October 2026), from `dev`, on milestone 9. The same session as #241 and #245, on the owner's
@@ -4404,6 +4448,18 @@ says what was seen there and what still was not. As it stood until then:
   build carries was read out of both packaged APKs with aapt2, and how the platform then
   applies it is its documentation's word. The release APK has not been pointed at a
   real server.
+
+#257's session saw the developer mode's door on an emulator, so the bullet below became the
+one that says what lies past it. As it stood until then:
+
+- **The developer mode (#237) has run nowhere but CI and has not been compiled anywhere
+  else.** The gate, the network and activity records and their tests ran on the JVM here;
+  everything that needs Android — the page, the reveal, the Keystore round trip, the
+  connectivity, notification, alarm and widget checks, the grid, the large text, the
+  stretched strings — has been seen by nobody. The GitHub permission call has not met a real
+  account, and an APK built without `LESSONS_GITHUB_CLIENT_ID` cannot open the mode at all.
+  It is also the first tool for most of this section: its checks run from the phone's own
+  network, and its records name the leg a sign-in is stuck on.
 
 ## Moved out of section 7 on 2 October 2026
 

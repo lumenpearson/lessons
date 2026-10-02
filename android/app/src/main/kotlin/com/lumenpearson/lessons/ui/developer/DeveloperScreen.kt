@@ -120,7 +120,13 @@ fun DeveloperScreen(
         if (!state.mode.revealed) {
             item(key = "hidden") {
                 DeveloperGroup(title = correctedString(R.string.developer_access_group)) {
-                    GroupItem(title = correctedString(R.string.developer_hidden), tone = neutralTone())
+                    // A title and a sentence under it, for the reason the
+                    // signed-out row has them (#256).
+                    GroupItem(
+                        title = correctedString(R.string.developer_hidden_title),
+                        subtitle = correctedString(R.string.developer_hidden),
+                        tone = neutralTone(),
+                    )
                 }
             }
         } else {
@@ -219,7 +225,15 @@ private fun AccessGroup(
     DeveloperGroup(title = correctedString(R.string.developer_access_group)) {
         when (access) {
             DeveloperAccess.SignedOut -> {
-                GroupItem(title = correctedString(R.string.developer_access_signed_out), tone = neutralTone())
+                // The rule is a sentence and a row's title is one line that
+                // scrolls: drawn there, it was read a few words at a time and
+                // cut at both ends (#256). Below a title of its own it wraps.
+                GroupItem(
+                    title = correctedString(R.string.developer_access_signed_out_title),
+                    subtitle = correctedString(R.string.developer_access_signed_out),
+                    icon = Icons.Rounded.AccountCircle,
+                    tone = neutralTone(),
+                )
                 if (canSignIn) {
                     GroupActionItem(
                         label = correctedString(R.string.developer_sign_in),

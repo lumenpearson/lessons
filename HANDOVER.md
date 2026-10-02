@@ -7,18 +7,21 @@ What every batch before the last two added is in [docs/history.md](docs/history.
 newest first.
 
 Last updated: **2 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248 and #250 are merged**;
-`main` is at `66801c1`, the merge of #250, on 2 October 2026, and `dev` was restarted from it
-for this batch. **The only thing open is the pull request carrying this paragraph, #252**,
-from `dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary survey`. It holds a
-one-line header's own words still and scrolls only the data in it — the day, the time, the
-lesson, whatever the server fills in (#251), as the owner asked that night — and makes
-`CorrectionReachTest` check anything at all on a Windows checkout, which it did not (#253).
+#166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250 and #252 are
+merged**; `main` is at `2caf480`, the merge of #252, on 2 October 2026, and `dev` was
+restarted from it for this batch. **The only thing open is the pull request carrying this
+paragraph, #257**, from `dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary
+survey`. It is what a walk of a fresh build found:
+- the bottom bar's discs passing through grey in the light theme (#254);
+- two English strings of the developer mode still quoting the Russian way (#255);
+- the developer page's two explanations drawn as one-line titles that scroll (#256).
+
 The section «What the last session added» below is that batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#250 closed #249**, read back from GitHub on 2 October. **#252 closes #251 and #253.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
+**#252 closed #251 and #253**, read back from GitHub on 2 October. **#257 closes #254, #255
+and #256.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
 nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
 Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
@@ -131,9 +134,85 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: a header's words held still while only its data scrolls (#251)
+## What the last session added: a fresh build walked in the light theme and in English, and the three defects it found (#254, #255, #256)
 
-Open as #252, from `dev`, on milestone 9. The same session as #241–#250, on the owner's next
+Open as #257, from `dev`, on milestone 9. The same session as #241–#252, on the owner's
+«собери новую сборку и тестируй уже ее». It built `main` at `2caf480` and installed the build
+on an API 37 emulator whose data had been wiped. It went through onboarding in English, in the
+light theme, and walked what the last batches had left unverified.
+
+- **Seen, with nothing to change:**
+  - **#251's split lines, in English and with the correction mode on.** At a font scale of
+    1.6, «Homework for» held still while «Monday, 5 October» scrolled. One outline went
+    round the whole line. A long press on the date opened `today_homework_for` whole, and a
+    correction to «Homework set for %1$s» moved the held words with it.
+  - **#243's settings trail across a rotation and a killed process,** on a build of the
+    same code just before. «Разрешения» came back with «← Уведомления», and back went one
+    screen at a time.
+  - **#237's reveal.** Seven taps on the version raised the toast and put «For developers»
+    in the settings. Its signed-out page says, in a build with no GitHub client id, that
+    this build cannot sign in.
+- **#254: the light theme's discs passed through grey. Filed, then fixed.**
+  - The fade #249 gave a tab's disc ran between `scheme.background` and `Color.Transparent`,
+    which is black at zero alpha. A colour animation moves lightness and alpha apart, so
+    halfway was a half-transparent grey.
+  - In the light theme that showed as a grey pill under the leaving label and a dark disc
+    under the arriving one. #249 was filmed in the dark theme, whose background is nearly
+    black, so it did not show there.
+  - The unselected disc is now the background at zero alpha, so only the alpha moves. At
+    rest it is as invisible as before, so #226's carried tab still takes no bite out of the
+    white disc.
+- **#255: two English strings of the developer mode quoted Russian names in guillemets.
+  Filed, then fixed.** One sent an English reader to «О приложении», a section the English
+  interface calls “About”. `ResourceTranslationTest` now refuses a guillemet in any English
+  string. The Russian names the English quotes on purpose, such as the bot's buttons,
+  already use “ ”.
+- **#256: the developer page's explanations were one-line titles. Filed, then fixed.**
+  - Signed out, the page's first row was the whole rule of who may open the mode, sliding
+    past and cut at both ends. Hidden, its only row was the sentence saying how to bring it
+    back.
+  - Each is now a short title with the sentence in the subtitle, which wraps.
+  - The new `RowTitleSentenceTest` reads which string each group row is titled with and
+    refuses one whose Russian ends a sentence. Of 118 rows, it found these two and nothing
+    else.
+
+### Gates
+
+On `d6c49a1`, `./gradlew test assembleDebug assembleRelease detekt` passes. `./gradlew test`
+runs **1620** tests (`:core:model` 125, `:core:data` 615, `:core:designsystem` 147, `:widget`
+126, `:app` 607), four more than #252's 1616.
+
+Each new test was red first:
+- `ToolbarDiscFadeTest`'s light-theme case found discs up to 34 steps of 255 off the line from
+  the bar to white, on frames 4 to 11 after the tap.
+- `ResourceTranslationTest` named the two strings.
+- `RowTitleSentenceTest` named the two rows.
+
+The fixed build was filmed on the emulator in the light theme. The discs now fade through a
+lighter blue, which is white over the bar, and through nothing else. The server was not
+touched.
+
+### What was deliberately left alone
+
+- **Tab labels are dropped above a font scale of 1.25** (`LabelFontScaleLimit`), so at 1.6
+  the bar showed icons only. That is the design, not a defect.
+- **`developer_access_failed` puts GitHub's reason for a failed check into a row's title,**
+  where a long reason scrolls the same way. It is data, the reason GitHub gave, and only an
+  account that has signed in reaches that row — which no build here can.
+- **The about card read «Server: database and code disagree» against the local server.**
+  That is the demo database, made by `create_all` with no `alembic_version`. Production
+  answers `0017`.
+- **The stray `C:\Program Files\Git\tmp_ml.kt` is gone.** #251's section had left it to the
+  owner.
+
+### What nobody has verified in this batch
+
+- The fades and the developer page on a phone.
+- The developer page past sign-in, which needs an APK with `LESSONS_GITHUB_CLIENT_ID`.
+
+## What the session before it added: a header's words held still while only its data scrolls (#251)
+
+Merged as #252 (`2caf480`, 2 October 2026), from `dev`, on milestone 9. The same session as #241–#250, on the owner's next
 request: the headers should not scroll whole, only the data in them — the day, the time, the
 lesson, the teacher, whatever the server fills in.
 
@@ -191,51 +270,8 @@ workers holding a jar until they were stopped; the rerun was clean. After #253, 
 ### What nobody has verified in this batch
 
 - The split lines on a phone, in English, and with the correction mode on: its outline over
-  a split line is seen by no test that composes the mode.
-
-## What the session before it added: a tab's disc that fades with the selection (#249), and a slowed emulator that looked like a regression
-
-Merged as #250 (`66801c1`, 2 October 2026), from `dev`, on milestone 9. The same session as #241, #245 and #248, on two
-more reports from the owner that evening.
-
-- **«ты сломал кнопки и анимации на главном экране … они всегда подсвечиваются» — not the
-  code.** To film #248's frames the session had set the emulator's
-  `animator_duration_scale` to 10 and then removed the setting with `settings delete`, which
-  leaves the window manager on its cached value. Everything on the emulator ran ten times
-  slower, and a tap's ripple lived about three seconds: a grey disc lingered on every tab just
-  deselected. A build of `2ae3b37` (before #248), filmed the same way, did the same, and both
-  were clean once the scale was put back with `settings put global animator_duration_scale
-  1.0`. No code changed for it; the owner was told what it was.
-- **#249, the tab losing the selection dropped its disc in one frame — filed, then fixed.**
-  The owner's own recording, in the dark theme, showed the old tab still as wide as its label
-  with nothing behind it for the length of the spring: its icon alone at the left of an empty
-  stretch that closed as the new tab opened. The disc and content colours now fade with the
-  selection (260 ms at the reader's speed, instant with «Анимации» off); the carried tab in the
-  arranging mode still takes its body at once (#226). Filmed at 30 fps on the emulator at scale
-  1.0: the old pill fades as it narrows, the new fades in as it opens, no empty frame.
-- **How the bar was filmed**, for whoever needs it next: `adb shell screenrecord` (with
-  `MSYS_NO_PATHCONV=1` in Git Bash, or `/sdcard` becomes a Windows path), then `ffmpeg -vf
-  "fps=20,crop=…,tile=4x22"` into one sheet of frames. ffmpeg is on the PATH through WinGet.
-  This replaces slowing the system, which is what caused the first report.
-
-### Gates
-
-On `98e7248`: `./gradlew test assembleDebug assembleRelease detekt` pass; `./gradlew test`
-**1611** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 141, `:widget` 126, `:app`
-604), two more than #248's 1609 — `ToolbarDiscFadeTest`, the first test here that captures
-pixels, in Robolectric's native graphics. Its first case was red against the toolbar without
-the change. The server was not touched.
-
-### What was deliberately left alone
-
-- For a frame or two mid-transition the leaving tab's icon is low in contrast, as its colour
-  and its disc both pass through the bar's — the shape of any colour cross-fade, Material's
-  navigation bar included.
-
-### What nobody has verified in this batch
-
-- The fade on a phone, and in the light theme on a device: the emulator was in the dark theme
-  for the recording.
+  a split line is seen by no test that composes the mode. *(The next batch saw the English
+  and the correction mode on the emulator; a phone still has not.)*
 
 ## The milestones
 
@@ -256,7 +292,7 @@ maps them. The
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
@@ -295,14 +331,15 @@ bullet below. The rest wait for an APK on a phone. The prose here is kept becaus
 bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
-- **The developer mode (#237) has run nowhere but CI and has not been compiled anywhere
-  else.** The gate, the network and activity records and their tests ran on the JVM here;
-  everything that needs Android — the page, the reveal, the Keystore round trip, the
-  connectivity, notification, alarm and widget checks, the grid, the large text, the
-  stretched strings — has been seen by nobody. The GitHub permission call has not met a real
-  account, and an APK built without `LESSONS_GITHUB_CLIENT_ID` cannot open the mode at all.
-  It is also the first tool for most of this section: its checks run from the phone's own
-  network, and its records name the leg a sign-in is stuck on.
+- **The developer mode (#237) past its door has been seen by nobody.** #257's session saw
+  the reveal on an API 37 emulator, along with the toast, the section in the settings, the
+  signed-out page and hiding it again; that walk is what found #255 and #256. Everything
+  behind the GitHub sign-in is still unseen: the Keystore round trip, the connectivity,
+  notification, alarm and widget checks, the grid, the large text, the stretched strings.
+  The GitHub permission call has not met a real account. An APK built without
+  `LESSONS_GITHUB_CLIENT_ID` cannot get past the door, and every build here so far is one.
+  The mode is also the first tool for most of this section: its checks run from the phone's
+  own network, and its records name the leg a sign-in is stuck on.
 - **Not one route in `docs/diaries/` has been seen answering.** #134's 1916 routes
   were read from client code and two official apps, and cross-checked against each other.
   No diary host answers a cloud session, so none was ever called. A route marked *current*
@@ -1260,7 +1297,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 2065 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 153 modules
-cd android && ./gradlew test                             # 1616 tests across the five modules
+cd android && ./gradlew test                             # 1620 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

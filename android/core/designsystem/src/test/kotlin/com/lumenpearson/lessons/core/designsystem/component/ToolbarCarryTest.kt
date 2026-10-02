@@ -5,7 +5,6 @@ import android.view.View
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
@@ -92,7 +91,8 @@ class ToolbarCarryTest {
     @Test
     fun `an unselected disc is never the pill's colour`() {
         val scheme = lightColorScheme()
-        assertEquals(Color.Transparent, tabContainerColor(selected = false, held = false, scheme = scheme))
+        // Invisible, whatever colour it fades from (#254).
+        assertEquals(0f, tabContainerColor(selected = false, held = false, scheme = scheme).alpha)
         assertNotEquals(scheme.primary, tabContainerColor(selected = false, held = true, scheme = scheme))
         assertEquals(scheme.background, tabContainerColor(selected = true, held = false, scheme = scheme))
     }

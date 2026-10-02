@@ -5,10 +5,11 @@
     <!-- The section and how it is found -->
     <string name="developer_section">For developers</string>
     <string name="developer_section_summary">Network, activity, checks and visual tools</string>
-    <string name="developer_revealed">The «For developers» section is now in settings</string>
+    <string name="developer_revealed">The “For developers” section is now in settings</string>
 
     <!-- Access -->
     <string name="developer_access_group">Access</string>
+    <string name="developer_access_signed_out_title">Not signed in to GitHub</string>
     <string name="developer_access_signed_out">The mode opens only for a GitHub account with write access to the project\'s repository — the people who can deploy it.</string>
     <string name="developer_sign_in">Sign in with GitHub</string>
     <string name="developer_github_unavailable">This build cannot sign in to GitHub</string>
@@ -82,7 +83,8 @@
     <string name="developer_report_copied">Report copied</string>
     <string name="developer_hide">Hide developer mode</string>
     <string name="developer_hide_summary">The section leaves settings, the tools switch off, the records are erased</string>
-    <string name="developer_hidden">The section is hidden. Seven taps on the version under «О приложении» bring it back.</string>
+    <string name="developer_hidden_title">The section is hidden</string>
+    <string name="developer_hidden">Seven taps on the version under “About” bring it back.</string>
 
     <!-- The request console (#237). -->
     <string name="developer_source_console">Console</string>

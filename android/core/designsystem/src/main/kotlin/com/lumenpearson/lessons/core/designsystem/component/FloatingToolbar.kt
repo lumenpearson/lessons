@@ -640,11 +640,17 @@ internal fun textCap(screenWidth: Dp, tablet: Boolean, spare: Dp): Dp =
  * neighbours and scaled up, passed over the selected tab's white disc — and
  * there it showed as a dark bite out of it (#226). Carried, it gets a body of
  * its own, the action button's pair, so it can be seen over the white disc.
+ *
+ * Transparent as the selected disc's own colour, not as `Color.Transparent`:
+ * the disc fades between the two, and a colour animation moves lightness and
+ * alpha apart, so a fade to transparent black went through a half-transparent
+ * grey. In the light theme that was a grey pill on the way out and a dark disc
+ * on the way in (#254); with one colour on both ends, only the alpha moves.
  */
 internal fun tabContainerColor(selected: Boolean, held: Boolean, scheme: ColorScheme): Color = when {
     selected -> scheme.background
     held -> scheme.primaryContainer
-    else -> Color.Transparent
+    else -> scheme.background.copy(alpha = 0f)
 }
 
 /** @see tabContainerColor */
