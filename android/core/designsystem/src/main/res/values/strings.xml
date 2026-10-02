@@ -67,5 +67,8 @@
     <string name="ds_action_save">Сохранить</string>
     <string name="ds_slider_decrease">Уменьшить</string>
     <string name="ds_slider_increase">Увеличить</string>
+    <!-- The handle at the top of every sheet, read out by a screen reader. -->
+    <string name="ds_sheet_drag_handle">Маркер перемещения</string>
+    <string name="ds_sheet_dismiss">Закрыть</string>
 
 </resources>
