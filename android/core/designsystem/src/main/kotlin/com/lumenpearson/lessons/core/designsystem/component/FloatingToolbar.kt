@@ -70,7 +70,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -490,6 +494,16 @@ private fun ToolbarItems(
     val slotPx = with(density) { (ItemSize + ItemGap).toPx() }
     val landing = if (held >= 0) dropIndex(held, dragPx, slotPx, items.size) else -1
 
+    // The selection moves as one pill sliding along the row (#258), so the row
+    // keeps where each tab is and the pill between them. See [SelectionPill].
+    val motion = LocalMotion.current
+    val tabBounds = remember { mutableStateMapOf<String, Rect>() }
+    val pill = remember { SelectionPill() }
+    val selectedLabel = items.getOrNull(selectedIndex)?.label
+    pill.follow(selectedLabel, slide = motion.enabled && !reordering, bounds = tabBounds)
+    LaunchedEffect(selectedLabel) { pill.run(motion.pillSpring()) }
+    val pillColor = tabContainerColor(selected = true, held = false, scheme = MaterialTheme.colorScheme)
+
     // Put the current destination in view before the bar is first drawn.
     //
     // Not an animation, and not a nicety: the caller that scrolls draws a fresh
@@ -523,7 +537,7 @@ private fun ToolbarItems(
                 .padding(PillPadding)
         } else {
             Modifier.padding(PillPadding)
-        },
+        }.then(pill.draw(tabBounds, pillColor)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         working.forEachIndexed { slot, original ->
@@ -544,6 +558,7 @@ private fun ToolbarItems(
                 ToolbarTab(
                     item = item,
                     selected = original == selectedIndex,
+                    wearsDisc = pill.wearsDisc(selected = original == selectedIndex),
                     expanded = expanded,
                     hideLabel = hideLabel,
                     // The tab's own index, not its slot's: a phase that followed
@@ -556,6 +571,8 @@ private fun ToolbarItems(
                     offsetPx = if (slot == held) dragPx else shift * slotPx,
                     arrangeable = reorderable,
                     labelMax = labelMax,
+                    pillOver = { pill.over(item.label, tabBounds) },
+                    onPlaced = { at -> tabBounds.record(item.label, at) },
                     onOpenArranging = { onReorderingChange(true) },
                     onExitReorder = { onReorderingChange(false) },
                     onDragStart = {
@@ -641,6 +658,12 @@ internal fun textCap(screenWidth: Dp, tablet: Boolean, spare: Dp): Dp =
  * there it showed as a dark bite out of it (#226). Carried, it gets a body of
  * its own, the action button's pair, so it can be seen over the white disc.
  *
+ * A carried body is glass, [HeldBodyAlpha] of it, and so is the selected
+ * tab's white disc while that tab is the one carried. The row's pitch is
+ * hardly wider than the carried tab, and a tab making room slides from under
+ * one side of it to under the other: behind an opaque body that slide was
+ * never seen, and the tab seemed to vanish and reappear a slot away (#259).
+ *
  * Transparent as the selected disc's own colour, not as `Color.Transparent`:
  * the disc fades between the two, and a colour animation moves lightness and
  * alpha apart, so a fade to transparent black went through a half-transparent
@@ -648,10 +671,19 @@ internal fun textCap(screenWidth: Dp, tablet: Boolean, spare: Dp): Dp =
  * on the way in (#254); with one colour on both ends, only the alpha moves.
  */
 internal fun tabContainerColor(selected: Boolean, held: Boolean, scheme: ColorScheme): Color = when {
+    selected && held -> scheme.background.copy(alpha = HeldBodyAlpha)
     selected -> scheme.background
-    held -> scheme.primaryContainer
+    held -> scheme.primaryContainer.copy(alpha = HeldBodyAlpha)
     else -> scheme.background.copy(alpha = 0f)
 }
+
+/**
+ * How much of a carried tab's body is drawn; see [tabContainerColor]. Enough
+ * to read as the tab's own body over the bar and over the white disc, little
+ * enough that a white icon beneath it still stands out about twice as bright
+ * as the body around it.
+ */
+private const val HeldBodyAlpha = 0.6f
 
 /** @see tabContainerColor */
 internal fun tabContentColor(selected: Boolean, held: Boolean, scheme: ColorScheme): Color = when {
@@ -763,6 +795,7 @@ private val PillSlack: Dp = 8.dp
 private fun ToolbarTab(
     item: ToolbarItem,
     selected: Boolean,
+    wearsDisc: Boolean = selected,
     expanded: Boolean,
     hideLabel: Boolean,
     jigglePhase: Int = 0,
@@ -773,6 +806,8 @@ private fun ToolbarTab(
     offsetPx: Float = 0f,
     arrangeable: Boolean = false,
     labelMax: Dp = LabelWidth,
+    pillOver: () -> Rect? = { null },
+    onPlaced: (Rect) -> Unit = {},
     onOpenArranging: () -> Unit = {},
     onExitReorder: () -> Unit = {},
     onDragStart: () -> Unit = {},
@@ -887,28 +922,39 @@ private fun ToolbarTab(
     // What `IconButton` was giving is reproduced rather than approximated: a
     // circular shape, which on a box wider than it is tall is the pill the
     // selected tab wears, and the same two colour pairs.
-    // The disc and its content fade with the selection instead of flipping on
-    // the frame it changes. The width is a spring, and while the disc flipped,
-    // the tab losing the selection went on being as wide as its label with
-    // nothing behind it — its icon alone at the left of an empty stretch of
-    // the bar, a hole that closed as the new tab opened (#249). Not for the
-    // carried tab: its body has to be there the moment it is picked up, or it
-    // bites the white disc it passes over again (#226).
-    val colorSpec: FiniteAnimationSpec<Color> = if (held) snap() else motion.tweenSpec(TabColorMillis)
-    val containerColor by animateColorAsState(
-        targetValue = tabContainerColor(selected = selected, held = held, scheme = scheme),
-        animationSpec = colorSpec,
+    // At rest the selected tab wears its own disc. While the selection moves,
+    // no tab does: the row draws one pill sliding from the old tab to the new,
+    // and each tab it passes over is drawn the selected way where it is under
+    // the pill and the unselected way where it is not ([pillOver]). Whether
+    // this tab wears its disc is the row's to say ([wearsDisc]), so that a
+    // slide recomposes the two tabs it moves between and none of the rest.
+    //
+    // Twice it was otherwise. The disc flipped on the frame the selection
+    // changed, and the tab losing it went on being as wide as its label with
+    // nothing behind it (#249). Then both colours faded instead — but a
+    // selected tab is an unselected one inverted, the bar's colour on white
+    // against white on the bar's colour, so halfway each icon was the colour
+    // of its own disc and the tab read as an empty pill for a frame or two
+    // (#258). Under a sliding pill no pixel is ever a blend of the two.
+    //
+    // The carried tab's body still fades, for the drop: it has to be there the
+    // moment it is picked up, or it bites the white disc it passes over again
+    // (#226), and it leaves over a quarter of a second.
+    val bodySpec: FiniteAnimationSpec<Color> = if (held) snap() else motion.tweenSpec(TabColorMillis)
+    val bodyColor by animateColorAsState(
+        targetValue = tabContainerColor(selected = false, held = held, scheme = scheme),
+        animationSpec = bodySpec,
         label = "toolbar_tab_container",
     )
-    val contentColor by animateColorAsState(
-        targetValue = tabContentColor(selected = selected, held = held, scheme = scheme),
-        animationSpec = colorSpec,
+    val bodyContent by animateColorAsState(
+        targetValue = tabContentColor(selected = false, held = held, scheme = scheme),
+        animationSpec = bodySpec,
         label = "toolbar_tab_content",
     )
     Surface(
         shape = CircleShape,
-        color = containerColor,
-        contentColor = contentColor,
+        color = if (wearsDisc) tabContainerColor(selected = true, held = held, scheme = scheme) else bodyColor,
+        contentColor = if (wearsDisc) tabContentColor(selected = true, held = held, scheme = scheme) else bodyContent,
         modifier = Modifier
             // First in the chain, outside the layer that moves and scales the
             // tab: the finger is measured in the row's coordinates, so the held
@@ -955,6 +1001,7 @@ private fun ToolbarTab(
             .jiggling(active = reordering && !held, phase = jigglePhase)
             .width(itemWidth + labelWidth)
             .height(ItemSize)
+            .onPlaced { coordinates -> onPlaced(coordinates.boundsInParent()) }
             .combinedClickable(
                 interactionSource = interactionSource,
                 // Drawn inside the Surface instead; see [interactionSource].
@@ -975,6 +1022,13 @@ private fun ToolbarTab(
         Row(
             modifier = Modifier
                 .fillMaxSize()
+                // Always in the chain, drawing nothing while no pill passes:
+                // put in and taken out with each slide, it rebuilt the nodes
+                // after it, the ripple's among them, twice per change of tab.
+                .inkedUnder(
+                    pill = pillOver,
+                    content = tabContentColor(selected = true, held = held, scheme = scheme),
+                )
                 // Inside the Surface, so its CircleShape clips the ripple and the
                 // focus layer to a circle on an icon and to the pill on the
                 // selected tab — never the square the box is. Before the padding,
@@ -1025,10 +1079,13 @@ private fun ToolbarTab(
                     // a gradient over the label on every tap (#246). At its own
                     // width it scrolls only when it truly does not fit, and the
                     // pill growing reveals it rather than squeezing it.
+                    // The content colour, not the selected one: beside the
+                    // sliding pill the label is drawn the unselected way, like
+                    // the icon, and the pill inks it where it covers it.
                     MarqueeText(
                         text = item.label,
                         style = labelStyle,
-                        color = scheme.primary,
+                        color = LocalContentColor.current,
                         modifier = Modifier
                             .wrapContentWidth(Alignment.Start, unbounded = true)
                             .requiredWidth(labelFits),
@@ -1155,14 +1212,18 @@ private fun BackAndTitle(
  * snap with animations off, like every spring here: none of them read the
  * motion settings until #246, so the bar went on springing with the switch off.
  *
- * Bouncy and slow, which is what gives the selected pill its overshoot; every
- * width in the component shares it so they cannot arrive at different times —
- * all but the one that changes on its own, the label going as the tabs start
- * to be arranged, which is [toolbarSettleSpring]'s.
+ * Without a bounce. It used to overshoot, which gave the selected tab a
+ * flourish of its own and pushed every tab beside it past its place and back:
+ * once the selection slid as a pill (#258), each neighbour shook as the pill
+ * arrived, as if struck, and the owner filmed it («дергаются после
+ * затрагивания их таблеткой»). Every width in the component shares it so they
+ * cannot arrive at different times — all but the one that changes on its own,
+ * the label going as the tabs start to be arranged, which is
+ * [toolbarSettleSpring]'s.
  */
 private fun MotionSettings.toolbarSpring() = springSpec<Dp>(
-    dampingRatio = Spring.DampingRatioMediumBouncy,
-    stiffness = Spring.StiffnessLow,
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMediumLow,
 )
 
 /**

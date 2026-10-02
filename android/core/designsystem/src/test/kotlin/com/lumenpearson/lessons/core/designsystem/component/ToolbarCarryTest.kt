@@ -12,6 +12,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.model.HapticStrength
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -86,6 +87,23 @@ class ToolbarCarryTest {
             // unclamped, the carried one was thousands of dp out.
             5f,
         )
+    }
+
+    /**
+     * A tab making room slides beneath the carried one, and the carried one
+     * covers almost a whole slot: while its body was opaque, the neighbour's
+     * slide happened out of sight and it seemed to teleport (#259). Glass, so
+     * that what passes beneath is seen passing — the selected tab's white disc
+     * too, when it is the one being carried.
+     */
+    @Test
+    fun `a carried tab's body lets what is beneath it show`() {
+        val scheme = lightColorScheme()
+        for (selected in listOf(false, true)) {
+            val alpha = tabContainerColor(selected = selected, held = true, scheme = scheme).alpha
+            assertTrue("a carried tab's body, selected=$selected, was opaque: $alpha", alpha < 1f)
+            assertTrue("a carried tab's body, selected=$selected, was barely there: $alpha", alpha >= 0.5f)
+        }
     }
 
     @Test
