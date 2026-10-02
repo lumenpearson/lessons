@@ -156,9 +156,14 @@ October 2026, continuing from where the local session that built #214 stopped.
 
 ### Gates
 
-On this branch: `ruff` clean; `python -m mypy` clean over 153 source files; `pytest -q -n
+On `f23ae3a`: `ruff` clean; `python -m mypy` clean over 153 source files; `pytest -q -n
 auto` **2064** passed, one more than #214's 2063, on Python 3.12 with the lock installed.
-The Android gates (`./gradlew test`, `assembleDebug`, `assembleRelease`, `detekt`) were still running when this was committed; the next commit replaces this sentence with their result.
+`./gradlew test` **1500** (`:core:model` 125, `:core:data` 570, `:core:designsystem` 112,
+`:widget` 123, `:app` 570), the same as #214's, on Gradle 9.8.0 and the bumped androidx
+libraries; `assembleDebug` and `assembleRelease` build; `./gradlew detekt` passes. Run in
+the cloud container against a downloaded SDK, where Maven Central answered 429 often enough
+that it took several attempts to fetch everything; no attempt failed on anything but a
+download. On GitHub, #218's CI ran both jobs green on `f23ae3a`.
 
 ### What was deliberately left alone
 
