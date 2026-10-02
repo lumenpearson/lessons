@@ -621,12 +621,22 @@ internal fun HomeShell(
                                 // index named the tab that had moved into it,
                                 // and the selected circle hopped to that tab
                                 // for a frame and back (#180).
-                                (keepOnTab ?: tabs.getOrNull(pagerState.currentPage))
+                                //
+                                // The page being travelled to, not the one in
+                                // front: a tap two tabs away scrolls the pager
+                                // through the page between, and while that one
+                                // was in front the bar selected a tab nobody
+                                // chose — its label began to open and closed
+                                // again, and the pill turned towards it and
+                                // back (#260). It also moved nothing until the
+                                // page had scrolled halfway.
+                                (keepOnTab ?: tabs.getOrNull(pagerState.targetPage))
                                     ?.let(barTabs::indexOf) ?: -1
                             }
 
                             ShellPage.Docs -> docsToolbarSelection(
-                                docsPagerState.currentPage,
+                                // As the tabs' bar, for the same reason (#260).
+                                docsPagerState.targetPage,
                                 docsPages.size,
                             )
                             else -> -1
