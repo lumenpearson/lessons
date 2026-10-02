@@ -7,20 +7,20 @@ What every batch before the last two added is in [docs/history.md](docs/history.
 newest first.
 
 Last updated: **2 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166, #186, #187, #189, #214, #218, #234, #238 and #239 are merged**; `main` is at `4d792df`,
-the merge of #239, on 2 October 2026, and `dev` was level with it when this batch began.
-**The only thing open is the pull request carrying this paragraph, #241**, from `dev`, on
-milestone 9, `v0.8.0 — On-device checks, 89-region e-diary survey`. It fixes two things the
-owner saw in the bottom bar that afternoon — the pill 16 dp taller on every page without a
-button beside it (#240), and a short label sitting in a box much wider than itself (#242) —
-and records the first run of #201's Keystore seal and #202's https-only release on a device:
-two API 37 emulators, one of them holding a release build signed with the owner's own key.
-The section «What the last session added» below is that batch.
+#166, #186, #187, #189, #214, #218, #234, #238, #239 and #241 are merged**; `main` is at
+`c21f601`, the merge of #241, on 2 October 2026, and `dev` was restarted from it for this
+batch. **The only thing open is the pull request carrying this paragraph, #245**, from `dev`,
+on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary survey`. It makes back in
+settings close one page at a time — a page opened from a page returns to it, and the guide
+to the page it was opened from (#243) — and makes the back pill name where back goes rather
+than where the reader is (#244), both asked for by the owner from the emulator that
+afternoon. The section «What the last session added» below is that batch; the one under it
+is #241, made earlier by the same session.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#239 closed #237**, read back from GitHub on 2 October. **#241 closes #240 and #242.**
-**#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
+**#241 closed #240 and #242**, read back from GitHub on 2 October. **#245 closes #243 and
+#244.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
 nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
 Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
@@ -133,9 +133,64 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: #201 and #202 on two emulators, and a bottom bar that follows its text (#240, #242)
+## What the last session added: back one settings page at a time, and a back pill that names where it goes (#243, #244)
 
-Open as #241, from `dev`, on milestone 9. Made on the owner's machine on 2 October 2026, with
+Open as #245, from `dev`, on milestone 9. The same session as #241, after its merge, on the
+owner's next two requests from the emulator that afternoon.
+
+- **#243, back skipped the page a page was opened from — filed, then fixed.** The shell kept
+  one open section (`openSectionName`), so «Разрешения», opened from «Уведомления»,
+  overwrote it and back landed on the root; and `docsBack()` closed the whole settings tree
+  on purpose, so the guide, opened from «О приложении», returned to the tabs. The shell now
+  keeps the path of pages open over the root (`navigation/SettingsTrail.kt`, saved as their
+  names): a page is opened *from* a page, back closes exactly the last one, and the guide's
+  back returns to the page it came from. A row tapped on a page still sliding away opens from
+  that page. A section's depth grows with its level, so the slide's direction follows; the
+  guide is deeper than any. Each page's saved state is held by a `SaveableStateHolder` while
+  another is over it and forgotten when it closes, so back lands where the page was left, and
+  each section has its own scroll-offset holder now that two are composed during a slide.
+- **#244, the back pill names where back goes.** It named the page on screen, under that
+  page's own heading; the owner asked for the page before. A section opened from the root
+  reads «← Настройки», «Разрешения» reads «← Уведомления», and the root reads the tab it was
+  opened from — «← Сегодня», or the diary's tab on the diary home. `backLabel` is the rule.
+- **Seen on the API 37 emulator** (`Release_Check`, 420 dpi, the debug build of `4b9b9f7`):
+  every label above; back from «Разрешения» onto «Уведомления»; the guide's arrow onto
+  «О приложении»; the root back scrolled rather than at its top.
+- **C: was given room**, because it had fallen to 3.0 GB with more builds to come. Moved to
+  `F:\MovedFromC`, where they can be put back: 3.0 GB of Visual Studio installer payloads
+  left in `%TEMP%\bousvcyu` on 27 September, 0.46 GB of program crash dumps
+  (`%LOCALAPPDATA%\CrashDumps`), and 0.21 GB of Android Studio 2024.1's caches. Deleted,
+  because their programs rebuild them: NVIDIA's shader caches (0.92 GB), two Robolectric
+  native runtimes and five PyInstaller leftovers in `%TEMP%` (0.6 GB), and Gradle 9.7.1's
+  distribution and caches (3.1 GB) once its idle daemon was stopped — the project builds
+  with 9.8.0 since #239. Nothing of a browser's or a messenger's was touched. C: had 11.3 GB
+  free after.
+
+### Gates
+
+On `4b9b9f7`: `./gradlew test assembleDebug assembleRelease detekt` BUILD SUCCESSFUL;
+`./gradlew test` **1600** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 130,
+`:widget` 126, `:app` 604), thirteen more than #241's 1587, all `SettingsTrailTest`'s. They
+ask the path and the label as pure rules, so none of them could be run red against the old
+shell — it had no path to ask; what the old shell did is the failure scenario in #243, and
+the walk above is what checks the wiring. The server was not touched.
+
+### What was deliberately left alone
+
+- The guide still opens only from «О приложении», and is one destination: its sections stay
+  peers on a pager, and back from any of them is back out of the guide.
+- `F:\MovedFromC` was not deleted: it is the owner's to keep, put back or remove.
+
+### What nobody has verified in this batch
+
+- A rotation or a process death in the middle of a path: the path is saved by name and its
+  decoding is tested, the restore is not seen.
+- The diary home's root pill, which names the diary's tab.
+- Any composition of the shell in a test: `HomeShell` still has none.
+
+## What the session before it added: #201 and #202 on two emulators, and a bottom bar that follows its text (#240, #242)
+
+Merged as #241 (`c21f601`, 2 October 2026), from `dev`, on milestone 9. Made on the owner's machine on 2 October 2026, with
 the API 37 emulator, a local server and production read only. The owner asked for everything
 the last build needed to be tested to be run; while that walk was under way `main` moved from
 `eb0ab94` to `4d792df` (#234 and #239), so the walk was run again on a build of `4d792df`;
@@ -239,109 +294,6 @@ touched, so its gates were not run.
 - A release build joined to a production class: «11А» takes invitations only, and nothing
   here wrote to production.
 
-## What the session before it added: a developer mode (#237) with a request console, and the Petersburg diary out of the server's reach (#235)
-
-Merged as #239 (`4d792df`, 2 October 2026), from `dev`, on milestone 9; #238, from
-`agents/dazzling-davinci-qtw4n8`, is its first two commits and was marked merged with it. Made by two cloud sessions on 2 October 2026. The first began as a
-scheduled status check, turned into the owner's report that the real diary would not open,
-and ended with a developer mode to find out why next time. The second, asked by the owner for
-«отправки конкретных запросов с разными заголовками на разные эндпоинты», «ограничь нашим
-сервером и дневниками», found the mode already pushed and added the console to it rather
-than writing a second one.
-
-- **The production server cannot reach Petersburg's diary (#235), measured rather than
-  assumed.** `POST /api/v1/diary/login` on `lessons-ruddy-zeta.vercel.app` with a made-up
-  login answered `503`, `X-Diary-Unavailable: upstream`, «Дневник не ответил вовремя», in
-  5.9 s: the 5-second connect timeout, before any password was judged. From a cloud
-  container outside Russia, `dnevnik2.petersburgedu.ru`, `petersburgedu.ru` and `www.spb.ru`
-  all hang at TLS, while `www.gosuslugi.ru` and `ya.ru` answer. The city's network does not
-  answer foreign addresses, and Vercel is in Frankfurt. The phone's own sign-in does not get
-  around it, because registration's `adopt` and every diary read are made from the server.
-  No code was changed for it. The options and the recommendation, a Russian egress for diary
-  traffic only, are in the issue.
-- **A phone's sign-in that showed nothing for over a minute (#236)** was filed, then closed
-  as a duplicate of #233. #234 had merged that morning with a 25-second deadline over the
-  whole exchange; the phone almost certainly ran an older APK.
-- **A hidden developer mode (#237).** Seven quick taps on the version in «О приложении» list
-  «Для разработчиков». Its tools open only for a GitHub account with `admin`, `maintain` or
-  `push` on this repository, asked through `GET /repos/lumenpearson/lessons` with the
-  existing device-flow token. The verdict stands a day, for that login, in its own
-  preferences file. **The gate is not a lock**, and `CLAUDE.md` says so. Behind it:
-  - a network record on all three clients, with masked paths, query names only, an allow
-    list of headers, and requests in flight with a running clock;
-  - an activity record of lifecycle, pages, sign-in steps, sync and widget redraws;
-  - checks from the phone's network, each bounded at 20 s: server, diary hosts, GitHub,
-    Keystore round trip, transports (VPN warns), notifications, exact alarms, the periodic
-    sync, widgets, build;
-  - a layout grid, text at twice the scale, and stretched strings through `AppCorrections`;
-  - a plain-text report to copy or share;
-  - **a request console** (`RequestConsole`, second session): any method, path, headers and
-    body, to our server or a diary origin the catalog allow-lists, and nowhere else.
-    `planConsole` judges the resolved URL, so no spelling of a path leaves the origin; its
-    own client keeps no cookie, follows no redirect and guards the origin again; a bearer
-    («Устройство» or «Дневник») goes to our server only, chosen rather than typed, read as
-    the request leaves. The answer is on the page only, never in the report.
-
-  `docs/architecture.md` has the section «The developer mode, and why its gate is not a lock».
-
-  **The documentation was brought level before the merge**, at the owner's request:
-  `docs/build.md` gains «Putting the client id into a build» — the Actions secret, the line
-  for `~/.gradle/gradle.properties`, how to tell from the phone whether a build carries it,
-  and what the developer mode needs beyond it; `docs/guide.md` gains «For the project's own
-  developers» (the in-app guide does not mention the section, on purpose); `docs/design.md`'s
-  «Signing in through GitHub is for one thing» is now «… for reports, corrections and
-  developers»; the README's honest status says the mode has never run on a device; and the
-  index in `docs/README.md` names the console and the client id.
-
-### Gates
-
-The first session could not install the Android SDK, and ran detekt-cli and 27 pure-JVM tests
-by hand under kotlinc, with three mutations caught; its commit message has the detail. The
-second ran the project's gates on `30c5938`, the console on top of #238:
-
-```text
-./gradlew test assembleDebug assembleRelease detekt   → BUILD SUCCESSFUL
-tests: 1579, 0 failures (:core:model 125, :core:data 615, :core:designsystem 122,
-       :widget 126, :app 591) — 1523 before the batch, 44 from #238 and 12 from the console
-RequestConsoleTest's 12, with the diary allow-list check in planConsole disabled → 1 red
-```
-
-The first run of `detekt` found three findings in the console and two more after them, all
-fixed rather than baselined. The server was not touched.
-
-### What was deliberately left alone
-
-- **#235 has no code.** A Russian egress is a setting, `DIARY_PROXY_URL`, plus a VPS, and
-  which host to rent is the owner's decision.
-- **The developer page has no composed screen test.** Its network group ticks a clock while a
-  request is in flight, which is the kind of composition `MarqueeClockTest` makes a test
-  argue for; what is tested is everything under it — the gate, the records, the report, the
-  stretched strings, the taps, the listing.
-- **The console has no composed screen test either**, and no history: one request at a time,
-  the last answer only. A settings change between planning and sending is refused by the
-  client's guard rather than planned again.
-- **The checks ask Petersburg's host and the signed-in region's, not every region in the
-  catalog.** A developer's check is no reason to knock on sixteen regional servers.
-
-### What nobody has verified in this batch
-
-- **None of the developer mode has run on a device** (it has now been built and tested
-  locally, not run):
-  - the reveal gesture and the toast;
-  - the page;
-  - the grid, the large text and the stretched strings over real screens;
-  - the Keystore round trip;
-  - the connectivity, notification and alarm checks;
-  - the widget count;
-  - the request console, against the real server or any diary.
-- The GitHub permission call has never been made against a real account. A build without
-  `LESSONS_GITHUB_CLIENT_ID` cannot open the mode at all.
-- The in-flight row relies on the recorder sitting inside OkHttp's call. A sign-in stuck
-  before the request leaves, in a coroutine, shows on the activity record as a step that never
-  ended, and not as a row.
-- #235's measurement is from Frankfurt and from a cloud container. Whether the city's network
-  answers a Russian VPS — the fix's premise — is unasked.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -361,7 +313,7 @@ maps them. The
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
@@ -575,6 +527,10 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   the image again — a password the stack refuses to start without, every setting passed
   through, a non-root user — and are read by `test_compose.py` and `test_dockerfile.py`,
   not by a container.
+- **Back in settings follows a path now (#243), and only its rules are tested.** Nothing
+  composes `HomeShell`, so that its back handlers and the pill read the path rests on one
+  walk on an emulator; a rotation or a process death in the middle of a path, which the
+  saved names are meant to survive, has not been seen.
 - **#201's Keystore seal and #202's https-only release have run on emulators, not on a
   phone** (2 October 2026, #241). Seen: an upgrade in place sealing a plain-text membership
   and the sealed token opening after a force-stop and a reboot; a release build refusing
@@ -1110,9 +1066,10 @@ began, the same night; its builds and one emulator boot left 12 GB, and #189's l
 so each batch with a device in it costs two or three. The emulator refused to
 start once below 2 GB, and the AVD's Quick Boot image alone is 8.5 GB. The worktrees under
 `.claude/worktrees/` each carry their own Gradle build directories. On 2 October it had
-4.5 GB at the start of #241's session and 5.6 GB at its end, nothing having been moved or
-cleaned: both AVDs live on F: (`Pixel_10_Pro_XL` 12 GB, `Release_Check` 5 GB), and the
-Gradle wrapper fetched 9.8.0 for `4d792df`.
+4.5 GB at the start of #241's session and fell to 3.0 GB by #245, and #245 gave it room:
+8 GB moved to `F:\MovedFromC` or deleted as a rebuildable cache, listed in #245's section,
+for 11.3 GB free. Both AVDs live on F: (`Pixel_10_Pro_XL` 12 GB, `Release_Check` 5 GB).
+`F:\MovedFromC` is yours to keep, put back or delete.
 
 **Restart Android Studio once, when it is free.** Three changes wait for it, because the IDE
 rewrites those files on exit: `server/.venv` as the Python SDK, the root module as a Python
@@ -1355,7 +1312,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 2065 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 153 modules
-cd android && ./gradlew test                             # 1587 tests across the five modules
+cd android && ./gradlew test                             # 1600 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
