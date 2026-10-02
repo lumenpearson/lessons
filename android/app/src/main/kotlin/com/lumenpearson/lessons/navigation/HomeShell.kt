@@ -101,6 +101,13 @@ private const val SwipeHapticBuckets = 10
 private const val TabsStateKey = "home-tabs"
 
 /**
+ * Key the settings root's saved state is filed under while a page is over it.
+ * The sections are filed under their names, which no section can share with
+ * this.
+ */
+private const val SettingsRootStateKey = "settings-root"
+
+/**
  * The signed-in app: three tabs under one floating toolbar, with the settings
  * tree layered over them.
  *
@@ -234,8 +241,11 @@ internal fun HomeShell(
     // Where the shell sits on the screen, for turning a point a modal sheet
     // measured in its own window into one of ours.
     var shellOnScreen by remember { mutableStateOf(Offset.Zero) }
-    var openSectionName by rememberSaveable { mutableStateOf<String?>(null) }
-    val openSection = remember(openSectionName) { SettingsSection.fromName(openSectionName) }
+    // The settings pages open over the root, in the order they were opened
+    // (#243). Saved as their names, so the path survives process death the way
+    // the single open section it replaced did.
+    var openSections by rememberSaveable { mutableStateOf("") }
+    val trail = remember(openSections) { SettingsTrail.decode(openSections) }
 
     // Whether the guide is open. A flag rather than a path: its sections are
     // peers on one pager now, so there is no history inside it to remember —
@@ -267,12 +277,10 @@ internal fun HomeShell(
 
     // Where the shell is, as one value. Derived from the saved flags rather
     // than replacing them, so what survives process death is unchanged.
-    val destination = remember(settingsOpen, openSection, docsOpen) {
+    val destination = remember(settingsOpen, trail, docsOpen) {
         when {
             docsOpen -> ShellPage.Docs
-            openSection != null -> ShellPage.Section(openSection)
-            settingsOpen -> ShellPage.SettingsRoot
-            else -> ShellPage.Tabs
+            else -> trail.page() ?: if (settingsOpen) ShellPage.SettingsRoot else ShellPage.Tabs
         }
     }
 
@@ -320,7 +328,17 @@ internal fun HomeShell(
         pageOffsets.getValue(tabs.getOrElse(page) { tabs.first() })
 
     val settingsOffset = remember { ScrollOffsetHolder() }
-    val sectionOffset = remember { ScrollOffsetHolder() }
+    // One per section now that one can be opened over another (#243): both are
+    // composed while the slide runs, and a shared holder let the page leaving
+    // report its scroll over the one arriving.
+    val sectionOffsets = remember { SettingsSection.entries.associateWith { ScrollOffsetHolder() } }
+
+    // Each settings page's saved state — its scroll, above all — for while
+    // another page is over it. A page leaves the composition when one slides
+    // over it, so without this, back from «Разрешения» put «Уведомления» at the
+    // top, wherever the reader had left it. Forgotten when the page closes, so
+    // opening it again starts where a page starts.
+    val settingsStates = rememberSaveableStateHolder()
     // One per section, for the reason the tabs have one per tab: the pager keeps
     // its neighbours composed, and a shared holder would let an off-screen page
     // report its scroll over the visible one's.
@@ -358,7 +376,7 @@ internal fun HomeShell(
     LaunchedEffect(openDate) {
         val date = openDate ?: return@LaunchedEffect
         docsOpen = false
-        openSectionName = null
+        openSections = ""
         settingsOpen = false
         // A deep link is somebody arriving with a question, and a bar that is
         // still being arranged is in the way of answering it.
@@ -413,12 +431,25 @@ internal fun HomeShell(
         }
     }
 
+    /**
+     * [section] opened from [from] — the root when null (#243). Read from the
+     * saved path as it is at the tap, not as it was when the row was composed.
+     */
+    fun openSection(section: SettingsSection, from: SettingsSection?) {
+        openSections = SettingsTrail.decode(openSections).opened(section, from).encode()
+    }
+
+    /** Back from a settings page: onto the page it was opened from (#243). */
     fun closeSection() {
-        openSectionName = null
+        val trail = SettingsTrail.decode(openSections)
+        trail.top?.let { settingsStates.removeState(it.name) }
+        openSections = trail.closed().encode()
     }
 
     fun closeSettings() {
-        openSectionName = null
+        SettingsTrail.decode(openSections).sections.forEach { settingsStates.removeState(it.name) }
+        settingsStates.removeState(SettingsRootStateKey)
+        openSections = ""
         settingsOpen = false
     }
 
@@ -469,14 +500,13 @@ internal fun HomeShell(
      * sections are peers on one pager, and a reader on the fourth of them asked
      * for the fourth rather than arrived at it through three others.
      *
-     * Leaving goes home rather than back to the settings page it was opened
-     * from. The guide is somewhere you go to read, and handing a reader who has
-     * finished the settings tree they came through would make them press back
-     * twice more to reach the thing the documentation was about.
+     * Leaving goes back to the settings page it was opened from, like every
+     * other back in the tree (#243). It used to go home, on the reasoning that a
+     * reader done with the guide was done with settings too; the owner found it
+     * the other way — back that lands two layers up is back that skipped a page.
      */
     fun docsBack() {
         docsOpen = false
-        closeSettings()
     }
 
     // One layer per press, innermost first, and exactly one handler enabled at
@@ -493,7 +523,7 @@ internal fun HomeShell(
     val back = shellBack(
         arranging = reordering,
         docsOpen = docsOpen,
-        sectionOpen = openSection != null,
+        sectionOpen = trail.top != null,
         settingsOpen = settingsOpen,
         // The diary's home page is its timetable, as the class's is the
         // default tab: back from the marks goes there before it leaves.
@@ -562,7 +592,7 @@ internal fun HomeShell(
                 offset = when (page) {
                     ShellPage.Tabs -> if (home == ShellHome.DIARY) diaryOffset else offsetOf(pagerState.currentPage)
                     ShellPage.SettingsRoot -> settingsOffset
-                    is ShellPage.Section -> sectionOffset
+                    is ShellPage.Section -> sectionOffsets.getValue(page.section)
                     ShellPage.Docs -> docsOffsets.getOrElse(docsPagerState.currentPage) { docsOffset }
                 },
                 // Everything here is read from `page`, never from the hoisted
@@ -656,11 +686,18 @@ internal fun HomeShell(
                             arranging = if (on) tabs else null
                         },
                         onReorder = ::commitTabOrder,
-                        title = when (page) {
-                            ShellPage.Tabs, ShellPage.Docs -> null
-                            ShellPage.SettingsRoot -> correctedString(R.string.settings_title)
-                            is ShellPage.Section -> correctedString(page.section.titleRes)
-                        },
+                        // Where back goes, not where the reader is (#244): the
+                        // page's own name is its heading already. On the root
+                        // that is the tab it was opened from, which does not
+                        // change while settings are open.
+                        title = backLabel(
+                            page = page,
+                            tabLabel = if (diaryViewModel != null) {
+                                (diaryTab ?: DiaryTab.SCHEDULE).labelRes()
+                            } else {
+                                tabs.getOrElse(pagerState.currentPage) { tabs.first() }.labelRes
+                            },
+                        )?.let { correctedString(it) },
                         onBackClick = when (page) {
                             // Null keeps the bar in its tabbed mode. On the
                             // documentation that is deliberate: the pill is the
@@ -771,26 +808,32 @@ internal fun HomeShell(
                     ShellPage.SettingsRoot -> CompositionLocalProvider(
                         LocalScrollOffset provides settingsOffset,
                     ) {
-                        SettingsRootScreen(
-                            mode = shellMode,
-                            viewModel = settingsViewModel,
-                            onOpenSection = { section -> openSectionName = section.name },
-                        )
+                        settingsStates.SaveableStateProvider(SettingsRootStateKey) {
+                            SettingsRootScreen(
+                                mode = shellMode,
+                                viewModel = settingsViewModel,
+                                onOpenSection = { section -> openSection(section, from = null) },
+                            )
+                        }
                     }
 
                     is ShellPage.Section -> CompositionLocalProvider(
-                        LocalScrollOffset provides sectionOffset,
+                        LocalScrollOffset provides sectionOffsets.getValue(page.section),
                     ) {
                         // page.section, not the hoisted one: that is already null
                         // for the whole slide out, which is what the latch this
-                        // replaces existed to paper over.
-                        SettingsSectionScreen(
-                            section = page.section,
-                            mode = shellMode,
-                            onOpenSection = { next -> openSectionName = next.name },
-                            onOpenDocs = ::openDocs,
-                            viewModel = settingsViewModel,
-                        )
+                        // replaces existed to paper over. And opened *from*
+                        // page.section, for the same reason: a row tapped on a
+                        // page that is sliding away opens from where it was seen.
+                        settingsStates.SaveableStateProvider(page.section.name) {
+                            SettingsSectionScreen(
+                                section = page.section,
+                                mode = shellMode,
+                                onOpenSection = { next -> openSection(next, from = page.section) },
+                                onOpenDocs = ::openDocs,
+                                viewModel = settingsViewModel,
+                            )
+                        }
                     }
 
                     ShellPage.Docs -> CompositionLocalProvider(

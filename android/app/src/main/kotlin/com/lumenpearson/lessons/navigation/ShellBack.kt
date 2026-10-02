@@ -5,10 +5,10 @@ internal enum class ShellBack {
     /** Leave the mode where the tabs are being arranged; nothing else moves. */
     LEAVE_ARRANGING,
 
-    /** Leave the documentation, and the settings tree it was opened from. */
+    /** Leave the documentation, back onto the settings page it was opened from. */
     CLOSE_DOCS,
 
-    /** Close one settings section, leaving the settings root behind it. */
+    /** Close one settings page, back onto the page it was opened from (#243). */
     CLOSE_SECTION,
 
     /** Close the settings root, back onto the tabs. */
