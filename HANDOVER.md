@@ -7,20 +7,20 @@ What every batch before the last two added is in [docs/history.md](docs/history.
 newest first.
 
 Last updated: **2 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166, #186, #187, #189, #214, #218, #234, #238, #239 and #241 are merged**; `main` is at
-`c21f601`, the merge of #241, on 2 October 2026, and `dev` was restarted from it for this
-batch. **The only thing open is the pull request carrying this paragraph, #245**, from `dev`,
-on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary survey`. It makes back in
-settings close one page at a time — a page opened from a page returns to it, and the guide
-to the page it was opened from (#243) — and makes the back pill name where back goes rather
-than where the reader is (#244), both asked for by the owner from the emulator that
-afternoon. The section «What the last session added» below is that batch; the one under it
-is #241, made earlier by the same session.
+#166, #186, #187, #189, #214, #218, #234, #238, #239, #241 and #245 are merged**; `main` is
+at `2ae3b37`, the merge of #245, on 2 October 2026, and `dev` was restarted from it for this
+batch. **The only thing open is the pull request carrying this paragraph, #248**, from
+`dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary survey`. It stops the
+selected tab's label flashing a gradient while its pill opens (#246), puts every animation
+the app draws under «Анимации» and the motion speed — five of them ignored the switch — and
+adds animation to rows and list items appearing, leaving and moving (#247), as the owner
+asked that evening. The section «What the last session added» below is that batch; the one
+under it is #245, made earlier by the same session.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#241 closed #240 and #242**, read back from GitHub on 2 October. **#245 closes #243 and
-#244.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
+**#245 closed #243 and #244**, read back from GitHub on 2 October. **#248 closes #246 and
+#247.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
 nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
 Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
@@ -133,9 +133,59 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: back one settings page at a time, and a back pill that names where it goes (#243, #244)
+## What the last session added: a tab's label revealed rather than squeezed, and every animation under «Анимации» (#246, #247)
 
-Open as #245, from `dev`, on milestone 9. The same session as #241, after its merge, on the
+Open as #248, from `dev`, on milestone 9. The same session as #241 and #245, on the owner's
+next request of 2 October 2026: no gradient over the selected tab's label while it animates,
+more animation of transitions and of elements appearing and leaving, and all of it still
+controlled from the settings.
+
+- **#246, a gradient over the selected tab's label on every tap — filed, then fixed.** The
+  pill springs open and for its first frames is narrower than the label; `MarqueeText`
+  decides from the width it is given, so the fading edges and the marquee came on and went
+  off a frame later. The label is laid out at its final width from the first frame and cut by
+  the growing pill; it stays while its pill closes, fading with it.
+- **#246, found while fixing it: animations that ignored the switch.** The bar's springs, the
+  calendar's period slide, the bell, the loading shimmer and the first run's app-mark spin
+  went on with «Анимации» off and at any speed. `core/designsystem/.../theme/MotionSpecs.kt`
+  is now where specs come from (`springSpec`, `tweenSpec`, `appear`, `disappear`), each a
+  snap or no transition when off and scaled by the speed when on. `docs/design.md`, «Every
+  animation answers to «Анимации»», says what a new animation has to do.
+- **#247, more animation.** Rows under a switch open and close (`Reveal`): vibration
+  strength, the motion speed, the blur amount, each notification's options. The items on
+  «Сегодня» and «Задания» fade and slide when the list changes (`animatedItem`). The lessons
+  on «Сегодня» cross-fade between placeholder, lessons and empty states (`MotionCrossfade`).
+- **Seen on the API 37 emulator** with the system animator scale at 10 to catch frames, then
+  put back: «Календарь» opening as a clipped, fading «Ка…» with no gradient, and «Сила
+  отклика» folding away under «Вибрация» and coming back.
+
+### Gates
+
+On `6bf79bb`: `./gradlew test` **1609** (`:core:model` 125, `:core:data` 615,
+`:core:designsystem` 139, `:widget` 126, `:app` 604), nine more than #245's 1600 —
+`ToolbarLabelRevealTest` 3 and `MotionSpecsTest` 6; `detekt`, `assembleDebug` and
+`assembleRelease` pass. The reveal tests were run against the toolbar before the fix and all
+three were red: the label laid out at 0 px for 34, the tab 49 px of 83 three frames in with
+animations off, the same width at either speed. Robolectric gives Cyrillic text no width, so
+those labels are Latin. The server was not touched.
+
+### What was deliberately left alone
+
+- The page transitions in the shell and the onboarding already read `LocalMotion` and were
+  not changed. The wave, the theme circle and the motion blur keep their own switches under
+  «Эффекты».
+- Settings pages' list items do not use `animatedItem`: they rarely change while open, and
+  their conditional rows have `Reveal`.
+
+### What nobody has verified in this batch
+
+- The new item animations on «Сегодня» and «Задания» frame by frame, and the lessons'
+  cross-fade, on any device.
+- A phone's GPU under the extra fades; the emulator's says nothing about a cheap phone.
+
+## What the session before it added: back one settings page at a time, and a back pill that names where it goes (#243, #244)
+
+Merged as #245 (`2ae3b37`, 2 October 2026), from `dev`, on milestone 9. The same session as #241, after its merge, on the
 owner's next two requests from the emulator that afternoon.
 
 - **#243, back skipped the page a page was opened from — filed, then fixed.** The shell kept
@@ -188,112 +238,6 @@ the walk above is what checks the wiring. The server was not touched.
 - The diary home's root pill, which names the diary's tab.
 - Any composition of the shell in a test: `HomeShell` still has none.
 
-## What the session before it added: #201 and #202 on two emulators, and a bottom bar that follows its text (#240, #242)
-
-Merged as #241 (`c21f601`, 2 October 2026), from `dev`, on milestone 9. Made on the owner's machine on 2 October 2026, with
-the API 37 emulator, a local server and production read only. The owner asked for everything
-the last build needed to be tested to be run; while that walk was under way `main` moved from
-`eb0ab94` to `4d792df` (#234 and #239), so the walk was run again on a build of `4d792df`;
-and twice the owner, watching the emulator, reported the bottom bar.
-
-- **#240, the pill 16 dp taller without a button beside it — filed, then fixed.** Every
-  settings page of a reader who does not manage the class drew the pill holding «←» and the
-  title 80 dp tall, where the tab bar it morphed from, and the same page beside the debug
-  button, drew 64 dp. Only Material's overload *without* a button runs
-  `minimumInteractiveBalancedPadding`, which pads the pill vertically by twice the amount the
-  content's interactive side inset exceeds its top one; since #183 the pill's ends were inside
-  our rows and its top and bottom outside them, so the 48 dp back button read as 8 dp in from
-  the side and 0 from the top. All of Material's padding is now inside the rows, on four
-  sides, and a bar without a button keeps the 80 dp slot Material gives one with a button, so
-  the pill does not drop 8 dp as settings open either — which the extra height had hidden.
-  Measured at 420 dpi: the settings pill 210 px before, 168 px after, as the tab bar's.
-- **#242, a short label in a box much wider than itself — filed, then fixed.** The back
-  pill's title was never under 100 dp and the selected tab's label never under 80 dp (the
-  floor #227 kept), so «← Sync» was as wide a pill as «← Settings» and «Today» half filled
-  its tab. Neither floor is left. The owner set the ceiling the same afternoon, asked and
-  answered in the session: a label or a title grows with its text until, on a tablet
-  (smallest width 600 dp and up), it reaches 30 % of the window, and on a phone until it
-  fills what the row leaves it; past that it scrolls, as `MarqueeText` already did. The
-  documentation's scrolling bar takes the same rule. Seen on the emulator in English and in
-  Russian: «Today», «← Sync», «← Settings», «← Настройки», «← Взаимодействие», each as wide
-  as its text.
-- **#201 on a real upgrade, twice.** The debug build installed before #201 (27 September,
-  this machine's debug key) was cleared, joined to a local `seed_demo` class «9А» with
-  `DEMO24`, and its preferences read with `run-as`: `session_list` held the membership as JSON
-  with `token` in plain text. The debug build of `eb0ab94`, and later of `4d792df`, was
-  installed over it with `install -r`: the class stayed, the first request after the upgrade
-  was a `304` with the migrated token, and the token now starts `gcm1:` over a 72-byte
-  payload whose first byte, the IV's length, is 12. After a `force-stop`, and after a reboot,
-  the server still answered `304`; a made-up bearer gets `401` on the same route, so the
-  `304` is the sealed token opening. Only the shape of the stored value was printed, never
-  the token.
-- **#201 and #202 on the release build signed with the owner's key.** The release APK built
-  here and the one the APK workflow built from `4d792df` (`versionCode` 39) are both signed
-  `CN=lumenpearson`. Neither installs over the release on the first AVD, which CI signed with
-  a throwaway key in #186 and which is linked to production's «11А» as owner, so a second
-  AVD, `Release_Check` (Pixel 9 profile, 1080×2424 at 420 dpi, on F:), took a fresh install.
-  `http://10.0.2.2:8000` was refused at the address field — «The app connects to the server
-  only at a secure address…», «Save» disabled — and `http://127.0.0.1:8000` accepted; «9А»
-  joined (`/join` 200, the year 200, then 304); the class came back after a `force-stop` and
-  after a reboot, each time with a `304`, so the Keystore key survives both. Pointed at
-  `https://lessons-ruddy-zeta.vercel.app`, «About» read «Server is up»: the first time a
-  release build met the real server over TLS. The address went back to the local one at once.
-- **#209's splits, walked on both builds.** The nine settings pages, the calendar's week,
-  month and day ribbon, homework and «Сегодня» opened with no `FATAL EXCEPTION`; on
-  `4d792df` the week list carries #220's «сейчас» line.
-- **«Обновить сейчас» against a host that does not answer** says «Не удалось обновить
-  расписание» after about twenty seconds. On the old build the snackbar came and went
-  between two screenshots, which looked like silence and was not.
-- **`ToolbarOnDeviceTest`**: 3 of 3 on `eb0ab94` and again on `4d792df`.
-
-### Driving the emulators from a shell
-
-- **`10.0.2.2` does not reach the host from the emulator on this machine**: `nc` times out,
-  while the machine's LAN address answers. `adb reverse tcp:8000 tcp:8000` with
-  `http://127.0.0.1:8000` is what works, and it is also the one cleartext address a release
-  build accepts.
-- **The local server ran from the scratchpad, never from `server/`.** `app.config` reads
-  `.env` from the working directory, and the one in `server/` belongs to the deployment; the
-  server took `DATABASE_URL` pointing at a SQLite file, `RUN_BOT=false`, and an empty
-  `BOT_TOKEN` and `WEBHOOK_SECRET`, from its environment.
-- **A fresh AVD's Gboard opened its stylus tutorial** over the first text field and swallowed
-  `input text`; `settings put secure stylus_handwriting_enabled 0` ends it.
-- **Screens were read through `uiautomator dump`**, not through screenshots. A tap has to
-  wait for a sheet or the keyboard to settle, or it lands where the button used to be.
-- **One Gradle daemon died** with `EXCEPTION_ACCESS_VIOLATION` in `jvm.dll`, and the second
-  AVD's first boot exited 139 just after «Boot completed». Both ran clean the second time;
-  the machine still holds the four DIMMs #214's section blamed, and two more unexpected
-  shutdowns were logged on 28 September.
-
-### Gates
-
-On `40889c2`: `./gradlew test assembleDebug assembleRelease detekt` BUILD SUCCESSFUL;
-`./gradlew test` **1587** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 130,
-`:widget` 126, `:app` 591), eight more than #239's 1579 — `ToolbarPillHeightTest` 3 and
-`ToolbarLabelFitTest` 5. Each was run against the toolbar before its fix first: the pill
-80 px for 64 and its centre 40 px for 48; then 84 px for a 4 px «Sync», a 128 px tab for
-«Today», and 322, 322 and 776 px where the caps said 379, 388 and 348. The server was not
-touched, so its gates were not run.
-
-### What was deliberately left alone
-
-- The first AVD's release build, linked to production's «11А» as owner, was not uninstalled
-  to make room for the owner-signed build: a second AVD cost 5 GB on F: and nothing the owner
-  had set up.
-- C: was not cleaned: it stayed between 4.5 and 7 GB free and nothing needed more.
-- The developer mode (#237) was not opened.
-
-### What nobody has verified in this batch
-
-- The pill beside the debug button after #240's fix: the local class gives no manager.
-  Material holds that pill at 64 dp by construction.
-- #242 on a tablet: the 30 % cap is held by `ToolbarLabelFitTest` only. Nor was a title long
-  enough to reach a phone's cap seen scrolling.
-- #201 on a phone, a restore onto another phone, a wiped Keystore, and the diary's bearer,
-  which is sealed the same way and needed a diary session nobody opened.
-- A release build joined to a production class: «11А» takes invitations only, and nothing
-  here wrote to production.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -313,7 +257,7 @@ maps them. The
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
@@ -527,6 +471,11 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   the image again — a password the stack refuses to start without, every setting passed
   through, a non-root user — and are read by `test_compose.py` and `test_dockerfile.py`,
   not by a container.
+- **The animations #247 added have been seen only in two frames on an emulator.** Rows
+  opening under their switches and the selected tab's label being revealed were caught with
+  the animator scale at ten; the list items fading and sliding on «Сегодня» and «Задания»,
+  and the lessons' cross-fade, have not been looked at, and what the extra fades cost a cheap
+  phone's GPU is unmeasured.
 - **Back in settings follows a path now (#243), and only its rules are tested.** Nothing
   composes `HomeShell`, so that its back handlers and the pill read the path rests on one
   walk on an emulator; a rotation or a process death in the middle of a path, which the
@@ -1312,7 +1261,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 2065 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 153 modules
-cd android && ./gradlew test                             # 1600 tests across the five modules
+cd android && ./gradlew test                             # 1609 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
