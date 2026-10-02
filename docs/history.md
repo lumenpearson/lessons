@@ -28,6 +28,69 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: a header's words held still while only its data scrolls (#251)
+
+Merged as #252 (`2caf480`, 2 October 2026), from `dev`, on milestone 9. The same session as #241–#250, on the owner's next
+request: the headers should not scroll whole, only the data in them — the day, the time, the
+lesson, the teacher, whatever the server fills in.
+
+- **`DataLine`** in `:core:designsystem` (`text/DataLine.kt`) is a line in two parts.
+  **`correctedLine(id, args)`** makes one from a string resource: it formats and registers
+  the sentence as `correctedString` does. It splits at the length of the pattern's words
+  before its first argument, reading the corrected pattern when there is a correction. It
+  does not split when the line starts with its data, or when the formatted words no longer
+  match.
+- **`MarqueeText`, `SectionHeader`, `GroupItem` and `PillChip` take a `DataLine`.** Their
+  String forms are now the same layout with no lead. The lead is laid out at its own width,
+  the data takes the rest and scrolls, and a space's width sits between them. The pair is
+  described as the whole sentence (`clearAndSetSemantics`), so TalkBack reads it once and
+  the seven `:app` tests that find «Ветка main», «Выйти из класса «9Б»» or «Урок 2» by their
+  whole text pass as before.
+- **Twenty-seven places draw such a line and now pass `correctedLine`:**
+  - the «Сегодня» homework header and «ещё N»;
+  - the diary's marks range and the region step's school list;
+  - the about card's badges and a lesson's index chip;
+  - the signed-in rows, and the class and developer screens.
+- **Seen on the API 37 emulator**: «Домашнее задание на» still while «понедельник, 5
+  октября» scrolls beside it, filmed at two frames a second for eight seconds.
+- **#253, found by CI on this pull request — filed, then fixed.** `correctedLine` first read
+  its pattern with `stringResource` in `DataLine.kt`. That import is allowed in
+  `Corrections.kt` alone, and CI's `CorrectionReachTest` said so. Locally the full suite had
+  passed, because on a Windows checkout the test inspected no file at all. It stripped the
+  root's absolute path and a `/` from backslashed paths, so no file had `/src/main/` in it,
+  and it matched imports ending in a bare line feed, which a CRLF working copy does not
+  have. The paths are invariant-separator relative now and the text is CRLF-normalised.
+  With the import planted again, the test fails on Windows too. `correctedLine` moved beside
+  `correctedString`.
+
+### Gates
+
+On `8d31fbf`: `./gradlew test assembleDebug assembleRelease detekt` pass; `./gradlew test`
+**1616** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 146, `:widget` 126, `:app`
+604), five more than #250's 1611, all `DataLineTest`'s. Its pixel case — the lead's columns
+unchanged and the data's changed, two moments apart while the data scrolls, in native
+graphics — was red with the line drawn whole, as before: 217 of the lead's columns moved. One
+Gradle daemon died mid-run with `EXCEPTION_ACCESS_VIOLATION` in `jvm.dll`, leaving two test
+workers holding a jar until they were stopped; the rerun was clean. After #253, on
+`8679cef`, the same gates pass again with the same 1616. The server was not touched.
+
+### What was deliberately left alone
+
+- Only the words *before* the first argument are held. In a line with words between or after
+  its arguments, everything from the first argument on scrolls together, because those words
+  belong to the data they join.
+- The state card's detail line («Далее — Алгебра») wraps rather than scrolls, so it was not
+  split.
+- `C:\Program Files\Git\tmp_ml.kt` is a stray copy of `MarqueeText.kt` written by a slip of a
+  path during the work; the session's safety check refused to delete a file there, and it is
+  the owner's to remove.
+
+### What nobody has verified in this batch
+
+- The split lines on a phone, in English, and with the correction mode on: its outline over
+  a split line is seen by no test that composes the mode. *(The next batch saw the English
+  and the correction mode on the emulator; a phone still has not.)*
+
 ## What the batch before added: a tab's disc that fades with the selection (#249), and a slowed emulator that looked like a regression
 
 Merged as #250 (`66801c1`, 2 October 2026), from `dev`, on milestone 9. The same session as #241, #245 and #248, on two

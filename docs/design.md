@@ -767,6 +767,44 @@ until #254, a grey pill under the label leaving and a dark disc under the one ar
 dark theme hid it, because its background is nearly black already. `ToolbarDiscFadeTest`
 asks each frame of the fade to lie on the line between the two colours it joins.
 
+The bar's selection no longer fades at all, and that is a second rule: **two states that
+are each other's inverse cannot be cross-faded.** A selected tab is the bar's colour on
+white, and an unselected one is white on the bar's colour. Fading both at once met in the
+middle, where each icon was the colour of its own disc, and the tab read as an empty pill
+for a frame or two (#258). No easing can avoid that. The edge between the two states has to
+move instead.
+
+- **One white pill slides along the row,** from the tab the selection leaves to the tab it
+  goes to (`SelectionPill`, drawn behind the tabs).
+- **Every tab it passes over is drawn the selected way only where it is covered**
+  (`inkedUnder`: the content again, tinted, clipped to the pill). The tabs in between are
+  included.
+- **At rest the selected tab wears its own disc,** exactly as before.
+
+Two shapes were tried first and are worth not trying again:
+- **A disc grown from the middle of the tab** left its last few pixels inside the leaving
+  icon as a white spot, for the slow end of the easing.
+- **A straight wipe across each tab** cut both pills with a hard vertical edge that read as
+  a rendering fault.
+
+`ToolbarDiscFadeTest` holds both icons' contrast on every frame, in both themes, and holds
+the pill passing over the tab between.
+
+**The tab being carried while the bar is arranged is glass, for the same kind of reason**
+(#259). The row's pitch is hardly wider than the carried tab, so a tab making room slides
+from under one side of it to under the other. Behind an opaque body that slide was never
+seen, and the tab seemed to vanish and reappear a slot away. At `HeldBodyAlpha` the tab
+beneath stays visible, and the carried icon stays opaque on top.
+
+Two more rules came out of filming the pill.
+- **The bar's widths do not bounce.** `toolbarSpring` overshot on purpose, as a flourish on
+  the selected tab, and pushed every neighbour past its place and back. Once a pill was
+  arriving at them, that read as the neighbours being struck.
+- **The bar is told the page being travelled to, not the page in front** (`targetPage`,
+  #260). A tap two tabs away scrolls the pager through the page between, and while the bar
+  read `currentPage` it selected that tab for part of the way. Its label opened and closed,
+  and the pill turned towards it and back.
+
 ## How much the widget says at each size
 
 The size ladder is twelve rungs, and each declares its own portion with flags right on
