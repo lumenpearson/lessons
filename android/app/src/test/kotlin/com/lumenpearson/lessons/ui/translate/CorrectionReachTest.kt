@@ -153,13 +153,20 @@ class CorrectionReachTest {
         root.walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .filter { "/src/main/" in it.toRelative() }
-            .map { Source(it.toRelative(), it.readText()) }
+            // CRLF normalised, because a Windows checkout has it and every
+            // match here ends an import with a bare line feed (#253).
+            .map { Source(it.toRelative(), it.readText().replace("\r\n", "\n")) }
             .filterNot { it.path in exempt }
             .sortedBy { it.path }
             .toList()
     }
 
-    private fun File.toRelative(): String = absolutePath.removePrefix(root.absolutePath + "/")
+    /**
+     * The path from the Gradle root with forward slashes. Stripping the root's
+     * absolute path and a `/` left a Windows path whole and backslashed, so no
+     * file had `/src/main/` in it and this test read nothing there (#253).
+     */
+    private fun File.toRelative(): String = relativeTo(root).invariantSeparatorsPath
 
     /**
      * The Gradle root, found from wherever the runner started — the same walk
