@@ -423,6 +423,32 @@ async def test_the_upstream_being_down_is_503_and_not_counted(client, session, p
     assert await _attempts(session) == 0
 
 
+async def test_a_diary_slower_than_the_budget_is_503_and_not_counted(
+    client, session, petersburg, monkeypatch
+):
+    """#233: «Сетевой город» adopts in four reads, each limited per phase only,
+    so a slow region held the request past the phone's 30 s read timeout and
+    Vercel's ceiling. Out of time is now the same answer as no answer."""
+    import asyncio
+
+    from app.providers.petersburg.provider import PetersburgProvider
+
+    async def slow_adopt(self, request):
+        await asyncio.sleep(1)
+        raise AssertionError("the deadline should have ended this first")
+
+    monkeypatch.setattr(service, "ADOPT_UPSTREAM_BUDGET_SECONDS", 0.05)
+    # The class, not an instance: the registry builds a fresh one per call.
+    monkeypatch.setattr(PetersburgProvider, "adopt", slow_adopt)
+
+    response = await _register(client, _petersburg_body())
+
+    assert response.status_code == 503
+    assert response.headers["X-Diary-Unavailable"] == "upstream"
+    assert await _attempts(session) == 0
+    assert await session.scalar(select(DiarySession)) is None
+
+
 async def test_an_unreadable_answer_is_502_and_counted(client, session, petersburg, netschool):
     petersburg.routes[CHILDREN_PATH] = {"items": "not a list"}
     first = await _register(client, _petersburg_body())

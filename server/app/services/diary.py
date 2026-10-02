@@ -21,6 +21,7 @@ family's password.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -37,7 +38,7 @@ from app.crypto import diary_enabled, seal, unseal
 from app.db import rows_affected
 from app.models import DiaryOverride, DiarySession, SchoolClass
 from app.providers.diary.base import AdoptRequest, SignInRequest
-from app.providers.diary.errors import DiaryError, SessionExpired
+from app.providers.diary.errors import DiaryError, SessionExpired, UpstreamUnavailable
 from app.providers.diary.models import (
     AcademicPeriod,
     AttendanceEvent,
@@ -58,6 +59,12 @@ log = logging.getLogger(__name__)
 #: tokens': this is telemetry, and writing it per request turns a read into a
 #: write transaction.
 LAST_USED_INTERVAL_SECONDS = 900
+
+#: How long :func:`adopt` waits for the diary. Inside the phone's 30 s read
+#: timeout and ``vercel.json``'s 30 s ``maxDuration``, with room for the
+#: database write after it, so the phone always hears an answer and never gives
+#: up on a session this server then goes on to keep (#233).
+ADOPT_UPSTREAM_BUDGET_SECONDS = 22.0
 
 
 class DiaryDisabled(RuntimeError):
@@ -211,9 +218,20 @@ async def adopt(
     if impl is None:
         raise ValueError(f"unknown diary provider {provider!r}")
 
-    adopted = await impl.adopt(
-        AdoptRequest(credential=credential, region=region, school_id=school_id)
-    )
+    # One deadline over the upstream half, never the database write after it.
+    # «Сетевой город» adopts in four reads in a row, each limited per phase
+    # only, so a slow region could hold the request past the phone's 30 s read
+    # timeout and Vercel's 30 s ceiling — the phone then gave up on a session
+    # this server went on to keep (#233). Out of time is the same answer as no
+    # answer: a 503 «upstream», not counted against the throttle, which the
+    # phone shows as «Дневник не отвечает» and can retry without the password.
+    try:
+        adopted = await asyncio.wait_for(
+            impl.adopt(AdoptRequest(credential=credential, region=region, school_id=school_id)),
+            ADOPT_UPSTREAM_BUDGET_SECONDS,
+        )
+    except TimeoutError as failure:
+        raise UpstreamUnavailable("Дневник не ответил вовремя") from failure
     token, row = await _open_row(
         session, adopted.credential, login=login, provider=provider, region=region
     )
