@@ -401,3 +401,29 @@ internal fun upcomingLessons(
  */
 internal fun remainingTimeline(today: SchoolDay?, now: LocalDateTime): List<RibbonEntry> =
     ribbonOf(today).remaining(now.toLocalTime())
+
+/**
+ * The next school day's lessons the after-school layout lists under the
+ * homework, or none.
+ *
+ * Every size tall enough for a list takes them (#221): those with a timeline
+ * by day, and the 2×3, whose day has no timeline but whose evening was three
+ * lines over an empty lower half when nothing was set. The 2×3 takes them only
+ * when the homework left room — one subject at most — because there they share
+ * 190 dp with it. The list is clamped to [CHILD_LIMIT] and nothing else: the
+ * layout gives it the rest of the height and clips what does not fit, which is
+ * the only way to fill a widget Glance cannot measure.
+ */
+internal fun restDayLessons(
+    size: WidgetSizeClass,
+    nextDay: SchoolDay?,
+    homework: HomeworkPresentation,
+): List<Lesson> {
+    val lessons = nextDay?.activeLessons.orEmpty()
+    val roomy = when {
+        size.timelineRows > 0 && size != WidgetSizeClass.MEDIUM -> true
+        size == WidgetSizeClass.SMALL_TALL -> homework.items.size <= 1
+        else -> false
+    }
+    return if (roomy) lessons.sortedBy { it.startsAt }.take(CHILD_LIMIT) else emptyList()
+}
