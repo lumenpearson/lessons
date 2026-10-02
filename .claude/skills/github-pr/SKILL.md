@@ -78,7 +78,7 @@ matched pull request's body in full.
 | 7 | `Dependencies — dependabot bumps` | every dependabot bump; deliberately not a version, and open for good |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | PRs #75–#85, #128; issues #98, #100, #105–#108 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | PRs #129, #133, #134, #186, #187, #189; issues #109–#117, #130–#132, #167–#185, #188 — **open**, the first whose work needs an emulator or a phone |
-| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | PRs #140, #214; issues #135–#139, #141, #145–#165, #190–#213 — **open**, the one being worked on |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | PRs #140, #214, #218; issues #135–#139, #141, #145–#165, #190–#213 — **open**, the one being worked on |
 
 All ten were renamed on 25 September 2026: every title now names what the version
 delivered, and each description names its pull requests and issues. A title quoted from

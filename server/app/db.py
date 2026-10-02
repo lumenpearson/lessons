@@ -24,6 +24,19 @@ _settings = get_settings()
 # for what libpq accepts and asyncpg does not.
 _url, _connect_args = normalise_database_url(_settings.database_url)
 
+# SQLite has one write lock per file, and a connection that finds it taken
+# waits the driver's busy timeout — five seconds — and then raises «database is
+# locked». Over aiosqlite a transaction keeps the lock across every await
+# between its first write and its commit, so a hundred concurrent requests
+# queue behind whichever ones the event loop gets to last: on a slow Windows
+# checkout the burst test of the directory's limiter waited past five seconds
+# about one run in two and failed on the lock rather than on the limit (#212).
+# Thirty seconds is a wait, not a failure; Postgres, which production runs, has
+# no such lock to wait on.
+SQLITE_BUSY_TIMEOUT_SECONDS = 30.0
+if _url.startswith("sqlite"):
+    _connect_args = {"timeout": SQLITE_BUSY_TIMEOUT_SECONDS, **_connect_args}
+
 engine = create_async_engine(
     _url,
     echo=False,
