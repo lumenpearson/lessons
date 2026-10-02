@@ -6,8 +6,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -94,6 +92,14 @@ import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
+import com.lumenpearson.lessons.core.designsystem.theme.MotionSettings
+import com.lumenpearson.lessons.core.designsystem.theme.springSpec
+import com.lumenpearson.lessons.core.designsystem.theme.tweenSpec
 
 /**
  * One destination of the toolbar in tabbed mode.
@@ -272,6 +278,7 @@ fun LessonsFloatingToolbar(
     val hideLabel = fontScale > LabelFontScaleLimit ||
         (screenWidth < CompactScreenWidthDp && slots > 3)
     val tablet = LocalConfiguration.current.smallestScreenWidthDp >= TabletSmallestWidthDp
+    val motion = LocalMotion.current
 
     val colors = FloatingToolbarDefaults.vibrantFloatingToolbarColors(
         toolbarContentColor = scheme.onSurface,
@@ -301,12 +308,12 @@ fun LessonsFloatingToolbar(
                     // Going in slides from the right, coming back from the left,
                     // which is the direction the page itself travels.
                     val forward = targetState
-                    val enter = fadeIn(tween(ModeFadeMillis)) +
-                        slideInHorizontally(tween(ModeSlideMillis)) { width ->
+                    val enter = fadeIn(motion.tweenSpec(ModeFadeMillis)) +
+                        slideInHorizontally(motion.tweenSpec(ModeSlideMillis)) { width ->
                             if (forward) width / 3 else -width / 3
                         }
-                    val exit = fadeOut(tween(ModeFadeMillis)) +
-                        slideOutHorizontally(tween(ModeSlideMillis)) { width ->
+                    val exit = fadeOut(motion.tweenSpec(ModeFadeMillis)) +
+                        slideOutHorizontally(motion.tweenSpec(ModeSlideMillis)) { width ->
                             if (forward) -width / 3 else width / 3
                         }
                     // The size transform owns the width, and it is the only
@@ -322,7 +329,7 @@ fun LessonsFloatingToolbar(
                     // pill really is narrower mid-morph — and `clip = false`
                     // means nothing is cut while it gets there.
                     (enter togetherWith exit).using(
-                        SizeTransform(clip = false) { _, _ -> toolbarSizeSpring() },
+                        SizeTransform(clip = false) { _, _ -> motion.toolbarSizeSpring() },
                     )
                 },
                 label = "toolbar_mode",
@@ -793,9 +800,10 @@ private fun ToolbarTab(
     val currentDrag by rememberUpdatedState(onDrag)
     val currentDragEnd by rememberUpdatedState(onDragEnd)
 
+    val motion = LocalMotion.current
     val itemWidth by animateDpAsState(
         targetValue = if (visible) ItemSize else 0.dp,
-        animationSpec = toolbarSpring(),
+        animationSpec = motion.toolbarSpring(),
         label = "toolbar_item_width",
     )
     // As wide as the label, not a fixed 80 dp: «Календарь» in bold is wider
@@ -821,7 +829,7 @@ private fun ToolbarTab(
         // briefly narrower than an icon, and a neighbour already sliding over
         // to open the gap is carried past the end of the row and out under the
         // pill's edge, for a third of a second, mid-gesture.
-        animationSpec = if (reordering) toolbarSettleSpring() else toolbarSpring(),
+        animationSpec = if (reordering) motion.toolbarSettleSpring() else motion.toolbarSpring(),
         label = "toolbar_label_width",
     )
 
@@ -844,7 +852,7 @@ private fun ToolbarTab(
     // is a fact to draw, not a movement to show.
     val position by animateFloatAsState(
         targetValue = slot * slotPx + offsetPx,
-        animationSpec = if (held || !reordering) snap() else toolbarOffsetSpring(),
+        animationSpec = if (held || !reordering) snap() else motion.toolbarOffsetSpring(),
         label = "toolbar_item_position",
     )
     val placement = if (held) offsetPx else position - slot * slotPx
@@ -967,17 +975,39 @@ private fun ToolbarTab(
                     )
                 }
             }
-            if (selected && !hideLabel) {
-                Spacer(Modifier.width(8.dp))
-                // Marquees only if it has to. This used to scroll whatever it
-                // was given, so a label that fitted animated anyway — the
-                // thing the segmented picker measures to avoid, and the reason
-                // that measurement is a component now.
-                MarqueeText(
-                    text = item.label,
-                    style = MaterialTheme.typography.labelLarge.emphasised(active = selected),
-                    color = scheme.primary,
-                )
+            // Kept while it closes, not only while selected: the label used
+            // to vanish the moment another tab was chosen, with its pill still
+            // closing round the room it had left. It fades with that room now
+            // (#247).
+            if (labelWidth > 0.dp) {
+                Spacer(Modifier.width(minOf(LabelGap, labelWidth)))
+                Box(
+                    modifier = Modifier
+                        .clipToBounds()
+                        .graphicsLayer {
+                            alpha = (labelWidth / labelFits.coerceAtLeast(1.dp)).coerceIn(0f, 1f)
+                        }
+                        // A label on its way out is not a second name for a tab
+                        // that is no longer the selected one.
+                        .then(if (selected) Modifier else Modifier.clearAndSetSemantics {}),
+                ) {
+                    // Laid out at the width it is going to have, and cut by the
+                    // width the spring has reached. The marquee decides whether
+                    // to scroll from the width it is given, and for the first
+                    // frames of every selection the pill is narrower than the
+                    // label: the fading edges came on and went off a frame later,
+                    // a gradient over the label on every tap (#246). At its own
+                    // width it scrolls only when it truly does not fit, and the
+                    // pill growing reveals it rather than squeezing it.
+                    MarqueeText(
+                        text = item.label,
+                        style = labelStyle,
+                        color = scheme.primary,
+                        modifier = Modifier
+                            .wrapContentWidth(Alignment.Start, unbounded = true)
+                            .requiredWidth(labelFits),
+                    )
+                }
             }
         }
     }
@@ -998,7 +1028,7 @@ private fun ToolbarTab(
 private fun ToolbarGap(expanded: Boolean) {
     val gap by animateDpAsState(
         targetValue = if (expanded) ItemGap else 0.dp,
-        animationSpec = toolbarSpring(),
+        animationSpec = LocalMotion.current.toolbarSpring(),
         label = "toolbar_item_gap",
     )
     Spacer(Modifier.width(gap))
@@ -1095,14 +1125,16 @@ private fun BackAndTitle(
 }
 
 /**
- * The one spring the toolbar animates with.
+ * The one spring the toolbar animates with — at the reader's motion speed, and a
+ * snap with animations off, like every spring here: none of them read the
+ * motion settings until #246, so the bar went on springing with the switch off.
  *
  * Bouncy and slow, which is what gives the selected pill its overshoot; every
  * width in the component shares it so they cannot arrive at different times —
  * all but the one that changes on its own, the label going as the tabs start
  * to be arranged, which is [toolbarSettleSpring]'s.
  */
-private fun toolbarSpring() = spring<Dp>(
+private fun MotionSettings.toolbarSpring() = springSpec<Dp>(
     dampingRatio = Spring.DampingRatioMediumBouncy,
     stiffness = Spring.StiffnessLow,
 )
@@ -1116,7 +1148,7 @@ private fun toolbarSpring() = spring<Dp>(
  * icon for a moment, which carried a neighbour already sliding into the gap
  * past the end of the row.
  */
-private fun toolbarSettleSpring() = spring<Dp>(
+private fun MotionSettings.toolbarSettleSpring() = springSpec<Dp>(
     dampingRatio = Spring.DampingRatioNoBouncy,
     stiffness = Spring.StiffnessLow,
 )
@@ -1127,7 +1159,7 @@ private fun toolbarSettleSpring() = spring<Dp>(
  * Less bouncy than [toolbarSpring]: the whole bar overshooting its width reads
  * as the bar wobbling, where one tab overshooting reads as the tab landing.
  */
-private fun toolbarSizeSpring() = spring<IntSize>(
+private fun MotionSettings.toolbarSizeSpring() = springSpec<IntSize>(
     dampingRatio = Spring.DampingRatioNoBouncy,
     stiffness = Spring.StiffnessMediumLow,
 )
@@ -1140,7 +1172,7 @@ private fun toolbarSizeSpring() = spring<IntSize>(
  * supposed to be opening and comes back — which reads as the row arguing with
  * the drag.
  */
-private fun toolbarOffsetSpring() = spring<Float>(
+private fun MotionSettings.toolbarOffsetSpring() = springSpec<Float>(
     dampingRatio = Spring.DampingRatioNoBouncy,
     stiffness = Spring.StiffnessMedium,
 )
@@ -1153,6 +1185,9 @@ private fun toolbarOffsetSpring() = spring<Float>(
  * make it collide with the neighbour it is passing.
  */
 private const val HeldScale = 1.1f
+
+/** The gap between a tab's icon and its label. */
+private val LabelGap: Dp = 8.dp
 
 /** Cross-fade and slide of the two toolbar modes. */
 private const val ModeFadeMillis = 180

@@ -53,6 +53,8 @@ import com.lumenpearson.lessons.ui.common.asRelativeDayLabelAccusative
 import com.lumenpearson.lessons.ui.common.asText
 import com.lumenpearson.lessons.ui.common.syncedAtLabel
 import com.lumenpearson.lessons.ui.common.timeRange
+import com.lumenpearson.lessons.core.designsystem.theme.animatedItem
+import com.lumenpearson.lessons.core.designsystem.theme.MotionCrossfade
 
 /** Accent slot of the "ещё N заданий" row; violet, unused by any event kind. */
 private const val HomeworkMoreSlot = 5
@@ -111,7 +113,7 @@ fun TodayScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(GroupSpacing),
             ) {
-                item(key = "header") {
+                animatedItem(key = "header") {
                     ScreenHeader(
                         title = correctedString(R.string.today_title),
                         subtitle = state.className,
@@ -119,7 +121,7 @@ fun TodayScreen(
                 }
 
                 if (state.showHero) {
-                    item(key = "hero") {
+                    animatedItem(key = "hero") {
                         state.state?.let { dayState -> StateHeroCard(state = dayState) }
                     }
                 }
@@ -134,7 +136,7 @@ fun TodayScreen(
 
                 eventsSection(state)
 
-                item(key = "synced") {
+                animatedItem(key = "synced") {
                     Text(
                         text = syncedAtLabel(state.syncedAtEpochMillis),
                         style = MaterialTheme.typography.labelMedium,
@@ -166,40 +168,63 @@ fun TodayScreen(
  * over the whole day would be a lie about the list under it.
  */
 private fun LazyListScope.lessonsSection(state: TodayUiState) {
-    item(key = "lessons") {
+    animatedItem(key = "lessons") {
         val title = if (state.wholeDay) {
             correctedString(R.string.today_lessons_all)
         } else {
             correctedString(R.string.today_lessons_remaining)
         }
         SectionHeaderedGroup(title = title) {
-            when {
-                // A shimmering copy of the group rather than a spinner: the page
-                // keeps its shape when the real rows land.
-                state.isLoading -> SkeletonGroup()
+            // Cross-faded from one to the next — the placeholder into the
+            // lessons it stood for, the last lesson into «Уроки закончились» —
+            // rather than swapped between two frames (#247).
+            MotionCrossfade(targetState = LessonsShown.of(state), label = "today_lessons") { shown ->
+                when (shown) {
+                    // A shimmering copy of the group rather than a spinner: the
+                    // page keeps its shape when the real rows land.
+                    LessonsShown.LOADING -> SkeletonGroup()
 
-                state.remainingLessons.isNotEmpty() -> LessonGroup(
-                    lessons = state.remainingLessons,
-                    now = state.now.toLocalTime(),
-                    showTeacher = state.showTeacher,
-                    grades = state.grades,
-                )
+                    LessonsShown.LESSONS -> LessonGroup(
+                        lessons = state.remainingLessons,
+                        now = state.now.toLocalTime(),
+                        showTeacher = state.showTeacher,
+                        grades = state.grades,
+                    )
 
-                state.state is DayState.NoData -> EmptyState(
-                    title = correctedString(R.string.today_no_data_title),
-                    description = correctedString(R.string.today_no_data_description),
-                )
+                    LessonsShown.NO_DATA -> EmptyState(
+                        title = correctedString(R.string.today_no_data_title),
+                        description = correctedString(R.string.today_no_data_description),
+                    )
 
-                state.today?.hasLessons == true -> EmptyState(
-                    title = correctedString(R.string.today_lessons_over_title),
-                    description = correctedString(R.string.today_lessons_over_description),
-                )
+                    LessonsShown.OVER -> EmptyState(
+                        title = correctedString(R.string.today_lessons_over_title),
+                        description = correctedString(R.string.today_lessons_over_description),
+                    )
 
-                else -> EmptyState(
-                    title = correctedString(R.string.today_no_lessons_title),
-                    description = correctedString(R.string.today_no_lessons_description),
-                )
+                    LessonsShown.NONE -> EmptyState(
+                        title = correctedString(R.string.today_no_lessons_title),
+                        description = correctedString(R.string.today_no_lessons_description),
+                    )
+                }
             }
+        }
+    }
+}
+
+/**
+ * Which of its five faces the lessons section is showing — what it cross-fades
+ * between. The order of the checks is the order of the old `when`.
+ */
+internal enum class LessonsShown {
+    LOADING, LESSONS, NO_DATA, OVER, NONE;
+
+    companion object {
+        fun of(state: TodayUiState): LessonsShown = when {
+            state.isLoading -> LOADING
+            state.remainingLessons.isNotEmpty() -> LESSONS
+            state.state is DayState.NoData -> NO_DATA
+            state.today?.hasLessons == true -> OVER
+            else -> NONE
         }
     }
 }
@@ -208,7 +233,7 @@ private fun LazyListScope.lessonsSection(state: TodayUiState) {
 private fun LazyListScope.eventsSection(state: TodayUiState) {
     if (!state.showEvents || state.events.isEmpty()) return
 
-    item(key = "events") {
+    animatedItem(key = "events") {
         SectionHeaderedGroup(title = correctedString(R.string.today_events)) {
             RoundedCardContainer {
                 state.events.forEach { event ->
@@ -237,7 +262,7 @@ private fun LazyListScope.homeworkSection(state: TodayUiState, onOpenHomework: (
     val day: SchoolDay = state.homeworkDay ?: return
     if (day.homework.isEmpty()) return
 
-    item(key = "homework") {
+    animatedItem(key = "homework") {
         val title = correctedString(
             R.string.today_homework_for,
             day.date.asRelativeDayLabelAccusative(state.now.toLocalDate()),

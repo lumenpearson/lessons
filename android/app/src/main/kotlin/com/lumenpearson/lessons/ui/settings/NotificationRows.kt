@@ -45,6 +45,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 import com.lumenpearson.lessons.core.model.AlertPreferences
 import com.lumenpearson.lessons.core.model.LessonAlertDetail
+import com.lumenpearson.lessons.core.designsystem.theme.Reveal
 
 /**
  * The notifications page.
@@ -94,7 +95,7 @@ internal fun LazyListScope.notificationRows(
                 checked = state.settings.alerts.lessonSoon,
                 onCheckedChange = { on -> viewModel.setAlerts { it.copy(lessonSoon = on) } },
             )
-            if (state.settings.alerts.lessonSoon) {
+            Reveal(visible = state.settings.alerts.lessonSoon) {
                 LeadMinutesRow(
                     selected = state.settings.alerts.lessonLeadMinutes,
                     onSelect = { minutes -> viewModel.setAlerts { it.copy(lessonLeadMinutes = minutes) } },
@@ -123,7 +124,7 @@ internal fun LazyListScope.notificationRows(
                 checked = state.settings.alerts.morningSummary,
                 onCheckedChange = { on -> viewModel.setAlerts { it.copy(morningSummary = on) } },
             )
-            if (state.settings.alerts.morningSummary) {
+            Reveal(visible = state.settings.alerts.morningSummary) {
                 GroupTimeItem(
                     title = correctedString(R.string.settings_alert_morning_at),
                     icon = Icons.Rounded.Schedule,
@@ -153,7 +154,7 @@ internal fun LazyListScope.notificationRows(
                 checked = state.settings.alerts.homeworkReminder,
                 onCheckedChange = { on -> viewModel.setAlerts { it.copy(homeworkReminder = on) } },
             )
-            if (state.settings.alerts.homeworkReminder) {
+            Reveal(visible = state.settings.alerts.homeworkReminder) {
                 GroupTimeItem(
                     title = correctedString(R.string.settings_alert_homework_at),
                     icon = Icons.Rounded.Schedule,
@@ -194,7 +195,7 @@ internal fun LazyListScope.notificationRows(
                 checked = state.settings.alerts.quietHours,
                 onCheckedChange = { on -> viewModel.setAlerts { it.copy(quietHours = on) } },
             )
-            if (state.settings.alerts.quietHours) {
+            Reveal(visible = state.settings.alerts.quietHours) {
                 GroupTimeItem(
                     title = correctedString(R.string.settings_alert_quiet_from),
                     icon = Icons.Rounded.Bedtime,

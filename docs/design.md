@@ -726,6 +726,29 @@ for convenience: a `LazyColumn` or a `Scaffold` on a screen is the root of its o
 handed a slot and filling it, with nothing above asking it to predict a size. The rule is
 about a component written to be placed inside a layout it does not own.
 
+**A line in a box that is still growing is measured against the box it is growing into.**
+The selected tab's label sits in a pill that springs open, and for its first frames the pill
+is narrower than the label: measured against that, the label overflowed, the fading edges
+came on and went off a frame later, and every tap flashed a gradient over the label (#246).
+The label is laid out at its final width and the growing pill cuts it, so the marquee only
+scrolls a label that will not fit at rest. Anything else that animates a line's room should
+do the same.
+
+## Every animation answers to «Анимации»
+
+`MotionSpecs.kt` in `:core:designsystem` is where the app's animation specs come from —
+`springSpec`, `tweenSpec`, `appear` and `disappear`, `Reveal` for a row under its switch,
+`MotionCrossfade` for content that changes face, `animatedItem` for a list item — and each
+reads `LocalMotion`: off is a snap or no transition at all, never merely quick, and the
+speed scales springs and tweens in the one direction `MotionSettings` decides. Until #246
+the bottom bar, the calendar's period slide, the bell, the loading shimmer and the app
+mark's spin ignored the switch; they take their specs from here now, and so does what #247
+added — rows that open and close under their switches, list items that fade and slide,
+placeholders that cross-fade into their content. The wave, the circular theme change and
+the motion blur keep switches of their own, under «Эффекты», because they are decorations
+rather than movement the reader needs. A new animation that takes `tween(…)` or `spring(…)`
+directly is one the switch does not reach.
+
 ## How much the widget says at each size
 
 The size ladder is twelve rungs, and each declares its own portion with flags right on

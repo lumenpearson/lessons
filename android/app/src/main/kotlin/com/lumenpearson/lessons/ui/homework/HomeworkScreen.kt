@@ -39,6 +39,8 @@ import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.ui.common.asRelativeDayLabel
 import com.lumenpearson.lessons.ui.common.asText
+import com.lumenpearson.lessons.core.designsystem.theme.animatedItem
+import com.lumenpearson.lessons.core.designsystem.theme.motionItemModifier
 
 /**
  * Every piece of homework the cache knows about, grouped by the day it is due.
@@ -98,11 +100,11 @@ fun HomeworkScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(GroupSpacing),
             ) {
-                item(key = "header") {
+                animatedItem(key = "header") {
                     ScreenHeader(title = correctedString(R.string.homework_title))
                 }
 
-                item(key = "filter") {
+                animatedItem(key = "filter") {
                     HomeworkFilterRow(
                         onlyUpcoming = state.onlyUpcoming,
                         hiddenCount = state.hiddenCount,
@@ -111,9 +113,9 @@ fun HomeworkScreen(
                 }
 
                 if (state.groups.isEmpty() && state.isLoading) {
-                    item(key = "skeleton") { SkeletonGroup() }
+                    animatedItem(key = "skeleton") { SkeletonGroup() }
                 } else if (state.groups.isEmpty()) {
-                    item(key = "empty") {
+                    animatedItem(key = "empty") {
                         EmptyState(
                             title = correctedString(R.string.homework_empty_title),
                             description = if (state.onlyUpcoming && state.hiddenCount > 0) {
@@ -128,7 +130,9 @@ fun HomeworkScreen(
                         items = state.groups,
                         key = { group -> group.date.toString() },
                     ) { group ->
-                        Column(modifier = Modifier.fillMaxWidth()) {
+                        // Each day's group fades in, out and slides when the
+                        // filter or a sync changes the list (#247).
+                        Column(modifier = Modifier.fillMaxWidth().then(motionItemModifier())) {
                             SectionHeader(title = group.date.asRelativeDayLabel(today))
                             RoundedCardContainer {
                                 group.items.forEach { homework ->

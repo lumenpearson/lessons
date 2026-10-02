@@ -28,6 +28,112 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: #201 and #202 on two emulators, and a bottom bar that follows its text (#240, #242)
+
+Merged as #241 (`c21f601`, 2 October 2026), from `dev`, on milestone 9. Made on the owner's machine on 2 October 2026, with
+the API 37 emulator, a local server and production read only. The owner asked for everything
+the last build needed to be tested to be run; while that walk was under way `main` moved from
+`eb0ab94` to `4d792df` (#234 and #239), so the walk was run again on a build of `4d792df`;
+and twice the owner, watching the emulator, reported the bottom bar.
+
+- **#240, the pill 16 dp taller without a button beside it — filed, then fixed.** Every
+  settings page of a reader who does not manage the class drew the pill holding «←» and the
+  title 80 dp tall, where the tab bar it morphed from, and the same page beside the debug
+  button, drew 64 dp. Only Material's overload *without* a button runs
+  `minimumInteractiveBalancedPadding`, which pads the pill vertically by twice the amount the
+  content's interactive side inset exceeds its top one; since #183 the pill's ends were inside
+  our rows and its top and bottom outside them, so the 48 dp back button read as 8 dp in from
+  the side and 0 from the top. All of Material's padding is now inside the rows, on four
+  sides, and a bar without a button keeps the 80 dp slot Material gives one with a button, so
+  the pill does not drop 8 dp as settings open either — which the extra height had hidden.
+  Measured at 420 dpi: the settings pill 210 px before, 168 px after, as the tab bar's.
+- **#242, a short label in a box much wider than itself — filed, then fixed.** The back
+  pill's title was never under 100 dp and the selected tab's label never under 80 dp (the
+  floor #227 kept), so «← Sync» was as wide a pill as «← Settings» and «Today» half filled
+  its tab. Neither floor is left. The owner set the ceiling the same afternoon, asked and
+  answered in the session: a label or a title grows with its text until, on a tablet
+  (smallest width 600 dp and up), it reaches 30 % of the window, and on a phone until it
+  fills what the row leaves it; past that it scrolls, as `MarqueeText` already did. The
+  documentation's scrolling bar takes the same rule. Seen on the emulator in English and in
+  Russian: «Today», «← Sync», «← Settings», «← Настройки», «← Взаимодействие», each as wide
+  as its text.
+- **#201 on a real upgrade, twice.** The debug build installed before #201 (27 September,
+  this machine's debug key) was cleared, joined to a local `seed_demo` class «9А» with
+  `DEMO24`, and its preferences read with `run-as`: `session_list` held the membership as JSON
+  with `token` in plain text. The debug build of `eb0ab94`, and later of `4d792df`, was
+  installed over it with `install -r`: the class stayed, the first request after the upgrade
+  was a `304` with the migrated token, and the token now starts `gcm1:` over a 72-byte
+  payload whose first byte, the IV's length, is 12. After a `force-stop`, and after a reboot,
+  the server still answered `304`; a made-up bearer gets `401` on the same route, so the
+  `304` is the sealed token opening. Only the shape of the stored value was printed, never
+  the token.
+- **#201 and #202 on the release build signed with the owner's key.** The release APK built
+  here and the one the APK workflow built from `4d792df` (`versionCode` 39) are both signed
+  `CN=lumenpearson`. Neither installs over the release on the first AVD, which CI signed with
+  a throwaway key in #186 and which is linked to production's «11А» as owner, so a second
+  AVD, `Release_Check` (Pixel 9 profile, 1080×2424 at 420 dpi, on F:), took a fresh install.
+  `http://10.0.2.2:8000` was refused at the address field — «The app connects to the server
+  only at a secure address…», «Save» disabled — and `http://127.0.0.1:8000` accepted; «9А»
+  joined (`/join` 200, the year 200, then 304); the class came back after a `force-stop` and
+  after a reboot, each time with a `304`, so the Keystore key survives both. Pointed at
+  `https://lessons-ruddy-zeta.vercel.app`, «About» read «Server is up»: the first time a
+  release build met the real server over TLS. The address went back to the local one at once.
+- **#209's splits, walked on both builds.** The nine settings pages, the calendar's week,
+  month and day ribbon, homework and «Сегодня» opened with no `FATAL EXCEPTION`; on
+  `4d792df` the week list carries #220's «сейчас» line.
+- **«Обновить сейчас» against a host that does not answer** says «Не удалось обновить
+  расписание» after about twenty seconds. On the old build the snackbar came and went
+  between two screenshots, which looked like silence and was not.
+- **`ToolbarOnDeviceTest`**: 3 of 3 on `eb0ab94` and again on `4d792df`.
+
+### Driving the emulators from a shell
+
+- **`10.0.2.2` does not reach the host from the emulator on this machine**: `nc` times out,
+  while the machine's LAN address answers. `adb reverse tcp:8000 tcp:8000` with
+  `http://127.0.0.1:8000` is what works, and it is also the one cleartext address a release
+  build accepts.
+- **The local server ran from the scratchpad, never from `server/`.** `app.config` reads
+  `.env` from the working directory, and the one in `server/` belongs to the deployment; the
+  server took `DATABASE_URL` pointing at a SQLite file, `RUN_BOT=false`, and an empty
+  `BOT_TOKEN` and `WEBHOOK_SECRET`, from its environment.
+- **A fresh AVD's Gboard opened its stylus tutorial** over the first text field and swallowed
+  `input text`; `settings put secure stylus_handwriting_enabled 0` ends it.
+- **Screens were read through `uiautomator dump`**, not through screenshots. A tap has to
+  wait for a sheet or the keyboard to settle, or it lands where the button used to be.
+- **One Gradle daemon died** with `EXCEPTION_ACCESS_VIOLATION` in `jvm.dll`, and the second
+  AVD's first boot exited 139 just after «Boot completed». Both ran clean the second time;
+  the machine still holds the four DIMMs #214's section blamed, and two more unexpected
+  shutdowns were logged on 28 September.
+
+### Gates
+
+On `40889c2`: `./gradlew test assembleDebug assembleRelease detekt` BUILD SUCCESSFUL;
+`./gradlew test` **1587** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 130,
+`:widget` 126, `:app` 591), eight more than #239's 1579 — `ToolbarPillHeightTest` 3 and
+`ToolbarLabelFitTest` 5. Each was run against the toolbar before its fix first: the pill
+80 px for 64 and its centre 40 px for 48; then 84 px for a 4 px «Sync», a 128 px tab for
+«Today», and 322, 322 and 776 px where the caps said 379, 388 and 348. The server was not
+touched, so its gates were not run.
+
+### What was deliberately left alone
+
+- The first AVD's release build, linked to production's «11А» as owner, was not uninstalled
+  to make room for the owner-signed build: a second AVD cost 5 GB on F: and nothing the owner
+  had set up.
+- C: was not cleaned: it stayed between 4.5 and 7 GB free and nothing needed more.
+- The developer mode (#237) was not opened.
+
+### What nobody has verified in this batch
+
+- The pill beside the debug button after #240's fix: the local class gives no manager.
+  Material holds that pill at 64 dp by construction.
+- #242 on a tablet: the 30 % cap is held by `ToolbarLabelFitTest` only. Nor was a title long
+  enough to reach a phone's cap seen scrolling.
+- #201 on a phone, a restore onto another phone, a wiped Keystore, and the diary's bearer,
+  which is sealed the same way and needed a diary session nobody opened.
+- A release build joined to a production class: «11А» takes invitations only, and nothing
+  here wrote to production.
+
 ## What the batch before added: a developer mode (#237) with a request console, and the Petersburg diary out of the server's reach (#235)
 
 Merged as #239 (`4d792df`, 2 October 2026), from `dev`, on milestone 9; #238, from
