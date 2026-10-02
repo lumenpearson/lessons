@@ -391,9 +391,15 @@ class SettingsViewModel(
         if (refreshing.value) return
         viewModelScope.launch {
             refreshing.value = true
-            val result = timetableRepository.refresh()
-            refreshing.value = false
-            message.value = result.toMessageOrNull()
+            try {
+                message.value = timetableRepository.refresh().toMessageOrNull()
+            } finally {
+                // A cancelled or failed refresh must not leave the flag up: with
+                // the guard above it would also refuse every later one, and the
+                // indicator would stay where it is for the life of the screen
+                // (#224).
+                refreshing.value = false
+            }
         }
     }
 
