@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The hidden developer section (#237): found by seven taps on the version in
+    «О приложении», opened only for a GitHub account with write access to the
+    project's repository. Its own file because it is read as one piece, by the
+    people who build the app; Russian-first like the rest.
+-->
+<resources>
+
+    <!-- The section and how it is found -->
+    <string name="developer_section">Для разработчиков</string>
+    <string name="developer_section_summary">Сеть, активность, проверки и визуальные инструменты</string>
+    <string name="developer_revealed">Раздел «Для разработчиков» появился в настройках</string>
+
+    <!-- Access -->
+    <string name="developer_access_group">Доступ</string>
+    <string name="developer_access_signed_out">Режим открывается только аккаунту GitHub с правом записи в репозиторий проекта — тем, кто может его развернуть.</string>
+    <string name="developer_sign_in">Войти через GitHub</string>
+    <string name="developer_github_unavailable">В этой сборке нет входа через GitHub</string>
+    <string name="developer_access_checking">Спрашиваю GitHub о правах %1$s…</string>
+    <string name="developer_access_granted">%1$s — %2$s</string>
+    <string name="developer_access_checked_at">Проверено в %1$s, проверяется снова раз в сутки</string>
+    <string name="developer_role_admin">администратор</string>
+    <string name="developer_role_maintain">сопровождающий</string>
+    <string name="developer_role_write">право записи</string>
+    <string name="developer_access_denied">У аккаунта %1$s нет права записи в репозиторий</string>
+    <string name="developer_access_unknown">GitHub ещё не ответил о правах %1$s</string>
+    <string name="developer_access_failed">Не удалось спросить GitHub о правах %1$s: %2$s</string>
+    <string name="developer_verify">Проверить снова</string>
+
+    <!-- Tools -->
+    <string name="developer_tools_group">Инструменты</string>
+    <string name="developer_tool_network">Запись сети</string>
+    <string name="developer_tool_network_summary">Каждый запрос к серверу, дневникам и GitHub — без тел, токенов и куки</string>
+    <string name="developer_tool_activity">Запись активности</string>
+    <string name="developer_tool_activity_summary">Экраны, шаги входа в дневник, синхронизация, перерисовка виджета</string>
+    <string name="developer_tool_grid">Сетка разметки</string>
+    <string name="developer_tool_grid_summary">Сетка с шагом 8 dp поверх всего приложения</string>
+    <string name="developer_tool_stretch">Растянутые строки</string>
+    <string name="developer_tool_stretch_summary">Каждая строка на сорок процентов длиннее и в скобках ⟦ ⟧: нет скобки — текст обрезан</string>
+    <string name="developer_tool_large_text">Крупный текст</string>
+    <string name="developer_tool_large_text_summary">Масштаб шрифта вдвое больше обычного — больше, чем дают настройки</string>
+
+    <!-- Checks -->
+    <string name="developer_checks_group">Проверки</string>
+    <string name="developer_checks_hint">С этого телефона и из его сети: сервер, дневники, GitHub, Keystore, сеть и разрешения</string>
+    <string name="developer_checks_run">Запустить проверки</string>
+    <string name="developer_check_server">Сервер</string>
+    <string name="developer_check_diary_host">Дневник: %1$s</string>
+    <string name="developer_check_github">GitHub</string>
+    <string name="developer_check_keystore">Keystore</string>
+    <string name="developer_check_network">Сеть</string>
+    <string name="developer_check_notifications">Уведомления</string>
+    <string name="developer_check_exact_alarms">Точные будильники</string>
+    <string name="developer_check_background_sync">Фоновая синхронизация</string>
+    <string name="developer_check_widget">Виджет</string>
+    <string name="developer_check_accounts">Аккаунты</string>
+    <string name="developer_check_build">Сборка</string>
+    <string name="developer_outcome_pass">OK</string>
+    <string name="developer_outcome_warn">Внимание</string>
+    <string name="developer_outcome_fail">Сбой</string>
+    <string name="developer_outcome_skip">Нечего проверять</string>
+    <string name="developer_took_ms">%1$s · %2$d мс</string>
+
+    <!-- The records -->
+    <string name="developer_network_group">Сеть</string>
+    <string name="developer_activity_group">Активность</string>
+    <string name="developer_record_count">Записей: %1$d, показаны последние %2$d</string>
+    <string name="developer_record_empty">Пока пусто</string>
+    <string name="developer_record_off">Запись выключена — она включается в «Инструментах»</string>
+    <string name="developer_clear">Очистить</string>
+    <string name="developer_in_flight">в пути %1$d с</string>
+    <string name="developer_source_server">Сервер</string>
+    <string name="developer_source_diary">Дневник</string>
+    <string name="developer_source_github">GitHub</string>
+    <string name="developer_kind_lifecycle">Приложение</string>
+    <string name="developer_kind_screen">Экран</string>
+    <string name="developer_kind_sign_in">Вход в дневник</string>
+    <string name="developer_kind_sync">Синхронизация</string>
+    <string name="developer_kind_widget">Виджет</string>
+
+    <!-- Report and the way out -->
+    <string name="developer_report_group">Отчёт</string>
+    <string name="developer_report_hint">Проверки, сеть и активность одним текстом — без тел запросов, токенов и куки</string>
+    <string name="developer_report_copy">Скопировать отчёт</string>
+    <string name="developer_report_share">Поделиться отчётом</string>
+    <string name="developer_report_copied">Отчёт скопирован</string>
+    <string name="developer_hide">Скрыть режим разработчика</string>
+    <string name="developer_hide_summary">Раздел исчезнет из настроек, инструменты выключатся, записи сотрутся</string>
+    <string name="developer_hidden">Раздел скрыт. Семь нажатий на версию в «О приложении» вернут его.</string>
+</resources>

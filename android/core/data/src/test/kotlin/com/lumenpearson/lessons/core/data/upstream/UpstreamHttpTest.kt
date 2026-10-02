@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.core.data.upstream
 
+import com.lumenpearson.lessons.core.data.diagnostics.NetworkLog
 import com.lumenpearson.lessons.core.data.network.AuthInterceptor
 import com.lumenpearson.lessons.core.data.network.BaseUrlInterceptor
 import com.lumenpearson.lessons.core.data.network.DiaryAuthInterceptor
@@ -99,7 +100,9 @@ class UpstreamHttpTest {
         val client = clientFor(server)
 
         val kinds = client.interceptors.map { it::class }
-        assertEquals(listOf(OriginGuard::class, BrowserHeaders::class), kinds)
+        // The developer mode's recorder is the one addition, and it signs
+        // nothing: it reads the method, the host and the path (#237).
+        assertEquals(listOf(NetworkLog.Recorder::class, OriginGuard::class, BrowserHeaders::class), kinds)
         for (ours in listOf(BaseUrlInterceptor::class, AuthInterceptor::class, DiaryAuthInterceptor::class)) {
             assertFalse(ours in kinds)
         }

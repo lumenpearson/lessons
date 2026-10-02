@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.core.data.repository
 
+import com.lumenpearson.lessons.core.data.developer.RepositoryPermissions
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -84,7 +85,7 @@ data class TranslationChange(
      * Every file the key could be declared in, most likely first.
      *
      * A list rather than one path, because `:app` splits its resources across
-     * eight files and the prefix that picks the *module* cannot pick the file:
+     * eleven files and the prefix that picks the *module* cannot pick the file:
      * `settings_` keys live in both `strings.xml` and `strings_admin.xml`, and
      * `bug_` in both `strings.xml` and `strings_github.xml`. While this was a
      * single path pointing at `strings.xml`, 419 of `:app`'s 779 strings —
@@ -96,6 +97,18 @@ data class TranslationChange(
     val key: String,
     val body: String,
 )
+
+/** What GitHub answered about the signed-in account's rights in this project's repository. */
+sealed interface PermissionsAnswer {
+
+    /** No token on this phone, or GitHub no longer honours the one there was. */
+    data object SignedOut : PermissionsAnswer
+
+    data class Known(val login: String, val permissions: RepositoryPermissions) : PermissionsAnswer
+
+    /** GitHub could not be asked; [reason] is for the developer page, not for a decision. */
+    data class Failed(val reason: String?) : PermissionsAnswer
+}
 
 /** Outcome of offering a session of corrections as a pull request. */
 sealed interface PullRequestResult {
@@ -159,4 +172,11 @@ interface GithubRepository {
      * opened a sign-in sheet would be deciding something the screen owns.
      */
     suspend fun openTranslationPullRequest(changes: List<TranslationChange>): PullRequestResult
+
+    /**
+     * What the signed-in account may do in this project's repository — the
+     * developer mode's gate. Defaulted, so an implementation with no account
+     * behind it answers «not known» rather than having to say anything.
+     */
+    suspend fun repositoryPermissions(): PermissionsAnswer = PermissionsAnswer.Failed("unsupported")
 }

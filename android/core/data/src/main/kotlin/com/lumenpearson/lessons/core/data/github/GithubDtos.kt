@@ -77,6 +77,24 @@ internal data class RepositoryDto(
     @SerialName("parent") val parent: ParentDto? = null,
 )
 
+/**
+ * `GET /repos/{owner}/{repo}` once more, read for the one object that describes
+ * the caller: what the token's account may do there. Absent for an anonymous
+ * caller, which is why it is nullable rather than defaulted to «nothing».
+ */
+@Serializable
+internal data class RepositoryAccessDto(
+    @SerialName("permissions") val permissions: PermissionsDto? = null,
+)
+
+/** The three grants the developer mode reads; GitHub sends `triage` and `pull` too. */
+@Serializable
+internal data class PermissionsDto(
+    @SerialName("admin") val admin: Boolean = false,
+    @SerialName("maintain") val maintain: Boolean = false,
+    @SerialName("push") val push: Boolean = false,
+)
+
 /** The repository a fork was made from; see [RepositoryDto]. */
 @Serializable
 internal data class ParentDto(

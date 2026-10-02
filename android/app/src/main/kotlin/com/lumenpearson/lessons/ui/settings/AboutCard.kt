@@ -2,9 +2,11 @@ package com.lumenpearson.lessons.ui.settings
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.os.SystemClock
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,6 +55,7 @@ import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.data.legal.LegalDocument
 import com.lumenpearson.lessons.core.data.repository.ServerStatus
+import com.lumenpearson.lessons.ui.developer.RevealTaps
 import com.lumenpearson.lessons.ui.legal.LegalOpener
 import com.lumenpearson.lessons.ui.legal.legalTitle
 import com.lumenpearson.lessons.ui.legal.linkedSentence
@@ -89,7 +93,10 @@ internal fun AboutCard(
     // all — so the workflow whose whole job is to produce an APK could not
     // build one. A parameter makes the badges a function of their input again.
     build: BuildProvenance = BuildProvenance.current(),
+    // Seven quick taps on the name and version: the developer section (#237).
+    onVersionTapped: () -> Unit = {},
 ) {
+    val taps = remember { RevealTaps() }
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(CardCorner),
@@ -104,6 +111,11 @@ internal fun AboutCard(
                 text = correctedString(R.string.about_name_and_version, BuildConfig.VERSION_NAME),
                 style = MaterialTheme.typography.headlineMedium,
                 textAlign = TextAlign.Center,
+                // No ripple: nothing here says it is a button, and to anybody
+                // not counting it is not one.
+                modifier = Modifier.clickable(interactionSource = null, indication = null) {
+                    if (taps.tap(SystemClock.uptimeMillis())) onVersionTapped()
+                },
             )
 
             Text(

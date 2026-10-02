@@ -1,5 +1,7 @@
 package com.lumenpearson.lessons.core.data.upstream
 
+import com.lumenpearson.lessons.core.data.diagnostics.NetworkLog
+import com.lumenpearson.lessons.core.data.diagnostics.NetworkSource
 import java.io.IOException
 import java.net.NoRouteToHostException
 import java.net.UnknownHostException
@@ -90,6 +92,10 @@ internal object UpstreamHttp {
         .readTimeout(20, TimeUnit.SECONDS)
         .writeTimeout(10, TimeUnit.SECONDS)
         .callTimeout(40, TimeUnit.SECONDS)
+        // First, so that a request the guard refuses is on the developer
+        // mode's record too: that refusal is a bug, and the record is where it
+        // would be seen (#237).
+        .addInterceptor(NetworkLog.interceptor(NetworkSource.DIARY))
         .addInterceptor(OriginGuard(allowed))
         .addInterceptor(BrowserHeaders)
         .build()

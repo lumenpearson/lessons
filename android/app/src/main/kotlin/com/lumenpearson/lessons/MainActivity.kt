@@ -23,6 +23,9 @@ import com.lumenpearson.lessons.core.model.DeepLink
 import com.lumenpearson.lessons.navigation.LessonsApp
 import com.lumenpearson.lessons.ui.AppShellViewModel
 import com.lumenpearson.lessons.ui.common.AppLocales
+import com.lumenpearson.lessons.ui.developer.DeveloperOverlay
+import com.lumenpearson.lessons.ui.developer.LargeTextScale
+import com.lumenpearson.lessons.ui.developer.VisualTools
 import com.lumenpearson.lessons.ui.translate.CorrectionHost
 import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -186,7 +189,9 @@ class MainActivity : ComponentActivity() {
                 dynamicColor = shell.settings.dynamicColor,
                 pitchBlack = shell.settings.pitchBlack,
                 font = shell.settings.appFont,
-                textScale = shell.settings.textScale,
+                // The developer mode's large text (#237) overrides the stored
+                // scale while it is on, and the stored one is back when it is off.
+                textScale = if (VisualTools.largeText) LargeTextScale else shell.settings.textScale,
             ) {
                 // Wraps the app rather than living inside a screen: the circle
                 // has to cross the whole window, and the still it wipes away is
@@ -198,12 +203,16 @@ class MainActivity : ComponentActivity() {
                     // app can put up, and a text block outside this is a text
                     // block a proofreader cannot fix.
                     CorrectionHost {
-                        LessonsApp(
-                            shell = shell.shell,
-                            settings = shell.settings,
-                            openDate = openDate,
-                            onDateOpened = { pendingDate.value = null },
-                        )
+                        // Around the app, inside the correction host: the grid
+                        // is drawn over every screen and every sheet's content.
+                        DeveloperOverlay {
+                            LessonsApp(
+                                shell = shell.shell,
+                                settings = shell.settings,
+                                openDate = openDate,
+                                onDateOpened = { pendingDate.value = null },
+                            )
+                        }
                     }
                 }
             }

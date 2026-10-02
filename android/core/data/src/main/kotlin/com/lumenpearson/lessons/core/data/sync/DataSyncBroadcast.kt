@@ -2,6 +2,8 @@ package com.lumenpearson.lessons.core.data.sync
 
 import android.content.Context
 import android.content.Intent
+import com.lumenpearson.lessons.core.data.diagnostics.ActivityKind
+import com.lumenpearson.lessons.core.data.diagnostics.ActivityLog
 
 /**
  * The one-way notification that fresh data landed in the cache.
@@ -27,6 +29,7 @@ object DataSyncBroadcast {
 
     /** Fire-and-forget: no receiver is not an error, it just means no widget. */
     fun send(context: Context) {
+        ActivityLog.record(ActivityKind.WIDGET, "redraw requested")
         context.sendBroadcast(
             Intent(ACTION).setPackage(context.packageName),
         )

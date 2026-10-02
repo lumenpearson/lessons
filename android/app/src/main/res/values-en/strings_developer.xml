@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English mirror of res/values/strings_developer.xml (which is the Russian original). -->
+<resources>
+
+    <!-- The section and how it is found -->
+    <string name="developer_section">For developers</string>
+    <string name="developer_section_summary">Network, activity, checks and visual tools</string>
+    <string name="developer_revealed">The «For developers» section is now in settings</string>
+
+    <!-- Access -->
+    <string name="developer_access_group">Access</string>
+    <string name="developer_access_signed_out">The mode opens only for a GitHub account with write access to the project\'s repository — the people who can deploy it.</string>
+    <string name="developer_sign_in">Sign in with GitHub</string>
+    <string name="developer_github_unavailable">This build cannot sign in to GitHub</string>
+    <string name="developer_access_checking">Asking GitHub about %1$s…</string>
+    <string name="developer_access_granted">%1$s — %2$s</string>
+    <string name="developer_access_checked_at">Checked at %1$s, checked again once a day</string>
+    <string name="developer_role_admin">administrator</string>
+    <string name="developer_role_maintain">maintainer</string>
+    <string name="developer_role_write">write access</string>
+    <string name="developer_access_denied">%1$s has no write access to the repository</string>
+    <string name="developer_access_unknown">GitHub has not answered about %1$s yet</string>
+    <string name="developer_access_failed">Could not ask GitHub about %1$s: %2$s</string>
+    <string name="developer_verify">Check again</string>
+
+    <!-- Tools -->
+    <string name="developer_tools_group">Tools</string>
+    <string name="developer_tool_network">Network log</string>
+    <string name="developer_tool_network_summary">Every request to the server, the diaries and GitHub — no bodies, tokens or cookies</string>
+    <string name="developer_tool_activity">Activity log</string>
+    <string name="developer_tool_activity_summary">Screens, diary sign-in steps, sync, widget redraws</string>
+    <string name="developer_tool_grid">Layout grid</string>
+    <string name="developer_tool_grid_summary">An 8 dp grid over the whole app</string>
+    <string name="developer_tool_stretch">Stretched strings</string>
+    <string name="developer_tool_stretch_summary">Every string forty percent longer and in brackets ⟦ ⟧: a missing bracket is clipped text</string>
+    <string name="developer_tool_large_text">Large text</string>
+    <string name="developer_tool_large_text_summary">Twice the usual text scale — more than settings offer</string>
+
+    <!-- Checks -->
+    <string name="developer_checks_group">Checks</string>
+    <string name="developer_checks_hint">From this phone and its network: the server, the diaries, GitHub, the Keystore, the network and permissions</string>
+    <string name="developer_checks_run">Run the checks</string>
+    <string name="developer_check_server">Server</string>
+    <string name="developer_check_diary_host">Diary: %1$s</string>
+    <string name="developer_check_github">GitHub</string>
+    <string name="developer_check_keystore">Keystore</string>
+    <string name="developer_check_network">Network</string>
+    <string name="developer_check_notifications">Notifications</string>
+    <string name="developer_check_exact_alarms">Exact alarms</string>
+    <string name="developer_check_background_sync">Background sync</string>
+    <string name="developer_check_widget">Widget</string>
+    <string name="developer_check_accounts">Accounts</string>
+    <string name="developer_check_build">Build</string>
+    <string name="developer_outcome_pass">OK</string>
+    <string name="developer_outcome_warn">Warning</string>
+    <string name="developer_outcome_fail">Failed</string>
+    <string name="developer_outcome_skip">Nothing to check</string>
+    <string name="developer_took_ms">%1$s · %2$d ms</string>
+
+    <!-- The records -->
+    <string name="developer_network_group">Network</string>
+    <string name="developer_activity_group">Activity</string>
+    <string name="developer_record_count">Entries: %1$d, the last %2$d shown</string>
+    <string name="developer_record_empty">Nothing yet</string>
+    <string name="developer_record_off">Recording is off — it is switched on under Tools</string>
+    <string name="developer_clear">Clear</string>
+    <string name="developer_in_flight">in flight %1$d s</string>
+    <string name="developer_source_server">Server</string>
+    <string name="developer_source_diary">Diary</string>
+    <string name="developer_source_github">GitHub</string>
+    <string name="developer_kind_lifecycle">App</string>
+    <string name="developer_kind_screen">Screen</string>
+    <string name="developer_kind_sign_in">Diary sign-in</string>
+    <string name="developer_kind_sync">Sync</string>
+    <string name="developer_kind_widget">Widget</string>
+
+    <!-- Report and the way out -->
+    <string name="developer_report_group">Report</string>
+    <string name="developer_report_hint">Checks, network and activity as one text — no request bodies, tokens or cookies</string>
+    <string name="developer_report_copy">Copy the report</string>
+    <string name="developer_report_share">Share the report</string>
+    <string name="developer_report_copied">Report copied</string>
+    <string name="developer_hide">Hide developer mode</string>
+    <string name="developer_hide_summary">The section leaves settings, the tools switch off, the records are erased</string>
+    <string name="developer_hidden">The section is hidden. Seven taps on the version under «О приложении» bring it back.</string>
+</resources>

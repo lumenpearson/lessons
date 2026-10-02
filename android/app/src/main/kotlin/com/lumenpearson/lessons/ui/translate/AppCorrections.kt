@@ -13,6 +13,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalResources
 import com.lumenpearson.lessons.core.designsystem.text.Corrections
 import com.lumenpearson.lessons.core.designsystem.text.LocalCorrections
+import com.lumenpearson.lessons.ui.developer.VisualTools
+import com.lumenpearson.lessons.ui.developer.stretched
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -111,12 +113,19 @@ internal class AppCorrections(
     override val enabled: Boolean get() = TranslationMode.enabled
 
     override fun correctionOf(id: Int, shipped: String): String {
+        val shown = corrected(id, shipped)
+        // The developer mode's stretched strings (#237), here because this is
+        // the one place every string of the app passes through: a pattern is
+        // stretched before it is formatted, so every placeholder still is one.
+        return if (VisualTools.stretchedStrings) stretched(shown) else shown
+    }
+
+    private fun corrected(id: Int, shipped: String): String {
         // Every string in the app asks this on every composition, in every
         // build, so the answer for a session nobody has started is one
         // snapshot read and nothing else — no resource name, no scan.
         if (TranslationMode.session.isEmpty) return shipped
-        val key = nameOf(id) ?: return shipped
-        return TranslationMode.session.correctionOf(key, locale) ?: shipped
+        return nameOf(id)?.let { key -> TranslationMode.session.correctionOf(key, locale) } ?: shipped
     }
 
     override fun noteOnScreen(id: Int, shown: String) {
