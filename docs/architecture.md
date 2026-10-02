@@ -690,7 +690,11 @@ write that fails costs the copy, never the answer. **A generation guards it:** a
 generation before its request, and a read that was in flight across a sign-out or another
 account's sign-in is dropped rather than written back after the clear. The registration's
 own list of pupils is written by `SeedingDiarySignIn`, so the import need not ask again. The
-database sits under the backup rules' existing exclusion of every database.
+database sits under the backup rules' existing exclusion of every database. Its readers are
+the diary's screens and, since #219, «Сегодня», which draws today's marks at the trailing end
+of the class's lesson rows (`gradesByLesson`, matched by date and the folded subject name) —
+from this cache only, never by asking the diary, which the import refreshes when the app
+opens.
 
 **The import** fills it once, after the first registration: the pupils, the choice of pupil
 (asked only when the account has several and none was chosen before), the terms, this week's
