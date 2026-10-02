@@ -741,7 +741,7 @@ licence, so a typeface cannot be swapped without its licence following it.
 | --- | --- |
 | JDK | 21 |
 | Android SDK | compileSdk 37, minSdk 26 |
-| Gradle | through the wrapper, 9.7.1 |
+| Gradle | through the wrapper, 9.8.0 |
 
 The wrapper and its jar are in the repository, so `./gradlew` works on a fresh clone with
 no Gradle installed, and nothing else has to be on the machine.
