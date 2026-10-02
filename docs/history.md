@@ -28,6 +28,56 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: a tab's label revealed rather than squeezed, and every animation under «Анимации» (#246, #247)
+
+Merged as #248 (`a54f1f0`, 2 October 2026), from `dev`, on milestone 9. The same session as #241 and #245, on the owner's
+next request of 2 October 2026: no gradient over the selected tab's label while it animates,
+more animation of transitions and of elements appearing and leaving, and all of it still
+controlled from the settings.
+
+- **#246, a gradient over the selected tab's label on every tap — filed, then fixed.** The
+  pill springs open and for its first frames is narrower than the label; `MarqueeText`
+  decides from the width it is given, so the fading edges and the marquee came on and went
+  off a frame later. The label is laid out at its final width from the first frame and cut by
+  the growing pill; it stays while its pill closes, fading with it.
+- **#246, found while fixing it: animations that ignored the switch.** The bar's springs, the
+  calendar's period slide, the bell, the loading shimmer and the first run's app-mark spin
+  went on with «Анимации» off and at any speed. `core/designsystem/.../theme/MotionSpecs.kt`
+  is now where specs come from (`springSpec`, `tweenSpec`, `appear`, `disappear`), each a
+  snap or no transition when off and scaled by the speed when on. `docs/design.md`, «Every
+  animation answers to «Анимации»», says what a new animation has to do.
+- **#247, more animation.** Rows under a switch open and close (`Reveal`): vibration
+  strength, the motion speed, the blur amount, each notification's options. The items on
+  «Сегодня» and «Задания» fade and slide when the list changes (`animatedItem`). The lessons
+  on «Сегодня» cross-fade between placeholder, lessons and empty states (`MotionCrossfade`).
+- **Seen on the API 37 emulator** with the system animator scale at 10 to catch frames, then
+  put back: «Календарь» opening as a clipped, fading «Ка…» with no gradient, and «Сила
+  отклика» folding away under «Вибрация» and coming back.
+
+### Gates
+
+On `6bf79bb`: `./gradlew test` **1609** (`:core:model` 125, `:core:data` 615,
+`:core:designsystem` 139, `:widget` 126, `:app` 604), nine more than #245's 1600 —
+`ToolbarLabelRevealTest` 3 and `MotionSpecsTest` 6; `detekt`, `assembleDebug` and
+`assembleRelease` pass. The reveal tests were run against the toolbar before the fix and all
+three were red: the label laid out at 0 px for 34, the tab 49 px of 83 three frames in with
+animations off, the same width at either speed. Robolectric gives Cyrillic text no width, so
+those labels are Latin. The server was not touched.
+
+### What was deliberately left alone
+
+- The page transitions in the shell and the onboarding already read `LocalMotion` and were
+  not changed. The wave, the theme circle and the motion blur keep their own switches under
+  «Эффекты».
+- Settings pages' list items do not use `animatedItem`: they rarely change while open, and
+  their conditional rows have `Reveal`.
+
+### What nobody has verified in this batch
+
+- The new item animations on «Сегодня» and «Задания» frame by frame, and the lessons'
+  cross-fade, on any device.
+- A phone's GPU under the extra fades; the emulator's says nothing about a cheap phone.
+
 ## What the batch before added: back one settings page at a time, and a back pill that names where it goes (#243, #244)
 
 Merged as #245 (`2ae3b37`, 2 October 2026), from `dev`, on milestone 9. The same session as #241, after its merge, on the

@@ -726,6 +726,16 @@ for convenience: a `LazyColumn` or a `Scaffold` on a screen is the root of its o
 handed a slot and filling it, with nothing above asking it to predict a size. The rule is
 about a component written to be placed inside a layout it does not own.
 
+**When a line is the app's words and data, only the data scrolls (#251).** «Домашнее задание
+на понедельник, 5 октября» used to slide away whole, the words with the day. A `DataLine`
+holds the two apart: `correctedLine(id, args)` cuts a string resource where its pattern's
+first argument begins, and `MarqueeText`, `SectionHeader`, `GroupItem` and `PillChip` lay the
+lead out at its own width and scroll only what follows. The pair is described as the whole
+sentence, so TalkBack reads it once and the correction mode outlines it as one string. A
+new one-line string with a fixed phrase before its argument should be drawn through
+`correctedLine`; a line that starts with its data needs nothing, since it is data from its
+first letter.
+
 **A line in a box that is still growing is measured against the box it is growing into.**
 The selected tab's label sits in a pill that springs open, and for its first frames the pill
 is narrower than the label: measured against that, the label overflowed, the fading edges

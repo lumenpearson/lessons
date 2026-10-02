@@ -7,18 +7,17 @@ What every batch before the last two added is in [docs/history.md](docs/history.
 newest first.
 
 Last updated: **2 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245 and #248 are merged**;
-`main` is at `a54f1f0`, the merge of #248, on 2 October 2026, and `dev` was restarted from it
-for this batch. **The only thing open is the pull request carrying this paragraph, #250**,
-from `dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary survey`. It makes a
-tab's disc fade with the selection, so the tab losing it no longer leaves a hole in the bar
-(#249), from the owner's own recording; and it records that the owner's other report that
-evening — tabs «always highlighted», animations «broken» — was the session's own slowed
-emulator, not the code. The section «What the last session added» below is that batch.
+#166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248 and #250 are merged**;
+`main` is at `66801c1`, the merge of #250, on 2 October 2026, and `dev` was restarted from it
+for this batch. **The only thing open is the pull request carrying this paragraph, #252**,
+from `dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary survey`. It holds a
+one-line header's own words still and scrolls only the data in it — the day, the time, the
+lesson, whatever the server fills in (#251), as the owner asked that night. The section «What
+the last session added» below is that batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#248 closed #246 and #247**, read back from GitHub on 2 October. **#250 closes #249.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
+**#250 closed #249**, read back from GitHub on 2 October. **#252 closes #251.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
 nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
 Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
@@ -131,9 +130,61 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: a tab's disc that fades with the selection (#249), and a slowed emulator that looked like a regression
+## What the last session added: a header's words held still while only its data scrolls (#251)
 
-Open as #250, from `dev`, on milestone 9. The same session as #241, #245 and #248, on two
+Open as #252, from `dev`, on milestone 9. The same session as #241–#250, on the owner's next
+request: the headers should not scroll whole, only the data in them — the day, the time, the
+lesson, the teacher, whatever the server fills in.
+
+- **`DataLine`** in `:core:designsystem` (`text/DataLine.kt`) is a line in two parts.
+  **`correctedLine(id, args)`** makes one from a string resource: it formats and registers
+  the sentence as `correctedString` does. It splits at the length of the pattern's words
+  before its first argument, reading the corrected pattern when there is a correction. It
+  does not split when the line starts with its data, or when the formatted words no longer
+  match.
+- **`MarqueeText`, `SectionHeader`, `GroupItem` and `PillChip` take a `DataLine`.** Their
+  String forms are now the same layout with no lead. The lead is laid out at its own width,
+  the data takes the rest and scrolls, and a space's width sits between them. The pair is
+  described as the whole sentence (`clearAndSetSemantics`), so TalkBack reads it once and
+  the seven `:app` tests that find «Ветка main», «Выйти из класса «9Б»» or «Урок 2» by their
+  whole text pass as before.
+- **Twenty-seven places draw such a line and now pass `correctedLine`:**
+  - the «Сегодня» homework header and «ещё N»;
+  - the diary's marks range and the region step's school list;
+  - the about card's badges and a lesson's index chip;
+  - the signed-in rows, and the class and developer screens.
+- **Seen on the API 37 emulator**: «Домашнее задание на» still while «понедельник, 5
+  октября» scrolls beside it, filmed at two frames a second for eight seconds.
+
+### Gates
+
+On `8d31fbf`: `./gradlew test assembleDebug assembleRelease detekt` pass; `./gradlew test`
+**1616** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 146, `:widget` 126, `:app`
+604), five more than #250's 1611, all `DataLineTest`'s. Its pixel case — the lead's columns
+unchanged and the data's changed, two moments apart while the data scrolls, in native
+graphics — was red with the line drawn whole, as before: 217 of the lead's columns moved. One
+Gradle daemon died mid-run with `EXCEPTION_ACCESS_VIOLATION` in `jvm.dll`; the rerun was
+clean. The server was not touched.
+
+### What was deliberately left alone
+
+- Only the words *before* the first argument are held. In a line with words between or after
+  its arguments, everything from the first argument on scrolls together, because those words
+  belong to the data they join.
+- The state card's detail line («Далее — Алгебра») wraps rather than scrolls, so it was not
+  split.
+- `C:\Program Files\Git\tmp_ml.kt` is a stray copy of `MarqueeText.kt` written by a slip of a
+  path during the work; the session's safety check refused to delete a file there, and it is
+  the owner's to remove.
+
+### What nobody has verified in this batch
+
+- The split lines on a phone, in English, and with the correction mode on: its outline over
+  a split line is seen by no test that composes the mode.
+
+## What the session before it added: a tab's disc that fades with the selection (#249), and a slowed emulator that looked like a regression
+
+Merged as #250 (`66801c1`, 2 October 2026), from `dev`, on milestone 9. The same session as #241, #245 and #248, on two
 more reports from the owner that evening.
 
 - **«ты сломал кнопки и анимации на главном экране … они всегда подсвечиваются» — not the
@@ -175,56 +226,6 @@ the change. The server was not touched.
 - The fade on a phone, and in the light theme on a device: the emulator was in the dark theme
   for the recording.
 
-## What the session before it added: a tab's label revealed rather than squeezed, and every animation under «Анимации» (#246, #247)
-
-Merged as #248 (`a54f1f0`, 2 October 2026), from `dev`, on milestone 9. The same session as #241 and #245, on the owner's
-next request of 2 October 2026: no gradient over the selected tab's label while it animates,
-more animation of transitions and of elements appearing and leaving, and all of it still
-controlled from the settings.
-
-- **#246, a gradient over the selected tab's label on every tap — filed, then fixed.** The
-  pill springs open and for its first frames is narrower than the label; `MarqueeText`
-  decides from the width it is given, so the fading edges and the marquee came on and went
-  off a frame later. The label is laid out at its final width from the first frame and cut by
-  the growing pill; it stays while its pill closes, fading with it.
-- **#246, found while fixing it: animations that ignored the switch.** The bar's springs, the
-  calendar's period slide, the bell, the loading shimmer and the first run's app-mark spin
-  went on with «Анимации» off and at any speed. `core/designsystem/.../theme/MotionSpecs.kt`
-  is now where specs come from (`springSpec`, `tweenSpec`, `appear`, `disappear`), each a
-  snap or no transition when off and scaled by the speed when on. `docs/design.md`, «Every
-  animation answers to «Анимации»», says what a new animation has to do.
-- **#247, more animation.** Rows under a switch open and close (`Reveal`): vibration
-  strength, the motion speed, the blur amount, each notification's options. The items on
-  «Сегодня» and «Задания» fade and slide when the list changes (`animatedItem`). The lessons
-  on «Сегодня» cross-fade between placeholder, lessons and empty states (`MotionCrossfade`).
-- **Seen on the API 37 emulator** with the system animator scale at 10 to catch frames, then
-  put back: «Календарь» opening as a clipped, fading «Ка…» with no gradient, and «Сила
-  отклика» folding away under «Вибрация» and coming back.
-
-### Gates
-
-On `6bf79bb`: `./gradlew test` **1609** (`:core:model` 125, `:core:data` 615,
-`:core:designsystem` 139, `:widget` 126, `:app` 604), nine more than #245's 1600 —
-`ToolbarLabelRevealTest` 3 and `MotionSpecsTest` 6; `detekt`, `assembleDebug` and
-`assembleRelease` pass. The reveal tests were run against the toolbar before the fix and all
-three were red: the label laid out at 0 px for 34, the tab 49 px of 83 three frames in with
-animations off, the same width at either speed. Robolectric gives Cyrillic text no width, so
-those labels are Latin. The server was not touched.
-
-### What was deliberately left alone
-
-- The page transitions in the shell and the onboarding already read `LocalMotion` and were
-  not changed. The wave, the theme circle and the motion blur keep their own switches under
-  «Эффекты».
-- Settings pages' list items do not use `animatedItem`: they rarely change while open, and
-  their conditional rows have `Reveal`.
-
-### What nobody has verified in this batch
-
-- The new item animations on «Сегодня» and «Задания» frame by frame, and the lessons'
-  cross-fade, on any device.
-- A phone's GPU under the extra fades; the emulator's says nothing about a cheap phone.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -244,7 +245,7 @@ maps them. The
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
@@ -1248,7 +1249,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 2065 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 153 modules
-cd android && ./gradlew test                             # 1611 tests across the five modules
+cd android && ./gradlew test                             # 1616 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
