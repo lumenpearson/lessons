@@ -25,6 +25,7 @@ import com.lumenpearson.lessons.core.model.DayOffReason
 import com.lumenpearson.lessons.ui.common.asDayMonth
 import com.lumenpearson.lessons.ui.common.asFullWeekday
 import java.time.LocalDate
+import java.time.LocalTime
 
 /** The detail under the week strip or the month grid. */
 @Composable
@@ -39,6 +40,12 @@ internal fun DayPanel(
     onLessonClick: (Lesson) -> Unit,
     onOpenDay: () -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * The school's wall time when [date] is today, else `null`. The calendar's
+     * today is marked the way «Сегодня» marks it — the running lesson's
+     * gradient and the «сейчас» line — instead of reading like any other day.
+     */
+    now: LocalTime? = null,
 ) {
     val schoolDay = day?.day
     val lessons = schoolDay?.activeLessons.orEmpty()
@@ -100,7 +107,7 @@ internal fun DayPanel(
 
             else -> LessonGroup(
                 lessons = lessons,
-                now = null,
+                now = now,
                 showTeacher = showTeacher,
                 onLessonClick = onLessonClick,
             )

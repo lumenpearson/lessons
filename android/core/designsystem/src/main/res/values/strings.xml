@@ -54,6 +54,8 @@
     <string name="ds_lesson_cancelled">отменён</string>
     <string name="ds_lesson_room">каб. %1$s</string>
     <string name="ds_lesson_now">сейчас</string>
+    <!-- Read out for the marks at the end of a lesson row: «Оценки: 5, 4». -->
+    <string name="ds_lesson_grades">Оценки: %1$s</string>
 
     <!-- Homework -->
     <string name="ds_homework_title">Домашнее задание</string>
