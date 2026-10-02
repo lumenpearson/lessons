@@ -38,6 +38,7 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.correctedLine
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -91,7 +92,7 @@ fun DebugSheet(
 
         RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
             GroupItem(
-                title = correctedString(R.string.about_version, BuildConfig.VERSION_NAME),
+                title = correctedLine(R.string.about_version, BuildConfig.VERSION_NAME),
                 subtitle = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} " +
                     "· Android ${android.os.Build.VERSION.RELEASE}",
                 icon = Icons.Rounded.BugReport,

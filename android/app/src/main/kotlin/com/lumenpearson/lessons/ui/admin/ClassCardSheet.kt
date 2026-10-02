@@ -45,6 +45,7 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.correctedLine
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -515,7 +516,7 @@ private fun SchoolSearchPanel(
         if (search.pages > 1) {
             RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
                 GroupItem(
-                    title = correctedString(
+                    title = correctedLine(
                         R.string.admin_class_school_page,
                         search.page,
                         search.pages,

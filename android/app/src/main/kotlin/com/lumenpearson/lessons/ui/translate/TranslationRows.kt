@@ -23,6 +23,7 @@ import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.data.repository.GithubAccount
 import com.lumenpearson.lessons.core.data.repository.TranslationChange
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.correctedLine
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 
 /**
@@ -78,7 +79,7 @@ private fun TranslationGroup(
             // goes dark without it.
             when {
                 account != null -> GroupItem(
-                    title = correctedString(R.string.settings_github_signed_in_as, account.login),
+                    title = correctedLine(R.string.settings_github_signed_in_as, account.login),
                     subtitle = correctedString(R.string.translation_sign_in_description),
                     icon = Icons.Rounded.Code,
                     tone = accentTone(3),

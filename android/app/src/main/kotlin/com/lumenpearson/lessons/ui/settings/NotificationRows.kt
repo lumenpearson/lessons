@@ -39,6 +39,7 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupTimeItem
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.correctedLine
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
@@ -342,7 +343,7 @@ private fun LeadMinutesRow(
     ) {
         AlertPreferences.LeadMinuteOptions.forEach { minutes ->
             PillChip(
-                text = correctedString(R.string.settings_alert_lead_value, minutes),
+                text = correctedLine(R.string.settings_alert_lead_value, minutes),
                 selected = minutes == selected,
                 onClick = { onSelect(minutes) },
             )

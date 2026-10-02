@@ -55,6 +55,7 @@ import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.modifier.LocalControlCentre
 import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
+import com.lumenpearson.lessons.core.designsystem.text.DataLine
 import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
@@ -172,6 +173,31 @@ fun GroupItem(
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
+) = GroupItem(
+    title = DataLine.of(title),
+    tone = tone,
+    modifier = modifier,
+    subtitle = subtitle,
+    icon = icon,
+    enabled = enabled,
+    onClick = onClick,
+    trailing = trailing,
+)
+
+/**
+ * A row whose title is the app's words and data — «Вошли как @login» — where
+ * only the data scrolls if it does not fit (#251). See [DataLine].
+ */
+@Composable
+fun GroupItem(
+    title: DataLine,
+    tone: AccentTone,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    icon: ImageVector? = null,
+    enabled: Boolean = true,
+    onClick: (() -> Unit)? = null,
+    trailing: @Composable (() -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val view = rememberHapticView()
@@ -191,7 +217,7 @@ fun GroupItem(
     }
     val headline: @Composable () -> Unit = {
         MarqueeText(
-            text = title,
+            line = title,
             style = MaterialTheme.typography.titleMedium,
             color = if (enabled) scheme.onSurface else scheme.outline,
         )

@@ -35,6 +35,7 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.correctedLine
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -205,7 +206,7 @@ fun LessonSheet(
             modifier = Modifier.padding(horizontal = ScreenPadding),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            PillChip(text = correctedString(R.string.schedule_lesson_index, lesson.index))
+            PillChip(text = correctedLine(R.string.schedule_lesson_index, lesson.index))
             if (lesson.isReplaced) {
                 PillChip(text = correctedString(R.string.schedule_lesson_replaced))
             }

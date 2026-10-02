@@ -25,6 +25,7 @@ import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.correctedLine
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.ui.diary.asText
 import com.lumenpearson.lessons.ui.diary.localized
@@ -164,7 +165,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.schoolAnswer(
             } else {
                 item(key = "school-hits") {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        SectionHeader(title = correctedString(R.string.onboarding_region_school_section, search.query.trim()))
+                        SectionHeader(correctedLine(R.string.onboarding_region_school_section, search.query.trim()))
                         RoundedCardContainer {
                             placed.forEach { hit ->
                                 val key = hit.regionKey ?: return@forEach

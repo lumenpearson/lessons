@@ -48,6 +48,7 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupSegmentedItem
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.correctedLine
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -239,7 +240,7 @@ private fun ConsoleResult(outcome: ConsoleOutcome, onCopy: (String) -> Unit) {
             tone = errorTone(),
         )
         is ConsoleOutcome.Failed -> GroupItem(
-            title = correctedString(R.string.developer_console_failed, outcome.description),
+            title = correctedLine(R.string.developer_console_failed, outcome.description),
             subtitle = correctedString(R.string.developer_took_ms, "—", outcome.tookMillis),
             tone = errorTone(),
         )
@@ -250,7 +251,7 @@ private fun ConsoleResult(outcome: ConsoleOutcome, onCopy: (String) -> Unit) {
 @Composable
 private fun AnswerRows(answer: ConsoleAnswer, onCopy: (String) -> Unit) {
     GroupItem(
-        title = correctedString(
+        title = correctedLine(
             R.string.developer_took_ms,
             "HTTP ${answer.status} ${answer.message}".trim(),
             answer.tookMillis,

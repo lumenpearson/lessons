@@ -1,15 +1,24 @@
 package com.lumenpearson.lessons.core.designsystem.text
 
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
@@ -150,6 +159,78 @@ fun MarqueeText(
                 },
             ),
     )
+}
+
+/**
+ * A [DataLine] on one line: the app's words held still, and only the data after
+ * them scrolling when the line does not fit (#251).
+ *
+ * Read and found as the whole sentence: the two parts are drawn apart and
+ * described together.
+ *
+ * The lead is measured first and gets what it needs, so it scrolls only if it
+ * alone is wider than the line; the data takes the rest. The space between them
+ * is drawn as a gap of the style's own space width, because a trailing space at
+ * the end of a line is not reliably given a width. The correction mode's outline
+ * and long press go on the whole line, which is the string it knows.
+ */
+@Composable
+fun MarqueeText(
+    line: DataLine,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    textAlign: TextAlign? = null,
+    fadeWidth: Dp = MarqueeFadeWidth,
+    style: TextStyle = LocalTextStyle.current,
+) {
+    if (line.lead.isBlank()) {
+        MarqueeText(
+            text = line.whole,
+            modifier = modifier,
+            color = color,
+            textAlign = textAlign,
+            fadeWidth = fadeWidth,
+            style = style,
+        )
+        return
+    }
+    val lead = line.lead.trimEnd()
+    val spaced = lead.length < line.lead.length || line.data.firstOrNull()?.isWhitespace() == true
+    val data = line.data.trimStart()
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val space = remember(style, density) {
+        // The width a space adds between two letters, which is what it takes
+        // between the lead and the data.
+        val apart = measurer.measure("x x", style, softWrap = false).size.width
+        val together = measurer.measure("xx", style, softWrap = false).size.width
+        with(density) { (apart - together).coerceAtLeast(0).toDp() }
+    }
+    Row(
+        modifier = modifier
+            .correctable(line.whole)
+            // One sentence to a screen reader and to a test, as it was before
+            // it was drawn in two parts: the parts are layout, not two things
+            // to read.
+            .clearAndSetSemantics { text = AnnotatedString(line.whole) },
+        // The two parts are one line, so a centred line centres the pair.
+        horizontalArrangement = when (textAlign) {
+            TextAlign.Center -> Arrangement.Center
+            TextAlign.End, TextAlign.Right -> Arrangement.End
+            else -> Arrangement.Start
+        },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MarqueeText(text = lead, color = color, fadeWidth = fadeWidth, style = style)
+        if (spaced) Spacer(Modifier.width(space))
+        MarqueeText(
+            text = data,
+            modifier = Modifier.weight(1f, fill = false),
+            color = color,
+            fadeWidth = fadeWidth,
+            style = style,
+        )
+    }
 }
 
 /**
