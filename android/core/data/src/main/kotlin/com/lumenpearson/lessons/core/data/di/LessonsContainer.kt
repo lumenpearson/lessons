@@ -15,6 +15,7 @@ import com.lumenpearson.lessons.core.data.diary.DiaryImportImpl
 import com.lumenpearson.lessons.core.data.diary.SeedingDiarySignIn
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.developer.AccountFacts
+import com.lumenpearson.lessons.core.data.developer.ConsoleCredentials
 import com.lumenpearson.lessons.core.data.developer.DeveloperChecks
 import com.lumenpearson.lessons.core.data.developer.DeveloperMode
 import com.lumenpearson.lessons.core.data.developer.DeveloperModeImpl
@@ -22,6 +23,7 @@ import com.lumenpearson.lessons.core.data.developer.DeveloperPreferences
 import com.lumenpearson.lessons.core.data.developer.DeveloperState
 import com.lumenpearson.lessons.core.data.developer.DeveloperTool
 import com.lumenpearson.lessons.core.data.developer.DeviceChecks
+import com.lumenpearson.lessons.core.data.developer.RequestConsole
 import com.lumenpearson.lessons.core.data.diagnostics.ActivityLog
 import com.lumenpearson.lessons.core.data.diagnostics.NetworkLog
 import com.lumenpearson.lessons.core.data.network.CleartextPolicy
@@ -148,6 +150,9 @@ interface LessonsContainer {
 
     /** The developer section's checks, run from the phone's own network. */
     val developerChecks: DeveloperChecks
+
+    /** The developer section's request console: our server and the catalog's diaries, nothing else. */
+    val requestConsole: RequestConsole
 }
 
 /**
@@ -542,6 +547,17 @@ class DefaultLessonsContainer(
                 )
             },
             device = DeviceChecks(context = appContext, diaryClient = { upstreamClient }),
+        )
+    }
+
+    override val requestConsole: RequestConsole by lazy {
+        RequestConsole(
+            credentials = {
+                val held = preferences.credentials.current()
+                ConsoleCredentials(held.baseUrl, held.classToken, held.diaryToken)
+            },
+            diaryOrigins = { upstreamDirectory.allowedOrigins() },
+            cleartextPermitted = CleartextPolicy.Platform::permits,
         )
     }
 

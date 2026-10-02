@@ -83,4 +83,41 @@
     <string name="developer_hide">Hide developer mode</string>
     <string name="developer_hide_summary">The section leaves settings, the tools switch off, the records are erased</string>
     <string name="developer_hidden">The section is hidden. Seven taps on the version under «О приложении» bring it back.</string>
+
+    <!-- The request console (#237). -->
+    <string name="developer_source_console">Console</string>
+    <string name="developer_console_group">Request console</string>
+    <string name="developer_console_summary">Any request to our server or to a diary in the catalog — and nowhere else</string>
+    <string name="developer_console_presets">Templates</string>
+    <string name="developer_console_pick">Choose</string>
+    <string name="developer_console_target">Send to</string>
+    <string name="developer_console_target_server">Our server</string>
+    <string name="developer_console_target_diary">Diary</string>
+    <string name="developer_console_origin">Diary address</string>
+    <string name="developer_console_no_origin">No diary chosen</string>
+    <string name="developer_console_method">Method</string>
+    <string name="developer_console_auth">Authorization</string>
+    <string name="developer_console_auth_none">No token</string>
+    <string name="developer_console_auth_device">Device</string>
+    <string name="developer_console_auth_diary">Diary</string>
+    <string name="developer_console_path">Path and query</string>
+    <string name="developer_console_headers">Headers, one per line: Name: value</string>
+    <string name="developer_console_body">Body</string>
+    <string name="developer_console_send">Send</string>
+    <string name="developer_console_failed">No answer: %1$s</string>
+    <string name="developer_console_truncated">Showing the first 64 KB of the answer</string>
+    <string name="developer_console_copy">Copy the answer</string>
+    <string name="developer_console_copied">Answer copied</string>
+    <string name="developer_console_refused_no_server">No server address is set</string>
+    <string name="developer_console_refused_https">This build talks to this server over https only</string>
+    <string name="developer_console_refused_no_origin">Choose a diary</string>
+    <string name="developer_console_refused_origin">This diary is not in the catalog</string>
+    <string name="developer_console_refused_path">The path must start with a single “/” and contain no spaces</string>
+    <string name="developer_console_refused_leaves">The path leads to another address</string>
+    <string name="developer_console_refused_header">A header is not “Name: value”, or there are more than fifty</string>
+    <string name="developer_console_refused_forbidden">The client writes this header itself</string>
+    <string name="developer_console_refused_auth_twice">Authorization is set twice: by hand and with a token</string>
+    <string name="developer_console_refused_auth_off_server">Our tokens go to our server only</string>
+    <string name="developer_console_refused_no_token">This phone holds no such token</string>
+    <string name="developer_console_refused_body">This method sends no body</string>
 </resources>

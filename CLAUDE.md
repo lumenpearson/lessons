@@ -679,7 +679,10 @@ points Hilt does not inject cleanly.
   APK can be patched past any check on the phone. So nothing behind it may unlock what the
   server would refuse or show a secret. Its network record keeps a list of what it may keep
   (`NetworkRedaction`): a header, a body or a query value added later stays out unless
-  somebody adds it to that list on purpose. `docs/architecture.md` has the rest.
+  somebody adds it to that list on purpose. Its request console reaches our server and the
+  catalog's diaries only — `planConsole` judges the resolved URL, and the console's own client
+  follows no redirect and guards the origin again — and puts a bearer on our server alone,
+  read as the request leaves. `docs/architecture.md` has the rest.
 - **Another agent may be working in this tree.** Check `git status` before you touch a file
   you did not open, and do not revert someone else's uncommitted work.
 - **`HANDOVER.md` at the root says where the work stands** — the branches, what the last

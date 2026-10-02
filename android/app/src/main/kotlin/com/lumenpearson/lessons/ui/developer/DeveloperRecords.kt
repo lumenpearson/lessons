@@ -83,6 +83,7 @@ private fun sourceLabel(source: NetworkSource): String = correctedString(
         NetworkSource.SERVER -> R.string.developer_source_server
         NetworkSource.DIARY -> R.string.developer_source_diary
         NetworkSource.GITHUB -> R.string.developer_source_github
+        NetworkSource.CONSOLE -> R.string.developer_source_console
     },
 )
 

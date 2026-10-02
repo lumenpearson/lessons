@@ -452,6 +452,24 @@ check has its own 20-second deadline (`checked`), so the battery answers whateve
 diaries' hosts are asked for their front page with no session, so a developer looking keeps
 nobody's session alive. All of it can be copied or shared as one plain-text report.
 
+And it has a **request console** (`RequestConsole`): any method, path, headers and body, to
+our server or to a diary the catalog allow-lists — and to nothing else. The rule is one pure
+function (`planConsole`) that judges the URL as OkHttp resolves it rather than the text
+typed, so `//elsewhere.example/` or a path of `..` is refused or stays put by comparison of
+the origin it would really reach. The console sends through a client of its own: the
+server's rewrites every host and signs by path, so it could not send an unsigned request or
+reach a diary, and the diaries' sends a browser's headers and keeps nothing past 2 MiB. This
+one keeps no cookie, follows no redirect — a 302 is an answer to look at, and following it
+is how a request ends up where the planner never approved — and refuses every other origin a
+second time through the same `OriginGuard` the diaries' client has. A bearer goes only to our
+server, only when «Устройство» or «Дневник» is chosen, and it is read when the request
+leaves: no plan, state or log holds it, and the network record shows a console request like
+any other, without its headers. That stays inside the rule above. The console sends what the
+phone could already send with the bearers it already holds, and the server judges the role
+on every request as it always does. The answer — status, every header, the body cut at
+64 KiB and indented when it is JSON — is drawn on the page only. The report leaves it out,
+because an answer signed with this phone's bearer is the class's data.
+
 ## What we took from Essentials, and what we changed
 
 The design language is modelled on
@@ -844,8 +862,8 @@ with the host.
 
 ## Testing
 
-2065 tests on the server, 1567 on Android; `pytest -q -n auto` and `./gradlew test`, both
-offline, both in CI. On Android that is `:core:model` 125, `:core:data` 603,
+2065 tests on the server, 1579 on Android; `pytest -q -n auto` and `./gradlew test`, both
+offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
 `:core:designsystem` 122, `:widget` 126, `:app` 591.
 
 The table below is the load-bearing part of that rather than the whole of it:

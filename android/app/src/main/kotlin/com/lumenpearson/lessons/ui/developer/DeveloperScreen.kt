@@ -70,6 +70,8 @@ fun DeveloperScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val network by viewModel.network.collectAsStateWithLifecycle()
     val activity by viewModel.activity.collectAsStateWithLifecycle()
+    val draft by viewModel.draft.collectAsStateWithLifecycle()
+    val console by viewModel.consoleState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     var signingIn by rememberSaveable { mutableStateOf(false) }
@@ -92,6 +94,7 @@ fun DeveloperScreen(
     }
 
     val copied = correctedString(R.string.developer_report_copied)
+    val answerCopied = correctedString(R.string.developer_console_copied)
     val listState = rememberLazyListState()
     ReportScrollOffset(listState)
     LazyColumn(
@@ -133,6 +136,19 @@ fun DeveloperScreen(
             }
             if (state.mode.granted) {
                 item(key = "tools") { ToolsGroup(chosen = state.mode.chosen, onToggle = viewModel::setTool) }
+                item(key = "console") {
+                    ConsoleGroup(
+                        draft = draft,
+                        origins = viewModel.consoleOrigins,
+                        state = console,
+                        onEdit = viewModel::editDraft,
+                        onSend = viewModel::sendConsole,
+                        onCopy = { text ->
+                            copyToClipboard(context, text, label = "lessons console answer")
+                            Toast.makeText(context, answerCopied, Toast.LENGTH_SHORT).show()
+                        },
+                    )
+                }
                 item(key = "checks") { ChecksGroup(checks = state.checks, onRun = viewModel::runChecks) }
                 item(key = "network") {
                     NetworkGroup(
@@ -265,9 +281,9 @@ private val ClockTime: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss
 
 private val TopGap = 8.dp
 
-private fun copyToClipboard(context: Context, text: String) {
+private fun copyToClipboard(context: Context, text: String, label: String = "lessons developer report") {
     context.getSystemService(ClipboardManager::class.java)
-        ?.setPrimaryClip(ClipData.newPlainText("lessons developer report", text))
+        ?.setPrimaryClip(ClipData.newPlainText(label, text))
 }
 
 /** To the share sheet; a phone with nothing to share to keeps the copy button. */

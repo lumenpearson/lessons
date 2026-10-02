@@ -7,7 +7,7 @@ import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
 
-/** Which of the app's three clients a request went out through. */
+/** Which of the app's clients a request went out through. */
 enum class NetworkSource {
     /** Our server, through `NetworkModule`'s client. */
     SERVER,
@@ -17,6 +17,9 @@ enum class NetworkSource {
 
     /** GitHub: the sign-in, the issues, the guide and the update check. */
     GITHUB,
+
+    /** The developer page's request console, to our server or a diary; see `RequestConsole`. */
+    CONSOLE,
 }
 
 /**

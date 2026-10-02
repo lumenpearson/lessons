@@ -8,10 +8,13 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.BuildConfig
 import com.lumenpearson.lessons.core.data.developer.BuildFacts
 import com.lumenpearson.lessons.core.data.developer.CheckResult
+import com.lumenpearson.lessons.core.data.developer.ConsoleDraft
+import com.lumenpearson.lessons.core.data.developer.ConsoleOutcome
 import com.lumenpearson.lessons.core.data.developer.DeveloperChecks
 import com.lumenpearson.lessons.core.data.developer.DeveloperMode
 import com.lumenpearson.lessons.core.data.developer.DeveloperState
 import com.lumenpearson.lessons.core.data.developer.DeveloperTool
+import com.lumenpearson.lessons.core.data.developer.RequestConsole
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.diagnostics.ActivityEntry
 import com.lumenpearson.lessons.core.data.diagnostics.ActivityLog
@@ -35,6 +38,13 @@ sealed interface ChecksState {
     data object Idle : ChecksState
     data object Running : ChecksState
     data class Done(val results: List<CheckResult>, val atMillis: Long) : ChecksState
+}
+
+/** The console's last send: none yet, one out, or what it came to. */
+sealed interface ConsoleState {
+    data object Idle : ConsoleState
+    data object Sending : ConsoleState
+    data class Done(val outcome: ConsoleOutcome) : ConsoleState
 }
 
 /**
@@ -62,10 +72,22 @@ class DeveloperViewModel(
     private val github: GithubRepository,
     private val checks: DeveloperChecks,
     private val build: BuildFacts,
+    private val console: RequestConsole,
     private val now: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
 
     private val checksState = MutableStateFlow<ChecksState>(ChecksState.Idle)
+
+    private val draftState = MutableStateFlow(ConsoleDraft())
+    private val consoleOutcome = MutableStateFlow<ConsoleState>(ConsoleState.Idle)
+
+    /** What the console form holds. Kept here, not in the screen, so a rotation keeps a typed body. */
+    val draft: StateFlow<ConsoleDraft> = draftState
+
+    val consoleState: StateFlow<ConsoleState> = consoleOutcome
+
+    /** The catalog's diaries, as the console's origin picker offers them. */
+    val consoleOrigins: List<String> by lazy { console.origins() }
 
     val uiState: StateFlow<DeveloperUiState> = combine(
         mode.state,
@@ -121,6 +143,21 @@ class DeveloperViewModel(
         viewModelScope.launch { checksState.value = ChecksState.Done(checks.run(build), now()) }
     }
 
+    fun editDraft(change: (ConsoleDraft) -> ConsoleDraft) {
+        draftState.value = change(draftState.value)
+    }
+
+    /**
+     * Sends the form as it stands. Only while the access stands — the gate is
+     * not a lock, but a page that has lost it should not keep a tool working.
+     */
+    fun sendConsole() {
+        if (!mode.state.value.granted || consoleOutcome.value == ConsoleState.Sending) return
+        consoleOutcome.value = ConsoleState.Sending
+        val sent = draftState.value
+        viewModelScope.launch { consoleOutcome.value = ConsoleState.Done(console.send(sent)) }
+    }
+
     fun clearNetwork() = NetworkLog.clear()
 
     fun clearActivity() = ActivityLog.clear()
@@ -147,6 +184,7 @@ class DeveloperViewModel(
                     mode = Graph.container.developerMode,
                     github = Graph.container.githubRepository,
                     checks = Graph.container.developerChecks,
+                    console = Graph.container.requestConsole,
                     build = BuildFacts(
                         version = BuildConfig.VERSION_NAME,
                         commit = BuildConfig.BUILD_COMMIT,

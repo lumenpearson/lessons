@@ -88,4 +88,41 @@
     <string name="developer_hide">Скрыть режим разработчика</string>
     <string name="developer_hide_summary">Раздел исчезнет из настроек, инструменты выключатся, записи сотрутся</string>
     <string name="developer_hidden">Раздел скрыт. Семь нажатий на версию в «О приложении» вернут его.</string>
+
+    <!-- The request console (#237). -->
+    <string name="developer_source_console">Консоль</string>
+    <string name="developer_console_group">Консоль запросов</string>
+    <string name="developer_console_summary">Любой запрос к нашему серверу или к дневнику из каталога — и больше никуда</string>
+    <string name="developer_console_presets">Шаблоны</string>
+    <string name="developer_console_pick">Выбрать</string>
+    <string name="developer_console_target">Куда</string>
+    <string name="developer_console_target_server">Наш сервер</string>
+    <string name="developer_console_target_diary">Дневник</string>
+    <string name="developer_console_origin">Адрес дневника</string>
+    <string name="developer_console_no_origin">Дневник не выбран</string>
+    <string name="developer_console_method">Метод</string>
+    <string name="developer_console_auth">Авторизация</string>
+    <string name="developer_console_auth_none">Без токена</string>
+    <string name="developer_console_auth_device">Устройство</string>
+    <string name="developer_console_auth_diary">Дневник</string>
+    <string name="developer_console_path">Путь и запрос</string>
+    <string name="developer_console_headers">Заголовки, по одному на строку: Имя: значение</string>
+    <string name="developer_console_body">Тело</string>
+    <string name="developer_console_send">Отправить</string>
+    <string name="developer_console_failed">Ответа нет: %1$s</string>
+    <string name="developer_console_truncated">Показаны первые 64 КБ ответа</string>
+    <string name="developer_console_copy">Скопировать ответ</string>
+    <string name="developer_console_copied">Ответ скопирован</string>
+    <string name="developer_console_refused_no_server">Адрес сервера не задан</string>
+    <string name="developer_console_refused_https">Эта сборка ходит к этому серверу только по https</string>
+    <string name="developer_console_refused_no_origin">Выберите дневник</string>
+    <string name="developer_console_refused_origin">Этого дневника нет в каталоге</string>
+    <string name="developer_console_refused_path">Путь должен начинаться с одной «/» и не содержать пробелов</string>
+    <string name="developer_console_refused_leaves">Путь уводит на другой адрес</string>
+    <string name="developer_console_refused_header">Заголовок не похож на «Имя: значение», или их больше пятидесяти</string>
+    <string name="developer_console_refused_forbidden">Этот заголовок клиент пишет сам</string>
+    <string name="developer_console_refused_auth_twice">Authorization задан дважды: вручную и токеном</string>
+    <string name="developer_console_refused_auth_off_server">Наши токены уходят только на наш сервер</string>
+    <string name="developer_console_refused_no_token">Такого токена на телефоне нет</string>
+    <string name="developer_console_refused_body">У этого метода нет тела</string>
 </resources>
