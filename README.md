@@ -207,7 +207,7 @@ Read this before planning a release.
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 153 modules — asks whether anything reaches for an attribute that does not exist |
 | `pytest -q -n auto` | 2065 tests, green, about four minutes — the command CI runs |
-| `./gradlew test` | 1579 tests, green, all five modules |
+| `./gradlew test` | 1587 tests, green, all five modules |
 | `./gradlew detekt` | no finding beyond each module's baseline, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
@@ -233,7 +233,10 @@ twelve defects (#167–#178), and the fixes were checked on the same emulator. T
 requests of that night about the tab bar and the pickers (#179–#184) are held by JVM tests;
 on the emulator, which the owner was using at the same time, only the one-touch pickup and
 the pill's round end were seen. What it could not give is written in `HANDOVER.md`: a thumb,
-haptics, a real GPU, Doze on a school morning, TalkBack, a real diary account.
+haptics, a real GPU, Doze on a school morning, TalkBack, a real diary account. On 2 October
+2026 two API 37 emulators added the bearers sealed by the Keystore (#201), through an upgrade
+in place and a reboot, and a release build signed with the owner's key refusing `http://` and
+reading production over TLS (#202); no phone has run either (#241).
 
 **What nothing checks automatically.** One test source set runs on a device, and only on
 demand: `ToolbarOnDeviceTest` in `:core:designsystem` (#110), three tests of the tab bar's
